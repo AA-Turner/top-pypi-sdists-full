@@ -230,6 +230,30 @@ class TestUpdateStateFromResponse(unittest.TestCase):
             self.assertEqual(device.breeze_mild, breeze_mild)
             self.assertEqual(device.breezeless, breezeless)
 
+    def test_properties_fresh_air(self) -> None:
+        """Test parsing of fresh air properties."""
+        TEST_RESPONSES = {
+            # Real captures from a Midea Gaia (12HRFN8-I), property 0x004B.
+            # On, payload 01 50 52 -> power on, fan speed 0x50 (80 = High)
+            bytes.fromhex("aa15ac00000000000303b1014b000003015052001680"):
+                AC.FreshAirFanSpeed.HIGH,
+            # Off, payload 00 28 4f -> power off. Note the device still reports a
+            # non-zero speed byte (0x28) when off, so OFF is gated on the power byte.
+            bytes.fromhex("aa15ac00000000000303b1014b00000300284f00368c"):
+                AC.FreshAirFanSpeed.OFF,
+        }
+
+        for response, expected in TEST_RESPONSES.items():
+            resp = Response.construct(response)
+            self.assertIsNotNone(resp)
+            self.assertEqual(type(resp), PropertiesResponse)
+
+            # Create a dummy device and process the response
+            device = AC(0, 0, 0)
+            device._update_state(resp)
+
+            self.assertEqual(device.fresh_air_fan_speed, expected)
+
     def test_energy_usage_response(self) -> None:
         """Test parsing of EnergyUsageResponses into device state."""
         TEST_RESPONSES = {
@@ -463,6 +487,23 @@ class TestCapabilities(unittest.TestCase):
         self.assertEqual(device.supports_breeze_mild, False)
         self.assertEqual(device.supports_breezeless, True)
 
+    def test_fresh_air(self) -> None:
+        """Test fresh air capability detection."""
+        # Device that advertises fresh air support (capability 0x004B == 1).
+        # Captured from a Midea Gaia (12HRFN8-I) which reports it on the 2nd page.
+        TEST_PAYLOADS = {
+            bytes.fromhex("b5014b000101"): True,
+            bytes.fromhex("b5014b000100"): False
+        }
+
+        device = AC(0, 0, 0)
+
+        for payload, expected in TEST_PAYLOADS.items():
+            with memoryview(payload) as payload_mv:
+                device._update_capabilities(CapabilitiesResponse(payload_mv))
+
+            self.assertEqual(device.supports_fresh_air, expected)
+
     def test_aux_heat(self) -> None:
         """Test aux heat mode capabilities."""
 
@@ -574,21 +615,21 @@ class TestSetState(unittest.TestCase):
         self.assertIn(PropertyId.BREEZE_AWAY, device._updated_properties)
         self.assertNotIn(PropertyId.BREEZE_CONTROL, device._updated_properties)
 
-    def test_properties_flash_cool(self) -> None:
-        """Test setting flash/jet cool property."""
+    def test_properties_flash(self) -> None:
+        """Test setting flash cool/heat property."""
 
-        # Create dummy device with jet fool
+        # Create dummy device with flash
         device = AC(0, 0, 0)
-        device._capabilities.set(AC.Capability.JET_COOL)
+        device._capabilities.set(AC.Capability.FLASH)
 
-        # Enable breezeless
-        device.flash_cool = True
+        # Enable flash cool/heat
+        device.flash = True
 
         # Assert state is expected
-        self.assertEqual(device.flash_cool, True)
+        self.assertEqual(device.flash, True)
 
         # Assert correct property is being updated
-        self.assertIn(PropertyId.JET_COOL, device._updated_properties)
+        self.assertIn(PropertyId.FLASH, device._updated_properties)
 
     def test_properties_cascade(self) -> None:
         """Test setting cascade property."""
@@ -949,6 +990,32 @@ class TestDeprecation(unittest.TestCase):
             self.assertRegex("\n".join(log.output),
                              "'use_alternate_energy_format' is deprecated.")
 
+    def test_deprecated_flash_cool(self) -> None:
+        """Test accessing deprecated flash_cool properties emits a warning."""
+
+        # Create dummy device
+        device = AC(0, 0, 0)
+
+        with self.assertLogs("msmart", logging.DEBUG) as log:
+            supports_flash_cool = device.supports_flash_cool
+
+            self.assertRegex("\n".join(log.output),
+                             "'supports_flash_cool' is deprecated")
+
+        # Getter
+        with self.assertLogs("msmart", logging.DEBUG) as log:
+            flash_cool = device.flash_cool
+
+            self.assertRegex("\n".join(log.output),
+                             "'flash_cool' is deprecated")
+
+        # Setter
+        with self.assertLogs("msmart", logging.DEBUG) as log:
+            device.flash_cool = False
+
+            self.assertRegex("\n".join(log.output),
+                             "'flash_cool' is deprecated")
+
 
 class TestCapabilityOverrides(unittest.TestCase):
     """Test overriding device capabilities via serialized dict."""
@@ -1101,7 +1168,7 @@ class TestCapabilityOverrides(unittest.TestCase):
     def test_supported_properties(self) -> None:
         """Test overriding capabilities updated supported properties as needed."""
         TEST_OVERRIDE = {
-            "additional_capabilities": ["SWING_VERTICAL_ANGLE", "JET_COOL"]
+            "additional_capabilities": ["SWING_VERTICAL_ANGLE", "FLASH"]
         }
 
         # Create dummy device
@@ -1130,21 +1197,21 @@ class TestCapabilityOverrides(unittest.TestCase):
 
         # Assert overrides aren't already supported
         self.assertEqual(device.supports_vertical_swing_angle, False)
-        self.assertEqual(device.supports_flash_cool, False)
+        self.assertEqual(device.supports_flash, False)
 
         self.assertNotIn(PropertyId.SWING_UD_ANGLE,
                          device._supported_properties)
-        self.assertNotIn(PropertyId.JET_COOL, device._supported_properties)
+        self.assertNotIn(PropertyId.FLASH, device._supported_properties)
 
         # Override capabilities
         device.override_capabilities(TEST_OVERRIDE)
 
         # Verify overrides are now supported and in supported properties
         self.assertEqual(device.supports_vertical_swing_angle, True)
-        self.assertEqual(device.supports_flash_cool, True)
+        self.assertEqual(device.supports_flash, True)
 
         self.assertIn(PropertyId.SWING_UD_ANGLE, device._supported_properties)
-        self.assertIn(PropertyId.JET_COOL, device._supported_properties)
+        self.assertIn(PropertyId.FLASH, device._supported_properties)
 
         # Verify overrides removed the original capabilities
         self.assertEqual(device.supports_breeze_away, False)

@@ -242,13 +242,13 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            surface_name_list : List
+            surface_name_list : list
                 List of surfaces to export.
             structural_analysis : bool
                 Specifies whether structural analysis or not.
             write_loads : bool
                 Specifies whether to write loads.
-            loads : List
+            loads : list
                 The structural loads type to export.
         """
     def mechanical_apdl(self, file_name: str, thread_name_list: list[str]):
@@ -259,7 +259,7 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            thread_name_list : List
+            thread_name_list : list
                 Cell zone name list.
         """
     def mechanical_apdl_input(self, file_name: str, surface_name_list: list[str], structural_analysis: bool, write_loads: bool, loads: list[str]):
@@ -270,13 +270,13 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            surface_name_list : List
+            surface_name_list : list
                 Surface.
             structural_analysis : bool
                 Specifies whether structural analysis or not.
             write_loads : bool
                 Specifies whether to write loads.
-            loads : List
+            loads : list
                 The structural loads type to export.
         """
     def ascii(self, file_name: str, surface_name_list: list[str], delimiter: str, cell_func_domain: list[str], location: str):
@@ -287,11 +287,11 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            surface_name_list : List
+            surface_name_list : list
                 List of surfaces to export.
             delimiter : str
                 The delimiter separating the fields.
-            cell_func_domain : List
+            cell_func_domain : list
                 The list of quantities to export.
             location : str
                 The node or cell-center to export data values.
@@ -304,7 +304,7 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            cell_func_domain_export : List
+            cell_func_domain_export : list
                 The list of quantities to export.
         """
     def ensight(self, file_name: str, cell_func_domain_export: list[str]):
@@ -315,7 +315,7 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            cell_func_domain_export : List
+            cell_func_domain_export : list
                 The list of quantities to export.
         """
     def ensight_gold(self, file_name: str, cell_func_domain_export: list[str], binary_format: bool, cellzones: list[str], interior_zone_surfaces: list[str], cell_centered: bool):
@@ -326,13 +326,13 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            cell_func_domain_export : List
+            cell_func_domain_export : list
                 The list of quantities to export.
             binary_format : bool
                 Specifies whether to export in binary format.
-            cellzones : List
+            cellzones : list
                 List of cell zones to export.
-            interior_zone_surfaces : List
+            interior_zone_surfaces : list
                 List of surfaces to export.
             cell_centered : bool
                 Specifies whether export the cell center data values.
@@ -345,7 +345,7 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            cell_func_domain_export : List
+            cell_func_domain_export : list
                 The list of quantities to export.
         """
     def fieldview_data(self, file_name: str, cell_func_domain_export: list[str]):
@@ -356,7 +356,7 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            cell_func_domain_export : List
+            cell_func_domain_export : list
                 The list of quantities to export.
         """
     def gambit(self, file_name: str, cell_func_domain_export: list[str]):
@@ -367,7 +367,7 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            cell_func_domain_export : List
+            cell_func_domain_export : list
                 The list of quantities to export.
         """
     def cgns(self, file_name: str, scope: str, cell_zones: list[str], surfaces: list[str], cell_centered: bool, format_class: str, cgns_scalar: list[str]):
@@ -380,15 +380,15 @@ class export(Group):
                 The desired file name to export.
             scope : str
                 The scope of the export (volume, surface, full domain).
-            cell_zones : List
+            cell_zones : list
                 Cell zone name list.
-            surfaces : List
+            surfaces : list
                 Surface.
             cell_centered : bool
                 Specifies whether export the cell center data values.
             format_class : str
                 The format to export.
-            cgns_scalar : List
+            cgns_scalar : list
                 The list of quantities to export.
         """
     def custom_heat_flux(self, file_name: str, wall_function: bool, surface_name_list: list[str]):
@@ -401,7 +401,7 @@ class export(Group):
                 The desired file name to export.
             wall_function : bool
                 Specifies whether to include the wall function.
-            surface_name_list : List
+            surface_name_list : list
                 The list of surfaces to export.
         """
     def dx(self, file_name: str, surfaces: list[str], techplot_scalars: list[str]):
@@ -412,9 +412,9 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            surfaces : List
+            surfaces : list
                 Surface.
-            techplot_scalars : List
+            techplot_scalars : list
                 The list of quantities to export.
         """
     def ensight_gold_parallel_surfaces(self, file_name: str, binary_format: bool, surfaces: list[str], cell_centered: bool, cell_function: list[str]):
@@ -427,11 +427,11 @@ class export(Group):
                 The desired file name to export.
             binary_format : bool
                 Specifies whether to export in binary format.
-            surfaces : List
+            surfaces : list
                 Surface.
             cell_centered : bool
                 Specifies whether export the cell center data values.
-            cell_function : List
+            cell_function : list
                 The list of quantities to export.
         """
     def ensight_gold_parallel_volume(self, file_name: str, binary_format: bool, cellzones: list[str], cell_centered: bool, cell_function: list[str]):
@@ -444,11 +444,11 @@ class export(Group):
                 The desired file name to export.
             binary_format : bool
                 Specifies whether to export in binary format.
-            cellzones : List
+            cellzones : list
                 Cell zone name list.
             cell_centered : bool
                 Specifies whether export the cell center data values.
-            cell_function : List
+            cell_function : list
                 The list of quantities to export.
         """
     def icemcfd_for_icepak(self, file_name: str):
@@ -495,7 +495,7 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            surface_name_list : List
+            surface_name_list : list
                 Surface.
             wall_function : bool
                 Specifies whether to write the heat transfer coefficient from wall function.
@@ -510,11 +510,11 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            surfaces : List
+            surfaces : list
                 List of surfaces to export.
-            cellzones : List
+            cellzones : list
                 List of cell zones to export.
-            cell_func_domain : List
+            cell_func_domain : list
                 The list of quantities to export.
         """
     def fieldview_unstruct_mesh(self, file_name: str, surfaces: list[str], cellzones: list[str], cell_func_domain: list[str]):
@@ -525,11 +525,11 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            surfaces : List
+            surfaces : list
                 List of surfaces to export.
-            cellzones : List
+            cellzones : list
                 List of cell zones to export.
-            cell_func_domain : List
+            cell_func_domain : list
                 The list of quantities to export.
         """
     def fieldview_unstruct_data(self, file_name: str, surfaces: list[str], cellzones: list[str], cell_func_domain: list[str]):
@@ -540,11 +540,11 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            surfaces : List
+            surfaces : list
                 List of surfaces to export.
-            cellzones : List
+            cellzones : list
                 List of cell zones to export.
-            cell_func_domain : List
+            cell_func_domain : list
                 The list of quantities to export.
         """
     def fieldview_unstruct_surfaces(self, option: str, file_name: str, surfaces: list[str], cell_func_domain: list[str]):
@@ -557,9 +557,9 @@ class export(Group):
                 Specifies whether to export results, mesh or combined.
             file_name : str
                 The desired file name to export.
-            surfaces : List
+            surfaces : list
                 Surface.
-            cell_func_domain : List
+            cell_func_domain : list
                 The list of quantities to export.
         """
     def ideas(self, file_name: str, surfaces: list[str], structural_analysis: bool, write_loads: bool, loads: list[str], cell_func_domain_export: list[str]):
@@ -570,15 +570,15 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            surfaces : List
+            surfaces : list
                 List of surfaces to export.
             structural_analysis : bool
                 Specifies whether structural analysis or not.
             write_loads : bool
                 Specifies whether to write loads.
-            loads : List
+            loads : list
                 The structural loads type to export.
-            cell_func_domain_export : List
+            cell_func_domain_export : list
                 The list of quantities to export.
         """
     def nastran(self, file_name: str, bndry_threads: list[str], surfaces: list[str], structural_analysis: bool, write_loads: bool, loads: list[str], cell_func_domain_export: list[str]):
@@ -589,17 +589,17 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            bndry_threads : List
+            bndry_threads : list
                 Boundary zone name list.
-            surfaces : List
+            surfaces : list
                 Surface.
             structural_analysis : bool
                 Specifies whether structural analysis or not.
             write_loads : bool
                 Specifies whether to write loads.
-            loads : List
+            loads : list
                 The structural loads type to export.
-            cell_func_domain_export : List
+            cell_func_domain_export : list
                 The list of quantities to export.
         """
     def patran_neutral(self, file_name: str, surfaces: list[str], structural_analysis: bool, write_loads: bool, loads: list[str], cell_func_domain_export: list[str]):
@@ -610,15 +610,15 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            surfaces : List
+            surfaces : list
                 Surface.
             structural_analysis : bool
                 Specifies whether structural analysis or not.
             write_loads : bool
                 Specifies whether to write loads.
-            loads : List
+            loads : list
                 The structural loads type to export.
-            cell_func_domain_export : List
+            cell_func_domain_export : list
                 The list of quantities to export.
         """
     def patran_nodal(self, file_name: str, surfaces: list[str], cell_func_domain_export: list[str]):
@@ -629,9 +629,9 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            surfaces : List
+            surfaces : list
                 The list of surfaces to export.
-            cell_func_domain_export : List
+            cell_func_domain_export : list
                 The list of quantities to export.
         """
     def tecplot(self, file_name: str, surfaces: list[str], cell_func_domain_export: list[str]):
@@ -642,9 +642,9 @@ class export(Group):
         ----------
             file_name : str
                 The desired file name to export.
-            surfaces : List
+            surfaces : list
                 Surface.
-            cell_func_domain_export : List
+            cell_func_domain_export : list
                 The list of quantities to export.
         """
 
@@ -902,7 +902,7 @@ class file(Group):
         
         Parameters
         ----------
-            file_name_list : List
+            file_name_list : list
                 'file_name_list' child.
         """
     def start_journal(self, file_name: str):
@@ -1030,7 +1030,7 @@ class file(Group):
         ----------
             reset_defined_derived_quantities : bool
                 'reset_defined_derived_quantities' child.
-            derived_quantities : List
+            derived_quantities : list
                 'derived_quantities' child.
         """
 
@@ -1478,7 +1478,7 @@ class modify_zones(Group):
         
         Parameters
         ----------
-            cell_deactivate_list : List
+            cell_deactivate_list : list
                 Deactivate a cell zone.
         """
     def delete_cell_zone(self, cell_zones: list[str]):
@@ -1487,7 +1487,7 @@ class modify_zones(Group):
         
         Parameters
         ----------
-            cell_zones : List
+            cell_zones : list
                 Delete a cell zone.
         """
     def copy_move_cell_zone(self, cell_zone_name: str, translate: bool, rotation_angle: float | str, offset: list[float | str], axis: list[float | str]):
@@ -1502,9 +1502,9 @@ class modify_zones(Group):
                 Specifies whether copied zone should be translated (#t) or rotated (#f).
             rotation_angle : real
                 'rotation_angle' child.
-            offset : List
+            offset : list
                 'offset' child.
-            axis : List
+            axis : list
                 'axis' child.
         """
     def list_zones(self):
@@ -1519,7 +1519,7 @@ class modify_zones(Group):
         ----------
             face_zone : str
                 The zone name.
-            distance_delta : List
+            distance_delta : list
                 'distance_delta' child.
         """
     def extrude_face_zone_para(self, face_zone: str, normal_distance: float | str, parametric_coordinates: list[float | str]):
@@ -1532,7 +1532,7 @@ class modify_zones(Group):
                 The zone name.
             normal_distance : real
                 'normal_distance' child.
-            parametric_coordinates : List
+            parametric_coordinates : list
                 'parametric_coordinates' child.
         """
     def fuse_face_zones(self, zone_names: list[str], zone_name: str):
@@ -1541,7 +1541,7 @@ class modify_zones(Group):
         
         Parameters
         ----------
-            zone_names : List
+            zone_names : list
                 Merge duplicate faces and nodes of zones in list.
             zone_name : str
                 'zone_name' child.
@@ -1552,9 +1552,9 @@ class modify_zones(Group):
         
         Parameters
         ----------
-            zone_names : List
+            zone_names : list
                 Scale specified cell zones.
-            scale : List
+            scale : list
                 'scale' child.
         """
     def rotate_zone(self, zone_names: list[str], rotation_angle: float | str, origin: list[float | str], axis: list[float | str]):
@@ -1563,13 +1563,13 @@ class modify_zones(Group):
         
         Parameters
         ----------
-            zone_names : List
+            zone_names : list
                 Rotate specified cell zones.
             rotation_angle : real
                 'rotation_angle' child.
-            origin : List
+            origin : list
                 'origin' child.
-            axis : List
+            axis : list
                 'axis' child.
         """
     def translate_zone(self, zone_names: list[str], offset: list[float | str]):
@@ -1578,9 +1578,9 @@ class modify_zones(Group):
         
         Parameters
         ----------
-            zone_names : List
+            zone_names : list
                 Translate specified cell zones.
-            offset : List
+            offset : list
                 'offset' child.
         """
     def merge_zones(self, zone_names: list[str]):
@@ -1589,7 +1589,7 @@ class modify_zones(Group):
         
         Parameters
         ----------
-            zone_names : List
+            zone_names : list
                 Zone name list.
         """
     def replace_zone(self, file_name: str, zone_1_name: str, zone_2_name: str, interpolate: bool):
@@ -1737,7 +1737,7 @@ class modify_zones(Group):
                 'create' child.
             auto_translation : bool
                 'auto_translation' child.
-            direction : List
+            direction : list
                 'direction' child.
         """
     def create_periodic_interface(self, periodic_method: str, interface_name: str, zone_name: str, shadow_zone_name: str, rotate_periodic: bool, new_axis: bool, origin: list[float | str], new_direction: bool, direction: list[float | str], auto_angle: bool, rotation_angle: float | str, auto_translation: bool, translation: list[float | str], create_periodic: bool, auto_offset: bool, nonconformal_angle: float | str, nonconformal_translation: list[float | str], create_matching: bool, nonconformal_create_periodic: bool):
@@ -1758,11 +1758,11 @@ class modify_zones(Group):
                 'rotate_periodic' child.
             new_axis : bool
                 'new_axis' child.
-            origin : List
+            origin : list
                 'origin' child.
             new_direction : bool
                 'new_direction' child.
-            direction : List
+            direction : list
                 'direction' child.
             auto_angle : bool
                 'auto_angle' child.
@@ -1770,7 +1770,7 @@ class modify_zones(Group):
                 'rotation_angle' child.
             auto_translation : bool
                 'auto_translation' child.
-            translation : List
+            translation : list
                 'translation' child.
             create_periodic : bool
                 'create_periodic' child.
@@ -1778,7 +1778,7 @@ class modify_zones(Group):
                 'auto_offset' child.
             nonconformal_angle : real
                 'nonconformal_angle' child.
-            nonconformal_translation : List
+            nonconformal_translation : list
                 'nonconformal_translation' child.
             create_matching : bool
                 'create_matching' child.
@@ -1802,7 +1802,7 @@ class modify_zones(Group):
         
         Parameters
         ----------
-            zone_names : List
+            zone_names : list
                 Zone id/name.
             new_type : str
                 Give new zone type.
@@ -1813,7 +1813,7 @@ class modify_zones(Group):
         
         Parameters
         ----------
-            cellids : List
+            cellids : list
                 Provide a list of cell ids.
         """
     def del_cell_by_mark(self, register: str):
@@ -2068,9 +2068,9 @@ class mesh(Group):
         ----------
             angle : real
                 'angle' child.
-            origin : List
+            origin : list
                 'origin' child.
-            axis_components : List
+            axis_components : list
                 'axis_components' child.
         """
     def scale(self, x_scale: float | str, y_scale: float | str, z_scale: float | str):
@@ -2130,7 +2130,7 @@ class mesh(Group):
         
         Parameters
         ----------
-            offset : List
+            offset : list
                 'offset' child.
         """
 
@@ -3401,7 +3401,7 @@ class turb_visc_func_mf(NamedObject[turb_visc_func_mf_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -3912,7 +3912,7 @@ class multiband(NamedObject[multiband_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -4432,7 +4432,7 @@ class phase_material(NamedObject[phase_material_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -4531,7 +4531,7 @@ class multi_component_diffusion_mf(NamedObject[multi_component_diffusion_mf_chil
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -7231,7 +7231,7 @@ class injections(NamedObject[injections_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -7582,7 +7582,7 @@ class geometry_2(NamedObject[geometry_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -7694,7 +7694,7 @@ class rotor(NamedObject[rotor_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -7797,7 +7797,7 @@ class beams(NamedObject[beams_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -9713,7 +9713,7 @@ class ntgk_model_settings(Group):
                 Import raw data in the NTGK model.
             number_of_files : int
                 Total number of discharging files.
-            files : List
+            files : list
                 Discharging file names in the NTGK model.
             capacify_fade_enabled : bool
                 Enable capacity fade model in the NTGK model.
@@ -11097,7 +11097,7 @@ class energy_source_active(NamedObject[energy_source_active_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -11194,7 +11194,7 @@ class energy_source_active_1(NamedObject[energy_source_active_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -13109,7 +13109,7 @@ class parameter_estimation_tool(Group):
         
         Parameters
         ----------
-            filename : List
+            filename : list
                 File names used in the NTGK model fitting.
             capacity : real
                 Battery capacity used in the NTGK model fitting.
@@ -13128,7 +13128,7 @@ class parameter_estimation_tool(Group):
         
         Parameters
         ----------
-            filename : List
+            filename : list
                 File names used in ECM model parameter fitting.
             capacity : real
                 Battery capacity used in ECM model parameter fitting.
@@ -13136,7 +13136,7 @@ class parameter_estimation_tool(Group):
                 Circuit model used in ECM model parameter fitting.
             fitting_method : str
                 Fitting method used in ECM model parameter fitting.
-            rs_fix : List
+            rs_fix : list
                 Fix-Rs used in ECM model parameter fitting.
             capacity_fade_enabled : bool
                 Include capacity fade effect used in ECM model parameter fitting.
@@ -13144,7 +13144,7 @@ class parameter_estimation_tool(Group):
                 Import discharging curves used in ECM model parameter fitting.
             number_discharge_file : int
                 Number of total discharging files used in ECM model parameter fitting.
-            discharge_filename : List
+            discharge_filename : list
                 File name for discharing curve used in ECM model parameter fitting.
         """
 
@@ -13323,7 +13323,7 @@ class rom_data_creator_tool(Group):
         
         Parameters
         ----------
-            parameter_names : List
+            parameter_names : list
                 Deleted parameter lists.
         """
 
@@ -15626,7 +15626,7 @@ class stack_management(Group):
         ----------
             fcu_name : str
                 'fcu_name' child.
-            cellzones : List
+            cellzones : list
                 Cell zone name list.
         """
     def stack_modify_fcu(self, fcu_name: str, cellzones: list[str]):
@@ -15637,7 +15637,7 @@ class stack_management(Group):
         ----------
             fcu_name : str
                 'fcu_name' child.
-            cellzones : List
+            cellzones : list
                 Cell zone name list.
         """
     def stack_delete_fcu(self, fcu_name: str):
@@ -16950,7 +16950,7 @@ class uds_diffusivities(NamedObject[uds_diffusivities_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -17213,7 +17213,7 @@ class fluid(NamedObject[fluid_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -17755,7 +17755,7 @@ class solid(NamedObject[solid_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -17982,7 +17982,7 @@ class species_diffusivity(NamedObject[species_diffusivity_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -18044,7 +18044,7 @@ class multicomponent_child(NamedObject[multicomponent_child_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -18096,7 +18096,7 @@ class multicomponent(NamedObject[multicomponent_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -18219,7 +18219,7 @@ class volumetric_species(NamedObject[volumetric_species_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -18353,7 +18353,7 @@ class material_2(NamedObject[material_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -18500,7 +18500,7 @@ class cross_section_multicomponent_child(NamedObject[cross_section_multicomponen
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -18552,7 +18552,7 @@ class cross_section_multicomponent(NamedObject[cross_section_multicomponent_chil
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -18656,7 +18656,7 @@ class mixture(NamedObject[mixture_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -18861,7 +18861,7 @@ class inert_particle(NamedObject[inert_particle_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -19219,7 +19219,7 @@ class droplet_particle(NamedObject[droplet_particle_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -19593,7 +19593,7 @@ class combusting_particle(NamedObject[combusting_particle_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -19703,7 +19703,7 @@ class particle_species(NamedObject[particle_species_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -19798,7 +19798,7 @@ class material_3(NamedObject[material_3_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -19917,7 +19917,7 @@ class particle_mixture(NamedObject[particle_mixture_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -21571,7 +21571,7 @@ class terms(NamedObject[terms_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -21658,7 +21658,7 @@ class variables(NamedObject[variables_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -22252,7 +22252,7 @@ class phase(NamedObject[phase_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -22336,7 +22336,7 @@ class fluid_1(NamedObject[fluid_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -22559,7 +22559,7 @@ class phase_1(NamedObject[phase_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -22639,7 +22639,7 @@ class solid_2(NamedObject[solid_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -22696,7 +22696,7 @@ class cell_zone_conditions(Group):
         ----------
             from_ : str
                 Copy boundary conditions from zone.
-            to : List
+            to : list
                 Copy boundary conditions to zone.
             verbosity : bool
                 Copy boundary conditions: Print more information.
@@ -22707,7 +22707,7 @@ class cell_zone_conditions(Group):
         
         Parameters
         ----------
-            zone_list : List
+            zone_list : list
                 Zone name list.
             new_type : str
                 Give new zone type.
@@ -22718,7 +22718,7 @@ class cell_zone_conditions(Group):
         
         Parameters
         ----------
-            cell_zone_list : List
+            cell_zone_list : list
                 Id/name of cell-zones to activate.
         """
     def mrf_to_sliding_mesh(self, cell_zone_name: str):
@@ -22842,7 +22842,7 @@ class phase_2(NamedObject[phase_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -22913,7 +22913,7 @@ class axis_1(NamedObject[axis_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -22984,7 +22984,7 @@ class degassing(NamedObject[degassing_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -23851,7 +23851,7 @@ class direct_irradiation(NamedObject[direct_irradiation_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -23916,7 +23916,7 @@ class diffuse_irradiation(NamedObject[diffuse_irradiation_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -24123,7 +24123,7 @@ class backflow_species_mass_fraction(NamedObject[backflow_species_mass_fraction_
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -24188,7 +24188,7 @@ class species_mole_fraction(NamedObject[species_mole_fraction_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -24643,7 +24643,7 @@ class tss_scalar(NamedObject[tss_scalar_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -24898,7 +24898,7 @@ class discrete_boundary_condition(NamedObject[discrete_boundary_condition_child]
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -24963,7 +24963,7 @@ class discrete_boundary_value(NamedObject[discrete_boundary_value_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -25021,7 +25021,7 @@ class quadrature_moment_boundary_condition(NamedObject[quadrature_moment_boundar
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -25086,7 +25086,7 @@ class quadrature_moment_boundary_value(NamedObject[quadrature_moment_boundary_va
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -25144,7 +25144,7 @@ class qbmm_boundary_condition(NamedObject[qbmm_boundary_condition_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -25209,7 +25209,7 @@ class qbmm_boundary_value(NamedObject[qbmm_boundary_value_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -25267,7 +25267,7 @@ class std_moment_boundary_condition(NamedObject[std_moment_boundary_condition_ch
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -25332,7 +25332,7 @@ class std_moment_boundary_value(NamedObject[std_moment_boundary_value_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -25390,7 +25390,7 @@ class dqmom_boundary_condition(NamedObject[dqmom_boundary_condition_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -25455,7 +25455,7 @@ class dqmom_boundary_value(NamedObject[dqmom_boundary_value_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -25714,7 +25714,7 @@ class uds_bc(NamedObject[uds_bc_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -25779,7 +25779,7 @@ class uds_1(NamedObject[uds_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -25917,7 +25917,7 @@ class phase_3(NamedObject[phase_3_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -25999,7 +25999,7 @@ class exhaust_fan(NamedObject[exhaust_fan_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -26299,7 +26299,7 @@ class phase_4(NamedObject[phase_4_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -26372,7 +26372,7 @@ class fan(NamedObject[fan_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -26443,7 +26443,7 @@ class geometry_3(NamedObject[geometry_3_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -27054,7 +27054,7 @@ class species_mass_fraction(NamedObject[species_mass_fraction_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -27867,7 +27867,7 @@ class phase_5(NamedObject[phase_5_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -27949,7 +27949,7 @@ class inlet_vent(NamedObject[inlet_vent_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -28071,7 +28071,7 @@ class phase_6(NamedObject[phase_6_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -28153,7 +28153,7 @@ class intake_fan(NamedObject[intake_fan_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -28237,7 +28237,7 @@ class phase_7(NamedObject[phase_7_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -28309,7 +28309,7 @@ class interface(NamedObject[interface_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -28392,7 +28392,7 @@ class phase_8(NamedObject[phase_8_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -28463,7 +28463,7 @@ class interior(NamedObject[interior_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -28838,7 +28838,7 @@ class phase_9(NamedObject[phase_9_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -28920,7 +28920,7 @@ class mass_flow_inlet(NamedObject[mass_flow_inlet_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -29053,7 +29053,7 @@ class phase_10(NamedObject[phase_10_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -29135,7 +29135,7 @@ class mass_flow_outlet(NamedObject[mass_flow_outlet_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -29202,7 +29202,7 @@ class phase_11(NamedObject[phase_11_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -29272,7 +29272,7 @@ class network(NamedObject[network_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -29383,7 +29383,7 @@ class phase_12(NamedObject[phase_12_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -29454,7 +29454,7 @@ class network_end(NamedObject[network_end_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -29577,7 +29577,7 @@ class phase_13(NamedObject[phase_13_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -29654,7 +29654,7 @@ class outflow(NamedObject[outflow_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -29771,7 +29771,7 @@ class phase_14(NamedObject[phase_14_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -29853,7 +29853,7 @@ class outlet_vent(NamedObject[outlet_vent_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -29924,7 +29924,7 @@ class overset(NamedObject[overset_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -30122,7 +30122,7 @@ class phase_15(NamedObject[phase_15_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -30194,7 +30194,7 @@ class periodic(NamedObject[periodic_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -30353,7 +30353,7 @@ class contact_angles(NamedObject[contact_angles_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -30455,7 +30455,7 @@ class phase_16(NamedObject[phase_16_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -30527,7 +30527,7 @@ class porous_jump(NamedObject[porous_jump_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -30727,7 +30727,7 @@ class phase_17(NamedObject[phase_17_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -30808,7 +30808,7 @@ class pressure_far_field(NamedObject[pressure_far_field_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -30911,7 +30911,7 @@ class phase_18(NamedObject[phase_18_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -30993,7 +30993,7 @@ class pressure_inlet(NamedObject[pressure_inlet_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -31108,7 +31108,7 @@ class phase_19(NamedObject[phase_19_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -31190,7 +31190,7 @@ class pressure_outlet(NamedObject[pressure_outlet_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -31304,7 +31304,7 @@ class phase_20(NamedObject[phase_20_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -31376,7 +31376,7 @@ class radiator(NamedObject[radiator_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -31481,7 +31481,7 @@ class phase_21(NamedObject[phase_21_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -31553,7 +31553,7 @@ class rans_les_interface(NamedObject[rans_les_interface_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -31684,7 +31684,7 @@ class species_mass_fractions(NamedObject[species_mass_fractions_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -31798,7 +31798,7 @@ class phase_22(NamedObject[phase_22_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -31870,7 +31870,7 @@ class recirculation_inlet(NamedObject[recirculation_inlet_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -31953,7 +31953,7 @@ class phase_23(NamedObject[phase_23_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -32025,7 +32025,7 @@ class recirculation_outlet(NamedObject[recirculation_outlet_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -32096,7 +32096,7 @@ class shadow(NamedObject[shadow_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -32167,7 +32167,7 @@ class symmetry(NamedObject[symmetry_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -33159,7 +33159,7 @@ class phase_24(NamedObject[phase_24_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -33241,7 +33241,7 @@ class velocity_inlet(NamedObject[velocity_inlet_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -34446,7 +34446,7 @@ class internal_emissivity_band(NamedObject[internal_emissivity_band_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -34511,7 +34511,7 @@ class diffuse_irradiation_band(NamedObject[diffuse_irradiation_band_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -34569,7 +34569,7 @@ class diffuse_fraction_band(NamedObject[diffuse_fraction_band_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -34876,7 +34876,7 @@ class species_boundary_conditions(NamedObject[species_boundary_conditions_child]
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -34941,7 +34941,7 @@ class species_mass_fraction_or_flux(NamedObject[species_mass_fraction_or_flux_ch
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -36319,7 +36319,7 @@ class species_mass_fraction_1(NamedObject[species_mass_fraction_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -36415,7 +36415,7 @@ class phase_25(NamedObject[phase_25_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -36499,7 +36499,7 @@ class wall(NamedObject[wall_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -37179,7 +37179,7 @@ class boundary_conditions(Group):
         ----------
             from_ : str
                 Copy boundary conditions from zone.
-            to : List
+            to : list
                 Copy boundary conditions to zone.
             verbosity : bool
                 Copy boundary conditions: Print more information.
@@ -37190,7 +37190,7 @@ class boundary_conditions(Group):
         
         Parameters
         ----------
-            zone_list : List
+            zone_list : list
                 Zone name list.
             new_type : str
                 Give new zone type.
@@ -37266,7 +37266,7 @@ class boundary_conditions(Group):
         
         Parameters
         ----------
-            zone_name : List
+            zone_name : list
                 Zone name list.
             append : bool
                 Add suffix to zone name.
@@ -37279,7 +37279,7 @@ class boundary_conditions(Group):
         
         Parameters
         ----------
-            zone_name : List
+            zone_name : list
                 Zone name list.
             abbreviate_types : bool
                 Specifies whether to provide abbreviate types.
@@ -37292,7 +37292,7 @@ class boundary_conditions(Group):
         
         Parameters
         ----------
-            zone_name : List
+            zone_name : list
                 Zone name list.
             abbrev : bool
                 Specifies whether to provide abbreviate types.
@@ -37445,7 +37445,7 @@ class interface_2(NamedObject[interface_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -37609,7 +37609,7 @@ class turbo_interface(NamedObject[turbo_interface_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -37796,7 +37796,7 @@ class mesh_interfaces(Group):
         
         Parameters
         ----------
-            zones : List
+            zones : list
                 Zone-name to be displayed.
         """
     def one_to_one_pairing(self, one_to_one_interface: bool, proceed: bool, delete_empty: bool):
@@ -37831,9 +37831,9 @@ class mesh_interfaces(Group):
         ----------
             name : str
                 The prefix for mesh interface names.
-            zone_list_1 : List
+            zone_list_1 : list
                 The boundary zones belonging to the first group.
-            zone_list_2 : List
+            zone_list_2 : list
                 The boundary zones belonging to the second group.
         """
     def auto_pairing(self, pair_all: bool, one_to_one_pairs: bool, interface_zones: list[str], create: bool, name: str, apply_mapped: bool, static_interface: bool):
@@ -37846,7 +37846,7 @@ class mesh_interfaces(Group):
                 Automatic pairing of all unintersected interface zones?.
             one_to_one_pairs : bool
                 Create one-to-one pairs only?.
-            interface_zones : List
+            interface_zones : list
                 Unintersected interface zones for pairing.
             create : bool
                 Create mesh interfaces with all these pairs?.
@@ -38259,7 +38259,7 @@ class reference_frames(NamedObject[reference_frames_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -38397,7 +38397,7 @@ class named_expressions(NamedObject[named_expressions_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -38579,7 +38579,7 @@ class turbo_models(Group):
         ----------
             filename_2 : str
                 Output file name.
-            boundary_list : List
+            boundary_list : list
                 Boundary zones for exporting mesh.
             global_ : bool
                 Enable/disable output of mesh global number.
@@ -38610,7 +38610,7 @@ class faces(NamedObject[faces_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -38680,7 +38680,7 @@ class bodies(NamedObject[bodies_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -38752,7 +38752,7 @@ class groups(NamedObject[groups_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -38814,7 +38814,7 @@ class parts(NamedObject[parts_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -38905,7 +38905,7 @@ class phase_27(NamedObject[phase_27_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -38977,7 +38977,7 @@ class phase_28(NamedObject[phase_28_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -39040,7 +39040,7 @@ class axis_2(NamedObject[axis_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -39103,7 +39103,7 @@ class degassing_1(NamedObject[degassing_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -39174,7 +39174,7 @@ class phase_29(NamedObject[phase_29_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -39237,7 +39237,7 @@ class exhaust_fan_1(NamedObject[exhaust_fan_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -39299,7 +39299,7 @@ class phase_30(NamedObject[phase_30_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -39362,7 +39362,7 @@ class fan_1(NamedObject[fan_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -39425,7 +39425,7 @@ class geometry_6(NamedObject[geometry_6_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -39496,7 +39496,7 @@ class phase_31(NamedObject[phase_31_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -39559,7 +39559,7 @@ class inlet_vent_1(NamedObject[inlet_vent_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -39630,7 +39630,7 @@ class phase_32(NamedObject[phase_32_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -39693,7 +39693,7 @@ class intake_fan_1(NamedObject[intake_fan_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -39754,7 +39754,7 @@ class phase_33(NamedObject[phase_33_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -39817,7 +39817,7 @@ class interface_3(NamedObject[interface_3_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -39877,7 +39877,7 @@ class phase_34(NamedObject[phase_34_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -39940,7 +39940,7 @@ class interior_2(NamedObject[interior_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40011,7 +40011,7 @@ class phase_35(NamedObject[phase_35_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40074,7 +40074,7 @@ class mass_flow_inlet_1(NamedObject[mass_flow_inlet_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40145,7 +40145,7 @@ class phase_36(NamedObject[phase_36_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40208,7 +40208,7 @@ class mass_flow_outlet_1(NamedObject[mass_flow_outlet_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40266,7 +40266,7 @@ class phase_37(NamedObject[phase_37_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40329,7 +40329,7 @@ class network_1(NamedObject[network_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40389,7 +40389,7 @@ class phase_38(NamedObject[phase_38_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40452,7 +40452,7 @@ class network_end_2(NamedObject[network_end_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40518,7 +40518,7 @@ class phase_39(NamedObject[phase_39_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40581,7 +40581,7 @@ class outflow_1(NamedObject[outflow_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40652,7 +40652,7 @@ class phase_40(NamedObject[phase_40_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40715,7 +40715,7 @@ class outlet_vent_1(NamedObject[outlet_vent_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40778,7 +40778,7 @@ class overset_1(NamedObject[overset_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40839,7 +40839,7 @@ class phase_41(NamedObject[phase_41_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40902,7 +40902,7 @@ class periodic_3(NamedObject[periodic_3_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -40963,7 +40963,7 @@ class phase_42(NamedObject[phase_42_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41026,7 +41026,7 @@ class porous_jump_2(NamedObject[porous_jump_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41096,7 +41096,7 @@ class phase_43(NamedObject[phase_43_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41159,7 +41159,7 @@ class pressure_far_field_2(NamedObject[pressure_far_field_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41230,7 +41230,7 @@ class phase_44(NamedObject[phase_44_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41293,7 +41293,7 @@ class pressure_inlet_1(NamedObject[pressure_inlet_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41364,7 +41364,7 @@ class phase_45(NamedObject[phase_45_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41427,7 +41427,7 @@ class pressure_outlet_2(NamedObject[pressure_outlet_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41488,7 +41488,7 @@ class phase_46(NamedObject[phase_46_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41551,7 +41551,7 @@ class radiator_2(NamedObject[radiator_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41612,7 +41612,7 @@ class phase_47(NamedObject[phase_47_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41675,7 +41675,7 @@ class rans_les_interface_1(NamedObject[rans_les_interface_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41736,7 +41736,7 @@ class phase_48(NamedObject[phase_48_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41799,7 +41799,7 @@ class recirculation_inlet_2(NamedObject[recirculation_inlet_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41860,7 +41860,7 @@ class phase_49(NamedObject[phase_49_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41923,7 +41923,7 @@ class recirculation_outlet_2(NamedObject[recirculation_outlet_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -41986,7 +41986,7 @@ class shadow_1(NamedObject[shadow_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -42049,7 +42049,7 @@ class symmetry_1(NamedObject[symmetry_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -42120,7 +42120,7 @@ class phase_50(NamedObject[phase_50_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -42183,7 +42183,7 @@ class velocity_inlet_1(NamedObject[velocity_inlet_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -42256,7 +42256,7 @@ class phase_51(NamedObject[phase_51_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -42319,7 +42319,7 @@ class wall_1(NamedObject[wall_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -42415,7 +42415,7 @@ class fluid_2_child(Group):
         ----------
             name : str
                 Input new volume name.
-            location : List
+            location : list
                 Input location name which should be part of new volume.
         """
 
@@ -42431,7 +42431,7 @@ class fluid_2(NamedObject[fluid_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -42499,7 +42499,7 @@ class phase_52(NamedObject[phase_52_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -42559,7 +42559,7 @@ class solid_3_child(Group):
         ----------
             name : str
                 Input new volume name.
-            location : List
+            location : list
                 Input location name which should be part of new volume.
         """
 
@@ -42575,7 +42575,7 @@ class solid_3(NamedObject[solid_3_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -42679,7 +42679,7 @@ class interfaces(NamedObject[interfaces_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -42960,7 +42960,7 @@ class discretization_scheme(NamedObject[discretization_scheme_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -44051,7 +44051,7 @@ class set_velocity_and_vof_cutoffs(NamedObject[set_velocity_and_vof_cutoffs_chil
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -44109,7 +44109,7 @@ class set_damping_strengths(NamedObject[set_damping_strengths_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -44376,7 +44376,7 @@ class phase_based_vof_discretization(NamedObject[phase_based_vof_discretization_
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -44655,7 +44655,7 @@ class relaxation_factor_1(NamedObject[relaxation_factor_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -44713,7 +44713,7 @@ class under_relaxation_2(NamedObject[under_relaxation_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -44799,7 +44799,7 @@ class local_dt_dualts_relax(NamedObject[local_dt_dualts_relax_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -44857,7 +44857,7 @@ class global_dt_pseudo_relax(NamedObject[global_dt_pseudo_relax_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -45266,7 +45266,7 @@ class equations(NamedObject[equations_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -45493,7 +45493,7 @@ class mg_controls(NamedObject[mg_controls_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -45910,7 +45910,7 @@ class amg_gpgpu_options(NamedObject[amg_gpgpu_options_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -46083,7 +46083,7 @@ class local_dt(NamedObject[local_dt_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -46145,7 +46145,7 @@ class global_dt(NamedObject[global_dt_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -46270,7 +46270,7 @@ class correction_tolerance(NamedObject[correction_tolerance_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -46491,7 +46491,7 @@ class mesh_1(NamedObject[mesh_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -46604,7 +46604,7 @@ class surface_1(NamedObject[surface_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -46685,7 +46685,7 @@ class volume(NamedObject[volume_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -46785,7 +46785,7 @@ class force(NamedObject[force_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -46861,7 +46861,7 @@ class lift(NamedObject[lift_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -46937,7 +46937,7 @@ class drag(NamedObject[drag_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -47026,7 +47026,7 @@ class moment(NamedObject[moment_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -47091,7 +47091,7 @@ class time_1(NamedObject[time_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -47171,7 +47171,7 @@ class flux_1(NamedObject[flux_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -47252,7 +47252,7 @@ class vbm(NamedObject[vbm_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -47388,7 +47388,7 @@ class injection_1(NamedObject[injection_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -47470,7 +47470,7 @@ class user_defined_6(NamedObject[user_defined_6_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -47568,7 +47568,7 @@ class aeromechanics(NamedObject[aeromechanics_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -47635,7 +47635,7 @@ class icing_3(NamedObject[icing_3_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -47723,7 +47723,7 @@ class expression_1(NamedObject[expression_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -47793,7 +47793,7 @@ class single_valued_expression(NamedObject[single_valued_expression_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -47859,7 +47859,7 @@ class custom(NamedObject[custom_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -47929,7 +47929,7 @@ class report_definitions(Group):
         
         Parameters
         ----------
-            report_defs : List
+            report_defs : list
                 Compute the net value of the selected report definition.
         """
     def copy(self, copy_from: str, copy_to: str):
@@ -47998,7 +47998,7 @@ class equations_1(NamedObject[equations_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -48501,7 +48501,7 @@ class report_files(NamedObject[report_files_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -48609,7 +48609,7 @@ class report_plots(NamedObject[report_plots_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -48728,7 +48728,7 @@ class convergence_reports(NamedObject[convergence_reports_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -49373,7 +49373,7 @@ class cell_registers(NamedObject[cell_registers_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -49443,7 +49443,7 @@ class defaults(NamedObject[defaults_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -49599,7 +49599,7 @@ class species_12_child(NamedObject[species_12_child_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -49651,7 +49651,7 @@ class species_12(NamedObject[species_12_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -49759,9 +49759,9 @@ class patch(Group):
         ----------
             domain : str
                 Domain.
-            cell_zones : List
+            cell_zones : list
                 Cell zone.
-            registers : List
+            registers : list
                 Register.
             variable : str
                 Variable.
@@ -49857,9 +49857,9 @@ class fmg(Group):
         ----------
             multi_level_grid : int
                 Number of multigrid levels.
-            residual_reduction : List
+            residual_reduction : list
                 Number of residual reduction levels.
-            cycle_count : List
+            cycle_count : list
                 Number of cycles.
         """
     def reset_to_defaults(self):
@@ -50125,7 +50125,7 @@ class solution_animations(NamedObject[solution_animations_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -50531,7 +50531,7 @@ class register_based(NamedObject[register_based_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -51217,7 +51217,7 @@ class extrapolate_eqn_vars(NamedObject[extrapolate_eqn_vars_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -51449,7 +51449,7 @@ class data_sets(NamedObject[data_sets_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -51503,11 +51503,11 @@ class data_sampling_options(Group):
         
         Parameters
         ----------
-            zone_names : List
+            zone_names : list
                 One or more zone names.
             domain : str
                 The domain.
-            quantities : List
+            quantities : list
                 One or more quantities.
             min : bool
                 Specifies whether to specify the minimum value of the selected quantity(s) will be collected.
@@ -51658,7 +51658,7 @@ class custom_vectors(NamedObject[custom_vectors_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -51779,7 +51779,7 @@ class point_surface(NamedObject[point_surface_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -51858,7 +51858,7 @@ class line_surface(NamedObject[line_surface_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -51932,7 +51932,7 @@ class rake_surface(NamedObject[rake_surface_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -52090,7 +52090,7 @@ class plane_surface(NamedObject[plane_surface_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -52197,7 +52197,7 @@ class iso_surface(NamedObject[iso_surface_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -52284,7 +52284,7 @@ class iso_clip(NamedObject[iso_clip_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -52356,7 +52356,7 @@ class zone_surface(NamedObject[zone_surface_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -52442,7 +52442,7 @@ class partition_surface(NamedObject[partition_surface_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -52542,7 +52542,7 @@ class transform_surface(NamedObject[transform_surface_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -52621,7 +52621,7 @@ class imprint_surface(NamedObject[imprint_surface_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -52694,7 +52694,7 @@ class plane_slice(NamedObject[plane_slice_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -52773,7 +52773,7 @@ class sphere_slice(NamedObject[sphere_slice_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -52852,7 +52852,7 @@ class quadric_surface(NamedObject[quadric_surface_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -52924,7 +52924,7 @@ class surface_cells(NamedObject[surface_cells_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -52991,7 +52991,7 @@ class surfaces_5(Group):
         
         Parameters
         ----------
-            zone_names : List
+            zone_names : list
                 Zone name list.
         """
     def create_multiple_iso_surfaces(self, field: str, name: str, surfaces: list[str], zones: list[str], min: float | str, max: float | str, iso_value: float | str, no_of_surfaces: int, spacing: float | str):
@@ -53004,9 +53004,9 @@ class surfaces_5(Group):
                 The field variable.
             name : str
                 The Iso-surface name.
-            surfaces : List
+            surfaces : list
                 The surface(s) that will be used to define the iso-surface.
-            zones : List
+            zones : list
                 The zone(s) that will be used to define the iso-surface.
             min : real
                 Min.
@@ -53035,25 +53035,25 @@ class surfaces_5(Group):
                 The location on the Y-axis where the ZX plane will be created.
             z : real
                 The location on the Z-axis where the XY plane will be created.
-            point : List
+            point : list
                 The XYZ coordinates of the point.
             normal_computation_method : str
                 The normal computation method.
             surface_aligned_normal : str
                 The surface you want to compute the normal components.
-            normal : List
+            normal : list
                 The XYZ components of the normal.
-            p0 : List
+            p0 : list
                 The XYZ coordinates of Point 1 for the Three Points plane creation method.
-            p1 : List
+            p1 : list
                 The XYZ coordinates of Point 2 for the Three Points plane creation method.
-            p2 : List
+            p2 : list
                 The XYZ coordinates of Point 3 for the Three Points plane creation method.
             bounded : bool
                 Specifies whether the plane is bounded by its defining points.
             sample_points : bool
                 Specifies whether you want to specify a uniform distribution of points on the plane.
-            edges : List
+            edges : list
                 The point density for edges.
             surfaces : int
                 The number of surfaces to be created.
@@ -53066,7 +53066,7 @@ class surfaces_5(Group):
         
         Parameters
         ----------
-            surfaces : List
+            surfaces : list
                 List of surfaces.
             name : str
                 The name for the group surface.
@@ -53327,7 +53327,7 @@ class mesh_2(NamedObject[mesh_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -53710,7 +53710,7 @@ class contour(NamedObject[contour_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -53940,7 +53940,7 @@ class vector_1(NamedObject[vector_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -54638,7 +54638,7 @@ class pathline(NamedObject[pathline_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -55014,7 +55014,7 @@ class particle_track(NamedObject[particle_track_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -55241,7 +55241,7 @@ class lic(NamedObject[lic_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -55368,7 +55368,7 @@ class olic(NamedObject[olic_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -55819,7 +55819,7 @@ class volumes_1(NamedObject[volumes_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -56110,7 +56110,7 @@ class type_name(NamedObject[type_name_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -56197,7 +56197,7 @@ class by_surface(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 The list of surfaces to set color and material.
             color : str
                 'color' child.
@@ -56629,7 +56629,7 @@ class camera(Group):
         
         Parameters
         ----------
-            xyz : List
+            xyz : list
                 'xyz' child.
         """
     def projection(self, type: str):
@@ -56656,7 +56656,7 @@ class camera(Group):
         
         Parameters
         ----------
-            xyz : List
+            xyz : list
                 'xyz' child.
         """
     def up_vector(self, xyz: list[float | str]):
@@ -56665,7 +56665,7 @@ class camera(Group):
         
         Parameters
         ----------
-            xyz : List
+            xyz : list
                 'xyz' child.
         """
     def zoom(self, factor: float | str):
@@ -56790,7 +56790,7 @@ class display_states(NamedObject[display_states_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -56867,7 +56867,7 @@ class display_states(NamedObject[display_states_child]):
         ----------
             file_name : str
                 'file_name' child.
-            state_name : List
+            state_name : list
                 'state_name' child.
         """
     child_object_type: display_states_child
@@ -57000,7 +57000,7 @@ class mirror_planes(NamedObject[mirror_planes_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -57123,7 +57123,7 @@ class views(Group):
         ----------
             file_name : str
                 'file_name' child.
-            view_list : List
+            view_list : list
                 'view_list' child.
         """
     def apply_mirror_planes(self, mirror_planes: list[str]):
@@ -57132,7 +57132,7 @@ class views(Group):
         
         Parameters
         ----------
-            mirror_planes : List
+            mirror_planes : list
                 Apply selectd mirror planes.
         """
     def get_current_mirror_planes(self):
@@ -57898,7 +57898,7 @@ class periodic_instancing(NamedObject[periodic_instancing_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -58108,7 +58108,7 @@ class xy_plot_child(Group):
         
         Parameters
         ----------
-            file_data_list : List
+            file_data_list : list
                 File-data to delete.
         """
 
@@ -58124,7 +58124,7 @@ class xy_plot(NamedObject[xy_plot_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -58348,7 +58348,7 @@ class cumulative_plot(NamedObject[cumulative_plot_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -58591,7 +58591,7 @@ class graphics_objects(NamedObject[graphics_objects_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -58660,7 +58660,7 @@ class scene(NamedObject[scene_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -59573,9 +59573,9 @@ class fluxes(Group):
         ----------
             domain : str
                 The domain.
-            zones : List
+            zones : list
                 Zone name list.
-            physics : List
+            physics : list
                 'physics' child.
             write_to_file : bool
                 Specifies whether to write to a file.
@@ -59592,9 +59592,9 @@ class fluxes(Group):
         ----------
             domain : str
                 The domain.
-            zones : List
+            zones : list
                 Zone name list.
-            physics : List
+            physics : list
                 'physics' child.
             write_to_file : bool
                 Specifies whether to write to a file.
@@ -59611,9 +59611,9 @@ class fluxes(Group):
         ----------
             domain : str
                 The domain.
-            zones : List
+            zones : list
                 Zone name list.
-            physics : List
+            physics : list
                 'physics' child.
             write_to_file : bool
                 Specifies whether to write to a file.
@@ -59630,9 +59630,9 @@ class fluxes(Group):
         ----------
             domain : str
                 The domain.
-            zones : List
+            zones : list
                 Zone name list.
-            physics : List
+            physics : list
                 'physics' child.
             write_to_file : bool
                 Specifies whether to write to a file.
@@ -59649,9 +59649,9 @@ class fluxes(Group):
         ----------
             domain : str
                 The domain.
-            zones : List
+            zones : list
                 Zone name list.
-            physics : List
+            physics : list
                 'physics' child.
             write_to_file : bool
                 Specifies whether to write to a file.
@@ -59668,9 +59668,9 @@ class fluxes(Group):
         ----------
             domain : str
                 The domain.
-            zones : List
+            zones : list
                 Zone name list.
-            physics : List
+            physics : list
                 'physics' child.
             write_to_file : bool
                 Specifies whether to write to a file.
@@ -59687,9 +59687,9 @@ class fluxes(Group):
         ----------
             domain : str
                 The domain.
-            zones : List
+            zones : list
                 Zone name list.
-            physics : List
+            physics : list
                 'physics' child.
             write_to_file : bool
                 Specifies whether to write to a file.
@@ -59706,9 +59706,9 @@ class fluxes(Group):
         ----------
             domain : str
                 The domain.
-            zones : List
+            zones : list
                 Zone name list.
-            physics : List
+            physics : list
                 'physics' child.
             write_to_file : bool
                 Specifies whether to write to a file.
@@ -59725,9 +59725,9 @@ class fluxes(Group):
         ----------
             domain : str
                 The domain.
-            zones : List
+            zones : list
                 Zone name list.
-            physics : List
+            physics : list
                 'physics' child.
             write_to_file : bool
                 Specifies whether to write to a file.
@@ -59783,7 +59783,7 @@ class modified_setting_options(Group):
         
         Parameters
         ----------
-            setting_type : List
+            setting_type : list
                 'setting_type' child.
         """
     def write_user_setting(self, file_name: str):
@@ -59874,9 +59874,9 @@ class population_balance_1(Group):
         
         Parameters
         ----------
-            surface_list : List
+            surface_list : list
                 Surface.
-            volume_list : List
+            volume_list : list
                 Cell zone name list.
             num_of_moments : int
                 'num_of_moments' child.
@@ -60033,9 +60033,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60056,9 +60056,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60079,9 +60079,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60102,9 +60102,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60125,9 +60125,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60148,9 +60148,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60171,9 +60171,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60194,9 +60194,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60217,9 +60217,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60240,9 +60240,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60263,9 +60263,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60286,9 +60286,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60309,9 +60309,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60332,9 +60332,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60355,9 +60355,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60378,9 +60378,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60401,9 +60401,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60424,9 +60424,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60447,9 +60447,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60470,9 +60470,9 @@ class surface_integrals(Group):
         
         Parameters
         ----------
-            surface_names : List
+            surface_names : list
                 Surface.
-            geometry_names : List
+            geometry_names : list
                 UTL Geometry.
             cust_vec_func : str
                 The custom vectors.
@@ -60500,9 +60500,9 @@ class volume_integrals(Group):
         
         Parameters
         ----------
-            cell_zones : List
+            cell_zones : list
                 Volume id/name.
-            volumes : List
+            volumes : list
                 UTL Volume name.
             cell_function : str
                 Field.
@@ -60521,9 +60521,9 @@ class volume_integrals(Group):
         
         Parameters
         ----------
-            cell_zones : List
+            cell_zones : list
                 Volume id/name.
-            volumes : List
+            volumes : list
                 UTL Volume name.
             cell_function : str
                 Field.
@@ -60542,9 +60542,9 @@ class volume_integrals(Group):
         
         Parameters
         ----------
-            cell_zones : List
+            cell_zones : list
                 Volume id/name.
-            volumes : List
+            volumes : list
                 UTL Volume name.
             cell_function : str
                 Field.
@@ -60563,9 +60563,9 @@ class volume_integrals(Group):
         
         Parameters
         ----------
-            cell_zones : List
+            cell_zones : list
                 Volume id/name.
-            volumes : List
+            volumes : list
                 UTL Volume name.
             cell_function : str
                 Field.
@@ -60584,9 +60584,9 @@ class volume_integrals(Group):
         
         Parameters
         ----------
-            cell_zones : List
+            cell_zones : list
                 Volume id/name.
-            volumes : List
+            volumes : list
                 UTL Volume name.
             cell_function : str
                 Field.
@@ -60605,9 +60605,9 @@ class volume_integrals(Group):
         
         Parameters
         ----------
-            cell_zones : List
+            cell_zones : list
                 Volume id/name.
-            volumes : List
+            volumes : list
                 UTL Volume name.
             cell_function : str
                 Field.
@@ -60626,9 +60626,9 @@ class volume_integrals(Group):
         
         Parameters
         ----------
-            cell_zones : List
+            cell_zones : list
                 Volume id/name.
-            volumes : List
+            volumes : list
                 UTL Volume name.
             cell_function : str
                 Field.
@@ -60647,9 +60647,9 @@ class volume_integrals(Group):
         
         Parameters
         ----------
-            cell_zones : List
+            cell_zones : list
                 Volume id/name.
-            volumes : List
+            volumes : list
                 UTL Volume name.
             cell_function : str
                 Field.
@@ -60668,9 +60668,9 @@ class volume_integrals(Group):
         
         Parameters
         ----------
-            cell_zones : List
+            cell_zones : list
                 Volume id/name.
-            volumes : List
+            volumes : list
                 UTL Volume name.
             cell_function : str
                 Field.
@@ -60689,9 +60689,9 @@ class volume_integrals(Group):
         
         Parameters
         ----------
-            cell_zones : List
+            cell_zones : list
                 Volume id/name.
-            volumes : List
+            volumes : list
                 UTL Volume name.
             cell_function : str
                 Field.
@@ -60743,13 +60743,13 @@ class report_2(Group):
                 The type of report (Forces, Moments, or Center of Pressure).
             domain : str
                 The domain.
-            wall_zones : List
+            wall_zones : list
                 Wall zone name list.
-            direction_vector : List
+            direction_vector : list
                 The XYZ components of the direction vector.
-            momentum_center : List
+            momentum_center : list
                 The XYZ coordinates of the moment center.
-            momentum_axis : List
+            momentum_axis : list
                 The XYZ components of the moment axis.
             pressure_coordinate : str
                 The line on which the center of pressure will be calculated.
@@ -60777,7 +60777,7 @@ class report_2(Group):
         
         Parameters
         ----------
-            injection_names : List
+            injection_names : list
                 'injection_names' child.
         """
     def pathline_summary(self):
@@ -60790,11 +60790,11 @@ class report_2(Group):
         
         Parameters
         ----------
-            surfaces : List
+            surfaces : list
                 Surface.
             min_feature_size : real
                 'min_feature_size' child.
-            proj_plane_norm_comp : List
+            proj_plane_norm_comp : list
                 'proj_plane_norm_comp' child.
         """
     def summary(self, write_to_file: bool, file_name: str):
@@ -61098,7 +61098,7 @@ class definition_1(NamedObject[definition_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -61224,7 +61224,7 @@ class adjoint_equations(NamedObject[adjoint_equations_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -61287,7 +61287,7 @@ class methods_2(NamedObject[methods_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -61381,7 +61381,7 @@ class advancement(NamedObject[advancement_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -61439,7 +61439,7 @@ class under_relaxation_3(NamedObject[under_relaxation_3_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -61723,7 +61723,7 @@ class adjoint_equations_1(NamedObject[adjoint_equations_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -62557,7 +62557,7 @@ class specify_boundary(NamedObject[specify_boundary_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -62716,7 +62716,7 @@ class region(Group):
         
         Parameters
         ----------
-            bounded_zones : List
+            bounded_zones : list
                 Zones used to determine region bounds.
             comfortable_region : bool
                 Use comfortable region than the selected zones.
@@ -62934,7 +62934,7 @@ class orientation_1(Group):
         
         Parameters
         ----------
-            surfaces : List
+            surfaces : list
                 Surfaces orientations to be reverse.
         """
 
@@ -63008,7 +63008,7 @@ class definition_3_child(Group):
         
         Parameters
         ----------
-            surfaces : List
+            surfaces : list
                 Surfaces to be deleted.
         """
     def display_imported_surfaces(self):
@@ -63032,7 +63032,7 @@ class definition_3(NamedObject[definition_3_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -63267,7 +63267,7 @@ class objectives_1(NamedObject[objectives_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -63343,7 +63343,7 @@ class manage_data(Group):
         
         Parameters
         ----------
-            file_list : List
+            file_list : list
                 Sensitivities list to reload.
         """
     def remove(self, file_list: list[str]):
@@ -63352,7 +63352,7 @@ class manage_data(Group):
         
         Parameters
         ----------
-            file_list : List
+            file_list : list
                 Sensitivities list to remove.
         """
     def reload_all(self):
@@ -63408,7 +63408,7 @@ class parameters_5(NamedObject[parameters_5_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -63490,7 +63490,7 @@ class results_1(NamedObject[results_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -63562,7 +63562,7 @@ class export_2(Group):
         
         Parameters
         ----------
-            surfaces : List
+            surfaces : list
                 Surfaces to be exported as .stl file.
             file_name : str
                 Export specified surfaces from 3D cases as an .stl file.
@@ -63829,7 +63829,7 @@ class parameters_7(NamedObject[parameters_7_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -64094,7 +64094,7 @@ class limits_1(NamedObject[limits_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -64289,7 +64289,7 @@ class manage_data_1(Group):
         
         Parameters
         ----------
-            files : List
+            files : list
                 List of training data files to remove.
         """
 
@@ -64586,7 +64586,7 @@ class optimizer(Group):
         
         Parameters
         ----------
-            current_warnings : List
+            current_warnings : list
                 Warnings based on current settings.
             disable_settings_validation : bool
                 Ignore warnings and proceed with optimization.
@@ -64647,7 +64647,7 @@ class input_parameters(NamedObject[input_parameters_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -64705,7 +64705,7 @@ class output_parameters(NamedObject[output_parameters_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -64781,7 +64781,7 @@ class design_points(NamedObject[design_points_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -64858,7 +64858,7 @@ class design_points(NamedObject[design_points_child]):
         
         Parameters
         ----------
-            design_points : List
+            design_points : list
                 'design_points' child.
         """
     def save_journals(self, separate_journals: bool):
@@ -64876,7 +64876,7 @@ class design_points(NamedObject[design_points_child]):
         
         Parameters
         ----------
-            design_points : List
+            design_points : list
                 'design_points' child.
         """
     def update_current(self):
@@ -64893,7 +64893,7 @@ class design_points(NamedObject[design_points_child]):
         
         Parameters
         ----------
-            design_points : List
+            design_points : list
                 'design_points' child.
         """
     child_object_type: design_points_child
@@ -64926,7 +64926,7 @@ class parametric_studies(NamedObject[parametric_studies_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -65057,7 +65057,7 @@ class scheme_proc(NamedObject[scheme_proc_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -65118,7 +65118,7 @@ class udf_side(NamedObject[udf_side_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -65179,7 +65179,7 @@ class expression_2(NamedObject[expression_2_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -65261,7 +65261,7 @@ class report_definitions_1(NamedObject[report_definitions_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):
@@ -65350,7 +65350,7 @@ class named_expressions_1(NamedObject[named_expressions_1_child]):
         
         Parameters
         ----------
-            name_list : List
+            name_list : list
                 Objects to be deleted.
         """
     def rename(self, new: str, old: str):

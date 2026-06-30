@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.58.4
+Version: 0.59.0
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: httpcore (>=1.0.9)
 Requires-Dist: httpx (>=0.28.1)
-Requires-Dist: pydantic (>=2.11.2)
+Requires-Dist: pydantic (>=2.11.2,<2.13)
 Project-URL: Repository, https://github.com/unified-to/unified-python-sdk.git
 Description-Content-Type: text/markdown
 

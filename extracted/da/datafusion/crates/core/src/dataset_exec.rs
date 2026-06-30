@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::any::Any;
 use std::sync::Arc;
 
 use datafusion::arrow::datatypes::SchemaRef;
@@ -156,11 +155,6 @@ impl ExecutionPlan for DatasetExec {
         Self::static_name()
     }
 
-    /// Return a reference to Any that can be used for downcasting
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     /// Get the schema for this execution plan
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
@@ -235,8 +229,8 @@ impl ExecutionPlan for DatasetExec {
         })
     }
 
-    fn partition_statistics(&self, _partition: Option<usize>) -> DFResult<Statistics> {
-        Ok(self.projected_statistics.clone())
+    fn partition_statistics(&self, _partition: Option<usize>) -> DFResult<Arc<Statistics>> {
+        Ok(Arc::new(self.projected_statistics.clone()))
     }
 
     fn properties(&self) -> &Arc<PlanProperties> {

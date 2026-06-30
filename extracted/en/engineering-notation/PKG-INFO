@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: engineering-notation
-Version: 0.13.2
+Version: 0.13.3
 Summary: Easy engineering notation
-Requires-Python: >=3.12
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 
 [![Unit Tests](https://github.com/slightlynybbled/engineering_notation/actions/workflows/unittest.yml/badge.svg)](https://github.com/slightlynybbled/engineering_notation/actions/workflows/unittest.yml)

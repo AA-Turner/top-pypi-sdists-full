@@ -182,6 +182,116 @@ class TestDetectSpikesBatch(unittest.TestCase):
         self.assertEqual(len(out), 0)
 
 
+@unittest.skipUnless(HAS_BEAST, "Rbeast not installed in this environment")
+class TestClimatologyPadding(unittest.TestCase):
+    """Regression tests for the optional right-edge climatology pad.
+
+    The pad is consumed inside BEAST and trimmed off before any
+    residual/MAD/z/classifier work, so it must:
+      (a) not change result-dict shape (still len == original n_steps),
+      (b) leave the end_of_series_spike bucket intact (no synthetic
+          revert verification leaks through the trim), and
+      (c) reduce endpoint trend-bending bias when a spike sits at y_end
+          — i.e. trend[t_end] stays closer to the historical mean and
+          the z-score grows.
+    """
+
+    def _flat_with_endpoint_spike(self, n_years=25, baseline=1.0, sigma=0.05,
+                                   spike=0.6, seed=11):
+        rng = np.random.default_rng(seed)
+        years = np.arange(2000, 2000 + n_years)
+        yields = baseline + rng.normal(scale=sigma, size=n_years)
+        yields[-1] += spike  # large positive spike at the LAST year
+        return years, yields
+
+    def test_padding_preserves_output_array_lengths(self):
+        years, yields = self._flat_with_endpoint_spike()
+        out = detect_spikes_one_series(
+            years, yields,
+            thresholds=AnomalyThresholds(pad_climatology=True, n_pad_years=5),
+        )
+        self.assertEqual(out["status"], "ok")
+        # The pad must be trimmed off — every per-year array stays at
+        # the original length.
+        self.assertEqual(len(out["years"]), len(years))
+        self.assertEqual(len(out["trend"]), len(years))
+        self.assertEqual(len(out["cp_prob"]), len(years))
+        self.assertEqual(len(out["residual"]), len(years))
+        self.assertEqual(len(out["z_score"]), len(years))
+        # Pad metadata should be exposed for diagnostics.
+        self.assertEqual(out["n_pad_years"], 5)
+        self.assertTrue(np.isfinite(out["climatology"]))
+
+    def test_padding_preserves_end_of_series_bucket(self):
+        # A spike at y_end with padding ON should still classify as
+        # end_of_series_spike — NOT as a synthetic spike_revert just
+        # because the pad values match climatology. This is the core
+        # safety property of Option A.
+        years, yields = self._flat_with_endpoint_spike()
+        out = detect_spikes_one_series(
+            years, yields,
+            thresholds=AnomalyThresholds(pad_climatology=True, n_pad_years=5),
+        )
+        self.assertEqual(out["status"], "ok")
+        end_flags = [f for f in out["flags"] if f["year"] == int(years[-1])]
+        self.assertEqual(len(end_flags), 1,
+                         msg=f"expected exactly one flag at y_end; got {out['flags']}")
+        self.assertEqual(end_flags[0]["anomaly_type"], "end_of_series_spike",
+                         msg=f"padding leaked into revert verification: "
+                             f"{end_flags[0]}")
+        # next_year_z must remain NaN — the classifier must not see the
+        # pad values.
+        self.assertTrue(np.isnan(end_flags[0]["next_year_z"]))
+
+    def test_padding_reduces_endpoint_trend_bias(self):
+        # With padding OFF, BEAST's posterior trend at y_end gets pulled
+        # toward the last observation (the spike), so the residual /
+        # z-score at y_end is artificially small. With padding ON, the
+        # synthetic climatology values to the right anchor the trend
+        # near the historical mean, so the residual / z grows.
+        years, yields = self._flat_with_endpoint_spike()
+
+        out_off = detect_spikes_one_series(
+            years, yields,
+            thresholds=AnomalyThresholds(pad_climatology=False),
+        )
+        out_on = detect_spikes_one_series(
+            years, yields,
+            thresholds=AnomalyThresholds(pad_climatology=True, n_pad_years=5),
+        )
+        self.assertEqual(out_off["status"], "ok")
+        self.assertEqual(out_on["status"], "ok")
+
+        trend_off = out_off["trend"][-1]
+        trend_on = out_on["trend"][-1]
+        obs = float(yields[-1])
+
+        # Trend ON should be CLOSER to the historical mean (smaller),
+        # i.e. farther below the spiked observation.
+        self.assertLess(trend_on, trend_off,
+                        msg=f"padding didn't lower endpoint trend: "
+                            f"trend_off={trend_off:.4f}, trend_on={trend_on:.4f}")
+        # And the residual ON should be LARGER in absolute value.
+        self.assertGreater(abs(obs - trend_on), abs(obs - trend_off),
+                           msg=f"padding didn't grow endpoint residual: "
+                               f"|obs-trend_off|={abs(obs-trend_off):.4f}, "
+                               f"|obs-trend_on|={abs(obs-trend_on):.4f}")
+
+    def test_padding_off_keeps_endpoint_flag_behavior(self):
+        # Backstop: with the flag explicitly OFF, the detector still
+        # behaves like the pre-padding code path on the same fixture.
+        years, yields = self._flat_with_endpoint_spike()
+        out = detect_spikes_one_series(
+            years, yields,
+            thresholds=AnomalyThresholds(pad_climatology=False),
+        )
+        self.assertEqual(out["status"], "ok")
+        # n_pad_years recorded as 0 when padding is off.
+        self.assertEqual(out["n_pad_years"], 0)
+        # Climatology is computed only when padding kicks in.
+        self.assertTrue(np.isnan(out["climatology"]))
+
+
 class TestAnomalyThresholdsDefaults(unittest.TestCase):
     """Pure-Python tests that don't need BEAST."""
 
@@ -192,6 +302,11 @@ class TestAnomalyThresholdsDefaults(unittest.TestCase):
         self.assertEqual(t.revert_threshold, 1.0)
         self.assertEqual(t.min_years, 10)
         self.assertFalse(t.include_negative_spikes)
+        # New climatology-padding fields default on with n_pad_years=5,
+        # method='mean'.
+        self.assertTrue(t.pad_climatology)
+        self.assertEqual(t.n_pad_years, 5)
+        self.assertEqual(t.climatology_method, "mean")
 
 
 if __name__ == "__main__":

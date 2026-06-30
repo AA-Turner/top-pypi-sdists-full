@@ -54,6 +54,7 @@ from .literals import (
     RecursiveLoopType,
     ResponseStreamingInvocationTypeType,
     RuntimeType,
+    S3ObjectStorageModeType,
     SchemaRegistryEventRecordFormatType,
     SnapStartApplyOnType,
     SnapStartOptimizationStatusType,
@@ -183,6 +184,7 @@ __all__ = (
     "FilterCriteriaTypeDef",
     "FilterCriteriaUnionTypeDef",
     "FilterTypeDef",
+    "FunctionCodeLocationErrorTypeDef",
     "FunctionCodeLocationTypeDef",
     "FunctionCodeTypeDef",
     "FunctionConfigurationResponseTypeDef",
@@ -338,6 +340,7 @@ __all__ = (
     "PutRuntimeManagementConfigResponseTypeDef",
     "RemoveLayerVersionPermissionRequestTypeDef",
     "RemovePermissionRequestTypeDef",
+    "ResolvedS3ObjectTypeDef",
     "ResponseMetadataTypeDef",
     "RetryDetailsTypeDef",
     "RuntimeVersionConfigTypeDef",
@@ -750,12 +753,15 @@ FilterTypeDef = TypedDict(
 )
 
 
-class FunctionCodeLocationTypeDef(TypedDict):
-    RepositoryType: NotRequired[str]
-    Location: NotRequired[str]
-    ImageUri: NotRequired[str]
-    ResolvedImageUri: NotRequired[str]
-    SourceKMSKeyArn: NotRequired[str]
+class FunctionCodeLocationErrorTypeDef(TypedDict):
+    ErrorCode: NotRequired[str]
+    Message: NotRequired[str]
+
+
+class ResolvedS3ObjectTypeDef(TypedDict):
+    S3Bucket: NotRequired[str]
+    S3Key: NotRequired[str]
+    S3ObjectVersion: NotRequired[str]
 
 
 class LayerTypeDef(TypedDict):
@@ -896,14 +902,6 @@ class GetLayerVersionPolicyRequestTypeDef(TypedDict):
 class GetLayerVersionRequestTypeDef(TypedDict):
     LayerName: str
     VersionNumber: int
-
-
-class LayerVersionContentOutputTypeDef(TypedDict):
-    Location: NotRequired[str]
-    CodeSha256: NotRequired[str]
-    CodeSize: NotRequired[int]
-    SigningProfileVersionArn: NotRequired[str]
-    SigningJobArn: NotRequired[str]
 
 
 class GetPolicyRequestTypeDef(TypedDict):
@@ -1339,6 +1337,7 @@ class FunctionCodeTypeDef(TypedDict):
     S3Bucket: NotRequired[str]
     S3Key: NotRequired[str]
     S3ObjectVersion: NotRequired[str]
+    S3ObjectStorageMode: NotRequired[S3ObjectStorageModeType]
     ImageUri: NotRequired[str]
     SourceKMSKeyArn: NotRequired[str]
 
@@ -1373,6 +1372,7 @@ class LayerVersionContentInputTypeDef(TypedDict):
     S3Bucket: NotRequired[str]
     S3Key: NotRequired[str]
     S3ObjectVersion: NotRequired[str]
+    S3ObjectStorageMode: NotRequired[S3ObjectStorageModeType]
     ZipFile: NotRequired[BlobTypeDef]
 
 
@@ -1387,6 +1387,7 @@ class UpdateFunctionCodeRequestTypeDef(TypedDict):
     S3Bucket: NotRequired[str]
     S3Key: NotRequired[str]
     S3ObjectVersion: NotRequired[str]
+    S3ObjectStorageMode: NotRequired[S3ObjectStorageModeType]
     ImageUri: NotRequired[str]
     Architectures: NotRequired[Sequence[ArchitectureType]]
     Publish: NotRequired[bool]
@@ -1573,6 +1574,25 @@ class FilterCriteriaTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
 
 
+class FunctionCodeLocationTypeDef(TypedDict):
+    RepositoryType: NotRequired[str]
+    Location: NotRequired[str]
+    ImageUri: NotRequired[str]
+    ResolvedImageUri: NotRequired[str]
+    ResolvedS3Object: NotRequired[ResolvedS3ObjectTypeDef]
+    SourceKMSKeyArn: NotRequired[str]
+    Error: NotRequired[FunctionCodeLocationErrorTypeDef]
+
+
+class LayerVersionContentOutputTypeDef(TypedDict):
+    Location: NotRequired[str]
+    CodeSha256: NotRequired[str]
+    CodeSize: NotRequired[int]
+    SigningProfileVersionArn: NotRequired[str]
+    SigningJobArn: NotRequired[str]
+    ResolvedS3Object: NotRequired[ResolvedS3ObjectTypeDef]
+
+
 class GetFunctionScalingConfigResponseTypeDef(TypedDict):
     FunctionArn: str
     AppliedFunctionScalingConfig: FunctionScalingConfigTypeDef
@@ -1736,32 +1756,6 @@ class GetFunctionRequestWaitTypeDef(TypedDict):
     FunctionName: str
     Qualifier: NotRequired[str]
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
-
-
-class GetLayerVersionResponseTypeDef(TypedDict):
-    Content: LayerVersionContentOutputTypeDef
-    LayerArn: str
-    LayerVersionArn: str
-    Description: str
-    CreatedDate: str
-    Version: int
-    CompatibleArchitectures: list[ArchitectureType]
-    CompatibleRuntimes: list[RuntimeType]
-    LicenseInfo: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class PublishLayerVersionResponseTypeDef(TypedDict):
-    Content: LayerVersionContentOutputTypeDef
-    LayerArn: str
-    LayerVersionArn: str
-    Description: str
-    CreatedDate: str
-    Version: int
-    CompatibleArchitectures: list[ArchitectureType]
-    CompatibleRuntimes: list[RuntimeType]
-    LicenseInfo: str
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ImageConfigResponseTypeDef(TypedDict):
@@ -2073,6 +2067,32 @@ class StopDurableExecutionRequestTypeDef(TypedDict):
 
 
 FilterCriteriaUnionTypeDef = Union[FilterCriteriaTypeDef, FilterCriteriaOutputTypeDef]
+
+
+class GetLayerVersionResponseTypeDef(TypedDict):
+    Content: LayerVersionContentOutputTypeDef
+    LayerArn: str
+    LayerVersionArn: str
+    Description: str
+    CreatedDate: str
+    Version: int
+    CompatibleArchitectures: list[ArchitectureType]
+    CompatibleRuntimes: list[RuntimeType]
+    LicenseInfo: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PublishLayerVersionResponseTypeDef(TypedDict):
+    Content: LayerVersionContentOutputTypeDef
+    LayerArn: str
+    LayerVersionArn: str
+    Description: str
+    CreatedDate: str
+    Version: int
+    CompatibleArchitectures: list[ArchitectureType]
+    CompatibleRuntimes: list[RuntimeType]
+    LicenseInfo: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateFunctionRequestTypeDef(TypedDict):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prince
-Version: 0.19.0
+Version: 0.20.0
 Summary: Factor analysis in Python: PCA, CA, MCA, MFA, FAMD, GPA, PGA
 Author-email: Max Halford <maxhalford25@gmail.com>
 License-Expression: MIT
@@ -19,7 +19,6 @@ Requires-Dist: ipykernel>=6.13.0; extra == "dev"
 Requires-Dist: rpy2>=3.5.2; extra == "dev"
 Requires-Dist: ruff>=0.8.8; extra == "dev"
 Requires-Dist: xarray>=2025.1.0; extra == "dev"
-Requires-Dist: pre-commit>=4.0.1; extra == "dev"
 Dynamic: license-file
 
 <div align="center">
@@ -134,14 +133,14 @@ pip install prince
 
 ```mermaid
 flowchart TD
-    cat?(Categorical data?) --> |"✅"| num_too?(Numerical data too?)
+    groups?(Groups of columns?) --> |"✅"| MFA
+    groups? --> |"❌"| cat?(Categorical data?)
+    cat? --> |"✅"| num_too?(Numerical data too?)
     num_too? --> |"✅"| FAMD
     num_too? --> |"❌"| multiple_cat?(More than two columns?)
     multiple_cat? --> |"✅"| MCA
     multiple_cat? --> |"❌"| CA
-    cat? --> |"❌"| groups?(Groups of columns?)
-    groups? --> |"✅"| MFA
-    groups? --> |"❌"| shapes?(Analysing shapes?)
+    cat? --> |"❌"| shapes?(Analysing shapes?)
     shapes? --> |"✅"| GPA
     shapes? --> |"❌"| manifold?(Data on a manifold?)
     manifold? --> |"✅"| PGA

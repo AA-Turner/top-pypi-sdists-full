@@ -51,21 +51,30 @@ JOB_ATTEMPT_STATE_FAILED: JobAttemptState
 JOB_ATTEMPT_STATE_CANCELED: JobAttemptState
 
 class ExecuteDataFramePlanRequest(_message.Message):
-    __slots__ = ("plan", "compressed_plan_uri_prefix", "correlation_id", "resource_group")
+    __slots__ = (
+        "plan",
+        "compressed_plan_uri_prefix",
+        "correlation_id",
+        "resource_group",
+        "update_performance_summary_interval_secs",
+    )
     PLAN_FIELD_NUMBER: _ClassVar[int]
     COMPRESSED_PLAN_URI_PREFIX_FIELD_NUMBER: _ClassVar[int]
     CORRELATION_ID_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_PERFORMANCE_SUMMARY_INTERVAL_SECS_FIELD_NUMBER: _ClassVar[int]
     plan: _dataframe_pb2.DataFramePlan
     compressed_plan_uri_prefix: str
     correlation_id: str
     resource_group: str
+    update_performance_summary_interval_secs: float
     def __init__(
         self,
         plan: _Optional[_Union[_dataframe_pb2.DataFramePlan, _Mapping]] = ...,
         compressed_plan_uri_prefix: _Optional[str] = ...,
         correlation_id: _Optional[str] = ...,
         resource_group: _Optional[str] = ...,
+        update_performance_summary_interval_secs: _Optional[float] = ...,
     ) -> None: ...
 
 class ExecuteDataFramePlanResponse(_message.Message):
@@ -209,6 +218,10 @@ class DataFrameRun(_message.Message):
         "started_at",
         "shards",
         "dashboard_url",
+        "trace_id",
+        "has_plan_stages",
+        "plan_uri",
+        "performance_summary_uri",
     )
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
@@ -229,6 +242,10 @@ class DataFrameRun(_message.Message):
     STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     SHARDS_FIELD_NUMBER: _ClassVar[int]
     DASHBOARD_URL_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    HAS_PLAN_STAGES_FIELD_NUMBER: _ClassVar[int]
+    PLAN_URI_FIELD_NUMBER: _ClassVar[int]
+    PERFORMANCE_SUMMARY_URI_FIELD_NUMBER: _ClassVar[int]
     operation_id: str
     status: DataFrameRunStatus
     output_uri_prefix: str
@@ -248,6 +265,10 @@ class DataFrameRun(_message.Message):
     started_at: _timestamp_pb2.Timestamp
     shards: _containers.RepeatedCompositeFieldContainer[DataFrameRunShard]
     dashboard_url: str
+    trace_id: str
+    has_plan_stages: bool
+    plan_uri: str
+    performance_summary_uri: str
     def __init__(
         self,
         operation_id: _Optional[str] = ...,
@@ -269,6 +290,10 @@ class DataFrameRun(_message.Message):
         started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         shards: _Optional[_Iterable[_Union[DataFrameRunShard, _Mapping]]] = ...,
         dashboard_url: _Optional[str] = ...,
+        trace_id: _Optional[str] = ...,
+        has_plan_stages: bool = ...,
+        plan_uri: _Optional[str] = ...,
+        performance_summary_uri: _Optional[str] = ...,
     ) -> None: ...
 
 class GetDataFrameRunDownloadUrlsRequest(_message.Message):
@@ -360,4 +385,25 @@ class GetDataFrameRunResponse(_message.Message):
         self,
         run: _Optional[_Union[DataFrameRun, _Mapping]] = ...,
         errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
+    ) -> None: ...
+
+class GetDataFrameRunPlanRequest(_message.Message):
+    __slots__ = ("operation_id",)
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    operation_id: str
+    def __init__(self, operation_id: _Optional[str] = ...) -> None: ...
+
+class GetDataFrameRunPlanResponse(_message.Message):
+    __slots__ = ("query_plan_json", "logical_plan", "physical_plan")
+    QUERY_PLAN_JSON_FIELD_NUMBER: _ClassVar[int]
+    LOGICAL_PLAN_FIELD_NUMBER: _ClassVar[int]
+    PHYSICAL_PLAN_FIELD_NUMBER: _ClassVar[int]
+    query_plan_json: str
+    logical_plan: str
+    physical_plan: str
+    def __init__(
+        self,
+        query_plan_json: _Optional[str] = ...,
+        logical_plan: _Optional[str] = ...,
+        physical_plan: _Optional[str] = ...,
     ) -> None: ...

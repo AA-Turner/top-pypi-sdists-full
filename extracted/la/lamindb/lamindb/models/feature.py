@@ -46,8 +46,10 @@ from .run import (
 )
 from .sqlrecord import (
     BaseSQLRecord,
+    Branch,
     HasType,
     Registry,
+    Space,
     SQLRecord,
     _get_record_kwargs,
     pop_space_branch_kwargs,
@@ -125,6 +127,46 @@ def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, An
             f"dtype is '{dtype_str}' but has to be one of {FEATURE_DTYPES}!"
         )
     return result
+
+
+def transfer_feature_dtypes(
+    feature: Feature, using_key: str | None, transfer_logs: dict
+) -> None:
+    from .sqlrecord import transfer_to_default_db
+
+    dtype_str = feature._dtype_str
+    if dtype_str is None:
+        return None
+    # Only typed refs need transfer here (Record[...] / ULabel[...]).
+    # Other categorical dtypes like cat[bionty.CellType] don't reference a
+    # concrete type record and should bypass this logic.
+    if "Record[" not in dtype_str and "ULabel[" not in dtype_str:
+        return None
+    parsed_dtypes = parse_dtype(dtype_str)
+
+    for parsed_dtype in parsed_dtypes:
+        source_type_uid = parsed_dtype.get("type_uid")
+        if source_type_uid is None:
+            continue
+        registry = parsed_dtype["registry"]
+        source_type = registry.objects.using(feature._state.db).get(uid=source_type_uid)
+        source_type_id = source_type.id
+        transferred_type = transfer_to_default_db(
+            source_type, using_key, transfer_logs=transfer_logs, save=True
+        )
+        if getattr(source_type, "is_type", False):
+            source_typed_children = source_type.__class__.objects.using(
+                feature._state.db
+            ).filter(type_id=source_type_id)
+            for source_record in source_typed_children:
+                transfer_to_default_db(
+                    source_record, using_key, transfer_logs=transfer_logs, save=True
+                )
+        assert transferred_type is None or transferred_type.uid == source_type_uid, (
+            "transfer_feature_dtypes() expected UID invariance for dtype type "
+            f"{registry.__name__}(uid='{source_type_uid}'), but mapped to "
+            f"uid='{transferred_type.uid}'."
+        )
 
 
 def get_record_type_from_uid(
@@ -454,6 +496,20 @@ def serialize_dtype(
                 dtype = [dtype]
             elif not isinstance(dtype, list):
                 raise ValueError(error_message.format(dtype))
+            # A union (more than one element) is only supported for static registry
+            # types or fields - not for `Record`/`ULabel` subtype instances, which would
+            # otherwise be serialized into a malformed dtype without `|` separators
+            # (e.g. `Record[uid1]Record[uid2]`) and fail validation with a confusing error.
+            if len(dtype) > 1 and any(
+                isinstance(one_dtype, (ULabel, Record)) for one_dtype in dtype
+            ):
+                raise InvalidArgument(
+                    "Cannot create a union dtype that includes a `Record` or `ULabel` "
+                    "subtype, e.g. `dtype=[record_type_1, record_type_2]`. Unions are only "
+                    "supported for static registry types or fields, e.g. "
+                    "`dtype=bionty.ExperimentalFactor | bionty.Disease`. To restrict to a "
+                    "single subtype, pass it directly, e.g. `dtype=record_type`."
+                )
             dtype_str = ""
             for one_dtype in dtype:
                 if not isinstance(
@@ -708,6 +764,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
             Defaults to `False` unless `is_type` is `True`.
         cat_filters: `dict[str, SQLRecord | bool | str] | None = None` Subset a registry by additional filters to define valid categories.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space.
 
     See Also:
         :class:`~lamindb.Schema`
@@ -872,8 +930,10 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         qualifies variables in a joint measurement. The canonical data matrix
         lists jointly measured variables in the columns.
 
-    Data types
-    ----------
+    .. _dtypes-note:
+
+    Data types (dtypes)
+    -------------------
 
     **Simple data types.** In  the table below, the first column shows the object that
     can be passed to the `dtype` argument of `Feature()` or `Schema()` and the second the string serialization
@@ -936,7 +996,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         * - `ln.Artifact`
           - `"cat[Artifact]"`
 
-    You can restrict permissible values to instances of `ULabel` or `Record` types.
+    You can restrict permissible values to instances of `ULabel` or `Record` types, i.e., to dynamic registries.
 
     .. list-table::
         :header-rows: 1
@@ -976,6 +1036,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
           - `"list[float]"`
 
     **Union data types.**
+
+    Unions are currently only supported for static registries.
 
     .. list-table::
         :header-rows: 1
@@ -1167,6 +1229,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         default_value: Any | None = None,
         coerce: bool | None = None,
         cat_filters: dict[str, SQLRecord | bool | str] | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload
@@ -1348,6 +1412,20 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     def __le__(self, value: Any) -> FeaturePredicate:
         return FeaturePredicate(self, "__lte", value)
+
+    def is_null(self, value: bool = True) -> FeaturePredicate:
+        """Build a predicate for null-style feature presence checks.
+
+        Example::
+
+            perturbation = ln.Feature.get(name="perturbation")
+            ln.Artifact.filter(perturbation.is_null(False)).to_dataframe(
+                include="features"
+            )
+        """
+        if not isinstance(value, bool):
+            raise TypeError("Feature.is_null() expects a bool value.")
+        return FeaturePredicate(self, "__isnull", value)
 
     # manually sync this docstring across all other children of HasType
     def query_features(self) -> QuerySet:

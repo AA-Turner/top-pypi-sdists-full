@@ -48,7 +48,7 @@ use crate::{
     impl_pickle,
     session::PySession,
     stats::PyChunkStorageStats,
-    streams::PyAsyncGenerator,
+    streams::PyAsyncCloseableIterator,
 };
 
 fn parse_commit_method(method: &str) -> PyResult<icechunk::session::CommitMethod> {
@@ -69,7 +69,7 @@ pub struct JsonValue(pub serde_json::Value);
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PySnapshotProperties(pub HashMap<String, JsonValue>);
 
-#[pyclass(name = "SnapshotInfo", eq)]
+#[pyclass(skip_from_py_object, name = "SnapshotInfo", eq)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PySnapshotInfo {
     #[pyo3(get)]
@@ -87,7 +87,7 @@ pub(crate) struct PySnapshotInfo {
 
 impl_pickle!(PySnapshotInfo);
 
-#[pyclass(name = "ManifestFileInfo", eq)]
+#[pyclass(skip_from_py_object, name = "ManifestFileInfo", eq)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PyManifestFileInfo {
     #[pyo3(get)]
@@ -533,7 +533,13 @@ impl PyGCSummary {
 
 impl_pickle!(PyGCSummary);
 
-#[pyclass(name = "RepoAvailability", eq, eq_int, rename_all = "snake_case")]
+#[pyclass(
+    from_py_object,
+    name = "RepoAvailability",
+    eq,
+    eq_int,
+    rename_all = "snake_case"
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum PyRepoAvailability {
     Online,
@@ -558,7 +564,7 @@ impl From<PyRepoAvailability> for RepoAvailability {
     }
 }
 
-#[pyclass(name = "RepoStatus", get_all, eq)]
+#[pyclass(from_py_object, name = "RepoStatus", get_all, eq)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PyRepoStatus {
     availability: PyRepoAvailability,
@@ -636,7 +642,7 @@ impl PyRepoStatus {
     }
 }
 
-#[pyclass(name = "UpdateType", eq)]
+#[pyclass(skip_from_py_object, name = "UpdateType", eq)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum PyUpdateType {
     BranchCreated { name: String },
@@ -765,7 +771,7 @@ impl PyUpdate {
     }
 }
 
-#[pyclass(name = "FeatureFlag", eq)]
+#[pyclass(skip_from_py_object, name = "FeatureFlag", eq)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PyFeatureFlag {
     #[pyo3(get)]
@@ -1958,7 +1964,7 @@ impl PyRepository {
         branch: Option<String>,
         tag: Option<String>,
         snapshot_id: Option<String>,
-    ) -> PyResult<PyAsyncGenerator> {
+    ) -> PyResult<PyAsyncCloseableIterator> {
         // This function calls block_on, so we need to allow other thread python to make progress
         py.detach(move || {
             let version = args_to_version_info(branch, tag, snapshot_id, None)?;
@@ -1978,7 +1984,7 @@ impl PyRepository {
             });
 
             let prepared_list = Arc::new(Mutex::new(parents.err_into().boxed()));
-            Ok(PyAsyncGenerator::new(prepared_list))
+            Ok(PyAsyncCloseableIterator::new(prepared_list))
         })
     }
 
@@ -2027,7 +2033,10 @@ impl PyRepository {
         })
     }
 
-    pub(crate) fn async_ops_log(&self, py: Python<'_>) -> PyResult<PyAsyncGenerator> {
+    pub(crate) fn async_ops_log(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<PyAsyncCloseableIterator> {
         // This function calls block_on, so we need to allow other thread python to make progress
         py.detach(move || {
             let ops = pyo3_async_runtimes::tokio::get_runtime()
@@ -2042,7 +2051,7 @@ impl PyRepository {
                 });
 
             let prepared_list = Arc::new(Mutex::new(ops.err_into().boxed()));
-            Ok(PyAsyncGenerator::new(prepared_list))
+            Ok(PyAsyncCloseableIterator::new(prepared_list))
         })
     }
 

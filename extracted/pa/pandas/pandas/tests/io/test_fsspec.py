@@ -22,7 +22,6 @@ from pandas import (
 )
 import pandas._testing as tm
 from pandas.util import _test_decorators as td
-from pandas.util.version import Version
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore:Passing a BlockManager to DataFrame:DeprecationWarning"
@@ -180,19 +179,13 @@ def test_excel_options(fsspectest):
     assert fsspectest.test[0] == "read"
 
 
-def test_to_parquet_new_file(cleared_fs, df1, request):
+@pytest.mark.xfail(
+    using_string_dtype() and HAS_PYARROW and not pa_version_under14p0,
+    reason="TODO(infer_string) fastparquet",
+)
+def test_to_parquet_new_file(cleared_fs, df1):
     """Regression test for writing to a not-yet-existent GCS Parquet file."""
-    fp = pytest.importorskip("fastparquet")
-
-    request.applymarker(
-        pytest.mark.xfail(
-            using_string_dtype()
-            and HAS_PYARROW
-            and not pa_version_under14p0
-            and Version(fp.__version__) <= Version("2025.12.0"),
-            reason="TODO(infer_string) fastparquet",
-        )
-    )
+    pytest.importorskip("fastparquet")
 
     df1.to_parquet(
         "memory://test/test.csv", index=True, engine="fastparquet", compression=None

@@ -460,6 +460,12 @@ CDockAreaWidget::CDockAreaWidget(CDockManager* DockManager, CDockContainerWidget
 
 	d->createTitleBar();
 	d->ContentsLayout = new DockAreaLayout(d->Layout);
+
+	if (CDockManager::testConfigFlag(CDockManager::UseNativeWindows))
+	{
+		winId();
+	}
+
 	if (d->DockManager)
 	{
 		Q_EMIT d->DockManager->dockAreaCreated(this);
@@ -603,8 +609,7 @@ void CDockAreaWidget::removeDockWidget(CDockWidget* DockWidget)
 		{
 			if(CFloatingDockContainer*  FloatingDockContainer = DockContainer->floatingWidget())
 			{
-				FloatingDockContainer->hide();
-				FloatingDockContainer->deleteLater();
+				FloatingDockContainer->finishDropOperation();
 			}
 		}
 	}
@@ -885,7 +890,12 @@ void CDockAreaWidget::updateTitleBarVisibility()
     if (!CDockManager::testConfigFlag(CDockManager::AlwaysShowTabs))
     {
         bool Hidden = false;
-        if (!IsAutoHide)  // Titlebar must always be visible when auto hidden so it can be dragged
+        // Wayland: the title bar of a floating container must always stay
+        // visible because it is the only handle that can drag the dock
+        // widget back into a dock container. The window decoration is owned
+        // by the compositor and only moves the window
+        bool IsWaylandFloating = internal::isWayland() && Container->isFloating();
+        if (!IsAutoHide && !IsWaylandFloating)  // Titlebar must always be visible when auto hidden so it can be dragged
         {
             if (Container->isFloating() || CDockManager::testConfigFlag(CDockManager::HideSingleCentralWidgetTitleBar))
             {
@@ -925,6 +935,19 @@ void CDockAreaWidget::updateTitleBarVisibility()
 		d->TitleBar->showAutoHideControls(IsAutoHide);
 		updateTitleBarButtonVisibility(Container->topLevelDockArea() == this);
 	}
+}
+
+
+//============================================================================
+void CDockAreaWidget::updateWindowTitle()
+{
+	auto currentWidget = d->ContentsLayout->currentWidget();
+	if (d->TitleBar && currentWidget)
+	{
+		d->TitleBar->autoHideTitleLabel()->setText(currentWidget->windowTitle());
+	}
+
+	markTitleBarMenuOutdated();
 }
 
 
@@ -1481,14 +1504,18 @@ QSize CDockAreaWidget::minimumSizeHint() const
 		return Super::minimumSizeHint();
 	}
 
+	int extraHeight = 0;
 	if (d->TitleBar->isVisible())
 	{
-		return d->MinSizeHint + QSize(0, d->TitleBar->minimumSizeHint().height());
+		extraHeight += d->TitleBar->minimumSizeHint().height();
 	}
-	else
+
+	if (CDockManager::testConfigFlag(CDockManager::TabsAtBottom) && d->tabBar()->isVisible())
 	{
-		return d->MinSizeHint;
+		extraHeight += d->tabBar()->minimumSizeHint().height();
 	}
+
+	return d->MinSizeHint + QSize(0, extraHeight);
 }
 
 

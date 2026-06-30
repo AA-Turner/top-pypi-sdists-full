@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1f\x63halk/common/v1/dataframe.proto\x12\x0f\x63halk.common.v1"\xa5\x02\n\x16\x44\x61taFrameRunJobRequest\x12!\n\x0coperation_id\x18\x01 \x01(\tR\x0boperationId\x12*\n\x0e\x63orrelation_id\x18\x02 \x01(\tH\x00R\rcorrelationId\x88\x01\x01\x12@\n\x1a\x63ompressed_plan_uri_prefix\x18\x03 \x01(\tH\x01R\x17\x63ompressedPlanUriPrefix\x88\x01\x01\x12\x31\n\x12shard_operation_id\x18\x04 \x01(\tH\x02R\x10shardOperationId\x88\x01\x01\x42\x11\n\x0f_correlation_idB\x1d\n\x1b_compressed_plan_uri_prefixB\x15\n\x13_shard_operation_idB\x83\x01\n\x13\x63om.chalk.common.v1B\x0e\x44\x61taframeProtoP\x01\xa2\x02\x03\x43\x43X\xaa\x02\x0f\x43halk.Common.V1\xca\x02\x0f\x43halk\\Common\\V1\xe2\x02\x1b\x43halk\\Common\\V1\\GPBMetadata\xea\x02\x11\x43halk::Common::V1b\x06proto3'
+    b'\n\x1f\x63halk/common/v1/dataframe.proto\x12\x0f\x63halk.common.v1"\xaf\x03\n\x16\x44\x61taFrameRunJobRequest\x12!\n\x0coperation_id\x18\x01 \x01(\tR\x0boperationId\x12*\n\x0e\x63orrelation_id\x18\x02 \x01(\tH\x00R\rcorrelationId\x88\x01\x01\x12@\n\x1a\x63ompressed_plan_uri_prefix\x18\x03 \x01(\tH\x01R\x17\x63ompressedPlanUriPrefix\x88\x01\x01\x12\x31\n\x12shard_operation_id\x18\x04 \x01(\tH\x02R\x10shardOperationId\x88\x01\x01\x12[\n(update_performance_summary_interval_secs\x18\x05 \x01(\x01H\x03R$updatePerformanceSummaryIntervalSecs\x88\x01\x01\x42\x11\n\x0f_correlation_idB\x1d\n\x1b_compressed_plan_uri_prefixB\x15\n\x13_shard_operation_idB+\n)_update_performance_summary_interval_secsB\x83\x01\n\x13\x63om.chalk.common.v1B\x0e\x44\x61taframeProtoP\x01\xa2\x02\x03\x43\x43X\xaa\x02\x0f\x43halk.Common.V1\xca\x02\x0f\x43halk\\Common\\V1\xe2\x02\x1b\x43halk\\Common\\V1\\GPBMetadata\xea\x02\x11\x43halk::Common::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -26,5 +26,5 @@ if _descriptor._USE_C_DESCRIPTORS == False:
         "DESCRIPTOR"
     ]._serialized_options = b"\n\023com.chalk.common.v1B\016DataframeProtoP\001\242\002\003CCX\252\002\017Chalk.Common.V1\312\002\017Chalk\\Common\\V1\342\002\033Chalk\\Common\\V1\\GPBMetadata\352\002\021Chalk::Common::V1"
     _globals["_DATAFRAMERUNJOBREQUEST"]._serialized_start = 53
-    _globals["_DATAFRAMERUNJOBREQUEST"]._serialized_end = 346
+    _globals["_DATAFRAMERUNJOBREQUEST"]._serialized_end = 484
 # @@protoc_insertion_point(module_scope)

@@ -15838,6 +15838,7 @@ class PlacementGroupTypeDef(TypedDict):
     SpreadLevel: NotRequired[SpreadLevelType]
     LinkedGroupId: NotRequired[str]
     Operator: NotRequired[OperatorResponseTypeDef]
+    ParentGroupId: NotRequired[str]
 
 
 class VolumeRecycleBinInfoTypeDef(TypedDict):
@@ -21372,6 +21373,7 @@ class CreatePlacementGroupRequestServiceResourceCreatePlacementGroupTypeDef(Type
     SpreadLevel: NotRequired[SpreadLevelType]
     LinkedGroupId: NotRequired[str]
     Operator: NotRequired[OperatorRequestTypeDef]
+    ParentGroupId: NotRequired[str]
     DryRun: NotRequired[bool]
     GroupName: NotRequired[str]
     Strategy: NotRequired[PlacementStrategyType]
@@ -21383,6 +21385,7 @@ class CreatePlacementGroupRequestTypeDef(TypedDict):
     SpreadLevel: NotRequired[SpreadLevelType]
     LinkedGroupId: NotRequired[str]
     Operator: NotRequired[OperatorRequestTypeDef]
+    ParentGroupId: NotRequired[str]
     DryRun: NotRequired[bool]
     GroupName: NotRequired[str]
     Strategy: NotRequired[PlacementStrategyType]

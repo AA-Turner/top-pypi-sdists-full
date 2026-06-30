@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: webauthn
-Version: 2.8.0
+Version: 3.0.0
 Summary: Pythonic WebAuthn
 Author-email: Duo Labs <labs@duo.com>
 License-Expression: BSD-3-Clause
@@ -14,9 +14,9 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pyasn1>=0.6.2
 Requires-Dist: pyasn1-modules>=0.4.2
-Requires-Dist: cbor2<6.0.0,>=5.6.5
-Requires-Dist: cryptography>=46.0.0
-Requires-Dist: pyOpenSSL>=26.0.0
+Requires-Dist: cbor2>=6.1.2
+Requires-Dist: cryptography>=49.0.0
+Requires-Dist: pyOpenSSL>=26.3.0
 Dynamic: license-file
 
 # py_webauthn

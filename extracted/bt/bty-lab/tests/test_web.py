@@ -1337,6 +1337,117 @@ def test_pxe_sanboot_mode_returns_sanboot_template(app_client: TestClient) -> No
     assert "kernel" not in body
 
 
+def _seed_ramboot_ready(state_path: Path, ref: str) -> None:
+    """Mark a ref as pre-warmed in ``ramboot_cache`` so iPXE-side
+    tests can assert the ramboot template emission without
+    standing up a real nbdmux + a real fetch worker."""
+    import sqlite3
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC).isoformat()
+    with sqlite3.connect(state_path) as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO ramboot_cache "
+            "(ref, status, image_path, export_name, decompressed_size, "
+            "enqueued_at, started_at, completed_at, updated_at) "
+            "VALUES (?, 'ready', ?, ?, ?, ?, ?, ?, ?)",
+            (ref, f"/tmp/{ref}.img", ref, 1024, now, now, now, now),
+        )
+
+
+def test_pxe_ramboot_emits_ramboot_template_when_configured(
+    app_client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``boot_mode=ramboot`` + nbdmux URL set + ref bound + cache.ready
+    emits the ramboot iPXE template with the bty.* params the
+    initramfs consumes (nbd endpoint, image ref, overlay size)."""
+    monkeypatch.setenv("BTY_NBDMUX_URL", "http://nbdmux.invalid:4040")
+    ref = "a" * 64
+    # Seed the ramboot_cache row ahead of the PUT so the upsert's
+    # idempotent enqueue is a no-op and the worker doesn't try to
+    # fetch a fictional source URL.
+    _seed_ramboot_ready(tmp_path / "state.db", ref)
+    app_client.put(
+        "/machines/aa:bb:cc:dd:ee:ab",
+        json={
+            "boot_mode": "ramboot",
+            "bty_image_ref": ref,
+        },
+        cookies=AUTH,
+    )
+    r = app_client.get("/pxe/aa:bb:cc:dd:ee:ab")
+    assert r.status_code == 200
+    body = r.text
+    assert "boot=ramboot" in body
+    assert "bty.nbd=tcp://nbdmux.invalid:10809" in body
+    assert "bty.image=" + ref in body
+    assert "bty.overlay_size=10G" in body
+    assert "bty-ramboot-init-x86_64-v" in body
+    assert "bty.server=" in body  # ramboot template does carry server
+    assert "boot=live" not in body
+
+
+def test_pxe_ramboot_falls_back_to_tui_when_not_pre_warmed(
+    app_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """nbdmux URL + ref bound but ramboot_cache.status != 'ready'
+    -> ipxe_tui fallback (don't chain into a half-baked ramboot)."""
+    monkeypatch.setenv("BTY_NBDMUX_URL", "http://nbdmux.invalid:4040")
+    app_client.put(
+        "/machines/aa:bb:cc:dd:ee:ae",
+        json={
+            "boot_mode": "ramboot",
+            "bty_image_ref": "e" * 64,
+        },
+        cookies=AUTH,
+    )
+    # No seed -> ramboot_cache row is either absent or queued.
+    r = app_client.get("/pxe/aa:bb:cc:dd:ee:ae")
+    assert r.status_code == 200
+    assert "boot=ramboot" not in r.text
+    assert "boot=live" in r.text
+
+
+def test_pxe_ramboot_falls_back_to_tui_when_nbdmux_unset(
+    app_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No nbdmux URL configured -> the iPXE chain falls back to
+    ipxe_tui so the operator picks an image manually rather than
+    the box hard-paniccing on a missing NBD server."""
+    monkeypatch.delenv("BTY_NBDMUX_URL", raising=False)
+    app_client.put(
+        "/machines/aa:bb:cc:dd:ee:ac",
+        json={
+            "boot_mode": "ramboot",
+            "bty_image_ref": "b" * 64,
+        },
+        cookies=AUTH,
+    )
+    r = app_client.get("/pxe/aa:bb:cc:dd:ee:ac")
+    assert r.status_code == 200
+    body = r.text
+    assert "boot=ramboot" not in body
+    # ipxe_tui chain points at the bty-tui live env.
+    assert "boot=live" in body
+
+
+def test_pxe_ramboot_falls_back_to_tui_without_ref(
+    app_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """nbdmux URL set but no ref bound -> ipxe_tui fallback (same
+    visibility shape as the unset-URL case)."""
+    monkeypatch.setenv("BTY_NBDMUX_URL", "http://nbdmux.invalid:4040")
+    app_client.put(
+        "/machines/aa:bb:cc:dd:ee:ad",
+        json={"boot_mode": "ramboot"},
+        cookies=AUTH,
+    )
+    r = app_client.get("/pxe/aa:bb:cc:dd:ee:ad")
+    assert r.status_code == 200
+    assert "boot=ramboot" not in r.text
+    assert "boot=live" in r.text
+
+
 def test_pxe_sanboot_mode_uses_per_machine_drive_override(app_client: TestClient) -> None:
     """``sanboot_drive`` overrides the default 0x80 so multi-disk
     boxes can point iPXE at the right BIOS drive."""
@@ -5192,9 +5303,10 @@ def test_ui_machines_renders_timestamps_compactly(app_client: TestClient, tmp_pa
         conn.commit()
     page = app_client.get("/ui/machines", cookies=AUTH)
     assert page.status_code == 200, page.text
-    # Compact form rendered in the row body (no offset, no " UTC").
-    assert "2026-05-17 20:21:09" in page.text
-    assert "2026-05-17 20:21:09 UTC" not in page.text
+    # Compact form rendered in the row body with a TZ abbreviation
+    # appended so the operator never confuses UTC for local time. The
+    # default zone is UTC (the bty storage standard).
+    assert "2026-05-17 20:21:09 UTC" in page.text
     # Raw form kept in the title= attribute for hover precision.
     assert 'title="2026-05-17T20:21:09.155109+00:00"' in page.text
 

@@ -795,6 +795,14 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
         derivative_guard: f64,
         probit_scale: f64,
         drops_by_block_initial: (usize, usize, usize),
+        // #979: true when the cutover engaged the W-orthogonal PARTIAL
+        // reduced-logslope reparam (effective Schur Gram) rather than the
+        // full per-term compiler. In that case the post-accept recompile —
+        // which re-runs the FULL per-term compiler — collapses the logslope
+        // channel WHOLESALE by construction, so its drops legitimately differ
+        // from the partial structural drops and must NOT be flagged as a
+        // pilot-curvature trap (that comparison is apples-to-oranges).
+        used_partial_logslope_reduction: bool,
     }
     type SmgsCutoverTuple = (
         gam_linalg::matrix::DesignMatrix,
@@ -984,6 +992,8 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
                     Option<(
                         gam_identifiability::families::compiler::CompiledMap,
                         (usize, usize, usize),
+                        // #979: used_partial_logslope_reduction (see struct doc)
+                        bool,
                     )>,
                     String,
                 > {
@@ -1121,6 +1131,8 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
                             Option<(
                                 gam_identifiability::families::compiler::CompiledMap,
                                 (usize, usize, usize),
+                                // #979: used_partial_logslope_reduction (see struct doc)
+                                bool,
                             )>,
                             String,
                         > {
@@ -1154,14 +1166,191 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
                             if let Some(real) = smgs_deleted_required_channel_reason(
                                 p_time, p_marg, p_log, fw_time, fw_marg, fw_log,
                             ) {
-                                log::warn!(
-                                    "[smgs phase-4b compiled-map] full row-Hessian compile also \
-                                     deletes channel {real} (time {p_time}→{fw_time}, \
-                                     marginal {p_marg}→{fw_marg}, logslope {p_log}→{fw_log}); \
-                                     alias is genuine — using the unreduced design and leaving \
-                                     the near-null direction to Jeffreys conditioning",
-                                );
-                                Ok(None)
+                                // #979 residual phantom-null path. The full 4×4
+                                // row-Hessian quotient ALSO collapses a required
+                                // channel: the effective metric is genuinely
+                                // rank-deficient here. Historically this fell back
+                                // to the UNREDUCED design + Jeffreys, leaving a
+                                // quadratically-flat near-null direction in the
+                                // joint penalized Hessian — the inner solve could
+                                // not certify stationarity, so the outer wall-clock
+                                // deadline became load-bearing rather than a pure
+                                // backstop.
+                                //
+                                // Instead, MEASURE before deciding. Assemble the
+                                // joint penalized Hessian M = JᵀHJ + S and the
+                                // joint score g at the pilot, eigendecompose, and
+                                // for every near-null direction v measure the
+                                // gradient residual r = |vᵀg|. Accept the
+                                // channel-collapsing reduction (projecting that
+                                // direction away) ONLY when every near-null
+                                // direction is an empirical phantom — r ≤ λ·step,
+                                // i.e. the optimizer would converge it in under one
+                                // trust step, so projecting it changes neither the
+                                // optimum nor hides non-stationarity. If any
+                                // near-null direction carries real non-stationarity
+                                // (r > λ·step, e.g. a near-separating pull), or the
+                                // collapsed channel is the spatial TIME block, we
+                                // refuse to project and keep the conservative
+                                // unreduced + Jeffreys fallback (the deadline still
+                                // backstops). This is the gate that prevents the
+                                // reward-hacking failure mode of silently deleting
+                                // a direction the model genuinely needs — exactly
+                                // the regression a naive nullspace-shrink caused on
+                                // the n ≥ 1000 spatial path.
+                                //
+                                // #979 ROOT-CAUSE FIX (preferred over the gate
+                                // below): when the COLLAPSED channel is logslope,
+                                // first try a W-orthogonal PARTIAL reduced-logslope
+                                // reparam — the proven-correct BMS construction
+                                // (`bms::block_specs::reduced_logslope_transform_effective`)
+                                // ported into survival's per-row 4×4 Hessian metric
+                                // (`survival_reduced_logslope_transform_effective`).
+                                // The full per-term compiler deletes the WHOLE
+                                // logslope channel because its priority-ordered RRQR
+                                // attributes every shared marginal↔logslope direction
+                                // to the lowest-priority logslope block. The effective
+                                // Schur Gram instead removes from logslope ONLY the
+                                // directions W-explained by the marginal span, KEEPS
+                                // the `r` surviving directions, and leaves marginal/
+                                // time untouched. The joint penalised Hessian
+                                // M = JᵀHJ + S is then full-rank BY CONSTRUCTION — the
+                                // 2e14 marginal↔logslope phantom null is gone, the
+                                // inner joint-Newton certifies on its own, and the
+                                // wall-clock deadline is demoted to a pure backstop.
+                                // Only the logslope confound is eligible here (the
+                                // spatial time block is protected by the gate below).
+                                if real == "logslope" {
+                                    use crate::survival::marginal_slope::identifiability::{
+                                        survival_block_diagonal_logslope_map,
+                                        survival_reduced_logslope_transform_effective,
+                                    };
+                                    match survival_reduced_logslope_transform_effective(
+                                        m_dq.view(),
+                                        g_dg.view(),
+                                        &row_hess,
+                                    ) {
+                                        Ok(Some(t_log)) => {
+                                            let wl = t_log.ncols();
+                                            let bd_map = survival_block_diagonal_logslope_map(
+                                                p_time, p_marg, &t_log,
+                                            );
+                                            log::info!(
+                                                "[smgs phase-4b compiled-map] #979: full row-Hessian \
+                                                 collapses the logslope channel ({p_log}→0), but the \
+                                                 W-orthogonal effective Schur Gram keeps {wl}/{p_log} \
+                                                 surviving logslope directions; engaging the BMS-style \
+                                                 PARTIAL reduced-logslope reparam (marginal/time pass \
+                                                 through unchanged) so the joint penalised Hessian is \
+                                                 full-rank by construction — phantom null removed, \
+                                                 deadline demoted to backstop",
+                                            );
+                                            return Ok(Some((bd_map, (p_time, p_marg, wl), true)));
+                                        }
+                                        Ok(None) => {
+                                            // r == p_log (no effective confound to
+                                            // remove) or r == 0 (whole logslope image
+                                            // in the marginal span). Fall through to
+                                            // the measured-phantom gate below.
+                                        }
+                                        Err(reason) => {
+                                            log::warn!(
+                                                "[smgs phase-4b compiled-map] #979 partial \
+                                                 reduced-logslope reparam unavailable ({reason}); \
+                                                 falling back to the measured-phantom gate",
+                                            );
+                                        }
+                                    }
+                                }
+                                let gate = (|| -> Result<bool, String> {
+                                    // Protect the spatial/time path: only the
+                                    // marginal↔logslope confound is eligible for
+                                    // measured projection here.
+                                    if real == "time" {
+                                        return Ok(false);
+                                    }
+                                    let time_pen = dense_block_penalty_from_dense_list(
+                                        &spec.time_block.penalties,
+                                        p_time,
+                                    )?;
+                                    let marg_pen = dense_block_penalty_from_blockwise(
+                                        &marginal_design.penalties,
+                                        p_marg,
+                                    )?;
+                                    let log_pen = dense_block_penalty_from_blockwise(
+                                        &logslope_design.penalties,
+                                        p_log,
+                                    )?;
+                                    let s_total = assemble_unit_block_penalty(
+                                        p_time, p_marg, p_log, &time_pen, &marg_pen, &log_pen,
+                                    )?;
+                                    let report = survival_kkt_refusal_report_at_pilot(
+                                        SurvivalEffectiveDesigns {
+                                            dq0: &dq0,
+                                            dq1: &dq1,
+                                            dqd1: &dqd1,
+                                            m_dq: &m_dq,
+                                            m_dqd1: &m_dqd1,
+                                            g_dg: &g_dg,
+                                        },
+                                        &row_hess,
+                                        SurvivalPilotRows {
+                                            q0: &q0_pilot,
+                                            q1: &q1_pilot,
+                                            qd1: &qd1_pilot,
+                                            g: &g_pilot,
+                                            z: &z_primary,
+                                            weights: &spec.weights,
+                                            event: &spec.event_target,
+                                        },
+                                        SurvivalLinkParams {
+                                            derivative_guard,
+                                            probit_scale,
+                                        },
+                                        &s_total,
+                                        KKT_PHANTOM_TRUST_RADIUS,
+                                    )?;
+                                    log::info!(
+                                        "[smgs phase-4b kkt-refusal] channel={real} {}",
+                                        report.summary(),
+                                    );
+                                    Ok(report.all_near_null_are_phantom())
+                                })();
+                                match gate {
+                                    Ok(true) => {
+                                        log::info!(
+                                            "[smgs phase-4b compiled-map] #979: full row-Hessian \
+                                             collapses channel {real} (time {p_time}→{fw_time}, \
+                                             marginal {p_marg}→{fw_marg}, logslope {p_log}→{fw_log}), \
+                                             but the joint penalized Hessian's near-null \
+                                             direction(s) are MEASURED phantoms (gradient residual \
+                                             ≤ λ·step); engaging the channel-reduced quotient so \
+                                             the phantom null direction is projected out — \
+                                             deadline demoted to backstop",
+                                        );
+                                        Ok(Some((map, (fw_time, fw_marg, fw_log), false)))
+                                    }
+                                    Ok(false) => {
+                                        log::warn!(
+                                            "[smgs phase-4b compiled-map] full row-Hessian compile \
+                                             also deletes channel {real} (time {p_time}→{fw_time}, \
+                                             marginal {p_marg}→{fw_marg}, logslope {p_log}→{fw_log}); \
+                                             the near-null direction carries real non-stationarity \
+                                             (or is the spatial time block) — refusing to project; \
+                                             using the unreduced design and leaving the near-null \
+                                             direction to Jeffreys conditioning",
+                                        );
+                                        Ok(None)
+                                    }
+                                    Err(reason) => {
+                                        log::warn!(
+                                            "[smgs phase-4b compiled-map] KKT-refusal measurement \
+                                             failed ({reason}); conservatively using the unreduced \
+                                             design for channel {real}",
+                                        );
+                                        Ok(None)
+                                    }
+                                }
                             } else {
                                 log::info!(
                                     "[smgs phase-4b compiled-map] #741: η₁-only metric falsely \
@@ -1170,7 +1359,7 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
                                      marginal {p_marg}→{fw_marg}, logslope {p_log}→{fw_log}); \
                                      engaging closed-form fast path on the correct quotient",
                                 );
-                                Ok(Some((map, (fw_time, fw_marg, fw_log))))
+                                Ok(Some((map, (fw_time, fw_marg, fw_log), false)))
                             }
                         })();
                         match full_row_hess {
@@ -1186,11 +1375,11 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
                             }
                         }
                     } else {
-                        Ok(Some((map, (w_time, w_marg, w_log))))
+                        Ok(Some((map, (w_time, w_marg, w_log), false)))
                     }
                 })();
                 match closed_form {
-                    Ok(Some((map, (wt, wm, wl)))) => {
+                    Ok(Some((map, (wt, wm, wl), used_partial_logslope_reduction))) => {
                         let drops = (
                             p_time.saturating_sub(wt),
                             p_marg.saturating_sub(wm),
@@ -1219,6 +1408,7 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
                             derivative_guard,
                             probit_scale,
                             drops_by_block_initial: drops,
+                            used_partial_logslope_reduction,
                         });
                         if drops.0 + drops.1 + drops.2 == 0 {
                             log::info!(
@@ -2442,6 +2632,35 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
             Ok(compiled.drops_by_block)
         })();
         match recompile_result {
+            Ok(drops_post) if ctx.used_partial_logslope_reduction => {
+                // #979: the cutover used the W-orthogonal PARTIAL
+                // reduced-logslope reparam, whose structural drops come from
+                // the effective Schur Gram (keep `wl` surviving directions).
+                // The recompile above re-runs the FULL per-term compiler, which
+                // by construction collapses the WHOLE logslope channel — that
+                // is exactly the over-collapse the partial reparam routes
+                // around, so a logslope-drop difference here is EXPECTED and
+                // healthy, not a pilot-curvature trap. Confirm the full
+                // compiler still over-collapses logslope at converged β (the
+                // confound persists, so the partial reparam was the right
+                // call) and log it at info without crying wolf.
+                let confound_persists = drops_post.2 > ctx.drops_by_block_initial.2;
+                log::info!(
+                    "[smgs phase-4b recompile-after-accept] #979 partial reduced-logslope \
+                     reparam: structural drops=(time={}, marginal={}, logslope={}); full per-term \
+                     recompile at converged β drops=(time={}, marginal={}, logslope={}) — the \
+                     full compiler {} over-collapses logslope, as expected for the partial \
+                     reparam (no pilot-curvature trap); elapsed={:.3}s",
+                    ctx.drops_by_block_initial.0,
+                    ctx.drops_by_block_initial.1,
+                    ctx.drops_by_block_initial.2,
+                    drops_post.0,
+                    drops_post.1,
+                    drops_post.2,
+                    if confound_persists { "still" } else { "no longer" },
+                    recompile_started.elapsed().as_secs_f64(),
+                );
+            }
             Ok(drops_post) => {
                 if drops_post == ctx.drops_by_block_initial {
                     log::debug!(

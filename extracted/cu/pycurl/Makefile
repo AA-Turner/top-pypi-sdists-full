@@ -90,14 +90,20 @@ DOCSTRINGS_SOURCES = \
 	doc/docstrings/multi_socket_all.rst \
 	doc/docstrings/multi_timeout.rst \
 	doc/docstrings/multi_unassign.rst \
+	doc/docstrings/pycurl_easy_strerror.rst \
 	doc/docstrings/pycurl_global_cleanup.rst \
 	doc/docstrings/pycurl_global_init.rst \
 	doc/docstrings/pycurl_module.rst \
+	doc/docstrings/pycurl_multi_strerror.rst \
+	doc/docstrings/pycurl_share_strerror.rst \
+	doc/docstrings/pycurl_url_strerror.rst \
 	doc/docstrings/pycurl_version_info.rst \
 	doc/docstrings/share.rst \
 	doc/docstrings/share_close.rst \
 	doc/docstrings/share_closed.rst \
-	doc/docstrings/share_setopt.rst
+	doc/docstrings/share_setopt.rst \
+	doc/docstrings/share_share.rst \
+	doc/docstrings/share_unshare.rst
 
 all: build
 src-release: $(RELEASE_SOURCES)

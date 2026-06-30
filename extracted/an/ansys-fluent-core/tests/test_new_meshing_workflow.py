@@ -20,8 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from collections.abc import Iterable
 import time
-from typing import Iterable
 
 from conftest import SKIP_UNKNOWN
 import pytest
@@ -267,7 +267,7 @@ def test_new_fault_tolerant_workflow(new_meshing_session_wo_exit):
             "fluid-region-1",
         ]
     )
-    fault_tolerant.update_region_settings.all_region_overset_componen_list.set_state(
+    fault_tolerant.update_region_settings.all_region_overset_component_list.set_state(
         ["no"] * 7
     )
     fault_tolerant.update_region_settings.all_region_source_list.set_state(
@@ -289,7 +289,7 @@ def test_new_fault_tolerant_workflow(new_meshing_session_wo_exit):
     fault_tolerant.update_region_settings.all_region_name_list.set_state(
         ["fluid-region-1"]
     )
-    fault_tolerant.update_region_settings.all_region_overset_componen_list.set_state(
+    fault_tolerant.update_region_settings.all_region_overset_component_list.set_state(
         ["no"]
     )
     fault_tolerant.update_region_settings.all_region_type_list.set_state(["fluid"])
@@ -303,7 +303,7 @@ def test_new_fault_tolerant_workflow(new_meshing_session_wo_exit):
     fault_tolerant.update_region_settings.all_region_name_list.set_state(
         ["fluid-region-1"]
     )
-    fault_tolerant.update_region_settings.all_region_overset_componen_list.set_state(
+    fault_tolerant.update_region_settings.all_region_overset_component_list.set_state(
         ["no"]
     )
     fault_tolerant.update_region_settings.all_region_type_list.set_state(["fluid"])
@@ -404,7 +404,7 @@ def test_new_2d_meshing_workflow(new_meshing_session_wo_exit):
     two_dim_mesh.add_local_sizing_2d.boi_execution = "Curvature"
     two_dim_mesh.add_local_sizing_2d.boi_max_size = 2
     two_dim_mesh.add_local_sizing_2d.boi_min_size = 1.5
-    two_dim_mesh.add_local_sizing_2d.boi_scope_to = "edges"
+    two_dim_mesh.add_local_sizing_2d.boi_scope_to = "edge labels"
     two_dim_mesh.add_local_sizing_2d.boi_zoneor_label = "label"
     two_dim_mesh.add_local_sizing_2d.draw_size_control = True
     two_dim_mesh.add_local_sizing_2d.edge_label_list = ["airfoil"]

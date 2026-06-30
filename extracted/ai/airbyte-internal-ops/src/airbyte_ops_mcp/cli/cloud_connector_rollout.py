@@ -45,15 +45,22 @@ def _print_result(result: AutopilotResult) -> None:
 
     for action in result.actions:
         prefix = "[DRY RUN] " if result.dry_run else ""
+        tier_label = f" ({action.tier})" if action.tier else ""
         print_success(
-            f"  {prefix}{action.connector_name} {action.rc_version}: {action.message}"
+            f"  {prefix}{action.connector_name} {action.rc_version}{tier_label}: {action.message}"
         )
 
     for skip in result.skipped:
-        print_warning(f"  {skip.connector_name} {skip.rc_version}: {skip.message}")
+        tier_label = f" ({skip.tier})" if skip.tier else ""
+        print_warning(
+            f"  {skip.connector_name} {skip.rc_version}{tier_label}: {skip.message}"
+        )
 
     for error in result.errors:
-        print_error(f"  {error.connector_name} {error.rc_version}: {error.message}")
+        tier_label = f" ({error.tier})" if error.tier else ""
+        print_error(
+            f"  {error.connector_name} {error.rc_version}{tier_label}: {error.message}"
+        )
 
 
 @autopilot_app.command(name="auto-start")

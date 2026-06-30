@@ -8,6 +8,7 @@ from prefab_ui.actions import SetState
 from prefab_ui.actions.mcp import CallTool
 from prefab_ui.components import (
     H2,
+    H3,
     Button,
     CardContent,
     CardHeader,
@@ -79,14 +80,14 @@ def _select_active_rollout() -> SetState:
 
 
 def render_rollout_status_section() -> None:
-    """Connector Status section (1/3 width, pivoted key-value layout).
+    """Connector Version Status section (1/3 width, pivoted key-value layout).
 
-    Shows connector name, UUID, and rollout status with labels on the
-    left and values on the right.
+    Shows connector name, UUID, version comparison, and rollout status
+    with labels on the left and values on the right.
     """
     with Div(css_class=PANEL_CARD_CLASS, style=_card_style()):
         with CardHeader():
-            H2("Connector Status", css_class="text-lg")
+            H2("Connector Version Status", css_class="text-lg")
         with CardContent(), Column(gap=3):
             # Loading state while connector context is being fetched
             with If(STATE.context_loading.__eq__(True)):
@@ -95,6 +96,7 @@ def render_rollout_status_section() -> None:
             # Populated state
             with If(STATE.context_loading.__eq__(False)):
                 _render_connector_identity_rows()
+                _render_version_comparison_rows()
 
                 # Case A: No active rollouts
                 with If(STATE.active_rollouts.length().__eq__(0)):
@@ -116,7 +118,7 @@ def _render_connector_identity_rows() -> None:
     """Pivoted rows for connector name and UUID."""
     _pivoted_row("Connector", STATE.selected_connector.name)
     with Row(justify="between", align="baseline", gap=2):
-        Span("ID", style=_OVERVIEW_LABEL_STYLE)
+        Span("Connector ID", style=_OVERVIEW_LABEL_STYLE)
         Muted(
             content=STATE.selected_connector.id,
             style={
@@ -125,6 +127,14 @@ def _render_connector_identity_rows() -> None:
                 "wordBreak": "break-all",
             },
         )
+
+
+def _render_version_comparison_rows() -> None:
+    """Pivoted rows comparing selected version against the latest version."""
+    _pivoted_row("Selected Version", STATE.selected_version_tag)
+    _pivoted_row("Selected Version Release Date", STATE.selected_version_release_date)
+    _pivoted_row("Latest Version", STATE.selected_connector.latest_version)
+    _pivoted_row("Latest Version Release Date", STATE.latest_version_release_date)
 
 
 def _render_active_rollout_detail() -> None:
@@ -139,6 +149,7 @@ def _render_active_rollout_detail() -> None:
         ),
         Column(gap=0),
     ):
+        H3("Rollout Status", css_class="text-sm mb-1")
         _pivoted_row("State", STATE.active_rollouts[0].state)
         _pivoted_row("RC", STATE.active_rollouts[0].rc_docker_image_tag)
         _pivoted_row("Autopilot", STATE.active_rollouts[0].autopilot_display)

@@ -10,7 +10,7 @@
 
 [project]
 name = "openfga-sdk"
-version = "0.10.3"
+version = "0.10.4"
 description="A high performance and flexible authorization/permission engine built for developers and inspired by Google Zanzibar."
 authors = [
     { name = "OpenFGA (https://openfga.dev)", email = "community@openfga.dev"}
@@ -23,6 +23,8 @@ classifiers=[
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 keywords=[
     "openfga",

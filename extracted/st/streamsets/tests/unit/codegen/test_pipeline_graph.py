@@ -55,12 +55,10 @@ def test_multiple_output_stage_str_representation(multiple_output_stage_data, mu
         stage_data=multiple_output_stage_data,
         default_stage_definition=multiple_output_stage_default_definition,
     )
-    assert str(stage) == textwrap.dedent(
-        """\
+    assert str(stage) == textwrap.dedent("""\
     stream_selector = pipeline_builder.add_stage("Stream Selector", type="processor")
     stream_selector.condition = [{'outputLane': 'StreamSelector_1OutputLane1682014212086', 'predicate': '${1 == 1}'}, {'outputLane': 'StreamSelector_1OutputLane1682014211502', 'predicate': '${2 == 2}'}, {'outputLane': 'StreamSelector_1OutputLane1682014206436', 'predicate': 'default'}]
-    stream_selector.required_fields = []"""
-    )
+    stream_selector.required_fields = []""")
 
 
 def test_dev_raw_data_source_stage_str_representation(
@@ -71,13 +69,11 @@ def test_dev_raw_data_source_stage_str_representation(
         stage_data=jdbc_query_consumer_source_stage_data,
         default_stage_definition=jdbc_query_consumer_source_stage_data_default_definition,
     )
-    assert str(stage) == textwrap.dedent(
-        """\
+    assert str(stage) == textwrap.dedent("""\
     jdbc_query_consumer = pipeline_builder.add_stage("JDBC Query Consumer", type="origin")
     jdbc_query_consumer.sql_query = \"\"\"select * from users where id > ${OFFSET} order by id\"\"\"
     jdbc_query_consumer.offset_column = "id"
-    jdbc_query_consumer.jdbc_connection_string = "jdbc:postgresql://postgres-cdc-15.0.cluster:5432/default\""""
-    )
+    jdbc_query_consumer.jdbc_connection_string = "jdbc:postgresql://postgres-cdc-15.0.cluster:5432/default\"""")
 
 
 def test_stage_vertex_stage_configuration_skips_none_missing_and_defaults():
@@ -130,16 +126,11 @@ def test_stage_vertex_format_config_value():
 
     v = StageVertex(instance_name="A", stage_data=stage_data, default_stage_definition=default_stage_def)
 
-    assert (
-        v.stage_configuration()
-        == textwrap.dedent(
-            """\
+    assert v.stage_configuration() == textwrap.dedent("""\
         dummy.delay = 1000
         dummy.ratio = 1.25
         dummy.enabled = True
-        dummy.note = "a\\"b\""""
-        ).strip()
-    )
+        dummy.note = "a\\"b\"""").strip()
 
 
 @pytest.mark.parametrize(

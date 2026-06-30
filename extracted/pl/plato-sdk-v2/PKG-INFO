@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plato-sdk-v2
-Version: 2.106.0
+Version: 2.106.3
 Summary: Python SDK for the Plato API
 Author-email: Plato <support@plato.so>
 License-Expression: MIT
@@ -12,7 +12,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Typing :: Typed
 Requires-Python: <3.14,>=3.11
-Requires-Dist: aiohttp==3.13.4
+Requires-Dist: aiohttp==3.14.1
 Requires-Dist: blake3==1.0.8
 Requires-Dist: boto3==1.42.52
 Requires-Dist: cloudpickle==3.1.2
@@ -24,14 +24,14 @@ Requires-Dist: gitpython==3.1.50
 Requires-Dist: google-genai==1.59.0
 Requires-Dist: httpx==0.28.1
 Requires-Dist: jinja2==3.1.6
-Requires-Dist: litellm==1.83.14
+Requires-Dist: litellm==1.90.0
 Requires-Dist: openapi-pydantic==0.5.1
 Requires-Dist: opentelemetry-api==1.39.1
 Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.39.1
 Requires-Dist: opentelemetry-instrumentation-system-metrics==0.60b1
 Requires-Dist: opentelemetry-sdk==1.39.1
 Requires-Dist: pathspec==1.0.4
-Requires-Dist: pydantic-settings==2.12.0
+Requires-Dist: pydantic-settings==2.14.2
 Requires-Dist: pydantic==2.12.5
 Requires-Dist: python-dotenv==1.2.2
 Requires-Dist: pyyaml==6.0.3
@@ -48,7 +48,7 @@ Requires-Dist: sqlalchemy[asyncio]>=2.0; extra == 'db-cleanup'
 Provides-Extra: dev
 Requires-Dist: basedpyright>=1.18; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.21; extra == 'dev'
-Requires-Dist: pytest>=7.0; extra == 'dev'
+Requires-Dist: pytest>=9.1.1; extra == 'dev'
 Requires-Dist: ruff>=0.1; extra == 'dev'
 Provides-Extra: segmentation
 Requires-Dist: numpy>=1.24.0; extra == 'segmentation'

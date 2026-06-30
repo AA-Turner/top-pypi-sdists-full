@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: lamindb
-Version: 2.6.1
+Version: 2.7.0
 Summary: Full/meta-package module for the `lamindb` distribution.
 Author-email: Lamin Labs <open-source@lamin.ai>
 Requires-Python: >=3.10,<=3.14
@@ -10,7 +10,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: lamindb-core[full]==2.6.1
+Requires-Dist: lamindb-core[full]==2.7.0
 Requires-Dist: lamindb-core[full, dev] ; extra == "dev"
 Requires-Dist: readfcs>=2.0.1 ; extra == "fcs"
 Requires-Dist: lamindb_setup[gcp] ; extra == "gcp"
@@ -375,7 +375,7 @@ artifact.features.set_values({
 Query for it:
 
 ```python
-ln.Artifact.filter(experiment_date="2025-10-24").to_dataframe()  # query all artifacts annotated with `experiment_date`
+ln.Artifact.filter(experiment_date == "2025-10-24").to_dataframe()  # query all artifacts annotated with `experiment_date`
 ```
 
 If you want to include the feature values into the dataframe, pass `include`.

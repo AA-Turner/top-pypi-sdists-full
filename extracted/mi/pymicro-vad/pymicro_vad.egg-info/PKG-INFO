@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymicro-vad
-Version: 2.0.1
+Version: 2.1.0
 Summary: Self-contained voice activity detector
 Home-page: https://github.com/rhasspy/pymicro-vad
 Author: Michael Hansen

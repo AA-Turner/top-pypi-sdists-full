@@ -15,6 +15,7 @@ from temporalio.client import Client as TemporalClient
 from temporalio.client import Interceptor
 from temporalio.common import VersioningBehavior, WorkerDeploymentVersion
 from temporalio.converter import PayloadCodec, PayloadConverter
+from temporalio.service import RPCError, RPCStatusCode
 from temporalio.worker import PollerBehaviorSimpleMaximum, Worker, WorkerDeploymentConfig
 from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner
 
@@ -199,6 +200,19 @@ async def _worker_heartbeat(
         raise WorkflowsException(code=ErrorCode.WORKER_REGISTRATION_ERROR, message="Fail to heartbeat worker")
 
 
+def _is_deployment_controller_managed_error(exc: Exception) -> bool:
+    """Whether current-version registration was rejected because a deployment manager owns it.
+
+    When the Temporal Worker Controller manages a deployment it claims the ManagerIdentity,
+    and the server rejects SetWorkerDeploymentCurrentVersion with FAILED_PRECONDITION and a
+    ManagerIdentity message. Auto-registration is meant for manual/local deployments only, so
+    this is expected for controller-managed deployments and can never succeed by retrying.
+    """
+    return (
+        isinstance(exc, RPCError) and exc.status == RPCStatusCode.FAILED_PRECONDITION and "ManagerIdentity" in str(exc)
+    )
+
+
 async def _auto_register_as_current_version(
     temporal_client: TemporalClient,
     namespace: str,
@@ -209,7 +223,8 @@ async def _auto_register_as_current_version(
     Auto-register worker as current version for manual/local deployments.
 
     Retries until successful, as the Worker Deployment may not exist yet when the worker first starts.
-    Once registered successfully, the task completes.
+    Once registered successfully, the task completes. Stands down without retrying if the deployment
+    is owned by a manager (e.g. the Temporal Worker Controller), which is the expected state there.
 
     Args:
         temporal_client: Temporal client instance
@@ -240,6 +255,14 @@ async def _auto_register_as_current_version(
             return  # Success - exit the function
 
         except Exception as exc:
+            if _is_deployment_controller_managed_error(exc):
+                logger.info(
+                    "Skipping worker current-version auto-registration: deployment is controller-managed",
+                    deployment_name=deployment_name,
+                    build_id=build_id,
+                )
+                return
+
             retry_count += 1
             if retry_count >= max_retries:
                 logger.error(
@@ -468,6 +491,20 @@ async def _upload_workflow_graphs(
     await asyncio.gather(*[_upload_one(ref, cls) for ref, cls in zip(refs, classes)])
 
 
+async def _safe_upload_workflow_graphs(
+    refs: list[WorkflowRegistrationRef],
+    classes: list[ClassType],
+    client: PrivateWorkerClient,
+) -> None:
+    # Runs as a sibling task inside the worker's TaskGroup. Graph upload is best-effort
+    # metadata, so swallow every exception here: an unhandled error would otherwise cancel
+    # the TaskGroup and crash the worker.
+    try:
+        await _upload_workflow_graphs(refs=refs, classes=classes, client=client)
+    except Exception as exc:
+        logger.warning("Workflow graph upload failed", **extract_error_context(exc), exc_info=exc)
+
+
 async def _run_worker(workflows: List[ClassType]) -> None:
     try:
         config.validate_for_worker_startup()
@@ -586,23 +623,6 @@ async def _run_worker(workflows: List[ClassType]) -> None:
                 "Some workflows are already registered by another worker. "
                 "Please use a custom task queue or set `ALLOW_MULTIPLE_WORKERS` to True"
             )
-        if config.worker.graph.upload_graph:
-            # Refs are returned in submission order; internal workflows
-            # (ParallelExecutionWorkflow, plugin workflows) are appended after
-            # user workflows, so [:len(workflows)] excludes them.
-            refs = response.workflow_registration_refs
-            if len(refs) >= len(workflows):
-                await _upload_workflow_graphs(
-                    refs=refs[: len(workflows)],
-                    classes=workflows,
-                    client=worker_client,
-                )
-            else:
-                logger.warning(
-                    "Fewer registration refs than workflows; skipping graph upload",
-                    expected=len(workflows),
-                    got=len(refs),
-                )
         async with (
             worker_client,
             asyncio.TaskGroup() as tg,
@@ -643,6 +663,30 @@ async def _run_worker(workflows: List[ClassType]) -> None:
                     )
                 )
 
+            # Graph + LLM summary generation is non-critical metadata and may retry on
+            # transient 429s, so it runs as a background task: the Temporal worker starts
+            # polling immediately instead of waiting on graph upload to finish.
+            graph_upload_task = None
+            if config.worker.graph.upload_graph:
+                # Refs are returned in submission order; internal workflows
+                # (ParallelExecutionWorkflow, plugin workflows) are appended after
+                # user workflows, so [:len(workflows)] excludes them.
+                refs = response.workflow_registration_refs
+                if len(refs) >= len(workflows):
+                    graph_upload_task = tg.create_task(
+                        _safe_upload_workflow_graphs(
+                            refs=refs[: len(workflows)],
+                            classes=workflows,
+                            client=worker_client,
+                        )
+                    )
+                else:
+                    logger.warning(
+                        "Fewer registration refs than workflows; skipping graph upload",
+                        expected=len(workflows),
+                        got=len(refs),
+                    )
+
             logger.info(
                 "Starting Temporal worker",
                 task_queue=task_queue,
@@ -662,6 +706,8 @@ async def _run_worker(workflows: List[ClassType]) -> None:
                 register_task.cancel()
                 if auto_register_task:
                     auto_register_task.cancel()
+                if graph_upload_task:
+                    graph_upload_task.cancel()
                 try:
                     await register_task
                 except asyncio.CancelledError:
@@ -669,6 +715,11 @@ async def _run_worker(workflows: List[ClassType]) -> None:
                 if auto_register_task:
                     try:
                         await auto_register_task
+                    except asyncio.CancelledError:
+                        pass
+                if graph_upload_task:
+                    try:
+                        await graph_upload_task
                     except asyncio.CancelledError:
                         pass
                 await asyncio.gather(*[worker.shutdown() for worker in workers])

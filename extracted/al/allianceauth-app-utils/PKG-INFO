@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: allianceauth-app-utils
-Version: 1.32.1
+Version: 1.33.0
 Summary: Commonly used utilities and helpers for rapid development of Alliance Auth apps.
 Author-email: Erik Kalkoken <kalkoken87@gmail.com>
 Requires-Python: >=3.8
@@ -24,6 +24,7 @@ License-File: LICENSE
 Requires-Dist: allianceauth>=4,<6
 Requires-Dist: requests
 Requires-Dist: pytz
+Requires-Dist: typing_extensions
 Project-URL: Changelog, https://gitlab.com/ErikKalkoken/allianceauth-app-utils/-/blob/master/CHANGELOG.md
 Project-URL: Documentation, https://allianceauth-app-utils.readthedocs.io/en/latest/
 Project-URL: Homepage, https://gitlab.com/ErikKalkoken/allianceauth-app-utils

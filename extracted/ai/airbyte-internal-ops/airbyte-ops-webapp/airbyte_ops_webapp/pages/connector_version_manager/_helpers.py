@@ -221,17 +221,11 @@ def recent_release_rows() -> list[dict[str, Any]]:
 def pinned_version_rows() -> list[dict[str, Any]]:
     """Build rows for the Pinned Versions tab (cross-connector, versions with pins)."""
     try:
-        raw = get_adapter().list_versions_with_pins_or_rollouts(connector_id=None)
+        raw = get_adapter().list_versions_with_pins()
     except Exception:
         return []
     rows: list[dict[str, Any]] = []
     for row in raw:
-        pin_count = row.get("pin_count", 0)
-        if pin_count <= 0:
-            continue
-        rollout_state = row.get("rollout_state", "")
-        status = "RC (rollout)" if rollout_state else "pinned"
-        # Derive canonical name from docker_repository (e.g. "airbyte/source-faker" → "source-faker").
         docker_repo = row.get("docker_repository", "")
         canonical_name = (
             docker_repo.rsplit("/", 1)[-1]
@@ -243,100 +237,13 @@ def pinned_version_rows() -> list[dict[str, Any]]:
                 **row,
                 "connector_id": row.get("connector_definition_id", ""),
                 "connector_name": canonical_name,
-                "version_status_display": status,
-                "pin_count_display": str(pin_count),
+                "pin_count_display": str(row.get("pin_count", 0)),
+                "actor_pins_display": str(row.get("actor_pins", 0)),
+                "workspace_pins_display": str(row.get("workspace_pins", 0)),
+                "org_pins_display": str(row.get("org_pins", 0)),
             }
         )
     return rows
-
-
-def build_active_releases(
-    versions: list[dict[str, Any]],
-    active_rollouts: list[dict[str, Any]],
-    versions_with_pins: list[dict[str, Any]] | None = None,
-) -> list[dict[str, Any]]:
-    """Build the Active Releases list from versions and rollout data.
-
-    Includes: (1) latest GA default version, (2) active RC version, and
-    (3) any version with 1+ pins. Adds `version_status_display` and
-    `pin_count_display` columns.
-
-    When `versions_with_pins` is provided (from the prod DB query), pin
-    counts are looked up from that data instead of relying on fields in
-    `versions` (which may be plain `ConnectorVersion` dicts without
-    `pin_count`).
-    """
-    # Build tag → pin data lookup from enriched query results
-    pin_lookup: dict[str, dict[str, Any]] = {}
-    for row in versions_with_pins or []:
-        tag = row.get("docker_image_tag", "")
-        if tag:
-            pin_lookup[tag] = row
-
-    # Identify the RC version tag from active rollouts
-    rc_tags: set[str] = set()
-    for rollout in active_rollouts:
-        tag = rollout.get("rc_docker_image_tag", "")
-        if tag:
-            rc_tags.add(tag)
-
-    result: list[dict[str, Any]] = []
-    seen_tags: set[str] = set()
-
-    # First pass: iterate all versions to find GA default and RCs
-    for version in versions:
-        tag = version.get("docker_image_tag", "")
-        if tag in seen_tags:
-            continue
-
-        enriched = pin_lookup.get(tag, {})
-        pin_count = enriched.get("pin_count", version.get("pin_count", 0))
-        rollout_state = enriched.get(
-            "rollout_state",
-            version.get("rollout_state", ""),
-        )
-        is_default = version.get("is_default", False)
-        is_rc = tag in rc_tags or rollout_state not in ("", None)
-
-        # Include if: is GA default, is active RC, or has pins
-        if not (is_default or is_rc or pin_count > 0):
-            continue
-
-        seen_tags.add(tag)
-        if is_rc:
-            status = "RC (rollout)"
-        elif is_default:
-            status = "GA (default)"
-        else:
-            status = "pinned"
-
-        result.append(
-            {
-                **version,
-                "version_status_display": status,
-                "pin_count_display": str(pin_count),
-            }
-        )
-
-    # Second pass: add pinned versions from enriched data that weren't
-    # in the base versions list (e.g. older versions no longer in the
-    # recent-versions window but still carrying pins).
-    for tag, row in pin_lookup.items():
-        if tag in seen_tags:
-            continue
-        pin_count = row.get("pin_count", 0)
-        if pin_count <= 0:
-            continue
-        seen_tags.add(tag)
-        result.append(
-            {
-                **row,
-                "version_status_display": "pinned",
-                "pin_count_display": str(pin_count),
-            }
-        )
-
-    return result
 
 
 def admin_user_options() -> list[dict[str, str]]:
@@ -477,7 +384,6 @@ def context_success_actions() -> list[Any]:
         SetState("selected_connector", RESULT.connector),
         SetState("target_version", RESULT.connector.latest_version),
         SetState("versions", RESULT.versions),
-        SetState("active_releases", RESULT.active_releases),
         SetState("active_rollouts", RESULT.active_rollouts),
         SetState("current_state", RESULT.current_state),
         SetState("current_state_markdown", RESULT.current_state_markdown),
@@ -535,7 +441,6 @@ def connector_context_placeholder(message: str) -> dict[str, Any]:
     return {
         "connector": empty_connector(),
         "versions": [],
-        "active_releases": [],
         "active_rollouts": [],
         "current_state": current_state,
         "current_state_markdown": json_text(current_state),
@@ -595,22 +500,6 @@ def version_rows_or_empty(
         return rows_from_dataclasses(adapter.list_versions(connector.id)), ""
     except PyAirbyteInputError as error:
         return [], context_error_message(error)
-
-
-def versions_with_pins_or_empty(
-    adapter: OpsMcpAdapter,
-    connector: ConnectorOption,
-) -> list[dict[str, Any]]:
-    """Fetch versions enriched with pin counts and rollout state.
-
-    Returns raw dicts from the prod DB query with `pin_count`,
-    `rollout_state`, and `rollout_id` fields.  Falls back to an empty
-    list on error (pin counts will simply show as 0).
-    """
-    try:
-        return adapter.list_versions_with_pins_or_rollouts(connector.id)
-    except Exception:
-        return []
 
 
 def rollout_rows_or_empty(

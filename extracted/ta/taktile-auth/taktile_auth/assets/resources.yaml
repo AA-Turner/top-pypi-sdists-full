@@ -225,6 +225,12 @@ workspace_case_queue:
   # write: can create, update and delete case queues
   org_id: wildcard
   ws_id: wildcard
+workspace_wizard:
+  # read: can read wizard state for a workspace
+  # write: can drive the wizard — create/advance sessions, post wizard decision events
+  org_id: wildcard
+  ws_id: wildcard
+  env: wildcard
 workspace_case_analytics:
   # read: can read workspace case analytics
   org_id: wildcard

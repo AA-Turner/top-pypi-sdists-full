@@ -3522,6 +3522,107 @@ fn model_debiased_functional_json(
     })
 }
 
+/// Build the design row `X(x0)` for a single `point`/`contrast` query under the
+/// model's FULL training-schema column layout — the same order as the training
+/// design `standard.data` that the saved [`TermCollectionSpec`] indexes into.
+///
+/// The saved spec resolves each term's feature column by its TRAINING-schema
+/// offset (a smooth over the 2nd training column reads data column 1), so the
+/// query design must be laid out against that full schema, NOT just the keys of
+/// `x0`. Encoding only the `x0` keys put the predictor at position 0 of a
+/// 1-column frame, so a model trained from a `[y, x]` frame asked for column 1
+/// of 1 column and aborted with "feature column out of bounds" whenever the
+/// response column preceded the predictor (#1621) — a silent, column-order
+/// dependent failure of `point`/`contrast` for the natural `{y, x}` dataframe.
+///
+/// `training_headers` is the exact column order the training rows were ingested
+/// in (which `standard.data` inherits verbatim). Columns named in `x0` take
+/// their query value; every other column — the response and any unreferenced
+/// bookkeeping column — is filled with a neutral placeholder that never enters
+/// the mean design (the design reads only predictor / `by=` columns; the family
+/// is already validated Gaussian/identity, so a continuous-response placeholder
+/// always encodes). Every required prediction column must be supplied in `x0`,
+/// mirroring `predict`'s input contract, so the plug-in equals `predict(x0)`.
+fn debiased_query_design_full_schema(
+    model: &FittedModel,
+    training_headers: &[String],
+    x0: &serde_json::Map<String, serde_json::Value>,
+    spec: &TermCollectionSpec,
+    label: &str,
+) -> Result<ndarray::Array1<f64>, String> {
+    // A partial `x0` cannot define m(x0); it would silently evaluate the
+    // unspecified smooths at a placeholder. Reject it up front with a clear
+    // message instead of the old out-of-bounds abort.
+    let required = required_prediction_columns(model)?;
+    let mut missing: Vec<String> = required
+        .iter()
+        .filter(|name| !x0.contains_key(name.as_str()))
+        .cloned()
+        .collect();
+    if !missing.is_empty() {
+        missing.sort();
+        return Err(format!(
+            "debiased_functional: {label} must specify a value for every model predictor \
+             column; missing {missing:?}"
+        ));
+    }
+    let field_for = |value: &serde_json::Value| -> String {
+        value
+            .as_f64()
+            .map(|v| format!("{v}"))
+            .or_else(|| value.as_str().map(|s| s.to_string()))
+            .unwrap_or_default()
+    };
+    // One row in the FULL training-header order; "0" placeholder for any column
+    // `x0` does not name (response + any extra column). The placeholder never
+    // reaches the mean design.
+    let row: Vec<String> = training_headers
+        .iter()
+        .map(|h| x0.get(h).map(field_for).unwrap_or_else(|| "0".to_string()))
+        .collect();
+    let headers_vec = training_headers.to_vec();
+    // Encode against the SAVED schema (correct categorical level codes) WITHOUT
+    // the predict-time column projection, so the encoded width and order match
+    // `standard.data` exactly — the invariant `build_term_collection_design`
+    // relies on.
+    let records = string_records_from_rows(&headers_vec, std::slice::from_ref(&row))?;
+    let schema = model.require_data_schema()?;
+    // Lenient (unseen-OK) encoding for every column that did NOT receive a real
+    // query value — i.e. every column not in `required`, which is exactly the
+    // set carrying the neutral "0" placeholder (the response + any unreferenced
+    // bookkeeping column). Without this, a training frame that carried an
+    // unrelated CATEGORICAL bookkeeping column (e.g. a `group`/`color`/`id`
+    // label fit under `y ~ s(x)`) would strict-encode that column's "0"
+    // placeholder against the saved levels and abort with `unseen level '0'`,
+    // re-introducing the very #840 foot-gun `predict` avoids by projecting the
+    // frame to the model's columns (`project_frame_to_model_columns`). The
+    // placeholder never reaches the mean design, so encoding it as an unknown
+    // level is harmless and order-preserving. Random-effect group columns stay
+    // lenient too (they may be required yet still want the held-out-group
+    // policy), matching the predict-time encode.
+    let mut lenient: std::collections::HashSet<String> = training_headers
+        .iter()
+        .filter(|h| !required.contains(h.as_str()))
+        .cloned()
+        .collect();
+    lenient.extend(model.random_effect_group_columns());
+    let policy = UnseenCategoryPolicy::encode_unknown_for_columns(lenient);
+    let q_dataset = encode_recordswith_schema(headers_vec, records, schema, policy)?;
+    let q_design = build_term_collection_design(q_dataset.values.view(), spec)
+        .map_err(|e| format!("debiased_functional: {label} design failed: {e}"))?;
+    let qx = q_design
+        .design
+        .try_to_dense_arc(&format!("debiased_functional {label}"))
+        .map_err(|e| format!("debiased_functional: {label} densification failed: {e}"))?;
+    if qx.nrows() != 1 {
+        return Err(format!(
+            "debiased_functional: {label} query produced {} design rows, expected 1",
+            qx.nrows()
+        ));
+    }
+    Ok(qx.row(0).to_owned())
+}
+
 fn model_debiased_functional_json_impl(
     model_bytes: &[u8],
     headers: Vec<String>,
@@ -3551,6 +3652,13 @@ fn model_debiased_functional_json_impl(
         })?
         .clone();
 
+    // Preserve the exact training-frame column order before `headers` is moved
+    // into the encoder. `standard.data` (below) inherits this order verbatim
+    // (`StandardFitRequest::data == dataset.values`, no reordering), and the
+    // saved `TermCollectionSpec` resolves every term's feature column by its
+    // offset in THIS layout. The `point`/`contrast` query design must be built
+    // against the same full layout, not just the columns named in `x0` (#1621).
+    let training_headers = headers.clone();
     let dataset = dataset_with_inferred_schema(headers, rows)?;
     let (fit_config, _) = parse_fit_config(None)?;
     let materialized = materialize(&formula, &dataset, &fit_config).map_err(|e| format!("{e}"))?;
@@ -3581,11 +3689,49 @@ fn model_debiased_functional_json_impl(
          refit with a smaller basis (dense fits only)"
             .to_string()
     })?;
-    let xwx = saved_fit.weighted_gram().ok_or_else(|| {
-        "debiased_functional: model does not carry the weighted Gram X'WX; \
-         refit with a smaller basis (dense fits only)"
-            .to_string()
-    })?;
+    // Gaussian/identity is the only supported family (enforced below for the
+    // score chain). Hoist that check here because the weighted-Gram fallback
+    // (#1622) is only valid for the profiled-Gaussian weight convention.
+    let family = model.likelihood();
+    let is_gaussian_identity = matches!(family.response, ResponseFamily::Gaussian)
+        && matches!(family.link, InverseLink::Standard(StandardLink::Identity));
+    // Fast path: the weighted Gram X'WX was stored by the REML posterior block.
+    // Fallback (#1622): the parametric-term fit path leaves `weighted_gram` at
+    // its `None` default, so reconstruct X'WX from the already-rebuilt dense
+    // design. For a profiled Gaussian/identity fit the stored penalized Hessian
+    // is H = XᵀWX + S(λ) with W = diag(prior weights) (scale-free; the penalty
+    // is added UNSCALED — see optimizer.rs `cov_scale` contract), so
+    // X'WX = Xᵀ diag(w) X exactly and S(λ) = H − X'WX is recovered consistently
+    // (for an unpenalized `y ~ x` this gives S(λ)=0, i.e. X'WX == H).
+    let xwx_owned: ndarray::Array2<f64> = match saved_fit.weighted_gram() {
+        Some(g) => g.clone(),
+        None => {
+            if !is_gaussian_identity {
+                return Err(format!(
+                    "debiased_functional: model does not carry the weighted Gram X'WX and \
+                     it can only be reconstructed for Gaussian/identity models; this model \
+                     uses family='{}'",
+                    family.pretty_name()
+                ));
+            }
+            let xref = x.as_ref();
+            let w = standard.weights.view();
+            if w.len() != xref.nrows() {
+                return Err(format!(
+                    "debiased_functional: prior-weight length {} does not match design rows {}",
+                    w.len(),
+                    xref.nrows()
+                ));
+            }
+            // Xᵀ diag(w) X = (diag(w) X)ᵀ X.
+            let mut wx = xref.to_owned();
+            for (mut row, &wi) in wx.outer_iter_mut().zip(w.iter()) {
+                row.mapv_inplace(|v| v * wi);
+            }
+            wx.t().dot(xref)
+        }
+    };
+    let xwx = &xwx_owned;
     let beta = saved_fit.beta_flat();
     if beta.len() != x.ncols() {
         return Err(format!(
@@ -3606,9 +3752,6 @@ fn model_debiased_functional_json_impl(
     let y = standard.y.view();
     let n = x.nrows();
     let p = x.ncols();
-    let family = model.likelihood();
-    let is_gaussian_identity = matches!(family.response, ResponseFamily::Gaussian)
-        && matches!(family.link, InverseLink::Standard(StandardLink::Identity));
     if !is_gaussian_identity {
         return Err(format!(
             "debiased_functional: currently only supported for Gaussian/identity models; \
@@ -3640,68 +3783,30 @@ fn model_debiased_functional_json_impl(
     // Build the functional gradient g = dθ/dβ from the spec.
     let gradient: ndarray::Array1<f64> = match target {
         "point" | "linear" => {
-            // Requires an "x0" row dict → evaluate the design at x0.
-            let x0_json = spec_val
+            // Requires an "x0" row dict → evaluate the design at x0, built under
+            // the FULL training schema so the saved spec's feature-column offsets
+            // resolve correctly regardless of where the response sits (#1621).
+            let x0_obj = spec_val
                 .get("x0")
                 .ok_or_else(|| {
                     format!("debiased_functional: target \"{target}\" requires \"x0\" in spec")
                 })?
-                .clone();
-            let query_headers: Vec<String> = x0_json
                 .as_object()
-                .ok_or_else(|| "debiased_functional: \"x0\" must be an object".to_string())?
-                .keys()
-                .cloned()
-                .collect();
-            let query_row: Vec<String> = query_headers
-                .iter()
-                .map(|k| {
-                    x0_json[k]
-                        .as_f64()
-                        .map(|v| format!("{v}"))
-                        .or_else(|| x0_json[k].as_str().map(|s| s.to_string()))
-                        .unwrap_or_default()
-                })
-                .collect();
-            let q_dataset = dataset_with_model_schema(&model, &query_headers, &[query_row])?;
-            let q_design = build_term_collection_design(q_dataset.values.view(), &spec)
-                .map_err(|e| format!("debiased_functional: x0 design failed: {e}"))?;
-            let qx = q_design
-                .design
-                .try_to_dense_arc("debiased_functional x0")
-                .map_err(|e| format!("debiased_functional: x0 densification failed: {e}"))?;
-            if qx.nrows() != 1 {
-                return Err("debiased_functional: x0 query produced != 1 design row".to_string());
-            }
-            qx.row(0).to_owned()
+                .ok_or_else(|| "debiased_functional: \"x0\" must be an object".to_string())?;
+            debiased_query_design_full_schema(&model, &training_headers, x0_obj, &spec, "x0")?
         }
         "contrast" => {
             let get_row = |key: &str| -> Result<ndarray::Array1<f64>, String> {
-                let row_json = spec_val.get(key).ok_or_else(|| {
-                    format!("debiased_functional: target \"contrast\" requires \"{key}\" in spec")
-                })?;
-                let row_obj = row_json
+                let row_obj = spec_val
+                    .get(key)
+                    .ok_or_else(|| {
+                        format!(
+                            "debiased_functional: target \"contrast\" requires \"{key}\" in spec"
+                        )
+                    })?
                     .as_object()
                     .ok_or_else(|| format!("debiased_functional: \"{key}\" must be an object"))?;
-                let hdrs: Vec<String> = row_obj.keys().cloned().collect();
-                let vals: Vec<String> = hdrs
-                    .iter()
-                    .map(|k| {
-                        row_json[k]
-                            .as_f64()
-                            .map(|v| format!("{v}"))
-                            .or_else(|| row_json[k].as_str().map(|s| s.to_string()))
-                            .unwrap_or_default()
-                    })
-                    .collect();
-                let qd = dataset_with_model_schema(&model, &hdrs, &[vals])?;
-                let qdesign = build_term_collection_design(qd.values.view(), &spec)
-                    .map_err(|e| format!("debiased_functional: {key} design failed: {e}"))?;
-                let qx = qdesign
-                    .design
-                    .try_to_dense_arc(&format!("debiased_functional {key}"))
-                    .map_err(|e| format!("debiased_functional: {key} densification: {e}"))?;
-                Ok(qx.row(0).to_owned())
+                debiased_query_design_full_schema(&model, &training_headers, row_obj, &spec, key)
             };
             let row_a = get_row("x0")?;
             let row_b = get_row("x1")?;

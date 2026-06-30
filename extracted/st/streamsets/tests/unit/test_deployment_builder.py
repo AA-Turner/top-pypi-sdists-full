@@ -78,9 +78,16 @@ def get_engine_version_id(engine_type: str, engine_version: str, engine_build: s
     """Quick util method to get the engine_version_id from a bunch of params.
     If an engine_build is not passed to DeploymentBuilder.build it will usually become Released."""
     return (
-        f"{engine_type}:{engine_version}:{scala_binary_version}:{engine_build}"
+        "%(engine_type)s:%(engine_version)s:%(scala_binary_version)s:%(engine_build)s"
+        % {
+            'engine_type': engine_type,
+            'engine_version': engine_version,
+            'scala_binary_version': scala_binary_version,
+            'engine_build': engine_build,
+        }
         if engine_type == "TF"
-        else f"{engine_type}:{engine_version}::{engine_build}"
+        else "%(engine_type)s:%(engine_version)s::%(engine_build)s"
+        % {'engine_type': engine_type, 'engine_version': engine_version, 'engine_build': engine_build}
     )
 
 

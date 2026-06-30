@@ -6294,6 +6294,7 @@ https://docs.chalk.ai/cli/apply
         handler: Optional[str] = None,
         env_vars: Optional[Dict[str, str]] = None,
         skip_upload_to_volumes: bool = False,
+        secrets: Optional[List[Any]] = None,
         environment: Optional[EnvironmentId] = None,
     ) -> dict[str, Any]:
         """Deploy a registered model version as a scaling group.
@@ -6317,6 +6318,8 @@ https://docs.chalk.ai/cli/apply
         skip_upload_to_volumes
             When True, skip uploading model artifacts to a chalkfs volume.
             Defaults to False.
+        secrets
+            List of Secret Registry secrets to be injected into the Scaling Group.
         environment
             Environment to deploy to.
         """
@@ -6336,6 +6339,7 @@ https://docs.chalk.ai/cli/apply
             handler=handler,
             env_vars=env_vars,
             skip_upload_to_volumes=skip_upload_to_volumes,
+            secrets=secrets,
         )
 
     def list_scaling_groups(self, environment: Optional[EnvironmentId] = None) -> ListScalingGroupsResponse:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict
+from datetime import datetime
 from typing import Any
 
 from airbyte.exceptions import PyAirbyteInputError
@@ -14,7 +15,6 @@ from airbyte_ops_webapp.models import OverridePlan, ScopeType
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     DEFAULT_ADMIN_USER_ID,
     auth_available,
-    build_active_releases,
     cloud_scope_url,
     connector_context_placeholder,
     connector_options,
@@ -32,7 +32,6 @@ from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     scope_context_needed_message,
     target_ids,
     version_rows_or_empty,
-    versions_with_pins_or_empty,
 )
 from airbyte_ops_webapp.pages.shared_components.org_search import (
     search_organizations_and_workspaces,
@@ -49,6 +48,17 @@ connector_version_manager_app = FastMCPApp("Connector Version Manager")
 
 # Number of pins fetched per "Load More" click.
 _PIN_BATCH_SIZE = 100
+
+
+def _fmt_date_short(value: str) -> str:
+    """Format an ISO datetime string to `yyyy-mm-dd (ddd)` for display."""
+    if not value:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return value
+    return parsed.strftime("%Y-%m-%d (%a)")
 
 
 def _override_plan(
@@ -266,7 +276,6 @@ def _build_context_result(
     connector: object,
     versions: list[dict[str, Any]],
     active_rollouts: list[dict[str, Any]],
-    pin_enriched: list[dict[str, Any]],
     current_state: dict[str, Any],
     ancestor_configs: list[dict[str, Any]] | None = None,
     descendant_configs: list[dict[str, Any]] | None = None,
@@ -284,9 +293,6 @@ def _build_context_result(
         if not isinstance(connector, dict)
         else connector,
         "versions": versions,
-        "active_releases": build_active_releases(
-            versions, active_rollouts, pin_enriched
-        ),
         "active_rollouts": active_rollouts,
         "current_state": current_state,
         "current_state_markdown": json_text(current_state),
@@ -322,11 +328,9 @@ def load_connector_context(
     except ValueError:
         return connector_context_placeholder(f"Unknown connector ID: {connector_id}")
     active_rollouts, rollout_error = rollout_rows_or_empty(adapter, connector)
-    pin_enriched = versions_with_pins_or_empty(adapter, connector)
     ctx_kwargs: dict[str, Any] = {
         "connector": connector,
         "active_rollouts": active_rollouts,
-        "pin_enriched": pin_enriched,
         "rollout_error": rollout_error,
         "context_guid": context_guid,
         "scope_type": scope_type,
@@ -500,16 +504,27 @@ def load_connector_version_context(
         auth_bearer_token=auth_bearer_token,
     )
     context["selected_connector_id"] = connector_id
-    context["target_version"] = version_tag or context["connector"].get(
-        "latest_version", ""
-    )
+    effective_version = version_tag or context["connector"].get("latest_version", "")
+    context["target_version"] = effective_version
 
-    # Resolve version_id from the versions list
+    # Resolve version_id and release dates from the versions list
     resolved_version_id = ""
+    selected_version_release_date = ""
+    latest_version = context["connector"].get("latest_version", "")
+    latest_version_release_date = ""
     for v in context.get("versions", []):
-        if v.get("docker_image_tag") == version_tag:
+        tag = v.get("docker_image_tag", "")
+        if tag == effective_version:
             resolved_version_id = v.get("version_id", "")
-            break
+            selected_version_release_date = v.get("last_published", "")
+        if tag == latest_version:
+            latest_version_release_date = v.get("last_published", "")
+    context["selected_version_release_date"] = _fmt_date_short(
+        selected_version_release_date
+    )
+    context["latest_version_release_date"] = _fmt_date_short(
+        latest_version_release_date
+    )
 
     adapter = get_adapter(auth_bearer_token or None)
 
@@ -527,7 +542,7 @@ def load_connector_version_context(
         context["show_load_more_pins"] = total > _PIN_BATCH_SIZE
         context["all_pins_loaded"] = len(pin_rows) >= total
         context["selected_version_id"] = resolved_version_id
-        context["selected_version_tag"] = version_tag
+        context["selected_version_tag"] = effective_version
     else:
         context["version_pins"] = []
         context["version_pins_total"] = 0
@@ -535,7 +550,7 @@ def load_connector_version_context(
         context["show_load_more_pins"] = False
         context["all_pins_loaded"] = True
         context["selected_version_id"] = ""
-        context["selected_version_tag"] = version_tag
+        context["selected_version_tag"] = effective_version
 
     return context
 

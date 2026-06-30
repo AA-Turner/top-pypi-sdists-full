@@ -2476,6 +2476,145 @@ class EslintOverride:
         )
 
 
+@jsii.data_type(
+    jsii_type="projen.javascript.FakeTimers",
+    jsii_struct_bases=[],
+    name_mapping={
+        "advance_timers": "advanceTimers",
+        "do_not_fake": "doNotFake",
+        "enable_globally": "enableGlobally",
+        "legacy_fake_timers": "legacyFakeTimers",
+        "now": "now",
+        "timer_limit": "timerLimit",
+    },
+)
+class FakeTimers:
+    def __init__(
+        self,
+        *,
+        advance_timers: typing.Optional[typing.Union[jsii.Number, builtins.bool]] = None,
+        do_not_fake: typing.Optional[typing.Sequence[builtins.str]] = None,
+        enable_globally: typing.Optional[builtins.bool] = None,
+        legacy_fake_timers: typing.Optional[builtins.bool] = None,
+        now: typing.Optional[jsii.Number] = None,
+        timer_limit: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''(experimental) The default configuration of fake timers for all tests.
+
+        :param advance_timers: (experimental) If set to ``true`` all timers will be advanced automatically by 20 milliseconds every 20 milliseconds. A custom time delta may be provided by passing a number. Default: - false
+        :param do_not_fake: (experimental) List of names of APIs (e.g. ``Date``, ``nextTick``, ``setTimeout``) that should not be faked. Default: - [] (all APIs are faked)
+        :param enable_globally: (experimental) Whether fake timers should be enabled for all test files. Default: - false
+        :param legacy_fake_timers: (experimental) Use the old fake timers implementation instead of one backed by ``@sinonjs/fake-timers``. Default: - false
+        :param now: (experimental) Sets current system time to be used by fake timers, in milliseconds. Default: - Date.now()
+        :param timer_limit: (experimental) Maximum number of recursive timers that will be run. Default: - 100000
+
+        :see: https://jestjs.io/docs/configuration#faketimers-object
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aaf734f24ae0330cb97b53e1adbd8f9780e04b5ea6c050e1c917e21eb91baaea)
+            check_type(argname="argument advance_timers", value=advance_timers, expected_type=type_hints["advance_timers"])
+            check_type(argname="argument do_not_fake", value=do_not_fake, expected_type=type_hints["do_not_fake"])
+            check_type(argname="argument enable_globally", value=enable_globally, expected_type=type_hints["enable_globally"])
+            check_type(argname="argument legacy_fake_timers", value=legacy_fake_timers, expected_type=type_hints["legacy_fake_timers"])
+            check_type(argname="argument now", value=now, expected_type=type_hints["now"])
+            check_type(argname="argument timer_limit", value=timer_limit, expected_type=type_hints["timer_limit"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if advance_timers is not None:
+            self._values["advance_timers"] = advance_timers
+        if do_not_fake is not None:
+            self._values["do_not_fake"] = do_not_fake
+        if enable_globally is not None:
+            self._values["enable_globally"] = enable_globally
+        if legacy_fake_timers is not None:
+            self._values["legacy_fake_timers"] = legacy_fake_timers
+        if now is not None:
+            self._values["now"] = now
+        if timer_limit is not None:
+            self._values["timer_limit"] = timer_limit
+
+    @builtins.property
+    def advance_timers(
+        self,
+    ) -> typing.Optional[typing.Union[jsii.Number, builtins.bool]]:
+        '''(experimental) If set to ``true`` all timers will be advanced automatically by 20 milliseconds every 20 milliseconds.
+
+        A custom time delta may be provided by passing a number.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("advance_timers")
+        return typing.cast(typing.Optional[typing.Union[jsii.Number, builtins.bool]], result)
+
+    @builtins.property
+    def do_not_fake(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) List of names of APIs (e.g. ``Date``, ``nextTick``, ``setTimeout``) that should not be faked.
+
+        :default: - [] (all APIs are faked)
+
+        :stability: experimental
+        '''
+        result = self._values.get("do_not_fake")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def enable_globally(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether fake timers should be enabled for all test files.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_globally")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def legacy_fake_timers(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use the old fake timers implementation instead of one backed by ``@sinonjs/fake-timers``.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("legacy_fake_timers")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def now(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Sets current system time to be used by fake timers, in milliseconds.
+
+        :default: - Date.now()
+
+        :stability: experimental
+        '''
+        result = self._values.get("now")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def timer_limit(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Maximum number of recursive timers that will be run.
+
+        :default: - 100000
+
+        :stability: experimental
+        '''
+        result = self._values.get("timer_limit")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FakeTimers(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="projen.javascript.HTMLWhitespaceSensitivity")
 class HTMLWhitespaceSensitivity(enum.Enum):
     '''
@@ -2985,7 +3124,9 @@ class Jest(
         "dependency_extractor": "dependencyExtractor",
         "display_name": "displayName",
         "error_on_deprecated": "errorOnDeprecated",
+        "extensions_to_treat_as_esm": "extensionsToTreatAsEsm",
         "extra_globals": "extraGlobals",
+        "fake_timers": "fakeTimers",
         "force_coverage_match": "forceCoverageMatch",
         "globals": "globals",
         "global_setup": "globalSetup",
@@ -3001,9 +3142,11 @@ class Jest(
         "module_paths": "modulePaths",
         "notify": "notify",
         "notify_mode": "notifyMode",
+        "open_handles_timeout": "openHandlesTimeout",
         "preset": "preset",
         "prettier_path": "prettierPath",
         "projects": "projects",
+        "randomize": "randomize",
         "reporters": "reporters",
         "reset_mocks": "resetMocks",
         "reset_modules": "resetModules",
@@ -3012,9 +3155,13 @@ class Jest(
         "root_dir": "rootDir",
         "roots": "roots",
         "runner": "runner",
+        "runtime": "runtime",
+        "sandbox_injected_globals": "sandboxInjectedGlobals",
         "setup_files": "setupFiles",
         "setup_files_after_env": "setupFilesAfterEnv",
+        "show_seed": "showSeed",
         "slow_test_threshold": "slowTestThreshold",
+        "snapshot_format": "snapshotFormat",
         "snapshot_resolver": "snapshotResolver",
         "snapshot_serializers": "snapshotSerializers",
         "test_environment": "testEnvironment",
@@ -3033,9 +3180,13 @@ class Jest(
         "transform_ignore_patterns": "transformIgnorePatterns",
         "unmocked_module_path_patterns": "unmockedModulePathPatterns",
         "verbose": "verbose",
+        "wait_for_unhandled_rejections": "waitForUnhandledRejections",
         "watchman": "watchman",
         "watch_path_ignore_patterns": "watchPathIgnorePatterns",
         "watch_plugins": "watchPlugins",
+        "worker_graceful_exit_timeout": "workerGracefulExitTimeout",
+        "worker_idle_memory_limit": "workerIdleMemoryLimit",
+        "worker_threads": "workerThreads",
     },
 )
 class JestConfigOptions:
@@ -3057,7 +3208,9 @@ class JestConfigOptions:
         dependency_extractor: typing.Optional[builtins.str] = None,
         display_name: typing.Any = None,
         error_on_deprecated: typing.Optional[builtins.bool] = None,
+        extensions_to_treat_as_esm: typing.Optional[typing.Sequence[builtins.str]] = None,
         extra_globals: typing.Optional[typing.Sequence[builtins.str]] = None,
+        fake_timers: typing.Optional[typing.Union["FakeTimers", typing.Dict[builtins.str, typing.Any]]] = None,
         force_coverage_match: typing.Optional[typing.Sequence[builtins.str]] = None,
         globals: typing.Any = None,
         global_setup: typing.Optional[builtins.str] = None,
@@ -3073,9 +3226,11 @@ class JestConfigOptions:
         module_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
         notify: typing.Optional[builtins.bool] = None,
         notify_mode: typing.Optional[builtins.str] = None,
+        open_handles_timeout: typing.Optional[jsii.Number] = None,
         preset: typing.Optional[builtins.str] = None,
         prettier_path: typing.Optional[builtins.str] = None,
         projects: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Mapping[builtins.str, typing.Any]]]] = None,
+        randomize: typing.Optional[builtins.bool] = None,
         reporters: typing.Optional[typing.Sequence["JestReporter"]] = None,
         reset_mocks: typing.Optional[builtins.bool] = None,
         reset_modules: typing.Optional[builtins.bool] = None,
@@ -3084,9 +3239,13 @@ class JestConfigOptions:
         root_dir: typing.Optional[builtins.str] = None,
         roots: typing.Optional[typing.Sequence[builtins.str]] = None,
         runner: typing.Optional[builtins.str] = None,
+        runtime: typing.Optional[builtins.str] = None,
+        sandbox_injected_globals: typing.Optional[typing.Sequence[builtins.str]] = None,
         setup_files: typing.Optional[typing.Sequence[builtins.str]] = None,
         setup_files_after_env: typing.Optional[typing.Sequence[builtins.str]] = None,
+        show_seed: typing.Optional[builtins.bool] = None,
         slow_test_threshold: typing.Optional[jsii.Number] = None,
+        snapshot_format: typing.Optional[typing.Union["SnapshotFormatOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         snapshot_resolver: typing.Optional[builtins.str] = None,
         snapshot_serializers: typing.Optional[typing.Sequence[builtins.str]] = None,
         test_environment: typing.Optional[builtins.str] = None,
@@ -3105,9 +3264,13 @@ class JestConfigOptions:
         transform_ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
         unmocked_module_path_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
         verbose: typing.Optional[builtins.bool] = None,
+        wait_for_unhandled_rejections: typing.Optional[builtins.bool] = None,
         watchman: typing.Optional[builtins.bool] = None,
         watch_path_ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_plugins: typing.Optional[typing.Sequence["WatchPlugin"]] = None,
+        worker_graceful_exit_timeout: typing.Optional[jsii.Number] = None,
+        worker_idle_memory_limit: typing.Optional[typing.Union[builtins.str, jsii.Number]] = None,
+        worker_threads: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param additional_options: (experimental) Escape hatch to allow any value.
@@ -3120,12 +3283,14 @@ class JestConfigOptions:
         :param coverage_directory: (experimental) The directory where Jest should output its coverage files. Default: "coverage"
         :param coverage_path_ignore_patterns: (experimental) An array of regexp pattern strings that are matched against all file paths before executing the test. If the file path matches any of the patterns, coverage information will be skipped Default: "/node_modules/"
         :param coverage_provider: (experimental) Indicates which provider should be used to instrument code for coverage. Allowed values are v8 (default) or babel Default: - "v8"
-        :param coverage_reporters: (experimental) A list of reporter names that Jest uses when writing coverage reports. Any istanbul reporter can be used Default: - ["json", "lcov", "text", "clover", "cobertura"]
+        :param coverage_reporters: (experimental) A list of reporter names that Jest uses when writing coverage reports. Any istanbul reporter can be used Default: - ["json", "lcov", "clover", "cobertura", "text"]
         :param coverage_threshold: (experimental) Specify the global coverage thresholds. This will be used to configure minimum threshold enforcement for coverage results. Thresholds can be specified as global, as a glob, and as a directory or file path. If thresholds aren't met, jest will fail. Default: - undefined
         :param dependency_extractor: (experimental) This option allows the use of a custom dependency extractor. It must be a node module that exports an object with an extract function Default: - undefined
         :param display_name: (experimental) Allows for a label to be printed alongside a test while it is running. Default: - undefined
         :param error_on_deprecated: (experimental) Make calling deprecated APIs throw helpful error messages. Useful for easing the upgrade process. Default: - false
-        :param extra_globals: (experimental) Test files run inside a vm, which slows calls to global context properties (e.g. Math). With this option you can specify extra properties to be defined inside the vm for faster lookups. Default: - undefined
+        :param extensions_to_treat_as_esm: (experimental) Jest will run ``.mjs`` and ``.js`` files with nearest package.json's ``type`` field set to ``module`` as ECMAScript Modules. If you have any other files that should run with native ESM, you need to specify their file extension here. Default: - []
+        :param extra_globals: (deprecated) Test files run inside a vm, which slows calls to global context properties (e.g. Math). With this option you can specify extra properties to be defined inside the vm for faster lookups. Default: - undefined
+        :param fake_timers: (experimental) The fake timers may be useful when a piece of code sets a long timeout that we don't want to wait for in a test. This option provides the default configuration of fake timers for all tests. Default: - {}
         :param force_coverage_match: (experimental) Test files are normally ignored from collecting code coverage. With this option, you can overwrite this behavior and include otherwise ignored files in code coverage. Default: - ['']
         :param globals: (experimental) A set of global variables that need to be available in all test environments. Default: - {}
         :param global_setup: (experimental) This option allows the use of a custom global setup module which exports an async function that is triggered once before all test suites. This function gets Jest's globalConfig object as a parameter. Default: - undefined
@@ -3141,9 +3306,11 @@ class JestConfigOptions:
         :param module_paths: (experimental) An alternative API to setting the NODE_PATH env variable, modulePaths is an array of absolute paths to additional locations to search when resolving modules. Use the string token to include the path to your project's root directory. Example: ["/app/"]. Default: - []
         :param notify: (experimental) Activates notifications for test results. Default: - false
         :param notify_mode: (experimental) Specifies notification mode. Requires notify: true Default: - failure-change
+        :param open_handles_timeout: (experimental) Print a warning indicating that there are probable open handles if Jest does not exit cleanly this number of milliseconds after it completes. Use ``0`` to disable the warning. Default: - 1000
         :param preset: (experimental) A preset that is used as a base for Jest's configuration. A preset should point to an npm module that has a jest-preset.json or jest-preset.js file at the root. Default: - undefined
         :param prettier_path: (experimental) Sets the path to the prettier node module used to update inline snapshots. Default: - "prettier"
         :param projects: (experimental) When the projects configuration is provided with an array of paths or glob patterns, Jest will run tests in all of the specified projects at the same time. This is great for monorepos or when working on multiple projects at the same time. Default: - undefined
+        :param randomize: (experimental) The equivalent of the ``--randomize`` flag to randomize the order of the tests in a file. Default: - false
         :param reporters: (experimental) Use this configuration option to add custom reporters to Jest. A custom reporter is a class that implements onRunStart, onTestStart, onTestResult, onRunComplete methods that will be called when any of those events occurs. Default: - undefined
         :param reset_mocks: (experimental) Automatically reset mock state before every test. Equivalent to calling jest.resetAllMocks() before each test. This will lead to any mocks having their fake implementations removed but does not restore their initial implementation. Default: - false
         :param reset_modules: (experimental) By default, each test file gets its own independent module registry. Enabling resetModules goes a step further and resets the module registry before running each individual test. Default: - false
@@ -3152,37 +3319,49 @@ class JestConfigOptions:
         :param root_dir: (experimental) The root directory that Jest should scan for tests and modules within. If you put your Jest config inside your package.json and want the root directory to be the root of your repo, the value for this config param will default to the directory of the package.json. Default: - directory of the package.json
         :param roots: (experimental) A list of paths to directories that Jest should use to search for files in. Default: - [""]
         :param runner: (experimental) This option allows you to use a custom runner instead of Jest's default test runner. Default: - "jest-runner"
+        :param runtime: (experimental) This option allows the use of a custom runtime to execute test files. A custom runtime can be provided by specifying a path to a runtime implementation. Default: - "jest-runtime"
+        :param sandbox_injected_globals: (experimental) Test files run inside a vm, which slows calls to global context properties (e.g. Math). With this option you can specify extra properties to be defined inside the vm for faster lookups. Default: - undefined
         :param setup_files: (experimental) A list of paths to modules that run some code to configure or set up the testing environment. Each setupFile will be run once per test file. Since every test runs in its own environment, these scripts will be executed in the testing environment immediately before executing the test code itself. Default: - []
         :param setup_files_after_env: (experimental) A list of paths to modules that run some code to configure or set up the testing framework before each test file in the suite is executed. Since setupFiles executes before the test framework is installed in the environment, this script file presents you the opportunity of running some code immediately after the test framework has been installed in the environment. Default: - []
+        :param show_seed: (experimental) The equivalent of the ``--showSeed`` flag to print the seed in the test report summary. Default: - false
         :param slow_test_threshold: (experimental) The number of seconds after which a test is considered as slow and reported as such in the results. Default: - 5
+        :param snapshot_format: (experimental) Allows overriding specific snapshot formatting options documented in the pretty-format readme, with the exceptions of ``compareKeys`` and ``plugins``. Default: - {escapeString: false, printBasicPrototype: false}
         :param snapshot_resolver: (experimental) The path to a module that can resolve test<->snapshot path. This config option lets you customize where Jest stores snapshot files on disk. Default: - undefined
         :param snapshot_serializers: (experimental) A list of paths to snapshot serializer modules Jest should use for snapshot testing. Default: = []
-        :param test_environment: (experimental) The test environment that will be used for testing. The default environment in Jest is a browser-like environment through jsdom. If you are building a node service, you can use the node option to use a node-like environment instead. Default: - "jsdom"
+        :param test_environment: (experimental) The test environment that will be used for testing. The default environment in Jest is a Node.js environment. If you are building a web app, you can use a browser-like environment through jsdom instead. Default: - "node"
         :param test_environment_options: (experimental) Test environment options that will be passed to the testEnvironment. The relevant options depend on the environment. Default: - {}
         :param test_failure_exit_code: (experimental) The exit code Jest returns on test failure. Default: - 1
         :param test_match: (experimental) The glob patterns Jest uses to detect test files. By default it looks for .js, .jsx, .ts and .tsx files inside of **tests** folders, as well as any files with a suffix of .test or .spec (e.g. Component.test.js or Component.spec.js). It will also find files called test.js or spec.js. Default: ['**/**tests**/**/*.[jt]s?(x)', '**/*(*.)@(spec|test).[tj]s?(x)']
         :param test_path_ignore_patterns: (experimental) An array of regexp pattern strings that are matched against all test paths before executing the test. If the test path matches any of the patterns, it will be skipped. Default: - ["/node_modules/"]
         :param test_regex: (experimental) The pattern or patterns Jest uses to detect test files. By default it looks for .js, .jsx, .ts and .tsx files inside of **tests** folders, as well as any files with a suffix of .test or .spec (e.g. Component.test.js or Component.spec.js). It will also find files called test.js or spec.js. Default: - (/**tests**/.*|(\\.|/)(test|spec))\\.[jt]sx?$
         :param test_results_processor: (experimental) This option allows the use of a custom results processor. Default: - undefined
-        :param test_runner: (experimental) This option allows the use of a custom test runner. The default is jasmine2. A custom test runner can be provided by specifying a path to a test runner implementation. Default: - "jasmine2"
+        :param test_runner: (experimental) This option allows the use of a custom test runner. The default is jest-circus. A custom test runner can be provided by specifying a path to a test runner implementation. Default: - "jest-circus/runner"
         :param test_sequencer: (experimental) This option allows you to use a custom sequencer instead of Jest's default. Sort may optionally return a Promise. Default: - "@jest/test-sequencer"
         :param test_timeout: (experimental) Default timeout of a test in milliseconds. Default: - 5000
-        :param test_url: (experimental) This option sets the URL for the jsdom environment. It is reflected in properties such as location.href. Default: - "http://localhost"
-        :param timers: (experimental) Setting this value to legacy or fake allows the use of fake timers for functions such as setTimeout. Fake timers are useful when a piece of code sets a long timeout that we don't want to wait for in a test. Default: - "real"
+        :param test_url: (deprecated) This option sets the URL for the jsdom environment. It is reflected in properties such as location.href. Default: - "http://localhost"
+        :param timers: (deprecated) Setting this value to legacy or fake allows the use of fake timers for functions such as setTimeout. Fake timers are useful when a piece of code sets a long timeout that we don't want to wait for in a test. Default: - "real"
         :param transform: (experimental) A map from regular expressions to paths to transformers. A transformer is a module that provides a synchronous function for transforming source files. Default: - {"\\.[jt]sx?$": "babel-jest"}
         :param transform_ignore_patterns: (experimental) An array of regexp pattern strings that are matched against all source file paths before transformation. If the test path matches any of the patterns, it will not be transformed. Default: - ["/node_modules/", "\\.pnp\\.[^\\/]+$"]
         :param unmocked_module_path_patterns: (experimental) An array of regexp pattern strings that are matched against all modules before the module loader will automatically return a mock for them. If a module's path matches any of the patterns in this list, it will not be automatically mocked by the module loader. Default: - []
         :param verbose: (experimental) Indicates whether each individual test should be reported during the run. All errors will also still be shown on the bottom after execution. Note that if there is only one test file being run it will default to true. Default: - false
+        :param wait_for_unhandled_rejections: (experimental) Gives one event loop turn to handle ``rejectionHandled``, ``uncaughtException`` or ``unhandledRejection``. Without this flag Jest may report false-positive errors or fail to report actually unhandled rejections. This option may add a noticeable overhead for fast test suites. Default: - false
         :param watchman: (experimental) Whether to use watchman for file crawling. Default: - true
-        :param watch_path_ignore_patterns: (experimental) An array of RegExp patterns that are matched against all source file paths before re-running tests in watch mode. If the file path matches any of the patterns, when it is updated, it will not trigger a re-run of tests. Default: - []
+        :param watch_path_ignore_patterns: (experimental) An array of RegExp patterns that are matched against all source file paths before re-running tests in watch mode. If the file path matches any of the patterns, when it is updated, it will not trigger a re-run of tests. Default: - ["/node_modules/"]
         :param watch_plugins: Default: -
+        :param worker_graceful_exit_timeout: (experimental) Timeout in milliseconds for a worker process to exit gracefully after all tests have completed. If a worker does not exit within this timeout, it is force-killed. Default: - 500
+        :param worker_idle_memory_limit: (experimental) Specifies the memory limit for workers before they are recycled and is primarily a work-around for memory leaks. The limit can be specified as a percentage of system memory (e.g. ``0.5`` or ``"50%"``) or as a fixed byte value (e.g. ``"512MB"``). Default: - undefined
+        :param worker_threads: (experimental) Whether to use worker threads for parallelization. Child processes are used by default. Using worker threads may help to improve performance. Default: - false
 
         :stability: experimental
         '''
         if isinstance(coverage_threshold, dict):
             coverage_threshold = CoverageThreshold(**coverage_threshold)
+        if isinstance(fake_timers, dict):
+            fake_timers = FakeTimers(**fake_timers)
         if isinstance(haste, dict):
             haste = HasteConfig(**haste)
+        if isinstance(snapshot_format, dict):
+            snapshot_format = SnapshotFormatOptions(**snapshot_format)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__38439e86b40e7bc302e4faa48880e15ba8a10e5a2769a5b73cbf33a01a318752)
             check_type(argname="argument additional_options", value=additional_options, expected_type=type_hints["additional_options"])
@@ -3200,7 +3379,9 @@ class JestConfigOptions:
             check_type(argname="argument dependency_extractor", value=dependency_extractor, expected_type=type_hints["dependency_extractor"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument error_on_deprecated", value=error_on_deprecated, expected_type=type_hints["error_on_deprecated"])
+            check_type(argname="argument extensions_to_treat_as_esm", value=extensions_to_treat_as_esm, expected_type=type_hints["extensions_to_treat_as_esm"])
             check_type(argname="argument extra_globals", value=extra_globals, expected_type=type_hints["extra_globals"])
+            check_type(argname="argument fake_timers", value=fake_timers, expected_type=type_hints["fake_timers"])
             check_type(argname="argument force_coverage_match", value=force_coverage_match, expected_type=type_hints["force_coverage_match"])
             check_type(argname="argument globals", value=globals, expected_type=type_hints["globals"])
             check_type(argname="argument global_setup", value=global_setup, expected_type=type_hints["global_setup"])
@@ -3216,9 +3397,11 @@ class JestConfigOptions:
             check_type(argname="argument module_paths", value=module_paths, expected_type=type_hints["module_paths"])
             check_type(argname="argument notify", value=notify, expected_type=type_hints["notify"])
             check_type(argname="argument notify_mode", value=notify_mode, expected_type=type_hints["notify_mode"])
+            check_type(argname="argument open_handles_timeout", value=open_handles_timeout, expected_type=type_hints["open_handles_timeout"])
             check_type(argname="argument preset", value=preset, expected_type=type_hints["preset"])
             check_type(argname="argument prettier_path", value=prettier_path, expected_type=type_hints["prettier_path"])
             check_type(argname="argument projects", value=projects, expected_type=type_hints["projects"])
+            check_type(argname="argument randomize", value=randomize, expected_type=type_hints["randomize"])
             check_type(argname="argument reporters", value=reporters, expected_type=type_hints["reporters"])
             check_type(argname="argument reset_mocks", value=reset_mocks, expected_type=type_hints["reset_mocks"])
             check_type(argname="argument reset_modules", value=reset_modules, expected_type=type_hints["reset_modules"])
@@ -3227,9 +3410,13 @@ class JestConfigOptions:
             check_type(argname="argument root_dir", value=root_dir, expected_type=type_hints["root_dir"])
             check_type(argname="argument roots", value=roots, expected_type=type_hints["roots"])
             check_type(argname="argument runner", value=runner, expected_type=type_hints["runner"])
+            check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+            check_type(argname="argument sandbox_injected_globals", value=sandbox_injected_globals, expected_type=type_hints["sandbox_injected_globals"])
             check_type(argname="argument setup_files", value=setup_files, expected_type=type_hints["setup_files"])
             check_type(argname="argument setup_files_after_env", value=setup_files_after_env, expected_type=type_hints["setup_files_after_env"])
+            check_type(argname="argument show_seed", value=show_seed, expected_type=type_hints["show_seed"])
             check_type(argname="argument slow_test_threshold", value=slow_test_threshold, expected_type=type_hints["slow_test_threshold"])
+            check_type(argname="argument snapshot_format", value=snapshot_format, expected_type=type_hints["snapshot_format"])
             check_type(argname="argument snapshot_resolver", value=snapshot_resolver, expected_type=type_hints["snapshot_resolver"])
             check_type(argname="argument snapshot_serializers", value=snapshot_serializers, expected_type=type_hints["snapshot_serializers"])
             check_type(argname="argument test_environment", value=test_environment, expected_type=type_hints["test_environment"])
@@ -3248,9 +3435,13 @@ class JestConfigOptions:
             check_type(argname="argument transform_ignore_patterns", value=transform_ignore_patterns, expected_type=type_hints["transform_ignore_patterns"])
             check_type(argname="argument unmocked_module_path_patterns", value=unmocked_module_path_patterns, expected_type=type_hints["unmocked_module_path_patterns"])
             check_type(argname="argument verbose", value=verbose, expected_type=type_hints["verbose"])
+            check_type(argname="argument wait_for_unhandled_rejections", value=wait_for_unhandled_rejections, expected_type=type_hints["wait_for_unhandled_rejections"])
             check_type(argname="argument watchman", value=watchman, expected_type=type_hints["watchman"])
             check_type(argname="argument watch_path_ignore_patterns", value=watch_path_ignore_patterns, expected_type=type_hints["watch_path_ignore_patterns"])
             check_type(argname="argument watch_plugins", value=watch_plugins, expected_type=type_hints["watch_plugins"])
+            check_type(argname="argument worker_graceful_exit_timeout", value=worker_graceful_exit_timeout, expected_type=type_hints["worker_graceful_exit_timeout"])
+            check_type(argname="argument worker_idle_memory_limit", value=worker_idle_memory_limit, expected_type=type_hints["worker_idle_memory_limit"])
+            check_type(argname="argument worker_threads", value=worker_threads, expected_type=type_hints["worker_threads"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if additional_options is not None:
             self._values["additional_options"] = additional_options
@@ -3282,8 +3473,12 @@ class JestConfigOptions:
             self._values["display_name"] = display_name
         if error_on_deprecated is not None:
             self._values["error_on_deprecated"] = error_on_deprecated
+        if extensions_to_treat_as_esm is not None:
+            self._values["extensions_to_treat_as_esm"] = extensions_to_treat_as_esm
         if extra_globals is not None:
             self._values["extra_globals"] = extra_globals
+        if fake_timers is not None:
+            self._values["fake_timers"] = fake_timers
         if force_coverage_match is not None:
             self._values["force_coverage_match"] = force_coverage_match
         if globals is not None:
@@ -3314,12 +3509,16 @@ class JestConfigOptions:
             self._values["notify"] = notify
         if notify_mode is not None:
             self._values["notify_mode"] = notify_mode
+        if open_handles_timeout is not None:
+            self._values["open_handles_timeout"] = open_handles_timeout
         if preset is not None:
             self._values["preset"] = preset
         if prettier_path is not None:
             self._values["prettier_path"] = prettier_path
         if projects is not None:
             self._values["projects"] = projects
+        if randomize is not None:
+            self._values["randomize"] = randomize
         if reporters is not None:
             self._values["reporters"] = reporters
         if reset_mocks is not None:
@@ -3336,12 +3535,20 @@ class JestConfigOptions:
             self._values["roots"] = roots
         if runner is not None:
             self._values["runner"] = runner
+        if runtime is not None:
+            self._values["runtime"] = runtime
+        if sandbox_injected_globals is not None:
+            self._values["sandbox_injected_globals"] = sandbox_injected_globals
         if setup_files is not None:
             self._values["setup_files"] = setup_files
         if setup_files_after_env is not None:
             self._values["setup_files_after_env"] = setup_files_after_env
+        if show_seed is not None:
+            self._values["show_seed"] = show_seed
         if slow_test_threshold is not None:
             self._values["slow_test_threshold"] = slow_test_threshold
+        if snapshot_format is not None:
+            self._values["snapshot_format"] = snapshot_format
         if snapshot_resolver is not None:
             self._values["snapshot_resolver"] = snapshot_resolver
         if snapshot_serializers is not None:
@@ -3378,12 +3585,20 @@ class JestConfigOptions:
             self._values["unmocked_module_path_patterns"] = unmocked_module_path_patterns
         if verbose is not None:
             self._values["verbose"] = verbose
+        if wait_for_unhandled_rejections is not None:
+            self._values["wait_for_unhandled_rejections"] = wait_for_unhandled_rejections
         if watchman is not None:
             self._values["watchman"] = watchman
         if watch_path_ignore_patterns is not None:
             self._values["watch_path_ignore_patterns"] = watch_path_ignore_patterns
         if watch_plugins is not None:
             self._values["watch_plugins"] = watch_plugins
+        if worker_graceful_exit_timeout is not None:
+            self._values["worker_graceful_exit_timeout"] = worker_graceful_exit_timeout
+        if worker_idle_memory_limit is not None:
+            self._values["worker_idle_memory_limit"] = worker_idle_memory_limit
+        if worker_threads is not None:
+            self._values["worker_threads"] = worker_threads
 
     @builtins.property
     def additional_options(
@@ -3518,7 +3733,7 @@ class JestConfigOptions:
 
         Any istanbul reporter can be used
 
-        :default: - ["json", "lcov", "text", "clover", "cobertura"]
+        :default: - ["json", "lcov", "clover", "cobertura", "text"]
 
         :stability: experimental
         '''
@@ -3578,15 +3793,41 @@ class JestConfigOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def extra_globals(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) Test files run inside a vm, which slows calls to global context properties (e.g. Math). With this option you can specify extra properties to be defined inside the vm for faster lookups.
+    def extensions_to_treat_as_esm(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Jest will run ``.mjs`` and ``.js`` files with nearest package.json's ``type`` field set to ``module`` as ECMAScript Modules. If you have any other files that should run with native ESM, you need to specify their file extension here.
 
-        :default: - undefined
+        :default: - []
 
         :stability: experimental
         '''
+        result = self._values.get("extensions_to_treat_as_esm")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def extra_globals(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(deprecated) Test files run inside a vm, which slows calls to global context properties (e.g. Math). With this option you can specify extra properties to be defined inside the vm for faster lookups.
+
+        :default: - undefined
+
+        :deprecated: Renamed to ``sandboxInjectedGlobals`` in Jest 28. Use ``sandboxInjectedGlobals`` instead.
+
+        :stability: deprecated
+        '''
         result = self._values.get("extra_globals")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def fake_timers(self) -> typing.Optional["FakeTimers"]:
+        '''(experimental) The fake timers may be useful when a piece of code sets a long timeout that we don't want to wait for in a test.
+
+        This option provides the default configuration of fake timers for all tests.
+
+        :default: - {}
+
+        :stability: experimental
+        '''
+        result = self._values.get("fake_timers")
+        return typing.cast(typing.Optional["FakeTimers"], result)
 
     @builtins.property
     def force_coverage_match(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3782,6 +4023,19 @@ class JestConfigOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def open_handles_timeout(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Print a warning indicating that there are probable open handles if Jest does not exit cleanly this number of milliseconds after it completes.
+
+        Use ``0`` to disable the warning.
+
+        :default: - 1000
+
+        :stability: experimental
+        '''
+        result = self._values.get("open_handles_timeout")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
     def preset(self) -> typing.Optional[builtins.str]:
         '''(experimental) A preset that is used as a base for Jest's configuration.
 
@@ -3821,6 +4075,17 @@ class JestConfigOptions:
         '''
         result = self._values.get("projects")
         return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, typing.Mapping[builtins.str, typing.Any]]]], result)
+
+    @builtins.property
+    def randomize(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) The equivalent of the ``--randomize`` flag to randomize the order of the tests in a file.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("randomize")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def reporters(self) -> typing.Optional[typing.List["JestReporter"]]:
@@ -3932,6 +4197,31 @@ class JestConfigOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def runtime(self) -> typing.Optional[builtins.str]:
+        '''(experimental) This option allows the use of a custom runtime to execute test files.
+
+        A custom runtime can be
+        provided by specifying a path to a runtime implementation.
+
+        :default: - "jest-runtime"
+
+        :stability: experimental
+        '''
+        result = self._values.get("runtime")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sandbox_injected_globals(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Test files run inside a vm, which slows calls to global context properties (e.g. Math). With this option you can specify extra properties to be defined inside the vm for faster lookups.
+
+        :default: - undefined
+
+        :stability: experimental
+        '''
+        result = self._values.get("sandbox_injected_globals")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def setup_files(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) A list of paths to modules that run some code to configure or set up the testing environment.
 
@@ -3962,6 +4252,17 @@ class JestConfigOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
+    def show_seed(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) The equivalent of the ``--showSeed`` flag to print the seed in the test report summary.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("show_seed")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def slow_test_threshold(self) -> typing.Optional[jsii.Number]:
         '''(experimental) The number of seconds after which a test is considered as slow and reported as such in the results.
 
@@ -3971,6 +4272,17 @@ class JestConfigOptions:
         '''
         result = self._values.get("slow_test_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def snapshot_format(self) -> typing.Optional["SnapshotFormatOptions"]:
+        '''(experimental) Allows overriding specific snapshot formatting options documented in the pretty-format readme, with the exceptions of ``compareKeys`` and ``plugins``.
+
+        :default: - {escapeString: false, printBasicPrototype: false}
+
+        :stability: experimental
+        '''
+        result = self._values.get("snapshot_format")
+        return typing.cast(typing.Optional["SnapshotFormatOptions"], result)
 
     @builtins.property
     def snapshot_resolver(self) -> typing.Optional[builtins.str]:
@@ -4002,10 +4314,10 @@ class JestConfigOptions:
         '''(experimental) The test environment that will be used for testing.
 
         The default environment in Jest is a
-        browser-like environment through jsdom. If you are building a node service, you can use the node
-        option to use a node-like environment instead.
+        Node.js environment. If you are building a web app, you can use a browser-like environment
+        through jsdom instead.
 
-        :default: - "jsdom"
+        :default: - "node"
 
         :stability: experimental
         '''
@@ -4096,10 +4408,10 @@ class JestConfigOptions:
     def test_runner(self) -> typing.Optional[builtins.str]:
         '''(experimental) This option allows the use of a custom test runner.
 
-        The default is jasmine2. A custom test runner
+        The default is jest-circus. A custom test runner
         can be provided by specifying a path to a test runner implementation.
 
-        :default: - "jasmine2"
+        :default: - "jest-circus/runner"
 
         :stability: experimental
         '''
@@ -4132,26 +4444,30 @@ class JestConfigOptions:
 
     @builtins.property
     def test_url(self) -> typing.Optional[builtins.str]:
-        '''(experimental) This option sets the URL for the jsdom environment.
+        '''(deprecated) This option sets the URL for the jsdom environment.
 
         It is reflected in properties such as location.href.
 
         :default: - "http://localhost"
 
-        :stability: experimental
+        :deprecated: Removed in Jest 28. Use ``testEnvironmentOptions.url`` instead.
+
+        :stability: deprecated
         '''
         result = self._values.get("test_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def timers(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Setting this value to legacy or fake allows the use of fake timers for functions such as setTimeout.
+        '''(deprecated) Setting this value to legacy or fake allows the use of fake timers for functions such as setTimeout.
 
         Fake timers are useful when a piece of code sets a long timeout that we don't want to wait for in a test.
 
         :default: - "real"
 
-        :stability: experimental
+        :deprecated: Renamed to ``fakeTimers`` in Jest 27. Use ``fakeTimers`` instead.
+
+        :stability: deprecated
         '''
         result = self._values.get("timers")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4215,6 +4531,20 @@ class JestConfigOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def wait_for_unhandled_rejections(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Gives one event loop turn to handle ``rejectionHandled``, ``uncaughtException`` or ``unhandledRejection``.
+
+        Without this flag Jest may report false-positive errors or fail to report actually unhandled rejections.
+        This option may add a noticeable overhead for fast test suites.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("wait_for_unhandled_rejections")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def watchman(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Whether to use watchman for file crawling.
 
@@ -4232,7 +4562,7 @@ class JestConfigOptions:
         If the file path matches any of the patterns, when it is updated, it will not trigger
         a re-run of tests.
 
-        :default: - []
+        :default: - ["/node_modules/"]
 
         :stability: experimental
         '''
@@ -4248,6 +4578,49 @@ class JestConfigOptions:
         '''
         result = self._values.get("watch_plugins")
         return typing.cast(typing.Optional[typing.List["WatchPlugin"]], result)
+
+    @builtins.property
+    def worker_graceful_exit_timeout(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Timeout in milliseconds for a worker process to exit gracefully after all tests have completed.
+
+        If a worker does not exit within this timeout, it is force-killed.
+
+        :default: - 500
+
+        :stability: experimental
+        '''
+        result = self._values.get("worker_graceful_exit_timeout")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def worker_idle_memory_limit(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number]]:
+        '''(experimental) Specifies the memory limit for workers before they are recycled and is primarily a work-around for memory leaks.
+
+        The limit can be specified as a percentage of system memory (e.g. ``0.5`` or ``"50%"``)
+        or as a fixed byte value (e.g. ``"512MB"``).
+
+        :default: - undefined
+
+        :stability: experimental
+        '''
+        result = self._values.get("worker_idle_memory_limit")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number]], result)
+
+    @builtins.property
+    def worker_threads(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to use worker threads for parallelization.
+
+        Child processes are used by default.
+        Using worker threads may help to improve performance.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("worker_threads")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10803,6 +11176,212 @@ class ScopedPackagesOptions:
         )
 
 
+@jsii.data_type(
+    jsii_type="projen.javascript.SnapshotFormatOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "call_to_json": "callToJSON",
+        "escape_regex": "escapeRegex",
+        "escape_string": "escapeString",
+        "highlight": "highlight",
+        "indent": "indent",
+        "max_depth": "maxDepth",
+        "max_width": "maxWidth",
+        "min": "min",
+        "print_basic_prototype": "printBasicPrototype",
+        "print_function_name": "printFunctionName",
+    },
+)
+class SnapshotFormatOptions:
+    def __init__(
+        self,
+        *,
+        call_to_json: typing.Optional[builtins.bool] = None,
+        escape_regex: typing.Optional[builtins.bool] = None,
+        escape_string: typing.Optional[builtins.bool] = None,
+        highlight: typing.Optional[builtins.bool] = None,
+        indent: typing.Optional[jsii.Number] = None,
+        max_depth: typing.Optional[jsii.Number] = None,
+        max_width: typing.Optional[jsii.Number] = None,
+        min: typing.Optional[builtins.bool] = None,
+        print_basic_prototype: typing.Optional[builtins.bool] = None,
+        print_function_name: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Snapshot formatting options.
+
+        Mirrors the pretty-format options, with the exceptions of
+        ``compareKeys`` and ``plugins``.
+
+        :param call_to_json: (experimental) Calls ``toJSON`` on objects that have such a method. Default: - true
+        :param escape_regex: (experimental) Escapes special characters in regular expressions. Default: - false
+        :param escape_string: (experimental) Escapes quotes in strings. Default: - false
+        :param highlight: (experimental) Highlights syntax with colors in terminal (some plugins). Default: - false
+        :param indent: (experimental) Spaces of indentation between levels of nesting. Default: - 2
+        :param max_depth: (experimental) Maximum number of levels to print. Default: - Infinity
+        :param max_width: (experimental) Maximum number of elements to print at a given level. Default: - Infinity
+        :param min: (experimental) Prints objects on a single line when ``true``. Default: - false
+        :param print_basic_prototype: (experimental) Prints the prototype for basic objects and arrays. Default: - false
+        :param print_function_name: (experimental) Prints the name of functions. Default: - true
+
+        :see: https://jestjs.io/docs/configuration#snapshotformat-object
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e2534d7f856b23384ec4c0b442bd275f5ae912d9b64ea0c256761097ac209358)
+            check_type(argname="argument call_to_json", value=call_to_json, expected_type=type_hints["call_to_json"])
+            check_type(argname="argument escape_regex", value=escape_regex, expected_type=type_hints["escape_regex"])
+            check_type(argname="argument escape_string", value=escape_string, expected_type=type_hints["escape_string"])
+            check_type(argname="argument highlight", value=highlight, expected_type=type_hints["highlight"])
+            check_type(argname="argument indent", value=indent, expected_type=type_hints["indent"])
+            check_type(argname="argument max_depth", value=max_depth, expected_type=type_hints["max_depth"])
+            check_type(argname="argument max_width", value=max_width, expected_type=type_hints["max_width"])
+            check_type(argname="argument min", value=min, expected_type=type_hints["min"])
+            check_type(argname="argument print_basic_prototype", value=print_basic_prototype, expected_type=type_hints["print_basic_prototype"])
+            check_type(argname="argument print_function_name", value=print_function_name, expected_type=type_hints["print_function_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if call_to_json is not None:
+            self._values["call_to_json"] = call_to_json
+        if escape_regex is not None:
+            self._values["escape_regex"] = escape_regex
+        if escape_string is not None:
+            self._values["escape_string"] = escape_string
+        if highlight is not None:
+            self._values["highlight"] = highlight
+        if indent is not None:
+            self._values["indent"] = indent
+        if max_depth is not None:
+            self._values["max_depth"] = max_depth
+        if max_width is not None:
+            self._values["max_width"] = max_width
+        if min is not None:
+            self._values["min"] = min
+        if print_basic_prototype is not None:
+            self._values["print_basic_prototype"] = print_basic_prototype
+        if print_function_name is not None:
+            self._values["print_function_name"] = print_function_name
+
+    @builtins.property
+    def call_to_json(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Calls ``toJSON`` on objects that have such a method.
+
+        :default: - true
+
+        :stability: experimental
+        '''
+        result = self._values.get("call_to_json")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def escape_regex(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Escapes special characters in regular expressions.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("escape_regex")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def escape_string(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Escapes quotes in strings.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("escape_string")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def highlight(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Highlights syntax with colors in terminal (some plugins).
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("highlight")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def indent(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Spaces of indentation between levels of nesting.
+
+        :default: - 2
+
+        :stability: experimental
+        '''
+        result = self._values.get("indent")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def max_depth(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Maximum number of levels to print.
+
+        :default: - Infinity
+
+        :stability: experimental
+        '''
+        result = self._values.get("max_depth")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def max_width(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Maximum number of elements to print at a given level.
+
+        :default: - Infinity
+
+        :stability: experimental
+        '''
+        result = self._values.get("max_width")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def min(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Prints objects on a single line when ``true``.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("min")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def print_basic_prototype(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Prints the prototype for basic objects and arrays.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("print_basic_prototype")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def print_function_name(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Prints the name of functions.
+
+        :default: - true
+
+        :stability: experimental
+        '''
+        result = self._values.get("print_function_name")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SnapshotFormatOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="projen.javascript.SourceMapMode")
 class SourceMapMode(enum.Enum):
     '''(experimental) SourceMap mode for esbuild.
@@ -16442,6 +17021,7 @@ __all__ = [
     "EslintCommandOptions",
     "EslintOptions",
     "EslintOverride",
+    "FakeTimers",
     "HTMLWhitespaceSensitivity",
     "HasteConfig",
     "InstallReason",
@@ -16473,6 +17053,7 @@ __all__ = [
     "RenderWorkflowSetupOptions",
     "RunBundleTask",
     "ScopedPackagesOptions",
+    "SnapshotFormatOptions",
     "SourceMapMode",
     "TrailingComma",
     "Transform",
@@ -16827,6 +17408,18 @@ def _typecheckingstub__31a0dd46abf45fc4e6701aa5424796361affd0e9c44ed0f9005dd4fe0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__aaf734f24ae0330cb97b53e1adbd8f9780e04b5ea6c050e1c917e21eb91baaea(
+    *,
+    advance_timers: typing.Optional[typing.Union[jsii.Number, builtins.bool]] = None,
+    do_not_fake: typing.Optional[typing.Sequence[builtins.str]] = None,
+    enable_globally: typing.Optional[builtins.bool] = None,
+    legacy_fake_timers: typing.Optional[builtins.bool] = None,
+    now: typing.Optional[jsii.Number] = None,
+    timer_limit: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1d0f97663aee053bcca0e3b33c8be45ef5c6271b8e0c683a67d717aa914e2a89(
     *,
     compute_sha1: typing.Optional[builtins.bool] = None,
@@ -16954,7 +17547,9 @@ def _typecheckingstub__38439e86b40e7bc302e4faa48880e15ba8a10e5a2769a5b73cbf33a01
     dependency_extractor: typing.Optional[builtins.str] = None,
     display_name: typing.Any = None,
     error_on_deprecated: typing.Optional[builtins.bool] = None,
+    extensions_to_treat_as_esm: typing.Optional[typing.Sequence[builtins.str]] = None,
     extra_globals: typing.Optional[typing.Sequence[builtins.str]] = None,
+    fake_timers: typing.Optional[typing.Union[FakeTimers, typing.Dict[builtins.str, typing.Any]]] = None,
     force_coverage_match: typing.Optional[typing.Sequence[builtins.str]] = None,
     globals: typing.Any = None,
     global_setup: typing.Optional[builtins.str] = None,
@@ -16970,9 +17565,11 @@ def _typecheckingstub__38439e86b40e7bc302e4faa48880e15ba8a10e5a2769a5b73cbf33a01
     module_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
     notify: typing.Optional[builtins.bool] = None,
     notify_mode: typing.Optional[builtins.str] = None,
+    open_handles_timeout: typing.Optional[jsii.Number] = None,
     preset: typing.Optional[builtins.str] = None,
     prettier_path: typing.Optional[builtins.str] = None,
     projects: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Mapping[builtins.str, typing.Any]]]] = None,
+    randomize: typing.Optional[builtins.bool] = None,
     reporters: typing.Optional[typing.Sequence[JestReporter]] = None,
     reset_mocks: typing.Optional[builtins.bool] = None,
     reset_modules: typing.Optional[builtins.bool] = None,
@@ -16981,9 +17578,13 @@ def _typecheckingstub__38439e86b40e7bc302e4faa48880e15ba8a10e5a2769a5b73cbf33a01
     root_dir: typing.Optional[builtins.str] = None,
     roots: typing.Optional[typing.Sequence[builtins.str]] = None,
     runner: typing.Optional[builtins.str] = None,
+    runtime: typing.Optional[builtins.str] = None,
+    sandbox_injected_globals: typing.Optional[typing.Sequence[builtins.str]] = None,
     setup_files: typing.Optional[typing.Sequence[builtins.str]] = None,
     setup_files_after_env: typing.Optional[typing.Sequence[builtins.str]] = None,
+    show_seed: typing.Optional[builtins.bool] = None,
     slow_test_threshold: typing.Optional[jsii.Number] = None,
+    snapshot_format: typing.Optional[typing.Union[SnapshotFormatOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     snapshot_resolver: typing.Optional[builtins.str] = None,
     snapshot_serializers: typing.Optional[typing.Sequence[builtins.str]] = None,
     test_environment: typing.Optional[builtins.str] = None,
@@ -17002,9 +17603,13 @@ def _typecheckingstub__38439e86b40e7bc302e4faa48880e15ba8a10e5a2769a5b73cbf33a01
     transform_ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     unmocked_module_path_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     verbose: typing.Optional[builtins.bool] = None,
+    wait_for_unhandled_rejections: typing.Optional[builtins.bool] = None,
     watchman: typing.Optional[builtins.bool] = None,
     watch_path_ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     watch_plugins: typing.Optional[typing.Sequence[WatchPlugin]] = None,
+    worker_graceful_exit_timeout: typing.Optional[jsii.Number] = None,
+    worker_idle_memory_limit: typing.Optional[typing.Union[builtins.str, jsii.Number]] = None,
+    worker_threads: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17589,6 +18194,22 @@ def _typecheckingstub__01c6e79d2b5de89d5ea21ca58635c0e3f3ed941e2f5533f9365aca8c6
     *,
     registry_url: builtins.str,
     scope: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2534d7f856b23384ec4c0b442bd275f5ae912d9b64ea0c256761097ac209358(
+    *,
+    call_to_json: typing.Optional[builtins.bool] = None,
+    escape_regex: typing.Optional[builtins.bool] = None,
+    escape_string: typing.Optional[builtins.bool] = None,
+    highlight: typing.Optional[builtins.bool] = None,
+    indent: typing.Optional[jsii.Number] = None,
+    max_depth: typing.Optional[jsii.Number] = None,
+    max_width: typing.Optional[jsii.Number] = None,
+    min: typing.Optional[builtins.bool] = None,
+    print_basic_prototype: typing.Optional[builtins.bool] = None,
+    print_function_name: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

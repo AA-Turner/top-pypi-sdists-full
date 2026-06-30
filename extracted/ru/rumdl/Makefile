@@ -60,6 +60,19 @@ ci-install-mise:
 build:
 	cargo build --release
 
+# Build the CLI for WASI (wasm32-wasip1-threads). The `wasi` feature drops the
+# native LSP/tokio/jemalloc stack. Run in CI so wasm support can't silently regress.
+build-wasi:
+	rustup target add wasm32-wasip1-threads 2>/dev/null || true
+	cargo build --target wasm32-wasip1-threads --no-default-features --features wasi
+
+# Build the browser/npm wasm package (wasm32-unknown-unknown via wasm-pack).
+# Identical command to the release pipeline so local == CI == release; requires
+# wasm-pack on PATH. Run in CI so the browser build can't silently regress.
+build-wasm:
+	rustup target add wasm32-unknown-unknown 2>/dev/null || true
+	wasm-pack build --target web --no-default-features --features wasm
+
 # Static binary builds for Linux (musl)
 build-static-linux-x64:
 	@echo "Building static Linux x86_64 binary..."
@@ -294,6 +307,11 @@ fmt:
 	cargo fmt
 	cargo clippy --fix --allow-dirty --allow-staged -- -D clippy::uninlined_format_args
 	cargo fix --allow-dirty --allow-staged
+
+# Verify Rust sources are rustfmt-clean (no changes applied). Run in CI so an
+# unformatted contribution fails the gate instead of slipping in.
+fmt-check:
+	cargo fmt --check
 
 lint-actions:
 	actionlint

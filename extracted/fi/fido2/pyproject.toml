@@ -1,6 +1,6 @@
 [project]
 name = "fido2"
-version = "2.2.0"
+version = "2.2.1"
 description = "FIDO2/WebAuthn library for implementing clients and servers."
 authors = [{ name = "Dain Nilsson", email = "<dain@yubico.com>" }]
 readme = "README.adoc"
@@ -21,7 +21,7 @@ classifiers = [
   "Topic :: Security :: Cryptography",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = ["cryptography (>=2.6, !=35, <49)"]
+dependencies = ["cryptography (>=2.6, !=35, <52)"]
 
 [project.optional-dependencies]
 pcsc = ["pyscard (>=1.9, <3)"]
@@ -65,6 +65,7 @@ exclude = ["tests/", "docs/", "examples/"]
 reportPrivateImportUsage = false
 
 [tool.ty.src]
+include = ["fido2", "tests"]
 exclude = ["docs"]
 
 [[tool.ty.overrides]]

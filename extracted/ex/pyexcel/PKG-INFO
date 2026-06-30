@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pyexcel
-Version: 0.7.5
+Version: 0.7.6
 Summary: A wrapper library that provides one API to read, manipulate and writedata in different excel formats
 Home-page: https://github.com/pyexcel/pyexcel
-Download-URL: https://github.com/pyexcel/pyexcel/archive/0.7.5.tar.gz
+Download-URL: https://github.com/pyexcel/pyexcel/archive/0.7.6.tar.gz
 Author: C.W.
 Author-email: info@pyexcel.org
 License: New BSD
@@ -1216,13 +1216,43 @@ New BSD License
 
 
 
-No contributors yet
-=======================
+21 contributors
+================================================================================
 
-* Your github link will be listed here after your PR is merged
+In alphabetical order:
+
+* `Akshaya Kumar Sharma <https://github.com/akshayakrsh>`_
+* `Andre Almar <https://github.com/andrealmar>`_
+* `Arunkumar Rajendran <https://github.com/arunkumar-ra>`_
+* `Ayan Banerjee <https://github.com/ayan-b>`_
+* `Chris Hill-Scott <https://github.com/quis>`_
+* `Craig Anderson <https://github.com/craiga>`_
+* `D. Yu <https://github.com/darylyu>`_
+* `J Harley <https://github.com/julzhk>`_
+* `Joel Nothman <https://github.com/jnothman>`_
+* `John Vandenberg <https://github.com/jayvdb>`_
+* `Linghui Zeng <https://github.com/mathsyouth>`_
+* `Mark Mayo <https://github.com/marksmayo>`_
+* `Mateusz Konieczny <https://github.com/matkoniecz>`_
+* `nikolas <https://github.com/nikolas>`_
+* `Rintze M. Zelle, PhD <https://github.com/rmzelle>`_
+* `Simeon Visser <https://github.com/svisser>`_
+* `Simon Allen <https://github.com/garfunkel>`_
+* `simon klemenc <https://github.com/hiaselhans>`_
+* `Tim Gates <https://github.com/timgates42>`_
+* `Wesley A. Cheng <https://github.com/wesleyacheng>`_
+* `William Jamir Silva <https://github.com/williamjamir>`_
 
 Change log
 ================================================================================
+
+0.7.6 - 29.06.2026
+--------------------------------------------------------------------------------
+
+**Fixed**
+
+#. `#307 <https://github.com/pyexcel/pyexcel/issues/307>`_: honor negative
+   indices in delete_rows and delete_columns
 
 0.7.5 - 20.06.2026
 --------------------------------------------------------------------------------

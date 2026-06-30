@@ -605,11 +605,39 @@ SELECT_RAW_PINS_FOR_VERSION = sqlalchemy.text(
 # Sync Results Queries
 # =============================================================================
 
-# Get sync results for actors effectively pinned to a specific connector version.
-# Uses three LEFT JOINs on scoped_configuration to resolve the effective pin
-# (actor > workspace > organization), then filters to only rows whose effective
-# pin matches the requested version.
-SELECT_SYNC_RESULTS_FOR_VERSION = sqlalchemy.text(
+# Resolve a connector version UUID to its docker_repository and docker_image_tag.
+SELECT_VERSION_INFO_BY_ID = sqlalchemy.text(
+    """
+    SELECT
+         actor_definition_version.id AS version_id,
+         actor_definition_version.actor_definition_id,
+         actor_definition_version.docker_repository,
+         actor_definition_version.docker_image_tag
+    FROM actor_definition_version
+    WHERE actor_definition_version.id = :version_id
+    """
+)
+
+# Resolve a connector name + version tag to a version UUID.
+SELECT_VERSION_ID_BY_TAG = sqlalchemy.text(
+    """
+    SELECT
+         actor_definition_version.id AS version_id,
+         actor_definition_version.actor_definition_id,
+         actor_definition_version.docker_repository,
+         actor_definition_version.docker_image_tag
+    FROM actor_definition_version
+    WHERE actor_definition_version.docker_repository = :docker_repository
+      AND actor_definition_version.docker_image_tag = :docker_image_tag
+    """
+)
+
+# Get sync results for jobs that were run with a specific SOURCE connector version.
+# Filters on `jobs.config->'sync'->>'sourceDefinitionVersionId'` — the version
+# resolved at job-creation time — rather than the current pin state. This avoids
+# false positives (pre-pin syncs counted as RC) and false negatives (post-unpin
+# syncs missed). Pin columns are kept as informational output.
+SELECT_SOURCE_SYNC_RESULTS_FOR_VERSION = sqlalchemy.text(
     """
     SELECT
          jobs.id AS job_id,
@@ -621,6 +649,8 @@ SELECT_SYNC_RESULTS_FOR_VERSION = sqlalchemy.text(
          actor.id AS actor_id,
          actor.name AS actor_name,
          actor.actor_definition_id,
+         jobs.config->'sync'->>'sourceDefinitionVersionId' AS source_definition_version_id,
+         jobs.config->'sync'->>'destinationDefinitionVersionId' AS destination_definition_version_id,
          CASE
            WHEN actor_pin.id IS NOT NULL THEN actor_pin.origin_type
            WHEN ws_pin.id IS NOT NULL THEN ws_pin.origin_type
@@ -673,7 +703,7 @@ SELECT_SYNC_RESULTS_FOR_VERSION = sqlalchemy.text(
      AND org_pin.resource_id = actor.actor_definition_id
     WHERE
          jobs.config_type = 'sync'
-     AND (CASE WHEN actor_pin.id IS NOT NULL THEN actor_pin.value WHEN ws_pin.id IS NOT NULL THEN ws_pin.value WHEN org_pin.id IS NOT NULL THEN org_pin.value ELSE NULL END) = :actor_definition_version_id
+     AND jobs.config->'sync'->>'sourceDefinitionVersionId' = :actor_definition_version_id
      AND jobs.updated_at >= :cutoff_date
     ORDER BY
          jobs.updated_at DESC
@@ -681,8 +711,8 @@ SELECT_SYNC_RESULTS_FOR_VERSION = sqlalchemy.text(
     """
 )
 
-# Get successful sync results for actors effectively pinned to a specific version.
-SELECT_SUCCESSFUL_SYNCS_FOR_VERSION = sqlalchemy.text(
+# Get successful sync results for jobs that were run with a specific SOURCE version.
+SELECT_SOURCE_SUCCESSFUL_SYNCS_FOR_VERSION = sqlalchemy.text(
     """
     SELECT
          jobs.id AS job_id,
@@ -693,6 +723,8 @@ SELECT_SUCCESSFUL_SYNCS_FOR_VERSION = sqlalchemy.text(
          actor.id AS actor_id,
          actor.name AS actor_name,
          actor.actor_definition_id,
+         jobs.config->'sync'->>'sourceDefinitionVersionId' AS source_definition_version_id,
+         jobs.config->'sync'->>'destinationDefinitionVersionId' AS destination_definition_version_id,
          CASE
            WHEN actor_pin.id IS NOT NULL THEN actor_pin.origin_type
            WHEN ws_pin.id IS NOT NULL THEN ws_pin.origin_type
@@ -746,7 +778,157 @@ SELECT_SUCCESSFUL_SYNCS_FOR_VERSION = sqlalchemy.text(
     WHERE
          jobs.config_type = 'sync'
      AND jobs.status = 'succeeded'
-     AND (CASE WHEN actor_pin.id IS NOT NULL THEN actor_pin.value WHEN ws_pin.id IS NOT NULL THEN ws_pin.value WHEN org_pin.id IS NOT NULL THEN org_pin.value ELSE NULL END) = :actor_definition_version_id
+     AND jobs.config->'sync'->>'sourceDefinitionVersionId' = :actor_definition_version_id
+     AND jobs.updated_at >= :cutoff_date
+    ORDER BY
+         jobs.updated_at DESC
+    LIMIT :limit
+    """
+)
+
+# Get sync results for jobs that were run with a specific DESTINATION connector version.
+SELECT_DESTINATION_SYNC_RESULTS_FOR_VERSION = sqlalchemy.text(
+    """
+    SELECT
+         jobs.id AS job_id,
+         jobs.scope AS connection_id,
+         jobs.status AS job_status,
+         jobs.started_at,
+         jobs.updated_at AS job_updated_at,
+         connection.name AS connection_name,
+         actor.id AS actor_id,
+         actor.name AS actor_name,
+         actor.actor_definition_id,
+         jobs.config->'sync'->>'sourceDefinitionVersionId' AS source_definition_version_id,
+         jobs.config->'sync'->>'destinationDefinitionVersionId' AS destination_definition_version_id,
+         CASE
+           WHEN actor_pin.id IS NOT NULL THEN actor_pin.origin_type
+           WHEN ws_pin.id IS NOT NULL THEN ws_pin.origin_type
+           WHEN org_pin.id IS NOT NULL THEN org_pin.origin_type
+           ELSE NULL
+         END AS pin_origin_type,
+         CASE
+           WHEN actor_pin.id IS NOT NULL THEN actor_pin.origin
+           WHEN ws_pin.id IS NOT NULL THEN ws_pin.origin
+           WHEN org_pin.id IS NOT NULL THEN org_pin.origin
+           ELSE NULL
+         END AS pin_origin,
+         CASE
+           WHEN actor_pin.id IS NOT NULL THEN 'actor'
+           WHEN ws_pin.id IS NOT NULL THEN 'workspace'
+           WHEN org_pin.id IS NOT NULL THEN 'organization'
+           ELSE NULL
+         END AS pin_scope_type,
+         workspace.id AS workspace_id,
+         workspace.name AS workspace_name,
+         workspace.organization_id,
+         workspace.dataplane_group_id,
+         dataplane_group.name AS dataplane_name
+    FROM jobs
+    JOIN connection
+      ON jobs.scope = connection.id::text
+     AND connection.status != 'deprecated'
+    JOIN actor
+      ON connection.destination_id = actor.id
+     AND actor.tombstone = false
+    JOIN workspace
+      ON actor.workspace_id = workspace.id
+     AND workspace.tombstone = false
+    LEFT JOIN dataplane_group
+      ON workspace.dataplane_group_id = dataplane_group.id
+    LEFT JOIN scoped_configuration AS actor_pin
+      ON actor_pin.scope_id = actor.id
+     AND actor_pin.scope_type = 'actor'
+     AND actor_pin.key = 'connector_version'
+     AND actor_pin.resource_id = actor.actor_definition_id
+    LEFT JOIN scoped_configuration AS ws_pin
+      ON ws_pin.scope_id = workspace.id
+     AND ws_pin.scope_type = 'workspace'
+     AND ws_pin.key = 'connector_version'
+     AND ws_pin.resource_id = actor.actor_definition_id
+    LEFT JOIN scoped_configuration AS org_pin
+      ON org_pin.scope_id = workspace.organization_id
+     AND org_pin.scope_type = 'organization'
+     AND org_pin.key = 'connector_version'
+     AND org_pin.resource_id = actor.actor_definition_id
+    WHERE
+         jobs.config_type = 'sync'
+     AND jobs.config->'sync'->>'destinationDefinitionVersionId' = :actor_definition_version_id
+     AND jobs.updated_at >= :cutoff_date
+    ORDER BY
+         jobs.updated_at DESC
+    LIMIT :limit
+    """
+)
+
+# Get successful sync results for jobs that were run with a specific DESTINATION version.
+SELECT_DESTINATION_SUCCESSFUL_SYNCS_FOR_VERSION = sqlalchemy.text(
+    """
+    SELECT
+         jobs.id AS job_id,
+         jobs.scope AS connection_id,
+         jobs.started_at,
+         jobs.updated_at AS job_updated_at,
+         connection.name AS connection_name,
+         actor.id AS actor_id,
+         actor.name AS actor_name,
+         actor.actor_definition_id,
+         jobs.config->'sync'->>'sourceDefinitionVersionId' AS source_definition_version_id,
+         jobs.config->'sync'->>'destinationDefinitionVersionId' AS destination_definition_version_id,
+         CASE
+           WHEN actor_pin.id IS NOT NULL THEN actor_pin.origin_type
+           WHEN ws_pin.id IS NOT NULL THEN ws_pin.origin_type
+           WHEN org_pin.id IS NOT NULL THEN org_pin.origin_type
+           ELSE NULL
+         END AS pin_origin_type,
+         CASE
+           WHEN actor_pin.id IS NOT NULL THEN actor_pin.origin
+           WHEN ws_pin.id IS NOT NULL THEN ws_pin.origin
+           WHEN org_pin.id IS NOT NULL THEN org_pin.origin
+           ELSE NULL
+         END AS pin_origin,
+         CASE
+           WHEN actor_pin.id IS NOT NULL THEN 'actor'
+           WHEN ws_pin.id IS NOT NULL THEN 'workspace'
+           WHEN org_pin.id IS NOT NULL THEN 'organization'
+           ELSE NULL
+         END AS pin_scope_type,
+         workspace.id AS workspace_id,
+         workspace.name AS workspace_name,
+         workspace.organization_id,
+         workspace.dataplane_group_id,
+         dataplane_group.name AS dataplane_name
+    FROM jobs
+    JOIN connection
+      ON jobs.scope = connection.id::text
+     AND connection.status != 'deprecated'
+    JOIN actor
+      ON connection.destination_id = actor.id
+     AND actor.tombstone = false
+    JOIN workspace
+      ON actor.workspace_id = workspace.id
+     AND workspace.tombstone = false
+    LEFT JOIN dataplane_group
+      ON workspace.dataplane_group_id = dataplane_group.id
+    LEFT JOIN scoped_configuration AS actor_pin
+      ON actor_pin.scope_id = actor.id
+     AND actor_pin.scope_type = 'actor'
+     AND actor_pin.key = 'connector_version'
+     AND actor_pin.resource_id = actor.actor_definition_id
+    LEFT JOIN scoped_configuration AS ws_pin
+      ON ws_pin.scope_id = workspace.id
+     AND ws_pin.scope_type = 'workspace'
+     AND ws_pin.key = 'connector_version'
+     AND ws_pin.resource_id = actor.actor_definition_id
+    LEFT JOIN scoped_configuration AS org_pin
+      ON org_pin.scope_id = workspace.organization_id
+     AND org_pin.scope_type = 'organization'
+     AND org_pin.key = 'connector_version'
+     AND org_pin.resource_id = actor.actor_definition_id
+    WHERE
+         jobs.config_type = 'sync'
+     AND jobs.status = 'succeeded'
+     AND jobs.config->'sync'->>'destinationDefinitionVersionId' = :actor_definition_version_id
      AND jobs.updated_at >= :cutoff_date
     ORDER BY
          jobs.updated_at DESC
@@ -2010,16 +2192,20 @@ SELECT_CONNECTOR_ROLLOUT_BY_ID = sqlalchemy.text(
 )
 
 # =============================================================================
-# Versions with Pins or Active Rollouts
+# Versions with Pins (pins-only, no rollout JOIN)
 # =============================================================================
 
-# All connector versions that have at least one pin OR an active progressive rollout.
-# Starts from actor_definition_version, LEFT JOINs pin counts and active rollouts,
-# then filters to versions that have either pins > 0 or an active rollout.
-SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS = sqlalchemy.text(
+# Connector versions that have at least one scoped_configuration pin.
+# Does NOT join connector_rollout, so each version appears exactly once.
+SELECT_VERSIONS_WITH_PINS = sqlalchemy.text(
     """
     WITH pin_counts AS (
-        SELECT value::uuid AS version_id, COUNT(*) AS pin_count
+        SELECT
+            value::uuid AS version_id,
+            COUNT(*) AS pin_count,
+            COUNT(*) FILTER (WHERE scope_type = 'actor')        AS actor_pins,
+            COUNT(*) FILTER (WHERE scope_type = 'workspace')    AS workspace_pins,
+            COUNT(*) FILTER (WHERE scope_type = 'organization') AS org_pins
         FROM scoped_configuration
         WHERE key = 'connector_version'
         GROUP BY value::uuid
@@ -2031,30 +2217,31 @@ SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS = sqlalchemy.text(
          versions.docker_repository,
          versions.docker_image_tag,
          versions.last_published,
-         COALESCE(pins.pin_count, 0) AS pin_count,
-         rollouts.state AS rollout_state,
-         rollouts.id::text AS rollout_id
+         pins.pin_count,
+         pins.actor_pins,
+         pins.workspace_pins,
+         pins.org_pins
     FROM actor_definition_version AS versions
     JOIN actor_definition AS definitions
       ON versions.actor_definition_id = definitions.id
-    LEFT JOIN pin_counts AS pins
+    JOIN pin_counts AS pins
       ON versions.id = pins.version_id
-    LEFT JOIN connector_rollout AS rollouts
-      ON versions.id = rollouts.release_candidate_version_id
-     AND rollouts.state NOT IN ('succeeded', 'failed_rolled_back', 'canceled')
-    WHERE
-         pins.pin_count > 0
-      OR rollouts.id IS NOT NULL
     ORDER BY
+         pins.pin_count DESC,
          versions.created_at DESC
     """
 )
 
-# Same as above but filtered by actor_definition_id
-SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS_BY_DEFINITION = sqlalchemy.text(
+# Same as above but filtered by actor_definition_id.
+SELECT_VERSIONS_WITH_PINS_BY_DEFINITION = sqlalchemy.text(
     """
     WITH pin_counts AS (
-        SELECT value::uuid AS version_id, COUNT(*) AS pin_count
+        SELECT
+            value::uuid AS version_id,
+            COUNT(*) AS pin_count,
+            COUNT(*) FILTER (WHERE scope_type = 'actor')        AS actor_pins,
+            COUNT(*) FILTER (WHERE scope_type = 'workspace')    AS workspace_pins,
+            COUNT(*) FILTER (WHERE scope_type = 'organization') AS org_pins
         FROM scoped_configuration
         WHERE key = 'connector_version'
         GROUP BY value::uuid
@@ -2066,24 +2253,22 @@ SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS_BY_DEFINITION = sqlalchemy.text(
          versions.docker_repository,
          versions.docker_image_tag,
          versions.last_published,
-         COALESCE(pins.pin_count, 0) AS pin_count,
-         rollouts.state AS rollout_state,
-         rollouts.id::text AS rollout_id
+         pins.pin_count,
+         pins.actor_pins,
+         pins.workspace_pins,
+         pins.org_pins
     FROM actor_definition_version AS versions
     JOIN actor_definition AS definitions
       ON versions.actor_definition_id = definitions.id
-    LEFT JOIN pin_counts AS pins
+    JOIN pin_counts AS pins
       ON versions.id = pins.version_id
-    LEFT JOIN connector_rollout AS rollouts
-      ON versions.id = rollouts.release_candidate_version_id
-     AND rollouts.state NOT IN ('succeeded', 'failed_rolled_back', 'canceled')
-    WHERE
-         versions.actor_definition_id = :actor_definition_id
-     AND (pins.pin_count > 0 OR rollouts.id IS NOT NULL)
+    WHERE versions.actor_definition_id = :actor_definition_id
     ORDER BY
+         pins.pin_count DESC,
          versions.created_at DESC
     """
 )
+
 
 # =============================================================================
 # Connector Rollout Monitoring Queries

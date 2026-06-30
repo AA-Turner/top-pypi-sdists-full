@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password, get_password_validators
 from django.core.exceptions import ValidationError
+from django.http import Http404
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework import exceptions
@@ -14,8 +15,10 @@ from rest_framework.viewsets import GenericViewSet
 
 from django_rest_passwordreset.models import ResetPasswordToken, clear_expired, get_password_reset_token_expiry_time, \
     get_password_reset_lookup_field
-from django_rest_passwordreset.serializers import EmailSerializer, PasswordTokenSerializer, ResetTokenSerializer
+from django_rest_passwordreset.serializers import EmailSerializer, INVALID_TOKEN_ERROR, PasswordTokenSerializer, \
+    ResetTokenSerializer
 from django_rest_passwordreset.signals import reset_password_token_created, pre_password_reset, post_password_reset
+from django_rest_passwordreset.throttling import get_password_reset_request_token_throttle_classes
 
 User = get_user_model()
 
@@ -74,15 +77,24 @@ def generate_token_for_email(email, user_agent='', ip_address=''):
             active_user_found = True
             break
 
-    # No active user found, raise a ValidationError
-    # but not if DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE == True, in that case we return None
+    # No active user found.
+    #
+    # By default (DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE is unset or True) we return None
+    # so that the caller responds with a generic 200 OK, identical to the response for an existing
+    # account. This avoids a status/body user-enumeration oracle (distinct 400 vs 200 based on
+    # account existence).
+    #
+    # The previous default (False) raised a ValidationError -> 400, leaking whether an account exists.
+    # That behavior is retained only as an explicit opt-in and is deprecated; it will be removed in a
+    # future major release.
     if not active_user_found:
-        if not getattr(settings, 'DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE', False):
-            raise exceptions.ValidationError({
-                'email': [_(
-                    "We couldn't find an account associated with that email. Please try a different e-mail address.")],
-            })
-        return None
+        no_information_leakage = getattr(settings, 'DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE', True)
+        if no_information_leakage:
+            return None
+        raise exceptions.ValidationError({
+            'email': [_(
+                "We couldn't find an account associated with that email. Please try a different e-mail address.")],
+        })
 
     # last but not least: iterate over all users that are active and can change their password
     # and create a Reset Password Token and send a signal with the created token
@@ -107,10 +119,10 @@ class ResetPasswordValidateToken(GenericAPIView):
     """
     An Api View which provides a method to verify that a token is valid
     """
-    throttle_classes = ()
     permission_classes = ()
     serializer_class = ResetTokenSerializer
     authentication_classes = ()
+    throttle_scope = 'django-rest-passwordreset-validate-token'
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
@@ -131,10 +143,10 @@ class ResetPasswordConfirm(GenericAPIView):
     """
     An Api View which provides a method to reset a password based on a unique token
     """
-    throttle_classes = ()
     permission_classes = ()
     serializer_class = PasswordTokenSerializer
     authentication_classes = ()
+    throttle_scope = 'django-rest-passwordreset-confirm'
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
@@ -145,33 +157,35 @@ class ResetPasswordConfirm(GenericAPIView):
         # find token
         reset_password_token = ResetPasswordToken.objects.filter(key=token).first()
 
-        # change users password (if we got to this code it means that the user is_active)
-        if reset_password_token.user.eligible_for_reset():
-            pre_password_reset.send(
-                sender=self.__class__,
-                user=reset_password_token.user,
-                reset_password_token=reset_password_token,
-            )
-            try:
-                # validate the password against existing validators
-                validate_password(
-                    password,
-                    user=reset_password_token.user,
-                    password_validators=get_password_validators(settings.AUTH_PASSWORD_VALIDATORS)
-                )
-            except ValidationError as e:
-                # raise a validation error for the serializer
-                raise exceptions.ValidationError({
-                    'password': e.messages
-                })
+        if reset_password_token is None or not reset_password_token.user.eligible_for_reset():
+            raise Http404(INVALID_TOKEN_ERROR)
 
-            reset_password_token.user.set_password(password)
-            reset_password_token.user.save()
-            post_password_reset.send(
-                sender=self.__class__,
+        # change user's password after token and eligibility checks
+        pre_password_reset.send(
+            sender=self.__class__,
+            user=reset_password_token.user,
+            reset_password_token=reset_password_token,
+        )
+        try:
+            # validate the password against existing validators
+            validate_password(
+                password,
                 user=reset_password_token.user,
-                reset_password_token=reset_password_token,
+                password_validators=get_password_validators(settings.AUTH_PASSWORD_VALIDATORS)
             )
+        except ValidationError as e:
+            # raise a validation error for the serializer
+            raise exceptions.ValidationError({
+                'password': e.messages
+            })
+
+        reset_password_token.user.set_password(password)
+        reset_password_token.user.save()
+        post_password_reset.send(
+            sender=self.__class__,
+            user=reset_password_token.user,
+            reset_password_token=reset_password_token,
+        )
 
         # Delete all password reset tokens for this user
         ResetPasswordToken.objects.filter(user=reset_password_token.user).delete()
@@ -185,10 +199,17 @@ class ResetPasswordRequestToken(GenericAPIView):
 
     Sends a signal reset_password_token_created when a reset token was created
     """
-    throttle_classes = ()
     permission_classes = ()
     serializer_class = EmailSerializer
     authentication_classes = ()
+    # Used when DJANGO_REST_PASSWORDRESET_THROTTLE_CLASSES delegates to ScopedRateThrottle.
+    throttle_scope = 'django-rest-passwordreset-request-token'
+
+    def get_throttles(self):
+        return [
+            throttle_class()
+            for throttle_class in get_password_reset_request_token_throttle_classes()
+        ]
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)

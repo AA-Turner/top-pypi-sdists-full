@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Type, overload
 import numpy as np
 import pgtrigger
 from django.conf import settings as django_settings
-from django.db import models
+from django.db import models, transaction
 from django.db.models import CASCADE, PROTECT, ManyToManyField, Q
 from lamin_utils import logger
 from lamindb_setup.core import deprecated
@@ -42,9 +42,11 @@ from .query_set import QuerySet, SQLRecordList
 from .run import TracksRun, TracksUpdates
 from .sqlrecord import (
     BaseSQLRecord,
+    Branch,
     HasType,
     IsLink,
     Registry,
+    Space,
     SQLRecord,
     _get_record_kwargs,
     init_self_from_db,
@@ -107,6 +109,126 @@ def get_features_config(
         return features_list, configs  # type: ignore
     except TypeError:
         return features, configs  # type: ignore
+
+
+def transfer_schema_members(
+    schema: Schema,
+    source_db: str,
+    source_pk: int | None,
+    using_key: str | None,
+    *,
+    transfer_logs: dict,
+) -> None:
+    from copy import copy
+
+    from .feature import transfer_feature_dtypes
+    from .sqlrecord import transfer_to_default_db
+
+    if source_pk is None:
+        return None
+
+    source_schema = copy(schema)
+    source_schema._state.db = source_db
+    source_schema.pk = source_pk
+    # Only Feature schemas require member-level transfer here.
+    # Non-Feature schemas (e.g. large Gene schemas) can have huge memberships
+    # and are handled via regular mapping/lookup paths.
+    if source_schema.itype != "Feature":
+        return None
+
+    index_feature_uid = source_schema._index_feature_uid
+    if index_feature_uid is not None:
+        source_index_feature = (
+            Feature.objects.using(source_db).filter(uid=index_feature_uid).one_or_none()
+        )
+        if source_index_feature is not None:
+            index_feature = copy(source_index_feature)
+            transfer_feature_dtypes(
+                index_feature, using_key, transfer_logs=transfer_logs
+            )
+            transferred_index_feature = transfer_to_default_db(
+                index_feature, using_key, transfer_logs=transfer_logs, save=True
+            )
+            transferred_index_uid = (
+                transferred_index_feature.uid
+                if transferred_index_feature is not None
+                else index_feature.uid
+            )
+            assert transferred_index_uid == index_feature_uid, (
+                "transfer_schema_members() expected UID invariance for schema "
+                f"index feature uid='{index_feature_uid}', but got "
+                f"uid='{transferred_index_uid}'."
+            )
+
+    members = list(source_schema.members.all())
+    if len(members) == 0:
+        return None
+
+    transferred_members = []
+    for source_member in members:
+        member = copy(source_member)
+        if isinstance(member, Feature):
+            transfer_feature_dtypes(member, using_key, transfer_logs=transfer_logs)
+        transferred_member = transfer_to_default_db(
+            member, using_key, transfer_logs=transfer_logs, save=True
+        )
+        if transferred_member is not None:
+            transferred_members.append(transferred_member)
+        else:
+            transferred_members.append(member)
+
+    related_name = source_schema._get_related_name()
+    if related_name is None:
+        related_name = "features"
+    through_model = getattr(schema, related_name).through
+    related_fk_name = next(
+        field.name
+        for field in through_model._meta.fields
+        if isinstance(field, models.ForeignKey) and field.name != "schema"
+    )
+    existing_member_ids = list(
+        through_model.objects.using("default")
+        .filter(schema_id=schema.id)
+        .order_by("id")
+        .values_list(f"{related_fk_name}_id", flat=True)
+    )
+    new_member_ids = [member.id for member in transferred_members]
+    if existing_member_ids == new_member_ids:
+        return None
+
+    through_model.objects.using("default").filter(schema_id=schema.id).delete()
+    links = [
+        through_model(**{"schema_id": schema.id, f"{related_fk_name}_id": member.id})
+        for member in transferred_members
+    ]
+    through_model.objects.using("default").bulk_create(links)
+
+
+def transfer_schema_with_members(
+    schema: Schema, using_key: str | None, *, transfer_logs: dict
+) -> Schema:
+    from copy import copy
+
+    from .sqlrecord import transfer_to_default_db
+
+    source_db = schema._state.db
+    source_pk = schema.pk
+    schema_copy = copy(schema)
+    with transaction.atomic():
+        record_on_default = transfer_to_default_db(
+            schema_copy, using_key, transfer_logs=transfer_logs, save=True
+        )
+        schema_default = (
+            record_on_default if record_on_default is not None else schema_copy
+        )
+        transfer_schema_members(
+            schema_default,
+            source_db,
+            source_pk,
+            using_key,
+            transfer_logs=transfer_logs,
+        )
+    return schema_default
 
 
 class SchemaOptionals:
@@ -217,6 +339,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         coerce: `bool | None = None` When True, attempts to coerce values to the specified dtype
             during validation, see :attr:`~lamindb.Schema.coerce`.
         n_members: `int | None = None` A manual way of specifying the number of features in the schema. Is inferred from `features` if passed.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space.
 
     See Also:
         :meth:`~lamindb.Artifact.from_dataframe`
@@ -496,6 +620,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         ordered_set: bool = False,
         coerce: bool | None = None,
         n_members: int | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload
@@ -936,11 +1062,32 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         return cls.from_dataframe(df, field, name, mute, organism, source)
 
     def save(self, *args, **kwargs) -> Schema:
-        """Save schema."""
+        """Save schema.
+
+        When the schema hash changes because `schema.index` was set or unset on a
+        record-sheet schema, row keys are migrated between :attr:`~lamindb.Record.name`
+        and the link table in bulk. If `Record.name` and the link-table index value
+        both exist and differ, you are prompted to keep `Record.name` (`y`) or use
+        the feature values (`n`); pass `index_name_conflict="keep_name"` or
+        `"keep_feature"` to skip the prompt.
+
+        UX example::
+
+            >>> schema.save()
+            ! you updated the schema hash and might invalidate datasets...
+            1 sheet row(s) have both Record.name and 'name' values that differ.
+              sheet My samples 2025-05 (Kzpu3Xo8g7xy), record 21977: Record.name='schmidt22_perturbseq', name='sample-001'
+            Keep Record.name (y) or use feature values (n)? y
+
+        The prompt only appears when both values exist and differ; matching values
+        migrate silently.
+        """
         from .save import bulk_create
 
         features_to_delete = []
         print_hash_mutation_warning = kwargs.pop("print_hash_mutation_warning", True)
+        index_name_conflict = kwargs.pop("index_name_conflict", None)
+        using = kwargs.get("using") or self._state.db
 
         if self.pk is not None:
             existing_features = self.members.to_list() if self.members.exists() else []
@@ -992,6 +1139,24 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                         )
                 self.hash = validated_kwargs["hash"]
                 self.n_members = validated_kwargs["n_members"]
+                from .record import migrate_record_sheet_index_on_schema_save
+
+                old_index_uid = None
+                aux = (
+                    Schema.objects.using(using)
+                    .filter(pk=self.pk)
+                    .values_list("_aux", flat=True)
+                    .first()
+                )
+                if aux and isinstance(aux, dict) and "af" in aux and "3" in aux["af"]:
+                    old_index_uid = aux["af"]["3"]
+                migrate_record_sheet_index_on_schema_save(
+                    self,
+                    old_index_uid=old_index_uid,
+                    new_index_uid=self._index_feature_uid,
+                    using=using,
+                    index_name_conflict=index_name_conflict,
+                )
         super().save(*args, **kwargs)
         if hasattr(self, "_slots"):
             # analogous to save_schema_links in core._data.py
@@ -1008,7 +1173,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             delattr(self, "_slots")
         if hasattr(self, "_features"):
             assert self.n_members > 0  # noqa: S101
-            using: bool | None = kwargs.pop("using", None)
             related_name, records = self._features
 
             # self.related_name.set(features) does **not** preserve the order
@@ -1026,25 +1190,33 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             else:
                 related_field = related_model_split[1].lower()
             related_field_id = f"{related_field}_id"
-            links = [
-                through_model(**{"schema_id": self.id, related_field_id: record.id})
-                for record in records
-            ]
-            through_model.objects.using(using).bulk_create(links, ignore_conflicts=True)
-            getattr(self, related_name).remove(*features_to_delete)
+            new_member_ids = [record.id for record in records]
+            existing_member_ids = list(
+                through_model.objects.using(using)
+                .filter(schema_id=self.id)
+                .order_by("id")
+                .values_list(related_field_id, flat=True)
+            )
+            if new_member_ids != existing_member_ids:
+                through_model.objects.using(using).filter(schema_id=self.id).delete()
+                links = [
+                    through_model(**{"schema_id": self.id, related_field_id: record.id})
+                    for record in records
+                ]
+                through_model.objects.using(using).bulk_create(links)
             delattr(self, "_features")
 
         return self
 
     @property
     def members(self) -> QuerySet:
-        """A queryset for the individual records in the feature set underlying the schema.
+        """The feature objects underlying the schema.
 
-        Unlike the many-to-many fields `schema.features`, `schema.genes`, `schema.proteins`, `.members`
+        This is a non-empty set only if the schema object is composed by a set of feature objects.
 
-            1. returns an ordered `QuerySet` if the schema is saved or a `SQLRecordList` if the schema is unsaved
-            2. doesn't require knowledge of the registry storing the feature identifiers (`ln.Feature`, `bt.Gene`, `bt.Protein`, etc.)
-            3. works for a dynamically created (unsaved) schema
+        Unlike the many-to-many fields that relate the feature objects (`.features`, `.genes`, `.proteins`, etc.)
+        the `.members` attribute returns an ordered `QuerySet` if the schema is saved or
+        a `SQLRecordList` if the schema is unsaved.
         """
         if self._state.adding:
             # this should return a queryset and not a list...
@@ -1092,7 +1264,11 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     @property
     def dtype(self) -> str | None:
-        """The `dtype` for all features in the schema."""
+        """The `dtype` for all features in the schema.
+
+        This can only be a simple data type in case of a `Schema`: see
+        section :ref:`Data types <dtypes-note>` on the :class:`~lamindb.Feature` page.
+        """
         return self._dtype_str
 
     @dtype.setter
@@ -1125,7 +1301,14 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         For `DataFrame` / `AnnData` schemas, validates row indices during curation.
         For record sheet schemas, the index feature must have `dtype=str`; see
-        :class:`~lamindb.Record`. To unset, set `schema.index` to `None`.
+        :class:`~lamindb.Record`. The schema must be saved before assigning
+        `schema.index` (pass `index` to the constructor for unsaved schemas).
+        Assignment only sets or clears the index marker; it does not add or remove
+        schema members. On :meth:`~lamindb.Schema.save`, record sheets migrate row
+        keys between :attr:`~lamindb.Record.name` and the link table when the index
+        changes. If both differ for a row, you are prompted to keep `Record.name` or
+        the feature values; pass `index_name_conflict="keep_name"` or
+        `"keep_feature"` to :meth:`~lamindb.Schema.save` to skip the prompt.
         """
         if self._index_feature_uid is None:
             return None
@@ -1136,17 +1319,25 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 if feature.uid == self._index_feature_uid:
                     return feature
 
-        return self.features.get(uid=self._index_feature_uid)
+        from .feature import Feature
+
+        if self._state.adding:
+            return Feature.objects.using(self._state.db).get(
+                uid=self._index_feature_uid
+            )
+        try:
+            return self.features.get(uid=self._index_feature_uid)
+        except Feature.DoesNotExist:
+            return Feature.objects.using(self._state.db).get(
+                uid=self._index_feature_uid
+            )
 
     @index.setter
     def index(self, value: None | Feature) -> None:
-        if value is None:
-            current_index = self.index
-            self.features.remove(current_index)
-            self._index_feature_uid = value
-        else:
-            self.features.add(value)
-            self._index_feature_uid = value.uid
+        assert self._state.adding is False, (
+            "Cannot set index on unsaved schema, pass index to constructor instead."
+        )
+        self._index_feature_uid = None if value is None else value.uid
 
     @property
     def _index_feature_uid(self) -> None | str:

@@ -547,7 +547,7 @@ class workflow:
     async def execute_workflow(
         workflow: Type,
         params: BaseModel,
-        execution_timeout: timedelta = ...,
+        execution_timeout: timedelta | None = ...,
         execution_id: str | None = ...,
         wait: Literal[True] = ...,
         parent_close_policy: ParentClosePolicy | None = ...,
@@ -558,7 +558,7 @@ class workflow:
     async def execute_workflow(
         workflow: Type,
         params: BaseModel,
-        execution_timeout: timedelta = ...,
+        execution_timeout: timedelta | None = ...,
         execution_id: str | None = ...,
         wait: Literal[False] = ...,
         parent_close_policy: ParentClosePolicy | None = ...,
@@ -569,7 +569,7 @@ class workflow:
     async def execute_workflow(
         workflow: Type,
         params: BaseModel,
-        execution_timeout: timedelta = ...,
+        execution_timeout: timedelta | None = ...,
         execution_id: str | None = ...,
         wait: bool = ...,
         parent_close_policy: ParentClosePolicy | None = ...,
@@ -579,7 +579,7 @@ class workflow:
     async def execute_workflow(
         workflow: Type,
         params: BaseModel,
-        execution_timeout: timedelta = timedelta(hours=1),
+        execution_timeout: timedelta | None = None,
         execution_id: str | None = None,
         wait: bool = True,
         parent_close_policy: ParentClosePolicy | None = None,
@@ -593,7 +593,8 @@ class workflow:
         Args:
             workflow: The workflow class to execute (must be decorated with @workflow.define).
             params: The parameters to pass to the workflow (must be a BaseModel).
-            execution_timeout: The maximum time the workflow can run. Defaults to 1 hour.
+            execution_timeout: The maximum time the workflow can run. Defaults to the workflow's
+                declared execution_timeout from @workflow.define (itself 1 hour if unset).
             execution_id: Optional workflow ID. If None, a random ID will be generated.
             wait: If True (default), wait for the child to complete and return the result.
                   If False, return a ChildWorkflowHandle immediately (only inside a workflow).

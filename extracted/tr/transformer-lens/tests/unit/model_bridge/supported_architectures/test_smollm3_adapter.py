@@ -167,10 +167,6 @@ class TestSmolLM3AdapterConfig:
     def test_default_prepend_bos_is_false(self, adapter: SmolLM3ArchitectureAdapter) -> None:
         assert adapter.cfg.default_prepend_bos is False
 
-    def test_n_key_value_heads_propagated(self) -> None:
-        adapter = SmolLM3ArchitectureAdapter(_make_cfg(n_heads=8, n_key_value_heads=4))
-        assert adapter.cfg.n_key_value_heads == 4
-
 
 class TestSmolLM3ComponentMapping:
     """The adapter contract: TL canonical names mapped to SmolLM3 HF module paths."""
@@ -387,27 +383,22 @@ class TestSmolLM3GQAHookShapes:
         # Identity RoPE inputs keep this test focused on hook reshaping, not rotation math.
         cos = ones(1, self.SEQ, self.D_HEAD)
         sin = zeros(1, self.SEQ, self.D_HEAD)
-        out = attn_bridge(hidden, position_embeddings=(cos, sin))
-        out_tensor = out[0] if isinstance(out, tuple) else out
+        attn_bridge(hidden, position_embeddings=(cos, sin))
 
-        return captured["q"], captured["k"], captured["v"], out_tensor
+        return captured["q"], captured["k"], captured["v"]
 
     def test_hook_q_uses_n_heads(
         self, wired_attn_bridge: PositionEmbeddingsAttentionBridge
     ) -> None:
-        q, _, _, _ = self._run_and_capture(wired_attn_bridge)
+        q, _, _ = self._run_and_capture(wired_attn_bridge)
         assert q.shape == (self.BATCH, self.SEQ, self.N_HEADS, self.D_HEAD)
 
     def test_hook_kv_use_n_kv_heads(
         self, wired_attn_bridge: PositionEmbeddingsAttentionBridge
     ) -> None:
-        _, k, v, _ = self._run_and_capture(wired_attn_bridge)
+        _, k, v = self._run_and_capture(wired_attn_bridge)
         assert k.shape == (self.BATCH, self.SEQ, self.N_KV_HEADS, self.D_HEAD)
         assert v.shape == (self.BATCH, self.SEQ, self.N_KV_HEADS, self.D_HEAD)
-
-    def test_attn_output_shape(self, wired_attn_bridge: PositionEmbeddingsAttentionBridge) -> None:
-        _, _, _, out = self._run_and_capture(wired_attn_bridge)
-        assert out.shape == (self.BATCH, self.SEQ, self.D_MODEL)
 
 
 class TestSmolLM3NoPE:

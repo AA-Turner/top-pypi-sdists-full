@@ -1591,13 +1591,18 @@ impl SaeManifoldTerm {
         // `pca_ev_ceiling` returns non-finite and we fall back to the absolute
         // [`SAE_FIT_DATA_COLLAPSE_EV_FLOOR`] so the guard never keys on a
         // meaningless bar.
-        let dictionary_rank = self
-            .atoms
-            .iter()
-            .map(|atom| atom.basis_size())
-            .sum::<usize>()
-            .min(n)
-            .min(p);
+        //
+        // #1610 — the rank `q` at which the linear PCA ceiling is taken is the
+        // dictionary's GEOMETRICALLY REACHABLE rank (`Σ_k rank(Φ_k)` capped at
+        // `min(n,p)`), not the nominal coefficient count `Σ_k basis_size_k`. A
+        // curved atom's decoded image spans only `rank(Φ_k) ≤ basis_size_k`
+        // linear directions, so the old nominal count over-stated what the
+        // NONLINEAR dictionary can reach and biased the linear PCA ceiling high
+        // (and hence the bar). The reachable rank is read from the chart designs
+        // alone, so a co-collapsed dictionary still reports full geometric reach
+        // and the guard does not lower its own bar at the collapse it must catch.
+        let dictionary_rank =
+            crate::manifold::outer_objective::reachable_dictionary_rank(&self.atoms, n, p);
         let ev_floor =
             crate::manifold::outer_objective::collapse_ev_bar(target, dictionary_rank);
         if !(ev.is_finite() && ev <= ev_floor) {
@@ -2150,13 +2155,13 @@ impl SaeManifoldTerm {
             // solve own that case), as is any EV above the bar (a healthy fit).
             let n = self.n_obs();
             let p = target.ncols();
-            let dictionary_rank = self
-                .atoms
-                .iter()
-                .map(|atom| atom.basis_size())
-                .sum::<usize>()
-                .min(n)
-                .min(p);
+            // #1610 — calibrate the linear PCA ceiling against the dictionary's
+            // GEOMETRICALLY REACHABLE rank (`Σ_k rank(Φ_k)`), not the nominal
+            // coefficient count `Σ_k basis_size_k` (biased high for a nonlinear
+            // dictionary). Shared with the fitted-data collapse acceptance check
+            // so both verdicts key on the same reachable-rank bar.
+            let dictionary_rank =
+                crate::manifold::outer_objective::reachable_dictionary_rank(&self.atoms, n, p);
             let ev_floor = crate::manifold::outer_objective::collapse_ev_bar(
                 target,
                 dictionary_rank,
@@ -3074,6 +3079,31 @@ impl SaeManifoldTerm {
         }
         self.refresh_basis_from_current_coords()
             .map_err(|err| format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}"))?;
+        // #850 / gam#577 / gam#579 — `max_iter == 0` is a genuine FREEZE of the
+        // warm-started inner `(t, β)` state, a verbatim reuse and NOT a
+        // convergence request. The caller (`reml_criterion_with_cache_refine_policy`
+        // / `reml_criterion_streaming_exact`) runs this with `max_iter == 0`
+        // precisely to hold β at the seed, then factors once at that frozen
+        // iterate (`converge_inner_for_undamped_logdet`'s `inner_max_iter == 0`
+        // branch). Everything below — the rank-reduction reparametrization, the
+        // decoder-frame activation, the #1003/#976 active-mass / decoder-norm
+        // re-seed guards, and especially the #1026 post-loop decoder-LSQ polish —
+        // can MOVE β off the seed: the polish refits the decoder to the
+        // unpenalised least-squares argmin and commits it whenever the warm-start
+        // arrives off that argmin (i.e. for any genuine continuation seed). That
+        // silently broke the warm-start reuse the continuation walk depends on
+        // (the regression test `seed_inner_state_installs_and_reuses_matching_beta`
+        // published a refined hint instead of the seed). So at a zero-iteration
+        // freeze we run ONLY the β-neutral basis refresh above and return the loss
+        // at the untouched warm-start state. The state is already structurally
+        // prepared by the full solve that produced it: any rank reduction
+        // (`SubspaceReducedEvaluator`) and decoder frames it needs are persistent
+        // on the atoms, so re-running those entry stages here would at best be a
+        // no-op and at worst reparametrize the frozen β — neither is wanted under
+        // the freeze contract.
+        if max_iter == 0 {
+            return self.loss(target, rho);
+        }
         // #1117 root-cause fix — rank-revealing adaptive basis depth, applied
         // FIRST (before frame activation, the identifiability audit, and the
         // outer loop) so every downstream stage sees a full-rank design. A

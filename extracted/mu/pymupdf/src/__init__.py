@@ -1835,7 +1835,7 @@ class Annot:
             if abs(apnmat - Matrix(1, 1)) < 1e-5:
                 return  # matrix already is a no-op
             quad = self.rect.morph(M, ~apnmat)  # derotate rect
-            self.setRect(quad.rect)
+            self.set_rect(quad.rect)
             self.set_apn_matrix(Matrix(1, 1))  # appearance matrix = no-op
             return
 
@@ -2897,7 +2897,7 @@ class Document:
             raise IndexError(f"page {i} not in document")
         return self.load_page(i)
 
-    def __init__(self, filename=None, stream=None, filetype=None, rect=None, width=0, height=0, fontsize=11):
+    def __init__(self, filename=None, stream=None, filetype=None, rect=None, width=0, height=0, fontsize=11, archive=None):
         """Creates a document. Use 'open' as a synonym.
 
         Notes:
@@ -2943,7 +2943,14 @@ class Document:
 
             self._name = filename
             self.stream = stream
-            
+            if isinstance(archive, pathlib.Path):
+                archive = Archive(archive.name)
+            elif isinstance(archive, str):
+                archive = Archive(archive)
+            elif not archive:
+                archive = Archive()
+            elif not isinstance(archive, Archive):
+                raise TypeError(f"bad archive: {type(archive)=}.")
             if stream is not None:
                 if filename is not None and filetype is None:
                     # 2025-05-06: Use <filename> as the filetype. This is
@@ -2958,6 +2965,8 @@ class Document:
                     stream = stream.getvalue()
                 else:
                     raise TypeError(f"bad stream: {type(stream)=}.")
+
+                # this prevents bad things if original goes out of existence:
                 self.stream = stream
                 
                 assert isinstance(stream, (bytes, memoryview))
@@ -2967,9 +2976,9 @@ class Document:
                     # raise a specific exception.
                     raise EmptyFileError('Cannot open empty stream.')
                     
-                stream2 = mupdf.fz_open_memory(mupdf.python_buffer_data(stream), len(stream))
+                fz_stream = mupdf.fz_open_memory(mupdf.python_buffer_data(stream), len(stream))
                 try:
-                    doc = mupdf.fz_open_document_with_stream(filetype if filetype else '', stream2)
+                    doc = mupdf.fz_open_document_with_stream_and_dir(filetype if filetype else '', fz_stream, archive.this)
                 except Exception as e:
                     if g_exceptions_verbose > 1:    exception_info()
                     raise FileDataError('Failed to open stream') from e
@@ -2996,20 +3005,15 @@ class Document:
                     raise EmptyFileError(f'Cannot open empty file: {filename=}.')
                 
                 if filetype:
-                    # Override the type implied by <filename>. MuPDF does not
-                    # have a way to do this directly so we open via a stream.
-                    try:
-                        fz_stream = mupdf.fz_open_file(filename)
-                        doc = mupdf.fz_open_document_with_stream(filetype, fz_stream)
-                    except Exception as e:
-                        if g_exceptions_verbose > 1:    exception_info()
-                        raise FileDataError(f'Failed to open file {filename!r} as type {filetype!r}.') from e
+                    suffix = filetype
                 else:
-                    try:
-                        doc = mupdf.fz_open_document(filename)
-                    except Exception as e:
-                        if g_exceptions_verbose > 1:    exception_info()
-                        raise FileDataError(f'Failed to open file {filename!r}.') from e
+                    suffix = pathlib.Path(filename).suffix.strip(".")
+                try:
+                    fz_stream = mupdf.fz_open_file(filename)
+                    doc = mupdf.fz_open_document_with_stream_and_dir(suffix, fz_stream, archive.this)
+                except Exception as e:
+                    if g_exceptions_verbose > 1:    exception_info()
+                    raise FileDataError(f'Failed to open file {filename!r} as type {suffix}.') from e
 
             else:
                 pdf = mupdf.PdfDocument()
@@ -5763,6 +5767,23 @@ class Document:
         self._reset_page_refs()
         self.init_doc()
 
+    def apply_css(self, css: str, append: bool = True):
+        """Apply CSS to a reflowable document.
+
+        If 'append' evaluates to True, the CSS will be appended to
+        the default CSS of this document type.
+        Otherwise the default CSS will be ignored.
+        """
+        if self.is_closed or self.is_encrypted:
+            raise ValueError("document closed or encrypted")
+        doc = self.this
+        if not mupdf.fz_is_document_reflowable(doc):
+            return
+        if not isinstance(css, str) or not css:
+            return
+        append = int(bool(append))  # ensure integer
+        mupdf.fz_style_document(doc, append, css)
+
     def load_page(self, page_id):
         """Load a page.
 
@@ -6508,7 +6529,12 @@ class Document:
         if user_pw and len(user_pw) > 40 or owner_pw and len(owner_pw) > 40:
             raise ValueError("password length must not exceed 40")
         
-        pdf = _as_pdf_document(self)
+        pdf = _as_pdf_document(self, required=False)
+        if not pdf:
+            pdf_bytes = self.convert_to_pdf()
+            pdf_document = open(stream=pdf_bytes, filetype='pdf')
+            pdf = _as_pdf_document(pdf_document)
+        
         opts = mupdf.PdfWriteOptions()
         opts.do_incremental = incremental
         opts.do_ascii = ascii
@@ -10810,19 +10836,10 @@ class Page:
         mupdf.pdf_clip_page(pdfpage, pclip)
         JM_refresh_links(pdfpage)
 
-    def get_layout(self):
+    def get_layout(self, **kwargs):
         """Try to access layout information."""
-
-        if self.layout_information is not None:
-            # layout information already present
-            return
-
-        if not _get_layout:
-            # no layout information available
-            return
-
-        layout_info = _get_layout(self)
-        self.layout_information = layout_info
+        if _get_layout:
+            self.layout_information = _get_layout(self, **kwargs)
 
     @property
     def artbox(self):
@@ -11929,6 +11946,8 @@ class Page:
                 pass
         for widget in self.widgets():  # modify field rectangles
             r = widget.rect * rot
+            if r.is_empty or r.is_infinite:
+                continue
             widget.rect = r
             widget.update()
         return rot  # the inverse of the generated derotation matrix
@@ -18929,7 +18948,7 @@ def JM_choice_options(annot):
     if n == 0:
         return  # wrong widget type
 
-    optarr = mupdf.pdf_dict_get( annot_obj, PDF_NAME('Opt'))
+    optarr = mupdf.pdf_dict_get_inheritable( annot_obj, PDF_NAME('Opt'))
     liste = []
 
     for i in range( n):
@@ -19098,7 +19117,7 @@ def JM_copy_rectangle(page, area):
     return s
 
 
-def JM_convert_to_pdf(doc, fp, tp, rotate):
+def JM_convert_to_pdf(doc, fp, tp, rotate) -> bytes:
     '''
     Convert any MuPDF document to a PDF
     Returns bytes object containing the PDF, created via 'write' function.
@@ -19113,7 +19132,8 @@ def JM_convert_to_pdf(doc, fp, tp, rotate):
         e = fp      # ... range
     rot = JM_norm_rotation(rotate)
     i = fp
-    while 1:    # interpret & write document pages as PDF pages
+    internal_links = []  # collect PDF-wide internal links here
+    while 1:  # interpret & write document pages as PDF pages
         if not _INRANGE(i, s, e):
             break
         page = mupdf.fz_load_page(doc, i)
@@ -19124,11 +19144,49 @@ def JM_convert_to_pdf(doc, fp, tp, rotate):
         dev = None
         page_obj = mupdf.pdf_add_page(pdfout, mediabox, rot, resources, contents)
         mupdf.pdf_insert_page(pdfout, -1, page_obj)
+
+        # also copy links to the output PDF page
+        # get the PDF page we've just created
+        pdf_page = mupdf.pdf_load_page(pdfout, i)
+
+        # loop through source page links
+        link = mupdf.fz_load_links(page)  # load first link
+        while link.m_internal:  # break loop when link is None
+            uri = link.uri()  # URI string
+            rect = mupdf.FzRect(link.rect())  # link "from" rectangle
+            is_external = mupdf.fz_is_external_link(uri)
+
+            if is_external:  # external links can be copied directly
+                mupdf.pdf_create_link(pdf_page, rect, uri)
+            else:  # internal links done when PDF is complete
+                # find target of internal link
+                ret, xp, yp = mupdf.fz_resolve_link(doc, uri)
+                ilink={"page": i, "ret": ret, "from": rect, "h": rect.y1-rect.y0, "w": rect.x1-rect.x0, "xp": xp, "yp": yp}
+                internal_links.append(ilink)
+            link = link.next()
+        
         i += incr
+
     # PDF created - now write it to Python bytearray
+    # insert any internal links collected before:
+    for ilink in internal_links:
+        pdf_page = mupdf.pdf_load_page(pdfout, ilink["page"])
+        ret = ilink["ret"]
+        dest = mupdf.fz_link_dest()
+        dest.type = 7  # XYZ destination format
+        dest.loc.chapter = ret.chapter
+        dest.loc.page = ret.page
+        dest.h = ilink["h"]
+        dest.w = ilink["w"]
+        dest.x = ilink["xp"]
+        dest.y = ilink["yp"]
+        dest.zoom = 0
+        rect=ilink["from"]
+        uri = mupdf.pdf_new_uri_from_explicit_dest(mupdf.FzLinkDest(dest))
+        mupdf.pdf_create_link(pdf_page, rect, uri)
     # prepare write options structure
     opts = mupdf.PdfWriteOptions()
-    opts.do_garbage         = 4
+    opts.do_garbage         = 3
     opts.do_compress        = 1
     opts.do_compress_images = 1
     opts.do_compress_fonts  = 1

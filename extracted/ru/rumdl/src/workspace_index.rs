@@ -260,7 +260,7 @@ pub fn extract_cross_file_links(ctx: &LintContext) -> ExtractedCrossFileLinks {
 }
 
 /// Magic bytes identifying a workspace index cache file
-#[cfg(feature = "native")]
+#[cfg(feature = "postcard")]
 const CACHE_MAGIC: &[u8; 4] = b"RWSI";
 
 /// Cache format version - increment when WorkspaceIndex serialization changes
@@ -268,12 +268,18 @@ const CACHE_MAGIC: &[u8; 4] = b"RWSI";
 /// no longer correct. Version 8 forces a rebuild so the new `root_relative_links`
 /// field is populated; earlier caches lack it, leaving find-references unable to
 /// discover root-relative (`/path`) links until a rescan.
-#[cfg(feature = "native")]
+#[cfg(feature = "postcard")]
 const CACHE_FORMAT_VERSION: u32 = 8;
 
 /// Cache file name within the version directory
-#[cfg(feature = "native")]
+#[cfg(feature = "postcard")]
 const CACHE_FILE_NAME: &str = "workspace_index.bin";
+
+/// Monotonic counter making cache temp-file names unique per write, mirroring
+/// `cache.rs`. Combined with the process id (where available) it keeps
+/// concurrent writers from colliding on the temp path before the atomic rename.
+#[cfg(feature = "postcard")]
+static CACHE_TEMP_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// Workspace-wide index for cross-file analysis
 ///
@@ -565,7 +571,7 @@ impl WorkspaceIndex {
     /// - Magic header for file type validation
     /// - Format version for compatibility detection
     /// - Atomic writes (temp file + rename) to prevent corruption
-    #[cfg(feature = "native")]
+    #[cfg(feature = "postcard")]
     pub fn save_to_cache(&self, cache_dir: &Path) -> std::io::Result<()> {
         use std::fs;
         use std::io::Write;
@@ -583,9 +589,16 @@ impl WorkspaceIndex {
         cache_data.extend_from_slice(&CACHE_FORMAT_VERSION.to_le_bytes());
         cache_data.extend_from_slice(&encoded);
 
-        // Write atomically: write to temp file then rename
+        // Write atomically: write to temp file then rename. A per-write unique
+        // suffix keeps concurrent writers from clobbering each other's temp file
+        // before the rename. WASI has no process id, so the counter alone carries
+        // uniqueness there (matching `cache.rs`).
         let final_path = cache_dir.join(CACHE_FILE_NAME);
-        let temp_path = cache_dir.join(format!("{}.tmp.{}", CACHE_FILE_NAME, std::process::id()));
+        let counter = CACHE_TEMP_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        #[cfg(not(target_arch = "wasm32"))]
+        let temp_path = cache_dir.join(format!("{CACHE_FILE_NAME}.tmp.{}.{counter}", std::process::id()));
+        #[cfg(target_arch = "wasm32")]
+        let temp_path = cache_dir.join(format!("{CACHE_FILE_NAME}.tmp.{counter}"));
 
         // Write to temp file
         {
@@ -614,7 +627,7 @@ impl WorkspaceIndex {
     /// - Magic header doesn't match
     /// - Format version is incompatible
     /// - Data is corrupted
-    #[cfg(feature = "native")]
+    #[cfg(feature = "postcard")]
     pub fn load_from_cache(cache_dir: &Path) -> Option<Self> {
         use std::fs;
 

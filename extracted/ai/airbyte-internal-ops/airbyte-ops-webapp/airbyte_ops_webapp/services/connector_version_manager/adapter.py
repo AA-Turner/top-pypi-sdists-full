@@ -33,7 +33,7 @@ from airbyte_ops_mcp.prod_db_access.queries import (
     query_new_connector_releases,
     query_raw_pins_for_version,
     query_source_connection_stats,
-    query_versions_with_pins_or_rollouts,
+    query_versions_with_pins,
 )
 from airbyte_ops_mcp.tier_cache import resolve_workspace
 
@@ -349,19 +349,12 @@ class OpsMcpAdapter:
 
         return summary
 
-    def list_versions_with_pins_or_rollouts(
-        self,
-        connector_id: str | None = None,
-    ) -> list[dict[str, object]]:
-        """Return connector versions that have at least one pin or an active rollout.
+    def list_versions_with_pins(self) -> list[dict[str, object]]:
+        """Return connector versions that have at least one pin.
 
-        Each row includes `version_id`, `connector_definition_id`, `connector_name`,
-        `docker_repository`, `docker_image_tag`, `last_published`, `pin_count`,
-        `rollout_state`, and `rollout_id`.
+        Does not join `connector_rollout`, so each version appears exactly once.
         """
-        return query_versions_with_pins_or_rollouts(
-            actor_definition_id=connector_id,
-        )
+        return query_versions_with_pins()
 
     @staticmethod
     def _pin_row_from_db(row: dict[str, object]) -> VersionPinRow:

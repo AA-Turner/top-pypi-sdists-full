@@ -116,7 +116,10 @@ class TestPCA:
         sklearn.utils.validation.check_is_fitted(self.pca)
 
     def test_total_inertia(self):
-        F = robjects.r("sum(pca$eig[,1])")[0]
+        # FactoMineR 2.15 only stores the top `ncp` eigenvalues, so
+        # `sum(pca$eig[,1])` no longer equals the true total inertia.
+        # Recover it from the percentage of variance of the first component.
+        F = robjects.r("pca$eig[1,1] / (pca$eig[1,2] / 100)")[0]
         P = self.pca.total_inertia_
         assert math.isclose(F, P)
 
@@ -166,19 +169,26 @@ class TestPCA:
 
     def test_col_coords(self):
         F = load_df_from_R("pca$var$coord")
-        P = self.pca.column_coordinates_
         if self.sup_cols:
-            P = P.drop(["rank", "points"])
+            F = pd.concat((F, load_df_from_R("pca$quanti.sup$coord")))
+        P = self.pca.column_coordinates_
         np.testing.assert_allclose(F.abs(), P.abs())
 
     def test_col_cos2(self):
         F = load_df_from_R("pca$var$cos2")
-        P = self.pca.column_cosine_similarities_
         if self.sup_cols:
-            P = P.drop(["rank", "points"])
+            F = pd.concat((F, load_df_from_R("pca$quanti.sup$cos2")))
+        P = self.pca.column_cosine_similarities_
         np.testing.assert_allclose(F, P)
 
     def test_col_contrib(self):
         F = load_df_from_R("pca$var$contrib")
         P = self.pca.column_contributions_
         np.testing.assert_allclose(F, P * 100)
+
+    def test_col_cor(self):
+        F = load_df_from_R("pca$var$cor")
+        if self.sup_cols:
+            F = pd.concat((F, load_df_from_R("pca$quanti.sup$cor")))
+        P = self.pca.column_correlations
+        np.testing.assert_allclose(F.abs(), P.abs())

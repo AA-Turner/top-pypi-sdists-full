@@ -23,6 +23,7 @@ import dataclasses
 import json
 import logging
 import os
+import re
 import sys
 import time
 import urllib.parse
@@ -136,6 +137,84 @@ Please think carefully and generate a new and legal move.
 
 
 # ---------------------------------------------------------------------------
+# JSON extraction helper
+# ---------------------------------------------------------------------------
+
+
+_JSON_FENCE_RE = re.compile(
+    r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL | re.IGNORECASE,
+)
+_JSON_DECODER = json.JSONDecoder(strict=False)
+
+
+def extract_last_json_object(
+    response: str,
+    *,
+    required_keys: Sequence[str] | None = None,
+) -> dict[str, Any] | None:
+    """Find the LAST parseable JSON object in an LLM response.
+
+    Models routinely write a preliminary answer, reconsider, and write a
+    final answer in a later block. Returning the *last* parseable object
+    follows the model's last stated intent. Searching the first match
+    instead (the common bug this helper exists to prevent) silently picks
+    the rejected answer.
+
+    Two strategies are tried in priority order; the FIRST strategy that
+    yields any parseable dict wins, and the LAST candidate from that
+    strategy is returned:
+
+    1. ``` ```json ... ``` ``` (and unlabelled ``` ``` ``` ```) fenced blocks.
+    2. Balanced top-level ``{...}`` substrings, parsed with
+       ``json.JSONDecoder.raw_decode`` so nested objects work correctly.
+
+    Args:
+        response: The full LLM response text.
+        required_keys: If given, candidates lacking every one of these keys
+            at the top level are skipped. Lets callers ignore JSON-shaped
+            content in the model's reasoning that isn't an action object.
+
+    Returns:
+        The matching dict, or ``None`` if no candidate parses.
+    """
+
+    def _passes_filter(d: dict[str, Any]) -> bool:
+        if required_keys is None:
+            return True
+        return any(k in d for k in required_keys)
+
+    fenced: list[dict[str, Any]] = []
+    for match in _JSON_FENCE_RE.finditer(response):
+        try:
+            obj = json.loads(match.group(1), strict=False)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict) and _passes_filter(obj):
+            fenced.append(obj)
+    if fenced:
+        return fenced[-1]
+
+    bare: list[dict[str, Any]] = []
+    i = 0
+    while True:
+        i = response.find("{", i)
+        if i < 0:
+            break
+        try:
+            obj, end = _JSON_DECODER.raw_decode(response, i)
+        except json.JSONDecodeError:
+            i += 1
+            continue
+        if isinstance(obj, dict) and _passes_filter(obj):
+            bare.append(obj)
+        i = end
+    if bare:
+        return bare[-1]
+
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Parse result
 # ---------------------------------------------------------------------------
 
@@ -159,6 +238,119 @@ class ParseResult:
     raw_action: str | None = None
     submission: Any = None
     thoughts: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Default JSON-only parser
+# ---------------------------------------------------------------------------
+
+
+def parse_json_action(
+    response: str,
+    legal_action_strings: Sequence[str],
+    *,
+    json_key: str = "move",
+    matcher: Callable[[str, Sequence[str]], str | None] | None = None,
+) -> ParseResult:
+    """Default ``parse_response`` body for enumerable harnesses.
+
+    The model's stated intent is the value of ``json_key`` in the LAST
+    parseable JSON object in the response. This helper:
+
+    1. Extracts that value via ``extract_last_json_object``. If no JSON
+       answer is present, returns ``ParseResult(legal_action=None,
+       raw_action=None)`` so the rethink loop asks the model for one.
+    2. Matches the value against ``legal_action_strings`` (case-insensitive
+       and whitespace-stripped by default; pass ``matcher`` for game-
+       specific normalization, e.g. notation tolerance or alias handling).
+    3. Always returns the raw extracted value as ``raw_action`` -- when the
+       JSON is illegal, ``legal_action`` is ``None`` and the rethink prompt
+       can show the model what it tried so it can correct itself.
+
+    The helper deliberately has NO prose-scan fallback. Any "guess at
+    intent from a coord/keyword/legal-string mentioned in the prose" path
+    is the ghost-fallback antipattern: it silently submits moves the model
+    never explicitly chose (usually rejected options it discussed in its
+    reasoning). The rethink loop is the right way to handle illegal or
+    missing structured answers.
+
+    Args:
+        response: The full LLM response text.
+        legal_action_strings: The legal moves to match against.
+        json_key: Top-level JSON field carrying the move (default ``"move"``).
+        matcher: Optional ``(raw, legals) -> matched | None`` for game-
+            specific normalization. If omitted, exact case-insensitive
+            whitespace-stripped matching is used.
+
+    Returns:
+        ``ParseResult(legal_action=matched_or_None, raw_action=raw_or_None)``.
+    """
+    data = extract_last_json_object(response, required_keys=(json_key,))
+    if data is None:
+        return ParseResult(legal_action=None, raw_action=None)
+    raw_value = data.get(json_key)
+    if raw_value is None:
+        return ParseResult(legal_action=None, raw_action=None)
+    raw = str(raw_value).strip()
+    if not raw:
+        return ParseResult(legal_action=None, raw_action=None)
+    if matcher is None:
+        matched = _default_match(raw, legal_action_strings)
+    else:
+        matched = matcher(raw, legal_action_strings)
+    return ParseResult(legal_action=matched, raw_action=raw)
+
+
+def _default_match(raw: str, legals: Sequence[str]) -> str | None:
+    """Case-insensitive, whitespace-stripped exact match against legals."""
+    target = "".join(raw.split()).lower()
+    if not target:
+        return None
+    for legal in legals:
+        if "".join(legal.split()).lower() == target:
+            return legal
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Rethink suffix
+# ---------------------------------------------------------------------------
+
+
+def render_rethink_suffix(
+    illegal_template: str,
+    unparsable_template: str,
+    previous_response: str | None,
+    previous_action: str | None,
+) -> str:
+    """Pick and render the right rethink suffix for the parse-failure mode.
+
+    The two templates partition the parse-failure space:
+
+    - ``illegal_template`` is used when the parser extracted a value but
+      it wasn't a legal move (``previous_action`` is set). Must accept
+      the placeholder ``{previous_action}`` -- the action string is the
+      most useful signal here; we deliberately do not include the full
+      previous response (it dilutes the correction signal).
+    - ``unparsable_template`` is used when the parser couldn't extract
+      anything (``previous_action`` is ``None``). Must accept the
+      placeholder ``{previous_response}`` -- with no action string to
+      show, the response itself is what the model needs to see. The
+      response is truncated to the LAST 500 characters because models
+      almost always put their answer at the end of the response; the
+      first 500 chars usually keeps the preamble and drops the answer.
+
+    Returns an empty string when there is no prior attempt to react to
+    (``previous_response is None`` and ``previous_action`` is falsy) so
+    the caller can unconditionally append the result to the prompt.
+    """
+    if previous_response is None and not previous_action:
+        return ""
+    if previous_action:
+        return illegal_template.format(previous_action=previous_action)
+    return unparsable_template.format(
+        previous_response=(previous_response or "")[-500:],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +391,8 @@ class GameHarness(Protocol):
         self,
         response: str,
         legal_action_strings: Sequence[str] | None,
+        *,
+        observation: Mapping[str, Any],
     ) -> ParseResult:
         """Extract a move from the LLM response.
 
@@ -207,6 +401,13 @@ class GameHarness(Protocol):
         ``legal_action_strings``.  For free-form actions
         (``legal_action_strings is None``), set ``submission`` on the
         result instead.
+
+        ``observation`` is the current turn's observation dict — always
+        passed by ``core_harness``. Most parsers can match the model's
+        output against ``legal_action_strings`` alone and may ignore it;
+        parsers that genuinely need the env state at parse time (e.g.
+        repeated_poker's bet-size soft-matching) forward it to the
+        module-level helper that does the work.
         """
         ...
 
@@ -242,10 +443,15 @@ def _call_llm(
     start = time.perf_counter()
     first_token_secs: float | None = None
     try:
+        # Per-LLM-call timeout. Honors LLM_CALL_TIMEOUT env var so the
+        # ablation runner (or any orchestrator) can dial it without
+        # changing the harness contract. Default 3600s preserves the
+        # historical behavior.
+        call_timeout = int(os.environ.get("LLM_CALL_TIMEOUT", "3600"))
         stream = litellm.completion(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
-            timeout=3600,
+            timeout=call_timeout,
             stream=True,
             stream_options={"include_usage": True},
             **litellm_kwargs,
@@ -325,17 +531,19 @@ def _call_llm(
 def _build_call_detail(
     record: dict[str, Any],
     save_prompt: bool,
+    save_response: bool,
 ) -> dict[str, Any]:
     """Build a single ``call_details`` entry from an internal call record."""
     detail: dict[str, Any] = {
         "model": record["model"],
-        "response": record["content"],
         "prompt_tokens": record["prompt_tokens"],
         "generation_tokens": record["generation_tokens"],
         "total_tokens": record["total_tokens"],
         "finish_reason": record["finish_reason"],
         "duration_secs": record["duration_secs"],
     }
+    if save_response:
+        detail["response"] = record["content"]
     if "reasoning_tokens" in record:
         detail["reasoning_tokens"] = record["reasoning_tokens"]
     if "first_token_secs" in record:
@@ -408,6 +616,7 @@ def create_agent_fn(
     game_harness: GameHarness,
     *,
     max_retries: int = 2,
+    model_override: tuple[str, dict[str, Any]] | None = None,
 ) -> Callable[[Any, dict[str, Any]], dict[str, Any]]:
     """Create a Kaggle-compatible agent function from a ``GameHarness``.
 
@@ -416,6 +625,13 @@ def create_agent_fn(
             methods.
         max_retries: Maximum number of prompt attempts (including the initial
             attempt).
+        model_override: Optional ``(model_name, litellm_kwargs)`` pair. When
+            provided, ``_setup_model`` is bypassed entirely -- useful for
+            test harnesses or multi-agent runners (e.g. the ablation runner)
+            that need per-agent model selection without polluting global env
+            vars. The caller is responsible for any model-name prefixing
+            (``openai/...``, ``gemini/...``) and litellm kwargs (api_base,
+            api_key, reasoning_effort) the chosen model needs.
 
     Returns:
         ``agent_fn(obs, config) -> {"submission": <action>, ...}``
@@ -434,7 +650,10 @@ def create_agent_fn(
 
         # -- one-time setup --
         if not setup_done:
-            model_name, litellm_kwargs = _setup_model()
+            if model_override is not None:
+                model_name, litellm_kwargs = model_override
+            else:
+                model_name, litellm_kwargs = _setup_model()
             _TELEMETRY(
                 setup_complete=True,
                 model_name=model_name,
@@ -442,6 +661,7 @@ def create_agent_fn(
             setup_done = True
 
         save_prompt = bool(config.get("savePrompt", True)) if config else True
+        save_response = bool(config.get("saveResponse", True)) if config else True
         include_generate_returns = (
             bool(config.get("includeGenerateReturns", False)) if config else False
         )
@@ -531,7 +751,9 @@ def create_agent_fn(
                     "model": model_name,
                     **call_details,
                 })
-                result = game_harness.parse_response(content, legal_action_strings)
+                result = game_harness.parse_response(
+                    content, legal_action_strings, observation=observation,
+                )
                 last_exception = None
             except Exception as exc:
                 last_exception = exc
@@ -567,7 +789,7 @@ def create_agent_fn(
                     "thoughts": result.thoughts if result.thoughts is not None else last_content,
                     "status": "OK",
                     "call_details": [
-                        _build_call_detail(r, save_prompt)
+                        _build_call_detail(r, save_prompt, save_response)
                         for r in call_records
                     ],
                 }
@@ -579,10 +801,23 @@ def create_agent_fn(
                 return action
 
             # -- parse failed → prepare rethink --
+            # Categorize the failure so dashboards can tell apart:
+            #   EMPTY      -> LLM returned no usable content at all
+            #   UNPARSABLE -> content present, but parser couldn't extract
+            #                 a structured answer (raw_action is None)
+            #   ILLEGAL    -> parser extracted something, but it didn't
+            #                 match a legal move
+            if not (content or "").strip():
+                failure_category = "EMPTY"
+            elif result.raw_action is None:
+                failure_category = "UNPARSABLE"
+            else:
+                failure_category = "ILLEGAL"
             _TELEMETRY(
                 action_is_legal=False,
                 parse_failure={
                     "attempt": attempt + 1,
+                    "category": failure_category,
                     "raw_action": result.raw_action,
                     "response_preview": content[:200],
                 },
@@ -594,9 +829,13 @@ def create_agent_fn(
             )
 
         # -- all attempts exhausted --
+        # `failure_category` here reports the LAST attempt's failure
+        # category (EMPTY / UNPARSABLE / ILLEGAL). Set defensively in
+        # case max_retries was 0 and the variable was never assigned.
         _TELEMETRY(
             all_attempts_failed=True,
             total_attempts=max_retries,
+            final_failure_category=locals().get("failure_category"),
         )
         if last_exception is not None:
             raise last_exception
@@ -623,7 +862,8 @@ def create_agent_fn(
                     " attempts; forfeiting."
                 ),
                 "call_details": [
-                    _build_call_detail(r, save_prompt) for r in call_records
+                    _build_call_detail(r, save_prompt, save_response)
+                    for r in call_records
                 ],
             }
             if include_generate_returns:
@@ -634,7 +874,7 @@ def create_agent_fn(
 
         raise ValueError(
             f"Failed to parse a legal move after {max_retries} attempts. "
-            f"Last response: {last_content[:200]}"
+            f"End of last response: {last_content[-200:]}"
         )
 
     return agent_fn

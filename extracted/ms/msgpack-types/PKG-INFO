@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: msgpack-types
-Version: 0.7.0
+Version: 0.8.0
 Summary: Type stubs for msgpack
 License: Apache-2.0
 License-File: LICENSE
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: msgpack (>=1.1.0,<1.2.0)
+Requires-Dist: msgpack (>=1.1.0,<2)
 Requires-Dist: typing-extensions (>=4.6.0)
 Project-URL: Repository, https://github.com/sbdchd/msgpack-types
 Description-Content-Type: text/markdown

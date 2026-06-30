@@ -12,9 +12,10 @@ import threading
 import time
 
 from textual import work
-from textual.app import App, ComposeResult
+from textual.app import App, ComposeResult, ScreenStackError
 from textual.binding import Binding
 from textual.containers import Vertical, VerticalScroll
+from textual.css.query import NoMatches
 from textual.widgets import Static
 
 from drydock.agent import (
@@ -351,8 +352,15 @@ class DrydockApp(App):
         return f"{spin} {self._work_word}…  ({elapsed} · ↓ {toks} tokens{eff}{queued})"
 
     def _refresh_status(self) -> None:
-        self.query_one("#status", Static).update(self._status_text())
-        self.query_one("#working", Static).update(self._working_text())
+        # The 0.18s _tick_work timer can fire one last time DURING app teardown,
+        # after the footer widgets have been removed — query_one would then raise
+        # NoMatches and crash the app (or fail a test). Be defensive: if the
+        # widgets aren't there (shutting down), there's nothing to refresh.
+        try:
+            self.query_one("#status", Static).update(self._status_text())
+            self.query_one("#working", Static).update(self._working_text())
+        except (NoMatches, ScreenStackError):
+            pass
 
     @property
     def _scroll(self) -> VerticalScroll:
@@ -401,6 +409,14 @@ class DrydockApp(App):
         # running, queue this one and drain it when the current turn finishes
         # instead of dropping it on the floor.
         self._mount(UserMessage(text))
+        # Confirm any image attachments so the user SEES vision is active (the
+        # actual attach happens at the API boundary in providers).
+        from drydock import providers
+        imgs = providers.detect_image_paths(text)
+        if imgs:
+            import os as _os
+            names = ", ".join(_os.path.basename(p) for p in imgs)
+            self._info(f"📎 attached {len(imgs)} image(s) for the model to see: {names}")
         if self._busy:
             self._queue.append(text)
             self._refresh_status()
@@ -469,6 +485,8 @@ class DrydockApp(App):
                 self._info("Nothing to go back to.")
         elif cmd == "/compact":
             self._cmd_compact()
+        elif cmd == "/context":
+            self._cmd_context(arg)
         elif cmd == "/graphrag":
             self._cmd_graphrag(arg)
         elif cmd == "/status":
@@ -490,6 +508,7 @@ class DrydockApp(App):
                 "  /stop            stop the running turn (or press Esc)\n"
                 "  /status          session model, cwd, turns, tokens\n"
                 "  /compact         shrink old context to free up the window\n"
+                "  /context         view/set the context-window budget (e.g. /context 65536)\n"
                 "  /graphrag        ingest docs into a knowledge base the agent can use\n"
                 "                   build <path> · add <path> · query <q> · status · clear\n"
                 "  /skills          list skills · /skills new <name> <prompt> to create one\n"
@@ -528,6 +547,7 @@ class DrydockApp(App):
                        "  /stig new <benchmark-xccdf.xml> [out.ckl]  — blank .ckl from a STIG\n"
                        "  /stig <path.ckl|.cklb> [status]            — summary / list by status\n"
                        "  /stig graph <path.ckl>                     — ingest into the RMF graph\n"
+                       "  /stig poam <path.ckl> [out.csv]            — eMASS POA&M CSV (open findings)\n"
                        "Assess:  /loop <n> /stig-assess <path>")
             return
         import os as _os
@@ -550,23 +570,21 @@ class DrydockApp(App):
                 f"  /graphrag build <app-docs>   ·   /loop {len(cl.rules)} /stig-assess {out}"
             )
             return
+        # /stig poam <path> [out.csv] — export open findings to an eMASS POA&M CSV
+        if parts[0].lower() == "poam" and len(parts) > 1:
+            cp = _abs(parts[1])
+            out = _abs(parts[2]) if len(parts) > 2 else \
+                _os.path.splitext(cp)[0] + "_poam.csv"
+            self._info("Building the eMASS POA&M CSV (mapping open findings to NIST "
+                       "controls via the CCI map)…")
+            self.run_worker(lambda: self._stig_poam(cwd, cp, out), thread=True)
+            return
         # /stig graph <path> — ingest the checklist into the RMF typed graph
         if parts[0].lower() == "graph" and len(parts) > 1:
-            from drydock import rmf_graph
             gp = parts[1] if _os.path.isabs(parts[1]) else _os.path.join(cwd, parts[1])
-            try:
-                cl = stig.load(gp)
-                g = rmf_graph.RmfGraph.load(rmf_graph.graph_path(cwd))
-                r = rmf_graph.ingest_checklist(g, cl)
-                g.save(rmf_graph.graph_path(cwd))
-            except Exception as e:  # noqa: BLE001
-                self._mount(ErrorMessage(f"could not graph checklist: {e}"))
-                return
-            self._info(
-                f"✓ Ingested {r['rules']} STIG rules for host '{r['host']}' into the "
-                f"RMF graph (STIG/STIG-Rule nodes, PART_OF/APPLIES_TO/EVALUATES). "
-                "Link rules to controls with GraphAdd satisfies; trace via GraphQuery."
-            )
+            self._info("Ingesting the checklist into the RMF graph "
+                       "(fetching the DISA CCI→800-53 map on first use)…")
+            self.run_worker(lambda: self._stig_graph(cwd, gp), thread=True)
             return
         path = parts[0]
         if not _os.path.isabs(path):
@@ -576,19 +594,8 @@ class DrydockApp(App):
         except Exception as e:  # noqa: BLE001
             self._mount(ErrorMessage(f"could not read checklist: {e}"))
             return
-        host = cl.asset.get("HOST_NAME") or cl.asset.get("host_name") or "?"
-        c = cl.counts()
-        lines = [f"STIG checklist {path}  (host: {host}, format: {cl.fmt})",
-                 f"  {len(cl.rules)} rules — " + " · ".join(f"{k}={v}" for k, v in c.items())]
-        if len(parts) > 1:
-            sf = stig.canonical_status(parts[1])
-            hits = [r for r in cl.rules if r.status == sf]
-            lines.append(f"\n{sf} ({len(hits)}):")
-            lines += [f"  {r.group_id} ({r.severity}) — {r.title}" for r in hits[:50]]
-        else:
-            lines.append("Assess un-reviewed rules:  /loop "
-                         f"{c.get('not_reviewed', 0) or 1} /stig-assess {parts[0]}")
-        self._info("\n".join(lines))
+        status = parts[1] if len(parts) > 1 else None
+        self._info("\n".join(stig.summary_lines(cl, parts[0], status)))
 
     def _cmd_rmf(self, arg: str) -> None:
         """RMF automation: bootstrap the NIST 800-53 catalog into the knowledge
@@ -641,6 +648,50 @@ class DrydockApp(App):
         except Exception as e:  # noqa: BLE001
             msg = (f"RMF bootstrap failed: {e}. (Needs internet for the one-time "
                    "catalog download; after that it works offline.)")
+        self.call_from_thread(self._info, msg)
+
+    def _stig_poam(self, cwd: str, path: str, out: str) -> None:
+        """Worker: export a checklist's open findings to an eMASS POA&M CSV,
+        pulling each finding's NIST control from the CCI map. Deterministic."""
+        from drydock import cci, poam, stig
+
+        try:
+            cl = stig.load(path)
+            cci_map = cci.load_map(cwd)   # offline-safe ({} → Controls show '(unmapped)')
+            r = poam.export(cl, cci_map, out)
+        except Exception as e:  # noqa: BLE001
+            self.call_from_thread(self._mount, ErrorMessage(f"could not build POA&M: {e}"))
+            return
+        note = "" if cci_map else " (CCI map unavailable offline — Control column shows '(unmapped)'; re-run online to populate it)"
+        self.call_from_thread(
+            self._info,
+            f"✓ Wrote {r['rows']} POA&M row(s) for the open findings to {r['path']} "
+            f"(eMASS headers: Control · Vulnerability Description · POA&M Status=Ongoing · "
+            f"Milestone · Severity).{note}"
+        )
+
+    def _stig_graph(self, cwd: str, path: str) -> None:
+        """Worker-thread body: ingest a checklist into the RMF graph, auto-linking
+        rules to NIST controls via the DISA CCI map. Reports back on the UI."""
+        from drydock import cci, rmf_graph, stig
+
+        try:
+            cl = stig.load(path)
+            cci_map = cci.load_map(cwd)        # fetch+cache once; offline-safe ({} on failure)
+            g = rmf_graph.RmfGraph.load(rmf_graph.graph_path(cwd))
+            r = rmf_graph.ingest_checklist(g, cl, cci_map)
+            g.save(rmf_graph.graph_path(cwd))
+            link_note = (
+                f"auto-linked {r['linked']}/{r['rules']} rules to NIST controls via CCI "
+                "(Control —SATISFIED_BY→ rule). Trace with GraphQuery control <id>."
+                if r["linked"] else
+                "(no CCI→control links — the CCI map was unavailable offline; rules are "
+                "still in the graph. Re-run online, or use GraphAdd satisfies.)"
+            )
+            msg = (f"✓ Ingested {r['rules']} STIG rules for host '{r['host']}' into the "
+                   f"RMF graph (STIG/STIG-Rule + PART_OF/APPLIES_TO/EVALUATES); {link_note}")
+        except Exception as e:  # noqa: BLE001
+            msg = f"could not graph checklist: {e}"
         self.call_from_thread(self._info, msg)
 
     def _cmd_mcp(self) -> None:
@@ -734,6 +785,63 @@ class DrydockApp(App):
             self._refresh_status()
         else:
             self._begin(prompt)
+
+    def _cmd_context(self, arg: str) -> None:
+        """View or change the context-window budget (tokens) — the cap that drives
+        the ctx gauge + auto-compaction. `/context` shows it + its source; `/context
+        <n>` sets and PERSISTS it to ~/.drydock/config.toml. This is the lever for
+        'stuck at 32k': an old config.toml value (drydock never rewrites an existing
+        one) or a smaller model-server -c silently caps you."""
+        limit = self.config.get("context_limit", 65536) or 65536
+        arg = (arg or "").strip()
+        if not arg:
+            self._info(
+                f"context_limit (drydock): {limit:,} tokens (the '/{limit // 1024}k' in the ctx gauge).\n"
+                "Source order: built-in default 65536 < ~/.drydock/config.toml < --context-limit.\n"
+                "Probing your model server for its REAL context window…\n"
+                "  To change drydock's budget:  /context <tokens>   (saved to config.toml)"
+            )
+            self.run_worker(lambda: self._probe_server_context(limit), thread=True)
+            return
+        try:
+            n = int(arg.replace(",", "").replace("k", "000").replace("K", "000"))
+            if n < 4096 or n > 2_000_000:
+                raise ValueError
+        except ValueError:
+            self._mount(ErrorMessage("usage: /context <tokens>  (4096–2000000, e.g. /context 65536)"))
+            return
+        self.config["context_limit"] = n
+        self._persist_config()
+        self._refresh_status()  # repaint the gauge against the new budget
+        self._info(
+            f"✓ context_limit set to {n:,} tokens and saved to ~/.drydock/config.toml.\n"
+            "Make sure your model server's context (-c / --ctx-size / max_model_len) is at\n"
+            "least this, or the server will still cap you below it."
+        )
+
+    def _probe_server_context(self, limit: int) -> None:
+        """Worker: ask the model server its real context window and report whether
+        IT (not drydock's config) is the thing capping you — the definitive answer
+        to 'stuck at N tokens'."""
+        from drydock import providers
+
+        base_url = self.config.get("base_url") or providers.PROVIDERS.get(
+            self.config.get("provider") or "vllm", {}).get("base_url", "http://localhost:8000/v1")
+        n_ctx = providers.probe_server_context(base_url)
+        if n_ctx is None:
+            msg = (f"Model server ({base_url}) didn't report its context size "
+                   "(not llama.cpp /props or vLLM max_model_len, or unreachable). "
+                   f"Your effective cap is the smaller of drydock's {limit:,} and the "
+                   "server's own -c/--ctx-size.")
+        elif n_ctx < limit:
+            msg = (f"⚠ Model server reports n_ctx = {n_ctx:,} tokens — SMALLER than "
+                   f"drydock's {limit:,}. The SERVER is your real cap (you'll stick near "
+                   f"{n_ctx // 1024}k). Restart it with a larger -c/--ctx-size/max_model_len, "
+                   "or lower /context to match.")
+        else:
+            msg = (f"✓ Model server reports n_ctx = {n_ctx:,} tokens (≥ drydock's {limit:,}), "
+                   "so drydock's budget is the effective limit — no server-side cap.")
+        self.call_from_thread(self._info, msg)
 
     def _cmd_compact(self) -> None:
         """Manually compact the conversation to reclaim context NOW, without

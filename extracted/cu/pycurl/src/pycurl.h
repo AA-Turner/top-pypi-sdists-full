@@ -56,6 +56,17 @@
 # error MAKE_LIBCURL_VERSION is not working correctly
 #endif
 
+/* PyMutex on 3.13+; PyThread_type_lock fallback on older. */
+#if PY_VERSION_HEX >= 0x030D0000
+typedef PyMutex pycurl_mutex_t;
+#  define PYCURL_MUTEX_LOCK(p)   PyMutex_Lock(p)
+#  define PYCURL_MUTEX_UNLOCK(p) PyMutex_Unlock(p)
+#else
+typedef PyThread_type_lock pycurl_mutex_t;
+#  define PYCURL_MUTEX_LOCK(p)   PyThread_acquire_lock(*(p), 1)
+#  define PYCURL_MUTEX_UNLOCK(p) PyThread_release_lock(*(p))
+#endif
+
 #if defined(PYCURL_SINGLE_FILE)
 # define PYCURL_INTERNAL static
 #else
@@ -188,6 +199,10 @@ pycurl_inet_ntop (int family, void *addr, char *string, size_t string_size);
 #include <curl/websockets.h>
 #endif
 
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(8, 17, 0)
+#define HAVE_CURL_MULTI_NOTIFY
+#endif
+
 #undef UNUSED
 #define UNUSED(var)     ((void)&var)
 
@@ -275,46 +290,53 @@ PYCURL_INTERNAL int pycurl_ssl_init(void);
 PYCURL_INTERNAL void pycurl_ssl_cleanup(void);
 #endif
 
-#  define PYCURL_DECLARE_THREAD_STATE PyThreadState *tmp_state
-#  define PYCURL_ACQUIRE_THREAD() pycurl_acquire_thread(self, &tmp_state)
-#  define PYCURL_ACQUIRE_THREAD_MULTI() pycurl_acquire_thread_multi(self, &tmp_state)
-#  define PYCURL_RELEASE_THREAD() pycurl_release_thread(tmp_state)
+#  define PYCURL_DECLARE_THREAD_STATE PyThreadState **tstate
+#  define PYCURL_GET_THREAD_STATE tstate = pycurl_get_thread_state_slot(self)
+#  define PYCURL_GET_THREAD_STATE_MULTI tstate = pycurl_get_thread_state_slot_multi(self)
+#  define PYCURL_PYTHON_ENTER() pycurl_python_enter(tstate)
+#  define PYCURL_PYTHON_LEAVE() pycurl_python_leave(tstate)
 #  define PYCURL_END_CALLBACK(retval) \
-       PYCURL_RELEASE_THREAD(); \
+       PYCURL_PYTHON_LEAVE(); \
        return (retval)
 /* Replacement for Py_BEGIN_ALLOW_THREADS/Py_END_ALLOW_THREADS when python
    callbacks are expected during blocking i/o operations: self->state will hold
    the handle to current thread to be used as context */
 #  define PYCURL_BEGIN_ALLOW_THREADS \
-       self->state = PyThreadState_Get(); \
-       assert(self->state != NULL); \
-       Py_BEGIN_ALLOW_THREADS
+       self->state = PyEval_SaveThread(); \
+       assert(self->state != NULL);
 #  define PYCURL_END_ALLOW_THREADS \
-       Py_END_ALLOW_THREADS \
+       assert(self->state != NULL); \
+       PyEval_RestoreThread(self->state); \
        self->state = NULL;
 #  define PYCURL_BEGIN_ALLOW_THREADS_EASY \
        if (self->multi_stack == NULL) { \
-           self->state = PyThreadState_Get(); \
+           self->state = PyEval_SaveThread(); \
            assert(self->state != NULL); \
        } else { \
-           self->multi_stack->state = PyThreadState_Get(); \
+           self->multi_stack->state = PyEval_SaveThread(); \
            assert(self->multi_stack->state != NULL); \
-       } \
-       Py_BEGIN_ALLOW_THREADS
+       }
 #  define PYCURL_END_ALLOW_THREADS_EASY \
-       PYCURL_END_ALLOW_THREADS \
-       if (self->multi_stack != NULL) \
-           self->multi_stack->state = NULL;
+       if (self->multi_stack == NULL) { \
+           assert(self->state != NULL); \
+           PyEval_RestoreThread(self->state); \
+           self->state = NULL; \
+       } else { \
+           assert(self->multi_stack->state != NULL); \
+           PyEval_RestoreThread(self->multi_stack->state); \
+           self->multi_stack->state = NULL; \
+       }
 
 #if PY_VERSION_HEX < 0x030D0000  /* Python 3.13 */
 #  define Py_IsFinalizing _Py_IsFinalizing
 #endif
 
-#define PYCURL_BEGIN_CALLBACK_COMMON(acquire_expr, retval, callback_name) \
+#define PYCURL_BEGIN_CALLBACK_COMMON(get_expr, retval, callback_name) \
     if (Py_IsFinalizing()) { \
         return (retval); \
     } \
-    if (!(acquire_expr)) { \
+    get_expr; \
+    if (!pycurl_python_enter(tstate)) { \
         warn_failed_to_acquire_thread(#callback_name " failed to acquire thread"); \
         return (retval); \
     }
@@ -466,7 +488,9 @@ typedef struct CurlObject {
 #endif
     /* callbacks */
     PyObject *w_cb;
+    int       w_cb_memoryview;
     PyObject *h_cb;
+    int       h_cb_memoryview;
     PyObject *r_cb;
     PyObject *pro_cb;
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 32, 0)
@@ -524,16 +548,19 @@ typedef struct CurlMultiObject {
     /* callbacks */
     PyObject *t_cb;
     PyObject *s_cb;
+#ifdef HAVE_CURL_MULTI_NOTIFY
+    PyObject *n_cb;
+#endif
 
     /* socket-to-object mappings for curl_multi_assign */
     PyObject *socket_object_dict;
 
-    PyObject *easy_object_dict;
+    PyObject *easy_object_refs;
     int close_handles; /* boolean: False by default */
 } CurlMultiObject;
 
 typedef struct {
-    PyThread_type_lock locks[CURL_LOCK_DATA_LAST];
+    pycurl_mutex_t locks[CURL_LOCK_DATA_LAST];
 } ShareLock;
 
 typedef struct CurlShareObject {
@@ -543,7 +570,7 @@ typedef struct CurlShareObject {
     PyObject *weakreflist;
     CURLSH *share_handle;
     ShareLock *lock;                /* lock object to implement CURLSHOPT_LOCKFUNC */
-    PyThread_type_lock easy_weakrefs_lock;  /* protects easy_weakrefs map */
+    pycurl_mutex_t api_lock;        /* serialises CurlShare's Python API and easy_weakrefs access */
     /* Set of weakref.ref(CurlObject) */
     PyObject *easy_weakrefs;
     int detach_on_close; /* boolean: True by default */
@@ -573,14 +600,14 @@ curlmime_duphandle_incref_data_cb_owners(PyObject *mime_obj);
 
 PYCURL_INTERNAL PyThreadState *
 pycurl_get_thread_state(const CurlObject *self);
-PYCURL_INTERNAL PyThreadState *
-pycurl_get_thread_state_multi(const CurlMultiObject *self);
+PYCURL_INTERNAL PyThreadState **
+pycurl_get_thread_state_slot(CurlObject *self);
+PYCURL_INTERNAL PyThreadState **
+pycurl_get_thread_state_slot_multi(CurlMultiObject *self);
 PYCURL_INTERNAL int
-pycurl_acquire_thread(const CurlObject *self, PyThreadState **state);
-PYCURL_INTERNAL int
-pycurl_acquire_thread_multi(const CurlMultiObject *self, PyThreadState **state);
+pycurl_python_enter(PyThreadState **tstate);
 PYCURL_INTERNAL void
-pycurl_release_thread(PyThreadState *state);
+pycurl_python_leave(PyThreadState **tstate);
 
 PYCURL_INTERNAL void
 share_lock_lock(ShareLock *lock, curl_lock_data data);
@@ -622,9 +649,19 @@ PYCURL_INTERNAL PyObject *
 do_global_cleanup(PyObject *dummy, PyObject *Py_UNUSED(ignored));
 PYCURL_INTERNAL PyObject *
 do_version_info(PyObject *dummy, PyObject *args);
+PYCURL_INTERNAL PyObject *
+do_easy_strerror(PyObject *dummy, PyObject *args);
+PYCURL_INTERNAL PyObject *
+do_multi_strerror(PyObject *dummy, PyObject *args);
+PYCURL_INTERNAL PyObject *
+do_share_strerror(PyObject *dummy, PyObject *args);
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 80, 0)
+PYCURL_INTERNAL PyObject *
+do_url_strerror(PyObject *dummy, PyObject *args);
+#endif
 
 PYCURL_INTERNAL PyObject *
-do_curl_setopt(CurlObject *self, PyObject *args);
+do_curl_setopt(CurlObject *self, PyObject *args, PyObject *kwargs);
 PYCURL_INTERNAL PyObject *
 do_curl_setopt_string(CurlObject *self, PyObject *args);
 PYCURL_INTERNAL PyObject *
@@ -667,6 +704,10 @@ do_curl_ws_meta(CurlObject *self, PyObject *Py_UNUSED(ignored));
 PYCURL_INTERNAL PyObject *
 do_curl_ws_close(CurlObject *self, PyObject *args, PyObject *kwds);
 #endif
+
+/* Bit flags for check_curl_state / check_multi_state. */
+#define PYCURL_REQUIRE_HANDLE       (1 << 0)
+#define PYCURL_REQUIRE_NOT_RUNNING  (1 << 1)
 
 PYCURL_INTERNAL int
 check_curl_state(const CurlObject *self, int flags, const char *name);

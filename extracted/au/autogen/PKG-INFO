@@ -1,93 +1,457 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: autogen
-Version: 0.14.0
-Summary: Alias package for ag2
-Home-page: https://github.com/ag2ai/ag2
-Author: Chi Wang & Qingyun Wu
-Author-email: support@ag2.ai
-License: Apache Software License 2.0
-Platform: UNKNOWN
-Classifier: Programming Language :: Python :: 3
+Version: 0.14.1
+Summary: A programming framework for agentic AI
+Project-URL: Homepage, https://ag2.ai/
+Project-URL: Documentation, https://docs.ag2.ai
+Project-URL: Tracker, https://github.com/ag2ai/ag2classic/issues
+Project-URL: Source, https://github.com/ag2ai/ag2classic
+Project-URL: Discord, https://discord.gg/pAbnFJrkgZ
+Author-email: Chi Wang & Qingyun Wu <support@ag2.ai>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: ag2,ag2.ai,ag2ai,agent,agentic,ai,autogen
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: Pydantic
+Classifier: Framework :: Pydantic :: 2
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.10,<3.14
-Description-Content-Type: text/markdown
-Provides-Extra: a2ui
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Requires-Dist: anyio<5.0.0,>=4.0.0
+Requires-Dist: fast-depends[pydantic]<4.0.0,>=3.0.8
+Requires-Dist: httpx<1,>=0.28.1
+Requires-Dist: packaging
+Requires-Dist: pydantic<3,>=2.6.1
+Requires-Dist: python-dotenv
+Requires-Dist: pyyaml>=6.0.2
+Requires-Dist: termcolor
+Requires-Dist: tiktoken
 Provides-Extra: a2a
+Requires-Dist: a2a-sdk<2,>=1.1.0; extra == 'a2a'
+Provides-Extra: a2ui
+Requires-Dist: jsonschema<5,>=4.18.0; extra == 'a2ui'
+Requires-Dist: starlette<1,>=0.40; extra == 'a2ui'
 Provides-Extra: ag-ui
-Provides-Extra: diskcache
-Provides-Extra: openai
-Provides-Extra: openai-realtime
-Provides-Extra: deepseek
+Requires-Dist: ag-ui-protocol<0.2,>=0.1.15; extra == 'ag-ui'
 Provides-Extra: anthropic
-Provides-Extra: gemini
-Provides-Extra: gemini-realtime
-Provides-Extra: groq
-Provides-Extra: xai
-Provides-Extra: zai
-Provides-Extra: ollama
-Provides-Extra: bedrock
-Provides-Extra: mistral
-Provides-Extra: dashscope
-Provides-Extra: redis
-Provides-Extra: tracing
-Provides-Extra: flaml
-Provides-Extra: docker
-Provides-Extra: jupyter-executor
-Provides-Extra: retrievechat
-Provides-Extra: retrievechat-pgvector
-Provides-Extra: retrievechat-mongodb
-Provides-Extra: retrievechat-qdrant
-Provides-Extra: retrievechat-couchbase
-Provides-Extra: graph-rag-falkor-db
-Provides-Extra: rag
-Provides-Extra: crawl4ai
-Provides-Extra: quick-research
-Provides-Extra: browser-use
-Provides-Extra: google-client
-Provides-Extra: google-api
-Provides-Extra: google-search
-Provides-Extra: wikipedia
-Provides-Extra: neo4j
-Provides-Extra: mcp
-Provides-Extra: mcp-proxy-gen
-Provides-Extra: interop-langchain
-Provides-Extra: interop-pydantic-ai
-Provides-Extra: interop
+Requires-Dist: anthropic[vertex]<1,>=0.79.0; extra == 'anthropic'
 Provides-Extra: autobuild
+Requires-Dist: chromadb<1.6,>=1.4.1; extra == 'autobuild'
+Requires-Dist: huggingface-hub; extra == 'autobuild'
+Requires-Dist: sentence-transformers<=6,>=5.2.2; extra == 'autobuild'
+Provides-Extra: bedrock
+Requires-Dist: boto3>=1.34.149; extra == 'bedrock'
 Provides-Extra: blendsearch
-Provides-Extra: mathchat
+Requires-Dist: flaml[blendsearch]; extra == 'blendsearch'
+Provides-Extra: browser-use
+Requires-Dist: browser-use<1.0,>=0.3.1; (python_version >= '3.11') and extra == 'browser-use'
+Requires-Dist: langchain-google-vertexai<4.0,>=2.0; extra == 'browser-use'
 Provides-Extra: captainagent
-Provides-Extra: teachable
-Provides-Extra: lmm
-Provides-Extra: graph
-Provides-Extra: together
-Provides-Extra: websurfer
-Provides-Extra: cosmosdb
-Provides-Extra: websockets
-Provides-Extra: network-ws
-Provides-Extra: watchdog
-Provides-Extra: long-context
+Requires-Dist: chromadb<1.6,>=1.4.1; extra == 'captainagent'
+Requires-Dist: huggingface-hub; extra == 'captainagent'
+Requires-Dist: pandas; extra == 'captainagent'
+Requires-Dist: sentence-transformers<=6,>=5.2.2; extra == 'captainagent'
 Provides-Extra: cerebras
-Provides-Extra: yepcode
-Provides-Extra: remyx
+Requires-Dist: cerebras-cloud-sdk>=1.0.0; extra == 'cerebras'
 Provides-Extra: cohere
+Requires-Dist: cohere>=5.13.5; extra == 'cohere'
 Provides-Extra: commsagent-discord
+Requires-Dist: discord-py<2.8,>=2.4.0; extra == 'commsagent-discord'
 Provides-Extra: commsagent-slack
+Requires-Dist: slack-sdk<3.43,>=3.33.0; extra == 'commsagent-slack'
 Provides-Extra: commsagent-telegram
-Provides-Extra: duckduckgo
+Requires-Dist: telethon<2,>=1.38.1; extra == 'commsagent-telegram'
+Provides-Extra: cosmosdb
+Requires-Dist: azure-cosmos>=4.2.0; extra == 'cosmosdb'
+Provides-Extra: crawl4ai
+Requires-Dist: crawl4ai<0.9,>=0.5.0; extra == 'crawl4ai'
+Provides-Extra: dashscope
+Requires-Dist: dashscope>=1.25.13; extra == 'dashscope'
 Provides-Extra: ddgs
-Provides-Extra: tavily
-Provides-Extra: perplexity
-Provides-Extra: nlip
-Provides-Extra: test-core
-Provides-Extra: test
-Provides-Extra: docs
-Provides-Extra: types
-Provides-Extra: lint
+Requires-Dist: ddgs<10,>=9.0.0; extra == 'ddgs'
+Provides-Extra: deepseek
+Requires-Dist: openai<3.0,>=2.44.0; extra == 'deepseek'
 Provides-Extra: dev
-License-File: LICENSE
-License-File: NOTICE.md
+Requires-Dist: a2a-sdk<2,>=1.1.0; extra == 'dev'
+Requires-Dist: ag-ui-protocol<0.2,>=0.1.15; extra == 'dev'
+Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'dev'
+Requires-Dist: anthropic[vertex]<1,>=0.79.0; extra == 'dev'
+Requires-Dist: cairosvg; extra == 'dev'
+Requires-Dist: codespell==2.4.2; extra == 'dev'
+Requires-Dist: dashscope>=1.25.13; extra == 'dev'
+Requires-Dist: daytona<1,>=0.171.0; extra == 'dev'
+Requires-Dist: ddgs<10,>=9.0.0; extra == 'dev'
+Requires-Dist: detect-secrets==1.5.0; extra == 'dev'
+Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'dev'
+Requires-Dist: docker<8,>=6.0.0; extra == 'dev'
+Requires-Dist: exa-py<3,>=2.12.1; extra == 'dev'
+Requires-Dist: fastapi<1,>=0.115.0; extra == 'dev'
+Requires-Dist: fix-busted-json>=0.0.18; extra == 'dev'
+Requires-Dist: freezegun<2,>=1.5.5; extra == 'dev'
+Requires-Dist: google-api-core; extra == 'dev'
+Requires-Dist: google-auth; extra == 'dev'
+Requires-Dist: google-cloud-aiplatform; extra == 'dev'
+Requires-Dist: google-genai<3.0,>=1.20.0; extra == 'dev'
+Requires-Dist: ipykernel==7.3.0; extra == 'dev'
+Requires-Dist: jinja2==3.1.6; extra == 'dev'
+Requires-Dist: jsonschema; extra == 'dev'
+Requires-Dist: mcp<2,>=1.11.0; extra == 'dev'
+Requires-Dist: mcp>=1.11.0; extra == 'dev'
+Requires-Dist: mdx-include==1.4.2; extra == 'dev'
+Requires-Dist: mike==2.2.0; extra == 'dev'
+Requires-Dist: mkdocs-git-revision-date-localized-plugin==1.5.3; extra == 'dev'
+Requires-Dist: mkdocs-glightbox==0.5.2; extra == 'dev'
+Requires-Dist: mkdocs-literate-nav==0.6.3; extra == 'dev'
+Requires-Dist: mkdocs-macros-plugin==1.5.0; extra == 'dev'
+Requires-Dist: mkdocs-material==9.7.6; extra == 'dev'
+Requires-Dist: mkdocs-minify-plugin==0.8.0; extra == 'dev'
+Requires-Dist: mkdocs-redirects==1.2.3; extra == 'dev'
+Requires-Dist: mypy==1.17.1; extra == 'dev'
+Requires-Dist: nbclient==0.11.0; extra == 'dev'
+Requires-Dist: nbconvert==7.17.1; extra == 'dev'
+Requires-Dist: nbformat==5.10.4; extra == 'dev'
+Requires-Dist: ollama>=0.4.7; extra == 'dev'
+Requires-Dist: openai<3.0,>=2.44.0; extra == 'dev'
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'dev'
+Requires-Dist: opentelemetry-sdk>=1.20; extra == 'dev'
+Requires-Dist: pandas<3,>=2.2.0; extra == 'dev'
+Requires-Dist: perplexityai<1,>=0.30.0; extra == 'dev'
+Requires-Dist: pillow; extra == 'dev'
+Requires-Dist: prek==0.4.5; extra == 'dev'
+Requires-Dist: pytest-asyncio==1.4.0; extra == 'dev'
+Requires-Dist: pytest-cov==7.1.0; extra == 'dev'
+Requires-Dist: pytest-timeout<3,>=2.4.0; extra == 'dev'
+Requires-Dist: pytest==9.1.0; extra == 'dev'
+Requires-Dist: pyyaml==6.0.3; extra == 'dev'
+Requires-Dist: redis<9,>=5.0; extra == 'dev'
+Requires-Dist: respx<0.24.0,>=0.23.0; extra == 'dev'
+Requires-Dist: ruff==0.14.14; extra == 'dev'
+Requires-Dist: tavily-python<0.8,>=0.7.4; extra == 'dev'
+Requires-Dist: termcolor==3.1.0; extra == 'dev'
+Requires-Dist: tinyfish>=0.2.3; (python_version >= '3.11') and extra == 'dev'
+Requires-Dist: toml==0.10.2; extra == 'dev'
+Requires-Dist: typer<0.27,>=0.22; extra == 'dev'
+Requires-Dist: types-aiofiles; extra == 'dev'
+Requires-Dist: types-decorator; extra == 'dev'
+Requires-Dist: types-pycurl; extra == 'dev'
+Requires-Dist: types-python-dateutil; extra == 'dev'
+Requires-Dist: types-pyyaml; extra == 'dev'
+Requires-Dist: types-requests; extra == 'dev'
+Requires-Dist: types-ujson; extra == 'dev'
+Requires-Dist: uv==0.11.21; extra == 'dev'
+Requires-Dist: watchdog<7,>=4.0; extra == 'dev'
+Requires-Dist: xai-sdk<2,>=1.12.2; extra == 'dev'
+Requires-Dist: zizmor==1.25.2; extra == 'dev'
+Provides-Extra: diskcache
+Requires-Dist: diskcache; extra == 'diskcache'
+Provides-Extra: docker
+Requires-Dist: docker<8,>=6.0.0; extra == 'docker'
+Provides-Extra: docs
+Requires-Dist: a2a-sdk<2,>=1.1.0; extra == 'docs'
+Requires-Dist: ag-ui-protocol<0.2,>=0.1.15; extra == 'docs'
+Requires-Dist: anthropic[vertex]<1,>=0.79.0; extra == 'docs'
+Requires-Dist: cairosvg; extra == 'docs'
+Requires-Dist: dashscope>=1.25.13; extra == 'docs'
+Requires-Dist: daytona<1,>=0.171.0; extra == 'docs'
+Requires-Dist: ddgs<10,>=9.0.0; extra == 'docs'
+Requires-Dist: docker<8,>=6.0.0; extra == 'docs'
+Requires-Dist: exa-py<3,>=2.12.1; extra == 'docs'
+Requires-Dist: fix-busted-json>=0.0.18; extra == 'docs'
+Requires-Dist: google-api-core; extra == 'docs'
+Requires-Dist: google-auth; extra == 'docs'
+Requires-Dist: google-cloud-aiplatform; extra == 'docs'
+Requires-Dist: google-genai<3.0,>=1.20.0; extra == 'docs'
+Requires-Dist: jinja2==3.1.6; extra == 'docs'
+Requires-Dist: jsonschema; extra == 'docs'
+Requires-Dist: mcp>=1.11.0; extra == 'docs'
+Requires-Dist: mdx-include==1.4.2; extra == 'docs'
+Requires-Dist: mike==2.2.0; extra == 'docs'
+Requires-Dist: mkdocs-git-revision-date-localized-plugin==1.5.3; extra == 'docs'
+Requires-Dist: mkdocs-glightbox==0.5.2; extra == 'docs'
+Requires-Dist: mkdocs-literate-nav==0.6.3; extra == 'docs'
+Requires-Dist: mkdocs-macros-plugin==1.5.0; extra == 'docs'
+Requires-Dist: mkdocs-material==9.7.6; extra == 'docs'
+Requires-Dist: mkdocs-minify-plugin==0.8.0; extra == 'docs'
+Requires-Dist: mkdocs-redirects==1.2.3; extra == 'docs'
+Requires-Dist: nbclient==0.11.0; extra == 'docs'
+Requires-Dist: ollama>=0.4.7; extra == 'docs'
+Requires-Dist: openai<3.0,>=2.44.0; extra == 'docs'
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'docs'
+Requires-Dist: opentelemetry-sdk>=1.20; extra == 'docs'
+Requires-Dist: perplexityai<1,>=0.30.0; extra == 'docs'
+Requires-Dist: pillow; extra == 'docs'
+Requires-Dist: pyyaml==6.0.3; extra == 'docs'
+Requires-Dist: redis<9,>=5.0; extra == 'docs'
+Requires-Dist: tavily-python<0.8,>=0.7.4; extra == 'docs'
+Requires-Dist: termcolor==3.1.0; extra == 'docs'
+Requires-Dist: tinyfish>=0.2.3; (python_version >= '3.11') and extra == 'docs'
+Requires-Dist: typer<0.27,>=0.22; extra == 'docs'
+Requires-Dist: watchdog<7,>=4.0; extra == 'docs'
+Requires-Dist: xai-sdk<2,>=1.12.2; extra == 'docs'
+Provides-Extra: duckduckgo
+Requires-Dist: duckduckgo-search>=8.0.2; extra == 'duckduckgo'
+Provides-Extra: flaml
+Requires-Dist: flaml; extra == 'flaml'
+Requires-Dist: numpy<2.0.0,>=1.24.0; (python_version < '3.13') and extra == 'flaml'
+Requires-Dist: numpy>=2.1; (python_version >= '3.13') and extra == 'flaml'
+Provides-Extra: gemini
+Requires-Dist: google-api-core; extra == 'gemini'
+Requires-Dist: google-auth; extra == 'gemini'
+Requires-Dist: google-cloud-aiplatform; extra == 'gemini'
+Requires-Dist: google-genai<3.0,>=1.20.0; extra == 'gemini'
+Requires-Dist: jsonschema; extra == 'gemini'
+Requires-Dist: pillow; extra == 'gemini'
+Provides-Extra: gemini-realtime
+Requires-Dist: google-api-core; extra == 'gemini-realtime'
+Requires-Dist: google-auth; extra == 'gemini-realtime'
+Requires-Dist: google-cloud-aiplatform; extra == 'gemini-realtime'
+Requires-Dist: google-genai<3.0,>=1.20.0; extra == 'gemini-realtime'
+Requires-Dist: google-genai<3.0,>=1.75.0; extra == 'gemini-realtime'
+Requires-Dist: jsonschema; extra == 'gemini-realtime'
+Requires-Dist: pillow; extra == 'gemini-realtime'
+Requires-Dist: websockets<17,>=14.0; extra == 'gemini-realtime'
+Provides-Extra: google-api
+Requires-Dist: google-api-python-client<3.0,>=2.163.0; extra == 'google-api'
+Requires-Dist: google-auth-httplib2<0.5,>=0.2.0; extra == 'google-api'
+Requires-Dist: google-auth-oauthlib<2.0,>=1.2.1; extra == 'google-api'
+Provides-Extra: google-client
+Requires-Dist: google-api-python-client<3.0,>=2.163.0; extra == 'google-client'
+Provides-Extra: google-search
+Requires-Dist: google-api-python-client<3.0,>=2.163.0; extra == 'google-search'
+Provides-Extra: graph
+Requires-Dist: matplotlib; extra == 'graph'
+Requires-Dist: networkx; extra == 'graph'
+Provides-Extra: graph-rag-falkor-db
+Requires-Dist: falkordb>=1.0.10; extra == 'graph-rag-falkor-db'
+Requires-Dist: graphrag-sdk==1.3.0; extra == 'graph-rag-falkor-db'
+Provides-Extra: groq
+Requires-Dist: groq>=0.9.0; extra == 'groq'
+Provides-Extra: interop
+Requires-Dist: fasta2a; extra == 'interop'
+Requires-Dist: langchain-community<1,>=0.3.12; extra == 'interop'
+Requires-Dist: pydantic-ai-slim<1.108,>=1.0.12; extra == 'interop'
+Provides-Extra: interop-langchain
+Requires-Dist: langchain-community<1,>=0.3.12; extra == 'interop-langchain'
+Provides-Extra: interop-pydantic-ai
+Requires-Dist: fasta2a; extra == 'interop-pydantic-ai'
+Requires-Dist: pydantic-ai-slim<1.108,>=1.0.12; extra == 'interop-pydantic-ai'
+Provides-Extra: jupyter-executor
+Requires-Dist: docker<8,>=6.0.0; extra == 'jupyter-executor'
+Requires-Dist: ipykernel>=6.29.0; extra == 'jupyter-executor'
+Requires-Dist: jupyter-client>=8.6.0; extra == 'jupyter-executor'
+Requires-Dist: jupyter-kernel-gateway; extra == 'jupyter-executor'
+Requires-Dist: requests; extra == 'jupyter-executor'
+Requires-Dist: websocket-client; extra == 'jupyter-executor'
+Provides-Extra: lint
+Requires-Dist: codespell==2.4.2; extra == 'lint'
+Requires-Dist: ruff==0.14.14; extra == 'lint'
+Requires-Dist: zizmor==1.25.2; extra == 'lint'
+Provides-Extra: lmm
+Requires-Dist: pillow; extra == 'lmm'
+Requires-Dist: replicate; extra == 'lmm'
+Provides-Extra: long-context
+Requires-Dist: llmlingua<0.3; extra == 'long-context'
+Provides-Extra: mathchat
+Requires-Dist: sympy; extra == 'mathchat'
+Requires-Dist: wolframalpha; extra == 'mathchat'
+Provides-Extra: mcp
+Requires-Dist: mcp<2,>=1.11.0; extra == 'mcp'
+Provides-Extra: mcp-proxy-gen
+Requires-Dist: fastapi-code-generator>=0.5.4; extra == 'mcp-proxy-gen'
+Requires-Dist: fastapi<1,>=0.112; extra == 'mcp-proxy-gen'
+Requires-Dist: pyyaml; extra == 'mcp-proxy-gen'
+Requires-Dist: requests; extra == 'mcp-proxy-gen'
+Requires-Dist: typer; extra == 'mcp-proxy-gen'
+Provides-Extra: mistral
+Requires-Dist: mistralai<3.0.0,>=2.0.0; extra == 'mistral'
+Provides-Extra: neo4j
+Requires-Dist: docx2txt==0.9; extra == 'neo4j'
+Requires-Dist: llama-index-core<0.15,>=0.14.13; extra == 'neo4j'
+Requires-Dist: llama-index-graph-stores-neo4j<0.8,>=0.4; extra == 'neo4j'
+Requires-Dist: llama-index-readers-web<0.7,>=0.4; extra == 'neo4j'
+Requires-Dist: llama-index<0.15,>=0.14.13; extra == 'neo4j'
+Provides-Extra: network-ws
+Requires-Dist: websockets<17,>=14.0; extra == 'network-ws'
+Provides-Extra: nlip
+Requires-Dist: nlip-sdk<1,>=0.1.0; extra == 'nlip'
+Requires-Dist: nlip-server<1,>=0.1.3; extra == 'nlip'
+Provides-Extra: ollama
+Requires-Dist: fix-busted-json>=0.0.18; extra == 'ollama'
+Requires-Dist: ollama>=0.4.7; extra == 'ollama'
+Provides-Extra: openai
+Requires-Dist: openai<3.0,>=2.44.0; extra == 'openai'
+Provides-Extra: openai-realtime
+Requires-Dist: openai<3.0,>=2.44.0; extra == 'openai-realtime'
+Requires-Dist: openai[realtime]; extra == 'openai-realtime'
+Provides-Extra: perplexity
+Requires-Dist: perplexityai<1,>=0.30.0; extra == 'perplexity'
+Provides-Extra: quick-research
+Requires-Dist: beautifulsoup4; extra == 'quick-research'
+Requires-Dist: crawl4ai<0.9,>=0.5.0; extra == 'quick-research'
+Requires-Dist: tavily-python>=0.7.4; extra == 'quick-research'
+Requires-Dist: tiktoken; extra == 'quick-research'
+Requires-Dist: tldextract; extra == 'quick-research'
+Provides-Extra: rag
+Requires-Dist: chromadb<2,>=0.5; extra == 'rag'
+Requires-Dist: docling<3,>=2.107.0; extra == 'rag'
+Requires-Dist: llama-index-core<0.15,>=0.14.13; extra == 'rag'
+Requires-Dist: llama-index-embeddings-huggingface<0.8,>=0.5; extra == 'rag'
+Requires-Dist: llama-index-embeddings-openai<0.8,>=0.3; extra == 'rag'
+Requires-Dist: llama-index-llms-langchain<0.9,>=0.6; extra == 'rag'
+Requires-Dist: llama-index-llms-openai<0.8,>=0.4; extra == 'rag'
+Requires-Dist: llama-index-vector-stores-chroma<0.6,>=0.4; extra == 'rag'
+Requires-Dist: llama-index-vector-stores-mongodb<0.11,>=0.6; extra == 'rag'
+Requires-Dist: llama-index<0.15,>=0.14.13; extra == 'rag'
+Requires-Dist: requests<3,>=2.32.3; extra == 'rag'
+Requires-Dist: selenium<5,>=4.28.1; extra == 'rag'
+Requires-Dist: webdriver-manager==4.1.2; extra == 'rag'
+Provides-Extra: redis
+Requires-Dist: redis<9,>=5.0; extra == 'redis'
+Provides-Extra: remyx
+Requires-Dist: docker<8,>=6.0.0; extra == 'remyx'
+Requires-Dist: remyxai>=0.2.0; extra == 'remyx'
+Provides-Extra: retrievechat
+Requires-Dist: beautifulsoup4; extra == 'retrievechat'
+Requires-Dist: chromadb<1.6,>=1.4.1; extra == 'retrievechat'
+Requires-Dist: ipython; extra == 'retrievechat'
+Requires-Dist: markdownify; extra == 'retrievechat'
+Requires-Dist: protobuf<7,>=6; extra == 'retrievechat'
+Requires-Dist: pypdf; extra == 'retrievechat'
+Requires-Dist: sentence-transformers<=6,>=5.2.2; extra == 'retrievechat'
+Provides-Extra: retrievechat-couchbase
+Requires-Dist: beautifulsoup4; extra == 'retrievechat-couchbase'
+Requires-Dist: chromadb<1.6,>=1.4.1; extra == 'retrievechat-couchbase'
+Requires-Dist: couchbase>=4.3.0; extra == 'retrievechat-couchbase'
+Requires-Dist: ipython; extra == 'retrievechat-couchbase'
+Requires-Dist: markdownify; extra == 'retrievechat-couchbase'
+Requires-Dist: numpy; extra == 'retrievechat-couchbase'
+Requires-Dist: protobuf<7,>=6; extra == 'retrievechat-couchbase'
+Requires-Dist: pypdf; extra == 'retrievechat-couchbase'
+Requires-Dist: sentence-transformers<=6,>=5.2.2; extra == 'retrievechat-couchbase'
+Provides-Extra: retrievechat-mongodb
+Requires-Dist: beautifulsoup4; extra == 'retrievechat-mongodb'
+Requires-Dist: chromadb<1.6,>=1.4.1; extra == 'retrievechat-mongodb'
+Requires-Dist: ipython; extra == 'retrievechat-mongodb'
+Requires-Dist: markdownify; extra == 'retrievechat-mongodb'
+Requires-Dist: numpy; extra == 'retrievechat-mongodb'
+Requires-Dist: protobuf<7,>=6; extra == 'retrievechat-mongodb'
+Requires-Dist: pymongo>=4.0.0; extra == 'retrievechat-mongodb'
+Requires-Dist: pypdf; extra == 'retrievechat-mongodb'
+Requires-Dist: sentence-transformers<=6,>=5.2.2; extra == 'retrievechat-mongodb'
+Provides-Extra: retrievechat-pgvector
+Requires-Dist: beautifulsoup4; extra == 'retrievechat-pgvector'
+Requires-Dist: chromadb<1.6,>=1.4.1; extra == 'retrievechat-pgvector'
+Requires-Dist: ipython; extra == 'retrievechat-pgvector'
+Requires-Dist: markdownify; extra == 'retrievechat-pgvector'
+Requires-Dist: pgvector>=0.2.5; extra == 'retrievechat-pgvector'
+Requires-Dist: protobuf<7,>=6; extra == 'retrievechat-pgvector'
+Requires-Dist: psycopg>=3.1.18; (platform_system == 'Linux') and extra == 'retrievechat-pgvector'
+Requires-Dist: psycopg[binary]>=3.1.18; (platform_system == 'Windows' or platform_system == 'Darwin') and extra == 'retrievechat-pgvector'
+Requires-Dist: pypdf; extra == 'retrievechat-pgvector'
+Requires-Dist: sentence-transformers<=6,>=5.2.2; extra == 'retrievechat-pgvector'
+Provides-Extra: retrievechat-qdrant
+Requires-Dist: beautifulsoup4; extra == 'retrievechat-qdrant'
+Requires-Dist: chromadb<1.6,>=1.4.1; extra == 'retrievechat-qdrant'
+Requires-Dist: fastembed>=0.3.1; extra == 'retrievechat-qdrant'
+Requires-Dist: ipython; extra == 'retrievechat-qdrant'
+Requires-Dist: markdownify; extra == 'retrievechat-qdrant'
+Requires-Dist: protobuf<7,>=6; extra == 'retrievechat-qdrant'
+Requires-Dist: pypdf; extra == 'retrievechat-qdrant'
+Requires-Dist: qdrant-client; extra == 'retrievechat-qdrant'
+Requires-Dist: sentence-transformers<=6,>=5.2.2; extra == 'retrievechat-qdrant'
+Provides-Extra: tavily
+Requires-Dist: tavily-python<0.8,>=0.7.4; extra == 'tavily'
+Provides-Extra: teachable
+Requires-Dist: chromadb; extra == 'teachable'
+Provides-Extra: test
+Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'test'
+Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'test'
+Requires-Dist: docker<8,>=6.0.0; extra == 'test'
+Requires-Dist: fastapi<1,>=0.115.0; extra == 'test'
+Requires-Dist: freezegun<2,>=1.5.5; extra == 'test'
+Requires-Dist: ipykernel==7.3.0; extra == 'test'
+Requires-Dist: mcp<2,>=1.11.0; extra == 'test'
+Requires-Dist: nbconvert==7.17.1; extra == 'test'
+Requires-Dist: nbformat==5.10.4; extra == 'test'
+Requires-Dist: pandas<3,>=2.2.0; extra == 'test'
+Requires-Dist: pytest-asyncio==1.4.0; extra == 'test'
+Requires-Dist: pytest-cov==7.1.0; extra == 'test'
+Requires-Dist: pytest-timeout<3,>=2.4.0; extra == 'test'
+Requires-Dist: pytest==9.1.0; extra == 'test'
+Requires-Dist: respx<0.24.0,>=0.23.0; extra == 'test'
+Provides-Extra: test-core
+Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'test-core'
+Requires-Dist: freezegun<2,>=1.5.5; extra == 'test-core'
+Requires-Dist: pytest-asyncio==1.4.0; extra == 'test-core'
+Requires-Dist: pytest-cov==7.1.0; extra == 'test-core'
+Requires-Dist: pytest-timeout<3,>=2.4.0; extra == 'test-core'
+Requires-Dist: pytest==9.1.0; extra == 'test-core'
+Provides-Extra: together
+Requires-Dist: together>=1.2; extra == 'together'
+Provides-Extra: tracing
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'tracing'
+Requires-Dist: opentelemetry-sdk>=1.20; extra == 'tracing'
+Provides-Extra: types
+Requires-Dist: a2a-sdk<2,>=1.1.0; extra == 'types'
+Requires-Dist: ag-ui-protocol<0.2,>=0.1.15; extra == 'types'
+Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'types'
+Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'types'
+Requires-Dist: docker<8,>=6.0.0; extra == 'types'
+Requires-Dist: fastapi<1,>=0.115.0; extra == 'types'
+Requires-Dist: freezegun<2,>=1.5.5; extra == 'types'
+Requires-Dist: ipykernel==7.3.0; extra == 'types'
+Requires-Dist: mcp<2,>=1.11.0; extra == 'types'
+Requires-Dist: mypy==1.17.1; extra == 'types'
+Requires-Dist: nbconvert==7.17.1; extra == 'types'
+Requires-Dist: nbformat==5.10.4; extra == 'types'
+Requires-Dist: openai<3.0,>=2.44.0; extra == 'types'
+Requires-Dist: pandas<3,>=2.2.0; extra == 'types'
+Requires-Dist: pytest-asyncio==1.4.0; extra == 'types'
+Requires-Dist: pytest-cov==7.1.0; extra == 'types'
+Requires-Dist: pytest-timeout<3,>=2.4.0; extra == 'types'
+Requires-Dist: pytest==9.1.0; extra == 'types'
+Requires-Dist: respx<0.24.0,>=0.23.0; extra == 'types'
+Requires-Dist: types-aiofiles; extra == 'types'
+Requires-Dist: types-decorator; extra == 'types'
+Requires-Dist: types-pycurl; extra == 'types'
+Requires-Dist: types-python-dateutil; extra == 'types'
+Requires-Dist: types-pyyaml; extra == 'types'
+Requires-Dist: types-requests; extra == 'types'
+Requires-Dist: types-ujson; extra == 'types'
+Provides-Extra: watchdog
+Requires-Dist: watchdog<7,>=4.0; extra == 'watchdog'
+Provides-Extra: websockets
+Requires-Dist: websockets<17,>=14.0; extra == 'websockets'
+Provides-Extra: websurfer
+Requires-Dist: beautifulsoup4; extra == 'websurfer'
+Requires-Dist: markdownify; extra == 'websurfer'
+Requires-Dist: pathvalidate; extra == 'websurfer'
+Requires-Dist: pdfminer-six; extra == 'websurfer'
+Provides-Extra: wikipedia
+Requires-Dist: wikipedia-api<1.0,>=0.8.1; extra == 'wikipedia'
+Provides-Extra: xai
+Requires-Dist: xai-sdk<2,>=1.12.2; extra == 'xai'
+Provides-Extra: yepcode
+Requires-Dist: python-dotenv; extra == 'yepcode'
+Requires-Dist: yepcode-run>=1.6.1; (python_version >= '3.11') and extra == 'yepcode'
+Provides-Extra: zai
+Requires-Dist: zai-sdk<1,>=0.2.3; extra == 'zai'
+Description-Content-Type: text/markdown
 
 <a name="readme-top"></a>
 
@@ -98,18 +462,18 @@ License-File: NOTICE.md
   <br>
   <br>
 
-  <a href="https://www.pepy.tech/projects/ag2">
-    <img src="https://static.pepy.tech/personalized-badge/ag2?period=month&units=international_system&left_color=grey&right_color=green&left_text=downloads/month" alt="Downloads"/>
+  <a href="https://www.pepy.tech/projects/autogen">
+    <img src="https://static.pepy.tech/personalized-badge/autogen?period=month&units=international_system&left_color=grey&right_color=green&left_text=downloads/month" alt="Downloads"/>
   </a>
 
   <a href="https://pypi.org/project/autogen/">
-    <img src="https://img.shields.io/pypi/v/ag2?label=PyPI&color=green">
+    <img src="https://img.shields.io/pypi/v/autogen?label=PyPI&color=green">
   </a>
 
-  <img src="https://img.shields.io/pypi/pyversions/ag2.svg?label=">
+  <img src="https://img.shields.io/pypi/pyversions/autogen.svg?label=">
 
-  <a href="https://github.com/ag2ai/ag2/actions/workflows/python-package.yml">
-    <img src="https://github.com/ag2ai/ag2/actions/workflows/python-package.yml/badge.svg">
+  <a href="https://github.com/ag2ai/ag2classic/actions/workflows/python-package.yml">
+    <img src="https://github.com/ag2ai/ag2classic/actions/workflows/python-package.yml/badge.svg">
   </a>
   <a href="https://discord.gg/pAbnFJrkgZ">
     <img src="https://img.shields.io/discord/1153072414184452236?logo=discord&style=flat">
@@ -135,9 +499,9 @@ AG2 was evolved from AutoGen. Fully open-sourced. We invite collaborators from a
 </p>
 
 > [!IMPORTANT]
-> **AG2 is on the path to v1.0.** The current framework will be tidied up through deprecations over the next few minor versions and moved to maintenance mode. The beta framework (`autogen.beta`) will become the official version of AG2 at v1.0.
+> **This is the classic AutoGen repository** — the original `autogen` framework built around `ConversableAgent`. It is published to PyPI as the [`autogen`](https://pypi.org/project/autogen/) package and is now in **maintenance mode**: it receives **security and critical bug fixes only**, with no new features.
 >
-> [Read the full release roadmap →](https://docs.ag2.ai/latest/docs/user-guide/release-roadmap/)
+> **AG2 is the current, actively developed version.** Find it at [github.com/ag2ai/ag2](https://github.com/ag2ai/ag2) (PyPI: [`ag2`](https://pypi.org/project/ag2/)), with documentation at [docs.ag2.ai](https://docs.ag2.ai/).
 
 # AG2: Open-Source AgentOS for AI Agents
 
@@ -173,16 +537,18 @@ For a step-by-step walk through of AG2 concepts and code, see [Basic Concepts](h
 
 ### Installation
 
-AG2 requires **Python version >= 3.10**. AG2 is available via `ag2` (or its alias `autogen`) on PyPI.
+This repository is the classic AutoGen, published as the [`autogen`](https://pypi.org/project/autogen/) package on PyPI (in maintenance mode — security and critical fixes only). For the current, actively developed version, install [`ag2`](https://pypi.org/project/ag2/) instead.
+
+Classic AutoGen requires **Python version >= 3.10**.
 
 **Windows/Linux:**
 ```bash
-pip install ag2[openai]
+pip install autogen[openai]
 ```
 
 **Mac:**
 ```bash
-pip install 'ag2[openai]'
+pip install 'autogen[openai]'
 ```
 
 Minimal dependencies are installed by default. You can install extra options based on the features you need.
@@ -526,8 +892,8 @@ prek run --all-files
 
 ## Contributors Wall
 
-<a href="https://github.com/ag2ai/ag2/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=ag2ai/ag2&max=204" />
+<a href="https://github.com/ag2ai/ag2classic/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=ag2ai/ag2classic&max=204" />
 </a>
 
 ## Cite the project
@@ -537,7 +903,7 @@ prek run --all-files
 author = {Chi Wang and Qingyun Wu and the AG2 Community},
 title = {AG2: Open-Source AgentOS for AI Agents},
 year = {2024},
-url = {https://github.com/ag2ai/ag2},
+url = {https://github.com/ag2ai/ag2classic},
 note = {Available at https://docs.ag2.ai/},
 version = {latest}
 }
@@ -554,5 +920,3 @@ This project is a spin-off of [AutoGen](https://github.com/microsoft/autogen) an
 - Modifications and additions made in this fork are licensed under the Apache License, Version 2.0. See the [LICENSE](./LICENSE) file for the full license text.
 
 We have documented these changes for clarity and to ensure transparency with our user and contributor community. For more details, please see the [NOTICE](./NOTICE.md) file.
-
-

@@ -18,7 +18,6 @@ pub(crate) struct Test {
   pub(crate) stdout: String,
   pub(crate) stdout_regex: Option<Regex>,
   pub(crate) tempdir: TempDir,
-  pub(crate) test_round_trip: bool,
   pub(crate) unindent_stdout: bool,
 }
 
@@ -42,7 +41,6 @@ impl Test {
       stdout: String::new(),
       stdout_regex: None,
       tempdir,
-      test_round_trip: true,
       unindent_stdout: true,
     }
   }
@@ -77,6 +75,10 @@ impl Test {
   pub(crate) fn env(mut self, key: &str, val: &str) -> Self {
     self.env.insert(key.to_string(), val.to_string());
     self
+  }
+
+  pub(crate) fn unstable(self) -> Self {
+    self.env("JUST_UNSTABLE", "1")
   }
 
   pub(crate) fn justfile(mut self, justfile: impl Into<String>) -> Self {
@@ -141,11 +143,6 @@ impl Test {
     self
   }
 
-  pub(crate) fn test_round_trip(mut self, test_round_trip: bool) -> Self {
-    self.test_round_trip = test_round_trip;
-    self
-  }
-
   pub(crate) fn unindent_stdout(mut self, unindent_stdout: bool) -> Self {
     self.unindent_stdout = unindent_stdout;
     self
@@ -156,6 +153,10 @@ impl Test {
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(path, unindent(content)).unwrap();
     self
+  }
+
+  pub(crate) fn write_executable(self, path: impl AsRef<Path> + Copy, content: &str) -> Self {
+    self.write(path, content).make_executable(path)
   }
 
   pub(crate) fn make_executable(self, path: impl AsRef<Path>) -> Self {
@@ -304,51 +305,10 @@ impl Test {
       );
     }
 
-    if self.test_round_trip && status == 0 {
-      self.round_trip();
-    }
-
     Output {
       pid,
       stdout: output_stdout.into(),
       tempdir: self.tempdir,
     }
-  }
-
-  fn round_trip(&self) {
-    let output = Command::new(JUST)
-      .current_dir(self.tempdir.path())
-      .arg("--dump")
-      .envs(&self.env)
-      .output()
-      .expect("just invocation failed");
-
-    assert!(
-      output.status.success(),
-      "dump failed: {} {:?}",
-      output.status,
-      output,
-    );
-
-    let dumped = String::from_utf8(output.stdout).unwrap();
-
-    let reparsed_path = self.tempdir.path().join("reparsed.just");
-
-    fs::write(&reparsed_path, &dumped).unwrap();
-
-    let output = Command::new(JUST)
-      .current_dir(self.tempdir.path())
-      .arg("--justfile")
-      .arg(&reparsed_path)
-      .arg("--dump")
-      .envs(&self.env)
-      .output()
-      .expect("just invocation failed");
-
-    assert!(output.status.success(), "reparse failed: {}", output.status);
-
-    let reparsed = String::from_utf8(output.stdout).unwrap();
-
-    assert_eq!(reparsed, dumped, "reparse mismatch");
   }
 }

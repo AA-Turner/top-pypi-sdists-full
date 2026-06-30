@@ -36,6 +36,7 @@ from packaging.version import Version
 from .. import logging as logg
 from .._compat import CSBase, DaskArray, _CSArray, pkg_version, warn
 from .._settings import settings
+from ._numba import _numba_thread_limit
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, KeysView, Mapping
@@ -61,6 +62,7 @@ __all__ = [
     "_choose_graph",
     "_doc_params",
     "_empty",
+    "_numba_thread_limit",
     "_resolve_axis",
     "annotate_doc_types",
     "axis_mul_or_truediv",
@@ -72,6 +74,7 @@ __all__ = [
     "compute_association_matrix_of_groups",
     "descend_classes_and_funcs",
     "ensure_igraph",
+    "get_igraph_from_adjacency",
     "get_literal_vals",
     "indent",
     "is_backed_type",
@@ -285,7 +288,7 @@ def check_use_raw(
 # --------------------------------------------------------------------------------
 
 
-def get_igraph_from_adjacency(adjacency: CSBase, *, directed: bool = False) -> Graph:
+def get_igraph_from_adjacency(adjacency: CSBase, *, directed: bool) -> Graph:
     """Get igraph graph from adjacency matrix."""
     import igraph as ig
 

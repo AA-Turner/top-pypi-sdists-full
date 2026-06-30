@@ -6,14 +6,12 @@ import System
 import System.ComponentModel.DataAnnotations.Schema
 
 
-class DatabaseGeneratedOption(IntEnum):
+class NotMappedAttribute(System.Attribute):
     """This class has no documentation."""
 
-    NONE = 0
 
-    IDENTITY = 1
-
-    COMPUTED = 2
+class ComplexTypeAttribute(System.Attribute):
+    """This class has no documentation."""
 
 
 class TableAttribute(System.Attribute):
@@ -32,6 +30,17 @@ class TableAttribute(System.Attribute):
         ...
 
     def __init__(self, name: str) -> None:
+        ...
+
+
+class InversePropertyAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def property(self) -> str:
+        ...
+
+    def __init__(self, property: str) -> None:
         ...
 
 
@@ -67,15 +76,14 @@ class ColumnAttribute(System.Attribute):
         ...
 
 
-class InversePropertyAttribute(System.Attribute):
+class DatabaseGeneratedOption(IntEnum):
     """This class has no documentation."""
 
-    @property
-    def property(self) -> str:
-        ...
+    NONE = 0
 
-    def __init__(self, property: str) -> None:
-        ...
+    IDENTITY = 1
+
+    COMPUTED = 2
 
 
 class ForeignKeyAttribute(System.Attribute):
@@ -87,14 +95,6 @@ class ForeignKeyAttribute(System.Attribute):
 
     def __init__(self, name: str) -> None:
         ...
-
-
-class ComplexTypeAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class NotMappedAttribute(System.Attribute):
-    """This class has no documentation."""
 
 
 class DatabaseGeneratedAttribute(System.Attribute):

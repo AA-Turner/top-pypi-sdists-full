@@ -571,7 +571,7 @@ class OpenWithBase(FlowComponent):
                 encoding = self.encoding
             else:
                 count = 0
-                # migrate to aiofile
+                # migrate to aiofiles
                 bt = min(32, os.path.getsize(filename))
                 with open(filename, "rb") as f:
                     line = f.read(bt)

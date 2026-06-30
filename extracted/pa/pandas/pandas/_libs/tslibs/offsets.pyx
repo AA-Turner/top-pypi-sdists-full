@@ -94,31 +94,6 @@ from .timestamps cimport _Timestamp
 
 from .timestamps import Timestamp
 
-# day_opt enum: avoids touching Python str objects inside nogil loops
-
-cdef enum _DayOpt:
-    DAY_OPT_START = 0
-    DAY_OPT_END = 1
-    DAY_OPT_BUSINESS_START = 2
-    DAY_OPT_BUSINESS_END = 3
-
-
-cdef _DayOpt _str_to_day_opt(str day_opt) except? DAY_OPT_START:
-    if day_opt == "start":
-        return DAY_OPT_START
-    elif day_opt == "end":
-        return DAY_OPT_END
-    elif day_opt == "business_start":
-        return DAY_OPT_BUSINESS_START
-    elif day_opt == "business_end":
-        return DAY_OPT_BUSINESS_END
-    else:
-        raise ValueError(
-            "day must be 'start', 'end', 'business_start', or "
-            f"'business_end', got {day_opt}"
-        )
-
-
 # ---------------------------------------------------------------------
 # Misc Helpers
 
@@ -858,7 +833,7 @@ cdef class BaseOffset:
         cdef:
             npy_datetimestruct dts
         pydate_to_dtstruct(other, &dts)
-        return get_day_of_month(&dts, _str_to_day_opt(self._day_opt))
+        return get_day_of_month(&dts, self._day_opt)
 
     def is_on_offset(self, dt: datetime) -> bool:
         """
@@ -3200,7 +3175,7 @@ cdef class YearOffset(SingleConstructorOffset):
             npy_datetimestruct dts
         pydate_to_dtstruct(other, &dts)
         dts.month = self._month
-        return get_day_of_month(&dts, _str_to_day_opt(self._day_opt))
+        return get_day_of_month(&dts, self._day_opt)
 
     @apply_wraps
     def _apply(self, other: datetime) -> datetime:
@@ -6493,7 +6468,6 @@ cdef ndarray shift_quarters(
         int months_since, n
         npy_datetimestruct dts
         cnp.broadcast mi = cnp.PyArray_MultiIterNew2(out, dtindex)
-        _DayOpt day_opt_enum = _str_to_day_opt(day_opt)
 
     with nogil:
         for i in range(count):
@@ -6507,11 +6481,11 @@ cdef ndarray shift_quarters(
                 n = quarters
 
                 months_since = (dts.month - q1start_month) % modby
-                n = _roll_qtrday(&dts, n, months_since, day_opt_enum)
+                n = _roll_qtrday(&dts, n, months_since, day_opt)
 
                 dts.year = year_add_months(dts, modby * n - months_since)
                 dts.month = month_add_months(dts, modby * n - months_since)
-                dts.day = get_day_of_month(&dts, day_opt_enum)
+                dts.day = get_day_of_month(&dts, day_opt)
 
                 res_val = npy_datetimestruct_to_datetime(reso, &dts)
 
@@ -6547,7 +6521,6 @@ def shift_months(
         ndarray out = cnp.PyArray_EMPTY(dtindex.ndim, dtindex.shape, cnp.NPY_INT64, 0)
         int months_to_roll
         int64_t val, res_val
-        _DayOpt day_opt_enum
 
         cnp.broadcast mi = cnp.PyArray_MultiIterNew2(out, dtindex)
 
@@ -6580,7 +6553,6 @@ def shift_months(
                 cnp.PyArray_MultiIter_NEXT(mi)
 
     else:
-        day_opt_enum = _str_to_day_opt(day_opt)
         with nogil:
             for i in range(count):
 
@@ -6593,13 +6565,11 @@ def shift_months(
                     pandas_datetime_to_datetimestruct(val, reso, &dts)
                     months_to_roll = months
 
-                    months_to_roll = _roll_qtrday(
-                        &dts, months_to_roll, 0, day_opt_enum
-                    )
+                    months_to_roll = _roll_qtrday(&dts, months_to_roll, 0, day_opt)
 
                     dts.year = year_add_months(dts, months_to_roll)
                     dts.month = month_add_months(dts, months_to_roll)
-                    dts.day = get_day_of_month(&dts, day_opt_enum)
+                    dts.day = get_day_of_month(&dts, day_opt)
 
                     res_val = npy_datetimestruct_to_datetime(reso, &dts)
 
@@ -6680,7 +6650,7 @@ def shift_month(stamp: datetime, months: int, day_opt: object = None) -> datetim
     return stamp.replace(year=year, month=month, day=day)
 
 
-cdef int get_day_of_month(npy_datetimestruct* dts, _DayOpt day_opt) noexcept nogil:
+cdef int get_day_of_month(npy_datetimestruct* dts, str day_opt) noexcept nogil:
     """
     Find the day in `other`'s month that satisfies a DateOffset's is_on_offset
     policy, as described by the `day_opt` argument.
@@ -6688,15 +6658,23 @@ cdef int get_day_of_month(npy_datetimestruct* dts, _DayOpt day_opt) noexcept nog
     Parameters
     ----------
     dts : npy_datetimestruct*
-    day_opt : _DayOpt enum value
-        DAY_OPT_START: returns 1
-        DAY_OPT_END: returns last day of the month
-        DAY_OPT_BUSINESS_START: returns the first business day of the month
-        DAY_OPT_BUSINESS_END: returns the last business day of the month
+    day_opt : {'start', 'end', 'business_start', 'business_end'}
+        'start': returns 1
+        'end': returns last day of the month
+        'business_start': returns the first business day of the month
+        'business_end': returns the last business day of the month
 
     Returns
     -------
     day_of_month : int
+
+    Examples
+    -------
+    >>> other = datetime(2017, 11, 14)
+    >>> get_day_of_month(other, 'start')
+    1
+    >>> get_day_of_month(other, 'end')
+    30
 
     Notes
     -----
@@ -6704,15 +6682,15 @@ cdef int get_day_of_month(npy_datetimestruct* dts, _DayOpt day_opt) noexcept nog
     is passed.
     """
 
-    if day_opt == DAY_OPT_START:
+    if day_opt == "start":
         return 1
-    elif day_opt == DAY_OPT_END:
+    elif day_opt == "end":
         return get_days_in_month(dts.year, dts.month)
-    elif day_opt == DAY_OPT_BUSINESS_START:
+    elif day_opt == "business_start":
         # first business day of month
         return get_firstbday(dts.year, dts.month)
     else:
-        # i.e. day_opt == DAY_OPT_BUSINESS_END:
+        # i.e. day_opt == "business_end":
         # last business day of month
         return get_lastbday(dts.year, dts.month)
 
@@ -6780,13 +6758,13 @@ def roll_qtrday(other: datetime, n: int, month: int,
     else:
         months_since = other.month % modby - month % modby
 
-    return _roll_qtrday(&dts, n, months_since, _str_to_day_opt(day_opt))
+    return _roll_qtrday(&dts, n, months_since, day_opt)
 
 
 cdef int _roll_qtrday(npy_datetimestruct* dts,
                       int n,
                       int months_since,
-                      _DayOpt day_opt) noexcept nogil:
+                      str day_opt) except? -1 nogil:
     """
     See roll_qtrday.__doc__
     """

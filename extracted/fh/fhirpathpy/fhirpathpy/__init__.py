@@ -10,7 +10,7 @@ from fhirpathpy.engine.util import arraify, get_data, process_user_invocation_ta
 from fhirpathpy.parser import parse
 
 __title__ = "fhirpathpy"
-__version__ = "2.2.2"
+__version__ = "2.2.3"
 __author__ = "beda.software"
 __license__ = "MIT"
 __copyright__ = "Copyright 2026 beda.software"
@@ -84,8 +84,7 @@ def apply_parsed_path(resource, parsedPath, context=None, model=None, options=No
             return res
 
         if isinstance(data, dict) and not isinstance(data, FP_Type):
-            for key, value in data.items():
-                data[key] = visit(value)
+            return {key: visit(value) for key, value in data.items()}
 
         return data
 

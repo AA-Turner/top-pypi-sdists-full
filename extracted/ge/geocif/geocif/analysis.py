@@ -68,6 +68,11 @@ class Geoanalysis:
         self.all_seasons_with_yield: list = None
 
         self.project_name = self.parser.get("DEFAULT", "project_name", fallback="geocif")
+        # Per-project display unit for yields (axis labels, RMSE annotations).
+        # Defaults to "Mg/ha" (≡ tn/ha). Wolayita projects use "QQ/ha",
+        # poppy uses "kg/ha". Internal DataFrame columns / numeric values are
+        # unchanged; this only re-labels user-facing text.
+        self.yield_units = self.parser.get("ML", "yield_units", fallback="Mg/ha")
         self.dir_out = Path(self.parser.get("PATHS", "dir_output")) / self.project_name
         self._date = ar.utcnow().to("America/New_York")
         self.today = self._date.format("MMMM_DD_YYYY")
@@ -454,7 +459,7 @@ class Geoanalysis:
         from .viz import diagnostics as diag
         fname = f"scatter_regions_{self.country}_{self.crop}.png"
         title = f"{self.country} {self.crop} — All Regions"
-        diag.scatter_obs_pred(df, title, self.dir_country_plots, fname)
+        diag.scatter_obs_pred(df, title, self.dir_country_plots, fname, yield_units=self.yield_units)
 
     def _plot_scatter_by_region(self, df):
         """Small-multiples scatter plot: observed vs predicted yield per region."""
@@ -521,8 +526,8 @@ class Geoanalysis:
             row, col = divmod(idx, ncols)
             axes[row][col].set_visible(False)
 
-        fig.supxlabel("Observed Yield (tn/ha)", fontsize=10)
-        fig.supylabel("Predicted Yield (tn/ha)", fontsize=10)
+        fig.supxlabel(f"Observed Yield ({self.yield_units})", fontsize=10)
+        fig.supylabel(f"Predicted Yield ({self.yield_units})", fontsize=10)
         fig.suptitle(f"{self.country} — {self.crop}", fontsize=12, fontweight="bold")
         plt.tight_layout()
 
@@ -594,8 +599,8 @@ class Geoanalysis:
             row, col = divmod(idx, ncols)
             axes[row][col].set_visible(False)
 
-        fig.supxlabel("Observed Yield (tn/ha)", fontsize=10)
-        fig.supylabel("Predicted Yield (tn/ha)", fontsize=10)
+        fig.supxlabel(f"Observed Yield ({self.yield_units})", fontsize=10)
+        fig.supylabel(f"Predicted Yield ({self.yield_units})", fontsize=10)
         fig.suptitle(f"Pooled — {self.crop}", fontsize=12, fontweight="bold")
         plt.tight_layout()
 
@@ -734,7 +739,7 @@ class Geoanalysis:
 
         ax.set_yticks(y_pos)
         ax.set_yticklabels(regions, fontsize=8)
-        ax.set_xlabel("Yield (tn per ha)")
+        ax.set_xlabel(f"Yield ({self.yield_units})")
         ax.set_title(
             f"Predicted Yield with CI & Historical Yields \u2014 {self.country} {self.crop}",
             fontsize=10, fontweight="bold",
@@ -792,7 +797,7 @@ class Geoanalysis:
             n_points = len(y_observed)  # Number of data points
 
             textstr = (
-                f"RMSE: {rmse:.2f} tn/ha\n"
+                f"RMSE: {rmse:.2f} {self.yield_units}\n"
                 f"MAPE: {mape:.2%}\n"
                 f"$r^2$: {r2:.2f}\n"
                 f"N: {n_points}"
@@ -807,8 +812,8 @@ class Geoanalysis:
             )
 
             # Set axis limits and labels
-            ax.set_xlabel("Observed Yield (tn/ha)")
-            ax.set_ylabel("Predicted Yield (tn/ha)")
+            ax.set_xlabel(f"Observed Yield ({self.yield_units})")
+            ax.set_ylabel(f"Predicted Yield ({self.yield_units})")
             ax.set_xlim(0, max_yield)
             ax.set_ylim(0, max_yield)
 
@@ -1125,7 +1130,7 @@ class Geoanalysis:
                             name_col="Predicted Yield (tn per ha)",  # Which column to plot
                             dir_out=dir_country,  # Output directory
                             fname=fname,  # Output file name
-                            label=f"Predicted Yield (Mg/ha)\n{self.crop.title()}, {year}",
+                            label=f"Predicted Yield ({self.yield_units})\n{self.crop.title()}, {year}",
                             vmin=df_country[self.predicted].min(),
                             vmax=df_country[self.predicted].max(),
                             cmap=pal.scientific.sequential.Bamako_20_r,
@@ -1213,7 +1218,7 @@ class Geoanalysis:
                             name_col="Predicted Yield (tn per ha)",
                             dir_out=dir_consolidated,
                             fname=fname,
-                            label=f"Predicted Yield (Mg/ha)\n{self.crop.title()}, {year}",
+                            label=f"Predicted Yield ({self.yield_units})\n{self.crop.title()}, {year}",
                             vmin=df_time_period[self.predicted].min(),
                             vmax=df_time_period[self.predicted].max(),
                             cmap=pal.scientific.sequential.Bamako_20_r,

@@ -689,8 +689,30 @@ class TestBaseOptions:
         self.base_options = StandardOptions()
         self.base_options.set_tracing(test_tracing)
 
-        # set_tracing does not override span_filters when already set (has internal filters)
-        assert self.base_options.span_filters == {"exclude": INTERNAL_SPAN_FILTERS}
+        # Agent filter rules are appended after the internal filters (no high-priority source set).
+        agent_exclude = [
+            {
+                "name": "service1",
+                "suppression": True,
+                "attributes": [
+                    {"key": "service", "values": ["service1"], "match_type": "strict"}
+                ],
+            },
+            {
+                "name": "service2",
+                "suppression": True,
+                "attributes": [
+                    {
+                        "key": "method",
+                        "values": ["method1", "method2"],
+                        "match_type": "strict",
+                    }
+                ],
+            },
+        ]
+        assert self.base_options.span_filters == {
+            "exclude": INTERNAL_SPAN_FILTERS + agent_exclude
+        }
         assert self.base_options.kafka_trace_correlation
 
         # Check disabled_spans list
@@ -842,6 +864,23 @@ class TestBaseOptions:
             ],
         }
 
+    def test_asyncio_task_context_propagation_default(self) -> None:
+        """INSTANA_ASYNCIO_TASK_CONTEXT_PROPAGATION is False by default."""
+        self.base_options = BaseOptions()
+        assert config["asyncio_task_context_propagation"]["enabled"] is False
+
+    @patch.dict(os.environ, {"INSTANA_ASYNCIO_TASK_CONTEXT_PROPAGATION": "true"})
+    def test_asyncio_task_context_propagation_enabled_via_env(self) -> None:
+        """INSTANA_ASYNCIO_TASK_CONTEXT_PROPAGATION=true enables the flag."""
+        self.base_options = BaseOptions()
+        assert config["asyncio_task_context_propagation"]["enabled"] is True
+
+    @patch.dict(os.environ, {"INSTANA_ASYNCIO_TASK_CONTEXT_PROPAGATION": "false"})
+    def test_asyncio_task_context_propagation_disabled_via_env(self) -> None:
+        """INSTANA_ASYNCIO_TASK_CONTEXT_PROPAGATION=false keeps the flag disabled."""
+        self.base_options = BaseOptions()
+        assert config["asyncio_task_context_propagation"]["enabled"] is False
+
 
 class TestStandardOptions:
     @pytest.fixture(autouse=True)
@@ -908,7 +947,28 @@ class TestStandardOptions:
         }
         self.standart_options.set_tracing(test_tracing)
 
-        assert self.standart_options.span_filters == {"exclude": INTERNAL_SPAN_FILTERS}
+        # Agent filter rules are appended after the internal filters (no high-priority source set).
+        expected_exclude = INTERNAL_SPAN_FILTERS + [
+            {
+                "name": "service1",
+                "suppression": True,
+                "attributes": [
+                    {"key": "service", "values": ["service1"], "match_type": "strict"}
+                ],
+            },
+            {
+                "name": "service2",
+                "suppression": True,
+                "attributes": [
+                    {
+                        "key": "method",
+                        "values": ["method1", "method2"],
+                        "match_type": "strict",
+                    }
+                ],
+            },
+        ]
+        assert self.standart_options.span_filters == {"exclude": expected_exclude}
         assert not self.standart_options.kafka_trace_correlation
         assert (
             "Binary header format for Kafka is deprecated. Please use string header format."
@@ -972,7 +1032,30 @@ class TestStandardOptions:
             self.standart_options.secrets_matcher == test_res_data["secrets"]["matcher"]
         )
         assert self.standart_options.secrets_list == test_res_data["secrets"]["list"]
-        assert self.standart_options.span_filters == {"exclude": INTERNAL_SPAN_FILTERS}
+        # Agent filter rules are appended after the internal filters.
+        agent_exclude = [
+            {
+                "name": "service1",
+                "suppression": True,
+                "attributes": [
+                    {"key": "service", "values": ["service1"], "match_type": "strict"}
+                ],
+            },
+            {
+                "name": "service2",
+                "suppression": True,
+                "attributes": [
+                    {
+                        "key": "method",
+                        "values": ["method1", "method2"],
+                        "match_type": "strict",
+                    }
+                ],
+            },
+        ]
+        assert self.standart_options.span_filters == {
+            "exclude": INTERNAL_SPAN_FILTERS + agent_exclude
+        }
 
         test_res_data2 = {
             "extraHeaders": {"header1": "sample-match", "header2": ["sample", "list"]},

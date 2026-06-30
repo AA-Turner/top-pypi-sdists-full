@@ -10,11 +10,13 @@ import dataclasses
 import itertools
 from collections import OrderedDict, defaultdict
 from collections.abc import Callable, Iterable, KeysView, MutableSequence
+from types import UnionType
 from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
     TypeVar,
+    Union,
     cast,
     get_args,
     get_origin,
@@ -34,6 +36,46 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 M = TypeVar("M")
 _V = TypeVar("_V")
+
+
+def _element_type(hint: Any) -> type | None:
+    """
+    Resolve the *element* type carried by a model field annotation, or ``None``
+    when it cannot be pinned to a single concrete type.
+
+    ``list[X]`` resolves to ``X`` (the element a declared key types), an
+    ``Optional[X]`` / ``X | None`` to ``X``, and a bare scalar ``type`` to
+    itself. Anything else (bare ``Union`` of several types, an unparameterized
+    container such as ``list`` / ``dict``, other generics, type vars) yields
+    ``None`` so the caller skips the cross-check rather than guessing.
+    """
+    if hint is Any:
+        return None
+    origin = get_origin(hint)
+    if origin is list:
+        args = get_args(hint)
+        return _element_type(args[0]) if args else None
+    if origin is Union or origin is UnionType:
+        non_none = [arg for arg in get_args(hint) if arg is not type(None)]
+        return _element_type(non_none[0]) if len(non_none) == 1 else None
+    if isinstance(hint, type) and not issubclass(hint, (list, tuple, set, frozenset, dict)):
+        return hint
+    return None
+
+
+def _contradicts(hint: Any, declared: type) -> bool:
+    """
+    True when a model field annotation contradicts a declared key ``value_type``.
+
+    The element types must be related by subclassing in either direction (so a
+    ``date`` key matches a ``datetime`` field and vice versa); unrelated concrete
+    types (``int`` vs ``str``) contradict. Unresolvable annotations never
+    contradict.
+    """
+    element = _element_type(hint)
+    if element is None:
+        return False
+    return not (issubclass(element, declared) or issubclass(declared, element))
 
 
 class MatchesDict(OrderedDict[str | None, _V]):
@@ -64,6 +106,7 @@ class _BaseMatches(MutableSequence):  # type: ignore[type-arg]
 
     def __init__(self, matches: Iterable[Match] | None = None, input_string: str | None = None) -> None:
         self.input_string = input_string
+        self.declared_keys: dict[str, Key[Any]] = {}
         self._max_end = 0
         self._delegate: list[Match] = []
         self.__name_dict: dict[str | None, list[Match]] | None = None
@@ -822,6 +865,13 @@ class _BaseMatches(MutableSequence):  # type: ignore[type-arg]
         The result is typed end to end via ``def to(self, model: type[M]) -> M``.
         Values are used as produced by each pattern's formatter (see ``key=`` /
         ``formatter=``); ``to`` does not coerce them.
+
+        When the builder declared keys (``declare_keys``), they are carried on the
+        :class:`Matches` as :attr:`declared_keys` and cross-checked here: a
+        dataclass / ``TypedDict`` field whose (element) type contradicts the
+        declared ``value_type`` of a key with the same name raises ``TypeError``,
+        closing the typing loop from the build-time declaration to the projected
+        value. Fields with no matching declared key are left untouched.
         """
         if get_origin(model) is list:
             (item_type,) = get_args(model) or (object,)
@@ -846,12 +896,58 @@ class _BaseMatches(MutableSequence):  # type: ignore[type-arg]
             raise TypeError(f"{model!r} is not a dataclass, TypedDict, primitive or list type")
         kwargs: dict[str, Any] = {}
         for name in field_names:
+            hint = hints.get(name)
+            declared = self.declared_keys.get(name)
+            if declared is not None and _contradicts(hint, declared.value_type):
+                raise TypeError(
+                    f"{model.__name__} field {name!r} typed {hint!r} contradicts "
+                    f"declared key {name!r} of value_type {declared.value_type!r}"
+                )
             values = [match.value for match in self._name_dict[name]]
-            if get_origin(hints.get(name)) is list:
+            if get_origin(hint) is list:
                 kwargs[name] = values
             elif values:
                 kwargs[name] = values[0]
         return model(**kwargs)
+
+    def check_declared_keys(self) -> None:
+        """
+        Assert each named match value matches its declared ``Key.value_type``.
+
+        For every match whose name has a declared :class:`~rebulk.key.Key` (see
+        :meth:`~rebulk.builder.PatternFactory.declare_keys`), check that the
+        formatted value is an instance of the key's ``value_type``, raising
+        ``TypeError`` on a mismatch. This turns the declared output type into an
+        enforced contract, catching a per-pattern ``formatter`` override that does
+        not actually produce the declared type.
+
+        It is meant to run in development / CI (it does nothing useful unless keys
+        are declared); :class:`~rebulk.rebulk.Rebulk` calls it from ``matches``
+        only when :data:`rebulk.debug.CHECK_DECLARED_KEYS` is enabled.
+
+        Escape hatches keep it free of false positives:
+
+        * a ``None`` value (an unmatched / cleared match) is skipped;
+        * a ``value=``-mapped match (a hardcoded literal that never went through
+          the converter) is skipped — its value is not a ``str -> value_type``
+          conversion;
+        * a ``private`` match is skipped — it is internal scaffolding, not an
+          emitted value, and the parent of a ``children=True`` pattern carries
+          the raw matched substring (the formatter only runs on the children);
+        * each match is checked on its own scalar value, so a name bound to
+          several matches (``children``) is validated element by element.
+        """
+        for match in self:
+            key = self.declared_keys.get(match.name) if match.name else None
+            if key is None or match.private or match.has_literal_value:
+                continue
+            value = match.value
+            if value is None or isinstance(value, key.value_type):
+                continue
+            raise TypeError(
+                f"match {match.name!r} value {value!r} of type {type(value).__name__!r} "
+                f"does not match declared key {key.name!r} value_type {key.value_type!r}"
+            )
 
     @overload
     def __setitem__(self, index: int, match: Match) -> None: ...
@@ -995,6 +1091,17 @@ class Match:
         :rtype:
         """
         self._value = value
+
+    @property
+    def has_literal_value(self) -> bool:
+        """
+        True when :attr:`value` returns a hardcoded literal (set via ``value=``)
+        rather than a formatter / raw-text result.
+
+        Mirrors the truthiness test the :attr:`value` getter uses, so it reflects
+        exactly when ``value`` short-circuits to the stored literal.
+        """
+        return bool(self._value)
 
     @property
     def names(self) -> set[str | None]:

@@ -16,7 +16,7 @@
 // under the License.
 
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -35,7 +35,6 @@ use datafusion::datasource::listing::{
     ListingOptions, ListingTable, ListingTableConfig, ListingTableUrl,
 };
 use datafusion::datasource::{MemTable, TableProvider};
-use datafusion::execution::TaskContextProvider;
 use datafusion::execution::context::{
     DataFilePaths, SQLOptions, SessionConfig, SessionContext, TaskContext,
 };
@@ -44,6 +43,7 @@ use datafusion::execution::memory_pool::{FairSpillPool, GreedyMemoryPool, Unboun
 use datafusion::execution::options::{ArrowReadOptions, ReadOptions};
 use datafusion::execution::runtime_env::RuntimeEnvBuilder;
 use datafusion::execution::session_state::SessionStateBuilder;
+use datafusion::execution::{FunctionRegistry, TaskContextProvider};
 use datafusion::prelude::{
     AvroReadOptions, CsvReadOptions, DataFrame, JsonReadOptions, ParquetReadOptions,
 };
@@ -52,11 +52,15 @@ use datafusion_ffi::catalog_provider_list::FFI_CatalogProviderList;
 use datafusion_ffi::config::extension_options::FFI_ExtensionOptions;
 use datafusion_ffi::execution::FFI_TaskContextProvider;
 use datafusion_ffi::proto::logical_extension_codec::FFI_LogicalExtensionCodec;
+use datafusion_ffi::proto::physical_extension_codec::FFI_PhysicalExtensionCodec;
 use datafusion_ffi::table_provider_factory::FFI_TableProviderFactory;
-use datafusion_proto::logical_plan::DefaultLogicalExtensionCodec;
+use datafusion_proto::logical_plan::LogicalExtensionCodec;
+use datafusion_proto::physical_plan::PhysicalExtensionCodec;
 use datafusion_python_util::{
-    create_logical_extension_capsule, ffi_logical_codec_from_pycapsule, get_global_ctx,
-    get_tokio_runtime, spawn_future, wait_for_future,
+    create_logical_extension_capsule, create_physical_extension_capsule,
+    ffi_logical_codec_from_pycapsule, get_global_ctx, get_tokio_runtime,
+    physical_codec_from_pycapsule, physical_optimizer_rule_from_pycapsule, spawn_future,
+    wait_for_future,
 };
 use object_store::ObjectStore;
 use pyo3::IntoPyObjectExt;
@@ -69,6 +73,7 @@ use uuid::Uuid;
 use crate::catalog::{
     PyCatalog, PyCatalogList, RustWrappedPyCatalogProvider, RustWrappedPyCatalogProviderList,
 };
+use crate::codec::{PythonLogicalCodec, PythonPhysicalCodec};
 use crate::common::data_type::PyScalarValue;
 use crate::common::df_schema::PyDFSchema;
 use crate::dataframe::PyDataFrame;
@@ -365,7 +370,8 @@ impl PySQLOptions {
 #[derive(Clone)]
 pub struct PySessionContext {
     pub ctx: Arc<SessionContext>,
-    logical_codec: Arc<FFI_LogicalExtensionCodec>,
+    logical_codec: Arc<PythonLogicalCodec>,
+    physical_codec: Arc<PythonPhysicalCodec>,
 }
 
 #[pymethods]
@@ -391,16 +397,21 @@ impl PySessionContext {
             .with_config(config)
             .with_runtime_env(runtime)
             .with_default_features()
+            .with_analyzer_rule(Arc::new(crate::analyzer::ResolveLambdaVariables::new()))
             .build();
         let ctx = Arc::new(SessionContext::new_with_state(session_state));
-        let logical_codec = Self::default_logical_codec(&ctx);
-        Ok(PySessionContext { ctx, logical_codec })
+        Ok(PySessionContext {
+            ctx,
+            logical_codec: Arc::new(PythonLogicalCodec::default()),
+            physical_codec: Arc::new(PythonPhysicalCodec::default()),
+        })
     }
 
     pub fn enable_url_table(&self) -> PyResult<Self> {
         Ok(PySessionContext {
             ctx: Arc::new(self.ctx.as_ref().clone().enable_url_table()),
             logical_codec: Arc::clone(&self.logical_codec),
+            physical_codec: Arc::clone(&self.physical_codec),
         })
     }
 
@@ -408,8 +419,11 @@ impl PySessionContext {
     #[pyo3(signature = ())]
     pub fn global_ctx() -> PyResult<Self> {
         let ctx = get_global_ctx().clone();
-        let logical_codec = Self::default_logical_codec(&ctx);
-        Ok(Self { ctx, logical_codec })
+        Ok(Self {
+            ctx,
+            logical_codec: Arc::new(PythonLogicalCodec::default()),
+            physical_codec: Arc::new(PythonPhysicalCodec::default()),
+        })
     }
 
     /// Register an object store with the given name
@@ -463,7 +477,7 @@ impl PySessionContext {
     pub fn register_listing_table(
         &self,
         name: &str,
-        path: &str,
+        path: PathBuf,
         table_partition_cols: Vec<(String, PyArrowType<DataType>)>,
         file_extension: &str,
         schema: Option<PyArrowType<Schema>>,
@@ -472,20 +486,9 @@ impl PySessionContext {
     ) -> PyDataFusionResult<()> {
         let options = ListingOptions::new(Arc::new(ParquetFormat::new()))
             .with_file_extension(file_extension)
-            .with_table_partition_cols(
-                table_partition_cols
-                    .into_iter()
-                    .map(|(name, ty)| (name, ty.0))
-                    .collect::<Vec<(String, DataType)>>(),
-            )
-            .with_file_sort_order(
-                file_sort_order
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|e| e.into_iter().map(|f| f.into()).collect())
-                    .collect(),
-            );
-        let table_path = ListingTableUrl::parse(path)?;
+            .with_table_partition_cols(convert_partition_cols(table_partition_cols))
+            .with_file_sort_order(convert_file_sort_order(file_sort_order));
+        let table_path = ListingTableUrl::parse(path_to_str(&path)?)?;
         let resolved_schema: SchemaRef = match schema {
             Some(s) => Arc::new(s.0),
             None => {
@@ -714,7 +717,8 @@ impl PySessionContext {
     ) -> PyDataFusionResult<()> {
         if factory.hasattr("__datafusion_table_provider_factory__")? {
             let py = factory.py();
-            let codec_capsule = create_logical_extension_capsule(py, self.logical_codec.as_ref())?;
+            let ffi = self.ffi_logical_codec();
+            let codec_capsule = create_logical_extension_capsule(py, ffi.as_ref())?;
             factory = factory
                 .getattr("__datafusion_table_provider_factory__")?
                 .call1((codec_capsule,))?;
@@ -730,7 +734,7 @@ impl PySessionContext {
             } else {
                 Arc::new(RustWrappedPyTableProviderFactory::new(
                     factory.into(),
-                    self.logical_codec.clone(),
+                    self.ffi_logical_codec(),
                 ))
             };
 
@@ -748,7 +752,8 @@ impl PySessionContext {
     ) -> PyDataFusionResult<()> {
         if provider.hasattr("__datafusion_catalog_provider_list__")? {
             let py = provider.py();
-            let codec_capsule = create_logical_extension_capsule(py, self.logical_codec.as_ref())?;
+            let ffi = self.ffi_logical_codec();
+            let codec_capsule = create_logical_extension_capsule(py, ffi.as_ref())?;
             provider = provider
                 .getattr("__datafusion_catalog_provider_list__")?
                 .call1((codec_capsule,))?;
@@ -759,14 +764,14 @@ impl PySessionContext {
                 .pointer_checked(Some(c"datafusion_catalog_provider_list"))?
                 .cast();
             let provider = unsafe { data.as_ref() };
-            let provider: Arc<dyn CatalogProviderList + Send> = provider.into();
-            provider as Arc<dyn CatalogProviderList>
+            let provider: Arc<dyn CatalogProviderList> = provider.into();
+            provider
         } else {
             match provider.extract::<PyCatalogList>() {
                 Ok(py_catalog_list) => py_catalog_list.catalog_list,
                 Err(_) => Arc::new(RustWrappedPyCatalogProviderList::new(
                     provider.into(),
-                    Arc::clone(&self.logical_codec),
+                    self.ffi_logical_codec(),
                 )) as Arc<dyn CatalogProviderList>,
             }
         };
@@ -783,7 +788,8 @@ impl PySessionContext {
     ) -> PyDataFusionResult<()> {
         if provider.hasattr("__datafusion_catalog_provider__")? {
             let py = provider.py();
-            let codec_capsule = create_logical_extension_capsule(py, self.logical_codec.as_ref())?;
+            let ffi = self.ffi_logical_codec();
+            let codec_capsule = create_logical_extension_capsule(py, ffi.as_ref())?;
             provider = provider
                 .getattr("__datafusion_catalog_provider__")?
                 .call1((codec_capsule,))?;
@@ -794,14 +800,14 @@ impl PySessionContext {
                 .pointer_checked(Some(c"datafusion_catalog_provider"))?
                 .cast();
             let provider = unsafe { data.as_ref() };
-            let provider: Arc<dyn CatalogProvider + Send> = provider.into();
-            provider as Arc<dyn CatalogProvider>
+            let provider: Arc<dyn CatalogProvider> = provider.into();
+            provider
         } else {
             match provider.extract::<PyCatalog>() {
                 Ok(py_catalog) => py_catalog.catalog,
                 Err(_) => Arc::new(RustWrappedPyCatalogProvider::new(
                     provider.into(),
-                    Arc::clone(&self.logical_codec),
+                    self.ffi_logical_codec(),
                 )) as Arc<dyn CatalogProvider>,
             }
         };
@@ -832,6 +838,13 @@ impl PySessionContext {
         Ok(())
     }
 
+    pub fn read_batches(
+        &self,
+        batches: PyArrowType<Vec<RecordBatch>>,
+    ) -> PyDataFusionResult<PyDataFrame> {
+        Ok(PyDataFrame::new(self.ctx.read_batches(batches.0)?))
+    }
+
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (name, path, table_partition_cols=vec![],
                         parquet_pruning=true,
@@ -842,7 +855,7 @@ impl PySessionContext {
     pub fn register_parquet(
         &self,
         name: &str,
-        path: &str,
+        path: PathBuf,
         table_partition_cols: Vec<(String, PyArrowType<DataType>)>,
         parquet_pruning: bool,
         file_extension: &str,
@@ -851,25 +864,19 @@ impl PySessionContext {
         file_sort_order: Option<Vec<Vec<PySortExpr>>>,
         py: Python,
     ) -> PyDataFusionResult<()> {
-        let mut options = ParquetReadOptions::default()
-            .table_partition_cols(
-                table_partition_cols
-                    .into_iter()
-                    .map(|(name, ty)| (name, ty.0))
-                    .collect::<Vec<(String, DataType)>>(),
-            )
-            .parquet_pruning(parquet_pruning)
-            .skip_metadata(skip_metadata);
-        options.file_extension = file_extension;
-        options.schema = schema.as_ref().map(|x| &x.0);
-        options.file_sort_order = file_sort_order
-            .unwrap_or_default()
-            .into_iter()
-            .map(|e| e.into_iter().map(|f| f.into()).collect())
-            .collect();
-
-        let result = self.ctx.register_parquet(name, path, options);
-        wait_for_future(py, result)??;
+        let options = build_parquet_options(
+            table_partition_cols,
+            parquet_pruning,
+            file_extension,
+            skip_metadata,
+            &schema,
+            file_sort_order,
+        );
+        wait_for_future(
+            py,
+            self.ctx
+                .register_parquet(name, path_to_str(&path)?, options),
+        )??;
         Ok(())
     }
 
@@ -883,19 +890,24 @@ impl PySessionContext {
         options: Option<&PyCsvReadOptions>,
         py: Python,
     ) -> PyDataFusionResult<()> {
-        let options = options
-            .map(|opts| opts.try_into())
-            .transpose()?
-            .unwrap_or_default();
+        let options = convert_csv_options(options)?;
 
         if path.is_instance_of::<PyList>() {
-            let paths = path.extract::<Vec<String>>()?;
-            let result = self.register_csv_from_multiple_paths(name, paths, options);
-            wait_for_future(py, result)??;
+            let paths = path
+                .extract::<Vec<PathBuf>>()?
+                .iter()
+                .map(|p| path_to_str(p).map(str::to_owned))
+                .collect::<PyDataFusionResult<Vec<_>>>()?;
+            wait_for_future(
+                py,
+                self.register_csv_from_multiple_paths(name, paths, options),
+            )??;
         } else {
-            let path = path.extract::<String>()?;
-            let result = self.ctx.register_csv(name, &path, options);
-            wait_for_future(py, result)??;
+            let path = path.extract::<PathBuf>()?;
+            wait_for_future(
+                py,
+                self.ctx.register_csv(name, path_to_str(&path)?, options),
+            )??;
         }
 
         Ok(())
@@ -920,25 +932,17 @@ impl PySessionContext {
         file_compression_type: Option<String>,
         py: Python,
     ) -> PyDataFusionResult<()> {
-        let path = path
-            .to_str()
-            .ok_or_else(|| PyValueError::new_err("Unable to convert path to a string"))?;
-
-        let mut options = JsonReadOptions::default()
-            .file_compression_type(parse_file_compression_type(file_compression_type)?)
-            .table_partition_cols(
-                table_partition_cols
-                    .into_iter()
-                    .map(|(name, ty)| (name, ty.0))
-                    .collect::<Vec<(String, DataType)>>(),
-            );
-        options.schema_infer_max_records = schema_infer_max_records;
-        options.file_extension = file_extension;
-        options.schema = schema.as_ref().map(|x| &x.0);
-
-        let result = self.ctx.register_json(name, path, options);
-        wait_for_future(py, result)??;
-
+        let options = build_json_options(
+            table_partition_cols,
+            file_compression_type,
+            schema_infer_max_records,
+            file_extension,
+            &schema,
+        )?;
+        wait_for_future(
+            py,
+            self.ctx.register_json(name, path_to_str(&path)?, options),
+        )??;
         Ok(())
     }
 
@@ -957,22 +961,11 @@ impl PySessionContext {
         table_partition_cols: Vec<(String, PyArrowType<DataType>)>,
         py: Python,
     ) -> PyDataFusionResult<()> {
-        let path = path
-            .to_str()
-            .ok_or_else(|| PyValueError::new_err("Unable to convert path to a string"))?;
-
-        let mut options = AvroReadOptions::default().table_partition_cols(
-            table_partition_cols
-                .into_iter()
-                .map(|(name, ty)| (name, ty.0))
-                .collect::<Vec<(String, DataType)>>(),
-        );
-        options.file_extension = file_extension;
-        options.schema = schema.as_ref().map(|x| &x.0);
-
-        let result = self.ctx.register_avro(name, path, options);
-        wait_for_future(py, result)??;
-
+        let options = build_avro_options(table_partition_cols, file_extension, &schema);
+        wait_for_future(
+            py,
+            self.ctx.register_avro(name, path_to_str(&path)?, options),
+        )??;
         Ok(())
     }
 
@@ -980,23 +973,17 @@ impl PySessionContext {
     pub fn register_arrow(
         &self,
         name: &str,
-        path: &str,
+        path: PathBuf,
         schema: Option<PyArrowType<Schema>>,
         file_extension: &str,
         table_partition_cols: Vec<(String, PyArrowType<DataType>)>,
         py: Python,
     ) -> PyDataFusionResult<()> {
-        let mut options = ArrowReadOptions::default().table_partition_cols(
-            table_partition_cols
-                .into_iter()
-                .map(|(name, ty)| (name, ty.0))
-                .collect::<Vec<(String, DataType)>>(),
-        );
-        options.file_extension = file_extension;
-        options.schema = schema.as_ref().map(|x| &x.0);
-
-        let result = self.ctx.register_arrow(name, path, options);
-        wait_for_future(py, result)??;
+        let options = build_arrow_options(table_partition_cols, file_extension, &schema);
+        wait_for_future(
+            py,
+            self.ctx.register_arrow(name, path_to_str(&path)?, options),
+        )??;
         Ok(())
     }
 
@@ -1037,6 +1024,21 @@ impl PySessionContext {
         Ok(())
     }
 
+    /// Register all `datafusion-spark` UDFs/UDAFs/UDWFs, overriding any built-in
+    /// DataFusion functions of the same name with their Spark-semantics version.
+    pub fn enable_spark_functions(&self) -> PyResult<()> {
+        for udf in datafusion_spark::all_default_scalar_functions() {
+            self.ctx.register_udf((*udf).clone());
+        }
+        for udaf in datafusion_spark::all_default_aggregate_functions() {
+            self.ctx.register_udaf((*udaf).clone());
+        }
+        for udwf in datafusion_spark::all_default_window_functions() {
+            self.ctx.register_udwf((*udwf).clone());
+        }
+        Ok(())
+    }
+
     pub fn deregister_udaf(&self, name: &str) {
         self.ctx.deregister_udaf(name);
     }
@@ -1050,21 +1052,59 @@ impl PySessionContext {
         self.ctx.deregister_udwf(name);
     }
 
+    pub fn udf(&self, name: &str) -> PyResult<PyScalarUDF> {
+        if !self.ctx.udfs().contains(name) {
+            return Err(PyKeyError::new_err(format!("no UDF named '{name}'")));
+        }
+        let function = (*self.ctx.udf(name).map_err(py_datafusion_err)?).clone();
+        Ok(PyScalarUDF { function })
+    }
+
+    pub fn udaf(&self, name: &str) -> PyResult<PyAggregateUDF> {
+        if !self.ctx.udafs().contains(name) {
+            return Err(PyKeyError::new_err(format!("no UDAF named '{name}'")));
+        }
+        let function = (*self.ctx.udaf(name).map_err(py_datafusion_err)?).clone();
+        Ok(PyAggregateUDF { function })
+    }
+
+    pub fn udwf(&self, name: &str) -> PyResult<PyWindowUDF> {
+        if !self.ctx.udwfs().contains(name) {
+            return Err(PyKeyError::new_err(format!("no UDWF named '{name}'")));
+        }
+        let function = (*self.ctx.udwf(name).map_err(py_datafusion_err)?).clone();
+        Ok(PyWindowUDF { function })
+    }
+
+    pub fn udfs(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.ctx.udfs().into_iter().collect();
+        names.sort();
+        names
+    }
+
+    pub fn udafs(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.ctx.udafs().into_iter().collect();
+        names.sort();
+        names
+    }
+
+    pub fn udwfs(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.ctx.udwfs().into_iter().collect();
+        names.sort();
+        names
+    }
+
     #[pyo3(signature = (name="datafusion"))]
     pub fn catalog(&self, py: Python, name: &str) -> PyResult<Py<PyAny>> {
         let catalog = self.ctx.catalog(name).ok_or(PyKeyError::new_err(format!(
             "Catalog with name {name} doesn't exist."
         )))?;
 
-        match catalog
-            .as_any()
-            .downcast_ref::<RustWrappedPyCatalogProvider>()
-        {
+        match catalog.downcast_ref::<RustWrappedPyCatalogProvider>() {
             Some(wrapped_schema) => Ok(wrapped_schema.catalog_provider.clone_ref(py)),
-            None => Ok(
-                PyCatalog::new_from_parts(catalog, Arc::clone(&self.logical_codec))
-                    .into_py_any(py)?,
-            ),
+            None => {
+                Ok(PyCatalog::new_from_parts(catalog, self.ffi_logical_codec()).into_py_any(py)?)
+            }
         }
     }
 
@@ -1098,6 +1138,20 @@ impl PySessionContext {
 
     pub fn session_id(&self) -> String {
         self.ctx.session_id()
+    }
+
+    /// Return a copy of the active `SessionConfig`. Mutating the returned
+    /// config does not affect this context.
+    pub fn copied_config(&self) -> PySessionConfig {
+        self.ctx.copied_config().into()
+    }
+
+    /// Parse a string like `"100M"`, `"1.5G"`, or `"512K"` into a byte count.
+    /// `"0"` is accepted and returns 0. Use this when constructing a
+    /// `RuntimeEnvBuilder` from a human-friendly size string.
+    #[staticmethod]
+    pub fn parse_capacity_limit(config_name: &str, limit: &str) -> PyDataFusionResult<usize> {
+        Ok(SessionContext::parse_capacity_limit(config_name, limit)?)
     }
 
     pub fn session_start_time(&self) -> String {
@@ -1134,6 +1188,17 @@ impl PySessionContext {
         self.ctx.remove_optimizer_rule(name)
     }
 
+    pub fn add_physical_optimizer_rule(&self, rule: Bound<'_, PyAny>) -> PyDataFusionResult<()> {
+        let rule = physical_optimizer_rule_from_pycapsule(&rule)?;
+        let state_ref = self.ctx.state_ref();
+        let mut guard = state_ref.write();
+        let new_state = SessionStateBuilder::new_from_existing(guard.clone())
+            .with_physical_optimizer_rule(rule)
+            .build();
+        *guard = new_state;
+        Ok(())
+    }
+
     pub fn table_provider(&self, name: &str, py: Python) -> PyResult<PyTable> {
         let provider = wait_for_future(py, self.ctx.table_provider(name))
             // Outer error: runtime/async failure
@@ -1155,27 +1220,14 @@ impl PySessionContext {
         file_compression_type: Option<String>,
         py: Python,
     ) -> PyDataFusionResult<PyDataFrame> {
-        let path = path
-            .to_str()
-            .ok_or_else(|| PyValueError::new_err("Unable to convert path to a string"))?;
-        let mut options = JsonReadOptions::default()
-            .table_partition_cols(
-                table_partition_cols
-                    .into_iter()
-                    .map(|(name, ty)| (name, ty.0))
-                    .collect::<Vec<(String, DataType)>>(),
-            )
-            .file_compression_type(parse_file_compression_type(file_compression_type)?);
-        options.schema_infer_max_records = schema_infer_max_records;
-        options.file_extension = file_extension;
-        let df = if let Some(schema) = schema {
-            options.schema = Some(&schema.0);
-            let result = self.ctx.read_json(path, options);
-            wait_for_future(py, result)??
-        } else {
-            let result = self.ctx.read_json(path, options);
-            wait_for_future(py, result)??
-        };
+        let options = build_json_options(
+            table_partition_cols,
+            file_compression_type,
+            schema_infer_max_records,
+            file_extension,
+            &schema,
+        )?;
+        let df = wait_for_future(py, self.ctx.read_json(path_to_str(&path)?, options))??;
         Ok(PyDataFrame::new(df))
     }
 
@@ -1188,23 +1240,18 @@ impl PySessionContext {
         options: Option<&PyCsvReadOptions>,
         py: Python,
     ) -> PyDataFusionResult<PyDataFrame> {
-        let options = options
-            .map(|opts| opts.try_into())
-            .transpose()?
-            .unwrap_or_default();
+        let options = convert_csv_options(options)?;
 
-        if path.is_instance_of::<PyList>() {
-            let paths = path.extract::<Vec<String>>()?;
-            let paths = paths.iter().map(|p| p as &str).collect::<Vec<&str>>();
-            let result = self.ctx.read_csv(paths, options);
-            let df = PyDataFrame::new(wait_for_future(py, result)??);
-            Ok(df)
+        let paths: Vec<String> = if path.is_instance_of::<PyList>() {
+            path.extract::<Vec<PathBuf>>()?
+                .iter()
+                .map(|p| path_to_str(p).map(str::to_owned))
+                .collect::<PyDataFusionResult<_>>()?
         } else {
-            let path = path.extract::<String>()?;
-            let result = self.ctx.read_csv(path, options);
-            let df = PyDataFrame::new(wait_for_future(py, result)??);
-            Ok(df)
-        }
+            vec![path_to_str(&path.extract::<PathBuf>()?)?.to_owned()]
+        };
+        let df = wait_for_future(py, self.ctx.read_csv(paths, options))??;
+        Ok(PyDataFrame::new(df))
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1218,7 +1265,7 @@ impl PySessionContext {
         file_sort_order=None))]
     pub fn read_parquet(
         &self,
-        path: &str,
+        path: PathBuf,
         table_partition_cols: Vec<(String, PyArrowType<DataType>)>,
         parquet_pruning: bool,
         file_extension: &str,
@@ -1227,25 +1274,18 @@ impl PySessionContext {
         file_sort_order: Option<Vec<Vec<PySortExpr>>>,
         py: Python,
     ) -> PyDataFusionResult<PyDataFrame> {
-        let mut options = ParquetReadOptions::default()
-            .table_partition_cols(
-                table_partition_cols
-                    .into_iter()
-                    .map(|(name, ty)| (name, ty.0))
-                    .collect::<Vec<(String, DataType)>>(),
-            )
-            .parquet_pruning(parquet_pruning)
-            .skip_metadata(skip_metadata);
-        options.file_extension = file_extension;
-        options.schema = schema.as_ref().map(|x| &x.0);
-        options.file_sort_order = file_sort_order
-            .unwrap_or_default()
-            .into_iter()
-            .map(|e| e.into_iter().map(|f| f.into()).collect())
-            .collect();
-
-        let result = self.ctx.read_parquet(path, options);
-        let df = PyDataFrame::new(wait_for_future(py, result)??);
+        let options = build_parquet_options(
+            table_partition_cols,
+            parquet_pruning,
+            file_extension,
+            skip_metadata,
+            &schema,
+            file_sort_order,
+        );
+        let df = PyDataFrame::new(wait_for_future(
+            py,
+            self.ctx.read_parquet(path_to_str(&path)?, options),
+        )??);
         Ok(df)
     }
 
@@ -1253,50 +1293,28 @@ impl PySessionContext {
     #[pyo3(signature = (path, schema=None, table_partition_cols=vec![], file_extension=".avro"))]
     pub fn read_avro(
         &self,
-        path: &str,
+        path: PathBuf,
         schema: Option<PyArrowType<Schema>>,
         table_partition_cols: Vec<(String, PyArrowType<DataType>)>,
         file_extension: &str,
         py: Python,
     ) -> PyDataFusionResult<PyDataFrame> {
-        let mut options = AvroReadOptions::default().table_partition_cols(
-            table_partition_cols
-                .into_iter()
-                .map(|(name, ty)| (name, ty.0))
-                .collect::<Vec<(String, DataType)>>(),
-        );
-        options.file_extension = file_extension;
-        let df = if let Some(schema) = schema {
-            options.schema = Some(&schema.0);
-            let read_future = self.ctx.read_avro(path, options);
-            wait_for_future(py, read_future)??
-        } else {
-            let read_future = self.ctx.read_avro(path, options);
-            wait_for_future(py, read_future)??
-        };
+        let options = build_avro_options(table_partition_cols, file_extension, &schema);
+        let df = wait_for_future(py, self.ctx.read_avro(path_to_str(&path)?, options))??;
         Ok(PyDataFrame::new(df))
     }
 
     #[pyo3(signature = (path, schema=None, file_extension=".arrow", table_partition_cols=vec![]))]
     pub fn read_arrow(
         &self,
-        path: &str,
+        path: PathBuf,
         schema: Option<PyArrowType<Schema>>,
         file_extension: &str,
         table_partition_cols: Vec<(String, PyArrowType<DataType>)>,
         py: Python,
     ) -> PyDataFusionResult<PyDataFrame> {
-        let mut options = ArrowReadOptions::default().table_partition_cols(
-            table_partition_cols
-                .into_iter()
-                .map(|(name, ty)| (name, ty.0))
-                .collect::<Vec<(String, DataType)>>(),
-        );
-        options.file_extension = file_extension;
-        options.schema = schema.as_ref().map(|x| &x.0);
-
-        let result = self.ctx.read_arrow(path, options);
-        let df = wait_for_future(py, result)??;
+        let options = build_arrow_options(table_partition_cols, file_extension, &schema);
+        let df = wait_for_future(py, self.ctx.read_arrow(path_to_str(&path)?, options))??;
         Ok(PyDataFrame::new(df))
     }
 
@@ -1353,21 +1371,61 @@ impl PySessionContext {
         &self,
         py: Python<'py>,
     ) -> PyResult<Bound<'py, PyCapsule>> {
-        create_logical_extension_capsule(py, self.logical_codec.as_ref())
+        let ffi = self.ffi_logical_codec();
+        create_logical_extension_capsule(py, ffi.as_ref())
     }
 
     pub fn with_logical_extension_codec<'py>(
         &self,
         codec: Bound<'py, PyAny>,
     ) -> PyDataFusionResult<Self> {
-        let logical_codec = Arc::new(ffi_logical_codec_from_pycapsule(codec)?);
+        let inner_ffi = ffi_logical_codec_from_pycapsule(codec)?;
+        let inner: Arc<dyn LogicalExtensionCodec> = (&inner_ffi).into();
+        let logical_codec = Arc::new(PythonLogicalCodec::new(inner));
 
-        Ok({
-            Self {
-                ctx: Arc::clone(&self.ctx),
-                logical_codec,
-            }
+        Ok(Self {
+            ctx: Arc::clone(&self.ctx),
+            logical_codec,
+            physical_codec: Arc::clone(&self.physical_codec),
         })
+    }
+
+    pub fn __datafusion_physical_extension_codec__<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<Bound<'py, PyCapsule>> {
+        let ffi = self.ffi_physical_codec();
+        create_physical_extension_capsule(py, ffi.as_ref())
+    }
+
+    pub fn with_physical_extension_codec<'py>(
+        &self,
+        codec: Bound<'py, PyAny>,
+    ) -> PyDataFusionResult<Self> {
+        let inner = physical_codec_from_pycapsule(&codec)?;
+        let physical_codec = Arc::new(PythonPhysicalCodec::new(inner));
+
+        Ok(Self {
+            ctx: Arc::clone(&self.ctx),
+            logical_codec: Arc::clone(&self.logical_codec),
+            physical_codec,
+        })
+    }
+
+    pub fn with_python_udf_inlining(&self, enabled: bool) -> Self {
+        let logical_codec = Arc::new(
+            PythonLogicalCodec::new(Arc::clone(self.logical_codec.inner()))
+                .with_python_udf_inlining(enabled),
+        );
+        let physical_codec = Arc::new(
+            PythonPhysicalCodec::new(Arc::clone(self.physical_codec.inner()))
+                .with_python_udf_inlining(enabled),
+        );
+        Self {
+            ctx: Arc::clone(&self.ctx),
+            logical_codec,
+            physical_codec,
+        }
     }
 }
 
@@ -1396,7 +1454,7 @@ impl PySessionContext {
         // check if the file extension matches the expected extension
         for path in &table_paths {
             let file_path = path.as_str();
-            if !file_path.ends_with(option_extension.clone().as_str()) && !path.is_collection() {
+            if !file_path.ends_with(option_extension.as_str()) && !path.is_collection() {
                 return exec_err!(
                     "File path '{file_path}' does not match the expected extension '{option_extension}'"
                 );
@@ -1416,12 +1474,42 @@ impl PySessionContext {
         Ok(())
     }
 
-    fn default_logical_codec(ctx: &Arc<SessionContext>) -> Arc<FFI_LogicalExtensionCodec> {
-        let codec = Arc::new(DefaultLogicalExtensionCodec {});
+    /// Session-scoped logical codec. Sibling modules read this when they
+    /// need to serialize/deserialize logical-layer types (LogicalPlan,
+    /// Expr) against the user-installed (or default) codec stack.
+    pub(crate) fn logical_codec(&self) -> &Arc<PythonLogicalCodec> {
+        &self.logical_codec
+    }
+
+    /// Session-scoped physical codec. Sibling modules read this for
+    /// ExecutionPlan / PhysicalExpr serialization.
+    pub(crate) fn physical_codec(&self) -> &Arc<PythonPhysicalCodec> {
+        &self.physical_codec
+    }
+
+    /// Build an FFI-wrapped clone of the session's logical codec on demand.
+    /// Used at every site that exports the codec across an FFI boundary
+    /// (capsule getters, Rust wrappers for Python-defined providers, etc.).
+    pub(crate) fn ffi_logical_codec(&self) -> Arc<FFI_LogicalExtensionCodec> {
+        let inner: Arc<dyn LogicalExtensionCodec> =
+            Arc::clone(&self.logical_codec) as Arc<dyn LogicalExtensionCodec>;
         let runtime = get_tokio_runtime().handle().clone();
-        let ctx_provider = Arc::clone(ctx) as Arc<dyn TaskContextProvider>;
+        let ctx_provider = Arc::clone(&self.ctx) as Arc<dyn TaskContextProvider>;
         Arc::new(FFI_LogicalExtensionCodec::new(
-            codec,
+            inner,
+            Some(runtime),
+            &ctx_provider,
+        ))
+    }
+
+    /// Build an FFI-wrapped clone of the session's physical codec on demand.
+    pub(crate) fn ffi_physical_codec(&self) -> Arc<FFI_PhysicalExtensionCodec> {
+        let inner: Arc<dyn PhysicalExtensionCodec + Send> =
+            Arc::clone(&self.physical_codec) as Arc<dyn PhysicalExtensionCodec + Send>;
+        let runtime = get_tokio_runtime().handle().clone();
+        let ctx_provider = Arc::clone(&self.ctx) as Arc<dyn TaskContextProvider>;
+        Arc::new(FFI_PhysicalExtensionCodec::new(
+            inner,
             Some(runtime),
             &ctx_provider,
         ))
@@ -1431,10 +1519,100 @@ impl PySessionContext {
 pub fn parse_file_compression_type(
     file_compression_type: Option<String>,
 ) -> Result<FileCompressionType, PyErr> {
-    FileCompressionType::from_str(&*file_compression_type.unwrap_or("".to_string()).as_str())
-        .map_err(|_| {
-            PyValueError::new_err("file_compression_type must one of: gzip, bz2, xz, zstd")
-        })
+    FileCompressionType::from_str(&file_compression_type.unwrap_or_default()).map_err(|_| {
+        PyValueError::new_err("file_compression_type must be one of: gzip, bz2, xz, zstd")
+    })
+}
+
+fn path_to_str(path: &Path) -> PyDataFusionResult<&str> {
+    path.to_str()
+        .ok_or_else(|| PyValueError::new_err("Unable to convert path to a string").into())
+}
+
+fn convert_csv_options(
+    options: Option<&PyCsvReadOptions>,
+) -> PyDataFusionResult<CsvReadOptions<'_>> {
+    Ok(options
+        .map(|opts| opts.try_into())
+        .transpose()?
+        .unwrap_or_default())
+}
+
+fn convert_partition_cols(
+    table_partition_cols: Vec<(String, PyArrowType<DataType>)>,
+) -> Vec<(String, DataType)> {
+    table_partition_cols
+        .into_iter()
+        .map(|(name, ty)| (name, ty.0))
+        .collect()
+}
+
+fn convert_file_sort_order(
+    file_sort_order: Option<Vec<Vec<PySortExpr>>>,
+) -> Vec<Vec<datafusion::logical_expr::SortExpr>> {
+    file_sort_order
+        .unwrap_or_default()
+        .into_iter()
+        .map(|e| e.into_iter().map(|f| f.into()).collect())
+        .collect()
+}
+
+fn build_parquet_options<'a>(
+    table_partition_cols: Vec<(String, PyArrowType<DataType>)>,
+    parquet_pruning: bool,
+    file_extension: &'a str,
+    skip_metadata: bool,
+    schema: &'a Option<PyArrowType<Schema>>,
+    file_sort_order: Option<Vec<Vec<PySortExpr>>>,
+) -> ParquetReadOptions<'a> {
+    let mut options = ParquetReadOptions::default()
+        .table_partition_cols(convert_partition_cols(table_partition_cols))
+        .parquet_pruning(parquet_pruning)
+        .skip_metadata(skip_metadata);
+    options.file_extension = file_extension;
+    options.schema = schema.as_ref().map(|x| &x.0);
+    options.file_sort_order = convert_file_sort_order(file_sort_order);
+    options
+}
+
+fn build_json_options<'a>(
+    table_partition_cols: Vec<(String, PyArrowType<DataType>)>,
+    file_compression_type: Option<String>,
+    schema_infer_max_records: usize,
+    file_extension: &'a str,
+    schema: &'a Option<PyArrowType<Schema>>,
+) -> Result<JsonReadOptions<'a>, PyErr> {
+    let mut options = JsonReadOptions::default()
+        .table_partition_cols(convert_partition_cols(table_partition_cols))
+        .file_compression_type(parse_file_compression_type(file_compression_type)?);
+    options.schema_infer_max_records = schema_infer_max_records;
+    options.file_extension = file_extension;
+    options.schema = schema.as_ref().map(|x| &x.0);
+    Ok(options)
+}
+
+fn build_arrow_options<'a>(
+    table_partition_cols: Vec<(String, PyArrowType<DataType>)>,
+    file_extension: &'a str,
+    schema: &'a Option<PyArrowType<Schema>>,
+) -> ArrowReadOptions<'a> {
+    let mut options = ArrowReadOptions::default()
+        .table_partition_cols(convert_partition_cols(table_partition_cols));
+    options.file_extension = file_extension;
+    options.schema = schema.as_ref().map(|x| &x.0);
+    options
+}
+
+fn build_avro_options<'a>(
+    table_partition_cols: Vec<(String, PyArrowType<DataType>)>,
+    file_extension: &'a str,
+    schema: &'a Option<PyArrowType<Schema>>,
+) -> AvroReadOptions<'a> {
+    let mut options = AvroReadOptions::default()
+        .table_partition_cols(convert_partition_cols(table_partition_cols));
+    options.file_extension = file_extension;
+    options.schema = schema.as_ref().map(|x| &x.0);
+    options
 }
 
 impl From<PySessionContext> for SessionContext {
@@ -1445,9 +1623,10 @@ impl From<PySessionContext> for SessionContext {
 
 impl From<SessionContext> for PySessionContext {
     fn from(ctx: SessionContext) -> PySessionContext {
-        let ctx = Arc::new(ctx);
-        let logical_codec = Self::default_logical_codec(&ctx);
-
-        PySessionContext { ctx, logical_codec }
+        PySessionContext {
+            ctx: Arc::new(ctx),
+            logical_codec: Arc::new(PythonLogicalCodec::default()),
+            physical_codec: Arc::new(PythonPhysicalCodec::default()),
+        }
     }
 }

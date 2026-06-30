@@ -77,7 +77,7 @@ def args(request):
     """
     # pytest's Config class stores a dictionary of argparse argument name => dest. Go through this
     # dictionary and return back an args object whose attributes map dest to its option value.
-    pytest_args = {arg: request.config.getoption(arg) for arg in request.config._opt2dest.values()}
+    pytest_args = vars(request.config.option)
     yield type('args', (object,), pytest_args)
 
 

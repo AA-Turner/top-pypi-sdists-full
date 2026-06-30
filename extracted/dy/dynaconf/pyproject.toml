@@ -170,7 +170,6 @@ omit = [
 # ======
 
 [tool.pytest.ini_options]
-pythonpath = [".github/scripts"]
 markers = [
     "integration: marks tests as integration (deselect with '-m \"not integration\"')",
 ]
@@ -209,7 +208,7 @@ ignore_missing_imports = true
 # ===========
 
 [tool.bumpversion]
-current_version = "3.3.1"
+current_version = "3.3.2"
 parse = """(?x)
     (?P<major>0|[1-9]\\d*)\\.
     (?P<minor>0|[1-9]\\d*)\\.
@@ -311,6 +310,7 @@ lint = [
     "typos>=1.42.3",
 ]
 test = [
+    "dynaconf-release-utility",
     "boto3>=1.40.67",
     "commentjson>=0.9.0",
     "configobj>=5.0.9",
@@ -342,3 +342,6 @@ release = [
     "toml>=0.10.2",
     "twine>=6.2.0",
 ]
+
+[tool.uv.sources]
+dynaconf-release-utility = { path = ".github/scripts/", editable = true }

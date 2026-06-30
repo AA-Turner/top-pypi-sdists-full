@@ -2,7 +2,6 @@ from typing import Union
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
-from navconfig import config as ENV
 from navconfig.logging import logging
 from ...conf import DEBUG
 from ...exceptions import (
@@ -98,11 +97,15 @@ async def launch_task(
         action = "Dispatched"
         mode = "run"
 
-    # Build extra kwargs forwarded to the executor
+    # Build extra kwargs forwarded to the executor.
+    # NOTE: do NOT forward the live navconfig ``config`` (ENV) object here.
+    # The qworker executor cloudpickles the TaskWrapper, and ``config`` holds a
+    # live uvloop event loop (Cython type, non-trivial ``__cinit__``, no
+    # ``__reduce__``) which is unpicklable. The worker rebuilds its own
+    # ``self._env = config`` inside ``Task`` anyway, so the kwarg is never read.
     exec_kwargs = {
         "userid": userid,
         "priority": priority,
-        "ENV": ENV,
         "debug": DEBUG,
         **kwargs,
     }

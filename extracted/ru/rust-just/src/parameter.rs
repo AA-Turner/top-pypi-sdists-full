@@ -8,10 +8,12 @@ pub(crate) struct Parameter<'src> {
   pub(crate) help: Option<String>,
   pub(crate) kind: ParameterKind,
   pub(crate) long: Option<String>,
+  #[serde(skip)]
+  pub(crate) multiple: bool,
   pub(crate) name: Name<'src>,
   #[serde(skip)]
   pub(crate) number: Number,
-  pub(crate) pattern: Option<Pattern<'src>>,
+  pub(crate) pattern: Option<Pattern>,
   pub(crate) short: Option<char>,
   pub(crate) value: Option<Expression<'src>>,
 }

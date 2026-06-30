@@ -188,52 +188,47 @@ class MinLengthAttribute(System.ComponentModel.DataAnnotations.ValidationAttribu
         ...
 
 
-class FilterUIHintAttribute(System.Attribute):
+class DisplayColumnAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def filter_ui_hint(self) -> str:
+    def display_column(self) -> str:
         ...
 
     @property
-    def presentation_layer(self) -> str:
+    def sort_column(self) -> str:
         ...
 
     @property
-    def control_parameters(self) -> System.Collections.Generic.IDictionary[str, System.Object]:
+    def sort_descending(self) -> bool:
         ...
 
     @overload
-    def __init__(self, filter_ui_hint: str) -> None:
+    def __init__(self, display_column: str) -> None:
         ...
 
     @overload
-    def __init__(self, filter_ui_hint: str, presentation_layer: str) -> None:
+    def __init__(self, display_column: str, sort_column: str) -> None:
         ...
 
     @overload
-    def __init__(self, filter_ui_hint: str, presentation_layer: str, *control_parameters: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
+    def __init__(self, display_column: str, sort_column: str, sort_descending: bool) -> None:
         ...
 
 
-class LengthAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
+class MaxLengthAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
     """This class has no documentation."""
 
     @property
-    def minimum_length(self) -> int:
+    def length(self) -> int:
         ...
 
-    @property
-    def maximum_length(self) -> int:
+    @overload
+    def __init__(self, length: int) -> None:
         ...
 
-    def __init__(self, minimum_length: int, maximum_length: int) -> None:
+    @overload
+    def __init__(self) -> None:
         ...
 
     def format_error_message(self, name: str) -> str:
@@ -373,191 +368,34 @@ class DataTypeAttribute(System.ComponentModel.DataAnnotations.ValidationAttribut
         ...
 
 
-class EnumDataTypeAttribute(System.ComponentModel.DataAnnotations.DataTypeAttribute):
+class FileExtensionsAttribute(System.ComponentModel.DataAnnotations.DataTypeAttribute):
     """This class has no documentation."""
 
     @property
-    def enum_type(self) -> typing.Type:
+    def extensions(self) -> str:
         ...
 
-    def __init__(self, enum_type: typing.Type) -> None:
+    @extensions.setter
+    def extensions(self, value: str) -> None:
         ...
 
-    def is_valid(self, value: typing.Any) -> bool:
-        ...
-
-
-class CompareAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
-    """This class has no documentation."""
-
-    @property
-    def other_property(self) -> str:
-        ...
-
-    @property
-    def other_property_display_name(self) -> str:
-        ...
-
-    @property
-    def requires_validation_context(self) -> bool:
-        ...
-
-    def __init__(self, other_property: str) -> None:
+    def __init__(self) -> None:
         ...
 
     def format_error_message(self, name: str) -> str:
         ...
 
-    def is_valid(self, value: typing.Any, validation_context: System.ComponentModel.DataAnnotations.ValidationContext) -> System.ComponentModel.DataAnnotations.ValidationResult:
+    def is_valid(self, value: typing.Any) -> bool:
         ...
 
 
-class AssociationAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @property
-    def this_key(self) -> str:
-        ...
-
-    @property
-    def other_key(self) -> str:
-        ...
-
-    @property
-    def is_foreign_key(self) -> bool:
-        ...
-
-    @is_foreign_key.setter
-    def is_foreign_key(self, value: bool) -> None:
-        ...
-
-    @property
-    def this_key_members(self) -> typing.Iterable[str]:
-        ...
-
-    @property
-    def other_key_members(self) -> typing.Iterable[str]:
-        ...
-
-    def __init__(self, name: str, this_key: str, other_key: str) -> None:
-        ...
-
-
-class UrlAttribute(System.ComponentModel.DataAnnotations.DataTypeAttribute):
+class PhoneAttribute(System.ComponentModel.DataAnnotations.DataTypeAttribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
         ...
 
     def is_valid(self, value: typing.Any) -> bool:
-        ...
-
-
-class Base64StringAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-    def is_valid(self, value: typing.Any) -> bool:
-        ...
-
-
-class DeniedValuesAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
-    """This class has no documentation."""
-
-    @property
-    def values(self) -> typing.List[System.Object]:
-        ...
-
-    def __init__(self, *values: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
-        ...
-
-    def is_valid(self, value: typing.Any) -> bool:
-        ...
-
-
-class CustomValidationAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
-    """This class has no documentation."""
-
-    @property
-    def validator_type(self) -> typing.Type:
-        ...
-
-    @property
-    def type_id(self) -> System.Object:
-        ...
-
-    @property
-    def method(self) -> str:
-        ...
-
-    @property
-    def requires_validation_context(self) -> bool:
-        ...
-
-    def __init__(self, validator_type: typing.Type, method: str) -> None:
-        ...
-
-    def format_error_message(self, name: str) -> str:
-        ...
-
-    def is_valid(self, value: typing.Any, validation_context: System.ComponentModel.DataAnnotations.ValidationContext) -> System.ComponentModel.DataAnnotations.ValidationResult:
-        ...
-
-
-class AssociatedMetadataTypeTypeDescriptionProvider(System.ComponentModel.TypeDescriptionProvider):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self, type: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, type: typing.Type, associated_metadata_type: typing.Type) -> None:
-        ...
-
-    def get_type_descriptor(self, object_type: typing.Type, instance: typing.Any) -> System.ComponentModel.ICustomTypeDescriptor:
-        ...
-
-
-class ValidationException(System.Exception):
-    """This class has no documentation."""
-
-    @property
-    def validation_attribute(self) -> System.ComponentModel.DataAnnotations.ValidationAttribute:
-        ...
-
-    @property
-    def validation_result(self) -> System.ComponentModel.DataAnnotations.ValidationResult:
-        ...
-
-    @property
-    def value(self) -> System.Object:
-        ...
-
-    @overload
-    def __init__(self, validation_result: System.ComponentModel.DataAnnotations.ValidationResult, validating_attribute: System.ComponentModel.DataAnnotations.ValidationAttribute, value: typing.Any) -> None:
-        ...
-
-    @overload
-    def __init__(self, error_message: str, validating_attribute: System.ComponentModel.DataAnnotations.ValidationAttribute, value: typing.Any) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
 
@@ -661,134 +499,62 @@ class DisplayAttribute(System.Attribute):
         ...
 
 
-class RangeAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
+class ValidationException(System.Exception):
     """This class has no documentation."""
 
     @property
-    def minimum(self) -> System.Object:
+    def validation_attribute(self) -> System.ComponentModel.DataAnnotations.ValidationAttribute:
         ...
 
     @property
-    def maximum(self) -> System.Object:
+    def validation_result(self) -> System.ComponentModel.DataAnnotations.ValidationResult:
         ...
 
     @property
-    def minimum_is_exclusive(self) -> bool:
-        ...
-
-    @minimum_is_exclusive.setter
-    def minimum_is_exclusive(self, value: bool) -> None:
-        ...
-
-    @property
-    def maximum_is_exclusive(self) -> bool:
-        ...
-
-    @maximum_is_exclusive.setter
-    def maximum_is_exclusive(self, value: bool) -> None:
-        ...
-
-    @property
-    def operand_type(self) -> typing.Type:
-        ...
-
-    @property
-    def parse_limits_in_invariant_culture(self) -> bool:
-        ...
-
-    @parse_limits_in_invariant_culture.setter
-    def parse_limits_in_invariant_culture(self, value: bool) -> None:
-        ...
-
-    @property
-    def convert_value_in_invariant_culture(self) -> bool:
-        ...
-
-    @convert_value_in_invariant_culture.setter
-    def convert_value_in_invariant_culture(self, value: bool) -> None:
+    def value(self) -> System.Object:
         ...
 
     @overload
-    def __init__(self, minimum: int, maximum: int) -> None:
+    def __init__(self, validation_result: System.ComponentModel.DataAnnotations.ValidationResult, validating_attribute: System.ComponentModel.DataAnnotations.ValidationAttribute, value: typing.Any) -> None:
         ...
 
     @overload
-    def __init__(self, minimum: float, maximum: float) -> None:
+    def __init__(self, error_message: str, validating_attribute: System.ComponentModel.DataAnnotations.ValidationAttribute, value: typing.Any) -> None:
         ...
 
     @overload
-    def __init__(self, type: typing.Type, minimum: str, maximum: str) -> None:
+    def __init__(self) -> None:
         ...
 
-    def format_error_message(self, name: str) -> str:
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class EnumDataTypeAttribute(System.ComponentModel.DataAnnotations.DataTypeAttribute):
+    """This class has no documentation."""
+
+    @property
+    def enum_type(self) -> typing.Type:
+        ...
+
+    def __init__(self, enum_type: typing.Type) -> None:
         ...
 
     def is_valid(self, value: typing.Any) -> bool:
         ...
 
 
-class UIHintAttribute(System.Attribute):
+class ConcurrencyCheckAttribute(System.Attribute):
     """This class has no documentation."""
 
-    @property
-    def ui_hint(self) -> str:
-        ...
 
-    @property
-    def presentation_layer(self) -> str:
-        ...
-
-    @property
-    def control_parameters(self) -> System.Collections.Generic.IDictionary[str, System.Object]:
-        ...
-
-    @overload
-    def __init__(self, ui_hint: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, ui_hint: str, presentation_layer: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, ui_hint: str, presentation_layer: str, *control_parameters: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class EditableAttribute(System.Attribute):
+class KeyAttribute(System.Attribute):
     """This class has no documentation."""
-
-    @property
-    def allow_edit(self) -> bool:
-        ...
-
-    @property
-    def allow_initial_value(self) -> bool:
-        ...
-
-    @allow_initial_value.setter
-    def allow_initial_value(self, value: bool) -> None:
-        ...
-
-    def __init__(self, allow_edit: bool) -> None:
-        ...
-
-
-class MetadataTypeAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def metadata_class_type(self) -> typing.Type:
-        ...
-
-    def __init__(self, metadata_class_type: typing.Type) -> None:
-        ...
 
 
 class IValidatableObject(metaclass=abc.ABCMeta):
@@ -798,31 +564,20 @@ class IValidatableObject(metaclass=abc.ABCMeta):
         ...
 
 
-class DisplayColumnAttribute(System.Attribute):
+class IAsyncValidatableObject(System.ComponentModel.DataAnnotations.IValidatableObject, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @property
-    def display_column(self) -> str:
+    def validate_async(self, validation_context: System.ComponentModel.DataAnnotations.ValidationContext, cancellation_token: System.Threading.CancellationToken = ...) -> System.Collections.Generic.IAsyncEnumerable[System.ComponentModel.DataAnnotations.ValidationResult]:
         ...
 
-    @property
-    def sort_column(self) -> str:
+
+class Base64StringAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
         ...
 
-    @property
-    def sort_descending(self) -> bool:
-        ...
-
-    @overload
-    def __init__(self, display_column: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, display_column: str, sort_column: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, display_column: str, sort_column: str, sort_descending: bool) -> None:
+    def is_valid(self, value: typing.Any) -> bool:
         ...
 
 
@@ -836,82 +591,6 @@ class RequiredAttribute(System.ComponentModel.DataAnnotations.ValidationAttribut
     @allow_empty_strings.setter
     def allow_empty_strings(self, value: bool) -> None:
         ...
-
-    def __init__(self) -> None:
-        ...
-
-    def is_valid(self, value: typing.Any) -> bool:
-        ...
-
-
-class RegularExpressionAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
-    """This class has no documentation."""
-
-    @property
-    def match_timeout_in_milliseconds(self) -> int:
-        ...
-
-    @match_timeout_in_milliseconds.setter
-    def match_timeout_in_milliseconds(self, value: int) -> None:
-        ...
-
-    @property
-    def match_timeout(self) -> datetime.timedelta:
-        ...
-
-    @property
-    def pattern(self) -> str:
-        ...
-
-    def __init__(self, pattern: str) -> None:
-        ...
-
-    def format_error_message(self, name: str) -> str:
-        ...
-
-    def is_valid(self, value: typing.Any) -> bool:
-        ...
-
-
-class MaxLengthAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
-    """This class has no documentation."""
-
-    @property
-    def length(self) -> int:
-        ...
-
-    @overload
-    def __init__(self, length: int) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    def format_error_message(self, name: str) -> str:
-        ...
-
-    def is_valid(self, value: typing.Any) -> bool:
-        ...
-
-
-class TimestampAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class ScaffoldColumnAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def scaffold(self) -> bool:
-        ...
-
-    def __init__(self, scaffold: bool) -> None:
-        ...
-
-
-class EmailAddressAttribute(System.ComponentModel.DataAnnotations.DataTypeAttribute):
-    """This class has no documentation."""
 
     def __init__(self) -> None:
         ...
@@ -950,50 +629,99 @@ class AsyncValidationAttribute(System.ComponentModel.DataAnnotations.ValidationA
         ...
 
 
-class ConcurrencyCheckAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class IAsyncValidatableObject(System.ComponentModel.DataAnnotations.IValidatableObject, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def validate_async(self, validation_context: System.ComponentModel.DataAnnotations.ValidationContext, cancellation_token: System.Threading.CancellationToken = ...) -> System.Collections.Generic.IAsyncEnumerable[System.ComponentModel.DataAnnotations.ValidationResult]:
-        ...
-
-
-class CreditCardAttribute(System.ComponentModel.DataAnnotations.DataTypeAttribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-    def is_valid(self, value: typing.Any) -> bool:
-        ...
-
-
-class FileExtensionsAttribute(System.ComponentModel.DataAnnotations.DataTypeAttribute):
+class ScaffoldColumnAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def extensions(self) -> str:
+    def scaffold(self) -> bool:
         ...
 
-    @extensions.setter
-    def extensions(self, value: str) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def format_error_message(self, name: str) -> str:
-        ...
-
-    def is_valid(self, value: typing.Any) -> bool:
+    def __init__(self, scaffold: bool) -> None:
         ...
 
 
-class KeyAttribute(System.Attribute):
+class TimestampAttribute(System.Attribute):
     """This class has no documentation."""
+
+
+class MetadataTypeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def metadata_class_type(self) -> typing.Type:
+        ...
+
+    def __init__(self, metadata_class_type: typing.Type) -> None:
+        ...
+
+
+class AssociationAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def this_key(self) -> str:
+        ...
+
+    @property
+    def other_key(self) -> str:
+        ...
+
+    @property
+    def is_foreign_key(self) -> bool:
+        ...
+
+    @is_foreign_key.setter
+    def is_foreign_key(self, value: bool) -> None:
+        ...
+
+    @property
+    def this_key_members(self) -> typing.Iterable[str]:
+        ...
+
+    @property
+    def other_key_members(self) -> typing.Iterable[str]:
+        ...
+
+    def __init__(self, name: str, this_key: str, other_key: str) -> None:
+        ...
+
+
+class UIHintAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def ui_hint(self) -> str:
+        ...
+
+    @property
+    def presentation_layer(self) -> str:
+        ...
+
+    @property
+    def control_parameters(self) -> System.Collections.Generic.IDictionary[str, System.Object]:
+        ...
+
+    @overload
+    def __init__(self, ui_hint: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, ui_hint: str, presentation_layer: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, ui_hint: str, presentation_layer: str, *control_parameters: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
 
 
 class Validator(System.Object):
@@ -1072,13 +800,173 @@ class Validator(System.Object):
         ...
 
 
-class PhoneAttribute(System.ComponentModel.DataAnnotations.DataTypeAttribute):
+class CreditCardAttribute(System.ComponentModel.DataAnnotations.DataTypeAttribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
         ...
 
     def is_valid(self, value: typing.Any) -> bool:
+        ...
+
+
+class EditableAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def allow_edit(self) -> bool:
+        ...
+
+    @property
+    def allow_initial_value(self) -> bool:
+        ...
+
+    @allow_initial_value.setter
+    def allow_initial_value(self, value: bool) -> None:
+        ...
+
+    def __init__(self, allow_edit: bool) -> None:
+        ...
+
+
+class RangeAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
+    """This class has no documentation."""
+
+    @property
+    def minimum(self) -> System.Object:
+        ...
+
+    @property
+    def maximum(self) -> System.Object:
+        ...
+
+    @property
+    def minimum_is_exclusive(self) -> bool:
+        ...
+
+    @minimum_is_exclusive.setter
+    def minimum_is_exclusive(self, value: bool) -> None:
+        ...
+
+    @property
+    def maximum_is_exclusive(self) -> bool:
+        ...
+
+    @maximum_is_exclusive.setter
+    def maximum_is_exclusive(self, value: bool) -> None:
+        ...
+
+    @property
+    def operand_type(self) -> typing.Type:
+        ...
+
+    @property
+    def parse_limits_in_invariant_culture(self) -> bool:
+        ...
+
+    @parse_limits_in_invariant_culture.setter
+    def parse_limits_in_invariant_culture(self, value: bool) -> None:
+        ...
+
+    @property
+    def convert_value_in_invariant_culture(self) -> bool:
+        ...
+
+    @convert_value_in_invariant_culture.setter
+    def convert_value_in_invariant_culture(self, value: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, minimum: int, maximum: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, minimum: float, maximum: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, type: typing.Type, minimum: str, maximum: str) -> None:
+        ...
+
+    def format_error_message(self, name: str) -> str:
+        ...
+
+    def is_valid(self, value: typing.Any) -> bool:
+        ...
+
+
+class DeniedValuesAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
+    """This class has no documentation."""
+
+    @property
+    def values(self) -> typing.List[System.Object]:
+        ...
+
+    def __init__(self, *values: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
+        ...
+
+    def is_valid(self, value: typing.Any) -> bool:
+        ...
+
+
+class LengthAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
+    """This class has no documentation."""
+
+    @property
+    def minimum_length(self) -> int:
+        ...
+
+    @property
+    def maximum_length(self) -> int:
+        ...
+
+    def __init__(self, minimum_length: int, maximum_length: int) -> None:
+        ...
+
+    def format_error_message(self, name: str) -> str:
+        ...
+
+    def is_valid(self, value: typing.Any) -> bool:
+        ...
+
+
+class CompareAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
+    """This class has no documentation."""
+
+    @property
+    def other_property(self) -> str:
+        ...
+
+    @property
+    def other_property_display_name(self) -> str:
+        ...
+
+    @property
+    def requires_validation_context(self) -> bool:
+        ...
+
+    def __init__(self, other_property: str) -> None:
+        ...
+
+    def format_error_message(self, name: str) -> str:
+        ...
+
+    def is_valid(self, value: typing.Any, validation_context: System.ComponentModel.DataAnnotations.ValidationContext) -> System.ComponentModel.DataAnnotations.ValidationResult:
+        ...
+
+
+class AssociatedMetadataTypeTypeDescriptionProvider(System.ComponentModel.TypeDescriptionProvider):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self, type: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, type: typing.Type, associated_metadata_type: typing.Type) -> None:
+        ...
+
+    def get_type_descriptor(self, object_type: typing.Type, instance: typing.Any) -> System.ComponentModel.ICustomTypeDescriptor:
         ...
 
 
@@ -1101,6 +989,118 @@ class StringLengthAttribute(System.ComponentModel.DataAnnotations.ValidationAttr
         ...
 
     def format_error_message(self, name: str) -> str:
+        ...
+
+    def is_valid(self, value: typing.Any) -> bool:
+        ...
+
+
+class FilterUIHintAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def filter_ui_hint(self) -> str:
+        ...
+
+    @property
+    def presentation_layer(self) -> str:
+        ...
+
+    @property
+    def control_parameters(self) -> System.Collections.Generic.IDictionary[str, System.Object]:
+        ...
+
+    @overload
+    def __init__(self, filter_ui_hint: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, filter_ui_hint: str, presentation_layer: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, filter_ui_hint: str, presentation_layer: str, *control_parameters: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class CustomValidationAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
+    """This class has no documentation."""
+
+    @property
+    def validator_type(self) -> typing.Type:
+        ...
+
+    @property
+    def type_id(self) -> System.Object:
+        ...
+
+    @property
+    def method(self) -> str:
+        ...
+
+    @property
+    def requires_validation_context(self) -> bool:
+        ...
+
+    def __init__(self, validator_type: typing.Type, method: str) -> None:
+        ...
+
+    def format_error_message(self, name: str) -> str:
+        ...
+
+    def is_valid(self, value: typing.Any, validation_context: System.ComponentModel.DataAnnotations.ValidationContext) -> System.ComponentModel.DataAnnotations.ValidationResult:
+        ...
+
+
+class RegularExpressionAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
+    """This class has no documentation."""
+
+    @property
+    def match_timeout_in_milliseconds(self) -> int:
+        ...
+
+    @match_timeout_in_milliseconds.setter
+    def match_timeout_in_milliseconds(self, value: int) -> None:
+        ...
+
+    @property
+    def match_timeout(self) -> datetime.timedelta:
+        ...
+
+    @property
+    def pattern(self) -> str:
+        ...
+
+    def __init__(self, pattern: str) -> None:
+        ...
+
+    def format_error_message(self, name: str) -> str:
+        ...
+
+    def is_valid(self, value: typing.Any) -> bool:
+        ...
+
+
+class UrlAttribute(System.ComponentModel.DataAnnotations.DataTypeAttribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+    def is_valid(self, value: typing.Any) -> bool:
+        ...
+
+
+class EmailAddressAttribute(System.ComponentModel.DataAnnotations.DataTypeAttribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
         ...
 
     def is_valid(self, value: typing.Any) -> bool:

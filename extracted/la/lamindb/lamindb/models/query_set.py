@@ -11,14 +11,17 @@ from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, final
 
 import lamindb_setup as ln_setup
 from django.core.exceptions import FieldError
-from django.db import models
+from django.db import models, transaction
 from django.db.models import (
+    Case,
     F,
     FilteredRelation,
     ForeignKey,
+    IntegerField,
     ManyToManyField,
     Q,
     Subquery,
+    When,
 )
 from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
@@ -30,7 +33,7 @@ from ..base.types import BRANCH_STATUS_TO_CODE, RUN_STATUS_TO_CODE
 from ..errors import DoesNotExist, MultipleResultsFound
 from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
-from .query_manager import _lookup, _search
+from .query_manager import SEARCH_QUERY_DEFAULT_LIMIT, _lookup, _search
 from .sqlrecord import Registry, SQLRecord
 
 if TYPE_CHECKING:
@@ -946,12 +949,15 @@ def reshape_annotate_result(
         if feature.name not in result_encoded.columns:
             continue
 
-        result_encoded[feature.name], is_scalar = extract_and_check_scalar(
-            result_encoded[feature.name]
-        )
+        dtype_str = feature._dtype_str
+        if dtype_str.startswith(("list", "dict")):
+            is_scalar = False
+        else:
+            result_encoded[feature.name], is_scalar = extract_and_check_scalar(
+                result_encoded[feature.name]
+            )
 
         if is_scalar:
-            dtype_str = feature._dtype_str
             if dtype_str.startswith("cat"):
                 result_encoded[feature.name] = result_encoded[feature.name].astype(
                     "category"
@@ -984,7 +990,6 @@ def reshape_annotate_result(
                     "boolean"
                 )
 
-        dtype_str = feature._dtype_str
         if dtype_str.startswith("list"):
             mask = result_encoded[feature.name].notna()
             result_encoded.loc[mask, feature.name] = result_encoded.loc[
@@ -1101,7 +1106,7 @@ def process_cols_from_include(
 def _queryset_class_factory(
     registry: Registry, queryset_cls: type[models.QuerySet]
 ) -> type[models.QuerySet]:
-    from lamindb.models import Artifact, ArtifactSet
+    from lamindb.models import Artifact, ArtifactSet, Record, RecordSet
 
     # If the model is Artifact, create a new class for BasicQuerySet or QuerySet that inherits from ArtifactSet.
     # This allows to add artifact specific functionality to all classes inheriting from BasicQuerySet.
@@ -1109,6 +1114,12 @@ def _queryset_class_factory(
     if registry is Artifact and not issubclass(queryset_cls, ArtifactSet):
         new_cls = type(
             "Artifact" + queryset_cls.__name__, (queryset_cls, ArtifactSet), {}
+        )
+    elif registry is Record and not issubclass(queryset_cls, RecordSet):
+        new_cls = type(
+            "Record" + queryset_cls.__name__,
+            (queryset_cls, RecordSet),
+            {"to_dataframe": RecordSet.to_dataframe},
         )
     else:
         new_cls = queryset_cls
@@ -1154,8 +1165,7 @@ class BasicQuerySet(models.QuerySet):
         *,
         include: str | list[str] | None = None,
         features: str | list[str] | None = None,
-        # TODO: factor into SEARCH_QUERY_DEFAULT_LIMIT in 2.6 once consistent.
-        limit: int | None = 100,
+        limit: int | None = SEARCH_QUERY_DEFAULT_LIMIT,
         order_by: str | None = "-id",
         record_metadata: bool = True,
     ) -> pd.DataFrame:
@@ -1180,8 +1190,23 @@ class BasicQuerySet(models.QuerySet):
             subset = subset.order_by(order_by)
         is_truncated = False
         if limit is not None:
-            # Fetch one extra row as a sentinel to detect truncation without count().
-            subset = subset[: limit + 1]
+            # Determine truncation on base record ids before annotate fanout.
+            limited_ids = list(subset.values_list("id", flat=True)[: limit + 1])
+            is_truncated = len(limited_ids) > limit
+            if is_truncated:
+                limited_ids = limited_ids[:limit]
+            # `subset` can already be sliced (e.g. from `.search()`), and Django
+            # disallows filtering sliced querysets. Rebuild from selected ids.
+            if not limited_ids:
+                subset = subset.model.objects.using(subset.db).none()
+            else:
+                preserved_order = Case(
+                    *[When(id=pk, then=pos) for pos, pk in enumerate(limited_ids)],
+                    output_field=IntegerField(),
+                )
+                subset = (
+                    subset.model.objects.using(subset.db).filter(id__in=limited_ids)
+                ).order_by(preserved_order)
         if include is None:
             include_input = []
         elif isinstance(include, str):
@@ -1236,9 +1261,6 @@ class BasicQuerySet(models.QuerySet):
         # another refactoring effort
         # we have the correct ordering in `features.get_values()`, though
         df = pd.DataFrame(queryset.values(*field_names, *list(annotate_kwargs.keys())))
-        if limit is not None and len(df) > limit:
-            is_truncated = True
-            df = df.iloc[:limit].copy()
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
             return df
@@ -1286,7 +1308,7 @@ class BasicQuerySet(models.QuerySet):
                         )
         if is_truncated:
             logger.warning(
-                f"truncated query result to limit={limit} {self.model.__name__} objects (will change to limit=20 in lamindb 2.7)"
+                f"truncated query result to limit={limit} {self.model.__name__} objects"
             )
         return df_reshaped
 
@@ -1338,8 +1360,11 @@ class BasicQuerySet(models.QuerySet):
                 _permanent_delete_transforms(self)
                 return
             if permanent is not True:
-                _adjust_is_latest_when_deleting_is_versioned(self)
-                self.update(branch_id=-1, is_latest=False)
+                # promote successors and trash the records atomically, so a failure can't
+                # leave both the successor and the (un-trashed) old head as is_latest
+                with transaction.atomic():
+                    _adjust_is_latest_when_deleting_is_versioned(self)
+                    self.update(branch_id=-1, is_latest=False)
                 return
         # Artifact, Collection: non-trivial delete behavior, handle in a loop
         if self.model in {Artifact, Collection}:
@@ -1754,8 +1779,11 @@ class DB:
             ln_setup._connect_instance.get_owner_name_from_identifier(instance)
         )
         instance_info = ln_setup._connect_instance._connect_instance(
-            owner=owner, name=instance_name
+            owner=owner,
+            name=instance_name,
+            allow_sqlite_clone_fallback=True,
         )
+        self._instance_info = instance_info
         self._modules = ["lamindb"] + list(instance_info.modules)
         warning = ln_setup.core.django._warn_module_mismatch(
             target_apps={"lamindb"} | instance_info.modules,
@@ -1798,20 +1826,19 @@ class DB:
                 self._cache["pertdb"] = namespace
             return self._cache["pertdb"]
 
-        try:
-            lamindb_module = import_module("lamindb")
-            if hasattr(lamindb_module, name):
-                model_class = getattr(lamindb_module, name)
-                queryset = model_class.connect(self._instance)
-                wrapped = NonInstantiableQuerySet(queryset, name)
-                self._cache[name] = wrapped
-                return wrapped
-        except (ImportError, AttributeError):
-            pass
-
-        raise AttributeError(
-            f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .pertdb.{name} for schema-specific registries."
-        )
+        lamindb_module = import_module("lamindb")
+        if hasattr(lamindb_module, name):
+            model_class = getattr(lamindb_module, name)
+            queryset = model_class.connect(
+                self._instance, _instance_info=self._instance_info
+            )
+            wrapped = NonInstantiableQuerySet(queryset, name)
+            self._cache[name] = wrapped
+            return wrapped
+        else:
+            raise AttributeError(
+                f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .pertdb.{name} for schema-specific registries."
+            )
 
     def __repr__(self) -> str:
         return f"DB('{self._instance}')"

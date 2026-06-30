@@ -79,6 +79,7 @@ ActionValueType = Literal[
     "ALLOW", "BLOCK", "CAPTCHA", "CHALLENGE", "COUNT", "EXCLUDED_AS_COUNT", "MONETIZE"
 ]
 AssociatedResourceTypeType = Literal[
+    "AGENTCORE_GATEWAY",
     "API_GATEWAY",
     "APP_RUNNER_SERVICE",
     "CLOUDFRONT",
@@ -374,6 +375,7 @@ RankingSortByType = Literal["NAME", "PERCENTAGE", "REVENUE"]
 RankingStatisticTypeType = Literal["TOP_PATHS_BY_REVENUE", "TOP_SOURCES_BY_REVENUE"]
 RateBasedStatementAggregateKeyTypeType = Literal["CONSTANT", "CUSTOM_KEYS", "FORWARDED_IP", "IP"]
 ResourceTypeType = Literal[
+    "AGENTCORE_GATEWAY",
     "AMPLIFY",
     "API_GATEWAY",
     "APPLICATION_LOAD_BALANCER",

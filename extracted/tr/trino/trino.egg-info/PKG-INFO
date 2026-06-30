@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trino
-Version: 0.337.0
+Version: 0.338.0
 Summary: Client for the Trino distributed SQL Engine
 Home-page: https://github.com/trinodb/trino-python-client
 Author: Trino Team
@@ -45,8 +45,6 @@ Requires-Dist: sqlalchemy>=1.3; extra == "sqlalchemy"
 Provides-Extra: tests
 Requires-Dist: requests_kerberos; extra == "tests"
 Requires-Dist: sqlalchemy>=1.3; extra == "tests"
-Requires-Dist: requests_gssapi; extra == "tests"
-Requires-Dist: krb5==0.5.1; extra == "tests"
 Requires-Dist: httpretty<1.1; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-runner; extra == "tests"

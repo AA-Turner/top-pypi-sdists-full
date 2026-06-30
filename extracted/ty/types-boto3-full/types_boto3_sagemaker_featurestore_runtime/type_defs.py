@@ -41,6 +41,12 @@ __all__ = (
     "BatchGetRecordRequestTypeDef",
     "BatchGetRecordResponseTypeDef",
     "BatchGetRecordResultDetailTypeDef",
+    "BatchWriteRecordEntryOutputTypeDef",
+    "BatchWriteRecordEntryTypeDef",
+    "BatchWriteRecordEntryUnionTypeDef",
+    "BatchWriteRecordErrorTypeDef",
+    "BatchWriteRecordRequestTypeDef",
+    "BatchWriteRecordResponseTypeDef",
     "DeleteRecordRequestTypeDef",
     "EmptyResponseMetadataTypeDef",
     "FeatureValueOutputTypeDef",
@@ -48,6 +54,10 @@ __all__ = (
     "FeatureValueUnionTypeDef",
     "GetRecordRequestTypeDef",
     "GetRecordResponseTypeDef",
+    "ListRecordsRequestPaginateTypeDef",
+    "ListRecordsRequestTypeDef",
+    "ListRecordsResponseTypeDef",
+    "PaginatorConfigTypeDef",
     "PutRecordRequestTypeDef",
     "ResponseMetadataTypeDef",
     "TtlDurationTypeDef",
@@ -87,6 +97,11 @@ class FeatureValueOutputTypeDef(TypedDict):
     ValueAsStringList: NotRequired[list[str]]
 
 
+class TtlDurationTypeDef(TypedDict):
+    Unit: TtlDurationUnitType
+    Value: int
+
+
 class DeleteRecordRequestTypeDef(TypedDict):
     FeatureGroupName: str
     RecordIdentifierValueAsString: str
@@ -108,9 +123,17 @@ class GetRecordRequestTypeDef(TypedDict):
     ExpirationTimeResponse: NotRequired[ExpirationTimeResponseType]
 
 
-class TtlDurationTypeDef(TypedDict):
-    Unit: TtlDurationUnitType
-    Value: int
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+
+class ListRecordsRequestTypeDef(TypedDict):
+    FeatureGroupName: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    IncludeSoftDeletedRecords: NotRequired[bool]
 
 
 BatchGetRecordIdentifierUnionTypeDef = Union[
@@ -120,6 +143,12 @@ BatchGetRecordIdentifierUnionTypeDef = Union[
 
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListRecordsResponseTypeDef(TypedDict):
+    RecordIdentifiers: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class BatchGetRecordResultDetailTypeDef(TypedDict):
@@ -135,7 +164,20 @@ class GetRecordResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class BatchWriteRecordEntryOutputTypeDef(TypedDict):
+    FeatureGroupName: str
+    Record: list[FeatureValueOutputTypeDef]
+    TargetStores: NotRequired[list[TargetStoreType]]
+    TtlDuration: NotRequired[TtlDurationTypeDef]
+
+
 FeatureValueUnionTypeDef = Union[FeatureValueTypeDef, FeatureValueOutputTypeDef]
+
+
+class ListRecordsRequestPaginateTypeDef(TypedDict):
+    FeatureGroupName: str
+    IncludeSoftDeletedRecords: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class BatchGetRecordRequestTypeDef(TypedDict):
@@ -150,8 +192,37 @@ class BatchGetRecordResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class BatchWriteRecordErrorTypeDef(TypedDict):
+    Entry: BatchWriteRecordEntryOutputTypeDef
+    ErrorCode: str
+    ErrorMessage: str
+
+
+class BatchWriteRecordEntryTypeDef(TypedDict):
+    FeatureGroupName: str
+    Record: Sequence[FeatureValueUnionTypeDef]
+    TargetStores: NotRequired[Sequence[TargetStoreType]]
+    TtlDuration: NotRequired[TtlDurationTypeDef]
+
+
 class PutRecordRequestTypeDef(TypedDict):
     FeatureGroupName: str
     Record: Sequence[FeatureValueUnionTypeDef]
     TargetStores: NotRequired[Sequence[TargetStoreType]]
+    TtlDuration: NotRequired[TtlDurationTypeDef]
+
+
+class BatchWriteRecordResponseTypeDef(TypedDict):
+    Errors: list[BatchWriteRecordErrorTypeDef]
+    UnprocessedEntries: list[BatchWriteRecordEntryOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+BatchWriteRecordEntryUnionTypeDef = Union[
+    BatchWriteRecordEntryTypeDef, BatchWriteRecordEntryOutputTypeDef
+]
+
+
+class BatchWriteRecordRequestTypeDef(TypedDict):
+    Entries: Sequence[BatchWriteRecordEntryUnionTypeDef]
     TtlDuration: NotRequired[TtlDurationTypeDef]

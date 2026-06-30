@@ -8,6 +8,7 @@ from __future__ import annotations
 import copy
 import json
 import math
+from typing import Any
 
 from ._core import _Frame
 
@@ -15,6 +16,11 @@ from ._core import _Frame
 _VALID_DTYPES: frozenset[str] = frozenset(
     {"int64", "float64", "string", "bool", "null"}
 )
+
+
+def _validate_arframe(frame: Any, argument_name: str = "frame") -> None:
+    if not isinstance(frame, ArFrame):
+        raise TypeError(f"{argument_name} must be an ArFrame")
 
 
 class StatsDict(dict):
@@ -41,6 +47,12 @@ class ColumnSummary:
     __slots__ = ("name", "dtype", "nullable")
 
     def __init__(self, name: str, dtype: str, nullable: bool) -> None:
+        if not isinstance(name, str):
+            raise TypeError("name must be a str")
+        if not isinstance(dtype, str):
+            raise TypeError("dtype must be a str")
+        if not isinstance(nullable, bool):
+            raise TypeError("nullable must be a bool")
         self.name = name
         self.dtype = dtype
         self.nullable = nullable
@@ -149,6 +161,11 @@ class ArFrame:
                             f"nested values are not supported; "
                             f"column {col!r} at row {i} contains a {type(val).__name__!r}"
                         )
+            if columns is not None and len(columns) == 0:
+                raise ValueError(
+                    "columns must not be empty when records are dicts; "
+                    "pass columns=None to infer column names from the record keys"
+                )
             df = pd.DataFrame.from_records(records, columns=columns)
 
         elif isinstance(first, (list, tuple)):
@@ -200,10 +217,71 @@ class ArFrame:
         ValueError
             If invalid values are passed or column conversion fails.
         """
+        import numpy as np
+        import pandas as pd
+
         from .convert import from_pandas, to_pandas
+
+        def _validate_dtype_value(value):
+            if isinstance(value, (list, tuple, set, dict)):
+                raise TypeError(
+                    "dtype must be a string, Python type, "
+                    "NumPy/pandas dtype, or mapping "
+                    "of column names to dtypes"
+                )
+
+            if isinstance(value, np.ndarray) and value.size > 1:
+                raise TypeError(
+                    "dtype must be a string, Python type, "
+                    "NumPy/pandas dtype, or mapping "
+                    "of column names to dtypes"
+                )
+
+            if value is object or (isinstance(value, str) and value == "object"):
+                raise TypeError(
+                    "dtype must be a string, Python type, "
+                    "NumPy/pandas dtype, or mapping "
+                    "of column names to dtypes"
+                )
+
+            try:
+                resolved = pd.api.types.pandas_dtype(value)
+
+                if resolved == np.dtype("O"):
+                    raise TypeError(
+                        "dtype must be a string, Python type, "
+                        "NumPy/pandas dtype, or mapping "
+                        "of column names to dtypes"
+                    )
+
+            except (TypeError, ValueError):
+                raise TypeError(
+                    "dtype must be a string, Python type, "
+                    "NumPy/pandas dtype, or mapping "
+                    "of column names to dtypes"
+                )
 
         if dtype is None:
             raise TypeError("dtype cannot be None")
+
+        if isinstance(dtype, dict):
+            missing = [col for col in dtype if col not in self.columns]
+
+            if missing:
+                raise ValueError(f"Unknown column(s) in dtype mapping: {missing}")
+
+            for value in dtype.values():
+                _validate_dtype_value(value)
+
+        elif isinstance(dtype, (list, tuple, set)):
+            raise TypeError(
+                "dtype must be a string, Python type, "
+                "NumPy/pandas dtype, or mapping "
+                "of column names to dtypes"
+            )
+
+        else:
+            _validate_dtype_value(dtype)
 
         try:
             df = to_pandas(self)
@@ -340,7 +418,9 @@ class ArFrame:
 
         actual_n = min(n, len(self))
 
-        return ArFrame(self._frame.select_rows(0, actual_n))
+        return ArFrame(
+            self._frame.select_rows(0, actual_n), attrs=copy.deepcopy(self._attrs)
+        )
 
     def tail(self, n: int = 5) -> ArFrame:
         """Return the last n rows as an ArFrame.
@@ -361,15 +441,26 @@ class ArFrame:
         actual_n = min(n, len(self))
         start = max(0, len(self) - actual_n)
 
-        return ArFrame(self._frame.select_rows(start, actual_n))
+        return ArFrame(
+            self._frame.select_rows(start, actual_n), attrs=copy.deepcopy(self._attrs)
+        )
 
-    def to_dict(self) -> dict[str, list]:
+    def to_dict(
+        self,
+        orient: str = "list",
+    ):
         """Export the frame as a Python dictionary.
+
+        Parameters
+        ----------
+        orient : str, default "list"
+            Output format. Supported values are
+            "list", "records", and "split".
 
         Returns
         -------
-        dict[str, list]
-            A dictionary mapping column names to lists of values.
+        dict | list
+            Frame data in the requested orientation.
 
         Examples
         --------
@@ -377,14 +468,80 @@ class ArFrame:
         >>> frame.to_dict()
         {'name': ['Alice', 'Bob'], 'age': [25, 30]}
         """
+        # STEP 1: Validate orient is strictly a string to prevent unhashable raw leaks
+        if not isinstance(orient, str):
+            raise TypeError("orient must be a string")
+
         col_names = self.columns
         num_cols = self.shape[1]
-        return {
+        data = {
             col_names[i]: [
                 self._frame.column_by_index(i).at(r) for r in range(len(self))
             ]
             for i in range(num_cols)
         }
+        supported = {"list", "records", "split"}
+        if orient not in supported:
+            raise ValueError("orient must be one of: list, records, split")
+
+        if orient == "list":
+            return data
+
+        if orient == "records":
+            row_count = len(self)
+
+            return [
+                {column: data[column][row] for column in col_names}
+                for row in range(row_count)
+            ]
+
+        if orient == "split":
+            row_count = len(self)
+
+            return {
+                "columns": list(col_names),
+                "data": [
+                    [data[column][row] for column in col_names]
+                    for row in range(row_count)
+                ],
+            }
+
+    def to_csv(
+        self,
+        path,
+        *,
+        delimiter: str = ",",
+        write_header: bool = True,
+        **kwargs,
+    ) -> None:
+        """Write the ArFrame to a CSV file.
+
+        This is a convenience wrapper around :func:`arnio.write_csv`.
+
+        Parameters
+        ----------
+        path : str or file-like
+            Destination file path.
+        delimiter : str, default ","
+            Field delimiter character.
+        write_header : bool, default True
+            Whether to write the column header row.
+        **kwargs
+            Additional arguments passed to :func:`arnio.write_csv` such as `line_terminator`.
+
+        Examples
+        --------
+        >>> frame.to_csv("output.csv")
+        """
+        from .io import write_csv
+
+        write_csv(
+            self,
+            path,
+            delimiter=delimiter,
+            write_header=write_header,
+            **kwargs,
+        )
 
     def select_columns(self, columns: list[str]) -> ArFrame:
         """Return a new ArFrame with only the selected columns.
@@ -427,14 +584,16 @@ class ArFrame:
         if missing:
             raise ValueError(f"Unknown columns: {missing}")
 
-        return ArFrame(self._frame.select_columns(columns))
+        return ArFrame(
+            self._frame.select_columns(columns), attrs=copy.deepcopy(self._attrs)
+        )
 
-    def drop_columns(self, cols: list[str]) -> ArFrame:
+    def drop_columns(self, cols: list[str] | tuple[str, ...]) -> ArFrame:
         """Return a new ArFrame with the specified columns removed.
 
         Parameters
         ----------
-        cols : list[str]
+        cols : list[str] | tuple[str, ...]
             Column names to drop. Duplicates are silently ignored.
             An empty list returns a copy of the frame unchanged.
 
@@ -455,10 +614,11 @@ class ArFrame:
         --------
         >>> frame = ar.read_csv("data.csv")
         >>> smaller = frame.drop_columns(["col1", "col2"])
+        >>> smaller = frame.drop_columns(("col1", "col2"))
         """
-        if not isinstance(cols, list):
+        if not isinstance(cols, (list, tuple)):
             raise TypeError(
-                f"cols must be a list of column names, got {type(cols).__name__!r}"
+                f"cols must be a list or tuple of column names, got {type(cols).__name__!r}"
             )
 
         if any(not isinstance(col, str) for col in cols):
@@ -476,12 +636,15 @@ class ArFrame:
         missing = [col for col in unique_cols if col not in self.columns]
         if missing:
             raise ValueError(
-                f"Unknown column(s): {missing}. " f"Available columns: {self.columns}"
+                f"Unknown column(s): {missing}. Available columns: {self.columns}"
             )
 
         # Empty input — return unchanged copy
         if not unique_cols:
-            return ArFrame(self._frame.select_columns(self.columns))
+            return ArFrame(
+                self._frame.select_columns(self.columns),
+                attrs=copy.deepcopy(self._attrs),
+            )
 
         # Preserve original order of remaining columns
         drop_set = set(unique_cols)
@@ -491,7 +654,9 @@ class ArFrame:
         if not remaining:
             raise ValueError("drop_columns cannot remove all columns from the frame")
 
-        return ArFrame(self._frame.select_columns(remaining))
+        return ArFrame(
+            self._frame.select_columns(remaining), attrs=copy.deepcopy(self._attrs)
+        )
 
     def select_dtypes(
         self,
@@ -521,8 +686,8 @@ class ArFrame:
         ------
         ValueError
             If neither *include* nor *exclude* is provided, if *include*
-            and *exclude* overlap, if an unrecognised dtype string is
-            passed, or if no columns match the filter.
+            and *exclude* overlap, or if an unrecognised dtype string is
+            passed.
         TypeError
             If *include* or *exclude* is not a string, list, or tuple of
             strings.
@@ -589,14 +754,17 @@ class ArFrame:
             matched.append(col)
 
         if not matched:
-            raise ValueError(
-                f"No columns match the dtype selection. Frame dtypes: {col_dtypes}."
-            )
+            return ArFrame(_Frame(len(self)), attrs=self._attrs.copy())
 
         return self.select_columns(matched)
 
     def describe(self) -> dict[str, dict[str, float]]:
-        """Generate summary statistics for all numeric and string columns.
+        """Generate summary statistics for numeric, string, and boolean columns.
+
+        Numeric columns include ``count``, ``nulls``, ``mean``, ``min``, and
+        ``max``. String columns include ``count``, ``nulls``, and ``unique``.
+        Boolean columns include ``count``, ``nulls``, ``true``, ``false``, and
+        ``true_ratio``.
 
         Returns
         -------
@@ -639,6 +807,14 @@ class ArFrame:
 
         if rows == 0:
             return f"{header}\nColumns: {truncated_names}\n(empty frame)"
+
+        if cols == 0:
+            dtypes_line = f"DTypes: {self.dtypes}"
+            memory_line = f"Memory: {self.memory_usage()} bytes"
+            return (
+                f"{header}\nColumns: {truncated_names}\n{dtypes_line}\n"
+                f"{memory_line}\n(no columns to display)"
+            )
 
         actual_n = min(5, rows)
         col_data = [
@@ -759,7 +935,7 @@ class ArFrame:
         return True
 
     def __copy__(self) -> ArFrame:
-        return ArFrame(self._frame, attrs=self._attrs.copy())
+        return ArFrame(self._frame.clone(), attrs=self._attrs.copy())
 
     def __deepcopy__(self, memo: dict) -> ArFrame:
         if id(self) in memo:
@@ -802,6 +978,10 @@ class ArFrame:
             raise ValueError(f"`n` must be a positive integer, got {n!r}")
 
         num_rows, num_cols = self.shape
+        if num_rows > 0 and num_cols == 0:
+            return (
+                f"ArFrame preview: {num_rows} rows x 0 columns (no columns to display)"
+            )
 
         if num_rows == 0:
             return "ArFrame preview: (empty frame)"
@@ -870,8 +1050,10 @@ class ArFrame:
         )
 
         # ── empty-frame fast path ─────────────────────────────────────────
-        if num_cols == 0 or num_rows == 0:
+        if num_rows == 0:
             return summary + "<p><em>(empty)</em></p>"
+        if num_cols == 0:
+            return summary + "<p><em>(no columns to display)</em></p>"
 
         # ── column header ─────────────────────────────────────────────────
         th_style = (
@@ -918,9 +1100,7 @@ class ArFrame:
             rows_html += f"<tr>{cells}</tr>"
 
         tbody = f"<tbody>{rows_html}</tbody>"
-        table = (
-            "<table style='border-collapse:collapse;'>" f"{header}{tbody}" "</table>"
-        )
+        table = f"<table style='border-collapse:collapse;'>{header}{tbody}</table>"
 
         # ── truncation notice ─────────────────────────────────────────────
         notice = ""

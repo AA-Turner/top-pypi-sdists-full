@@ -348,7 +348,7 @@ def _load_observed_baselines(countries, crop, parser, current_year=None):
 
 def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
                                     stage_name="", forecast_year=None,
-                                    admin_level="admin_1"):
+                                    admin_level="admin_1", yield_units="Mg/ha"):
     """Generate scatter, MAPE bar chart, and MAPE map for one stage.
 
     Args:
@@ -390,7 +390,8 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
 
     with plt.style.context(["science", "no-latex"]):
         diag.scatter_obs_pred(df, title, dir_plots,
-                              f"scatter_{country}_{crop}_{model}{stage_suffix}.png")
+                              f"scatter_{country}_{crop}_{model}{stage_suffix}.png",
+                              yield_units=yield_units)
         df.to_csv(dir_csvs / f"scatter_{country}_{crop}_{model}{stage_suffix}.csv", index=False)
 
         # National scatter (area-weighted)
@@ -398,7 +399,8 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
         if len(df_national) >= 2:
             title_nat = f"{title} — National"
             diag.scatter_obs_pred(df_national, title_nat, dir_plots,
-                                  f"scatter_national_{country}_{crop}_{model}{stage_suffix}.png")
+                                  f"scatter_national_{country}_{crop}_{model}{stage_suffix}.png",
+                                  yield_units=yield_units)
             df_national.to_csv(dir_csvs / f"scatter_national_{country}_{crop}_{model}{stage_suffix}.csv", index=False)
 
         # Per-year scatter (one PNG per Harvest Year). Sliced from `df`;
@@ -423,7 +425,7 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
                 # varies within the panel.
                 diag.scatter_obs_pred(
                     df_year, title_year, dir_scatter_year, fname_year,
-                    color_by="region",
+                    color_by="region", yield_units=yield_units,
                 )
                 df_year.to_csv(
                     dir_csv_year / fname_year.replace(".png", ".csv"),
@@ -467,12 +469,14 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
         f"combined_{country}_{crop}_{model}{stage_suffix}.png",
         title, prod_pct,
         forecast_year=forecast_year, admin_level=admin_level,
+        yield_units=yield_units,
     )
 
 
 def _plot_combined_map_mape(df, df_mape, dg_sub, country, crop, model,
                             dir_out, fname, title, prod_pct,
-                            forecast_year=None, admin_level="admin_1"):
+                            forecast_year=None, admin_level="admin_1",
+                            yield_units="Mg/ha"):
     """Side-by-side: predicted yield choropleth (left) + MAPE box plot (right).
 
     Reuses ``viz.plot.plot_map`` with ``ax=`` for the map panel. The
@@ -548,7 +552,7 @@ def _plot_combined_map_mape(df, df_mape, dg_sub, country, crop, model,
             merge_col="Country Region",
             name_country=countries_display,
             name_col=pred_col,
-            label="Predicted yield (tn/ha)",
+            label=f"Predicted yield ({yield_units})",
             title=f"Predicted Yield — {display_year}",
             vmin=float(df_pred_region[pred_col].min()),
             vmax=float(df_pred_region[pred_col].max()),
@@ -895,7 +899,7 @@ def _plot_metric_progression(df, stages_sorted, metric_col, ylabel, title,
         plt.close(fig)
 
 
-def _plot_all_progressions(df, country, crop, model, dir_outlook):
+def _plot_all_progressions(df, country, crop, model, dir_outlook, yield_units="Mg/ha"):
     """Plot MAPE, R², and RMSE progression across time steps."""
     from sklearn.metrics import r2_score
 
@@ -955,7 +959,7 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook):
             df_rmse = df_rmse.merge(area_map, on="Region", how="left")
         df["RMSE"] = np.sqrt(df["RMSE_sq"])
         _plot_metric_progression(
-            df_rmse, stages_sorted, "RMSE", "RMSE (tn/ha)",
+            df_rmse, stages_sorted, "RMSE", f"RMSE ({yield_units})",
             f"RMSE Progression — {base_title}",
             country, crop, model, dir_progression,
             f"rmse_progression_{country}_{crop}_{model}.png",
@@ -1458,6 +1462,26 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
     When multi-step results are present (multiple Stage Names), produces
     separate plots per stage, an aggregate, and a MAPE progression plot.
     """
+    # Per-project yield-unit label for plots (Mg/ha default, QQ/ha for
+    # wolayita, kg/ha for poppy). Threaded through to helpers that produce
+    # user-facing labels.
+    yield_units = (
+        parser.get("ML", "yield_units", fallback="Mg/ha")
+        if parser is not None else "Mg/ha"
+    )
+
+    # Optional trigger-evaluation outputs. Same gate for the per-model
+    # plot+table (computed inside the loop below) and the cross-model
+    # comparison panel emitted by _generate_model_comparison.
+    make_trigger_plot = (
+        parser.getboolean("ML", "make_trigger_plot", fallback=False)
+        if parser is not None else False
+    )
+    trigger_threshold = (
+        parser.getfloat("ML", "trigger_threshold", fallback=18.9)
+        if parser is not None else 18.9
+    )
+
     for (country, crop, model), df in df_pred_store.items():
         if df.empty:
             continue
@@ -1477,13 +1501,15 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
                 _generate_diagnostics_for_stage(
                     df_stage, country, crop, model, dg, dir_outlook, stage_name,
                     forecast_year=current_year, admin_level=admin_level,
+                    yield_units=yield_units,
                 )
-            _plot_all_progressions(df, country, crop, model, dir_outlook)
+            _plot_all_progressions(df, country, crop, model, dir_outlook, yield_units=yield_units)
         else:
             # Single stage or no stages — generate once
             _generate_diagnostics_for_stage(
                 df, country, crop, model, dg, dir_outlook,
                 forecast_year=current_year, admin_level=admin_level,
+                yield_units=yield_units,
             )
 
         # Feature selection by CID Type across stages
@@ -1495,8 +1521,42 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
                     df_feat, country, crop, model, dir_outlook
                 )
 
+        # Optional per-(country, crop, model) trigger-evaluation plot for
+        # index-insurance threshold analysis. Gated by [ML] make_trigger_plot
+        # (default off; computed once at function entry). Off for most
+        # projects; on for wolayita and wolayita_dt.
+        if make_trigger_plot:
+            from .viz import diagnostics as diag
+            dir_plots_tr = dir_outlook / "plots" / model / country
+            dir_csvs_tr = dir_outlook / "csvs" / model / country
+            os.makedirs(dir_plots_tr, exist_ok=True)
+            os.makedirs(dir_csvs_tr, exist_ok=True)
+            stem = f"trigger_eval_{country}_{crop}_{model}"
+            confusion_df = diag.trigger_eval_plot(
+                df,
+                title=f"Trigger Evaluation — {country.title().replace('_', ' ')} "
+                      f"{crop.title().replace('_', ' ')} ({model})",
+                dir_out=dir_plots_tr,
+                fname=f"{stem}.png",
+                threshold=trigger_threshold,
+                yield_units=yield_units,
+            )
+            if confusion_df is not None and not confusion_df.empty:
+                confusion_df.to_csv(dir_csvs_tr / f"{stem}.csv", index=False)
+                # Companion PNG of the same table, same gate.
+                diag.trigger_eval_table_image(
+                    confusion_df,
+                    title=f"Trigger Evaluation — {country.title().replace('_', ' ')} "
+                          f"{crop.title().replace('_', ' ')} ({model}) "
+                          f"— confusion summary (threshold = {trigger_threshold:g} {yield_units})",
+                    dir_out=dir_plots_tr,
+                    fname=f"{stem}_table.png",
+                )
+
     # Model comparison plots (only when multiple models)
-    _generate_model_comparison(df_pred_store, dg, dir_outlook)
+    _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units=yield_units,
+                               make_trigger_plot=make_trigger_plot,
+                               trigger_threshold=trigger_threshold)
 
     # Cross-country comparison plots (only when multiple countries)
     _generate_cross_country_comparison(df_pred_store, dir_outlook)
@@ -1886,12 +1946,18 @@ def _generate_cross_country_comparison(df_pred_store, dir_outlook):
             )
 
 
-def _generate_model_comparison(df_pred_store, dg, dir_outlook):
+def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/ha",
+                                make_trigger_plot=False, trigger_threshold=18.9):
     """Compare model performance when multiple models are available.
 
     Produces grouped bar charts of MAPE, RMSE, and R² by region and by year,
     plus a choropleth map showing which model has the lowest MAPE per region.
     Saved to ``outlook/plots/model_comparison/{country}/``.
+
+    When ``make_trigger_plot`` is True, also produces a 2×2 panel comparing
+    models on the trigger-evaluation metrics (Missed payout %, False payout %,
+    Overall accuracy %, RMSE in ``yield_units``) using ``trigger_threshold``
+    on both axes.
     """
     import matplotlib.pyplot as plt
     import scienceplots  # noqa: F401
@@ -2001,7 +2067,7 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
 
         with plt.style.context(["science", "no-latex"]):
             # By region: grouped bar for each metric
-            for metric, ylabel in [("MAPE", "Mean Absolute Percentage Error (%)"), ("RMSE", "RMSE (tn/ha)"), ("RRMSE", "RRMSE (%)"), ("R2", "R²")]:
+            for metric, ylabel in [("MAPE", "Mean Absolute Percentage Error (%)"), ("RMSE", f"RMSE ({yield_units})"), ("RRMSE", "RRMSE (%)"), ("R2", "R²")]:
                 pivot = df_region.pivot_table(index="Region", columns="Model", values=metric)
                 if pivot.empty:
                     continue
@@ -2109,7 +2175,7 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
                 plt.close(fig)
 
             # By year: grouped bar for each metric
-            for metric, ylabel in [("MAPE", "Mean Absolute Percentage Error (%)"), ("RMSE", "RMSE (tn/ha)"), ("RRMSE", "RRMSE (%)"), ("R2", "R²")]:
+            for metric, ylabel in [("MAPE", "Mean Absolute Percentage Error (%)"), ("RMSE", f"RMSE ({yield_units})"), ("RRMSE", "RRMSE (%)"), ("R2", "R²")]:
                 if df_year.empty:
                     continue
                 pivot = df_year.pivot_table(index="Harvest Year", columns="Model", values=metric)
@@ -2143,6 +2209,34 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
                                 )
                     ax.set_ylim(0, METRIC_CAP + 8)
                     diag._draw_axis_break(ax, axis="y", position=METRIC_CAP)
+
+                # Per-model mean across years (dashed horizontal line, same
+                # color as bars, numeric value annotated at the right edge).
+                # Mirrors the per-model mean dashed VERTICAL line in the
+                # "by Region" plot above — same statistic (arithmetic mean
+                # of plotted values), different axis. Capping mirrors the
+                # by-Region path: clamp the line to METRIC_CAP on-axis when
+                # do_cap, but annotate the actual mean.
+                x_right = ax.get_xlim()[1]
+                for col, c in zip(pivot.columns, bar_colors):
+                    m_mean = pivot[col].dropna().mean()
+                    if pd.notna(m_mean):
+                        line_y = min(m_mean, METRIC_CAP) if do_cap else m_mean
+                        ax.axhline(line_y, color=c, linestyle="--",
+                                   linewidth=1.2, alpha=0.8)
+                        unit = "%" if metric in ("MAPE", "RRMSE") else ""
+                        ax.annotate(
+                            f"{m_mean:.1f}{unit}",
+                            xy=(x_right, line_y),
+                            xytext=(-3, 0),
+                            textcoords="offset points",
+                            color=c, fontsize=8, ha="right", va="center",
+                            bbox=dict(
+                                boxstyle="round,pad=0.2",
+                                facecolor="white", edgecolor="none",
+                                alpha=0.7,
+                            ),
+                        )
                 ax.set_ylabel(ylabel)
                 ax.set_title(f"{ylabel} by Year — {base_title}", fontweight="bold")
                 ax.legend(title="Model", fontsize=8)
@@ -2237,6 +2331,79 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
             annotate_regions=True,
             use_key=True,
         )
+
+        # ------------------------------------------------------------------
+        # Optional cross-model trigger-evaluation summary (gated).
+        # 2×2 panel: Missed payout % / False payout % / Overall accuracy % /
+        # RMSE (yield_units), one bar per model. Companion CSV saved next
+        # to the PNG. Threshold from [ML] trigger_threshold (default 18.9).
+        # ------------------------------------------------------------------
+        if make_trigger_plot:
+            trig_rows = []
+            for m in all_models_sorted:
+                mdf = model_dfs.get(m)
+                if mdf is None:
+                    continue
+                mdf = mdf.dropna(subset=[obs_col, pred_col])
+                if mdf.empty:
+                    continue
+                obs_low = mdf[obs_col] < trigger_threshold
+                pred_low = mdf[pred_col] < trigger_threshold
+                n = len(mdf)
+                n_low = int(obs_low.sum())
+                n_nolow = n - n_low
+                missed = int((obs_low & ~pred_low).sum())
+                false_pay = int((~obs_low & pred_low).sum())
+                correct_pay = int((obs_low & pred_low).sum())
+                correct_no = int((~obs_low & ~pred_low).sum())
+                rmse = float(np.sqrt(((mdf[pred_col] - mdf[obs_col]) ** 2).mean()))
+                trig_rows.append({
+                    "Model": m,
+                    "Missed payout %": round(100.0 * missed / n_low) if n_low else 0,
+                    "False payout %": round(100.0 * false_pay / n_nolow) if n_nolow else 0,
+                    "Overall accuracy %": round(100.0 * (correct_pay + correct_no) / n),
+                    f"RMSE ({yield_units})": round(rmse, 2),
+                })
+            if trig_rows:
+                df_trig = pd.DataFrame(trig_rows)
+                df_trig.to_csv(
+                    dir_csvs_comp / f"trigger_metrics_{country}_{crop}.csv",
+                    index=False,
+                )
+
+                metric_cols = list(df_trig.columns[1:])  # skip "Model"
+                fig, axes = plt.subplots(2, 2, figsize=(10, 7))
+                bar_colors = [_MODEL_COLORS.get(m, "steelblue")
+                              for m in df_trig["Model"]]
+                display_names = [_display_model_name(m) for m in df_trig["Model"]]
+
+                for ax, mcol in zip(axes.flatten(), metric_cols):
+                    vals = df_trig[mcol].tolist()
+                    ax.bar(display_names, vals, color=bar_colors)
+                    ax.set_title(mcol, fontsize=10, fontweight="bold")
+                    for i, v in enumerate(vals):
+                        ax.text(
+                            i, v, f"{v:g}",
+                            ha="center", va="bottom", fontsize=8,
+                        )
+                    ax.tick_params(axis="x", rotation=20)
+                    if "%" in mcol:
+                        ax.set_ylim(0, max(105, max(vals) * 1.15 if vals else 100))
+                    else:
+                        ax.set_ylim(0, max(vals) * 1.20 if vals else 1)
+                    ax.grid(True, axis="y", linestyle=":", alpha=0.4)
+
+                fig.suptitle(
+                    f"Trigger Metrics — {base_title} "
+                    f"(threshold = {trigger_threshold:g} {yield_units})",
+                    fontsize=11, fontweight="bold",
+                )
+                plt.tight_layout()
+                fig.savefig(
+                    dir_comp / f"trigger_metrics_{country}_{crop}.png",
+                    dpi=200, bbox_inches="tight",
+                )
+                plt.close(fig)
 
 
 def _generate_outlook_map(
@@ -2922,7 +3089,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     name_col="Predicted Yield (tn per ha)",
                     dir_out=dir_model,
                     fname=pred_fname,
-                    label=f"Predicted yield (tn/ha)\n{crop.title()}, {current_year}, {friendly_stage_label(stage_name)}",
+                    label=f"Predicted yield ({parser.get('ML', 'yield_units', fallback='Mg/ha')})\n{crop.title()}, {current_year}, {friendly_stage_label(stage_name)}",
                     vmin=float(df_pred_map["Predicted Yield (tn per ha)"].min()),
                     vmax=float(df_pred_map["Predicted Yield (tn per ha)"].max()),
                     cmap=pal.scientific.sequential.Bamako_20_r,

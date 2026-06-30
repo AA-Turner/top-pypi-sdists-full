@@ -130,7 +130,7 @@ version_toml = [
     "rust_core/Cargo.toml:package.version",
 ]
 branch = "main"
-build_command = "python scripts/stamp_release_assets.py && git add AGENTS.md README.md SKILL.md docs/SESSION_HANDOFF.md docs/CONTINUATION_PLAN.md docs/CONTRACTS.md docs/benchmarks.md docs/gpu_crossover.md docs/PAPER.md && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal && . $HOME/.cargo/env && rustup default stable && cargo generate-lockfile --manifest-path rust_core/Cargo.toml && git add rust_core/Cargo.lock && pip install uv && uv lock --upgrade-package tensor-grep && git add uv.lock && uv build"
+build_command = "python scripts/stamp_release_assets.py && git add AGENTS.md README.md SKILL.md docs/SESSION_HANDOFF.md docs/CONTINUATION_PLAN.md docs/CONTRACTS.md docs/benchmarks.md docs/gpu_crossover.md docs/PAPER.md && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal && . $HOME/.cargo/env && rustup default 1.96.0 && cargo generate-lockfile --manifest-path rust_core/Cargo.toml && git add rust_core/Cargo.lock && pip install uv==0.11.25 && uv lock --upgrade-package tensor-grep && git add uv.lock && uv build"
 upload_to_pypi = false
 upload_to_release = true
 commit_message = "chore(release): v{version} [skip ci]"
@@ -301,9 +301,12 @@ version_variables = [
 
 
 
+
+
+
 [project]
 name = "tensor-grep"
-version = "1.17.9"
+version = "1.17.12"
 description = "High-performance grep-compatible CLI with Rust, GPU, and AST/NLP routing"
 readme = { file = "rust_core/README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"
@@ -324,6 +327,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# NOTE: these `gpu`/`gpu-win` extras are UNPINNED convenience deps and may resolve to a CPU-only
+# or CUDA-mismatched torch. The SUPPORTED GPU runtime path is the managed installer
+# (scripts/install.sh / install.ps1), which deliberately installs pinned CUDA 12.8 wheels.
+# `pip install tensor-grep[gpu]` is best-effort experimental, not the supported managed GPU path.
 gpu = ["cudf-cu12", "kvikio-cu12", "torch>=2.0", "torch_geometric>=2.5.0"]
 gpu-win = ["torch>=2.0", "torch_geometric>=2.5.0"]
 nlp = ["transformers>=4.40", "tritonclient[http]"]

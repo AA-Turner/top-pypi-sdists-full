@@ -292,11 +292,14 @@ class Underscore:
                 if len(args) != 2:
                     raise ValueError("cast should have exactly two args -- the parent, and a pseudoarg for the dtype")
                 parent = cls._from_proto(args[0])
-                if not isinstance(parent, Underscore):
-                    raise ValueError(f"The parent for cast should be an underscore; got {parent}")
                 dest_dummy_scalar = cls._from_proto(args[1])
                 if not isinstance(dest_dummy_scalar, pa.Scalar):
                     raise ValueError(f"The pseudoarg for cast should be a pyarrow scalar; got {dest_dummy_scalar}")
+                # `parent` may be an Underscore (cast of a column/expression) or a raw literal
+                # (e.g. `F.cast("", pa.large_string())`). A cast of a literal is just a typed
+                # literal -- identical to chalkdf's `lit(value, dtype)`, which is itself only
+                # `UnderscoreCast(value, dtype)` -- and both the evaluator and serializer already
+                # handle a literal-valued cast, so wrap either case the same way.
                 return UnderscoreCast(parent, cast(pa.Scalar, dest_dummy_scalar).type)
             policies = (
                 [UnderscoreFunction.policy_from_proto(p) for p in node.call.policies] if node.call.policies else None

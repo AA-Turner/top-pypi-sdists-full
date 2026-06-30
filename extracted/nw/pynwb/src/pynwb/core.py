@@ -60,6 +60,15 @@ class NWBMixin(AbstractContainer):
         if not self._in_construct_mode:
             raise ValueError(error_msg)
 
+    def _warn_on_new_pass_on_construct(self, warn_msg: str):
+        """
+        Issue a warning when a check is violated on instance creation.
+        When reading from a file, do nothing, ensuring that files with
+        deprecated neurodata types can be read without warnings.
+        """
+        if not self._in_construct_mode:
+            warn(warn_msg)
+
     def _get_type_map(self):
         return get_type_map(copy=False)
 
@@ -146,44 +155,14 @@ class ScratchData(NWBData):
 
     @docval({'name': 'name', 'type': str, 'doc': 'the name of this container'},
             {'name': 'data', 'type': ('scalar_data', 'array_data', 'data', Data), 'doc': 'the source of the data'},
-            {'name': 'notes', 'type': str,
-             'doc': 'notes about the data. This argument will be deprecated. Use description instead', 'default': None},
             {'name': 'description', 'type': str, 'doc': 'notes about the data', 'default': None},
             allow_positional=AllowPositional.WARNING,)
     def __init__(self, **kwargs):
-        notes, description = popargs('notes', 'description', kwargs)
+        description = popargs('description', kwargs)
         super().__init__(**kwargs)
-        if notes is not None:
-            self._error_on_new_pass_on_construct(
-                    error_msg=("The `notes` argument of ScratchData.__init__ has been deprecated and "
-                               "will be removed in PyNWB 4.0. Use description instead.")
-                    )
-            if notes is not None and description is not None:
-                raise ValueError('Cannot provide both notes and description to ScratchData.__init__. The description '
-                                 'argument is recommended.')
-            description = notes
         if not description:
             self._error_on_new_pass_on_construct(error_msg='ScratchData.description is required.')
         self.description = description
-
-    @property
-    def notes(self):
-        """
-        Get the notes attribute. Use of ScratchData.notes has been deprecated and will be removed in PyNWB 4.0.
-        """
-        warn(("Use of ScratchData.notes has been deprecated and will be removed in PyNWB 4.0. "
-              "Use ScratchData.description instead."), DeprecationWarning)
-        return self.description
-
-    @notes.setter
-    def notes(self, value):
-        """
-        Set the notes attribute. Use of ScratchData.notes has been deprecated and will be removed in PyNWB 4.0.
-        """
-        self._error_on_new_pass_on_construct(
-                    error_msg=("Use of ScratchData.notes has been deprecated and will be removed in PyNWB 4.0. "
-                               "Use ScratchData.description instead."))
-        self.description = value
 
 
 class NWBTable(Table):

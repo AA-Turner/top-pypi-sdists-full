@@ -2592,7 +2592,7 @@ class SAGEMessageBridge:
         # bouncing, so the user never sees the reply if we trust SMTP alone.
         delivered_locally = False
         if deliver_natively:
-            delivered_locally = self._deliver_native(sender, output, device_type, local_attachments)
+            delivered_locally = self._deliver_native(sender, output, device_type, local_attachments, allow_long=not is_execution)
             if delivered_locally:
                 self._log(f"→ delivered natively to {sender} via {device_type}")
             else:
@@ -2615,7 +2615,7 @@ class SAGEMessageBridge:
         except Exception as exc:
             self._log(f"Failed to send result: {exc}")
 
-    def _deliver_native(self, gateway_email: str, text: str, device_type: str, local_attachments: list[str] = None) -> bool:
+    def _deliver_native(self, gateway_email: str, text: str, device_type: str, local_attachments: list[str] = None, allow_long: bool = False) -> bool:
         """Deliver `text` to the user's phone via iMessage or KDE Connect.
 
         Routing is driven by `device_type`:
@@ -2629,7 +2629,7 @@ class SAGEMessageBridge:
             return False
 
         # Strip down for SMS-friendly length
-        if len(text) > 280:
+        if len(text) > 280 and not allow_long:
             text = self._summarize_for_sms(text, "")
 
         body = f"[SAGE — {self.cfg.computer_name}] {text}"

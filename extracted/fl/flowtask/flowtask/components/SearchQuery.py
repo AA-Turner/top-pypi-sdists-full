@@ -132,6 +132,11 @@ class SearchQuery(SearchInterface, FlowComponent):
                     f"SearchQuery: 'query' is not valid JSON — {exc}"
                 ) from exc
 
+        # Apply masks to a dict query too (when 'query' is given as YAML maps,
+        # not a JSON string), so {start}/{end}-style masks work in both forms.
+        if isinstance(self.query, dict):
+            self.query = self._mask_obj(self.query)
+
         if not self.index:
             raise ComponentError("SearchQuery: 'index' is required.")
         if not self.query:
@@ -139,6 +144,21 @@ class SearchQuery(SearchInterface, FlowComponent):
 
         await self.open_search_client()
         return True
+
+    def _mask_obj(self, obj: Any) -> Any:
+        """Recursively apply ``mask_replacement`` to string values.
+
+        Walks a dict/list and substitutes mask placeholders (e.g. ``{start}``,
+        ``{end}``, ``{today}``) in every string value, so a query written as
+        YAML maps gets the same mask handling as a JSON-string query.
+        """
+        if isinstance(obj, dict):
+            return {k: self._mask_obj(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self._mask_obj(v) for v in obj]
+        if isinstance(obj, str) and "{" in obj:
+            return self.mask_replacement(obj)
+        return obj
 
     async def run(self) -> pandas.DataFrame:
         """Execute the search and return a DataFrame of results.
@@ -162,42 +182,48 @@ class SearchQuery(SearchInterface, FlowComponent):
             self.backend,
         )
         max_docs = int(self.max_documents) if self.max_documents is not None else None
-        hits = await self.paginate(
-            self.index,
-            self.query,
-            mode=self.pagination,
-            size=self.size,
-            scroll=self.scroll,
-            max_documents=max_docs,
-            raw_hits=self.include_metadata,
-        )
-
-        if not hits:
-            self.logger.warning(
-                "SearchQuery: no documents returned from index=%r", self.index
+        try:
+            hits = await self.paginate(
+                self.index,
+                self.query,
+                mode=self.pagination,
+                size=self.size,
+                scroll=self.scroll,
+                max_documents=max_docs,
+                raw_hits=self.include_metadata,
             )
-            df = pandas.DataFrame()
-        elif self.include_metadata:
-            records: list[dict] = []
-            for h in hits:
-                row: dict = {
-                    "_id": h.get("_id", ""),
-                    "_index": h.get("_index", ""),
-                }
-                if h.get("_score") is not None:
-                    row["_score"] = h["_score"]
-                row.update(h.get("_source", {}))
-                records.append(row)
-            df = pandas.DataFrame(records)
-        else:
-            df = pandas.DataFrame(hits)
 
-        self.logger.info(
-            "SearchQuery: result shape %s",
-            df.shape if not df.empty else "(0, 0)",
-        )
-        self._result = df
-        return df
+            if not hits:
+                self.logger.warning(
+                    "SearchQuery: no documents returned from index=%r", self.index
+                )
+                df = pandas.DataFrame()
+            elif self.include_metadata:
+                records: list[dict] = []
+                for h in hits:
+                    row: dict = {
+                        "_id": h.get("_id", ""),
+                        "_index": h.get("_index", ""),
+                    }
+                    if h.get("_score") is not None:
+                        row["_score"] = h["_score"]
+                    row.update(h.get("_source", {}))
+                    records.append(row)
+                df = pandas.DataFrame(records)
+            else:
+                df = pandas.DataFrame(hits)
+
+            self.logger.info(
+                "SearchQuery: result shape %s",
+                df.shape if not df.empty else "(0, 0)",
+            )
+            self._result = df
+            return df
+        finally:
+            # Source component: the connection is no longer needed once all docs
+            # are fetched. Close here so the aiohttp session is always released
+            # (even on error / if the runner does not call close()). Idempotent.
+            await self.close_search_client()
 
     async def close(self) -> None:
         """Close the search client, releasing any scroll or PIT context."""

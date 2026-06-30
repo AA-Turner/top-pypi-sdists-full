@@ -6,7 +6,8 @@ _FALSY_VALUES = {"0", "false", "no", "f", "n"}
 
 def env_var_bool(env_name: str, default: bool = False) -> bool:
     var = os.environ.get(env_name)
-    if var is None:
+    # Treat unset or empty environment variables as missing, and fall back to the default.
+    if var is None or var == "":
         return default
     if var.lower() in _TRUTHY_VALUES:
         return True

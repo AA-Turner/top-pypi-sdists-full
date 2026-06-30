@@ -6,6 +6,12 @@
 #include "healpix-utils.h"
 #include "interpolation.h"
 
+#if __has_include(<stdbit.h>)
+    #include <stdbit.h>
+#elif defined(_MSC_VER)
+    #include <intrin.h>
+#endif
+
 /* FIXME: We need npy_set_floatstatus_invalid(), but unlike most of the Numpy
  * C API it is only available on some platforms if you explicitly link against
  * Numpy, which is not typically done for building C extensions. This bundled
@@ -294,6 +300,30 @@ static void neighbours_loop(
 }
 
 
+static void bit_scan_reverse_loop(
+    char **args, const npy_intp *dimensions, const npy_intp *steps, void *data)
+{
+    npy_intp i, n = dimensions[0];
+
+    for (i = 0; i < n; i ++)
+    {
+        int64_t  in = *(int64_t *) &args[0][i * steps[0]];
+        int    *out =  (int *)     &args[1][i * steps[1]];
+        #if __has_include(<stdbit.h>)
+            *out = 63 - stdc_leading_zeros(in);
+        #elif defined(_MSC_VER)
+            unsigned long index;
+            if (_BitScanReverse64(&index, in))
+                *out = index;
+            else
+                *out = -1;
+        #else
+            *out = 63 - __builtin_clzll(in);
+        #endif
+    }
+}
+
+
 static PyObject *healpix_cone_search(
     PyObject *self, PyObject *args, PyObject *kwargs)
 {
@@ -361,7 +391,8 @@ static PyUFuncGenericFunction
     nested_to_ring_loops                [] = {nested_to_ring_loop},
     ring_to_nested_loops                [] = {ring_to_nested_loop},
     bilinear_interpolation_weights_loops[] = {bilinear_interpolation_weights_loop},
-    neighbours_loops                    [] = {neighbours_loop};
+    neighbours_loops                    [] = {neighbours_loop},
+    bit_scan_reverse_loops              [] = {bit_scan_reverse_loop};
 
 static char
     healpix_to_lonlat_types[] = {
@@ -381,7 +412,8 @@ static char
     neighbours_types[] = {
         NPY_INT64, NPY_INT,
         NPY_INT64, NPY_INT64, NPY_INT64, NPY_INT64,
-        NPY_INT64, NPY_INT64, NPY_INT64, NPY_INT64};
+        NPY_INT64, NPY_INT64, NPY_INT64, NPY_INT64},
+    bit_scan_reverse_types[] = {NPY_INT64, NPY_INT};
 
 
 PyMODINIT_FUNC PyInit__core(void)
@@ -470,6 +502,12 @@ PyMODINIT_FUNC PyInit__core(void)
             neighbours_loops, ring_ufunc_data,
             neighbours_types, 1, 2, 8, PyUFunc_None,
             "neighbours_ring", NULL, 0));
+
+    PyModule_AddObject(
+        module, "bit_scan_reverse", PyUFunc_FromFuncAndData(
+            bit_scan_reverse_loops, no_ufunc_data,
+            bit_scan_reverse_types, 1, 1, 1, PyUFunc_None,
+            "bit_scan_reverse", NULL, 0));
 
     return module;
 }

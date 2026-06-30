@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics
-Version: 8.4.82
+Version: 8.4.83
 Summary: Ultralytics YOLO 🚀 for SOTA object detection, multi-object tracking, instance segmentation, pose estimation, classification, and oriented object detection.
 Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>
@@ -72,12 +72,10 @@ Provides-Extra: export-tensorflow
 Requires-Dist: numpy<2.0.0; python_version < "3.13" and extra == "export-tensorflow"
 Requires-Dist: tensorflow<=2.19.0,>=2.0.0; python_version < "3.13" and extra == "export-tensorflow"
 Requires-Dist: tensorflow>2.19.0; python_version >= "3.13" and extra == "export-tensorflow"
-Requires-Dist: tensorflowjs>=2.0.0; extra == "export-tensorflow"
 Requires-Dist: ydf<0.13.0; (platform_machine != "aarch64" and python_version <= "3.12") and extra == "export-tensorflow"
 Requires-Dist: googleapis-common-protos<1.74.0; python_version <= "3.12" and extra == "export-tensorflow"
 Requires-Dist: tensorstore>=0.1.63; (platform_machine == "aarch64" and python_version >= "3.9") and extra == "export-tensorflow"
 Requires-Dist: h5py!=3.11.0; platform_machine == "aarch64" and extra == "export-tensorflow"
-Requires-Dist: setuptools<=81.0.0; extra == "export-tensorflow"
 Provides-Extra: export-coreml
 Requires-Dist: numpy<=2.3.5; python_version >= "3.13" and extra == "export-coreml"
 Requires-Dist: coremltools>=9.0; (platform_system != "Windows" and python_version <= "3.13") and extra == "export-coreml"
@@ -88,10 +86,15 @@ Requires-Dist: numpy<=2.3.5; extra == "export-executorch"
 Provides-Extra: export-deepx
 Requires-Dist: dx_com; extra == "export-deepx"
 Requires-Dist: numpy<2; extra == "export-deepx"
+Provides-Extra: export-litert
+Requires-Dist: litert-torch>=0.9.0; ((platform_system == "Linux" and platform_machine == "x86_64") or platform_system == "Darwin") and extra == "export-litert"
+Requires-Dist: ai-edge-litert>=2.1.4; ((platform_system == "Linux" and platform_machine == "x86_64") or platform_system == "Darwin") and extra == "export-litert"
+Requires-Dist: ai-edge-quantizer>=0.6.0; ((platform_system == "Linux" and platform_machine == "x86_64") or platform_system == "Darwin") and extra == "export-litert"
 Provides-Extra: export
 Requires-Dist: ultralytics[export-base]; extra == "export"
 Requires-Dist: ultralytics[export-tensorflow]; extra == "export"
 Requires-Dist: ultralytics[export-coreml]; extra == "export"
+Requires-Dist: ultralytics[export-litert]; extra == "export"
 Provides-Extra: solutions
 Requires-Dist: shapely>=2.0.0; extra == "solutions"
 Requires-Dist: lap>=0.5.12; extra == "solutions"
@@ -134,6 +137,11 @@ Dynamic: license-file
     <a href="https://www.kaggle.com/models/ultralytics/yolo26"><img src="https://kaggle.com/static/images/open-in-kaggle.svg" alt="Open Ultralytics In Kaggle"></a>
     <a href="https://mybinder.org/v2/gh/ultralytics/ultralytics/HEAD?labpath=examples%2Ftutorial.ipynb"><img src="https://mybinder.org/badge_logo.svg" alt="Open Ultralytics In Binder"></a>
 </div>
+</div>
+<br>
+
+<div align="center">
+  <a href="https://trendshift.io/repositories/1556?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-1556" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/1556" alt="ultralytics%2Fultralytics | Trendshift" width="250" height="55"/></a>
 </div>
 <br>
 

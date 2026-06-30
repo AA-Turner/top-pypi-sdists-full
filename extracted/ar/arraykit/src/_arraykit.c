@@ -22,6 +22,7 @@ static PyMethodDef arraykit_methods[] =  {
     {"column_1d_filter", column_1d_filter, METH_O, NULL},
     {"row_1d_filter", row_1d_filter, METH_O, NULL},
     {"slice_to_ascending_slice", slice_to_ascending_slice, METH_VARARGS, NULL},
+    {"slice_to_unit", slice_to_unit, METH_O, NULL},
     {"array_deepcopy",
             (PyCFunction)array_deepcopy,
             METH_VARARGS | METH_KEYWORDS,
@@ -62,6 +63,10 @@ static PyMethodDef arraykit_methods[] =  {
     {"dtype_from_element", dtype_from_element, METH_O, NULL},
     {"get_new_indexers_and_screen",
             (PyCFunction)get_new_indexers_and_screen,
+            METH_VARARGS | METH_KEYWORDS,
+            NULL},
+    {"write_array_to_file",
+            (PyCFunction)write_array_to_file,
             METH_VARARGS | METH_KEYWORDS,
             NULL},
     {NULL},
@@ -157,4 +162,3 @@ PyInit__arraykit(void)
 #endif
     return m;
 }
-

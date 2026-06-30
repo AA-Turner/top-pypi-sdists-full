@@ -136,6 +136,24 @@ class TestAsyncEvents:
 
         asyncio.run(_run())
 
+    def test_record_severity_serialized_on_wire(self):
+        """``severity=...`` reaches the JSON body on the async record path too."""
+        posts: list[str] = []
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            posts.append(req.content.decode())
+            return httpx.Response(201, json={"data": _event_resource()})
+
+        async def _run():
+            auth = _AuditAuthClient(base_url=BASE, token="sk_api_test", headers={"Accept": "application/vnd.api+json"})
+            auth.set_httpx_client(httpx.Client(transport=httpx.MockTransport(handler), base_url=BASE))
+            c = AsyncAuditClient(auth_client=auth)
+            await c.events.record("invoice.created", "invoice", "inv-1", severity="WARN", flush=True, flush_timeout=2.0)
+
+        asyncio.run(_run())
+        body = "".join(posts).replace(" ", "")
+        assert '"severity":"WARN"' in body
+
     def test_list_and_get(self):
         async def _run():
             c = _async_client()

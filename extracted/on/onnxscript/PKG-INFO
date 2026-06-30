@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnxscript
-Version: 0.7.0
+Version: 0.7.1
 Summary: Naturally author ONNX functions and models using a subset of Python
 Author-email: Microsoft Corporation <onnx@microsoft.com>
 License: MIT License

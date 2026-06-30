@@ -49,6 +49,29 @@ class TestWorkerVersioningConfigModes:
         monkeypatch.delenv("TEMPORAL_DEPLOYMENT_NAME", raising=False)
         monkeypatch.delenv("TEMPORAL_WORKER_BUILD_ID", raising=False)
 
+    def test_controller_mode_overrides_explicit_auto_register(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Controller mode forces auto_register=False even when explicitly set to True."""
+        for var in (
+            "WORKER_AUTO_REGISTER_AS_CURRENT",
+            "DEPLOYMENT_NAME",
+            "BUILD_ID",
+        ):
+            monkeypatch.delenv(var, raising=False)
+
+        monkeypatch.setenv("WORKER_AUTO_REGISTER_AS_CURRENT", "true")
+        monkeypatch.setenv(
+            "TEMPORAL_DEPLOYMENT_NAME", "workflow-workers/shared-worker-workflows-workers-payment-processor"
+        )
+        monkeypatch.setenv("TEMPORAL_WORKER_BUILD_ID", "build-1234")
+
+        cfg = WorkerVersioningConfig()
+        assert cfg.enabled is True
+        assert cfg.auto_register_as_current is False
+
+        monkeypatch.delenv("WORKER_AUTO_REGISTER_AS_CURRENT", raising=False)
+        monkeypatch.delenv("TEMPORAL_DEPLOYMENT_NAME", raising=False)
+        monkeypatch.delenv("TEMPORAL_WORKER_BUILD_ID", raising=False)
+
     def test_manual_mode_defaults(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Manual mode should infer deployment name and enable auto-registration."""
         for var in (

@@ -31,7 +31,6 @@ from pandas.tests.plotting.common import (
     _unpack_cycler,
     get_y_axis,
 )
-from pandas.util.version import Version
 
 from pandas.tseries.offsets import CustomBusinessDay
 
@@ -292,13 +291,7 @@ class TestSeriesPlots:
     )
     @pytest.mark.parametrize("axis, meth", [("yaxis", "bar"), ("xaxis", "barh")])
     def test_bar_log(self, axis, meth):
-        # matplotlib 3.11 no longer pads log-axis ticks a decade past the
-        #  view limits, so the outermost tick is dropped (GH#65918)
-        expected = (
-            np.array([1e-1, 1e0, 1e1, 1e2, 1e3, 1e4])
-            if Version(mpl.__version__) < Version("3.11.0rc1")
-            else np.array([1e-1, 1e0, 1e1, 1e2, 1e3])
-        )
+        expected = np.array([1e-1, 1e0, 1e1, 1e2, 1e3, 1e4])
 
         _, ax = mpl.pyplot.subplots()
         ax = getattr(Series([200, 500]).plot, meth)(log=True, ax=ax)
@@ -315,13 +308,7 @@ class TestSeriesPlots:
     )
     def test_bar_log_kind_bar(self, axis, kind, res_meth):
         # GH 9905
-        # matplotlib 3.11 no longer pads log-axis ticks a decade past the
-        #  view limits, so the outermost ticks are dropped (GH#65918)
-        expected = (
-            np.array([1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1])
-            if Version(mpl.__version__) < Version("3.11.0rc1")
-            else np.array([1e-4, 1e-3, 1e-2, 1e-1, 1e0])
-        )
+        expected = np.array([1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1])
 
         _, ax = mpl.pyplot.subplots()
         ax = Series([0.1, 0.01, 0.001]).plot(log=True, kind=kind, ax=ax)
@@ -449,11 +436,7 @@ class TestSeriesPlots:
             series.plot.pie, colors=color_args, autopct="%.2f", fontsize=7
         )
         pcts = [f"{s * 100:.2f}" for s in series.values / series.sum()]
-        expected_texts = (
-            list(chain.from_iterable(zip(series.index, pcts, strict=True)))
-            if Version(mpl.__version__) < Version("3.11.0rc1")
-            else list(chain.from_iterable((series.index, pcts)))
-        )
+        expected_texts = list(chain.from_iterable(zip(series.index, pcts, strict=True)))
         _check_text_labels(ax.texts, expected_texts)
         for t in ax.texts:
             assert t.get_fontsize() == 7

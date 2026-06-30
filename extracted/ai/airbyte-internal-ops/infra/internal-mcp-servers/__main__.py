@@ -11,6 +11,8 @@ All internal MCP services share a single domain (`mcp.internal.airbyte.ai`)
 with path-based routing and URL rewriting at the load balancer:
 - `/ops-mcp/*`           -> ops-mcp prod (rewritten to `/*`)
 - `/ops-mcp-preview/*`   -> ops-mcp preview (rewritten to `/*`)
+- `/cloud-mcp/*`         -> cloud-mcp prod (rewritten to `/*`)
+- `/cloud-mcp-preview/*` -> cloud-mcp preview (rewritten to `/*`)
 
 Canonical hosts:
 - `mcp.internal.airbyte.ai` (internal hosted MCP servers)
@@ -54,11 +56,23 @@ OAUTH_ISSUER = (
 DNS_ZONE_PROJECT = config.get("dns-zone-project") or "airbyte-intranet"
 DNS_ZONE_NAME = config.get("dns-zone-name") or "internal-airbyte-ai"
 
+CLOUD_MCP_SERVICE_NAME = "cloud-mcp"
+CLOUD_MCP_PREVIEW_SERVICE_NAME = "cloud-mcp-preview"
+CLOUD_MCP_PATH_PREFIX = "/cloud-mcp"
+CLOUD_MCP_PREVIEW_PATH_PREFIX = "/cloud-mcp-preview"
+CLOUD_MCP_PUBLIC_URL = f"https://{MCP_DOMAIN}{CLOUD_MCP_PATH_PREFIX}"
+CLOUD_MCP_PREVIEW_PUBLIC_URL = f"https://{MCP_DOMAIN}{CLOUD_MCP_PREVIEW_PATH_PREFIX}"
+
 OPS_MCP_OAUTH_CLIENT_SECRET_ID = "ops-mcp-oauth-client-secret"
 
 OPS_MCP_CONTAINER_IMAGE = (
     f"{REGION}-docker.pkg.dev/{PROJECT}/{OPS_MCP_SERVICE_NAME}"
     f"/{OPS_MCP_SERVICE_NAME}:latest"
+)
+
+CLOUD_MCP_CONTAINER_IMAGE = (
+    f"{REGION}-docker.pkg.dev/{PROJECT}/{CLOUD_MCP_SERVICE_NAME}"
+    f"/{CLOUD_MCP_SERVICE_NAME}:latest"
 )
 
 LB_PREFIX = "internal-mcp"
@@ -385,6 +399,16 @@ def define_load_balancer(
             path_prefix=OPS_MCP_PATH_PREFIX,
             backend=mcp_backends[OPS_MCP_SERVICE_NAME],
         ),
+        _mcp_path_route_rule(
+            priority=3,
+            path_prefix=CLOUD_MCP_PREVIEW_PATH_PREFIX,
+            backend=mcp_backends[CLOUD_MCP_PREVIEW_SERVICE_NAME],
+        ),
+        _mcp_path_route_rule(
+            priority=4,
+            path_prefix=CLOUD_MCP_PATH_PREFIX,
+            backend=mcp_backends[CLOUD_MCP_SERVICE_NAME],
+        ),
     ]
 
     url_map = gcp.compute.URLMap(
@@ -512,10 +536,31 @@ def main() -> None:
         oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
         **mcp_common,
     )
+    cloud_mcp = define_mcp_cloud_run_service(
+        service_name=CLOUD_MCP_SERVICE_NAME,
+        description="Airbyte Cloud (Replication) MCP hosted server",
+        container_image=CLOUD_MCP_CONTAINER_IMAGE,
+        public_url=CLOUD_MCP_PUBLIC_URL,
+        oauth_client_id=OPS_MCP_OAUTH_CLIENT_ID,
+        oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
+        min_instances=MIN_INSTANCES,
+        **mcp_common,
+    )
+    cloud_mcp_preview = define_mcp_cloud_run_service(
+        service_name=CLOUD_MCP_PREVIEW_SERVICE_NAME,
+        description="Airbyte Cloud MCP preview server for PR deploys",
+        container_image=CLOUD_MCP_CONTAINER_IMAGE,
+        public_url=CLOUD_MCP_PREVIEW_PUBLIC_URL,
+        oauth_client_id=OPS_MCP_OAUTH_CLIENT_ID,
+        oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
+        **mcp_common,
+    )
 
     mcp_services = {
         OPS_MCP_SERVICE_NAME: ops_mcp,
         OPS_MCP_PREVIEW_SERVICE_NAME: ops_mcp_preview,
+        CLOUD_MCP_SERVICE_NAME: cloud_mcp,
+        CLOUD_MCP_PREVIEW_SERVICE_NAME: cloud_mcp_preview,
     }
 
     armor_policy = define_cloud_armor_policy(api_services)
@@ -536,9 +581,18 @@ def main() -> None:
         "ops_mcp_preview_service_name": ops_mcp_preview.name,
         "ops_mcp_preview_service_url": ops_mcp_preview.uri,
         "ops_mcp_preview_url": OPS_MCP_PREVIEW_PUBLIC_URL,
+        "cloud_mcp_service_name": cloud_mcp.name,
+        "cloud_mcp_service_url": cloud_mcp.uri,
+        "cloud_mcp_url": CLOUD_MCP_PUBLIC_URL,
+        "cloud_mcp_preview_service_name": cloud_mcp_preview.name,
+        "cloud_mcp_preview_service_url": cloud_mcp_preview.uri,
+        "cloud_mcp_preview_url": CLOUD_MCP_PREVIEW_PUBLIC_URL,
         "mcp_domain": MCP_DOMAIN,
         "ops_mcp_artifact_registry": (
             f"{REGION}-docker.pkg.dev/{PROJECT}/{OPS_MCP_SERVICE_NAME}"
+        ),
+        "cloud_mcp_artifact_registry": (
+            f"{REGION}-docker.pkg.dev/{PROJECT}/{CLOUD_MCP_SERVICE_NAME}"
         ),
         "cloud_armor_policy": armor_policy.name,
         **lb_outputs,

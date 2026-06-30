@@ -7,6 +7,7 @@ import json as _json
 import logging
 import os
 import re
+import threading
 import time
 import warnings
 from collections.abc import Callable
@@ -138,6 +139,26 @@ def _get_env_config() -> tuple[str | None, dict[str, str]]:
 # pooling bought nothing across the long idle gaps anyway.
 _NO_KEEPALIVE = httpx.Limits(max_keepalive_connections=0)
 
+# Best-effort startup command that disables the XFCE screensaver on ubuntu
+# desktops. The Xvfb ``xfce4-screensaver`` daemon blanks the framebuffer to
+# solid black after idle and only wakes on an *input* event — never on a
+# screenshot read — so a run that opens with screenshot-only calls gets black
+# frames until the first click/keypress (the classic "first few screenshots are
+# black"). We turn off idle activation, disable X11 blanking, deactivate any
+# active blank, and kill the daemon. Every step is guarded (``|| true``) so the
+# command is a no-op on images without the screensaver; ``timeout 1`` caps the
+# only step that talks over D-Bus in case the session bus is wedged. Ubuntu
+# (firecracker) only — Windows/QEMU has no XFCE screensaver.
+_DISABLE_SCREENSAVER_CMD = (
+    "export DISPLAY=:0; "
+    "xfconf-query -c xfce4-screensaver -p /saver/enabled -n -t bool -s false 2>/dev/null || true; "
+    "xfconf-query -c xfce4-screensaver -p /saver/idle-activation/enabled -n -t bool -s false 2>/dev/null || true; "
+    "xfconf-query -c xfce4-screensaver -p /lock/enabled -n -t bool -s false 2>/dev/null || true; "
+    "xset s off 2>/dev/null || true; xset s noblank 2>/dev/null || true; "
+    "timeout 1 xfce4-screensaver-command --deactivate 2>/dev/null || true; "
+    "pkill -x xfce4-screensaver 2>/dev/null || true"
+)
+
 
 class Client:
     """Sync HTTP client for Desktop Agent API."""
@@ -184,6 +205,8 @@ class Client:
 
         self._timeout = timeout
         self._initialized = False
+        self._screensaver_kicked = False
+        self._screensaver_task: threading.Thread | None = None
         self._client = httpx.Client(
             base_url=self._base_url,
             timeout=timeout,
@@ -199,6 +222,27 @@ class Client:
 
     def _is_qemu(self) -> bool:
         return self._provider == "qemu"
+
+    def _kick_screensaver(self) -> None:
+        """Fire-and-forget, best-effort disable of the desktop screensaver.
+
+        Runs :data:`_DISABLE_SCREENSAVER_CMD` once, at startup, in a daemon
+        thread so it never blocks the caller. Skipped on Windows/QEMU and after
+        the first invocation. Any error is swallowed — this is purely a quality
+        fix for the "first few screenshots are black" symptom, never load-bearing.
+        """
+        if self._screensaver_kicked or self._is_qemu():
+            return
+        self._screensaver_kicked = True
+
+        def _run() -> None:
+            try:
+                self.bash(BashRequest(command=_DISABLE_SCREENSAVER_CMD))
+            except Exception as exc:  # best-effort: never surface to the caller
+                logger.debug("screensaver disable failed (ignored): %s", exc)
+
+        self._screensaver_task = threading.Thread(target=_run, name="ubuntu-vm-disable-screensaver", daemon=True)
+        self._screensaver_task.start()
 
     def _ensure_init(self) -> None:
         """Complete the sims proxy redirect/cookie dance on first use.
@@ -224,6 +268,7 @@ class Client:
         response = self._client.request(method="GET", url="/status")
         if response.status_code not in (301, 302, 307, 308):
             self._initialized = True
+            self._kick_screensaver()
             return
 
         location = response.headers.get("location", "")
@@ -253,6 +298,8 @@ class Client:
             cookies=cookies,
         )
         old_client.close()
+        # Client is now reconfigured/stable — safe to fire the background task.
+        self._kick_screensaver()
 
     @property
     def httpx(self) -> httpx.Client:
@@ -785,6 +832,8 @@ class AsyncClient:
 
         self._timeout = timeout
         self._initialized = False
+        self._screensaver_kicked = False
+        self._screensaver_task: asyncio.Future[None] | None = None
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             timeout=timeout,
@@ -801,6 +850,28 @@ class AsyncClient:
     def _is_qemu(self) -> bool:
         return self._provider == "qemu"
 
+    def _kick_screensaver(self) -> None:
+        """Async version of :meth:`Client._kick_screensaver`.
+
+        Schedules a fire-and-forget task on the running loop (``_ensure_init``
+        is always awaited, so a loop exists). Skipped on Windows/QEMU and after
+        the first invocation; all errors are swallowed.
+        """
+        if self._screensaver_kicked or self._is_qemu():
+            return
+        self._screensaver_kicked = True
+
+        async def _run() -> None:
+            try:
+                await self.bash(BashRequest(command=_DISABLE_SCREENSAVER_CMD))
+            except Exception as exc:  # best-effort: never surface to the caller
+                logger.debug("screensaver disable failed (ignored): %s", exc)
+
+        try:
+            self._screensaver_task = asyncio.ensure_future(_run())
+        except RuntimeError:  # no running loop — nothing to schedule onto
+            logger.debug("no running loop; skipping screensaver disable")
+
     async def _ensure_init(self) -> None:
         """Complete the sims proxy redirect/cookie dance on first use.
 
@@ -812,6 +883,7 @@ class AsyncClient:
         response = await self._client.request(method="GET", url="/status")
         if response.status_code not in (301, 302, 307, 308):
             self._initialized = True
+            self._kick_screensaver()
             return
 
         location = response.headers.get("location", "")
@@ -841,6 +913,8 @@ class AsyncClient:
             cookies=cookies,
         )
         await old_client.aclose()
+        # Client is now reconfigured/stable — safe to fire the background task.
+        self._kick_screensaver()
 
     @property
     def httpx(self) -> httpx.AsyncClient:

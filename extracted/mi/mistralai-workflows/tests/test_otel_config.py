@@ -4,6 +4,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+import structlog
 from pydantic import SecretStr
 
 from mistralai.workflows._version import __version__
@@ -77,8 +78,11 @@ def exporter_calls(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, list[d
     root.handlers[:] = original_handlers
 
 
-def _init_tracing_from_env(monkeypatch: pytest.MonkeyPatch, env: dict[str, str]) -> None:
-    """Drive the full chain: env vars -> AppConfig -> init_tracing -> config_otel -> OTLP exporters."""
+def _init_tracing_from_env(monkeypatch: pytest.MonkeyPatch, env: dict[str, str]) -> list[dict[str, Any]]:
+    """Drive the full chain: env vars -> AppConfig -> init_tracing -> config_otel -> OTLP exporters.
+
+    Returns the structlog events captured during init_tracing so tests can assert on startup logs.
+    """
     from mistralai.workflows.core.config.config import AppConfig
     from mistralai.workflows.core.tracing import init_tracing
 
@@ -102,7 +106,9 @@ def _init_tracing_from_env(monkeypatch: pytest.MonkeyPatch, env: dict[str, str])
     if init_tracing._HAS_AIOHTTP_INSTRUMENTATION:
         monkeypatch.setattr(init_tracing, "AioHttpClientInstrumentor", lambda: MagicMock())
 
-    init_tracing.init_tracing("worker")
+    with structlog.testing.capture_logs() as captured:
+        init_tracing.init_tracing("worker")
+    return captured
 
 
 class TestIndependentExportToggles:
@@ -174,6 +180,57 @@ class TestApiKeyScoping:
         # server URL (shared /telemetry base) and authenticated with the API key.
         assert exporter_calls["metric"][0]["endpoint"].endswith("/telemetry/v1/metrics")
         assert exporter_calls["metric"][0]["headers"] == {"Authorization": "Bearer test-key"}
+
+
+def _telemetry_enabled_signals(captured: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    events = [entry for entry in captured if entry.get("event") == "Telemetry enabled"]
+    assert len(events) == 1, f"expected exactly one 'Telemetry enabled' log, got {len(events)}"
+    event = events[0]
+    return {signal: event[signal] for signal in ("traces", "metrics", "logs")}
+
+
+class TestTelemetryEnabledLog:
+    def test_combined_log_endpoint_is_mistral_url_for_default_endpoint(
+        self, monkeypatch: pytest.MonkeyPatch, exporter_calls: dict[str, list[dict[str, Any]]]
+    ) -> None:
+        signals = _telemetry_enabled_signals(_init_tracing_from_env(monkeypatch, {}))
+
+        for entry in signals.values():
+            assert entry["enabled"] is True
+            assert entry["mode"] == "mistral"
+            assert entry["endpoint"].endswith("/telemetry")
+
+    def test_combined_log_endpoint_is_custom_url_for_overridden_signal(
+        self, monkeypatch: pytest.MonkeyPatch, exporter_calls: dict[str, list[dict[str, Any]]]
+    ) -> None:
+        signals = _telemetry_enabled_signals(
+            _init_tracing_from_env(monkeypatch, {"OTEL_TRACES_ENDPOINT": "http://custom-traces:4318"})
+        )
+
+        assert signals["traces"]["mode"] == "custom"
+        assert signals["traces"]["endpoint"] == "http://custom-traces:4318"
+        assert signals["metrics"]["mode"] == "mistral"
+        assert signals["logs"]["mode"] == "mistral"
+
+    def test_combined_log_marks_disabled_signal_not_enabled(
+        self, monkeypatch: pytest.MonkeyPatch, exporter_calls: dict[str, list[dict[str, Any]]]
+    ) -> None:
+        signals = _telemetry_enabled_signals(
+            _init_tracing_from_env(monkeypatch, {"MISTRAL_WORKFLOWS_OTEL_LOGS_EXPORT": "false"})
+        )
+
+        assert signals["logs"]["enabled"] is False
+        assert signals["traces"]["enabled"] is True
+        assert signals["metrics"]["enabled"] is True
+
+    def test_combined_log_endpoint_is_none_for_local_mode(
+        self, monkeypatch: pytest.MonkeyPatch, exporter_calls: dict[str, list[dict[str, Any]]]
+    ) -> None:
+        signals = _telemetry_enabled_signals(_init_tracing_from_env(monkeypatch, {"OTEL_LOCAL": "true"}))
+
+        assert signals["traces"] == {"mode": "local", "endpoint": None, "enabled": True}
+        assert signals["metrics"] == {"mode": "local", "endpoint": None, "enabled": True}
+        assert signals["logs"] == {"mode": "local", "endpoint": None, "enabled": False}
 
 
 class TestTemporalRuntimeMetricsToggle:

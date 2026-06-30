@@ -21,16 +21,16 @@ from airbyte_ops_mcp.connector_ops.rollouts.models import (
     AutopilotAction,
     AutopilotResult,
     ConnectorRolloutRecord,
+    CustomerTierFilter,
     RolloutFilters,
-    TierFilter,
 )
 
 __all__ = [
     "AutopilotAction",
     "AutopilotResult",
     "ConnectorRolloutRecord",
+    "CustomerTierFilter",
     "RolloutFilters",
-    "TierFilter",
     "run_auto_advance",
     "run_auto_promote",
     "run_auto_rollback_failed",

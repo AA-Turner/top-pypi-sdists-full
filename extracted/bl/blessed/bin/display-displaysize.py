@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 """Display all queryable terminal window size dimensions."""
+# I wrote this while working on kitty/sixel development across terminals, and the theory that the
+# "window decoration" size could be determined by the difference of TIOCGWINSZ and XTWINOPS14H. It's
+# actually a bit true, it can also discover whether scrollbar is enabled, but not very consistently
+# across terminal emulators. That's the point of the script, to show these differences!
+#
 # pylint: disable=protected-access,too-many-locals
 #         access to internal query methods; many dimension variables
 

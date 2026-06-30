@@ -44,7 +44,7 @@ def test_python_generator_on_pipeline_object_happy_path(
     assert destination_file.is_file()
 
     assert destination_file.read_text() == textwrap.dedent(
-        f"""\
+        """\
     import os
     from streamsets.sdk import ControlHub
 
@@ -52,10 +52,10 @@ def test_python_generator_on_pipeline_object_happy_path(
     sch = ControlHub(
         os.getenv("SCH_CREDENTIAL_ID"),
         os.getenv("SCH_TOKEN"),
-        aster_url="{args.aster_url}"
+        aster_url="%(aster_url)s"
     )
 
-    engine = sch.engines.get(id="{sch_authoring_sdc_id}")
+    engine = sch.engines.get(id="%(sch_authoring_sdc_id)s")
     pipeline_builder = sch.get_pipeline_builder(engine_type="COLLECTOR", engine_id=engine.id)
 
     dev_raw_data_source_1 = pipeline_builder.add_stage("Dev Raw Data Source", type="origin")
@@ -64,9 +64,14 @@ def test_python_generator_on_pipeline_object_happy_path(
 
     dev_raw_data_source_1.connect_outputs(stages=[trash_1])
 
-    pipeline = pipeline_builder.build("{sample_dev_to_trash_pipeline.name}")
+    pipeline = pipeline_builder.build("%(pipeline_name)s")
     sch.publish_pipeline(pipeline)
     """
+        % {
+            'aster_url': args.aster_url,
+            'sch_authoring_sdc_id': sch_authoring_sdc_id,
+            'pipeline_name': sample_dev_to_trash_pipeline.name,
+        }
     )
 
 
@@ -84,8 +89,7 @@ def test_python_generator_on_zip_archive_pipeline_happy_path(tmpdir):
     assert destination_file.exists()
     assert destination_file.is_file()
 
-    assert destination_file.read_text() == textwrap.dedent(
-        """\
+    assert destination_file.read_text() == textwrap.dedent("""\
     import os
     from streamsets.sdk import ControlHub
 
@@ -116,5 +120,4 @@ def test_python_generator_on_zip_archive_pipeline_happy_path(tmpdir):
 
     pipeline = pipeline_builder.build("JDBC pipeline created using SDK with stream selector")
     sch.publish_pipeline(pipeline)
-    """
-    )
+    """)

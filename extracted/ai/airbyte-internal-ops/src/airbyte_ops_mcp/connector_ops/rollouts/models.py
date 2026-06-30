@@ -14,18 +14,26 @@ from pydantic import BaseModel, Field
 # ---------------------------------------------------------------------------
 
 
-class TierFilter(BaseModel):
-    """Customer tier filter within rollout filters."""
+class CustomerTierFilter(BaseModel):
+    """A single entry in `customerTierFilters`."""
 
-    tier: str = "TIER_2"
+    name: str = ""
+    value: list[str] = Field(default_factory=list)
+    operator: str = ""
 
     model_config = {"extra": "allow"}
 
 
 class RolloutFilters(BaseModel):
-    """Parsed representation of the `filters` JSON column from `connector_rollout`."""
+    """Parsed representation of the `filters` JSON column from `connector_rollout`.
 
-    tier_filter: TierFilter | None = Field(default=None, alias="tierFilter")
+    The platform stores tier filters as:
+    `{"customerTierFilters": [{"name": "TIER", "value": ["TIER_1"], "operator": "IN"}]}`
+    """
+
+    customer_tier_filters: list[CustomerTierFilter] = Field(
+        default_factory=list, alias="customerTierFilters"
+    )
 
     model_config = {"extra": "allow", "populate_by_name": True}
 
@@ -71,9 +79,19 @@ class ConnectorRolloutRecord(BaseModel):
 
     @property
     def tier(self) -> str:
-        """Extract the current customer tier from the rollout's filters."""
-        if self.filters and self.filters.tier_filter:
-            return self.filters.tier_filter.tier
+        """Extract the current customer tier from the rollout record.
+
+        Resolution order:
+        1. `tag` column (always matches the tier, e.g. `"TIER_1"`).
+        2. `customerTierFilters` in the `filters` JSON column.
+        3. Default `"TIER_2"` (the starting tier for new rollouts).
+        """
+        if self.tag:
+            return self.tag
+        if self.filters and self.filters.customer_tier_filters:
+            for f in self.filters.customer_tier_filters:
+                if f.name == "TIER" and f.value:
+                    return f.value[0]
         return "TIER_2"
 
     @classmethod
@@ -109,6 +127,7 @@ class AutopilotAction:
     action: str
     success: bool
     message: str
+    tier: str = ""
 
 
 @dataclass

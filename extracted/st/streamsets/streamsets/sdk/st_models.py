@@ -122,14 +122,12 @@ class Stage:
         attrs_ = list(sorted(self._attributes.keys()))
         split = int(len(attrs_) / 2)
 
-        self.__class__.__doc__ = textwrap.dedent(
-            '''
+        self.__class__.__doc__ = textwrap.dedent('''
             Stage: {label}
 
             Attributes:
             {attributes}
-            '''
-        ).format(
+            ''').format(
             label=stage['stageName'],
             attributes='\n'.join(
                 '{:<60}{:<60}'.format(first, second) for first, second in zip(attrs_[:split], attrs_[split:])

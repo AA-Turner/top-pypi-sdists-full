@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bumble
-Version: 0.0.230
+Version: 0.0.231
 Summary: Bluetooth Stack for Apps, Emulation, Test and Experimentation
 Author-email: Google <bumble-dev@google.com>
 License-Expression: Apache-2.0
@@ -16,7 +16,7 @@ Requires-Dist: cryptography>=42.0.8; platform_system == "Android"
 Requires-Dist: grpcio>=1.62.1; platform_system != "Emscripten"
 Requires-Dist: humanize>=4.6.0; platform_system != "Emscripten"
 Requires-Dist: libusb1>=2.0.1; platform_system != "Emscripten"
-Requires-Dist: libusb-package==1.0.26.1; platform_system != "Emscripten" and platform_system != "Android"
+Requires-Dist: libusb-package==1.0.26.4; platform_system != "Emscripten" and platform_system != "Android"
 Requires-Dist: platformdirs>=3.10.0; platform_system != "Emscripten"
 Requires-Dist: prompt_toolkit>=3.0.16; platform_system != "Emscripten"
 Requires-Dist: prettytable>=3.6.0; platform_system != "Emscripten"
@@ -30,9 +30,9 @@ Requires-Dist: websockets>=15.0.1; platform_system != "Emscripten"
 Provides-Extra: build
 Requires-Dist: build>=0.7; extra == "build"
 Provides-Extra: test
-Requires-Dist: pytest>=8.2; extra == "test"
-Requires-Dist: pytest-asyncio>=0.23.5; extra == "test"
-Requires-Dist: pytest-html>=3.2.0; extra == "test"
+Requires-Dist: pytest>=9.0; extra == "test"
+Requires-Dist: pytest-asyncio>=1.4; extra == "test"
+Requires-Dist: pytest-html>=4.2; extra == "test"
 Requires-Dist: coverage>=6.4; extra == "test"
 Provides-Extra: development
 Requires-Dist: black~=25.1; extra == "development"

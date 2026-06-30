@@ -2967,7 +2967,7 @@ PermissionGroupType = Literal["all"]
 PhcSupportType = Literal["supported", "unsupported"]
 PlacementGroupStateType = Literal["available", "deleted", "deleting", "pending"]
 PlacementGroupStrategyType = Literal["cluster", "partition", "spread"]
-PlacementStrategyType = Literal["cluster", "partition", "spread"]
+PlacementStrategyType = Literal["cluster", "partition", "precision-time", "spread"]
 PlatformValuesType = Literal["windows"]
 PrefixListStateType = Literal[
     "create-complete",

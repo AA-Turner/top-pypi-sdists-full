@@ -3,7 +3,7 @@ use super::*;
 #[derive(Debug, PartialEq)]
 pub(crate) enum CompileErrorKind<'src> {
   ArgAttributeRequiresOption {
-    keyword: &'static str,
+    key: &'src str,
   },
   ArgumentPatternRegex {
     source: regex::Error,
@@ -20,6 +20,9 @@ pub(crate) enum CompileErrorKind<'src> {
   AttributeKeyMissingValue {
     key: Name<'src>,
   },
+  AttributeKeyTakesNoValue {
+    key: &'src str,
+  },
   AttributePositionalFollowsKeyword,
   BacktickShebang,
   CircularRecipeDependency {
@@ -30,6 +33,7 @@ pub(crate) enum CompileErrorKind<'src> {
     variable: &'src str,
     circle: Vec<&'src str>,
   },
+  ConstEval(ConstEvalError<'src>),
   DependencyArgumentCountMismatch {
     dependency: Namepath<'src>,
     found: usize,
@@ -240,5 +244,4 @@ pub(crate) enum CompileErrorKind<'src> {
   UnterminatedBacktick,
   UnterminatedInterpolation,
   UnterminatedString,
-  VariadicParameterWithOption,
 }

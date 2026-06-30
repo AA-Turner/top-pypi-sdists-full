@@ -131,16 +131,13 @@ class PipelineProcessor(Processor):
     @property
     def script_footer(self) -> str:
         """Return generated script footer."""
-        return textwrap.dedent(
-            f"""\
+        return textwrap.dedent(f"""\
         pipeline = pipeline_builder.build("{self._source_data.pipeline_config["title"]}")
-        sch.publish_pipeline(pipeline)"""
-        )
+        sch.publish_pipeline(pipeline)""")
 
     def run(self) -> Code:
         """Returns object holding generated python script."""
-        content = textwrap.dedent(
-            f"""\
+        content = textwrap.dedent(f"""\
 {self._preamble}
 
 {self.stages_as_str()}
@@ -148,6 +145,5 @@ class PipelineProcessor(Processor):
 {self.stages_connection_as_str()}
 
 {self.script_footer}
-"""
-        )
+""")
         return Code(content)

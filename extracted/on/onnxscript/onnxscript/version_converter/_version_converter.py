@@ -10,10 +10,11 @@ import logging
 from typing import Callable, Sequence, Union
 
 import onnx_ir.convenience as ir_convenience
+import onnx_ir.passes.common as ir_passes_common
 
-import onnxscript.ir._tape as _tape
 import onnxscript.utils.metadata_merger as metadata_merger
 from onnxscript import ir
+from onnxscript._internal.tape_builder import BuilderBase, TapeBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -53,12 +54,12 @@ class Replacement:
     new_nodes: Sequence[ir.Node]
 
 
-# A version-adapter function takes a node, a RewriterContext and returns
+# A version-adapter function takes a node, a VCContext and returns
 # a Replacement for the node or None (if no replacement is needed).
 
-RewriterContext = _tape.Builder
+VCContext = BuilderBase
 ReturnValue = Union[Sequence[ir.Value], ir.Value, None]
-AdapterFunction = Callable[[ir.Node, RewriterContext], ReturnValue]
+AdapterFunction = Callable[[ir.Node, VCContext], ReturnValue]
 
 
 def version_supported(model: ir.Model, target_version: int) -> bool:
@@ -239,6 +240,7 @@ def groupnormalization_20_21(node: ir.Node, op):
 class _VersionConverter:
     def __init__(self, target_version: int):
         self._target_version = target_version
+        self._modified: bool = False
         # Default metadata merger: no merging should be needed; keep the first value.
         self._default_metadata_merger: metadata_merger.MetadataMerger = (
             metadata_merger.MetadataMerger(
@@ -255,7 +257,7 @@ class _VersionConverter:
         )
         if adapter is None:
             return None
-        context = RewriterContext()
+        context = TapeBuilder()
         output = adapter(node, context)
         if output is not None:
             if isinstance(output, ir.Value):
@@ -269,6 +271,7 @@ class _VersionConverter:
         ir_convenience.replace_nodes_and_values(
             root, node, [node], replacement.new_nodes, node.outputs, replacement.new_outputs
         )
+        self._modified = True
 
     def visit_attribute(self, attr: ir.Attr) -> None:
         if attr.is_ref():
@@ -341,6 +344,11 @@ class _VersionConverter:
             self.visit_graph_or_function(function)
             _set_onnx_opset_version(function, self._target_version)
         _set_onnx_opset_version(model, self._target_version)
+        if self._modified:
+            # TapeBuilder may create values with names that clash with existing graph
+            # values when nodes are inserted via replace_nodes_and_values.
+            # NameFixPass ensures all value names are unique before returning.
+            ir_passes_common.NameFixPass()(model)
 
 
 def convert_version(model: ir.Model, target_version: int) -> None:

@@ -60,7 +60,7 @@ struct Parameter<'a> {
   kind: &'a str,
   long: Option<&'a str>,
   name: &'a str,
-  pattern: Option<&'a str>,
+  pattern: Option<Vec<&'a str>>,
   short: Option<char>,
   value: Option<&'a str>,
 }
@@ -753,7 +753,7 @@ fn dotenv_filename_list() {
         foo:
       ",
     )
-    .env("JUST_UNSTABLE", "1")
+    .unstable()
     .args(["--dump", "--dump-format", "json"])
     .stdout_regex(".*");
 
@@ -833,7 +833,7 @@ fn list_concatenation() {
         foo := ['bar'] ++ ['baz']
       ",
     )
-    .env("JUST_UNSTABLE", "1")
+    .unstable()
     .args(["--dump", "--dump-format", "json"])
     .stdout_regex(".*");
 
@@ -1258,7 +1258,7 @@ fn arg_pattern() {
               "help": null,
               "long": null,
               "name": "bar",
-              "pattern": "BAR",
+              "pattern": ["BAR"],
               "short": null,
               "value": null,
             }
@@ -1267,7 +1267,7 @@ fn arg_pattern() {
           parameters: [Parameter {
             kind: "singular",
             name: "bar",
-            pattern: Some("BAR"),
+            pattern: Some(vec!["BAR"]),
             ..default()
           }]
           .into(),

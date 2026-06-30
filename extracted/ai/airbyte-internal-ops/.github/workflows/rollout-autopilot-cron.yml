@@ -2,6 +2,7 @@ name: Rollout AutoPilot Cron
 run-name: "Rollout AutoPilot Cron (every 30 min)"
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: "*/30 * * * *"
 

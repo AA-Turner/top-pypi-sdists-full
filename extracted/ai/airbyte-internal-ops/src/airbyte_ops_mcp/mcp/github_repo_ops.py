@@ -46,6 +46,7 @@ class BumpVersionResponse(BaseModel):
     read_only=True,
     idempotent=True,
     open_world=False,
+    requires_client_filesystem=True,
 )
 def list_connectors_in_repo(
     repo_path: Annotated[str, "Absolute path to the Airbyte monorepo"],
@@ -118,6 +119,7 @@ def list_connectors_in_repo(
     read_only=False,
     idempotent=False,
     open_world=False,
+    requires_client_filesystem=True,
 )
 def bump_version_in_repo(
     repo_path: Annotated[str, "Absolute path to the Airbyte monorepo"],

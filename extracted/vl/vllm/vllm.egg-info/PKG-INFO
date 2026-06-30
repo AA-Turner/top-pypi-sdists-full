@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm
-Version: 0.23.0
+Version: 0.24.0
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -29,30 +29,31 @@ Requires-Dist: requests>=2.26.0
 Requires-Dist: tqdm
 Requires-Dist: blake3
 Requires-Dist: py-cpuinfo
-Requires-Dist: transformers!=5.0.*,!=5.1.*,!=5.2.*,!=5.3.*,!=5.4.*,!=5.5.0,>=4.56.0
+Requires-Dist: transformers>=5.5.3
 Requires-Dist: tokenizers>=0.21.1
 Requires-Dist: safetensors>=0.6.2
 Requires-Dist: protobuf!=6.30.*,!=6.31.*,!=6.32.*,!=6.33.0.*,!=6.33.1.*,!=6.33.2.*,!=6.33.3.*,!=6.33.4.*,>=5.29.6
-Requires-Dist: fastapi[standard]>=0.115.0
+Requires-Dist: fastapi[standard]<0.137.0,>=0.133.0
+Requires-Dist: starlette>=1.0.1
 Requires-Dist: aiohttp>=3.13.3
 Requires-Dist: openai>=2.0.0
 Requires-Dist: pydantic>=2.12.0
 Requires-Dist: prometheus_client>=0.18.0
 Requires-Dist: pillow
-Requires-Dist: prometheus-fastapi-instrumentator>=7.0.0
+Requires-Dist: prometheus-fastapi-instrumentator>=8.0.0
 Requires-Dist: tiktoken>=0.6.0
 Requires-Dist: lm-format-enforcer==0.11.3
 Requires-Dist: llguidance<1.8.0,>=1.7.0; platform_machine == "x86_64" or platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "ppc64le"
 Requires-Dist: outlines_core==0.2.14
 Requires-Dist: diskcache==5.6.3
 Requires-Dist: lark==1.2.2
-Requires-Dist: xgrammar<1.0.0,>=0.2.0; platform_machine == "x86_64" or platform_machine == "aarch64" or platform_machine == "arm64" or platform_machine == "s390x" or platform_machine == "ppc64le"
+Requires-Dist: xgrammar<1.0.0,>=0.2.1; platform_machine == "x86_64" or platform_machine == "aarch64" or platform_machine == "arm64" or platform_machine == "s390x" or platform_machine == "ppc64le"
 Requires-Dist: typing_extensions>=4.10
 Requires-Dist: filelock>=3.16.1
 Requires-Dist: partial-json-parser
+Requires-Dist: jsonschema>=4.23.0
 Requires-Dist: pyzmq>=25.0.0
 Requires-Dist: msgspec
-Requires-Dist: gguf>=0.17.0
 Requires-Dist: mistral_common[image]>=1.11.3
 Requires-Dist: opencv-python-headless>=4.13.0
 Requires-Dist: pyyaml
@@ -90,7 +91,7 @@ Requires-Dist: fastsafetensors>=0.3.2
 Requires-Dist: nvidia-cutlass-dsl[cu13]==4.5.2
 Requires-Dist: quack-kernels>=0.3.3
 Requires-Dist: tokenspeed-mla==0.1.2
-Requires-Dist: humming-kernels[cu13]==0.1.4
+Requires-Dist: humming-kernels[cu13]==0.1.6
 Provides-Extra: zen
 Requires-Dist: zentorch==2.11.0.0; extra == "zen"
 Provides-Extra: bench
@@ -112,11 +113,12 @@ Provides-Extra: audio
 Requires-Dist: av; extra == "audio"
 Requires-Dist: scipy; extra == "audio"
 Requires-Dist: soundfile; extra == "audio"
+Requires-Dist: soxr; extra == "audio"
 Requires-Dist: mistral_common[audio]; extra == "audio"
 Provides-Extra: video
 Provides-Extra: flashinfer
 Provides-Extra: helion
-Requires-Dist: helion==1.0.0; extra == "helion"
+Requires-Dist: helion==1.1.0; extra == "helion"
 Provides-Extra: grpc
 Requires-Dist: smg-grpc-servicer[vllm]>=0.5.2; extra == "grpc"
 Provides-Extra: otel
@@ -124,6 +126,8 @@ Requires-Dist: opentelemetry-sdk>=1.26.0; extra == "otel"
 Requires-Dist: opentelemetry-api>=1.26.0; extra == "otel"
 Requires-Dist: opentelemetry-exporter-otlp>=1.26.0; extra == "otel"
 Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.1; extra == "otel"
+Provides-Extra: extra-quant
+Requires-Dist: vllm-gguf-plugin>=0.0.2; extra == "extra-quant"
 Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist

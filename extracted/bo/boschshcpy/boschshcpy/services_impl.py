@@ -417,8 +417,10 @@ class ValveTappetService(SHCDeviceService):
         UNKNOWN = "UNKNOWN"
 
     @property
-    def position(self) -> int:
-        return int(self.state.get("position", 0))
+    def position(self) -> float:
+        # Thermostat II reports the valve tappet position as a JSON number
+        # (OpenAPI Thermostat-II position = number); int() truncated it.
+        return float(self.state.get("position", 0.0))
 
     @property
     def value(self) -> State:
@@ -1410,8 +1412,11 @@ class AirQualityLevelService(SHCDeviceService):
         return str(self.state.get("description", ""))
 
     @property
-    def temperature(self) -> int:
-        return int(self.state["temperature"])
+    def temperature(self) -> float:
+        # Bosch reports temperature as a JSON number with one decimal
+        # (OpenAPI: AirQualityLevelServiceStates.temperature = number).
+        # int() truncated it to whole degrees -> stepwise jumps (#352).
+        return float(self.state["temperature"])
 
     @property
     def temperatureRating(self) -> RatingState:
@@ -1421,8 +1426,11 @@ class AirQualityLevelService(SHCDeviceService):
             return self.RatingState.UNKNOWN
 
     @property
-    def humidity(self) -> int:
-        return int(self.state.get("humidity", 0))
+    def humidity(self) -> float:
+        # OpenAPI AirQualityLevelServiceStates.humidity = number. int()
+        # truncated the decimal (same class of bug as temperature, #352)
+        # and was inconsistent with HumidityLevelService, which floats.
+        return float(self.state.get("humidity", 0.0))
 
     @property
     def humidityRating(self) -> RatingState:
@@ -1432,8 +1440,9 @@ class AirQualityLevelService(SHCDeviceService):
             return self.RatingState.UNKNOWN
 
     @property
-    def purity(self) -> int:
-        return int(self.state["purity"])
+    def purity(self) -> float:
+        # OpenAPI AirQualityLevelServiceStates.purity = number; int() truncated it.
+        return float(self.state["purity"])
 
     @property
     def purityRating(self) -> RatingState:

@@ -30,6 +30,7 @@ from __future__ import annotations
 import os
 import sqlite3
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from bty.web._releases import DEFAULT_NETBOOT_REPO, ENV_RELEASE_REPO
 
@@ -46,20 +47,22 @@ DEFAULT_TAG = "latest"
 
 # Default URL the "Fetch catalog" button pulls bytes from.
 #
-# Pinned to a specific nosi release: the URL carries an explicit
-# ISO-week tag rather than ``/latest/``. The bty version this
-# default ships with permanently encodes which catalog week it
-# was built against, so two operators running the same bty
-# version get byte-identical catalog content. Upgrading bty (or
-# editing the URL in Settings) is the only way to roll the
-# catalog forward; ``/latest/`` would silently roll under the
-# operator's feet, which we no longer do for the default.
+# Points at nosi's ``/releases/latest/`` so a fresh ``bty-lab init``
+# picks up whatever nosi release is current at fetch time, instead
+# of an ISO-week tag baked into the bty version that drifts the
+# moment a new bty release isn't cut.
 #
-# Bump this URL whenever the bty version bumps. The pinned week
-# is chosen at bty release time (typically the current
-# ``date -u +'%G.W%V'``); the nosi release for that week is what
-# the bty release was tested against.
-DEFAULT_CATALOG_URL = "https://github.com/safl/nosi/releases/download/2026.W25/catalog.toml"
+# Byte-stability for production -- "two operators on the same bty
+# version see the same catalog content" -- is now provided by
+# withcache (since v0.59.0). Once an operator's withcache has the
+# catalog's referenced images cached, evicting cache entries is
+# how they choose to roll forward; until they do, every fetch
+# resolves to the same cached blob regardless of what ``/latest/``
+# rolled to upstream. Operators who want a hard pin (truly
+# reproducible across cache evictions, or for production deploys
+# where rolling under the operator's feet would surprise) paste a
+# week-tagged URL into Settings -> Catalog.
+DEFAULT_CATALOG_URL = "https://github.com/safl/nosi/releases/latest/download/catalog.toml"
 
 # Optional withcache cache-host. When set, bty prefers it as the image
 # *source* for artifacts it already holds (else serves the artifact as
@@ -67,6 +70,34 @@ DEFAULT_CATALOG_URL = "https://github.com/safl/nosi/releases/download/2026.W25/c
 # the systemd unit ($BTY_WITHCACHE_URL) without a DB write.
 KEY_WITHCACHE_URL = "withcache.url"
 ENV_WITHCACHE_URL = "BTY_WITHCACHE_URL"
+
+# Optional nbdmux daemon. When set, bty's ``boot_mode=ramboot`` uses
+# it as the NBD-export multiplexer that serves catalog images over
+# the network for in-place ramboot. The value is the HTTP control
+# plane URL (e.g. ``http://nbdmux:4040``); bty derives the NBD
+# endpoint from the same host on port 10809. Resolves override ->
+# env -> unset, same shape as ``KEY_WITHCACHE_URL``.
+KEY_NBDMUX_URL = "nbdmux.url"
+ENV_NBDMUX_URL = "BTY_NBDMUX_URL"
+
+# Default tmpfs size for the in-target ramboot overlay. Operators
+# override per-bind from the machine-edit form. Value is a string
+# accepted by Linux's ``mount -t tmpfs -o size=...``. Conservative
+# default keeps a CI / preview workload from filling host RAM by
+# accident; long-running boots may need a bigger value.
+KEY_RAMBOOT_OVERLAY_SIZE = "ramboot.overlay_size"
+ENV_RAMBOOT_OVERLAY_SIZE = "BTY_RAMBOOT_OVERLAY_SIZE"
+DEFAULT_RAMBOOT_OVERLAY_SIZE = "10G"
+
+# Display timezone for ALL operator-facing timestamps rendered by the
+# bty-web UI. bty stores timestamps as UTC; the renderer normalises to
+# the configured zone before formatting. Resolves override -> env ->
+# UTC. The override is an IANA zone name (``Europe/Copenhagen``,
+# ``America/New_York``, ``UTC``); an invalid name raises
+# :class:`SettingValueError` at resolve time and the Settings form
+# rejects it before persisting.
+KEY_DISPLAY_TZ = "display.timezone"
+ENV_DISPLAY_TZ = "BTY_DISPLAY_TZ"
 
 # Scheduled-backup knobs. The Settings page exposes ``enabled`` +
 # ``cadence`` + ``retention``; the scheduler loop reads them on each
@@ -143,6 +174,30 @@ def resolve_netboot_tag(conn: sqlite3.Connection) -> str:
     return get(conn, KEY_NETBOOT_TAG) or DEFAULT_TAG
 
 
+def resolve_display_timezone(conn: sqlite3.Connection) -> ZoneInfo:
+    """The effective timezone used to render operator-facing timestamps
+    in the bty-web UI: override -> ``$BTY_DISPLAY_TZ`` -> UTC.
+
+    The override is an IANA zone name. The Settings form validates
+    before persisting (via :class:`ZoneInfo`), so a bad value here
+    means an out-of-band write to state.db or a stale row from an
+    older schema. Pre-1.0 wants a loud failure on that, not a silent
+    UTC fallback that hides the divergence; this raises
+    :class:`SettingValueError` so the renderer surfaces the bug
+    to the operator.
+    """
+    raw = get(conn, KEY_DISPLAY_TZ) or (os.environ.get(ENV_DISPLAY_TZ) or "").strip()
+    if not raw:
+        return ZoneInfo("UTC")
+    try:
+        return ZoneInfo(raw)
+    except ZoneInfoNotFoundError as exc:
+        raise SettingValueError(
+            f"{KEY_DISPLAY_TZ}={raw!r} is not a known IANA timezone "
+            f"(expected e.g. 'UTC', 'Europe/Copenhagen', 'America/New_York')"
+        ) from exc
+
+
 def resolve_withcache_url(conn: sqlite3.Connection) -> str | None:
     """The withcache cache-host base URL, or ``None`` if unconfigured.
 
@@ -171,6 +226,56 @@ def resolve_withcache_url(conn: sqlite3.Connection) -> str | None:
     if configured:
         return configured
     return (os.environ.get(ENV_WITHCACHE_URL) or "").strip() or None
+
+
+def resolve_nbdmux_url(conn: sqlite3.Connection) -> str | None:
+    """The nbdmux daemon's HTTP control plane base URL, or ``None``
+    if unconfigured. Same resolution shape as
+    :func:`resolve_withcache_url`: override (Settings -> Bytes path)
+    wins, then ``[nbdmux] url`` from ``bty.toml``, then
+    ``$BTY_NBDMUX_URL`` env, else ``None`` (ramboot is unavailable).
+
+    Returning ``None`` is not an error; it means an operator who
+    binds ``boot_mode=ramboot`` will see a clear "nbdmux not
+    configured" rejection from the form rather than a half-working
+    flow that fails at boot time.
+    """
+    override = get(conn, KEY_NBDMUX_URL)
+    if override:
+        return override
+    try:
+        from bty.web._config import cfg as _cfg
+
+        configured = (_cfg().nbdmux.url or "").strip()
+    except (RuntimeError, AttributeError):
+        # AttributeError covers older bty.toml configs that predate
+        # the [nbdmux] section: cfg().nbdmux is missing entirely.
+        # Fall through to env / unset rather than raising.
+        configured = ""
+    if configured:
+        return configured
+    return (os.environ.get(ENV_NBDMUX_URL) or "").strip() or None
+
+
+def resolve_ramboot_overlay_size(conn: sqlite3.Connection) -> str:
+    """The default tmpfs size for the ramboot overlay
+    (``size=<value>`` on the mount command, units mount understands:
+    ``10G``, ``8192M``, etc.). Resolves override -> env ->
+    :data:`DEFAULT_RAMBOOT_OVERLAY_SIZE`.
+
+    The mount layer validates the units at boot time; this resolver
+    just round-trips the string. A bad value surfaces in the
+    initramfs panic message rather than at bty-web render time, so
+    operators see "tmpfs failed: invalid size" on the serial console
+    rather than a Settings-form rejection. Acceptable since
+    overlay size is a small, well-trodden setting and Linux's
+    error message is descriptive.
+    """
+    raw = (
+        get(conn, KEY_RAMBOOT_OVERLAY_SIZE)
+        or (os.environ.get(ENV_RAMBOOT_OVERLAY_SIZE) or "").strip()
+    )
+    return raw or DEFAULT_RAMBOOT_OVERLAY_SIZE
 
 
 # ----- Backup schedule resolvers ----------------------------------------

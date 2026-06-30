@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-documentcloud
-Version: 4.7.0
+Version: 4.8.1
 Summary: A simple Python wrapper for the DocumentCloud API
 Home-page: https://github.com/muckrock/python-documentcloud
 Author: Mitchell Kotler

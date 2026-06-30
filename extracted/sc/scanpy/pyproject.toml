@@ -56,8 +56,9 @@ dependencies = [
     "fast-array-utils[accel,sparse]>=1.4",
     "h5py>=3.11",
     "joblib",
-    "legacy-api-wrap>=1.5",                     # for positional API deprecations
-    "matplotlib>=3.9",
+    "legacy-api-wrap>=1.5",                            # for positional API deprecations
+    # skip 3.11.0 series for now: https://github.com/matplotlib/matplotlib/issues/31575
+    "matplotlib>=3.10,!=3.11.0rc1,!=3.11.0rc2,!=3.11",
     "natsort",
     "networkx>=2.8.8",
     "numba>=0.60",
@@ -68,6 +69,7 @@ dependencies = [
     "pynndescent>=0.5.13",
     "scikit-learn>=1.6",
     "scipy>=1.13",
+    "scverse-misc>=0.0.6",
     "seaborn>=0.13.2",
     "session-info2",
     "statsmodels>=0.14.5",
@@ -118,7 +120,7 @@ test = [
 ]
 doc = [
     "ipython>=7.20",                        # for nbsphinx code highlighting
-    "myst-nb>=1",
+    "myst-nb>=1.4",
     "myst-parser>=2",
     "nbsphinx>=0.9",
     "sam-algorithm",
@@ -229,6 +231,7 @@ lint.pylint.max-positional-args = 5
 "scipy.sparse.sparray".msg = "Use _compat.SpBase instead"
 "scipy.sparse.spmatrix".msg = "Use _compat.SpBase instead"
 "warnings.warn".msg = "Use `scanpy._compat.warn` instead"
+"warnings.deprecated".msg = "Use `scverse_misc.deprecated` instead"
 
 [tool.pyproject-fmt]
 indent = 4
@@ -259,8 +262,11 @@ filterwarnings = [
     "error",
     # Umap warns when tensorflow isn’t installed.
     "ignore::ImportWarning:umap",
+    # matplotlib<3.10.7 uses old pyparsing APIs
+    "ignore::pyparsing.warnings.PyparsingDeprecationWarning",
     # seaborn≤0.13.2 causes some matplotlib warnings
     "ignore::PendingDeprecationWarning:seaborn",
+    "ignore:vert.*bool was deprecated:matplotlib.MatplotlibDeprecationWarning:seaborn",
     # matplotlib<3.10.4 causes a Pillow warning
     "ignore:.*Pillow:DeprecationWarning",
     # networkx 2.x warns about scipy.sparse changes
@@ -273,9 +279,7 @@ filterwarnings = [
     "ignore:FNV hashing is not implemented in Numba.*:UserWarning",
     # we want to see and eventually fix these
     "default::numba.core.errors.NumbaPerformanceWarning",
-    "default:.*TSNE.*random.*to.*pca:FutureWarning",                       # we should set init=obsm["X_pca"] or so
-    # matplotlib <3.11 uses old pyparsing APIs
-    "ignore::pyparsing.warnings.PyparsingDeprecationWarning",
+    "default:.*TSNE.*random.*to.*pca:FutureWarning",                                    # we should set init=obsm["X_pca"] or so
     # igraph vs leidenalg warning
     "ignore:The `igraph` implementation of leiden clustering:UserWarning",
     # everybody uses this zarr 3 feature, including us, XArray, lots of data out there …

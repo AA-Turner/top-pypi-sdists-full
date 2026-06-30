@@ -1,14 +1,14 @@
 Metadata-Version: 2.1
 Name: langchain-voyageai
-Version: 0.3.3
+Version: 0.4.0
 Summary: An integration package connecting VoyageAI and LangChain
 License: MIT
 Project-URL: Source Code, https://github.com/langchain-ai/langchain/tree/master/libs/partners/voyageai
 Project-URL: Release Notes, https://github.com/langchain-ai/langchain/releases?q=tag%3A%22langchain-voyageai%3D%3D0%22&expanded=true
 Project-URL: repository, https://github.com/langchain-ai/langchain
-Requires-Python: <=3.13,>=3.10
+Requires-Python: <3.15,>=3.10
 Requires-Dist: langchain-core>=1.0.0
-Requires-Dist: voyageai<1,>=0.3.7
+Requires-Dist: voyageai<1,>=0.4.1
 Requires-Dist: pydantic<3,>=2
 Description-Content-Type: text/markdown
 
@@ -54,6 +54,25 @@ All voyage-4 family models support flexible output dimensions (256, 512, 1024, 2
 ```python
 embeddings = VoyageAIEmbeddings(
     model="voyage-4",
+    output_dimension=512  # Choose from: 256, 512, 1024, 2048
+)
+```
+
+### Contextualized Chunk Embeddings
+
+`voyage-context-4` produces contextualized chunk embeddings, where each chunk is
+embedded in the context of the other chunks from the same document:
+
+```python
+# voyage-context-4: contextualized chunk embeddings for document-aware retrieval
+embeddings = VoyageAIEmbeddings(model="voyage-context-4")
+```
+
+It also supports flexible output dimensions (256, 512, 1024, 2048):
+
+```python
+embeddings = VoyageAIEmbeddings(
+    model="voyage-context-4",
     output_dimension=512  # Choose from: 256, 512, 1024, 2048
 )
 ```

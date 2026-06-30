@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: ignore-python
-Version: 0.3.3
+Version: 0.4.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 License-File: LICENSE.txt
 Summary: Python bindings for the Rust crate ignore
 Keywords: python,gitignore,search,rust,extension,module,filesystem,recursively-search,fd,ripgrep,ignore
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: documentation, https://borsattoz.github.io/ignore-python
 Project-URL: repository, https://github.com/borsattoz/ignore-python

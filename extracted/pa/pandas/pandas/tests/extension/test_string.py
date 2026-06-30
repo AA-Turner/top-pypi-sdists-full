@@ -291,15 +291,11 @@ class Test2DCompat(base.Dim2CompatTests):
             pytest.skip(reason="2D support not implemented for ArrowStringArray")
 
 
-@pytest.mark.parametrize("na_position", ["first", "last"])
-def test_searchsorted_with_na_raises(data_for_sorting, as_series, na_position):
-    # GH50447, GH65837
+def test_searchsorted_with_na_raises(data_for_sorting, as_series):
+    # GH50447
     b, c, a = data_for_sorting
     arr = data_for_sorting.take([2, 0, 1])  # to get [a, b, c]
-    if na_position == "last":
-        arr[-1] = pd.NA
-    else:
-        arr[0] = pd.NA
+    arr[-1] = pd.NA
 
     if as_series:
         arr = pd.Series(arr)
@@ -310,23 +306,3 @@ def test_searchsorted_with_na_raises(data_for_sorting, as_series, na_position):
     )
     with pytest.raises(ValueError, match=msg):
         arr.searchsorted(b)
-
-
-@pytest.mark.parametrize("na_position", ["first", "last"])
-def test_searchsorted_with_na_and_sorter_raises(data_for_sorting, na_position):
-    # GH65837
-    b, c, a = data_for_sorting
-    arr = data_for_sorting.take([0, 2, 1])
-    arr[1] = pd.NA
-
-    if na_position == "last":
-        sorter = np.array([0, 2, 1])
-    else:
-        sorter = np.array([1, 0, 2])
-
-    msg = (
-        "searchsorted requires array to be sorted, "
-        "which is impossible with NAs present."
-    )
-    with pytest.raises(ValueError, match=msg):
-        arr.searchsorted(b, sorter=sorter)

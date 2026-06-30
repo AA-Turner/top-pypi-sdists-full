@@ -19,9 +19,9 @@ use icechunk::{
     refs::{RefData, RefErrorKind},
     repository::{RepositoryError, RepositoryErrorKind},
     storage::{
-        self, ConcurrencySettings, ETag, Generation, StorageErrorKind, StorageResult,
-        VersionInfo, mk_client, new_http_storage, new_in_memory_storage,
-        new_redirect_storage, new_s3_storage,
+        self, ConcurrencySettings, ETag, Generation, RepositoryCreation, S3Storage,
+        StorageErrorKind, StorageResult, VersionInfo, mk_client, new_http_storage,
+        new_in_memory_storage, new_redirect_storage, new_s3_storage, s3_storage,
     },
 };
 use icechunk_arrow_object_store::object_store::azure::AzureConfigKey;
@@ -66,6 +66,7 @@ async fn mk_s3_storage(
             session_token: None,
             expires_after: None,
         })),
+        None,
     )
     .expect("Creating minio storage failed");
 
@@ -119,6 +120,30 @@ async fn mk_azure_blob_storage(
     Ok(storage)
 }
 
+/// We use `MinIO` in addition to our main `RustFS` because it's a
+/// *normalizing* store: it maps leading-slash keys `"/x"` to `"x"`,
+/// unlike rustfs which rejects them
+async fn mk_minio_storage(prefix: &str) -> StorageResult<Arc<dyn Storage + Send + Sync>> {
+    let options = S3Options::default()
+        .with_region("us-east-1")
+        .with_endpoint_url("http://localhost:4202")
+        .with_allow_http(true)
+        .with_force_path_style(true);
+    let credentials = S3Credentials::Static(S3StaticCredentials {
+        access_key_id: "minioadmin".into(),
+        secret_access_key: "minioadmin".into(),
+        session_token: None,
+        expires_after: None,
+    });
+    new_s3_storage(
+        options,
+        "testbucket".to_string(),
+        Some(prefix.to_string()),
+        Some(credentials),
+        None,
+    )
+}
+
 #[expect(clippy::expect_used)]
 async fn with_storage<F, Fut>(
     permission: Permission,
@@ -155,6 +180,11 @@ where
         format!("{}/", common::get_random_prefix("with_storage")).as_str(),
     )
     .await?;
+    let s6 = mk_minio_storage(common::get_random_prefix("with_storage").as_str()).await?;
+    let s6slash = mk_minio_storage(
+        format!("{}/", common::get_random_prefix("with_storage")).as_str(),
+    )
+    .await?;
     let dir = tempdir().expect("cannot create temp dir");
     let s5 = new_local_filesystem_storage(dir.path())
         .await
@@ -169,6 +199,8 @@ where
         ("s3_object_store_slash", s3slash),
         ("azure_blob", s4),
         ("azure_blob_slash", s4slash),
+        ("minio", s6),
+        ("minio_slash", s6slash),
     ];
 
     if let Ok(e) = env::var("AWS_BUCKET")
@@ -221,7 +253,7 @@ async fn async_read_to_bytes(
 }
 
 #[tokio_test]
-pub async fn test_object_write_read() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_object_write_read() -> Result<(), Box<dyn std::error::Error>> {
     with_storage(Permission::Modify, |_, storage| async move {
         let storage_settings = storage.default_settings().await?;
         let id = SnapshotId::random();
@@ -277,7 +309,7 @@ pub async fn test_object_write_read() -> Result<(), Box<dyn std::error::Error>> 
 
 #[tokio_test]
 #[apply(spec_version_cases)]
-pub async fn test_tag_write_get(
+async fn test_tag_write_get(
     #[case] spec_version: SpecVersionBin,
 ) -> Result<(), Box<dyn std::error::Error>> {
     with_storage(Permission::Modify, |_, storage| async move {
@@ -300,7 +332,7 @@ pub async fn test_tag_write_get(
 
 #[tokio_test]
 #[apply(spec_version_cases)]
-pub async fn test_fetch_non_existing_tag(
+async fn test_fetch_non_existing_tag(
     #[case] spec_version: SpecVersionBin,
 ) -> Result<(), Box<dyn std::error::Error>> {
     with_storage(Permission::Modify, |_, storage| async move {
@@ -323,7 +355,7 @@ pub async fn test_fetch_non_existing_tag(
 
 #[tokio_test]
 #[apply(spec_version_cases)]
-pub async fn test_create_existing_tag(
+async fn test_create_existing_tag(
     #[case] spec_version: SpecVersionBin,
 ) -> Result<(), Box<dyn std::error::Error>> {
     with_storage(Permission::Modify, |_, storage| async move {
@@ -344,7 +376,7 @@ pub async fn test_create_existing_tag(
 }
 
 #[tokio_test]
-pub async fn check_clean_repo() -> Result<(), Box<dyn std::error::Error>> {
+async fn check_clean_repo() -> Result<(), Box<dyn std::error::Error>> {
     with_storage(Permission::Modify, |_, storage| async move {
         let _repo = Repository::create(
             None,
@@ -387,8 +419,102 @@ pub async fn check_clean_repo() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Creating a repository at an empty prefix (the bucket/container root) is refused on
+/// every cloud object-store backend — native S3 and the `object_store`-based S3,
+/// Azure, and GCS — but allowed on in-memory and local-filesystem storage, and via
+/// the test-only escape hatch. The gate runs before any network I/O, so this needs
+/// no live servers (constructing each backend is lazy and does not connect).
 #[tokio_test]
-pub async fn test_list_objects() -> Result<(), Box<dyn std::error::Error>> {
+async fn create_refuses_empty_prefix_on_object_store()
+-> Result<(), Box<dyn std::error::Error>> {
+    fn s3_creds() -> S3Credentials {
+        S3Credentials::Static(S3StaticCredentials {
+            access_key_id: "key".into(),
+            secret_access_key: "secret".into(),
+            session_token: None,
+            expires_after: None,
+        })
+    }
+    fn native_s3(prefix: &str) -> StorageResult<S3Storage> {
+        s3_storage(
+            S3Options::default().with_region("us-east-1"),
+            "testbucket".to_string(),
+            Some(prefix.to_string()),
+            Some(s3_creds()),
+            None,
+        )
+    }
+
+    // Every create-capable cloud object-store backend, addressed at the bucket /
+    // container root. Both `can_create_repository` and the `Repository::create` gate
+    // run before any I/O, so none of these need a live server.
+    let refused: Vec<(&str, Arc<dyn Storage + Send + Sync>)> = vec![
+        ("native_s3", Arc::new(native_s3("")?)),
+        ("object_store_s3", mk_s3_object_store_storage("", &Permission::Modify).await?),
+        ("object_store_azure", mk_azure_blob_storage("").await?),
+        (
+            "object_store_gcs",
+            Arc::new(ObjectStorage::new_gcs(
+                "testbucket".to_string(),
+                Some(String::new()),
+                None,
+                None,
+            )?),
+        ),
+    ];
+    for (name, storage) in refused {
+        assert_eq!(
+            storage.can_create_repository().await?,
+            RepositoryCreation::RefusedEmptyPrefix,
+            "{name}: empty-prefix creation should be refused at the storage level",
+        );
+        assert!(
+            matches!(
+                Repository::create(None, storage, Default::default(), None, true).await,
+                Err(ICError { kind: RepositoryErrorKind::EmptyPrefixCreation, .. })
+            ),
+            "{name}: Repository::create should fail with EmptyPrefixCreation",
+        );
+    }
+
+    // Allowed: a non-empty prefix, the escape hatch (on both the native and the
+    // object_store backends), and the non-cloud backends even at an empty prefix.
+    let dir = tempdir()?;
+    let allowed: Vec<(&str, Arc<dyn Storage + Send + Sync>)> = vec![
+        ("native_s3_nonempty", Arc::new(native_s3("some/prefix")?)),
+        (
+            "native_s3_empty_with_hatch",
+            Arc::new(native_s3("")?.unsafe_allow_empty_prefix_creation()),
+        ),
+        (
+            "object_store_s3_empty_with_hatch",
+            Arc::new(
+                ObjectStorage::new_s3(
+                    "testbucket".to_string(),
+                    Some(String::new()),
+                    Some(s3_creds()),
+                    Some(S3Options::default().with_region("us-east-1")),
+                )
+                .await?
+                .unsafe_allow_empty_prefix_creation(),
+            ),
+        ),
+        ("in_memory", new_in_memory_storage().await?),
+        ("local_filesystem", new_local_filesystem_storage(dir.path()).await?),
+    ];
+    for (name, storage) in allowed {
+        assert_eq!(
+            storage.can_create_repository().await?,
+            RepositoryCreation::Allowed,
+            "{name}: creation should be allowed",
+        );
+    }
+
+    Ok(())
+}
+
+#[tokio_test]
+async fn test_list_objects() -> Result<(), Box<dyn std::error::Error>> {
     with_storage(Permission::Modify, |_, storage| async move {
         let settings = storage.default_settings().await?;
         storage
@@ -488,7 +614,7 @@ pub async fn test_list_objects() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[tokio_test]
-pub async fn test_delete_objects() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_delete_objects() -> Result<(), Box<dyn std::error::Error>> {
     with_storage(Permission::Modify, |_, storage| async move {
         let settings = storage.default_settings().await?;
         storage
@@ -590,7 +716,7 @@ pub async fn test_delete_objects() -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio_test]
 #[apply(spec_version_cases)]
-pub async fn test_fetch_non_existing_branch(
+async fn test_fetch_non_existing_branch(
     #[case] spec_version: SpecVersionBin,
 ) -> Result<(), Box<dyn std::error::Error>> {
     with_storage(Permission::Modify, |_, storage| async move {
@@ -611,7 +737,7 @@ pub async fn test_fetch_non_existing_branch(
 
 #[tokio_test]
 #[apply(spec_version_cases)]
-pub async fn test_write_config_on_empty(
+async fn test_write_config_on_empty(
     #[case] spec_version: SpecVersionBin,
 ) -> Result<(), Box<dyn std::error::Error>> {
     with_storage(Permission::Modify, |_, storage| async move {
@@ -647,7 +773,7 @@ pub async fn test_write_config_on_empty(
 
 #[tokio_test]
 #[apply(spec_version_cases)]
-pub async fn test_write_config_on_existing(
+async fn test_write_config_on_existing(
     #[case] spec_version: SpecVersionBin,
 ) -> Result<(), Box<dyn std::error::Error>> {
     with_storage(Permission::Modify, |_, storage| async move {
@@ -683,7 +809,7 @@ pub async fn test_write_config_on_existing(
 
 #[tokio_test]
 #[apply(spec_version_cases)]
-pub async fn test_write_config_fails_on_bad_version_when_non_existing(
+async fn test_write_config_fails_on_bad_version_when_non_existing(
     #[case] spec_version: SpecVersionBin,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // FIXME: this test fails in MinIO but seems to work on S3
@@ -716,7 +842,7 @@ pub async fn test_write_config_fails_on_bad_version_when_non_existing(
 
 #[tokio_test]
 #[apply(spec_version_cases)]
-pub async fn test_write_config_fails_on_bad_version_when_existing(
+async fn test_write_config_fails_on_bad_version_when_existing(
     #[case] spec_version: SpecVersionBin,
 ) -> Result<(), Box<dyn std::error::Error>> {
     with_storage(Permission::Modify, |storage_type, storage| async move {
@@ -770,7 +896,7 @@ pub async fn test_write_config_fails_on_bad_version_when_existing(
 
 #[tokio_test]
 #[apply(spec_version_cases)]
-pub async fn test_write_config_can_overwrite_with_unsafe_config(
+async fn test_write_config_can_overwrite_with_unsafe_config(
     #[case] spec_version: SpecVersionBin,
 ) -> Result<(), Box<dyn std::error::Error>> {
     with_storage(Permission::Modify, |_, storage| async move {
@@ -813,7 +939,7 @@ pub async fn test_write_config_can_overwrite_with_unsafe_config(
 }
 
 #[tokio_test]
-pub async fn test_storage_classes() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_storage_classes() -> Result<(), Box<dyn std::error::Error>> {
     if let Ok(e) = env::var("AWS_BUCKET")
         && !e.is_empty()
     {
@@ -930,7 +1056,7 @@ async fn test_write_object_larger_than_multipart_threshold()
 }
 
 #[tokio_test]
-pub async fn test_get_object_conditional() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_get_object_conditional() -> Result<(), Box<dyn std::error::Error>> {
     with_storage(Permission::Modify, |_, storage| async move {
         let storage_settings = storage.default_settings().await?;
         let id = SnapshotId::random();
@@ -1007,8 +1133,8 @@ async fn test_http_storage() -> Result<(), Box<dyn std::error::Error>> {
     let join = tokio::task::spawn(server.run());
 
     let url = format!("http://127.0.0.1:{port}");
-    let storage1 = new_http_storage(url.as_str(), None)?;
-    let storage2 = new_http_storage(url.as_str(), None)?;
+    let storage1 = new_http_storage(url.as_str(), None, None)?;
+    let storage2 = new_http_storage(url.as_str(), None, None)?;
     for storage in [storage1, storage2] {
         assert!(!storage.can_write().await?);
 
@@ -1046,6 +1172,72 @@ async fn test_http_storage() -> Result<(), Box<dyn std::error::Error>> {
         let lm = storage.get_object_last_modified("repo", &settings).await?;
         assert!(lm < Utc::now());
     }
+
+    // stop the server
+    stop.send(()).unwrap();
+    join.await?;
+
+    Ok(())
+}
+
+#[tokio::test]
+/// Start an HTTP server that requires an Authorization header to serve files.
+/// Verify that http storage configured with the matching header can read objects,
+/// and that storage without the header is rejected.
+async fn test_http_storage_with_auth_header() -> Result<(), Box<dyn std::error::Error>> {
+    const EXPECTED_TOKEN: &str = "Bearer test-token";
+
+    let repo_path =
+        env::current_dir()?.join("../icechunk-python/tests/data/test-repo-v2");
+
+    // Warp filter: require Authorization header, then serve files
+    let route = warp::header::exact("authorization", EXPECTED_TOKEN)
+        .and(warp::fs::dir(repo_path.clone()));
+
+    let (stop, wait) = oneshot::channel();
+    let port = port_check::free_local_ipv4_port_in_range(8000..65000).unwrap();
+    let server = warp::serve(route).bind(([127, 0, 0, 1], port)).await.graceful(async {
+        let _ = wait.await;
+    });
+    let join = tokio::task::spawn(server.run());
+
+    let url = format!("http://127.0.0.1:{port}");
+
+    // With the correct Authorization header – reads should succeed
+    let headers =
+        HashMap::from([("authorization".to_string(), EXPECTED_TOKEN.to_string())]);
+    let storage_with_auth = new_http_storage(url.as_str(), None, Some(headers))?;
+    assert!(!storage_with_auth.can_write().await?);
+    let settings = storage_with_auth.default_settings().await?;
+    let mut data = Vec::with_capacity(1_024);
+    storage_with_auth
+        .get_object(&settings, "repo", None)
+        .await?
+        .0
+        .read_to_end(&mut data)
+        .await?;
+    let expected_len = std::fs::metadata(repo_path.join("repo"))?.len();
+    assert_eq!(expected_len, data.len() as u64);
+
+    // Without the Authorization header – the server should reject the request
+    let storage_no_auth = new_http_storage(url.as_str(), None, None)?;
+    let Err(err) = storage_no_auth.get_object(&settings, "repo", None).await else {
+        panic!("expected an error when no Authorization header is provided");
+    };
+    // The request reached the server and was rejected at the HTTP layer (an
+    // object store error), as opposed to a missing file (`ObjectNotFound`) or
+    // a configuration/parse error.
+    assert!(
+        matches!(err.kind, StorageErrorKind::ObjectStore(_)),
+        "expected an object store error from the rejected request, got: {err:?}"
+    );
+    // ...and the rejection is the server refusing the missing-header request,
+    // not a transport-level failure.
+    let msg = err.to_string();
+    assert!(
+        msg.contains("non-2xx") && msg.contains("authorization"),
+        "expected a non-2xx rejection mentioning the authorization header, got: {err}"
+    );
 
     // stop the server
     stop.send(()).unwrap();
@@ -1104,7 +1296,7 @@ async fn test_redirect_storage() -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio_test]
 #[apply(spec_version_cases)]
-pub async fn test_basic_repo_ops(
+async fn test_basic_repo_ops(
     #[case] spec_version: SpecVersionBin,
 ) -> Result<(), Box<dyn std::error::Error>> {
     with_storage(Permission::Modify, |_, storage| async move {

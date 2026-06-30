@@ -5,6 +5,7 @@ import asyncio
 import uuid
 import random
 import locale
+import contextlib
 import traceback
 from collections.abc import Callable, Awaitable
 from abc import ABC, abstractmethod
@@ -478,4 +479,15 @@ class AbstractTask(ABC):
 
     async def close(self):
         self.set_timezone("UTC")  # forcing UTC at Task End.
+        # Always stop the TaskMonitor sampler, even when the task aborts early
+        # (e.g. a parse error in get_task() makes start() return False before
+        # run() ever stops it). Its _get_current_state() loop runs forever
+        # otherwise; once orphaned it is GC'd as "Task was destroyed but it is
+        # pending!", which asyncdb escalates into a noisy error cascade.
+        # stop() is idempotent, so this is a no-op on the success path where
+        # run() already stopped it.
+        stat = getattr(self, "stat", None)
+        if stat is not None and hasattr(stat, "stop"):
+            with contextlib.suppress(Exception):
+                await stat.stop()
         # TODO: closing Memcached-related connections

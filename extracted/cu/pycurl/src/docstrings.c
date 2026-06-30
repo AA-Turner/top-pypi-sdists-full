@@ -32,9 +32,7 @@ references to it, but can also be called explicitly.\n\
 .. _curl_easy_cleanup:\n\
     https://curl.haxx.se/libcurl/c/curl_easy_cleanup.html";
 
-PYCURL_INTERNAL const char curl_closed_doc[] = "closed() -> bool\n\
-\n\
-Return ``True`` if the ``Curl`` object was already closed, ``False`` otherwise.";
+PYCURL_INTERNAL const char curl_closed_doc[] = "Whether this ``Curl`` object has been closed.";
 
 PYCURL_INTERNAL const char curl_duphandle_doc[] = "duphandle() -> Curl\n\
 \n\
@@ -375,7 +373,7 @@ Load ca certs from provided unicode string.\n\
 \n\
 Note that certificates will be added only when cURL starts new connection.";
 
-PYCURL_INTERNAL const char curl_setopt_doc[] = "setopt(option, value) -> None\n\
+PYCURL_INTERNAL const char curl_setopt_doc[] = "setopt(option, value, *, use_memoryview=False) -> None\n\
 \n\
 Set curl session option. Corresponds to `curl_easy_setopt`_ in libcurl.\n\
 \n\
@@ -450,6 +448,10 @@ values of different types:\n\
     import io\n\
     b = io.BytesIO()\n\
     c.setopt(pycurl.WRITEFUNCTION, b.write)\n\
+\n\
+  The keyword-only ``use_memoryview`` argument is accepted for\n\
+  ``WRITEFUNCTION`` and ``HEADERFUNCTION`` (see :ref:`callbacks`); passing it\n\
+  with any other option raises ``TypeError``.\n\
 \n\
 - ``SHARE`` option accepts a :ref:`curlshareobject`.\n\
 \n\
@@ -782,9 +784,7 @@ is on the stack (for example, from inside ``M_SOCKETFUNCTION`` or\n\
 .. _curl_multi_cleanup:\n\
     https://curl.haxx.se/libcurl/c/curl_multi_cleanup.html";
 
-PYCURL_INTERNAL const char multi_closed_doc[] = "closed() -> bool\n\
-\n\
-Return ``True`` if the ``CurlMulti`` object was already closed, ``False`` otherwise.";
+PYCURL_INTERNAL const char multi_closed_doc[] = "Whether this ``CurlMulti`` object has been closed.";
 
 PYCURL_INTERNAL const char multi_contains_doc[] = "__contains__(Curl object) -> bool\n\
 \n\
@@ -833,6 +833,36 @@ queued messages after this method has been called is also returned.\n\
 \n\
 .. _surrogateescape:\n\
     https://www.python.org/dev/peps/pep-0383/";
+
+PYCURL_INTERNAL const char multi_notify_disable_doc[] = "notify_disable(*notifications) -> None\n\
+\n\
+Disable one or more libcurl multi notifications. Corresponds to\n\
+`curl_multi_notify_disable`_ in libcurl, invoked once per argument.\n\
+Mirrors :py:meth:`notify_enable <pycurl.CurlMulti.notify_enable>` —\n\
+same argument shape, same left-to-right, first-error-no-rollback\n\
+semantics, and same ``TypeError`` on zero arguments.\n\
+\n\
+Requires libcurl 8.17.0 or later.\n\
+\n\
+.. _curl_multi_notify_disable:\n\
+    https://curl.se/libcurl/c/curl_multi_notify_disable.html";
+
+PYCURL_INTERNAL const char multi_notify_enable_doc[] = "notify_enable(*notifications) -> None\n\
+\n\
+Enable one or more libcurl multi notifications. Corresponds to\n\
+`curl_multi_notify_enable`_ in libcurl, invoked once per argument.\n\
+\n\
+Each argument must be one of the ``M_NOTIFY_*`` constants\n\
+(``pycurl.M_NOTIFY_INFO_READ``, ``pycurl.M_NOTIFY_EASY_DONE``).\n\
+Notifications are processed left to right; if libcurl rejects any\n\
+of them, ``pycurl.error`` is raised immediately and no rollback of\n\
+previously enabled notifications is performed. Calling with no\n\
+arguments raises ``TypeError``.\n\
+\n\
+Requires libcurl 8.17.0 or later.\n\
+\n\
+.. _curl_multi_notify_enable:\n\
+    https://curl.se/libcurl/c/curl_multi_notify_enable.html";
 
 PYCURL_INTERNAL const char multi_perform_doc[] = "perform() -> tuple of status and the number of active Curl objects\n\
 \n\
@@ -900,11 +930,13 @@ values of different types:\n\
     m.setopt(pycurl.M_PIPELINING, 1)\n\
 \n\
 - ``*FUNCTION`` options accept a function. Supported callbacks are\n\
-  ``CURLMOPT_SOCKETFUNCTION`` and ``CURLMOPT_TIMERFUNCTION``; see the\n\
-  ``SOCKETFUNCTION`` and ``TIMERFUNCTION`` sections of the\n\
-  :ref:`callbacks <callbacks>` page. ``CURLMOPT_SOCKETDATA`` and\n\
-  ``CURLMOPT_TIMERDATA`` are reserved by PycURL (set internally to the\n\
-  ``CurlMulti`` instance) and cannot be set from Python.\n\
+  ``CURLMOPT_SOCKETFUNCTION``, ``CURLMOPT_TIMERFUNCTION`` and (with\n\
+  libcurl 8.17.0+) ``CURLMOPT_NOTIFYFUNCTION``; see the\n\
+  ``SOCKETFUNCTION``, ``TIMERFUNCTION`` and ``NOTIFYFUNCTION``\n\
+  sections of the :ref:`callbacks <callbacks>` page.\n\
+  ``CURLMOPT_SOCKETDATA``, ``CURLMOPT_TIMERDATA`` and\n\
+  ``CURLMOPT_NOTIFYDATA`` are reserved by PycURL (set internally to\n\
+  the ``CurlMulti`` instance) and cannot be set from Python.\n\
 \n\
 Raises TypeError when the option value is not of a type accepted by the\n\
 respective option, and pycurl.error exception when libcurl rejects the\n\
@@ -957,6 +989,17 @@ releasing the previously assigned object.\n\
 :py:meth:`multi.assign(sock_fd, None) <pycurl.CurlMulti.assign>`.\n\
 Like ``assign()``, it may be called from inside the ``M_SOCKETFUNCTION``.";
 
+PYCURL_INTERNAL const char pycurl_easy_strerror_doc[] = "easy_strerror(errornum) -> str\n\
+\n\
+Return a string describing a libcurl easy-interface error code.\n\
+\n\
+*errornum* is a ``CURLcode``, usually exposed by PycURL as a\n\
+``pycurl.E_*`` constant.\n\
+\n\
+Corresponds to `curl_easy_strerror`_ in libcurl.\n\
+\n\
+.. _curl_easy_strerror: https://curl.haxx.se/libcurl/c/curl_easy_strerror.html";
+
 PYCURL_INTERNAL const char pycurl_global_cleanup_doc[] = "global_cleanup() -> None\n\
 \n\
 Cleanup curl environment.\n\
@@ -989,6 +1032,39 @@ Functions:\n\
 global_init(option) -> None.  Initialize curl environment.\n\
 global_cleanup() -> None.  Cleanup curl environment.\n\
 version_info() -> tuple.  Return version information.";
+
+PYCURL_INTERNAL const char pycurl_multi_strerror_doc[] = "multi_strerror(errornum) -> str\n\
+\n\
+Return a string describing a libcurl multi-interface error code.\n\
+\n\
+*errornum* is a ``CURLMcode``, usually exposed by PycURL as a\n\
+``pycurl.E_MULTI_*`` constant.\n\
+\n\
+Corresponds to `curl_multi_strerror`_ in libcurl.\n\
+\n\
+.. _curl_multi_strerror: https://curl.haxx.se/libcurl/c/curl_multi_strerror.html";
+
+PYCURL_INTERNAL const char pycurl_share_strerror_doc[] = "share_strerror(errornum) -> str\n\
+\n\
+Return a string describing a libcurl share-interface error code.\n\
+\n\
+*errornum* is a ``CURLSHcode`` as returned by share-handle operations.\n\
+\n\
+Corresponds to `curl_share_strerror`_ in libcurl.\n\
+\n\
+.. _curl_share_strerror: https://curl.haxx.se/libcurl/c/curl_share_strerror.html";
+
+PYCURL_INTERNAL const char pycurl_url_strerror_doc[] = "url_strerror(errornum) -> str\n\
+\n\
+Return a string describing a libcurl URL-API error code.\n\
+\n\
+*errornum* is a ``CURLUcode`` as returned by ``curl_url_*`` functions.\n\
+\n\
+Requires libcurl 7.80.0 or later; not exposed on older builds.\n\
+\n\
+Corresponds to `curl_url_strerror`_ in libcurl.\n\
+\n\
+.. _curl_url_strerror: https://curl.haxx.se/libcurl/c/curl_url_strerror.html";
 
 PYCURL_INTERNAL const char pycurl_version_info_doc[] = "version_info() -> tuple\n\
 \n\
@@ -1044,16 +1120,10 @@ Example::\n\
     or close all associated ``Curl`` objects before closing the\n\
     ``CurlShare``.\n\
 \n\
-.. warning::\n\
-\n\
-   Detaching ``Curl`` objects from a ``CurlShare`` is **not thread-safe**\n\
-   with respect to those ``Curl`` objects.\n\
-\n\
-   The caller is responsible for ensuring proper synchronization when\n\
-   using ``CurlShare`` and ``Curl`` objects across multiple threads.";
+See :py:meth:`~pycurl.CurlShare.close` for the rules ``close()``\n\
+enforces when associated ``Curl`` handles are still in use.";
 
 PYCURL_INTERNAL const char share_close_doc[] = "close() -> None\n\
-----------------\n\
 \n\
 Close shared handle.\n\
 \n\
@@ -1064,7 +1134,7 @@ any references to it, but can also be called explicitly.\n\
 The behavior of ``close()`` depends on the ``detach_on_close`` setting\n\
 of the ``CurlShare``:\n\
 \n\
-- If ``detach_on_close`` is ``True`` (default), all associated\n\
+- If ``detach_on_close`` is ``True`` (default), all associated idle\n\
   :ref:`Curl objects <curlobject>` are first detached from the share\n\
   before the share handle is closed. Detaching clears the ``SHARE``\n\
   option on each ``Curl`` object but does not close them.\n\
@@ -1073,19 +1143,23 @@ of the ``CurlShare``:\n\
   are still associated ``Curl`` objects raises ``pycurl.error`` and the\n\
   share handle is not closed.\n\
 \n\
+``close()`` refuses to detach a ``Curl`` handle that is currently\n\
+inside ``perform()`` and raises ``pycurl.error`` in that case, even\n\
+with ``detach_on_close=True``. Idle attached handles are still\n\
+detached automatically.\n\
+\n\
 .. warning::\n\
 \n\
-   Automatic detachment performed when ``detach_on_close`` is ``True``\n\
-   is **not thread-safe** with respect to the associated ``Curl``\n\
-   objects. The caller must ensure that no other thread is operating on\n\
-   those ``Curl`` objects while ``close()`` is executing.\n\
+   Detaching ``Curl`` objects from a ``CurlShare`` is **not thread-safe**\n\
+   with respect to those ``Curl`` objects.\n\
+\n\
+   The caller is responsible for ensuring proper synchronization when\n\
+   using ``CurlShare`` and ``Curl`` objects across multiple threads.\n\
 \n\
 .. _curl_share_cleanup:\n\
     https://curl.haxx.se/libcurl/c/curl_share_cleanup.html";
 
-PYCURL_INTERNAL const char share_closed_doc[] = "closed() -> bool\n\
-\n\
-Return ``True`` if the ``CurlShare`` object was already closed, ``False`` otherwise.";
+PYCURL_INTERNAL const char share_closed_doc[] = "Whether this ``CurlShare`` object has been closed.";
 
 PYCURL_INTERNAL const char share_setopt_doc[] = "setopt(option, value) -> None\n\
 \n\
@@ -1109,8 +1183,50 @@ Example usage::\n\
     curl.perform()\n\
     curl.close()\n\
 \n\
-Raises pycurl.error exception upon failure.\n\
+Raises pycurl.error exception upon failure. Failures reported by libcurl\n\
+(``CURLSHcode``) are surfaced as ``pycurl.error``.\n\
 \n\
 .. _curl_share_setopt:\n\
     https://curl.haxx.se/libcurl/c/curl_share_setopt.html";
+
+PYCURL_INTERNAL const char share_share_doc[] = "share(*data) -> None\n\
+\n\
+Mark one or more data kinds as shared.\n\
+\n\
+Equivalent to calling ``setopt(SH_SHARE, item)`` for each *item*. Each *item*\n\
+must be one of: ``LOCK_DATA_COOKIE``, ``LOCK_DATA_DNS``,\n\
+``LOCK_DATA_SSL_SESSION``, ``LOCK_DATA_CONNECT`` or ``LOCK_DATA_PSL``.\n\
+\n\
+At least one argument is required. Lists and tuples are not expanded — pass\n\
+each constant individually. Items are applied sequentially under the\n\
+CurlShare object lock; on failure, items already applied are not rolled back.\n\
+\n\
+Example usage::\n\
+\n\
+    import pycurl\n\
+    s = pycurl.CurlShare()\n\
+    s.share(pycurl.LOCK_DATA_COOKIE, pycurl.LOCK_DATA_DNS)\n\
+\n\
+Raises pycurl.error exception upon failure.";
+
+PYCURL_INTERNAL const char share_unshare_doc[] = "unshare(*data) -> None\n\
+\n\
+Mark one or more data kinds as no longer shared.\n\
+\n\
+Equivalent to calling ``setopt(SH_UNSHARE, item)`` for each *item*. Each *item*\n\
+must be one of: ``LOCK_DATA_COOKIE``, ``LOCK_DATA_DNS``,\n\
+``LOCK_DATA_SSL_SESSION``, ``LOCK_DATA_CONNECT`` or ``LOCK_DATA_PSL``.\n\
+\n\
+At least one argument is required. Lists and tuples are not expanded — pass\n\
+each constant individually. Items are applied sequentially under the\n\
+CurlShare object lock; on failure, items already applied are not rolled back.\n\
+\n\
+Example usage::\n\
+\n\
+    import pycurl\n\
+    s = pycurl.CurlShare()\n\
+    s.share(pycurl.LOCK_DATA_COOKIE, pycurl.LOCK_DATA_DNS)\n\
+    s.unshare(pycurl.LOCK_DATA_COOKIE)\n\
+\n\
+Raises pycurl.error exception upon failure.";
 

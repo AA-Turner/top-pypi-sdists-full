@@ -1,5 +1,6 @@
 import os
 import argparse
+import numpy as np
 import pandas as pd
 
 
@@ -22,6 +23,17 @@ BioSAK subset_df -i demo_df.txt -r row_id.txt -c col_id.txt -o df_subset.txt -b 
 '''
 
 
+def sep_path_basename_ext(file_in):
+
+    f_path, f_name = os.path.split(file_in)
+    if f_path == '':
+        f_path = '.'
+    f_base, f_ext = os.path.splitext(f_name)
+    f_ext = f_ext[1:]
+
+    return f_name, f_path, f_base, f_ext
+
+
 def subset_df(args):
 
     file_in             = args['i']
@@ -36,6 +48,9 @@ def subset_df(args):
     rm_zero_col         = args['rm0col']
     sort_row            = args['sr']
     sort_col            = args['sc']
+    col_desc_txt        = args['col_desc']
+    row_desc_txt        = args['row_desc']
+    replace_0_with_na   = args['na']
 
     column_name_pos     = 0
     row_name_pos        = 0
@@ -48,6 +63,55 @@ def subset_df(args):
     else:
         print('Please specify separator as either tab or comma, program exited!')
         exit()
+
+    # read in col_desc_txt
+    col_desc_dict = dict()
+    if col_desc_txt is not None:
+        if os.path.isfile(col_desc_txt) is False:
+            print('%s not found, program exited!' % col_desc_txt)
+            exit()
+        col_desc_txt_name, _, _, _ = sep_path_basename_ext(col_desc_txt)
+        if col_desc_txt_name == 'arCOGdef.tab':
+            for each_line in open(col_desc_txt, encoding="ISO-8859-1"):
+                each_line_split = each_line.strip().split('\t')
+                fun_id   = each_line_split[0]
+                fun_cat  = each_line_split[1]
+                fun_desc = each_line_split[3]
+                col_desc_dict[fun_id] = '%s__%s__%s' % (fun_id, fun_cat, fun_desc)
+        elif col_desc_txt_name == 'ko00001.keg':
+            for each_line in open(col_desc_txt):
+                if each_line[0] in ['A', 'B', 'C', 'D']:
+                    each_line_split = each_line.strip().split(' ')
+                    if each_line[0] == 'A':
+                        current_A_id = each_line_split[0]
+                        current_A_desc = ' '.join(each_line_split[1:])
+                        col_desc_dict[current_A_id] = '%s__%s' % (current_A_id, current_A_desc)
+                    elif each_line[0] == 'B':
+                        if len(each_line_split) > 1:
+                            current_B_id = each_line_split[2]
+                            current_B_desc = ' '.join(each_line_split[3:])
+                            col_desc_dict[current_B_id] = '%s__%s' % (current_B_id, current_B_desc)
+                    elif each_line[0] == 'C':
+                        current_C_id = each_line_split[4]
+                        current_C_desc = ' '.join(each_line_split[5:])
+                        col_desc_dict[current_C_id] = '%s__%s' % (current_C_id, current_C_desc)
+                    elif each_line[0] == 'D':
+                        current_D_id = each_line_split[6]
+                        current_D_desc = ' '.join(each_line_split[7:])
+                        col_desc_dict[current_D_id] = '%s__%s' % (current_D_id, current_D_desc)
+        else:
+            for each_line in open(col_desc_txt):
+                each_line_split = each_line.strip().split('\t')
+                col_desc_dict[each_line_split[0]] = '%s__%s' % (each_line_split[0], each_line_split[1])
+
+    # read in row_desc_txt
+    row_desc_dict = dict()
+    if row_desc_txt is not None:
+        if os.path.isfile(row_desc_txt) is False:
+            print('%s not found, program exited!' % row_desc_txt)
+            exit()
+        row_desc_txt_name, _, _, _ = sep_path_basename_ext(row_desc_txt)
+
 
     ###################################### get the id of rows and cols to subset #######################################
 
@@ -152,6 +216,20 @@ def subset_df(args):
     if rm_zero_col is True:
         subset_df = subset_df.loc[:, (subset_df != 0).any(axis=0)]
 
+    # rename columns
+    if len(col_desc_dict) > 0:
+        current_columns = subset_df.columns.tolist()
+        new_columns = [col_desc_dict[i] for i in current_columns]
+        subset_df.columns = new_columns
+
+    # rename rows
+    if len(row_desc_dict) > 0:
+        pass
+        # to be added
+
+    if replace_0_with_na is True:
+        subset_df.replace(0, 'NA', inplace=True)
+
     subset_df.to_csv(file_out, sep=sep_symbol)
 
 
@@ -170,5 +248,8 @@ if __name__ == '__main__':
     subset_df_parser.add_argument('-skip1row',  required=False, action='store_true',    help='skip the 1st row of the -c/-r file')
     subset_df_parser.add_argument('-sr',        required=False, action='store_true',    help='sort rows')
     subset_df_parser.add_argument('-sc',        required=False, action='store_true',    help='sort columns')
+    subset_df_parser.add_argument('-col_desc',  required=False, default=None,           help='column description')
+    subset_df_parser.add_argument('-row_desc',  required=False, default=None,           help='row description')
+    subset_df_parser.add_argument('-na',        required=False, action='store_true',    help='replace 0 with NA')
     args = vars(subset_df_parser.parse_args())
     subset_df(args)

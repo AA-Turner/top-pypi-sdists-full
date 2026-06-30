@@ -40,8 +40,8 @@ PDFIUM_MIN_REQ = 6635
 # Then, make a branch and run "Sourcebuild", "Sourcebuild Native" and "CIBW" on CI to see if all targets continue to work.
 # Commit the new version to the main branch only when all is green. Better stay on an older version for a while than break a target.
 # Updating and testing the patch sets can be a lot of work, so we might not want to do this too frequrently.
-SBUILD_NATIVE_PIN = 7891
-SBUILD_TOOLCHAINED_PIN = 7891
+SBUILD_NATIVE_PIN = 7913
+SBUILD_TOOLCHAINED_PIN = 7913
 
 PlatSpec_EnvVar = "PDFIUM_PLATFORM"
 PlatSpec_VerSep = ":"
@@ -59,7 +59,7 @@ ModulesAll         = (ModuleRaw, ModuleHelpers)
 BindingsFN = "bindings.py"
 VersionFN  = "version.json"
 
-ProjectDir        = Path(__file__).parents[1].resolve()
+ProjectDir        = Path(__file__).resolve().parents[1]
 DataDir           = ProjectDir / "data"
 DataDir_Bindings  = DataDir / "bindings"
 BindingsFile      = DataDir_Bindings / BindingsFN
@@ -121,6 +121,8 @@ class PlatNames:
     linux_arm64      = SysNames.linux   + "_arm64"
     linux_arm32      = SysNames.linux   + "_arm32"
     linux_ppc64le    = SysNames.linux   + "_ppc64le"
+    linux_mips64le   = SysNames.linux   + "_mips64le"
+    linux_mipsle     = SysNames.linux   + "_mipsle"
     linux_musl_x64   = SysNames.linux   + "_musl_x64"
     linux_musl_x86   = SysNames.linux   + "_musl_x86"
     linux_musl_arm64 = SysNames.linux   + "_musl_arm64"
@@ -153,9 +155,11 @@ WheelPlatforms = list(PdfiumBinariesMap.keys())
 
 # Additional platforms we don't currently build wheels for this way in craft.py
 # To package these manually, you can do e.g. (in bash):
-# export PLATFORMS=(linux_musl_x64 linux_musl_x86 linux_musl_arm64 darwin_univ2 android_x64 android_x86 ios_arm64_dev ios_arm64_simu ios_x64_simu)
+# export PLATFORMS=(linux_mips64le linux_mipsle linux_musl_x64 linux_musl_x86 linux_musl_arm64 darwin_univ2 android_x64 android_x86 ios_arm64_dev ios_arm64_simu ios_x64_simu)
 # for PLAT in ${PLATFORMS[@]}; do echo $PLAT; just emplace $PLAT; PDFIUM_PLATFORM=$PLAT python3 -m build -wxn; done
 PdfiumBinariesMap.update({
+    PlatNames.linux_mips64le:   "linux-mips64el",
+    PlatNames.linux_mipsle:     "linux-mipsel",
     PlatNames.linux_musl_x64:   "linux-musl-x64",
     PlatNames.linux_musl_x86:   "linux-musl-x86",
     PlatNames.linux_musl_arm64: "linux-musl-arm64",
@@ -499,8 +503,8 @@ class _host_platform:
     
     def __repr__(self):
         info = f"{self._raw_system} {self._raw_machine}"
-        if self._raw_system == "linux" and self._libc_name:
-            info += f", {self._libc_name} {self._libc_ver}"
+        if self._raw_system == "linux":
+            info += f", {self._libc_name, self._libc_ver, sys.byteorder}"
         return f"<Host: {info}>"
     
     def _handle_linux(self, archid, musl_ok=True):
@@ -542,7 +546,9 @@ class _host_platform:
         
         elif self._raw_system == "linux":
             self._system = SysNames.linux
-            log(f"linux {self._raw_machine} {self._libc_name, self._libc_ver}")
+            log(repr(self))
+            if sys.byteorder != "little":
+                raise UnhandledPlatformError("Only little-endian platforms are supported with pdfium-binaries on setup. Please check PyPI for possible wheels.")
             if self._raw_machine == "x86_64":
                 return self._handle_linux("x64")
             elif self._raw_machine == "i686":
@@ -551,13 +557,17 @@ class _host_platform:
                 return self._handle_linux("arm64")
             elif self._raw_machine in ("armv7l", "armv8l"):
                 return self._handle_linux("arm32", musl_ok=False)
-            elif self._raw_machine == "ppc64le":
+            elif self._raw_machine.startswith("ppc64"):  # ppc64le
                 return self._handle_linux("ppc64le", musl_ok=False)
+            elif self._raw_machine.startswith("mips64"):
+                return self._handle_linux("mips64le", musl_ok=False)
+            elif self._raw_machine.startswith("mips"):
+                return self._handle_linux("mipsle", musl_ok=False)
         
         elif self._raw_system == "android":  # PEP 738
             # The PEP isn't too explicit about the machine names, but based on related CPython PRs, it looks like platform.machine() retains the raw uname values as on Linux, whereas sysconfig.get_platform() will map to the wheel tags
             self._system = SysNames.android
-            log(f"android {self._raw_machine}")  # sys.getandroidapilevel() platform.android_ver()
+            log(f"android {self._raw_machine} {sys.getandroidapilevel()}")  # platform.android_ver()
             if self._raw_machine == "aarch64":
                 return PlatNames.android_arm64
             elif self._raw_machine == "armv7l":
@@ -628,6 +638,13 @@ def tmp_cwd_context(tmp_cwd):
 
 CTG_LIBPATTERN = "{prefix}{name}.{suffix}"
 
+def _apply_refbindings(target_path, version):
+    log("Using reference bindings - this will bypass all bindings params. If this is not intentional, make sure ctypesgen is installed.")
+    record_ver = PdfiumVer.pinned
+    if version != record_ver:
+        log(f"Warning: binary/bindings version mismatch ({version} != {record_ver}). This is ABI-unsafe!")
+    shutil.copyfile(RefBindingsFile, target_path)
+
 # TODO make version mandatory
 def run_ctypesgen(
         target_path, headers_dir, flags=(),
@@ -638,12 +655,7 @@ def run_ctypesgen(
     ):
     
     if USE_REFBINDINGS:
-        log("Using reference bindings - this will bypass all bindings params. If this is not intentional, make sure ctypesgen is installed.")
-        record_ver = PdfiumVer.pinned
-        if version != record_ver:
-            log(f"Warning: binary/bindings version mismatch ({version} != {record_ver}). This is ABI-unsafe!")
-        shutil.copyfile(RefBindingsFile, target_path)
-        return target_path
+        return _apply_refbindings(target_path, version)
     
     # Import ctypesgen only in this function so it does not have to be available for other setup tasks
     import ctypesgen
@@ -679,9 +691,13 @@ def run_ctypesgen(
     
     # include windows-only members (e.g. refbindings, cross-packaging)
     # see the comments in utils/spoof/windows.h for more info on this approach
-    # this is not needed on a native host, the pre-processor will define _WIN32 and have the real windows.h on its standard search path
-    if windows_cross and not sys.platform.startswith("win32"):
-        args += ["-D", "_WIN32", "-I", ProjectDir/"utils"/"spoof"]
+    # actually, also do this on windows natively to save ctypesgen from a lot of trouble processing windows system headers (where it keeps running into syntax errors) and even prevent actual mistakes in output
+    is_windows_host = sys.platform.startswith("win32")
+    if windows_cross and not is_windows_host:
+        args += ["-D", "_WIN32"]
+    if windows_cross or is_windows_host:
+        # -I seems to be prioritized over system include paths
+        args += ["-I", ProjectDir/"utils"/"spoof"]
     
     # symbols - try to exclude some garbage aliases that get pulled in from struct tags
     # (this captures anything that ends with _, _t, or begins with _, and is not needed by other symbols)
@@ -707,10 +723,9 @@ def _make_json_compat(obj):
 
 def build_pdfium_bindings(version, headers_dir=None, **kwargs):
     
-    ver_path = DataDir_Bindings/VersionFN
-    bind_path = BindingsFile
-    if not headers_dir:
-        headers_dir = DataDir_Bindings/"headers"
+    bindings_path = BindingsFile
+    if USE_REFBINDINGS:
+        return _apply_refbindings(bindings_path, version)
     
     # TODO register all defaults?
     curr_info = {"version": version, **kwargs}
@@ -719,16 +734,19 @@ def build_pdfium_bindings(version, headers_dir=None, **kwargs):
     curr_info = _make_json_compat(curr_info)
     
     prev_ver = None
+    ver_path = DataDir_Bindings/VersionFN
     if ver_path.exists():
         prev_info = read_json(ver_path)
         prev_ver = prev_info["version"]
-        if bind_path.exists() and prev_info == curr_info:
+        if bindings_path.exists() and prev_info == curr_info:
             log(f"Using cached bindings")
             return
         else:
             log(f"Bindings cache state differs:", prev_info, curr_info, sep="\n")
     
     # try to reuse headers if only bindings params differ, not version
+    if not headers_dir:
+        headers_dir = DataDir_Bindings/"headers"
     if prev_ver == version and headers_dir.exists() and list(headers_dir.glob("fpdf*.h")):
         log("Using cached headers")
     else:
@@ -744,7 +762,6 @@ def build_pdfium_bindings(version, headers_dir=None, **kwargs):
         archive_path.unlink()
     
     log(f"Building bindings ...")
-    bindings_path = DataDir_Bindings/BindingsFN
     run_ctypesgen(bindings_path, headers_dir, version=version, **kwargs)
     write_json(ver_path, curr_info)
 

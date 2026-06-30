@@ -91,6 +91,15 @@ class AirConditioner(Device):
 
         DEFAULT = OFF
 
+    class FreshAirFanSpeed(MideaIntEnum):
+        OFF = 0
+        LOW = 40
+        MEDIUM = 60
+        HIGH = 80
+        BOOST = 100
+
+        DEFAULT = OFF
+
     class AuxHeatMode(MideaIntEnum):
         OFF = 0
         AUX_HEAT = 1
@@ -131,7 +140,8 @@ class AirConditioner(Device):
 
         # Misc
         CASCADE = auto()
-        JET_COOL = auto()
+        FLASH = auto()
+        FRESH_AIR = auto()
         OUT_SILENT = auto()
         PURIFIER = auto()
         SELF_CLEAN = auto()
@@ -149,8 +159,9 @@ class AirConditioner(Device):
         PropertyId.BREEZE_CONTROL: lambda s: s._breeze_mode,
         PropertyId.BREEZELESS: lambda s: s._breeze_mode == AirConditioner.BreezeMode.BREEZELESS,
         PropertyId.CASCADE: lambda s: s._cascade_mode,
-        PropertyId.IECO: lambda s: s._ieco,
-        PropertyId.JET_COOL: lambda s: s._flash_cool,
+        PropertyId.FLASH: lambda s: s._flash,
+        PropertyId.FRESH_AIR: lambda s: s._fresh_air_fan_speed,
+        PropertyId.IECO: lambda s: (s._ieco_number, s._ieco),
         PropertyId.OUT_SILENT: lambda s: s._out_silent,
         PropertyId.RATE_SELECT: lambda s: s._rate_select,
         PropertyId.SWING_LR_ANGLE: lambda s: s._horizontal_swing_angle,
@@ -194,12 +205,14 @@ class AirConditioner(Device):
         self._follow_me = False
         self._purifier = False
         self._ieco = False
-        self._flash_cool = False
+        self._ieco_number = 1
+        self._flash = False
         self._out_silent = False
 
         self._horizontal_swing_angle = AirConditioner.SwingAngle.OFF
         self._vertical_swing_angle = AirConditioner.SwingAngle.OFF
         self._cascade_mode = AirConditioner.CascadeMode.OFF
+        self._fresh_air_fan_speed = AirConditioner.FreshAirFanSpeed.OFF
         self._rate_select = AirConditioner.RateSelect.OFF
         self._breeze_mode = AirConditioner.BreezeMode.OFF
         self._aux_mode = AirConditioner.AuxHeatMode.OFF
@@ -328,6 +341,14 @@ class AirConditioner(Device):
                     AirConditioner.CascadeMode,
                     AirConditioner.CascadeMode.get_from_value(cascade))
 
+            if (value := res.get_property(PropertyId.FLASH)) is not None:
+                self._flash = value
+
+            if (fresh_air := res.get_property(PropertyId.FRESH_AIR)) is not None:
+                self._fresh_air_fan_speed = cast(
+                    AirConditioner.FreshAirFanSpeed,
+                    AirConditioner.FreshAirFanSpeed.get_from_value(fresh_air))
+
             if (value := res.get_property(PropertyId.SELF_CLEAN)) is not None:
                 self._self_clean_active = value
 
@@ -351,9 +372,6 @@ class AirConditioner(Device):
 
             if (value := res.get_property(PropertyId.IECO)) is not None:
                 self._ieco = value
-
-            if (value := res.get_property(PropertyId.JET_COOL)) is not None:
-                self._flash_cool = value
 
             if (value := res.get_property(PropertyId.OUT_SILENT)) is not None:
                 self._out_silent = value
@@ -471,6 +489,11 @@ class AirConditioner(Device):
 
         self._capabilities.set(AirConditioner.Capability.CASCADE, res.cascade)
 
+        self._capabilities.set(AirConditioner.Capability.FLASH, res.flash)
+
+        self._capabilities.set(
+            AirConditioner.Capability.FRESH_AIR, res.fresh_air)
+
         self._capabilities.set(
             AirConditioner.Capability.SELF_CLEAN, res.self_clean)
 
@@ -502,8 +525,7 @@ class AirConditioner(Device):
                 AirConditioner.Capability.BREEZELESS, res.breezeless)
 
         self._capabilities.set(AirConditioner.Capability.IECO, res.ieco)
-        self._capabilities.set(
-            AirConditioner.Capability.JET_COOL, res.jet_cool)
+        self._ieco_number = res.ieco_number
 
         self._capabilities.set(
             AirConditioner.Capability.OUT_SILENT, res.out_silent)
@@ -519,8 +541,9 @@ class AirConditioner(Device):
             AirConditioner.Capability.BREEZE_CONTROL: PropertyId.BREEZE_CONTROL,
             AirConditioner.Capability.BREEZELESS: PropertyId.BREEZELESS,
             AirConditioner.Capability.CASCADE: PropertyId.CASCADE,
+            AirConditioner.Capability.FLASH: PropertyId.FLASH,
+            AirConditioner.Capability.FRESH_AIR: PropertyId.FRESH_AIR,
             AirConditioner.Capability.IECO: PropertyId.IECO,
-            AirConditioner.Capability.JET_COOL: PropertyId.JET_COOL,
             AirConditioner.Capability.OUT_SILENT: PropertyId.OUT_SILENT,
             AirConditioner.Capability.SELF_CLEAN: PropertyId.SELF_CLEAN,
             AirConditioner.Capability.SWING_HORIZONTAL_ANGLE: PropertyId.SWING_LR_ANGLE,
@@ -948,6 +971,19 @@ class AirConditioner(Device):
         self._updated_properties.add(PropertyId.CASCADE)
 
     @property
+    def supports_fresh_air(self) -> bool:
+        return self._capabilities.has(AirConditioner.Capability.FRESH_AIR)
+
+    @property
+    def fresh_air_fan_speed(self) -> FreshAirFanSpeed:
+        return self._fresh_air_fan_speed
+
+    @fresh_air_fan_speed.setter
+    def fresh_air_fan_speed(self, speed: FreshAirFanSpeed) -> None:
+        self._fresh_air_fan_speed = speed
+        self._updated_properties.add(PropertyId.FRESH_AIR)
+
+    @property
     def supports_eco(self) -> bool:
         return self._capabilities.has(AirConditioner.Capability.ECO)
 
@@ -973,17 +1009,17 @@ class AirConditioner(Device):
         self._updated_properties.add(PropertyId.IECO)
 
     @property
-    def supports_flash_cool(self) -> bool:
-        return self._capabilities.has(AirConditioner.Capability.JET_COOL)
+    def supports_flash(self) -> bool:
+        return self._capabilities.has(AirConditioner.Capability.FLASH)
 
     @property
-    def flash_cool(self) -> Optional[bool]:
-        return self._flash_cool
+    def flash(self) -> Optional[bool]:
+        return self._flash
 
-    @flash_cool.setter
-    def flash_cool(self, enabled: bool) -> None:
-        self._flash_cool = enabled
-        self._updated_properties.add(PropertyId.JET_COOL)
+    @flash.setter
+    def flash(self, enabled: bool) -> None:
+        self._flash = enabled
+        self._updated_properties.add(PropertyId.FLASH)
 
     @property
     def supports_turbo(self) -> bool:
@@ -1095,7 +1131,7 @@ class AirConditioner(Device):
         return self._capabilities.has(AirConditioner.Capability.SELF_CLEAN)
 
     @property
-    def self_clean_active(self) -> bool:
+    def self_clean_active(self) -> Optional[bool]:
         return self._self_clean_active
 
     @property
@@ -1164,13 +1200,18 @@ class AirConditioner(Device):
             "swing_mode": self.swing_mode,
             "horizontal_swing_angle": self.horizontal_swing_angle,
             "vertical_swing_angle": self.vertical_swing_angle,
+            "breezeless": self.breezeless,
+            "breeze_away": self.breeze_away,
+            "breeze_mild": self.breeze_mild,
             "cascade_mode": self.cascade_mode,
+            "fresh_air_fan_speed": self.fresh_air_fan_speed,
             "target_temperature": self.target_temperature,
             "indoor_temperature": self.indoor_temperature,
             "outdoor_temperature": self.outdoor_temperature,
             "target_humidity": self.target_humidity,
             "indoor_humidity": self.indoor_humidity,
             "eco": self.eco,
+            "ieco": self.ieco,
             "turbo": self.turbo,
             "freeze_protection": self.freeze_protection,
             "sleep": self.sleep,
@@ -1189,6 +1230,7 @@ class AirConditioner(Device):
             "error_code": self.error_code,
             "defrost": self.defrost_active,
             "out_silent": self.out_silent,
+            "flash": self.flash
         }}
 
     def capabilities_dict(self) -> dict:
@@ -1286,3 +1328,18 @@ class AirConditioner(Device):
     def real_time_power_usage(self) -> Optional[float]:
         format = AirConditioner.EnergyDataFormat.BINARY if self._use_binary_energy else AirConditioner.EnergyDataFormat.BCD
         return self._real_time_power_usage[format]
+
+    @property
+    @deprecated("supports_flash")
+    def supports_flash_cool(self) -> bool:
+        return self.supports_flash
+
+    @property
+    @deprecated("flash")
+    def flash_cool(self) -> Optional[bool]:
+        return self.flash
+
+    @flash_cool.setter
+    @deprecated("flash")
+    def flash_cool(self, enabled: bool) -> None:
+        self.flash = enabled

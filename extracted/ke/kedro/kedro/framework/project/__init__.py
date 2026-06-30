@@ -138,6 +138,7 @@ class _ProjectSettings(LazySettings):
     )
     _SESSION_STORE_ARGS = Validator("SESSION_STORE_ARGS", default={})
     _DISABLE_HOOKS_FOR_PLUGINS = Validator("DISABLE_HOOKS_FOR_PLUGINS", default=tuple())
+    _RUNNER_MODULES_WHITELIST = Validator("RUNNER_MODULES_WHITELIST", default=tuple())
     _CONFIG_LOADER_CLASS = _HasSharedParentClassValidator(
         "CONFIG_LOADER_CLASS",
         default=_get_default_class("kedro.config.OmegaConfigLoader"),
@@ -160,6 +161,7 @@ class _ProjectSettings(LazySettings):
                 self._SESSION_STORE_CLASS,
                 self._SESSION_STORE_ARGS,
                 self._DISABLE_HOOKS_FOR_PLUGINS,
+                self._RUNNER_MODULES_WHITELIST,
                 self._CONFIG_LOADER_CLASS,
                 self._CONFIG_LOADER_ARGS,
                 self._DATA_CATALOG_CLASS,
@@ -201,6 +203,7 @@ class _ProjectPipelines(MutableMapping):
         self._pipelines_module: str | None = None
         self._is_data_loaded = False
         self._content: dict[str, Pipeline] = {}
+        self._requested_pipelines: list[str] | None = None
 
     @staticmethod
     def _get_pipelines_registry_callable(pipelines_module: str) -> Any:
@@ -224,6 +227,23 @@ class _ProjectPipelines(MutableMapping):
         self._content = project_pipelines
         self._is_data_loaded = True
 
+    def set_requested(self, pipeline_names: list[str] | None) -> None:
+        """Store which pipelines should be loaded on the next dict access.
+
+        Invalidates the cache when the filter changes so that a subsequent
+        access with a different (or absent) filter re-runs ``_load_data``.
+
+        Args:
+            pipeline_names: Names of the pipelines to load selectively, or
+                ``None`` to load all registered pipelines.
+        """
+        if set(self._requested_pipelines or []) != set(pipeline_names or []):
+            self._is_data_loaded = False
+            self._content = {}
+        self._requested_pipelines = (
+            list(pipeline_names) if pipeline_names is not None else None
+        )
+
     def configure(self, pipelines_module: str | None = None) -> None:
         """Configure the pipelines_module to load the pipelines dictionary.
         Reset the data loading state so that after every ``configure`` call,
@@ -232,6 +252,7 @@ class _ProjectPipelines(MutableMapping):
         self._pipelines_module = pipelines_module
         self._is_data_loaded = False
         self._content = {}
+        self._requested_pipelines = None
 
     # Dict-like interface
     __getitem__ = _load_data_wrapper(operator.getitem)
@@ -499,9 +520,14 @@ def find_pipelines(  # noqa: PLR0912, PLR0915
             "Call 'configure_project' first."
         )
 
-    # Determine if specific pipelines were requested
-    load_all = pipelines_to_find is None or "__default__" in pipelines_to_find
-    requested_pipelines: set[str] | None = None if load_all else set(pipelines_to_find)  # type: ignore[arg-type]
+    # CLI-set filter takes precedence; falls back to the explicit kwarg.
+    pipeline_filter = (
+        pipelines._requested_pipelines
+        if pipelines._requested_pipelines is not None
+        else pipelines_to_find
+    )
+    load_all = pipeline_filter is None or "__default__" in pipeline_filter
+    requested_pipelines: set[str] | None = None if load_all else set(pipeline_filter)  # type: ignore[arg-type]
 
     pipelines_dict: dict[str, Pipeline] = {}
 

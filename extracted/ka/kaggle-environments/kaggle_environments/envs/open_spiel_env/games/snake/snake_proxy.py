@@ -20,6 +20,7 @@ from ... import proxy
 
 # Ensure the underlying custom game is registered before we try to load it.
 from . import snake_game  # noqa: F401
+from .snake_game import Action as _Action
 
 _BODY_CHARS = ["a", "b", "c", "d"]
 _HEAD_CHARS = ["A", "B", "C", "D"]
@@ -30,12 +31,11 @@ _EMPTY_CHAR = "."
 class SnakeState(proxy.State):
     """Snake state proxy with JSON observations."""
 
-    def _board(self, snakes: list[list[list[int]]], is_alive: list[bool], food: list[int] | None) -> list[list[str]]:
+    def _board(self, snakes: list[list[list[int]]], is_alive: list[bool], foods: list[list[int]]) -> list[list[str]]:
         rows = self.__wrapped__.rows
         cols = self.__wrapped__.cols
         board = [[_EMPTY_CHAR] * cols for _ in range(rows)]
-        if food is not None:
-            fr, fc = food
+        for fr, fc in foods:
             board[fr][fc] = _FOOD_CHAR
         for i, snake in enumerate(snakes):
             if not is_alive[i] or not snake:
@@ -54,7 +54,15 @@ class SnakeState(proxy.State):
         snakes = [[[int(r), int(c)] for r, c in snake] for snake in wrapped.snakes]
         is_alive = [bool(a) for a in wrapped.is_alive]
         scores = [float(s) for s in wrapped.scores]
-        food = [int(wrapped.food[0]), int(wrapped.food[1])] if wrapped.food is not None else None
+        foods = [[int(r), int(c)] for r, c in wrapped.foods]
+        # Back-compat: expose the first food under the old singular key too.
+        food = foods[0] if foods else None
+        food_respawn_interval = int(getattr(wrapped, "food_respawn_interval", 0))
+        turn = int(getattr(wrapped, "_steps", 0))
+        if food_respawn_interval > 0:
+            turns_until_respawn = food_respawn_interval - (turn % food_respawn_interval)
+        else:
+            turns_until_respawn = None
 
         is_terminal = self.is_terminal()
         winner: int | str | None = None
@@ -78,18 +86,30 @@ class SnakeState(proxy.State):
         buffer = [a for a in getattr(wrapped, "_move_buffer", [])]
         pending = [i for i, a in enumerate(buffer) if a is not None]
 
+        round_history = [
+            [
+                _Action(a).name if a is not None and 0 <= a < len(_Action) else None
+                for a in round_moves
+            ]
+            for round_moves in getattr(wrapped, "_round_history", [])
+        ]
+
         return {
-            "board": self._board(snakes, is_alive, food),
+            "board": self._board(snakes, is_alive, foods),
             "num_rows": int(wrapped.rows),
             "num_columns": int(wrapped.cols),
             "num_players": int(wrapped.num_players),
-            "food": food,
+            "foods": foods,
+            "food": food,  # deprecated, kept for back-compat
+            "food_respawn_interval": food_respawn_interval,
+            "turns_until_respawn": turns_until_respawn,
             "snakes": snake_objs,
             "scores": scores,
             "is_alive": is_alive,
             "current_player": self.current_player(),
             "pending_this_turn": pending,
-            "turn": int(getattr(wrapped, "_steps", 0)),
+            "round_history": round_history,
+            "turn": turn,
             "is_terminal": is_terminal,
             "winner": winner,
             "game_over_reason": getattr(wrapped, "_game_over_reason", None),

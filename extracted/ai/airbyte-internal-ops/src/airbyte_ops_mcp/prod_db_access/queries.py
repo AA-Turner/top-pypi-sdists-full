@@ -14,6 +14,7 @@ from time import perf_counter
 from typing import Any
 
 import sqlalchemy
+from airbyte.exceptions import PyAirbyteInputError
 from google.cloud import secretmanager
 
 from airbyte_ops_mcp.gcp_auth import get_secret_manager_client
@@ -39,6 +40,8 @@ from airbyte_ops_mcp.prod_db_access.sql import (
     SELECT_CONNECTOR_VERSIONS,
     SELECT_DATAPLANES_LIST,
     SELECT_DESTINATION_CONNECTION_STATS,
+    SELECT_DESTINATION_SUCCESSFUL_SYNCS_FOR_VERSION,
+    SELECT_DESTINATION_SYNC_RESULTS_FOR_VERSION,
     SELECT_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR,
     SELECT_NEW_CONNECTOR_RELEASES,
     SELECT_ORG_WORKSPACES,
@@ -51,10 +54,12 @@ from airbyte_ops_mcp.prod_db_access.sql import (
     SELECT_RECENT_SYNCS_FOR_DESTINATION_CONNECTOR,
     SELECT_RECENT_SYNCS_FOR_SOURCE_CONNECTOR,
     SELECT_SOURCE_CONNECTION_STATS,
-    SELECT_SUCCESSFUL_SYNCS_FOR_VERSION,
-    SELECT_SYNC_RESULTS_FOR_VERSION,
-    SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS,
-    SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS_BY_DEFINITION,
+    SELECT_SOURCE_SUCCESSFUL_SYNCS_FOR_VERSION,
+    SELECT_SOURCE_SYNC_RESULTS_FOR_VERSION,
+    SELECT_VERSION_ID_BY_TAG,
+    SELECT_VERSION_INFO_BY_ID,
+    SELECT_VERSIONS_WITH_PINS,
+    SELECT_VERSIONS_WITH_PINS_BY_DEFINITION,
     SELECT_WORKSPACE_INFO,
     SELECT_WORKSPACES_BY_EMAIL_DOMAIN,
 )
@@ -414,37 +419,116 @@ def query_raw_pins_for_version(
     )
 
 
-def query_syncs_for_version_pinned_connector(
+def resolve_version_info(
     connector_version_id: str,
+    *,
+    gsm_client: secretmanager.SecretManagerServiceClient | None = None,
+) -> dict[str, Any]:
+    """Resolve a version UUID to its `docker_repository` and `docker_image_tag`.
+
+    Returns a single-row dict with keys `version_id`, `actor_definition_id`,
+    `docker_repository`, `docker_image_tag`.
+
+    Raises `PyAirbyteInputError` if the UUID is not found.
+    """
+    rows = _run_sql_query(
+        SELECT_VERSION_INFO_BY_ID,
+        parameters={"version_id": connector_version_id},
+        query_name="SELECT_VERSION_INFO_BY_ID",
+        gsm_client=gsm_client,
+    )
+    if not rows:
+        raise PyAirbyteInputError(
+            message=f"No connector version found for UUID: {connector_version_id}",
+        )
+    return rows[0]
+
+
+def resolve_version_id_by_tag(
+    docker_repository: str,
+    docker_image_tag: str,
+    *,
+    gsm_client: secretmanager.SecretManagerServiceClient | None = None,
+) -> dict[str, Any]:
+    """Resolve a `docker_repository` + `docker_image_tag` to a version UUID.
+
+    Returns a single-row dict with keys `version_id`, `actor_definition_id`,
+    `docker_repository`, `docker_image_tag`.
+
+    Raises `PyAirbyteInputError` if the combination is not found.
+    """
+    rows = _run_sql_query(
+        SELECT_VERSION_ID_BY_TAG,
+        parameters={
+            "docker_repository": docker_repository,
+            "docker_image_tag": docker_image_tag,
+        },
+        query_name="SELECT_VERSION_ID_BY_TAG",
+        gsm_client=gsm_client,
+    )
+    if not rows:
+        raise PyAirbyteInputError(
+            message=(
+                f"No connector version found for {docker_repository}:{docker_image_tag}"
+            ),
+        )
+    return rows[0]
+
+
+def is_source_connector(docker_repository: str) -> bool:
+    """Return `True` if `docker_repository` identifies a source connector."""
+    return docker_repository.startswith("airbyte/source-")
+
+
+def query_syncs_for_connector_version(
+    connector_version_id: str,
+    is_destination: bool,
     days: int = 7,
     limit: int = 100,
     successful_only: bool = False,
     *,
     gsm_client: secretmanager.SecretManagerServiceClient | None = None,
 ) -> list[dict[str, Any]]:
-    """Query sync job results for actors pinned to a specific connector version.
+    """Query sync jobs that were run with a specific connector version.
+
+    Filters on the version stamped into `jobs.config` at job-creation time
+    rather than the current pin state. This matches the backend's approach
+    in `RolloutActorFinder.jobDefinitionVersionIdEq`.
 
     Args:
         connector_version_id: Connector version UUID to filter by
+        is_destination: `True` for destination connectors, `False` for source
         days: Number of days to look back (default: 7)
         limit: Maximum number of results (default: 100)
-        successful_only: If True, only return successful syncs (default: False)
-        gsm_client: GCP Secret Manager client. If None, a new client will be instantiated.
+        successful_only: If `True`, only return successful syncs (default: `False`)
+        gsm_client: GCP Secret Manager client. If `None`, a new client will be instantiated.
 
     Returns:
         List of sync job results
     """
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
-    query = (
-        SELECT_SUCCESSFUL_SYNCS_FOR_VERSION
-        if successful_only
-        else SELECT_SYNC_RESULTS_FOR_VERSION
-    )
-    query_name = (
-        "SELECT_SUCCESSFUL_SYNCS_FOR_VERSION"
-        if successful_only
-        else "SELECT_SYNC_RESULTS_FOR_VERSION"
-    )
+    if is_destination:
+        query = (
+            SELECT_DESTINATION_SUCCESSFUL_SYNCS_FOR_VERSION
+            if successful_only
+            else SELECT_DESTINATION_SYNC_RESULTS_FOR_VERSION
+        )
+        query_name = (
+            "SELECT_DESTINATION_SUCCESSFUL_SYNCS_FOR_VERSION"
+            if successful_only
+            else "SELECT_DESTINATION_SYNC_RESULTS_FOR_VERSION"
+        )
+    else:
+        query = (
+            SELECT_SOURCE_SUCCESSFUL_SYNCS_FOR_VERSION
+            if successful_only
+            else SELECT_SOURCE_SYNC_RESULTS_FOR_VERSION
+        )
+        query_name = (
+            "SELECT_SOURCE_SUCCESSFUL_SYNCS_FOR_VERSION"
+            if successful_only
+            else "SELECT_SOURCE_SYNC_RESULTS_FOR_VERSION"
+        )
     return _run_sql_query(
         query,
         parameters={
@@ -961,18 +1045,16 @@ def query_connector_rollouts_for_connector(
     )
 
 
-def query_versions_with_pins_or_rollouts(
+def query_versions_with_pins(
     actor_definition_id: str | None = None,
     *,
     gsm_client: secretmanager.SecretManagerServiceClient | None = None,
 ) -> list[dict[str, Any]]:
-    """Query connector versions that have at least one pin or an active rollout.
+    """Query connector versions that have at least one pin.
 
-    Returns versions from `actor_definition_version` that are referenced by
-    at least one `scoped_configuration` pin (`key = 'connector_version'`) or
-    by an active `connector_rollout` as the release candidate version.
-
-    Each row includes aggregate `pin_count`, `rollout_state`, and `rollout_id`.
+    Does NOT join `connector_rollout`, so each version appears exactly once
+    regardless of how many rollouts reference it.  Includes per-scope pin
+    breakdown (`actor_pins`, `workspace_pins`, `org_pins`).
 
     Args:
         actor_definition_id: Optional connector definition UUID to filter results.
@@ -980,18 +1062,18 @@ def query_versions_with_pins_or_rollouts(
         gsm_client: GCP Secret Manager client. If `None`, a new client will be instantiated.
 
     Returns:
-        List of version dicts ordered by `pin_count` DESC, `last_published` DESC.
+        List of version dicts ordered by `pin_count` DESC, `created_at` DESC.
     """
     if actor_definition_id is not None:
         return _run_sql_query(
-            SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS_BY_DEFINITION,
+            SELECT_VERSIONS_WITH_PINS_BY_DEFINITION,
             parameters={"actor_definition_id": actor_definition_id},
-            query_name="SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS_BY_DEFINITION",
+            query_name="SELECT_VERSIONS_WITH_PINS_BY_DEFINITION",
             gsm_client=gsm_client,
         )
     return _run_sql_query(
-        SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS,
+        SELECT_VERSIONS_WITH_PINS,
         parameters=None,
-        query_name="SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS",
+        query_name="SELECT_VERSIONS_WITH_PINS",
         gsm_client=gsm_client,
     )

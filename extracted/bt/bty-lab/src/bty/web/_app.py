@@ -26,6 +26,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import (
@@ -46,9 +47,11 @@ from bty import catalog as _catalog
 from bty import images
 from bty.web import (
     _backup,
+    _config,
     _db,
     _labels,
     _models,
+    _ramboot_cache,
     _release_mgr,
     _security,
     _settings_store,
@@ -88,6 +91,38 @@ LSHW_MAX_BYTES = 4 * 1024 * 1024
 
 TEMPLATES_DIR = Path(__file__).parent / "_templates"
 STATIC_DIR = Path(__file__).parent / "_static"
+
+
+# Per-state_path display-timezone cache. The TZ rarely changes across
+# a bty-web process lifetime so a single DB read per process (per
+# state.db, in case tests stand up multiple) is enough. The Settings
+# POST handler invalidates by calling :func:`invalidate_display_tz_cache`
+# after a successful write so the next render picks up the new value.
+_DISPLAY_TZ_CACHE: dict[str, Any] = {}  # str(state_path) -> ZoneInfo
+
+
+def _cached_display_tz(state_path: Path) -> ZoneInfo:
+    key = str(state_path)
+    if key in _DISPLAY_TZ_CACHE:
+        return _DISPLAY_TZ_CACHE[key]  # type: ignore[no-any-return]
+    try:
+        with _db.open_db(state_path) as conn:
+            tz: ZoneInfo = _settings_store.resolve_display_timezone(conn)
+    except Exception:
+        # A bad stored value or a transient DB error must not 500
+        # every template render. Fall back to UTC silently; the
+        # Settings page is where the operator sees the parse error.
+        tz = ZoneInfo("UTC")
+    _DISPLAY_TZ_CACHE[key] = tz
+    return tz
+
+
+def invalidate_display_tz_cache(state_path: Path) -> None:
+    """Drop the cached display TZ for ``state_path``. Called by the
+    Settings POST handler after a successful display.timezone write
+    so the next render reflects the change without a process restart.
+    """
+    _DISPLAY_TZ_CACHE.pop(str(state_path), None)
 
 
 def create_app(
@@ -190,6 +225,10 @@ def create_app(
             catalog_state.catalog = None
     release_fetch_manager = _release_mgr.ReleaseFetchManager()
     backup_manager = _backup.BackupManager()
+    ramboot_cache_manager = _ramboot_cache.RambootCacheManager(
+        state_path=state_path,
+        live_images_dir=_config.cfg().live_images_dir,
+    )
 
     @asynccontextmanager
     async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -253,6 +292,25 @@ def create_app(
         backup_scheduler_task = asyncio.create_task(
             _backup.scheduler_loop(state_path, backup_manager, backup_stop_event)
         )
+        # Ramboot pre-warm worker. Drains the in-memory queue + the
+        # ``ramboot_cache`` table; per-image idempotent so a restart
+        # mid-pre-warm picks up where it left off via re-enqueue
+        # from any machine still bound to that ref.
+        ramboot_cache_manager.start()
+        # Resume any queued / in-flight rows that survived a restart.
+        # The worker is single-threaded, so dropping multiple refs on
+        # the queue is fine; the worker picks them up serially. We
+        # only resume rows that are in non-terminal states; ``ready``
+        # stays ``ready`` (the nbdmux export survives bty-web restarts
+        # because the daemon is a separate process), ``failed`` stays
+        # ``failed`` until the operator re-enqueues from the UI.
+        with _db.open_db(state_path) as _conn:
+            _resume_rows = _conn.execute(
+                "SELECT ref FROM ramboot_cache "
+                "WHERE status IN ('queued','fetching','decompressing','registering')"
+            ).fetchall()
+        for _r in _resume_rows:
+            ramboot_cache_manager.enqueue(str(_r["ref"]))
         try:
             yield
         finally:
@@ -271,6 +329,7 @@ def create_app(
                 await backup_scheduler_task
             await release_fetch_manager.stop()
             await backup_manager.stop()
+            ramboot_cache_manager.stop()
             # Wake every SSE subscribe() generator so the
             # StreamingResponse exits its yield loop. Without this,
             # browser tabs left open on /ui/machines or /ui/dashboard
@@ -292,13 +351,22 @@ def create_app(
     jinja.globals["bty_version"] = bty.__version__
 
     def _fmt_ts(value: object) -> str:
-        """Render a timestamp compactly as ``YYYY-MM-DD HH:MM:SS``.
+        """Render a timestamp as ``YYYY-MM-DD HH:MM:SS <TZ>``.
 
         The on-disk shape (``_now_iso``) is
         ``2026-05-17T20:21:09.155109+00:00`` -- microseconds and the
-        ``+00:00`` offset are noise for an operator scanning a row, so
-        this trims to second precision and drops the offset. The single
-        display format used everywhere a timestamp is shown.
+        raw ``+HH:MM`` offset are noise for an operator scanning a
+        row. The renderer trims to second precision and converts to
+        the configured display timezone
+        (:func:`_settings_store.resolve_display_timezone`), then
+        appends the zone's short name (e.g. ``UTC``, ``CEST``,
+        ``EST``) so the value is unambiguous even when the operator
+        cross-references against a shell clock in their local time.
+
+        Default zone is UTC. An operator can override per-instance via
+        the Settings UI or ``$BTY_DISPLAY_TZ``. The resolved zone is
+        cached per state_path; the Settings POST handler invalidates
+        the cache when it persists a new value.
 
         Accepts either an ISO-8601 string (DB columns) or a
         ``datetime`` (e.g. a file mtime). Defensive: returns the input
@@ -314,11 +382,15 @@ def create_app(
                 return value
         else:
             return ""
-        # All bty timestamps are written UTC; normalise any attached
-        # offset to UTC, then drop tzinfo for the bare-second display.
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(UTC).replace(tzinfo=None)
-        return dt.strftime("%Y-%m-%d %H:%M:%S")
+        # All bty timestamps are written UTC; convert to the display
+        # zone (UTC by default) before trimming. ``dt`` may be naive
+        # if a caller passed e.g. a file mtime -- treat that as UTC
+        # since that's bty's storage standard.
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        tz = _cached_display_tz(state_path)
+        dt = dt.astimezone(tz)
+        return dt.strftime("%Y-%m-%d %H:%M:%S ") + (dt.tzname() or "")
 
     jinja.filters["fmt_ts"] = _fmt_ts
 
@@ -717,6 +789,64 @@ def create_app(
             offer_kind = "ipxe-exit"
             offer_summary = f"{normalised} offered sanboot (iPXE boots local drive {drive})"
             offer_details = {"offer": "sanboot", "sanboot_drive": drive}
+        elif policy == "ramboot":
+            # ramboot chains the slim ``ramboot-init`` live env (kernel
+            # + initrd only, no squashfs). The initramfs nbd-client
+            # connects to the operator-configured nbdmux, mounts the
+            # catalog image's largest partition, overlays a tmpfs for
+            # writes, and pivot_roots before /sbin/init. Gates:
+            #   * nbdmux URL configured in Settings -> Ramboot (or env / bty.toml)
+            #   * ref bound to the machine
+            # Gates: nbdmux URL configured (env or Settings), ref bound,
+            # and the ref's pre-warm has completed (ramboot_cache.status
+            # = 'ready'). Any gate open falls back to ipxe_tui so the
+            # operator sees the misconfiguration in the wizard rather
+            # than the box hard-paniccing in the initramfs.
+            with _db.open_db(state_path) as conn:
+                nbdmux_url = _settings_store.resolve_nbdmux_url(conn)
+                overlay_size = _settings_store.resolve_ramboot_overlay_size(conn)
+                ramboot_ready = _ramboot_cache.is_ready(conn, str(ref)) if ref else False
+            if nbdmux_url and ref and ramboot_ready:
+                # Derive the NBD host from the configured HTTP control
+                # plane URL: same hostname, port 10809 (nbd-server's
+                # listener; bty-web posts exports against port 4040).
+                parsed = urllib.parse.urlsplit(nbdmux_url)
+                nbd_host = parsed.hostname or host.split(":")[0]
+                template = jinja.get_template("ipxe_ramboot.j2")
+                rendered = template.render(
+                    mac=normalised,
+                    machine=machine,
+                    host=host,
+                    nbd_host=nbd_host,
+                    nbd_port=10809,
+                    image_ref=ref,
+                    overlay_size=overlay_size,
+                )
+                offer_kind = "ramboot"
+                offer_summary = (
+                    f"{normalised} offered ramboot via nbd://{nbd_host}:10809/{ref[:8]}..."
+                )
+                offer_details = {
+                    "offer": "ramboot",
+                    "nbd_endpoint": f"tcp://{nbd_host}:10809",
+                    "image_ref": ref,
+                    "overlay_size": overlay_size,
+                }
+            else:
+                template = jinja.get_template("ipxe_tui.j2")
+                rendered = template.render(mac=normalised, machine=machine, host=host)
+                offer_kind = "ramboot-fallback-tui"
+                if not nbdmux_url:
+                    reason = "nbdmux URL not configured"
+                elif not ref:
+                    reason = "no bty_image_ref bound"
+                else:
+                    reason = "image not pre-warmed yet"
+                offer_summary = f"{normalised} offered tui (boot_mode=ramboot but {reason})"
+                offer_details = {
+                    "offer": "bty-tui",
+                    "reason": f"ramboot misconfigured: {reason}",
+                }
         elif ref and policy in ("bty-flash-always", "bty-flash-once"):
             # Safety gate: refuse the flash chain unless the operator
             # has picked a target disk by serial. Without this, ``bty``
@@ -1941,10 +2071,32 @@ def create_app(
                     "target_disk_serial": body.target_disk_serial,
                 },
             )
+            # Enqueue pre-warm when the machine is bound to ramboot
+            # with a ref. Idempotent: ``ramboot_cache.enqueue``
+            # returns the existing ``ready`` row untouched, so
+            # saving a machine whose ref is already pre-warmed is a
+            # no-op AND we skip dropping work onto the worker queue
+            # below (the worker shouldn't redo a finished job; the
+            # operator can re-enqueue from the catalog page if they
+            # want a re-warm).
+            _pending_prewarm: str | None = None
+            if body.boot_mode == "ramboot" and body.bty_image_ref:
+                resulting = _ramboot_cache.enqueue(
+                    conn,
+                    body.bty_image_ref,
+                    actor="operator",
+                    source_ip=_client_ip(request),
+                )
+                if resulting.status != "ready":
+                    _pending_prewarm = body.bty_image_ref
             conn.commit()
             row = conn.execute("SELECT * FROM machines WHERE mac = ?", (normalised,)).fetchone()
             labels = _labels.get_labels(conn, normalised) if row is not None else []
         assert row is not None
+        # Drop the pre-warm job onto the worker queue AFTER the commit
+        # so the worker's first DB read sees the freshly-persisted row.
+        if _pending_prewarm:
+            ramboot_cache_manager.enqueue(_pending_prewarm)
         publish_state_changed()
         return _row_to_machine(row, labels)
 

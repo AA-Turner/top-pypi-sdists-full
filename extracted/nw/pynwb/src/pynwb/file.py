@@ -6,8 +6,9 @@ import copy as _copy
 
 import numpy as np
 import pandas as pd
+from pandas.api.extensions import ExtensionArray as _PdExtensionArray
 
-from hdmf.common import DynamicTableRegion, DynamicTable
+from hdmf.common import DynamicTableRegion, DynamicTable, HERD
 from hdmf.container import HERDManager
 from hdmf.utils import docval, getargs, get_docval, popargs, popargs_to_dict, AllowPositional
 
@@ -15,6 +16,7 @@ from . import register_class, CORE_NAMESPACE
 from .base import TimeSeries, ProcessingModule
 from .device import Device, DeviceModel
 from .epoch import TimeIntervals
+from .event import EventsTable
 from .ecephys import ElectrodeGroup, ElectrodesTable
 from .icephys import (IntracellularElectrode, SweepTable, PatchClampSeries, IntracellularRecordingsTable,
                       SimultaneousRecordingsTable, SequentialRecordingsTable, RepetitionsTable,
@@ -24,6 +26,8 @@ from .ophys import ImagingPlane
 from .ogen import OptogeneticStimulusSite
 from .misc import Units
 from .core import NWBContainer, NWBDataInterface, MultiContainerInterface, ScratchData, LabelledDict
+# the pynwb HERD subclass injects the pynwb type map; HERD from hdmf.common (above) is the docval type
+from .resources import HERD as PyNWBHERD
 
 
 __all__ = [
@@ -251,6 +255,13 @@ class NWBFile(MultiContainerInterface, HERDManager):
             'get': 'get_time_intervals'
         },
         {
+            'attr': 'events',
+            'add': 'add_events_table',
+            'create': 'create_events_table',
+            'type': EventsTable,
+            'get': 'get_events_table'
+        },
+        {
             'attr': 'lab_meta_data',
             'add': 'add_lab_meta_data',
             'type': LabMetaData,
@@ -287,9 +298,11 @@ class NWBFile(MultiContainerInterface, HERDManager):
                      {'name': 'trials', 'child': True, 'required_name': 'trials'},
                      {'name': 'units', 'child': True, 'required_name': 'units'},
                      {'name': 'subject', 'child': True, 'required_name': 'subject'},
+                     {'name': 'external_resources', 'child': True, 'required_name': 'external_resources'},
                      {'name': 'sweep_table', 'child': True, 'required_name': 'sweep_table'},
                      {'name': 'invalid_times', 'child': True, 'required_name': 'invalid_times'},
-                     # icephys_filtering is temporary. /intracellular_ephys/filtering dataset will be deprecated
+                     # icephys_filtering is read-only; the legacy /intracellular_ephys/filtering dataset is
+                     # mapped to this field when reading older files
                      {'name': 'icephys_filtering', 'settable': False},
                      {'name': 'intracellular_recordings', 'child': True,
                       'required_name': 'intracellular_recordings',
@@ -339,6 +352,8 @@ class NWBFile(MultiContainerInterface, HERDManager):
             {'name': 'keywords', 'type': 'array_data', 'doc': 'Terms to search over', 'default': None},
             {'name': 'notes', 'type': str,
              'doc': 'Notes about the experiment.', 'default': None},
+            {'name': 'external_resources', 'type': HERD,
+             'doc': 'the HERD external resources object for this NWBFile', 'default': None},
             {'name': 'pharmacology', 'type': str,
              'doc': 'Description of drugs used, including how and when they were administered. '
                     'Anesthesia(s), painkiller(s), etc., plus dosage, concentration, etc.', 'default': None},
@@ -385,6 +400,8 @@ class NWBFile(MultiContainerInterface, HERDManager):
              'doc': 'A table containing times to be omitted from analysis', 'default': None},
             {'name': 'intervals', 'type': (list, tuple),
              'doc': 'any TimeIntervals tables storing time intervals', 'default': None},
+            {'name': 'events', 'type': (list, tuple),
+             'doc': 'EventsTable objects belonging to this NWBFile', 'default': None},
             {'name': 'units', 'type': Units,
              'doc': 'A table containing unit metadata', 'default': None},
             {'name': 'processing', 'type': (list, tuple),
@@ -395,10 +412,6 @@ class NWBFile(MultiContainerInterface, HERDManager):
              'doc': 'the ElectrodesTable that belongs to this NWBFile', 'default': None},
             {'name': 'electrode_groups', 'type': Iterable,
              'doc': 'the ElectrodeGroups that belong to this NWBFile', 'default': None},
-            {'name': 'ic_electrodes', 'type': (list, tuple),
-             'doc': 'DEPRECATED use icephys_electrodes parameter instead. '
-                    'IntracellularElectrodes that belong to this NWBFile', 'default': None},
-                    # TODO remove this arg in PyNWB 4.0
             {'name': 'sweep_table', 'type': SweepTable,
              'doc': '[DEPRECATED] Use IntracellularRecordingsTable instead. '
                     'The SweepTable that belong to this NWBFile', 'default': None},
@@ -417,7 +430,8 @@ class NWBFile(MultiContainerInterface, HERDManager):
             {'name': 'icephys_electrodes', 'type': (list, tuple),
              'doc': 'IntracellularElectrodes that belong to this NWBFile.', 'default': None},
             {'name': 'icephys_filtering', 'type': str, 'default': None,
-             'doc': '[DEPRECATED] Use IntracellularElectrode.filtering instead. Description of filtering used.'},
+             'doc': ('Read-only. The legacy /general/intracellular_ephys/filtering value read from older files. '
+                     'Use IntracellularElectrode.filtering for new files.')},
             {'name': 'intracellular_recordings', 'type': IntracellularRecordingsTable, 'default': None,
              'doc': 'the IntracellularRecordingsTable table that belongs to this NWBFile'},
             {'name': 'icephys_simultaneous_recordings', 'type': SimultaneousRecordingsTable, 'default': None,
@@ -435,7 +449,6 @@ class NWBFile(MultiContainerInterface, HERDManager):
             'session_start_time',
             'experimenter',
             'file_create_date',
-            'ic_electrodes',
             'icephys_electrodes',
             'related_publications',
             'timestamps_reference_time',
@@ -452,6 +465,7 @@ class NWBFile(MultiContainerInterface, HERDManager):
             'imaging_planes',
             'ogen_sites',
             'intervals',
+            'events',
             'subject',
             'sweep_table',
             'lab_meta_data',
@@ -475,12 +489,13 @@ class NWBFile(MultiContainerInterface, HERDManager):
             'surgery',
             'virus',
             'stimulus_notes',
-            'icephys_filtering',  # DEPRECATION warning will be raised in the setter when calling setattr in the loop
+            'icephys_filtering',  # read-only; set explicitly below
             'intracellular_recordings',
             'icephys_simultaneous_recordings',
             'icephys_sequential_recordings',
             'icephys_repetitions',
-            'icephys_experimental_conditions'
+            'icephys_experimental_conditions',
+            'external_resources'
         ]
         args_to_set = popargs_to_dict(keys_to_set, kwargs)
         kwargs['name'] = 'root'
@@ -507,20 +522,19 @@ class NWBFile(MultiContainerInterface, HERDManager):
             file_create_date = [file_create_date]
         args_to_set['file_create_date'] = list(map(_add_missing_timezone, file_create_date))
 
-        # backwards-compatibility code for ic_electrodes / icephys_electrodes
-        ic_electrodes = args_to_set['ic_electrodes']
-        if ic_electrodes is not None:
-            self._error_on_new_pass_on_construct(error_msg=("Use of the ic_electrodes parameter is deprecated "
-                                                            "and will be removed in PyNWB 4.0. "
-                                                            "Use the icephys_electrodes parameter instead"))
-            args_to_set['icephys_electrodes'] = ic_electrodes
-        args_to_set.pop('ic_electrodes')  # do not set this arg
-
         # backwards-compatibility for sweep table
         if args_to_set['sweep_table'] is not None:
             self._error_on_new_pass_on_construct(error_msg=("SweepTable is deprecated. Use the "
                                                             "IntracellularRecordingsTable instead. See also the "
                                                             "NWBFile.add_intracellular_recordings function."))
+
+        # icephys_filtering is read-only. The legacy /general/intracellular_ephys/filtering dataset is mapped
+        # to this field when reading older files. Setting it on a new file raises an error.
+        icephys_filtering = args_to_set.pop('icephys_filtering')
+        if icephys_filtering is not None:
+            self._error_on_new_warn_on_construct("Use of icephys_filtering has been removed in PyNWB 4.0. "
+                                                 "Use the IntracellularElectrode.filtering field instead.")
+            self.fields['icephys_filtering'] = icephys_filtering
 
         # convert single experimenter to tuple
         experimenter = args_to_set['experimenter']
@@ -583,14 +597,6 @@ class NWBFile(MultiContainerInterface, HERDManager):
     @property
     def icephys_filtering(self):
         return self.fields.get('icephys_filtering')
-
-    @icephys_filtering.setter
-    def icephys_filtering(self, val):
-        if val is not None:
-            self._error_on_new_warn_on_construct("Use of icephys_filtering is deprecated "
-                                                 "and will be removed in PyNWB 4.0. "
-                                                 "Use the IntracellularElectrode.filtering field instead")
-            self.fields['icephys_filtering'] = val
 
     def __check_epochs(self):
         if self.epochs is None:
@@ -1013,56 +1019,35 @@ class NWBFile(MultiContainerInterface, HERDManager):
             return None
 
     @docval({'name': 'data',
-             'type': ('scalar_data', np.ndarray, list, tuple, pd.DataFrame, DynamicTable, NWBContainer, ScratchData),
+             'type': ('scalar_data', np.ndarray, list, tuple, pd.Series, _PdExtensionArray, pd.DataFrame,
+                      DynamicTable, NWBContainer, ScratchData),
              'doc': 'The data to add to the scratch space.'},
             {'name': 'name', 'type': str,
-             'doc': 'The name of the data. Required only when passing in a scalar, numpy.ndarray, list, or tuple',
+             'doc': ('The name of the data. Required only when passing in a scalar, numpy.ndarray, list, tuple, '
+                     'pandas.Series, or pandas extension array'),
              'default': None},
-            {'name': 'notes', 'type': str,
-             'doc': ('[DEPRECATED] Notes to add to the data. '
-                     'Only used when passing in numpy.ndarray, list, or tuple. This argument is not recommended. '
-                     'Use the `description` argument instead.'),  # TODO remove this arg in PyNWB 4.0
-             'default': None},
-            {'name': 'table_description', 'type': str,
-             'doc': ('[DEPRECATED] Description for the internal DynamicTable used to store a pandas.DataFrame. This '
-                     'argument is not recommended. Use the `description` argument instead.'),
-                     # TODO remove this arg in PyNWB 4.0
-             'default': ''},
             {'name': 'description', 'type': str,
              'doc': ('Description of the data. Required only when passing in a scalar, numpy.ndarray, '
-                     'list, tuple, or pandas.DataFrame. Ignored when passing in an NWBContainer, '
-                     'DynamicTable, or ScratchData object.'),
+                     'list, tuple, pandas.Series, pandas extension array, or pandas.DataFrame. Ignored '
+                     'when passing in an NWBContainer, DynamicTable, or ScratchData object.'),
              'default': None})
     def add_scratch(self, **kwargs):
         '''Add data to the scratch space'''
-        data, name, notes, table_description, description = getargs('data', 'name', 'notes', 'table_description',
-                                                                    'description', kwargs)
-        if notes is not None or table_description != '':
-            warn(('Use of the `notes` or `table_description` argument is deprecated and will be removed in PyNWB 4.0. '
-                  'Use the `description` argument instead.'), DeprecationWarning)
-            if description is not None:
-                raise ValueError('Cannot call add_scratch with (notes or table_description) and description')
+        data, name, description = getargs('data', 'name', 'description', kwargs)
 
-        if isinstance(data, (str, int, float, bytes, np.ndarray, list, tuple, pd.DataFrame)):
+        if isinstance(data, (str, int, float, bytes, np.ndarray, list, tuple, pd.Series, _PdExtensionArray,
+                             pd.DataFrame)):
             if name is None:
                 msg = ('A name is required for NWBFile.add_scratch when adding a scalar, numpy.ndarray, '
-                       'list, tuple, or pandas.DataFrame as scratch data.')
+                       'list, tuple, pandas.Series, pandas extension array, or pandas.DataFrame as scratch data.')
+                raise ValueError(msg)
+            if description is None:
+                msg = ('A description is required for NWBFile.add_scratch when adding a scalar, numpy.ndarray, '
+                       'list, tuple, pandas.Series, pandas extension array, or pandas.DataFrame as scratch data.')
                 raise ValueError(msg)
             if isinstance(data, pd.DataFrame):
-                if table_description != '':
-                    description = table_description  # remove after deprecation
-                if description is None:
-                    msg = ('A description is required for NWBFile.add_scratch when adding a scalar, numpy.ndarray, '
-                           'list, tuple, or pandas.DataFrame as scratch data.')
-                    raise ValueError(msg)
                 data = DynamicTable.from_dataframe(df=data, name=name, table_description=description)
             else:
-                if notes is not None:
-                    description = notes  # remove after deprecation
-                if description is None:
-                    msg = ('A description is required for NWBFile.add_scratch when adding a scalar, numpy.ndarray, '
-                           'list, tuple, or pandas.DataFrame as scratch data.')
-                    raise ValueError(msg)
                 data = ScratchData(name=name, data=data, description=description)
         else:
             if name is not None:
@@ -1072,6 +1057,29 @@ class NWBFile(MultiContainerInterface, HERDManager):
                 warn('The description argument is ignored when adding an NWBContainer, ScratchData, or '
                      'DynamicTable to scratch.')
         return self._add_scratch(data)
+
+    def merge_events_tables(self, tables: list[EventsTable]) -> pd.DataFrame:
+        """Merge a list of EventsTable objects into a single DataFrame indexed by timestamp.
+
+        Each table is converted to a DataFrame with the timestamp column as the index. A
+        ``source_events_table`` column is added to identify which table each row came from.
+        Columns present in only some tables are filled with NaN. Rows are sorted by timestamp.
+        """
+        frames = []
+        for table in tables:
+            df = table.to_dataframe().set_index("timestamp")
+            df.insert(0, "source_events_table", table.name)
+            frames.append(df)
+        return pd.concat(frames, sort=True).sort_index()
+
+    def get_all_events(self) -> pd.DataFrame:
+        """Merge all EventsTable objects in ``NWBFile.events`` into a single DataFrame indexed by timestamp.
+
+        Returns an empty DataFrame if no events tables exist.
+        """
+        if not self.events:
+            return pd.DataFrame()
+        return self.merge_events_tables(list(self.events.values()))
 
     @docval({'name': 'name', 'type': str, 'doc': 'the name of the object to get'},
             {'name': 'convert', 'type': bool, 'doc': 'return the original data, not the NWB object', 'default': True})
@@ -1085,6 +1093,27 @@ class NWBFile(MultiContainerInterface, HERDManager):
             elif isinstance(ret, ScratchData):
                 ret = np.asarray(ret.data)
         return ret
+
+    @docval({'name': 'linked', 'type': bool, 'default': False,
+             'doc': 'If True, return the linked HERD set via link_resources instead of the HERD '
+                    'stored on this file.'},
+            returns='The HERD external resources object for this NWBFile', rtype=HERD)
+    def get_external_resources(self, **kwargs):
+        """Get the HERD external resources for this NWBFile.
+
+        With the default ``linked=False``, return the HERD stored on this file, first creating and
+        attaching a new empty HERD if the file does not have one yet (there is at most one HERD per
+        file, so an existing HERD is returned as-is, e.g. when the file was read from disk). With
+        ``linked=True``, return the linked HERD set via link_resources, or None if none is set,
+        without creating one. The NWBFile.external_resources attribute returns the stored HERD without
+        creating one, returning None when the file has no external resources.
+        """
+        linked = getargs('linked', kwargs)
+        if linked:
+            return self._linked_external_resources
+        if self.external_resources is None:
+            self.external_resources = PyNWBHERD()
+        return self.external_resources
 
     def copy(self):
         """

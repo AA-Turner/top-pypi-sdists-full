@@ -99,6 +99,7 @@ from .type_defs import (
     PutDashboardInputTypeDef,
     PutDashboardOutputTypeDef,
     PutInsightRuleInputTypeDef,
+    PutLogAlarmInputTypeDef,
     PutManagedInsightRulesInputTypeDef,
     PutManagedInsightRulesOutputTypeDef,
     PutMetricAlarmInputTypeDef,
@@ -111,7 +112,12 @@ from .type_defs import (
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
 )
-from .waiter import AlarmExistsWaiter, AlarmMuteRuleExistsWaiter, CompositeAlarmExistsWaiter
+from .waiter import (
+    AlarmExistsWaiter,
+    AlarmMuteRuleExistsWaiter,
+    CompositeAlarmExistsWaiter,
+    LogAlarmExistsWaiter,
+)
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
@@ -139,6 +145,7 @@ class Exceptions(BaseClientExceptions):
     LimitExceededException: type[BotocoreClientError]
     LimitExceededFault: type[BotocoreClientError]
     MissingRequiredParameterException: type[BotocoreClientError]
+    ResourceConflict: type[BotocoreClientError]
     ResourceNotFound: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
 
@@ -558,6 +565,16 @@ class CloudWatchClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#put_insight_rule)
         """
 
+    def put_log_alarm(
+        self, **kwargs: Unpack[PutLogAlarmInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Creates or updates a log alarm.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/put_log_alarm.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#put_log_alarm)
+        """
+
     def put_managed_insight_rules(
         self, **kwargs: Unpack[PutManagedInsightRulesInputTypeDef]
     ) -> PutManagedInsightRulesOutputTypeDef:
@@ -770,6 +787,17 @@ class CloudWatchClient(BaseClient):
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["composite_alarm_exists"]
     ) -> CompositeAlarmExistsWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["log_alarm_exists"]
+    ) -> LogAlarmExistsWaiter:
         """
         Returns an object that can wait for some condition.
 

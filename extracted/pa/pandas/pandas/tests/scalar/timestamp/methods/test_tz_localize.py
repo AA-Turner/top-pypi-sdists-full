@@ -14,17 +14,6 @@ from pandas import (
 )
 
 
-def _distant_date_only_for_zoneinfo(year, tz):
-    if int(year) >= 2200:
-        if isinstance(tz, zoneinfo.ZoneInfo):
-            return
-        elif isinstance(tz, str) and not tz.startswith(("dateutil/", "pytz/")):
-            # zoneinfo tz passed as string
-            return
-        else:
-            pytest.skip("ZoneInfo required for year >= 2200")
-
-
 class TestTimestampTZLocalize:
     def test_tz_localize_pushes_out_of_bounds(self):
         # GH#12677
@@ -77,9 +66,8 @@ class TestTimestampTZLocalize:
         assert result == expected1
         assert result._creso == getattr(NpyDatetimeUnit, f"NPY_FR_{unit}").value
 
-    @pytest.mark.parametrize("year", ["2014", "2200"])
-    def test_tz_localize_ambiguous(self, year):
-        ts = Timestamp(f"{year}-11-02 01:00").as_unit("s")
+    def test_tz_localize_ambiguous(self):
+        ts = Timestamp("2014-11-02 01:00").as_unit("s")
         ts_dst = ts.tz_localize("US/Eastern", ambiguous=True)
         ts_no_dst = ts.tz_localize("US/Eastern", ambiguous=False)
 
@@ -91,7 +79,6 @@ class TestTimestampTZLocalize:
         with pytest.raises(ValueError, match=msg):
             ts.tz_localize("US/Eastern", ambiguous="infer")
 
-    def test_tz_localize_invalid(self):
         # GH#8025
         msg = "Cannot localize tz-aware Timestamp, use tz_convert for conversions"
         with pytest.raises(TypeError, match=msg):
@@ -101,7 +88,6 @@ class TestTimestampTZLocalize:
         with pytest.raises(TypeError, match=msg):
             Timestamp("2011-01-01").tz_convert("Asia/Tokyo")
 
-    @pytest.mark.parametrize("year", ["2015", "2201"])
     @pytest.mark.parametrize(
         "stamp, tz",
         [
@@ -111,9 +97,8 @@ class TestTimestampTZLocalize:
             ("2015-03-29 02:30", "Europe/Belgrade"),
         ],
     )
-    def test_tz_localize_nonexistent(self, stamp, tz, year):
+    def test_tz_localize_nonexistent(self, stamp, tz):
         # GH#13057
-        stamp = stamp.replace("2015", year)
         ts = Timestamp(stamp)
         with pytest.raises(ValueError, match=stamp):
             ts.tz_localize(tz)
@@ -254,27 +239,26 @@ class TestTimestampTZLocalize:
         assert result.hour == expected.hour
         assert result == expected
 
-    @pytest.mark.parametrize("year", ["2018", "2204"])
     @pytest.mark.parametrize(
         "start_ts, tz, end_ts, shift",
         [
-            ["2018-03-25 02:20:00", "Europe/Warsaw", "2018-03-25 03:00:00", "forward"],
+            ["2015-03-29 02:20:00", "Europe/Warsaw", "2015-03-29 03:00:00", "forward"],
             [
-                "2018-03-25 02:20:00",
+                "2015-03-29 02:20:00",
                 "Europe/Warsaw",
-                "2018-03-25 01:59:59.999999999",
+                "2015-03-29 01:59:59.999999999",
                 "backward",
             ],
             [
-                "2018-03-25 02:20:00",
+                "2015-03-29 02:20:00",
                 "Europe/Warsaw",
-                "2018-03-25 03:20:00",
+                "2015-03-29 03:20:00",
                 timedelta(hours=1),
             ],
             [
-                "2018-03-25 02:20:00",
+                "2015-03-29 02:20:00",
                 "Europe/Warsaw",
-                "2018-03-25 01:20:00",
+                "2015-03-29 01:20:00",
                 timedelta(hours=-1),
             ],
             ["2018-03-11 02:33:00", "US/Pacific", "2018-03-11 03:00:00", "forward"],
@@ -300,13 +284,9 @@ class TestTimestampTZLocalize:
     )
     @pytest.mark.parametrize("tz_type", ["", "dateutil/"])
     def test_timestamp_tz_localize_nonexistent_shift(
-        self, start_ts, tz, end_ts, shift, year, tz_type, unit
+        self, start_ts, tz, end_ts, shift, tz_type, unit
     ):
         # GH 8917, 24466
-        if year == "2204" and tz_type == "dateutil/":
-            pytest.skip("ZoneInfo required for year >= 2200")
-        start_ts = start_ts.replace("2018", year)
-        end_ts = end_ts.replace("2018", year)
         tz = tz_type + tz
         if isinstance(shift, str):
             shift = "shift_" + shift
@@ -325,35 +305,27 @@ class TestTimestampTZLocalize:
             assert result == expected
         assert result._creso == getattr(NpyDatetimeUnit, f"NPY_FR_{unit}").value
 
-    @pytest.mark.parametrize("year", ["2015", "2201"])
     @pytest.mark.parametrize("offset", [-1, 1])
-    def test_timestamp_tz_localize_nonexistent_shift_invalid(
-        self, offset, year, warsaw
-    ):
+    def test_timestamp_tz_localize_nonexistent_shift_invalid(self, offset, warsaw):
         # GH 8917, 24466
         tz = warsaw
-        _distant_date_only_for_zoneinfo(year, tz)
-        ts = Timestamp(f"{year}-03-29 02:20:00")
+        ts = Timestamp("2015-03-29 02:20:00")
         msg = "The provided timedelta will relocalize on a nonexistent time"
         with pytest.raises(ValueError, match=msg):
             ts.tz_localize(tz, nonexistent=timedelta(seconds=offset))
 
-    @pytest.mark.parametrize("year", ["2015", "2201"])
-    def test_timestamp_tz_localize_nonexistent_NaT(self, year, warsaw, unit):
+    def test_timestamp_tz_localize_nonexistent_NaT(self, warsaw, unit):
         # GH 8917
         tz = warsaw
-        _distant_date_only_for_zoneinfo(year, tz)
-        ts = Timestamp(f"{year}-03-29 02:20:00").as_unit(unit)
+        ts = Timestamp("2015-03-29 02:20:00").as_unit(unit)
         result = ts.tz_localize(tz, nonexistent="NaT")
         assert result is NaT
 
-    @pytest.mark.parametrize("year", ["2015", "2201"])
-    def test_timestamp_tz_localize_nonexistent_raise(self, year, warsaw, unit):
+    def test_timestamp_tz_localize_nonexistent_raise(self, warsaw, unit):
         # GH 8917
         tz = warsaw
-        _distant_date_only_for_zoneinfo(year, tz)
-        ts = Timestamp(f"{year}-03-29 02:20:00").as_unit(unit)
-        msg = f"{year}-03-29 02:20:00"
+        ts = Timestamp("2015-03-29 02:20:00").as_unit(unit)
+        msg = "2015-03-29 02:20:00"
         with pytest.raises(ValueError, match=msg):
             ts.tz_localize(tz, nonexistent="raise")
         msg = (

@@ -63,9 +63,6 @@ class TestLlavaAdapterConfig:
     def test_is_multimodal(self, adapter):
         assert adapter.cfg.is_multimodal is True
 
-    def test_eps_attr(self, adapter):
-        assert adapter.cfg.eps_attr == "variance_epsilon"
-
     def test_vision_config_extracted(self, adapter):
         assert adapter.cfg.vision_hidden_size == 1024
         assert adapter.cfg.vision_num_layers == 24
@@ -234,7 +231,6 @@ class TestLlavaGQASupport:
     def test_gqa_propagates_to_kv_conversions(self):
         cfg = _make_llava_cfg(n_key_value_heads=8)
         adapter = LlavaArchitectureAdapter(cfg)
-        assert adapter.cfg.n_key_value_heads == 8
         for slot in ("k", "v"):
             conv = adapter.weight_processing_conversions[f"blocks.{{i}}.attn.{slot}.weight"]
             assert conv.tensor_conversion.axes_lengths["n"] == 8

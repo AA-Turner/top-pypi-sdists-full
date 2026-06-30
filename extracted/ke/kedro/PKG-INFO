@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro
-Version: 1.4.0
+Version: 1.5.0
 Summary: Kedro helps you build production-ready data and analytics pipelines
 Author: Kedro
 License: Apache Software License (Apache 2.0)
@@ -39,6 +39,7 @@ Provides-Extra: test
 Requires-Dist: behave<2.0,>=1.2.6; extra == "test"
 Requires-Dist: coverage[toml]; extra == "test"
 Requires-Dist: detect-secrets~=1.5.0; extra == "test"
+Requires-Dist: fastapi>=0.100.0; extra == "test"
 Requires-Dist: import-linter<3.0,>=2.5.2; extra == "test"
 Requires-Dist: ipylab>=1.0.0; extra == "test"
 Requires-Dist: ipython<10.0,>=8.10; extra == "test"
@@ -56,7 +57,7 @@ Requires-Dist: pytest-mock<4.0,>=1.7.1; extra == "test"
 Requires-Dist: pytest-xdist[psutil]<4.0,>=2.2.1; extra == "test"
 Requires-Dist: pytest<10.0,>=7.2; extra == "test"
 Requires-Dist: requests_mock; extra == "test"
-Requires-Dist: s3fs<2026.5,>=2021.4; extra == "test"
+Requires-Dist: s3fs<2026.7,>=2021.4; extra == "test"
 Requires-Dist: pandas-stubs; extra == "test"
 Requires-Dist: types-PyYAML; extra == "test"
 Requires-Dist: types-requests; extra == "test"
@@ -79,9 +80,13 @@ Requires-Dist: notebook>=7.0.0; extra == "jupyter"
 Provides-Extra: benchmark
 Requires-Dist: asv; extra == "benchmark"
 Provides-Extra: pydantic
-Requires-Dist: pydantic>=2.0; extra == "pydantic"
+Requires-Dist: pydantic>=2.13; extra == "pydantic"
+Provides-Extra: server
+Requires-Dist: kedro[pydantic]; extra == "server"
+Requires-Dist: fastapi>=0.100.0; extra == "server"
+Requires-Dist: uvicorn>=0.20.0; extra == "server"
 Provides-Extra: all
-Requires-Dist: kedro[benchmark,docs,jupyter,pydantic,test]; extra == "all"
+Requires-Dist: kedro[benchmark,docs,jupyter,server,test]; extra == "all"
 Dynamic: license-file
 
 <p align="center">

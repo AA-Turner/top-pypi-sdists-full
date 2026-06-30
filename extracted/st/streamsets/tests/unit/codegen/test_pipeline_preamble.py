@@ -20,8 +20,7 @@ def pipeline_dto_mock():
 
 def test_if_pipeline_preamble_generate_correct_code(pipeline_dto_mock):
     preamble = PipelinePreamble(source_data=pipeline_dto_mock)
-    assert str(preamble) == textwrap.dedent(
-        """\
+    assert str(preamble) == textwrap.dedent("""\
     import os
     from streamsets.sdk import ControlHub
 
@@ -32,14 +31,12 @@ def test_if_pipeline_preamble_generate_correct_code(pipeline_dto_mock):
     )
 
     engine = sch.engines.get(id="926c0861-957e-4fe0-b48c-cb18067ab9d7")
-    pipeline_builder = sch.get_pipeline_builder(engine_type="COLLECTOR", engine_id=engine.id)"""
-    )
+    pipeline_builder = sch.get_pipeline_builder(engine_type="COLLECTOR", engine_id=engine.id)""")
 
 
 def test_if_pipeline_preamble_with_aster_param_generate_correct_code(pipeline_dto_mock):
     preamble = PipelinePreamble(source_data=pipeline_dto_mock, aster_url="https://dev.hub.streamsets.com")
-    assert str(preamble) == textwrap.dedent(
-        """\
+    assert str(preamble) == textwrap.dedent("""\
     import os
     from streamsets.sdk import ControlHub
 
@@ -51,5 +48,4 @@ def test_if_pipeline_preamble_with_aster_param_generate_correct_code(pipeline_dt
     )
 
     engine = sch.engines.get(id="926c0861-957e-4fe0-b48c-cb18067ab9d7")
-    pipeline_builder = sch.get_pipeline_builder(engine_type="COLLECTOR", engine_id=engine.id)"""
-    )
+    pipeline_builder = sch.get_pipeline_builder(engine_type="COLLECTOR", engine_id=engine.id)""")

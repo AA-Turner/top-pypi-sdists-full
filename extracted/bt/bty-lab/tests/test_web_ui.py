@@ -173,10 +173,10 @@ def test_ui_images_renders_default_catalog_url(
     assert r.status_code == 200
     body = r.text
     assert "safl/nosi" in body
-    # Default pins to a specific nosi ISO-week release at the time
-    # bty was cut (not /latest/), so two operators on the same bty
-    # version see byte-identical catalog content.
-    assert "/releases/download/" in body
+    # Default tracks nosi's /releases/latest/ (since v0.61.2);
+    # byte-stability across operators is provided by withcache,
+    # not by pinning the URL into the bty release.
+    assert "/releases/latest/download/" in body
     assert "/catalog.toml" in body
     assert 'action="/ui/catalog/fetch-release"' in body
 
@@ -2155,6 +2155,140 @@ def test_ui_settings_backup_invalid_retention_rejects(client: TestClient) -> Non
             follow_redirects=False,
         )
         assert r.status_code == 422, bad
+
+
+def test_ui_settings_display_renders_form_and_default_label(
+    client: TestClient,
+) -> None:
+    """Settings page carries a Display card with the timezone input,
+    anchored at ``#display`` and reachable from the subnav."""
+    _login(client)
+    body = client.get("/ui/settings").text
+    assert 'id="display"' in body
+    assert 'href="#display"' in body
+    assert 'action="/ui/settings/display"' in body
+    assert 'name="display_timezone"' in body
+    # Default is UTC; the form text shows "Currently effective: UTC".
+    assert "Currently effective:" in body
+    assert "UTC" in body
+
+
+def test_ui_settings_display_persists_valid_tz_and_clears(
+    client: TestClient,
+) -> None:
+    """A valid IANA name persists and shows up on the next render;
+    an empty post clears the override (back to UTC)."""
+    _login(client)
+    r = client.post(
+        "/ui/settings/display",
+        data={"display_timezone": "Europe/Copenhagen"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303, r.text
+    assert r.headers["location"] == "/ui/settings?saved=display#display"
+    body = client.get("/ui/settings").text
+    assert "Europe/Copenhagen" in body
+    # Clearing reverts to UTC.
+    client.post("/ui/settings/display", data={"display_timezone": ""})
+    body2 = client.get("/ui/settings").text
+    # The input field is empty when no override is set; the effective
+    # value falls through to UTC.
+    assert 'name="display_timezone"' in body2
+    assert 'value="Europe/Copenhagen"' not in body2
+
+
+def test_ui_settings_display_rejects_bad_tz_with_error(
+    client: TestClient,
+) -> None:
+    """A bad IANA name redirects with an error and does NOT persist."""
+    _login(client)
+    r = client.post(
+        "/ui/settings/display",
+        data={"display_timezone": "Not/Real/Zone"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert "/ui/settings?error=" in r.headers["location"]
+    # Round-trip the page: the bad value is NOT persisted -- the
+    # input is empty (default UTC) on the next render.
+    body = client.get("/ui/settings").text
+    assert "Not/Real/Zone" not in body
+
+
+def test_ui_settings_display_renders_timestamps_in_configured_tz(
+    client: TestClient,
+) -> None:
+    """After setting display.timezone to a zone with a stable
+    abbreviation, machine-row timestamps render with that abbreviation
+    appended (the abbrev disambiguates the conversion at a glance)."""
+    from bty.web import _db as _bty_db
+
+    _login(client)
+    client.post(
+        "/ui/settings/display",
+        data={"display_timezone": "America/New_York"},
+    )
+    state_path = client.app.state.state_path  # type: ignore[attr-defined]
+    with _bty_db.open_db(state_path) as conn:
+        conn.execute(
+            "INSERT INTO machines (mac, boot_mode, last_seen_at, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (
+                "aa:bb:cc:dd:ee:01",
+                "bty-tui",
+                "2026-06-25T16:00:00+00:00",  # 16:00 UTC = 12:00 EDT
+                "2026-06-25T16:00:00+00:00",
+                "2026-06-25T16:00:00+00:00",
+            ),
+        )
+        conn.commit()
+    body = client.get("/ui/machines").text
+    # 16:00 UTC -> 12:00 EDT (DST), with EDT abbrev appended.
+    assert "2026-06-25 12:00:00 EDT" in body
+    # The UTC form must NOT be present (proves the conversion happened).
+    assert "2026-06-25 16:00:00 UTC" not in body
+
+
+def test_ui_settings_ramboot_renders_card_and_form(client: TestClient) -> None:
+    """Settings page carries a Ramboot card anchored at ``#ramboot``,
+    reachable from the subnav, with the nbdmux URL and overlay-size
+    inputs and the post action pointing at the new handler."""
+    _login(client)
+    body = client.get("/ui/settings").text
+    assert 'id="ramboot"' in body
+    assert 'href="#ramboot"' in body
+    assert 'action="/ui/settings/ramboot"' in body
+    assert 'name="nbdmux_url"' in body
+    assert 'name="ramboot_overlay_size"' in body
+    # Default overlay-size surfaces; ramboot remains "unavailable"
+    # until nbdmux is configured.
+    assert "10G" in body
+    assert "ramboot unavailable" in body or "(none" in body
+
+
+def test_ui_settings_ramboot_persists_and_clears(client: TestClient) -> None:
+    """POSTing the form persists both fields; clearing reverts."""
+    _login(client)
+    r = client.post(
+        "/ui/settings/ramboot",
+        data={
+            "nbdmux_url": "http://nbdmux.invalid:4040",
+            "ramboot_overlay_size": "16G",
+        },
+        follow_redirects=False,
+    )
+    assert r.status_code == 303, r.text
+    assert r.headers["location"] == "/ui/settings?saved=ramboot#ramboot"
+    body = client.get("/ui/settings").text
+    assert "http://nbdmux.invalid:4040" in body
+    assert "16G" in body
+    # Clearing both reverts the effective view.
+    client.post(
+        "/ui/settings/ramboot",
+        data={"nbdmux_url": "", "ramboot_overlay_size": ""},
+    )
+    body2 = client.get("/ui/settings").text
+    assert "http://nbdmux.invalid:4040" not in body2
 
 
 def test_settings_upstream_override_drives_catalog_fetch_url(

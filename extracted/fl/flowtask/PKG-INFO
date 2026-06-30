@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flowtask
-Version: 5.12.4
+Version: 5.12.6
 Summary: Framework for Task orchestration
 Author-email: Jesus Lara <jesuslarag@gmail.com>
 License: Apache-2.0
@@ -64,10 +64,9 @@ Requires-Dist: datatable==1.1.0
 Requires-Dist: imageio==2.37.0
 Requires-Dist: decorator>=5.1.1
 Requires-Dist: emoji==2.14.1
-Requires-Dist: caio==0.9.24
 Requires-Dist: Wand==0.6.13
 Requires-Dist: pylibdmtx==0.1.10
-Requires-Dist: aiofile>=3.9.0
+Requires-Dist: aiofiles>=24.1.0
 Requires-Dist: filetype==1.2.0
 Requires-Dist: proxylists>=0.14.0
 Requires-Dist: aioftp==0.23.1

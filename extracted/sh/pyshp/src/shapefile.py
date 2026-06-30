@@ -8,7 +8,7 @@ Compatible with Python versions >=3.9
 
 from __future__ import annotations
 
-__version__ = "3.1.3"
+__version__ = "3.1.4"
 
 import abc
 import array
@@ -22,13 +22,13 @@ import tempfile
 import time
 import warnings
 import zipfile
-from collections.abc import Container, Iterable, Iterator, Mapping, Reversible, Sequence
+from collections.abc import Container, Iterable, Iterator, Reversible, Sequence
 from contextlib import AbstractContextManager, ExitStack
 from datetime import date, datetime
 from os import PathLike
 from pathlib import Path
 from struct import Struct, calcsize, error, pack, unpack
-from types import MappingProxyType, TracebackType
+from types import TracebackType
 from typing import (
     IO,
     Any,
@@ -283,34 +283,59 @@ def _truncate_utf8_str(
     )
 
 
+@functools.cache
 def _BOM_and_dbf_decoded_pad_bytes(
+    pad_byte: Literal[b" ", b"\x00"],
     encoding: str = "utf8",
-) -> tuple[bytes, Mapping[str, bytes]]:
+) -> tuple[bytes, dict[str, bytes], dict[str, bytes], dict[str, bytes]]:
     try:
         BOM = "".encode(encoding)
     except UnicodeEncodeError:
         BOM = b""
 
-    tuples: list[tuple[str, bytes]] = []
-    for pad_byte_str, N in {b" ": 5, b"\x00": 5, b" \x00": 2}.items():
-        # Max code unit size under UTF-8, UTF-16, and UTF-32 is 4 bytes.
-        for n in range(1, N):
-            pad_bytes = pad_byte_str * n
+    N: int  # code-unit size in bytes (possible length of
+    #        byte strings, that a single code point could encode to)
+    if encoding.lower().startswith("utf32"):
+        N = 4
+    elif encoding.lower().startswith("utf16"):
+        # Null bytes and ascii spaces don't encode to Surrogate-pairs
+        N = 2
+    else:
+        # Both Ascii and UTF-8 handled here (UTF-8 is backward compatible with ascii)
+        N = 1
+
+    def decoded_code_points_and_bytes(
+        pad_byte_strs: Iterable[bytes],
+    ) -> dict[str, bytes]:
+        retval = {}
+        for pad_bytes in pad_byte_strs:
             try:
                 s: str = (BOM + pad_bytes).decode(encoding)
             except UnicodeDecodeError:
                 continue
-            tuples.append((s, pad_bytes))
-            break
-    return BOM, MappingProxyType(dict(tuples))
+            retval[s] = pad_bytes
+        return retval
+
+    # Max code unit size under UTF-8, UTF-16, and UTF-32 is 4 bytes.
+    if pad_byte == b"\x00":
+        # Just checking the field, in which asii spaces are technically valid
+        # even though PyShp historically has converted them to underscores
+        return BOM, {}, decoded_code_points_and_bytes([b"\x00" * N]), {}
+    else:
+        pad_byte_strs = [b" " * i + b"\x00" * (N - i) for i in range(N + 1)]
+
+    all_ascii_spaces = decoded_code_points_and_bytes([b" "])
+    mixed = decoded_code_points_and_bytes(pad_byte_strs)
+    all_null_bytes = decoded_code_points_and_bytes([b"\x00"])
+
+    return BOM, all_ascii_spaces, mixed, all_null_bytes
 
 
 def _encode_dbf_string(
     s: str,
     size: int,
-    decode: Decoder | None,
-    pad_byte: bytes,
-    decoded_pad_bytes: Mapping[str, bytes],
+    pad_byte: Literal[b" ", b"\x00"],
+    decode: Decoder | None = None,
     encoding: str = "utf8",
     encodingErrors: str = "strict",
     strict: bool = True,
@@ -337,7 +362,7 @@ def _encode_dbf_string(
         if len(encoded) <= size:
             if i <= N - 1:
                 msg = (
-                    f"Dropped {N - i} code points (e.g. characters)! "
+                    f"Dropped {N - i} out of {N} code points (e.g. characters)! "
                     f"{s} was truncated to {trimmed} (discarding: {s[i:]}), "
                     f"in order to encode it under {size} bytes for the field or field name. "
                     f"Used: {encoding=} and {encodingErrors=}. "
@@ -358,19 +383,43 @@ def _encode_dbf_string(
             f"to a short enough byte string, using {encoding=}, {encodingErrors=} ({BOM=!r})"
         )
 
-    for suffix, pad_bytes in decoded_pad_bytes.items():
-        if s.endswith(suffix):
-            msg = (
-                f"Under the given encoding: {encoding}, "
-                f" the text (field name or 'C' or 'M' field): {s!r} "
-                f" ends with {suffix!r}, which "
-                f"encodes to the pad bytes: {pad_bytes!r}. "
-                "The real end of the actual data may be earlier. "
-            )
-            if strict:
-                raise DbfStringDataLoss(msg)
-            warnings.warn(msg, category=PossibleDataLoss)
-            break
+    _BOM, all_first, mixed, all_last = _BOM_and_dbf_decoded_pad_bytes(
+        pad_byte, encoding
+    )
+    already_warned = False
+
+    def check_and_trim(decoded_pad_bytes: dict[str, bytes]) -> None:
+
+        nonlocal trimmed, already_warned
+
+        for suffix, pad_bytes in decoded_pad_bytes.items():
+            if not suffix:
+                continue
+            if len(suffix) >= 2:
+                raise ValueError(
+                    f"Multiple code points: {suffix} encoded to: {pad_bytes!r} under {encoding=}"
+                )
+            if trimmed.endswith(suffix):
+                msg = (
+                    f"Under the given encoding: {encoding}, after truncation to {size} bytes,"
+                    f" the remaining text (field name or 'C' or 'M' field): {trimmed!r} "
+                    f" ends with {suffix!r}, which "
+                    f"encodes to the pad bytes: {pad_bytes!r}. "
+                    "The real end of the actual data may be earlier. "
+                )
+                if strict:
+                    raise DbfStringDataLoss(msg)
+                if not already_warned:
+                    warnings.warn(msg, category=PossibleDataLoss)
+                    already_warned = True
+                if len(set(pad_bytes)) == 1:  # all same byte => strip all code points
+                    trimmed = trimmed.rstrip(suffix)
+                else:
+                    trimmed = trimmed.removesuffix(suffix)
+
+    check_and_trim(all_last)
+    check_and_trim(mixed)
+    check_and_trim(all_first)
 
     if len(encoded) < size:
         padded = encoded.ljust(size, pad_byte)
@@ -382,7 +431,8 @@ def _encode_dbf_string(
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        # TODO: Fuzz test this to see what it actually catches.
+        # TODO: Fuzz test this to see what it actually catches,
+        #       as it makes encoding much slower.
         decoded = decode(
             b=padded,
             encoding=encoding,
@@ -405,7 +455,7 @@ def _encode_dbf_string(
 
 def _try_to_decode_dbf_name_or_text_field(
     b: bytes,
-    pad_bytes: bytes,  # Pad bytes will be trimmed (from the R of b) in their order in the byte-string
+    pad_bytes: bytes,  # Pad bytes will be trimmed from the RHS (end) of b.
     encoding: str = "utf8",
     encodingErrors: str = "strict",
 ) -> str:
@@ -523,7 +573,6 @@ class Field(NamedTuple):
         cls,
         name: str,
         *,
-        decoded_pad_bytes: Mapping[str, bytes],
         field_type: str | bytes | FieldTypeT = "C",
         size: int = 50,
         decimal: int = 0,
@@ -532,14 +581,16 @@ class Field(NamedTuple):
         strict: bool = False,
     ) -> Field:
 
+        name = str(name)
+
         if "\x00" in name:
             msg = (
-                "Field names should not contain null characters "
+                "Field names ought not contain null characters, "
                 "as null bytes are used for padding in the header. "
                 f"Got: {name=} "
             )
             if strict:
-                raise dbfFileException(msg)
+                raise DbfStringDataLoss(msg)
             warnings.warn(msg, category=PossibleDataLoss)
 
         try:
@@ -567,11 +618,10 @@ class Field(NamedTuple):
         # Only use the portion of the name that we are able to encode to
         # 10 bytes or less.
         _encoded_name, trimmed_name = cls.trim_name_until_encodable(
-            name=str(name),
+            name=name,
             encoding=encoding,
             encodingErrors=encodingErrors,
             strict=strict,
-            decoded_pad_bytes=decoded_pad_bytes,
         )
 
         # A doctest in README.md previously passed in a string ('40') for size,
@@ -582,29 +632,28 @@ class Field(NamedTuple):
 
         # Raise Exception or trigger warning early, before user adds more fields
         # (fields are only written when first record added, and on close)
+        # Tests field_type, size and decimal. Name already tested and cached above.
         inst.encode_field_descriptor(
             encoding=encoding,
             encodingErrors=encodingErrors,
             strict=strict,
-            decoded_pad_bytes=decoded_pad_bytes,
         )
         return inst
 
     @classmethod
+    @functools.cache
     def trim_name_until_encodable(
         cls,
         name: str,
         encoding: str = "utf8",
         encodingErrors: str = "strict",
         strict: bool = False,
-        decoded_pad_bytes: Mapping[str, bytes] = {},
     ) -> tuple[bytes, str]:
         return _encode_dbf_string(
             s=name,
             size=10,
             decode=cls.decode_name,
             pad_byte=b"\x00",
-            decoded_pad_bytes=decoded_pad_bytes,
             encoding=encoding,
             encodingErrors=encodingErrors,
             strict=strict,
@@ -615,7 +664,6 @@ class Field(NamedTuple):
         encoding: str = "utf8",
         encodingErrors: str = "strict",
         strict: bool = False,
-        decoded_pad_bytes: Mapping[str, bytes] = {},
     ) -> bytes:
         # encoded_name = self.name.encode(encoding, encodingErrors)
         # encoded_name = encoded_name[:10].ljust(10, b"\x00")
@@ -624,7 +672,6 @@ class Field(NamedTuple):
             encoding=encoding,
             encodingErrors=encodingErrors,
             strict=strict,
-            decoded_pad_bytes=decoded_pad_bytes,
         )
 
         encoded_field_type = self.field_type.encode("ascii")
@@ -4219,7 +4266,12 @@ class DbfWriter(_HasCheckedWriteableFile):
         self.recNum = 0
         self._is_utf8 = encoding.replace("-", "").replace("_", "").lower() == "utf8"
 
-        self._BOM, self._decoded_pad_bytes = _BOM_and_dbf_decoded_pad_bytes(encoding)
+        (
+            self._BOM,
+            self._decoded_ascii_spaces,
+            self._decoded_mixed_bytes,
+            self._decoded_null_bytes,
+        ) = _BOM_and_dbf_decoded_pad_bytes(b" ", encoding)
 
     def field(
         # Types of args should match *Field
@@ -4242,7 +4294,6 @@ class DbfWriter(_HasCheckedWriteableFile):
             encoding=self.encoding,
             encodingErrors=self.encodingErrors,
             strict=self.strict,
-            decoded_pad_bytes=self._decoded_pad_bytes,
         )
         self.fields.append(field)
 
@@ -4287,7 +4338,6 @@ class DbfWriter(_HasCheckedWriteableFile):
                     encoding=self.encoding,
                     encodingErrors=self.encodingErrors,
                     strict=self.strict,
-                    decoded_pad_bytes=self._decoded_pad_bytes,
                 )
             )
 
@@ -4386,7 +4436,7 @@ class DbfWriter(_HasCheckedWriteableFile):
                 elif value in MISSING:
                     str_val = "0" * 8  # QGIS NULL for date type
                 elif isinstance(value, str) and len(value) == 8:
-                    pass  # value is already a date string
+                    str_val = value
                 else:
                     raise ShapefileException(
                         f"Could not read as date: {value}. "
@@ -4439,14 +4489,21 @@ class DbfWriter(_HasCheckedWriteableFile):
                         )
                         if self.strict:
                             raise DbfStringDataLoss(msg)
-                        warnings.warn(msg)
+                        warnings.warn(msg, category=PossibleDataLoss)
 
-                    # TODO: Handle decoded_pad_bytes longer than 1
-                    pad_bytes = "".join(self._decoded_pad_bytes)
-                    depadded = trimmed.rstrip(pad_bytes)
+                    depadded = trimmed
+                    for byte in [b"\x00", b" "]:
+                        try:
+                            decoded_pad_byte = byte.decode(
+                                self.encoding, self.encodingErrors
+                            )
+                        except UnicodeDecodeError:
+                            continue
+                        depadded = depadded.rstrip(decoded_pad_byte)
+
                     if len(depadded) < len(trimmed):
                         msg = (
-                            f"Trimmed: {trimmed}, stringified: {str_val} of data: {value} "
+                            f"Trimmed: {trimmed!r}, stringified: {str_val!r} of data: {value!r} "
                             f"ends in decoded pad bytes or decoded null bytes. "
                             "Data encoded as null bytes and pad bytes will probably not "
                             "be recovered by applications reading the Shapefile or dbf file "
@@ -4454,7 +4511,7 @@ class DbfWriter(_HasCheckedWriteableFile):
                         )
                         if self.strict:
                             raise DbfStringDataLoss(msg)
-                        warnings.warn(msg)
+                        warnings.warn(msg, category=PossibleDataLoss)
 
                     encoded = encoded.ljust(size)
                 else:
@@ -4463,7 +4520,6 @@ class DbfWriter(_HasCheckedWriteableFile):
                         size=size,
                         decode=_decode_C_or_M_field if self.strict else None,
                         pad_byte=b" ",
-                        decoded_pad_bytes=self._decoded_pad_bytes,
                         encoding=self.encoding,
                         encodingErrors=self.encodingErrors,
                         strict=self.strict,
@@ -4885,6 +4941,14 @@ class Writer(_HasExitStack):
     @fields.setter
     def fields(self, value: list[Field]) -> None:
         self.dbf_writer.fields = value
+
+    @property
+    def strict(self) -> bool:
+        return self.dbf_writer.strict
+
+    @strict.setter
+    def strict(self, value: bool) -> None:
+        self.dbf_writer.strict = value
 
     @property
     def recNum(self) -> int:

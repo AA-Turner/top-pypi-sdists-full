@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.sendmail
-Version: 7.1.1
+Version: 7.2
 Summary: Zope sendmail
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -112,6 +112,17 @@ Documentation is hosted at https://zopesendmail.readthedocs.io/
 =========
  Changes
 =========
+
+7.2 (2026-06-30)
+================
+
+- Improve logging in ``QueueProcessorThread`` to include sender, recipients and
+  queue filename on delivery failures. Permanent SMTP errors and refused
+  recipients are logged via ``log.error`` (these are data problems, not code
+  errors), while a traceback is only attached for genuinely unexpected
+  exceptions.
+  (`#71 <https://github.com/zopefoundation/zope.sendmail/issues/71>`_).
+
 
 7.1.1 (2026-06-03)
 ==================

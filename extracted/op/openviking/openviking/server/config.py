@@ -7,11 +7,10 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
-from openviking.server.identity import AuthMode
-from openviking_cli.utils import get_logger
-
 # Import auth plugin registry for config validation
 from openviking.server.auth.registry import get_registry
+from openviking.server.identity import AuthMode
+from openviking_cli.utils import get_logger
 from openviking_cli.utils.config.config_loader import (
     load_json_config,
     resolve_config_path,
@@ -201,6 +200,30 @@ class ServerConfig(BaseModel):
         return AuthMode.DEV.value
 
 
+def map_bind_host_to_loopback(host: str) -> str:
+    """Map a server *bind* host to a client-connectable *loopback* host.
+
+    ``server.host`` configures the address the server binds/listens on. A
+    wildcard bind address such as ``0.0.0.0`` (or IPv6 ``::``) is valid to
+    listen on but is *not* a destination a client can connect to. Clients that
+    derive a connect URL from the configured host (the bot proxy, the bot's
+    own config loader, ``doctor``) must translate the wildcard to loopback:
+
+    - ``"0.0.0.0"``, ``""``, ``"*"``   -> ``"127.0.0.1"``
+    - ``"::"``, ``"::0"``, ``"[::]"``  -> ``"[::1]"``
+    - bare IPv6 literals (e.g. ``"::1"``) are bracketed for URL syntax
+    - everything else passes through unchanged
+    """
+    host = str(host or "").strip()
+    if host in ("0.0.0.0", "", "*"):
+        return "127.0.0.1"
+    if host in ("::", "::0", "[::]"):
+        return "[::1]"
+    if ":" in host and not (host.startswith("[") and host.endswith("]")):
+        return f"[{host}]"
+    return host
+
+
 def get_server_url_from_server_data(server_data: object) -> str:
     """Return the loopback URL clients use for the configured OpenViking server."""
     if isinstance(server_data, dict):
@@ -209,9 +232,7 @@ def get_server_url_from_server_data(server_data: object) -> str:
     else:
         host_value = getattr(server_data, "host", None)
         port_value = getattr(server_data, "port", None)
-    host = str(host_value or "127.0.0.1").strip()
-    if ":" in host and not (host.startswith("[") and host.endswith("]")):
-        host = f"[{host}]"
+    host = map_bind_host_to_loopback(str(host_value or "127.0.0.1"))
     port = str(port_value or "1933").strip()
     return f"http://{host}:{port}"
 
@@ -351,7 +372,8 @@ def validate_server_config(config: ServerConfig) -> None:
     # Ensure built-in plugins are registered before validation.
     # If a non-built-in plugin has already claimed a built-in mode name,
     # log a security warning and forcefully override it.
-    from openviking.server.auth.plugins import DevAuthPlugin, ApiKeyAuthPlugin, TrustedAuthPlugin
+    from openviking.server.auth.plugins import ApiKeyAuthPlugin, DevAuthPlugin, TrustedAuthPlugin
+
     registry = get_registry()
     _BUILTIN_PLUGINS = {
         "dev": DevAuthPlugin,
@@ -375,8 +397,7 @@ def validate_server_config(config: ServerConfig) -> None:
     plugin_cls = registry.get(effective_auth_mode)
     if plugin_cls is None:
         logger.error(
-            "Unknown auth_mode: %r. No auth plugin registered for this mode. "
-            "Registered modes: %s.",
+            "Unknown auth_mode: %r. No auth plugin registered for this mode. Registered modes: %s.",
             effective_auth_mode,
             ", ".join(registry.list_modes()),
         )

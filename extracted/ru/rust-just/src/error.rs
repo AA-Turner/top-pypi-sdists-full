@@ -13,7 +13,7 @@ pub(crate) enum Error<'src> {
   ArgumentPatternMismatch {
     argument: String,
     parameter: &'src str,
-    pattern: Box<Pattern<'src>>,
+    pattern: Box<Pattern>,
     recipe: &'src str,
   },
   Assert {
@@ -118,7 +118,7 @@ pub(crate) enum Error<'src> {
   },
   DuplicateOption {
     recipe: &'src str,
-    option: Switch,
+    switch: Switch,
   },
   EditorInvoke {
     editor: OsString,
@@ -127,9 +127,6 @@ pub(crate) enum Error<'src> {
   EditorStatus {
     editor: OsString,
     status: ExitStatus,
-  },
-  EmptyInterpreter {
-    setting: Name<'src>,
   },
   EmptyListArgument {
     parameter: &'src str,
@@ -155,7 +152,7 @@ pub(crate) enum Error<'src> {
   },
   FlagWithValue {
     recipe: &'src str,
-    option: Switch,
+    switch: Switch,
   },
   FormatCheckFoundDiff,
   FunctionCall {
@@ -202,23 +199,24 @@ pub(crate) enum Error<'src> {
   },
   MissingOption {
     recipe: &'src str,
-    option: Switch,
+    switch: Switch,
   },
   ModuleAbsent {
     module: Modulepath,
   },
-  MultipleShortOptions {
-    options: String,
-  },
   NoChoosableRecipes,
   NoDefaultRecipe,
   NoRecipes,
+  NonFinalOptionWithValue {
+    recipe: &'src str,
+    switch: Switch,
+  },
   NotConfirmed {
     recipe: &'src str,
   },
   OptionMissingValue {
     recipe: &'src str,
-    option: Switch,
+    switch: Switch,
   },
   PositionalArgumentCountMismatch {
     recipe: Box<Recipe<'src>>,
@@ -235,6 +233,7 @@ pub(crate) enum Error<'src> {
   },
   RegexCompile {
     source: regex::Error,
+    token: Token<'src>,
   },
   RuntimeDirIo {
     io_error: io::Error,
@@ -303,7 +302,7 @@ pub(crate) enum Error<'src> {
   },
   UnknownOption {
     recipe: &'src str,
-    option: Switch,
+    switch: Switch,
   },
   UnknownOverrides {
     overrides: Vec<String>,
@@ -354,11 +353,10 @@ impl<'src> Error<'src> {
         Some(module.token)
       }
       Self::Assert { name, .. } => Some(**name),
-      Self::Backtick { token, .. } => Some(*token),
+      Self::Backtick { token, .. } | Self::RegexCompile { token, .. } => Some(*token),
       Self::Compile { compile_error } => Some(compile_error.context()),
       Self::Const { const_error } => Some(const_error.context()),
       Self::FunctionCall { function, .. } => Some(function.token),
-      Self::EmptyInterpreter { setting } => Some(**setting),
       Self::ListInStringContext { context, .. } => Some(context.token()),
       Self::ListOperation { token, .. } => Some(**token),
       Self::MissingImportFile { path } => Some(*path),
@@ -419,6 +417,32 @@ impl<'src> Error<'src> {
       _ => None,
     }
   }
+
+  pub(crate) fn unwrap_const(self) -> ConstEvalError<'src> {
+    match self {
+      Self::Assert { message, name } => ConstEvalError::Assert { message, name },
+      Self::Const { const_error } => ConstEvalError::Const(const_error),
+      Self::ListInStringContext { context, value } => {
+        ConstEvalError::ListInStringContext { context, value }
+      }
+      Self::ListOperation {
+        lhs,
+        operator,
+        rhs,
+        token,
+      } => ConstEvalError::ListOperation {
+        lhs,
+        operator,
+        rhs,
+        token: *token,
+      },
+      Self::RegexCompile { source, token } => ConstEvalError::RegexCompile { source, token },
+      error => unreachable!(
+        "non-const error in const evaluation: {}",
+        error.color_display(Color::never()),
+      ),
+    }
+  }
 }
 
 impl<'src> From<CompileError<'src>> for Error<'src> {
@@ -475,8 +499,8 @@ impl ColorDisplay for Error<'_> {
       } => {
         write!(
           f,
-          "argument `{argument}` passed to recipe `{recipe}` parameter `{parameter}` does not match pattern '{}'",
-          pattern.original(),
+          "argument `{argument}` passed to recipe `{recipe}` parameter `{parameter}` does not match pattern {}",
+          List::or_ticked(pattern.originals()),
         )?;
       }
       Assert { message, .. } => {
@@ -672,10 +696,10 @@ impl ColorDisplay for Error<'_> {
       DumpJson { source } => {
         write!(f, "failed to dump JSON to stdout: {source}")?;
       }
-      DuplicateOption { recipe, option } => {
+      DuplicateOption { recipe, switch } => {
         write!(
           f,
-          "recipe `{recipe}` option `{option}` cannot be passed more than once",
+          "recipe `{recipe}` option `{switch}` cannot be passed more than once",
         )?;
       }
       EditorInvoke { editor, io_error } => {
@@ -685,12 +709,6 @@ impl ColorDisplay for Error<'_> {
       EditorStatus { editor, status } => {
         let editor = editor.to_string_lossy();
         write!(f, "editor `{editor}` failed: {status}")?;
-      }
-      EmptyInterpreter { setting } => {
-        write!(
-          f,
-          "`{setting}` setting requires at least one element but evaluated to empty list"
-        )?;
       }
       EmptyListArgument { parameter, recipe } => {
         write!(
@@ -719,8 +737,8 @@ impl ColorDisplay for Error<'_> {
       FilesystemIo { source, path } => {
         write!(f, "I/O error at `{}`: {source}", path.display())?;
       }
-      FlagWithValue { recipe, option } => {
-        write!(f, "recipe `{recipe}` flag `{option}` does not take value")?;
+      FlagWithValue { recipe, switch } => {
+        write!(f, "recipe `{recipe}` flag `{switch}` does not take value")?;
       }
       FormatCheckFoundDiff => {
         write!(f, "formatted justfile differs from original")?;
@@ -813,21 +831,21 @@ impl ColorDisplay for Error<'_> {
           path.display()
         )?;
       }
+      NonFinalOptionWithValue { recipe, switch } => {
+        write!(
+          f,
+          "recipe `{recipe}` option `{switch}` takes a value and so must be last when combined with other options"
+        )?;
+      }
       MissingImportFile { .. } => write!(f, "could not find source file for import")?,
       MissingModuleFile { module } => {
         write!(f, "could not find source file for module `{module}`")?;
       }
-      MissingOption { recipe, option } => {
-        write!(f, "recipe `{recipe}` requires option `{option}`")?;
+      MissingOption { recipe, switch } => {
+        write!(f, "recipe `{recipe}` requires option `{switch}`")?;
       }
       ModuleAbsent { module } => {
         write!(f, "optional module `{module}` is absent")?;
-      }
-      MultipleShortOptions { options } => {
-        write!(
-          f,
-          "passing multiple short options (`-{options}`) in one argument is not supported"
-        )?;
       }
       NoChoosableRecipes => write!(f, "justfile contains no choosable recipes")?,
       NoDefaultRecipe => write!(f, "justfile contains no default recipe")?,
@@ -835,8 +853,8 @@ impl ColorDisplay for Error<'_> {
       NotConfirmed { recipe } => {
         write!(f, "recipe `{recipe}` was not confirmed")?;
       }
-      OptionMissingValue { recipe, option } => {
-        write!(f, "recipe `{recipe}` option `{option}` missing value")?;
+      OptionMissingValue { recipe, switch } => {
+        write!(f, "recipe `{recipe}` option `{switch}` missing value")?;
       }
       PositionalArgumentCountMismatch {
         recipe,
@@ -880,7 +898,7 @@ impl ColorDisplay for Error<'_> {
         f,
         "maximum recursion depth of {RECURSION_LIMIT} exceeded while calling function {last}"
       )?,
-      RegexCompile { source } => write!(f, "{source}")?,
+      RegexCompile { source, .. } => write!(f, "{source}")?,
       RuntimeDirIo { io_error, path } => {
         write!(
           f,
@@ -982,8 +1000,8 @@ impl ColorDisplay for Error<'_> {
           write!(f, "recipe `{recipe}` failed for an unknown reason")?;
         }
       }
-      UnknownOption { recipe, option } => {
-        write!(f, "recipe `{recipe}` does not have option `{option}`")?;
+      UnknownOption { recipe, switch } => {
+        write!(f, "recipe `{recipe}` does not have option `{switch}`")?;
       }
       UnknownOverrides { overrides } => {
         write!(

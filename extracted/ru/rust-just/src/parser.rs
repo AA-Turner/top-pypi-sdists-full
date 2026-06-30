@@ -771,6 +771,7 @@ impl<'run, 'src> Parser<'run, 'src> {
       lhs: lhs.into(),
       operator,
       rhs: rhs.into(),
+      token,
     })
   }
 
@@ -1247,12 +1248,16 @@ impl<'run, 'src> Parser<'run, 'src> {
     for attribute in &attributes {
       let Attribute::Arg {
         flag,
-        help,
+        help: _,
+        help_property: _,
         long,
         long_key,
+        multiple,
         name: arg,
-        pattern,
+        pattern: _,
+        pattern_property: _,
         short,
+        short_key,
         value,
       } = attribute
       else {
@@ -1263,39 +1268,41 @@ impl<'run, 'src> Parser<'run, 'src> {
         self.list_feature(ListFeature::Flag, *token);
       }
 
+      if let Some(token) = multiple {
+        self.list_feature(ListFeature::Multiple, *token);
+      }
+
       if let Some(option) = long
         && !longs.insert(&option.cooked)
       {
-        return Err(
-          long_key
-            .unwrap_or(option.token)
-            .error(CompileErrorKind::DuplicateOption {
-              option: Switch::Long(option.cooked.clone()),
-              recipe: name.lexeme(),
-            }),
-        );
+        return Err(long_key.map_or(option.token, |name| *name).error(
+          CompileErrorKind::DuplicateOption {
+            option: Switch::Long(option.cooked.clone()),
+            recipe: name.lexeme(),
+          },
+        ));
       }
 
       if let Some(option) = short
-        && !shorts.insert(&option.cooked)
+        && let Some(short) = option.cooked.chars().next()
+        && !shorts.insert(short)
       {
-        return Err(option.token.error(CompileErrorKind::DuplicateOption {
-          option: Switch::Short(option.cooked.chars().next().unwrap()),
-          recipe: name.lexeme(),
-        }));
+        return Err(short_key.map_or(option.token, |name| *name).error(
+          CompileErrorKind::DuplicateOption {
+            option: Switch::Short(short),
+            recipe: name.lexeme(),
+          },
+        ));
       }
 
       arg_attributes.insert(
         arg.cooked.clone(),
         ArgAttribute {
           flag: flag.is_some(),
-          help: help.as_ref().map(|literal| literal.cooked.clone()),
           name: arg.token,
-          pattern: pattern.clone(),
           long: long.as_ref().map(|long| long.cooked.clone()),
-          short: short
-            .as_ref()
-            .map(|short| short.cooked.chars().next().unwrap()),
+          multiple: multiple.is_some(),
+          short: short.as_ref().and_then(|short| short.cooked.chars().next()),
           value: value.clone(),
         },
       );
@@ -1431,23 +1438,19 @@ impl<'run, 'src> Parser<'run, 'src> {
     };
 
     let mut flag = false;
-    let mut help = None;
+    let help = None;
     let mut long = None;
-    let mut pattern = None;
+    let mut multiple = false;
+    let pattern = None;
     let mut short = None;
     let mut value = None;
 
     if let Some(arg) = arg_attributes.remove(name.lexeme()) {
       flag = arg.flag;
-      help = arg.help;
       long = arg.long;
-      pattern = arg.pattern;
+      multiple = arg.multiple;
       short = arg.short;
       value = arg.value;
-    }
-
-    if kind.is_variadic() && (long.is_some() || short.is_some()) {
-      return Err(name.error(CompileErrorKind::VariadicParameterWithOption));
     }
 
     if flag && default.is_some() {
@@ -1463,6 +1466,7 @@ impl<'run, 'src> Parser<'run, 'src> {
       help,
       kind,
       long,
+      multiple,
       name,
       number: self.numerator.next(),
       pattern,

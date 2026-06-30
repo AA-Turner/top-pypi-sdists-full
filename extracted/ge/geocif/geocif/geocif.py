@@ -144,7 +144,7 @@ class Geocif:
             "ML", "analogous_year_yield_as_feature"
         )
         self.correlation_threshold = self.parser.getfloat("ML", "correlation_threshold")
-        self.correlation_metric = self.parser.get("ML", "correlation_metric", fallback="both")
+        self.correlation_metric = self.parser.get("ML", "correlation_metric", fallback="r2")
         self.include_lat_lon_as_feature = self.parser.getboolean("ML", "include_lat_lon_as_feature")
         self.spatial_autocorrelation = self.parser.getboolean("ML", "spatial_autocorrelation")
         self.sa_method = self.parser.get("ML", "sa_method")

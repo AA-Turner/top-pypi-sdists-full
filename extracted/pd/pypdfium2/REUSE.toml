@@ -120,8 +120,8 @@ path = [
     "patches/clang_22_compat.patch",
     "patches/android_native.patch",
     "patches/no_libclang_rt.patch",
-    "patches/libpng_ppc64_loong64.patch",
     "patches/gcc_toolchain.patch",
+    "patches/mips_cross.patch",
     "patches/win/arm64_native.patch",
 ]
 precedence = "aggregate"
@@ -143,6 +143,7 @@ Repo does not have an own license file, but assumably the patches are being made
 
 [[annotations]]
 path = [
+    "PLATFORMS.csv",
     "docs/build/.gitkeep",
     "sbuild/.gitkeep",
     "RELEASE.md",  # TODO add to gitignore?

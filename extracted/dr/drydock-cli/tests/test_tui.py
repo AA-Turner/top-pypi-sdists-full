@@ -385,3 +385,40 @@ def test_loop_command_iterates_and_stops():
             assert app._repeat is None
 
     asyncio.run(main())
+
+
+def test_refresh_status_survives_missing_widgets():
+    """The 0.18s _tick_work timer can fire one last time during app teardown,
+    after the footer widgets (#status/#working) are gone. _refresh_status must
+    swallow the resulting NoMatches, not crash the app. Regression for a flaky
+    NoMatches('#status') that surfaced under full-suite load."""
+    app = DrydockApp({"model": "gemma4", "provider": "vllm", "cwd": "/tmp"})
+    app._busy = True
+    # No widgets are mounted (no run_test), so query_one('#status') would raise
+    # NoMatches — the guard must make this a safe no-op.
+    app._refresh_status()   # must not raise
+    app._tick_work()        # the timer path that triggered the crash; must not raise
+
+
+def test_context_command_sets_and_persists(tmp_path, monkeypatch):
+    """/context <n> updates the live budget AND writes it to config.toml — the
+    fix for a stale context_limit (e.g. 32768 left from an old install) that
+    silently caps the window."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    async def main():
+        app = DrydockApp({"model": "gemma4", "provider": "vllm", "cwd": "/tmp",
+                          "context_limit": 32768})
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app._cmd_context("65536")          # set + persist
+            await pilot.pause()
+            assert app.config["context_limit"] == 65536
+            app._cmd_context("not-a-number")   # invalid → unchanged
+            await pilot.pause()
+            assert app.config["context_limit"] == 65536
+
+    asyncio.run(main())
+    import tomllib
+    saved = tomllib.loads((tmp_path / ".drydock" / "config.toml").read_text())
+    assert saved["context_limit"] == 65536   # survived to disk

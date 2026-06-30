@@ -246,6 +246,8 @@ api_key_case_management_queues/org_id,ws_id:
     - r+w:workspace_case_queue/org_id,ws_id
 api_key_case_management_templates/org_id,ws_id:
     - r+w:workspace_case_template/org_id,ws_id
+api_key_wizard/org_id,ws_id:
+    - r+w:workspace_wizard/org_id,ws_id,{env=*}
 api_key_ws_editor/org_id,ws_id:
     - ws_editor/org_id,ws_id
 api_key_ws_viewer/org_id,ws_id:

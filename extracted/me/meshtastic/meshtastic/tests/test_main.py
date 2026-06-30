@@ -20,12 +20,14 @@ from meshtastic.__main__ import (
     onConnection,
     onNode,
     onReceive,
+    setPref,
     tunnelMain,
     set_missing_flags_false,
 )
 from meshtastic import mt_config
 
 from ..protobuf.channel_pb2 import Channel # pylint: disable=E0611
+from ..protobuf.config_pb2 import Config # pylint: disable=E0611
 
 # from ..ble_interface import BLEInterface
 from ..mesh_interface import MeshInterface
@@ -2998,6 +3000,56 @@ def test_remove_ignored_node():
         main()
 
     mocked_node.removeIgnored.assert_called_once_with("!12345678")
+
+@pytest.mark.unit
+@pytest.mark.usefixtures("reset_mt_config")
+def test_add_contact_url():
+    """Test --add-contact with a shareable URL"""
+    url = "https://meshtastic.org/v/#CKqkvZgIElEKCSE4MzBmNTIyYRIQUm9hZHJ1bm5lciBSaWRnZRoEUktTTiIGAAAAAAAAKAk4AkIgRxo_Fw_ergQIhRqBbrHasLYy3gU-Ay8hrhu4OVnIPQc=" # pylint: disable=line-too-long
+    sys.argv = ["", "--add-contact", url]
+    mt_config.args = sys.argv
+    mocked_node = MagicMock(autospec=Node)
+    iface = MagicMock(autospec=SerialInterface)
+    iface.getNode.return_value = mocked_node
+    with patch("meshtastic.serial_interface.SerialInterface", return_value=iface):
+        main()
+
+    mocked_node.addContactURL.assert_called_once_with(url)
+
+
+@pytest.mark.unit
+@pytest.mark.usefixtures("reset_mt_config")
+def test_contact_qr():
+    """Test --contact-qr with a node ID"""
+    sys.argv = ["", "--contact-qr", "!830f522a"]
+    mt_config.args = sys.argv
+    mocked_node = MagicMock(autospec=Node)
+    iface = MagicMock(autospec=SerialInterface)
+    iface.getNode.return_value = mocked_node
+    mocked_node.iface = iface
+    with patch("meshtastic.serial_interface.SerialInterface", return_value=iface):
+        main()
+
+    mocked_node.getContactURL.assert_called_once_with("!830f522a", should_ignore=False, manually_verified=False)
+    mocked_node.getContactURL.reset_mock()
+
+
+@pytest.mark.unit
+@pytest.mark.usefixtures("reset_mt_config")
+def test_contact_qr_with_flags():
+    """Test --contact-qr with --contact-verified and --contact-ignore"""
+    sys.argv = ["", "--contact-qr", "!830f522a", "--contact-verified", "--contact-ignore"]
+    mt_config.args = sys.argv
+    mocked_node = MagicMock(autospec=Node)
+    iface = MagicMock(autospec=SerialInterface)
+    iface.getNode.return_value = mocked_node
+    mocked_node.iface = iface
+    with patch("meshtastic.serial_interface.SerialInterface", return_value=iface):
+        main()
+
+    mocked_node.getContactURL.assert_called_once_with("!830f522a", should_ignore=True, manually_verified=True)
+
+
 @pytest.mark.unit
 @pytest.mark.usefixtures("reset_mt_config")
 def test_main_set_owner_whitespace_only(capsys):
@@ -3107,6 +3159,9 @@ def test_main_ota_update_file_not_found(capsys):
 
     assert pytest_wrapped_e.type == SystemExit
     assert pytest_wrapped_e.value.code == 1
+    out, _ = capsys.readouterr()
+    assert "OTA firmware file not found" in out
+    assert "/nonexistent/firmware.bin" in out
 
 
 @pytest.mark.unit
@@ -3151,3 +3206,48 @@ def test_main_ota_update_retries(mock_our_exit, mock_ota_class, capsys):
 
     finally:
         os.unlink(firmware_file)
+
+
+@pytest.mark.unit
+@pytest.mark.usefixtures("reset_mt_config")
+def test_main_setPref_network_enabled_protocols_by_name(capsys):
+    """Test setPref() accepts bitfield flag names for network.enabled_protocols."""
+    config = Config()
+    assert setPref(config, "network.enabled_protocols", "UDP_BROADCAST") is True
+    assert config.network.enabled_protocols == 1
+    out, _ = capsys.readouterr()
+    assert "Set network.enabled_protocols to UDP_BROADCAST" in out
+
+
+@pytest.mark.unit
+@pytest.mark.usefixtures("reset_mt_config")
+def test_main_setPref_position_flags_multiple(capsys):
+    """Test setPref() accepts comma-separated bitfield flag names."""
+    config = Config()
+    assert setPref(config, "position.position_flags", "ALTITUDE,SPEED") is True
+    assert config.position.position_flags == 513
+    out, _ = capsys.readouterr()
+    assert "Set position.position_flags to ALTITUDE,SPEED" in out
+
+
+@pytest.mark.unit
+@pytest.mark.usefixtures("reset_mt_config")
+def test_main_setPref_bitfield_raw_integer(capsys):
+    """Test setPref() still accepts raw integers for bitfields."""
+    config = Config()
+    assert setPref(config, "network.enabled_protocols", "0") is True
+    assert config.network.enabled_protocols == 0
+    out, _ = capsys.readouterr()
+    assert "Set network.enabled_protocols to 0" in out
+
+
+@pytest.mark.unit
+@pytest.mark.usefixtures("reset_mt_config")
+def test_main_setPref_bitfield_invalid_name(capsys):
+    """Test setPref() rejects unknown bitfield flag names."""
+    config = Config()
+    assert setPref(config, "network.enabled_protocols", "TCP") is False
+    out, _ = capsys.readouterr()
+    assert "Unknown flag 'TCP'" in out
+    assert "NO_BROADCAST" in out
+    assert "UDP_BROADCAST" in out

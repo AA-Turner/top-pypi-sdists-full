@@ -24,10 +24,12 @@ from ._arraykit import delimited_to_arrays as delimited_to_arrays
 from ._arraykit import iterable_str_to_array_1d as iterable_str_to_array_1d
 from ._arraykit import split_after_count as split_after_count
 from ._arraykit import get_new_indexers_and_screen as get_new_indexers_and_screen
+from ._arraykit import write_array_to_file as write_array_to_file
 from ._arraykit import count_iteration as count_iteration
 from ._arraykit import first_true_1d as first_true_1d
 from ._arraykit import first_true_2d as first_true_2d
 from ._arraykit import slice_to_ascending_slice as slice_to_ascending_slice
+from ._arraykit import slice_to_unit as slice_to_unit
 from ._arraykit import array_to_tuple_array as array_to_tuple_array
 from ._arraykit import array_to_tuple_iter as array_to_tuple_iter
 from ._arraykit import nonzero_1d as nonzero_1d
@@ -37,4 +39,3 @@ from ._arraykit import astype_array as astype_array
 from ._arraykit import AutoMap as AutoMap
 from ._arraykit import FrozenAutoMap as FrozenAutoMap
 from ._arraykit import NonUniqueError as NonUniqueError
-

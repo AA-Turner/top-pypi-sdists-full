@@ -4,7 +4,6 @@ import inspect
 import re
 import textwrap
 from collections.abc import Sequence
-from copy import copy
 from functools import cache, partial
 from itertools import combinations, product
 from numbers import Integral
@@ -16,9 +15,9 @@ from matplotlib import colormaps, colors, patheffects, rcParams
 from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize
 from matplotlib.markers import MarkerStyle
+from scverse_misc import Deprecation, deprecated
 
 from ... import logging as logg
-from ..._compat import deprecated
 from ..._settings import settings
 from ..._utils import _doc_params, _empty, sanitize_anndata
 from ..._utils._doctests import doctest_internet
@@ -122,6 +121,25 @@ def embedding(  # noqa: PLR0912, PLR0913, PLR0915
     -------
     If `show==False` a :class:`~matplotlib.axes.Axes` or a list of it.
 
+    Examples
+    --------
+    Plot a precomputed UMAP embedding coloured by the `'bulk_labels'` cell-type annotation.
+
+    .. plot::
+        :context: close-figs
+
+        import scanpy as sc
+        adata = sc.datasets.pbmc68k_reduced()
+        sc.pl.embedding(adata, basis="umap", color="bulk_labels")
+
+    Show several panels in a single call by passing a list of keys to `color`,
+    mixing categorical annotations and gene expression.
+
+    .. plot::
+        :context: close-figs
+
+        sc.pl.embedding(adata, basis="umap", color=["bulk_labels", "CD3D", "LYZ"])
+
     """
     #####################
     # Argument handling #
@@ -169,8 +187,7 @@ def embedding(  # noqa: PLR0912, PLR0913, PLR0915
             raise ValueError(msg)
         else:
             cmap = color_map
-    cmap = copy(colormaps.get_cmap(cmap))
-    cmap.set_bad(na_color)
+    cmap = colormaps.get_cmap(cmap).with_extremes(bad=na_color)
     # Prevents warnings during legend creation
     na_color = colors.to_hex(na_color, keep_alpha=True)
 
@@ -295,9 +312,9 @@ def embedding(  # noqa: PLR0912, PLR0913, PLR0915
         elif sort_order and color_type == "cat":
             # Null points go on bottom
             order = np.argsort(~pd.isnull(color_source_vector), kind="stable")
-        # Set orders
-        if isinstance(size, np.ndarray):
-            size = np.array(size)[order]
+        # Set orders — use a local to avoid cumulative reordering across
+        # subplots when multiple color keys are given.
+        _size = np.array(size)[order] if isinstance(size, np.ndarray) else size
         color_source_vector = color_source_vector[order]
         color_vector = color_vector[order]
         coords = basis_values[:, dims][order, :]
@@ -349,10 +366,10 @@ def embedding(  # noqa: PLR0912, PLR0913, PLR0915
             )
         else:
             scatter = (
-                partial(ax.scatter, s=size, plotnonfinite=True)
+                partial(ax.scatter, s=_size, plotnonfinite=True)
                 if scale_factor is None
                 else partial(
-                    circles, s=size, ax=ax, scale_factor=scale_factor
+                    circles, s=_size, ax=ax, scale_factor=scale_factor
                 )  # size in circles is radius
             )
 
@@ -367,7 +384,7 @@ def embedding(  # noqa: PLR0912, PLR0913, PLR0915
                 # with some transparency.
 
                 bg_width, gap_width = outline_width
-                point = np.sqrt(size)
+                point = np.sqrt(_size)
                 gap_size = (point + (point * gap_width) * 2) ** 2
                 bg_size = (np.sqrt(gap_size) + (point * bg_width) * 2) ** 2
                 # the default black and white colors can be changes using
@@ -947,7 +964,7 @@ def pca(
     return axs
 
 
-@deprecated("Use `squidpy.pl.spatial_scatter` instead.")
+@deprecated(Deprecation("1.11.0", "Use :func:`squidpy.pl.spatial_scatter` instead."))
 @doctest_internet
 @_wraps_plot_scatter
 @_doc_params(
@@ -976,9 +993,6 @@ def spatial(  # noqa: PLR0913
     **kwargs,
 ) -> Figure | Axes | list[Axes] | None:
     """Scatter plot in spatial coordinates.
-
-    .. deprecated:: 1.11.0
-       Use :func:`squidpy.pl.spatial_scatter` instead.
 
     This function allows overlaying data on top of images.
     Use the parameter `img_key` to see the image in the background
@@ -1019,11 +1033,11 @@ def spatial(  # noqa: PLR0913
 
     >>> import scanpy as sc
     >>> adata = sc.datasets.visium_sge("Targeted_Visium_Human_Glioblastoma_Pan_Cancer")
-    FutureWarning: Use `squidpy.datasets.visium` instead.
+    FutureWarning: The function visium_sge is deprecated and will be removed in the future. Use :func:`squidpy.datasets.visium` instead.
         adata = sc.datasets.visium_sge("Targeted_Visium_Human_Glioblastoma_Pan_Cancer")
     >>> sc.pp.calculate_qc_metrics(adata, inplace=True)
     >>> sc.pl.spatial(adata, color="log1p_n_genes_by_counts")
-    FutureWarning: Use `squidpy.pl.spatial_scatter` instead.
+    FutureWarning: The function spatial is deprecated and will be removed in the future. Use :func:`squidpy.pl.spatial_scatter` instead.
         sc.pl.spatial(adata, color="log1p_n_genes_by_counts")
 
     See Also

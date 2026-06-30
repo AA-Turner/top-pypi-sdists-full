@@ -25,6 +25,8 @@ __all__ = [
     "rename_columns",
     "combine_columns",
     "strip_whitespace",
+    "encode_one_hot_native",
+    "encode_ordinal_native",
 ]
 
 class BadRow:
@@ -74,6 +76,7 @@ class Frame:
     def column_by_name(self, name: str) -> Column: ...
     def add_column(self, col: Column) -> None: ...
     def select_columns(self, columns: Sequence[str]) -> Frame: ...
+    def select_rows(self, start: int, count: int) -> Frame: ...
     def clone(self) -> Frame: ...
     def describe(self) -> dict[str, dict[str, float]]: ...
     @staticmethod
@@ -132,6 +135,7 @@ class CsvWriteConfig:
     delimiter: str
     write_header: bool
     line_terminator: str
+    escape_formulas: bool
 
     def __init__(self) -> None: ...
 
@@ -144,8 +148,8 @@ class CsvWriter:
 def cast_types(
     frame: Frame,
     mapping: Mapping[str, str],
-    coerce_invalid: bool = False,
-) -> Frame: ...
+    errors: str = "raise",
+) -> tuple[Frame, list[dict[str, Any]]]: ...
 def clip_numeric(
     frame: Frame,
     *,
@@ -174,4 +178,10 @@ def rename_columns(frame: Frame, mapping: Mapping[str, str]) -> Frame: ...
 def strip_whitespace(frame: Frame, *, subset: Sequence[str] | None = None) -> Frame: ...
 def combine_columns(
     frame: Frame, subset: Sequence[str], separator: str, output_column: str
+) -> Frame: ...
+def encode_one_hot_native(frame: Frame, column_names: Sequence[str]) -> Frame: ...
+def encode_ordinal_native(
+    frame: Frame,
+    column_names: Sequence[str],
+    ordinal_mappings: Mapping[str, Mapping[str, int]],
 ) -> Frame: ...

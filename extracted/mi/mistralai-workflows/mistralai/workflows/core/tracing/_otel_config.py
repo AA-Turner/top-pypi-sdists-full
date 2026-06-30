@@ -144,16 +144,6 @@ def config_otel(
     metric_config = metric_config or OtelExportOptions()
     log_config = log_config or OtelExportOptions()
 
-    logger.info(
-        "Initializing OpenTelemetry",
-        sample_rate=sample_rate,
-        service=service_name,
-        version=service_version,
-        tail_sampling=tail_sampling,
-        traces_endpoint=trace_config.endpoint,
-        metrics_endpoint=metric_config.endpoint,
-    )
-
     resource = _create_resource(service_name=service_name, service_version=service_version, component=component)
 
     tracer_provider = TracerProvider(
@@ -212,8 +202,6 @@ def config_otel(
         otel_handler.setFormatter(build_json_log_formatter())
         otel_handler.addFilter(_WorkflowRunFilter(deployment_name=deployment_name, worker_name=worker_name))
         logging.getLogger().addHandler(otel_handler)
-
-        logger.info("OTLP log export configured", logs_endpoint=log_config.endpoint)
 
     logger.info(
         "OpenTelemetry configured",

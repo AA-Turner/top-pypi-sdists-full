@@ -535,6 +535,8 @@ from .type_defs import (
     TagResourceRequestTypeDef,
     TestConnectionRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateAssetRequestTypeDef,
+    UpdateAssetResponseTypeDef,
     UpdateBlueprintRequestTypeDef,
     UpdateBlueprintResponseTypeDef,
     UpdateCatalogRequestTypeDef,
@@ -3292,6 +3294,16 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#untag_resource)
+        """
+
+    def update_asset(
+        self, **kwargs: Unpack[UpdateAssetRequestTypeDef]
+    ) -> UpdateAssetResponseTypeDef:
+        """
+        Updates the name and description of an existing asset in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/update_asset.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#update_asset)
         """
 
     def update_blueprint(

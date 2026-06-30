@@ -79,6 +79,10 @@ def _read_thresholds(parser: ConfigParser) -> AnomalyThresholds:
         if parser.has_option(sec, key):
             return parser.get(sec, key).strip().lower() in ("true", "1", "yes", "on")
         return default
+    def _s(key, default):
+        if parser.has_option(sec, key):
+            return parser.get(sec, key).strip()
+        return default
     return AnomalyThresholds(
         z_threshold=_f("z_threshold", 2.0),
         cp_threshold=_f("cp_threshold", 0.5),
@@ -86,6 +90,9 @@ def _read_thresholds(parser: ConfigParser) -> AnomalyThresholds:
         min_years=_i("min_years", 10),
         include_negative_spikes=_b("include_negative_spikes", False),
         mcmc_seed=_i("mcmc_seed", 42),
+        pad_climatology=_b("pad_climatology", True),
+        n_pad_years=_i("n_pad_years", 5),
+        climatology_method=_s("climatology_method", "mean"),
     )
 
 
@@ -229,6 +236,11 @@ def run(path_config_files: list) -> Path:
         f"min_years={thresholds.min_years}, "
         f"include_negative={thresholds.include_negative_spikes}"
     )
+    logger.info(
+        f"  climatology pad: enabled={thresholds.pad_climatology}, "
+        f"n_pad_years={thresholds.n_pad_years}, "
+        f"method={thresholds.climatology_method}"
+    )
 
     csv_path = _resolve_yield_csv(parser, logger)
     crop_filter = _read_crop_filter(parser)
@@ -319,13 +331,22 @@ def run(path_config_files: list) -> Path:
             country, admin_1, admin_2, product, season, system = key
             sub_dir = plots_dir / _safe_filename(f"{country}_{product}")
             sub_dir.mkdir(parents=True, exist_ok=True)
-            stem = _safe_filename(
-                f"{admin_1}__{admin_2}__{season}__{system}"
-            )
+            # Drop blank / 'none' parts from both filename and title.
+            stem_parts = [admin_1]
+            if not _is_blank(admin_2):
+                stem_parts.append(admin_2)
+            stem_parts.append(season)
+            if not _is_blank(system):
+                stem_parts.append(system)
+            stem = _safe_filename("__".join(stem_parts))
             out_path = sub_dir / f"{stem}.png"
+            system_label = system if not _is_blank(system) else "unspecified"
+            region_label = (
+                f"{admin_1} / {admin_2}" if not _is_blank(admin_2) else f"{admin_1}"
+            )
             title = (
-                f"{country} — {product} ({season}, {system or 'unspecified'})\n"
-                f"{admin_1} / {admin_2}"
+                f"{country} — {product} ({season}, {system_label})\n"
+                f"{region_label}"
             )
             try:
                 plot_series_with_flags(res, title=title, out_path=out_path)
@@ -348,3 +369,17 @@ def _safe_filename(s: str) -> str:
     for ch in bad:
         s = s.replace(ch, "_")
     return s.replace(" ", "_") or "_"
+
+
+def _is_blank(v) -> bool:
+    """True for values HarvestStat uses to mean 'no value here' —
+    empty string, NaN, and the literal placeholders 'none', 'na', 'n/a'
+    (case-insensitive). Used to drop admin_2='none' from titles/paths."""
+    if v is None:
+        return True
+    try:
+        if isinstance(v, float) and np.isnan(v):
+            return True
+    except (TypeError, ValueError):
+        pass
+    return str(v).strip().lower() in ("", "none", "na", "n/a", "nan")

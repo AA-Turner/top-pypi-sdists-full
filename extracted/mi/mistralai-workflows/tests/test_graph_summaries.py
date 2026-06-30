@@ -4,6 +4,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from mistralai.client.errors import MistralError
 from pydantic import SecretStr
 
 import mistralai.workflows.core.graph_summaries as _summaries_mod
@@ -103,9 +104,9 @@ def test_build_user_message_includes_workflow_name():
 
 
 def test_serialize_node_unknown_includes_source_snippet():
-    source = "x" * 100
+    source_bytes = b"x" * 100
     node = FlatNode(id="ell", type="unknown", name="...", source_range=SourceRange(begin=0, end=100, line=1), line=1)
-    result = _serialize_node(node, source)
+    result = _serialize_node(node, source_bytes)
     assert "source:" in result
     assert "x" * 100 in result
 
@@ -113,27 +114,31 @@ def test_serialize_node_unknown_includes_source_snippet():
 def test_serialize_node_unknown_truncates_long_source():
     from mistralai.workflows.core.graph_summaries import _SOURCE_SNIPPET_LIMIT
 
-    source = "a" * (_SOURCE_SNIPPET_LIMIT + 200)
+    source_bytes = b"a" * (_SOURCE_SNIPPET_LIMIT + 200)
     node = FlatNode(
-        id="ell", type="unknown", name="...", source_range=SourceRange(begin=0, end=len(source), line=1), line=1
+        id="ell", type="unknown", name="...", source_range=SourceRange(begin=0, end=len(source_bytes), line=1), line=1
     )
-    result = _serialize_node(node, source)
+    result = _serialize_node(node, source_bytes)
     assert "…" in result
     assert "a" * (_SOURCE_SNIPPET_LIMIT + 1) not in result
 
 
 def test_serialize_node_unknown_no_source_omits_snippet():
     node = FlatNode(id="ell", type="unknown", name="...", source_range=SourceRange(begin=0, end=10, line=1), line=1)
-    result = _serialize_node(node, source=None)
+    result = _serialize_node(node, source_bytes=None)
     assert "source:" not in result
 
 
 def test_serialize_node_activity_never_includes_source():
-    source = "some python code here"
+    source_bytes = b"some python code here"
     node = FlatNode(
-        id="act", type="activity", name="do_thing", source_range=SourceRange(begin=0, end=len(source), line=1), line=1
+        id="act",
+        type="activity",
+        name="do_thing",
+        source_range=SourceRange(begin=0, end=len(source_bytes), line=1),
+        line=1,
     )
-    result = _serialize_node(node, source)
+    result = _serialize_node(node, source_bytes)
     assert "source:" not in result
 
 
@@ -170,11 +175,12 @@ def test_redact_string_literals_replaces_strings():
     assert "..." in result
 
 
-def test_redact_string_literals_returns_empty_on_untokenisable_source():
+def test_redact_string_literals_scrubs_untokenisable_source():
     # Snippet extracted mid-block: indents from 0→8, then dedents to 4 which is not
     # in the tokenizer's stack → IndentationError. Secrets must not leak.
     result = _redact_string_literals("        foo('secret')\n    bar()\n")
-    assert result == ""
+    assert "secret" not in result
+    assert "foo(" in result
 
 
 # ── summarise_workflow ────────────────────────────────────────────────────────
@@ -292,6 +298,58 @@ async def test_summarise_workflow_raises_on_api_error():
 
         with pytest.raises(SummariseError, match="network error"):
             await summarise_workflow(wire)
+
+
+async def test_summarise_workflow_passes_retry_config():
+    wire = _wire(_node("a", name="fetch_data"))
+
+    payload = {"a": {"short": "fetch data", "long": "Fetches data."}}
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = json.dumps(payload)
+
+    with (
+        patch("mistralai.workflows.core.graph_summaries.config") as mock_config,
+        patch("mistralai.workflows.core.graph_summaries.get_mistral_client") as mock_get_client,
+    ):
+        mock_config.common.mistral_api_key = SecretStr("test-key")
+        mock_config.worker.graph.graph_summarise_model = "mistral-small-latest"
+        mock_client = MagicMock()
+        mock_client.chat.complete_async = AsyncMock(return_value=mock_response)
+        mock_get_client.return_value = mock_client
+
+        await summarise_workflow(wire)
+
+    # Supplying a RetryConfig is what activates the SDK's native 429/5xx backoff; without
+    # it the SDK does no retries. Guard that we always opt in.
+    retries = mock_client.chat.complete_async.call_args.kwargs["retries"]
+    assert retries is _summaries_mod._RETRY_CONFIG
+    assert retries.strategy == "backoff"
+
+
+async def test_summarise_workflow_raises_on_persistent_rate_limit():
+    """A 429 that survives the SDK's internal retry budget surfaces as SummariseError."""
+    wire = _wire(_node("a"))
+
+    raw_response = MagicMock()
+    raw_response.status_code = 429
+    raw_response.text = "rate limited"
+    raw_response.headers = {}
+    rate_limit_exc = MistralError("Too Many Requests", raw_response)
+
+    with (
+        patch("mistralai.workflows.core.graph_summaries.config") as mock_config,
+        patch("mistralai.workflows.core.graph_summaries.get_mistral_client") as mock_get_client,
+    ):
+        mock_config.common.mistral_api_key = SecretStr("test-key")
+        mock_config.worker.graph.graph_summarise_model = "mistral-small-latest"
+        mock_client = MagicMock()
+        mock_client.chat.complete_async = AsyncMock(side_effect=rate_limit_exc)
+        mock_get_client.return_value = mock_client
+
+        with pytest.raises(SummariseError):
+            await summarise_workflow(wire)
+        # The persistent rate limit is fatal (not re-looped); the SDK already retried it.
+        assert mock_client.chat.complete_async.call_count == 1
 
 
 async def test_summarise_workflow_succeeds_on_retry_after_validation_error():

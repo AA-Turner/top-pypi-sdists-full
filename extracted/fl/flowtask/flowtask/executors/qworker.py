@@ -52,6 +52,45 @@ class QworkerJobExecutor(AbstractJobExecutor):
         """
         return "qworker"
 
+    def _sanitize_kwargs(self, program: str, task: str, kwargs: dict) -> dict:
+        """Drop kwargs that cannot be cloudpickled before queue dispatch.
+
+        The TaskWrapper is serialized with ``cloudpickle`` when handed to the
+        worker. Any kwarg holding a non-serializable object (e.g. a live uvloop
+        event loop, a DB/Redis pool, or the navconfig ``config`` singleton)
+        raises ``TypeError: no default __reduce__ due to non-trivial __cinit__``
+        and kills the whole dispatch. This guards the boundary: each kwarg is
+        probed individually, and any that fails is logged by name and removed so
+        the remaining payload still serializes.
+
+        Args:
+            program: Program slug (for log context).
+            task: Task identifier (for log context).
+            kwargs: Raw kwargs destined for the TaskWrapper constructor.
+
+        Returns:
+            A new dict containing only the serializable kwargs.
+        """
+        import cloudpickle  # lazy import
+
+        clean: dict = {}
+        for key, value in kwargs.items():
+            try:
+                cloudpickle.dumps(value)
+            except Exception as exc:  # noqa: BLE001 — probe, not control flow
+                self.logger.warning(
+                    "Dropping non-serializable kwarg '%s' (%s) from %s.%s "
+                    "dispatch — would break cloudpickle: %s",
+                    key,
+                    type(value).__name__,
+                    program,
+                    task,
+                    exc,
+                )
+                continue
+            clean[key] = value
+        return clean
+
     def _make_wrapper(
         self,
         program: str,
@@ -73,6 +112,7 @@ class QworkerJobExecutor(AbstractJobExecutor):
             A TaskWrapper instance ready for dispatch.
         """
         from qw.wrappers import TaskWrapper  # lazy import
+        kwargs = self._sanitize_kwargs(program, task, kwargs)
         wrapper = TaskWrapper(
             program=program,
             task=task,

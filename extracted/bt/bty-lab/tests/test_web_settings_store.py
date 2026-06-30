@@ -163,3 +163,93 @@ def test_backup_last_run_at_round_trip(tmp_path: Path) -> None:
         assert _settings_store.get_backup_last_run_at(conn) is None
         _settings_store.set_backup_last_run_at(conn, "2026-05-24T08:00:00+00:00")
         assert _settings_store.get_backup_last_run_at(conn) == "2026-05-24T08:00:00+00:00"
+
+
+def test_display_timezone_default_is_utc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """No override + no env -> UTC. The bty storage standard."""
+    monkeypatch.delenv(_settings_store.ENV_DISPLAY_TZ, raising=False)
+    with _conn(tmp_path) as conn:
+        tz = _settings_store.resolve_display_timezone(conn)
+        assert str(tz) == "UTC"
+
+
+def test_display_timezone_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(_settings_store.ENV_DISPLAY_TZ, "Europe/Copenhagen")
+    with _conn(tmp_path) as conn:
+        tz = _settings_store.resolve_display_timezone(conn)
+        assert str(tz) == "Europe/Copenhagen"
+
+
+def test_display_timezone_db_override_wins_over_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(_settings_store.ENV_DISPLAY_TZ, "Europe/Copenhagen")
+    with _conn(tmp_path) as conn:
+        _settings_store.set_value(conn, _settings_store.KEY_DISPLAY_TZ, "America/New_York")
+        tz = _settings_store.resolve_display_timezone(conn)
+        assert str(tz) == "America/New_York"
+
+
+def test_display_timezone_invalid_raises(tmp_path: Path) -> None:
+    """A garbage stored value raises SettingValueError so the renderer
+    surfaces the error rather than silently falling back to UTC (the
+    form validates before persisting; this fires only on hand-edited
+    state.db or stale rows)."""
+    with _conn(tmp_path) as conn:
+        _settings_store.set_value(conn, _settings_store.KEY_DISPLAY_TZ, "Not/A/Real/Zone")
+        with pytest.raises(_settings_store.SettingValueError):
+            _settings_store.resolve_display_timezone(conn)
+
+
+def test_display_timezone_empty_string_falls_through_to_utc(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Empty stored value (or empty env) -> UTC, not a parse error."""
+    monkeypatch.delenv(_settings_store.ENV_DISPLAY_TZ, raising=False)
+    with _conn(tmp_path) as conn:
+        _settings_store.set_value(conn, _settings_store.KEY_DISPLAY_TZ, "")
+        assert str(_settings_store.resolve_display_timezone(conn)) == "UTC"
+
+
+# ----- Ramboot resolvers ------------------------------------------------
+
+
+def test_nbdmux_url_unset_returns_none(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """No DB override + no env + no bty.toml -> None (ramboot unavailable)."""
+    monkeypatch.delenv(_settings_store.ENV_NBDMUX_URL, raising=False)
+    with _conn(tmp_path) as conn:
+        assert _settings_store.resolve_nbdmux_url(conn) is None
+
+
+def test_nbdmux_url_env_overrides_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(_settings_store.ENV_NBDMUX_URL, "http://nbdmux-env:4040")
+    with _conn(tmp_path) as conn:
+        assert _settings_store.resolve_nbdmux_url(conn) == "http://nbdmux-env:4040"
+
+
+def test_nbdmux_url_db_override_wins_over_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(_settings_store.ENV_NBDMUX_URL, "http://nbdmux-env:4040")
+    with _conn(tmp_path) as conn:
+        _settings_store.set_value(conn, _settings_store.KEY_NBDMUX_URL, "http://nbdmux-db:4040")
+        assert _settings_store.resolve_nbdmux_url(conn) == "http://nbdmux-db:4040"
+
+
+def test_ramboot_overlay_size_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unset -> the built-in conservative default."""
+    monkeypatch.delenv(_settings_store.ENV_RAMBOOT_OVERLAY_SIZE, raising=False)
+    with _conn(tmp_path) as conn:
+        assert (
+            _settings_store.resolve_ramboot_overlay_size(conn)
+            == _settings_store.DEFAULT_RAMBOOT_OVERLAY_SIZE
+        )
+
+
+def test_ramboot_overlay_size_db_override_wins(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(_settings_store.ENV_RAMBOOT_OVERLAY_SIZE, "4G")
+    with _conn(tmp_path) as conn:
+        _settings_store.set_value(conn, _settings_store.KEY_RAMBOOT_OVERLAY_SIZE, "16G")
+        assert _settings_store.resolve_ramboot_overlay_size(conn) == "16G"

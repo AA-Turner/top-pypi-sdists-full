@@ -70,8 +70,8 @@ def test_hsts_entry_and_index_are_namedtuples():
     assert entry.include_subdomains is True
     assert entry == (b"example.com", None, True)
 
-    index = pycurl.HstsIndex(index=0, total=1)
-    assert index.index == 0
+    index = pycurl.HstsIndex(idx=0, total=1)
+    assert index.idx == 0
     assert index.total == 1
     assert index == (0, 1)
 

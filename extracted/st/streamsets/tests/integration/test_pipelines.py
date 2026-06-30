@@ -1334,6 +1334,7 @@ def test_pipeline_dir(sch, sample_pipeline):
         '_pipeline_definition_internal',
         '_repr_metadata',
         '_rules_definition',
+        '_loading_data',
         'acl',
         'add_data_rule',
         'add_datadrift_rule',

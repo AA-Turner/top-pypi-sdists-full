@@ -14,6 +14,10 @@ row_1d_filter(PyObject *Py_UNUSED(m), PyObject *a);
 PyObject *
 slice_to_ascending_slice(PyObject *Py_UNUSED(m), PyObject *args);
 
+// Return an integer when a slice is exactly a single positive-position unit, else -1.
+PyObject *
+slice_to_unit(PyObject *Py_UNUSED(m), PyObject *a);
+
 // Reshape if necessary a flat ndim 1 array into a 2D array with one columns and rows of length.
 // related example: https://github.com/RhysU/ar/blob/master/ar-python.cpp
 PyObject *
@@ -70,6 +74,9 @@ isna_element(PyObject *m, PyObject *args, PyObject *kwargs);
 
 PyObject *
 get_new_indexers_and_screen(PyObject *Py_UNUSED(m), PyObject *args, PyObject *kwargs);
+
+PyObject *
+write_array_to_file(PyObject *Py_UNUSED(m), PyObject *args, PyObject *kwargs);
 
 // Specialized array deepcopy that stores immutable arrays in an optional memo dict that can be provided with kwargs.
 PyObject *

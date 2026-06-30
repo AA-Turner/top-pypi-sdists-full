@@ -834,6 +834,12 @@ class TestSHCThermostat:
     def test_position(self):
         d = self._make(position=75)
         assert d.position == 75
+        assert isinstance(d.position, float)
+
+    def test_position_keeps_decimals(self):
+        d = self._make(position=42.5)
+        assert d.position == 42.5
+        assert isinstance(d.position, float)
 
     def test_valvestate_adaption_successful(self):
         from boschshcpy.services_impl import ValveTappetService
@@ -1395,6 +1401,13 @@ class TestSHCTwinguard:
     def test_temperature(self):
         d = self._make(temp=24)
         assert d.temperature == 24
+        assert isinstance(d.temperature, float)
+
+    def test_temperature_keeps_decimals(self):
+        # Twinguard temperature must not be truncated to whole degrees (#352).
+        d = self._make(temp=23.4)
+        assert d.temperature == 23.4
+        assert isinstance(d.temperature, float)
 
     def test_temperature_rating(self):
         from boschshcpy.services_impl import AirQualityLevelService
@@ -1404,6 +1417,12 @@ class TestSHCTwinguard:
     def test_humidity(self):
         d = self._make(humidity=60)
         assert d.humidity == 60
+        assert isinstance(d.humidity, float)
+
+    def test_humidity_keeps_decimals(self):
+        d = self._make(humidity=55.5)
+        assert d.humidity == 55.5
+        assert isinstance(d.humidity, float)
 
     def test_humidity_rating_medium(self):
         from boschshcpy.services_impl import AirQualityLevelService
@@ -1413,6 +1432,12 @@ class TestSHCTwinguard:
     def test_purity(self):
         d = self._make(purity=1000)
         assert d.purity == 1000
+        assert isinstance(d.purity, float)
+
+    def test_purity_keeps_decimals(self):
+        d = self._make(purity=812.5)
+        assert d.purity == 812.5
+        assert isinstance(d.purity, float)
 
     def test_purity_rating_bad(self):
         from boschshcpy.services_impl import AirQualityLevelService

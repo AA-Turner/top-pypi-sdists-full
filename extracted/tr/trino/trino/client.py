@@ -39,6 +39,7 @@ import atexit
 import base64
 import copy
 import functools
+import itertools
 import os
 import random
 import re
@@ -193,6 +194,7 @@ class ClientSession:
         roles: Optional[Union[Dict[str, str], str]] = None,
         timezone: Optional[str] = None,
         encoding: Optional[Union[str, List[str]]] = None,
+        heartbeat_interval: Optional[float] = constants.DEFAULT_HEARTBEAT_INTERVAL,
     ):
         self._object_lock = threading.Lock()
         self._prepared_statements: Dict[str, str] = {}
@@ -215,6 +217,7 @@ class ClientSession:
             from tzlocal import get_localzone_name
             self._timezone = get_localzone_name()
         self._encoding = encoding
+        self._heartbeat_interval = heartbeat_interval
 
     @property
     def user(self) -> str:
@@ -314,6 +317,10 @@ class ClientSession:
     def encoding(self) -> Optional[Union[str, List[str]]]:
         with self._object_lock:
             return self._encoding
+
+    @property
+    def heartbeat_interval(self) -> Optional[float]:
+        return self._heartbeat_interval
 
     @staticmethod
     def _format_roles(roles: Union[Dict[str, str], str]) -> Dict[str, str]:
@@ -631,6 +638,7 @@ class TrinoRequest:
             self._get = self._http_session.get
             self._post = self._http_session.post
             self._delete = self._http_session.delete
+            self._head = self._http_session.head
             return
 
         with_retry = _retry_with(
@@ -646,6 +654,7 @@ class TrinoRequest:
         self._get = with_retry(self._http_session.get)
         self._post = with_retry(self._http_session.post)
         self._delete = with_retry(self._http_session.delete)
+        self._head = with_retry(self._http_session.head)
 
     def get_url(self, path: str) -> str:
         return "{protocol}://{host}:{port}{path}".format(
@@ -688,6 +697,14 @@ class TrinoRequest:
 
     def delete(self, url: str) -> Response:
         return self._delete(url, timeout=self._request_timeout, proxies=PROXIES)
+
+    def head(self, url: str) -> Response:
+        return self._head(
+            url,
+            headers=self.http_headers,
+            timeout=self._request_timeout,
+            proxies=PROXIES,
+        )
 
     @staticmethod
     def _process_error(error, query_id: Optional[str]) -> Union[TrinoExternalError, TrinoQueryError, TrinoUserError]:
@@ -879,7 +896,21 @@ class TrinoQuery:
             while not self._columns and not self.finished and not self.cancelled:
                 # Columns are not returned immediately after query is submitted.
                 # Continue fetching data until columns information is available and push fetched rows into buffer.
-                self._result.rows += self.fetch()
+                #
+                # Two protocols produce rows differently:
+                #  - Direct: fetch() returns a list - accumulate into the existing list.
+                #  - Spooling: fetch() returns a lazy iterator - replace rows and stop,
+                #    because we cannot cheaply check iterator length.
+                new_rows = self.fetch()
+                if isinstance(new_rows, list):
+                    self._result.rows += new_rows
+                else:
+                    try:
+                        first_row = next(new_rows)
+                        self._result.rows = itertools.chain([first_row], new_rows)
+                        break
+                    except StopIteration:
+                        self._result.rows = []
         return self._columns
 
     @property
@@ -933,9 +964,26 @@ class TrinoQuery:
         rows = self._row_mapper.map(status.rows) if self._row_mapper else status.rows
         self._result = TrinoResult(self, rows)
 
-        # Execute should block until at least one row is received or query is finished or cancelled
-        while not self.finished and not self.cancelled and len(self._result.rows) == 0:
-            self._result.rows += self.fetch()
+        # Block until rows are available, the query finishes, or it is canceled.
+        # Rows start as an empty list. Early responses often contain only stats,
+        # so we keep fetching until actual data arrives.
+        #
+        # Two protocols produce rows differently:
+        #  - Direct: fetch() returns a list - accumulate into the existing list.
+        #  - Spooling: fetch() returns a lazy iterator - replace rows and stop,
+        #    because we cannot cheaply check iterator length.
+        while not self.finished and not self.cancelled and self._result.rows == []:
+            new_rows = self.fetch()
+            if isinstance(new_rows, list):
+                self._result.rows += new_rows
+            else:
+                try:
+                    first_row = next(new_rows)
+                    self._result.rows = itertools.chain([first_row], new_rows)
+                    break
+                except StopIteration:
+                    self._result.rows = []
+
         return self._result
 
     def _update_state(self, status):
@@ -949,7 +997,7 @@ class TrinoQuery:
         if status.columns:
             self._columns = status.columns
 
-    def fetch(self) -> List[Union[List[Any]], Any]:
+    def fetch(self) -> Union[List[Union[List[Any], Any]], Iterator[List[Any]]]:
         """Continue fetching data for the current query_id"""
         try:
             response = self._request.get(self._request.next_uri)
@@ -970,7 +1018,13 @@ class TrinoQuery:
             spooled = self._to_segments(rows)
             if self._fetch_mode == "segments":
                 return spooled
-            return list(SegmentIterator(spooled, self._row_mapper))
+            # Return iterator directly, do NOT materialize with list()
+            return SegmentIterator(
+                spooled,
+                self._row_mapper,
+                request=self._request,
+                heartbeat_interval=self._request._client_session.heartbeat_interval,
+            )
         elif isinstance(status.rows, list):
             return self._row_mapper.map(rows)
         else:
@@ -1241,14 +1295,77 @@ class DecodableSegment:
         return (f"DecodableSegment(encoding={self._encoding}, metadata={self._metadata}, segment={self._segment})")
 
 
+class _RequestHeartbeat:
+    """
+    Heartbeat loop for a trino request. Periodically sends HEAD requests to the request's next URI.
+    This prevents the coordinator from abandoning a query if the client is silent for a longer
+    period of time, for example when downloading a spooled segment from an external storage.
+    """
+    MAX_FAILURES = 3
+
+    def __init__(self, request: TrinoRequest, interval: float) -> None:
+        self._request = request
+        self._interval = interval
+        # The event for telling the heartbeat thread to exit
+        self._stop_event = threading.Event()
+
+    def __enter__(self) -> _RequestHeartbeat:
+        threading.Thread(target=self._run, daemon=True).start()
+        return self
+
+    def __exit__(self, *_) -> None:
+        self._stop_event.set()
+
+    def _run(self) -> None:
+        """
+        Run the heartbeat loop.
+
+        Exit when the self._stop_event is set, the query completed
+        or if the error count exceeds _MAX_FAILURES.
+        """
+        failures = 0
+
+        while not self._stop_event.wait(timeout=self._interval):
+            uri = self._request.next_uri
+            if uri is None:
+                return
+
+            try:
+                response = self._request.head(uri)
+                if response.status_code in (404, 405):
+                    logger.warning("The server does not support heartbeat calls")
+                    return
+                if not response.ok:
+                    failures += 1
+                else:
+                    failures = 0
+            except Exception:
+                failures += 1
+
+            if failures >= self.MAX_FAILURES:
+                logger.warning(f"Stopping the heartbeat after {self.MAX_FAILURES} consecutive errors")
+                return
+
+
 class SegmentIterator:
-    def __init__(self, segments: Union[DecodableSegment, List[DecodableSegment]], mapper: RowMapper) -> None:
+    def __init__(
+        self,
+        segments: Union[DecodableSegment, List[DecodableSegment]],
+        mapper: RowMapper,
+        *,
+        request: Optional[TrinoRequest] = None,
+        heartbeat_interval: Optional[float] = None,
+    ) -> None:
         self._segments = iter(segments if isinstance(segments, List) else [segments])
         self._mapper = mapper
         self._decoder = None
         self._rows: Iterator[List[List[Any]]] = iter([])
         self._finished = False
         self._current_segment: Optional[DecodableSegment] = None
+        if (request is not None) != bool(heartbeat_interval):
+            raise ValueError("request and heartbeat_interval must be both provided or both omitted")
+        self._request = request
+        self._heartbeat_interval = heartbeat_interval
 
     def __iter__(self) -> Iterator[List[Any]]:
         return self
@@ -1274,7 +1391,17 @@ class SegmentIterator:
             if self._decoder is None:
                 self._decoder = SegmentDecoder(CompressedQueryDataDecoderFactory(self._mapper)
                                                .create(self._current_segment.encoding))
-            self._rows = iter(self._decoder.decode(self._current_segment.segment))
+
+            if isinstance(self._current_segment.segment, SpooledSegment) and self._request and self._heartbeat_interval:
+                # Downloading a spooled segment may take some time. In the meantime, send heartbeat
+                # requests so the coordinator doesn't think we lost interest and close the query.
+                with _RequestHeartbeat(self._request, self._heartbeat_interval):
+                    rows = self._decoder.decode(self._current_segment.segment)
+            else:
+                rows = self._decoder.decode(self._current_segment.segment)
+
+            self._rows = iter(rows)
+
         except StopIteration:
             self._finished = True
 

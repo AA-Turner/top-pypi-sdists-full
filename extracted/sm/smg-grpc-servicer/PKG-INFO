@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: smg-grpc-servicer
-Version: 0.5.6
+Version: 0.6.0
 Summary: SMG gRPC servicer implementations for LLM inference engines (vLLM, MLX, TokenSpeed, SGLang)
 Author-email: Chang Su <mckvtl@gmail.com>, Simo Lin <linsimo.mark@gmail.com>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/lightseekorg/smg
 Project-URL: Repository, https://github.com/lightseekorg/smg
 Classifier: Programming Language :: Python :: 3
@@ -11,24 +11,28 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: smg-grpc-proto>=0.4.10
-Requires-Dist: grpcio>=1.78.0
-Requires-Dist: grpcio-reflection>=1.78.0
-Requires-Dist: grpcio-health-checking>=1.78.0
+License-File: LICENSE
+Requires-Dist: smg-grpc-proto>=0.4.11
+Requires-Dist: grpcio>=1.81.1
+Requires-Dist: grpcio-reflection>=1.81.1
+Requires-Dist: grpcio-health-checking>=1.81.1
 Provides-Extra: vllm
 Requires-Dist: vllm>=0.19.0; extra == "vllm"
 Requires-Dist: pyzmq>=25.0.0; extra == "vllm"
 Requires-Dist: msgspec>=0.18.0; extra == "vllm"
 Provides-Extra: sglang
-Requires-Dist: sglang>=0.5.10; extra == "sglang"
+Requires-Dist: sglang>=0.5.13; extra == "sglang"
 Provides-Extra: mlx
 Requires-Dist: smg-grpc-proto>=0.4.7; extra == "mlx"
 Requires-Dist: mlx>=0.22.0; extra == "mlx"
 Requires-Dist: mlx-lm>=0.22.0; extra == "mlx"
+Provides-Extra: tokenspeed
+Requires-Dist: pyzmq>=25.0.0; extra == "tokenspeed"
+Requires-Dist: msgspec>=0.18.0; extra == "tokenspeed"
+Dynamic: license-file
 
 # smg-grpc-servicer
 

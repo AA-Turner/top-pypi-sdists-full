@@ -4,7 +4,7 @@ use ndarray::{Array1, Array2};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::PredictInput;
-use gam::basis::{BasisOptions, Dense, KnotSource, create_basis, create_ispline_derivative_dense};
+use gam::basis::{BasisOptions, Dense, KnotSource, create_basis};
 use gam::estimate::BlockRole;
 use gam::families::bms::LatentMeasureKind;
 use gam::families::scale_design::{build_scale_deviation_operator, scale_transform_from_payload};
@@ -12,10 +12,8 @@ use gam::families::survival::predict::SurvivalPredictError;
 use gam::families::survival::predict::{
     fit_result_from_saved_model_for_prediction, resolve_termspec_for_prediction,
 };
-use gam::families::transformation_normal::{
-    TRANSFORMATION_MONOTONICITY_EPS, TRANSFORMATION_NORMAL_H_ABS_MAX,
-    transformation_normal_pit_score,
-};
+use gam::families::transformation_normal::TRANSFORMATION_MONOTONICITY_EPS;
+use gam::probability::standard_normal_quantile;
 use gam::inference::model::{
     FittedModel, FittedModelError, PredictModelClass, append_deployment_extension_columns,
 };
@@ -208,6 +206,348 @@ fn build_marginal_slope_local_auxiliary_matrix(
     Ok(Some(out))
 }
 
+/// Number of nodes in the shared fine response grid used to tabulate (and then
+/// invert) the CTM conditional transform `h(y|x)`.
+const TRANSFORMATION_NORMAL_INVERSION_GRID: usize = 257;
+
+/// Number of standard-normal quadrature nodes (midpoint rule in probability
+/// space) used to average `h⁻¹(Z|x)` into the response-scale mean `E[Y|x]`.
+const TRANSFORMATION_NORMAL_MEAN_QUADRATURE: usize = 48;
+
+/// Materialize the per-row monotone conditional transform `h(y | x_i)` of a
+/// fitted conditional transformation-normal (CTM) model on a shared fine
+/// response grid. The latent model is `h(Y|x) ~ N(0, 1)` with `h(·|x)` strictly
+/// increasing in `y`:
+///   `h(y|x) = γ₀(x) + Σ_{r≥1} I_r(y)·γ_r(x)² + offset + ε·(y − median)`,
+/// `γ_r(x) = β_r · cov_row(x)`, `I_r` the frozen I-spline value basis.
+///
+/// Returning the tabulated curve lets the response-scale conditional mean
+/// `E[Y|x]` (predict, #1612) and inverse-transform response-scale sampling
+/// `Y = h⁻¹(Z|x)` (generate, #1613) be built by inverting the SAME curve, so the
+/// two paths can never disagree on the underlying transform.
+///
+/// Returns `(grid_y, h_grid)` with `grid_y` the strictly increasing length-`G`
+/// response grid and `h_grid[[i, k]] = h(grid_y[k] | x_i)`, strictly increasing
+/// in `k` for every row `i`.
+fn transformation_normal_quantile_grid(
+    model: &FittedModel,
+    design: &gam::terms::smooth::TermCollectionDesign,
+    n: usize,
+    offset: &Array1<f64>,
+) -> Result<(Array1<f64>, Array2<f64>), PredictInputError> {
+    let payload = model.payload();
+    let response_knots = payload
+        .transformation_response_knots
+        .as_ref()
+        .ok_or_else(|| PredictInputError::MissingMetadata {
+            reason: "saved transformation-normal model missing response_knots".to_string(),
+        })?;
+    let response_transform_vecs = payload
+        .transformation_response_transform
+        .as_ref()
+        .ok_or_else(|| PredictInputError::MissingMetadata {
+            reason: "saved transformation-normal model missing response_transform".to_string(),
+        })?;
+    let response_degree = payload.transformation_response_degree.ok_or_else(|| {
+        PredictInputError::MissingMetadata {
+            reason: "saved transformation-normal model missing response_degree".to_string(),
+        }
+    })?;
+    let response_median = payload.transformation_response_median.ok_or_else(|| {
+        PredictInputError::MissingMetadata {
+            reason: "saved transformation-normal model missing response_median".to_string(),
+        }
+    })?;
+
+    let t_rows = response_transform_vecs.len();
+    let t_cols = if t_rows > 0 {
+        response_transform_vecs[0].len()
+    } else {
+        0
+    };
+    let mut resp_transform = Array2::<f64>::zeros((t_rows, t_cols));
+    for (i, row) in response_transform_vecs.iter().enumerate() {
+        for (j, &v) in row.iter().enumerate() {
+            resp_transform[[i, j]] = v;
+        }
+    }
+    let resp_knots = Array1::from_vec(response_knots.clone());
+
+    let p_shape = resp_transform.ncols();
+    let p_resp = 1 + p_shape;
+
+    let fit_saved = model
+        .unified()
+        .ok_or_else(|| PredictInputError::MissingMetadata {
+            reason: "saved transformation-normal model missing unified fit".to_string(),
+        })?;
+    let beta = &fit_saved.blocks[0].beta;
+    let p_cov = design.design.ncols();
+    if beta.len() != p_resp * p_cov {
+        return Err(PredictInputError::DimensionMismatch {
+            reason: format!(
+                "beta length {} != p_resp({}) * p_cov({})",
+                beta.len(),
+                p_resp,
+                p_cov
+            ),
+        });
+    }
+    let beta_mat = beta
+        .view()
+        .into_shape_with_order((p_resp, p_cov))
+        .map_err(|e| PredictInputError::DimensionMismatch {
+            reason: format!("beta reshape failed: {e}"),
+        })?;
+    let cov_mat = design
+        .design
+        .try_row_chunk(0..n)
+        .map_err(|e| PredictInputError::InvalidInput {
+            reason: e.to_string(),
+        })?;
+    let calibration = payload
+        .transformation_score_calibration
+        .as_ref()
+        .ok_or_else(|| PredictInputError::MissingMetadata {
+            reason: "saved transformation-normal model missing score calibration".to_string(),
+        })?;
+    calibration.validate("saved transformation-normal score calibration")?;
+
+    if resp_knots.is_empty() {
+        return Err(PredictInputError::MissingMetadata {
+            reason: "saved transformation-normal response knots are empty".to_string(),
+        });
+    }
+
+    let monotonicity_eps = TRANSFORMATION_MONOTONICITY_EPS;
+    let y_lo = resp_knots[0];
+    let y_hi = resp_knots[resp_knots.len() - 1];
+    if !(y_hi > y_lo) {
+        return Err(PredictInputError::InvalidInput {
+            reason: format!(
+                "transformation-normal response support is degenerate: lo={y_lo}, hi={y_hi}"
+            ),
+        });
+    }
+
+    // A shared fine `y`-grid spanning the response support; the I-spline value
+    // basis is evaluated once here and reused for every row, so the per-row
+    // inversion is a cheap monotone lookup rather than a fresh basis build.
+    const GRID: usize = TRANSFORMATION_NORMAL_INVERSION_GRID;
+    let grid_y: Array1<f64> = Array1::from_shape_fn(GRID, |k| {
+        y_lo + (y_hi - y_lo) * (k as f64) / ((GRID - 1) as f64)
+    });
+    let (grid_val_basis, _) = create_basis::<Dense>(
+        grid_y.view(),
+        KnotSource::Provided(resp_knots.view()),
+        response_degree,
+        BasisOptions::i_spline(),
+    )
+    .map_err(|e| PredictInputError::InvalidInput {
+        reason: e.to_string(),
+    })?;
+    let grid_raw_val = grid_val_basis.as_ref().clone();
+    if grid_raw_val.ncols() != resp_transform.nrows() {
+        return Err(PredictInputError::DimensionMismatch {
+            reason: format!(
+                "saved transformation-normal response transform shape mismatch: raw I-spline cols={} transform rows={}",
+                grid_raw_val.ncols(),
+                resp_transform.nrows()
+            ),
+        });
+    }
+    // `grid_shape[k, r] = I_{r+1}(grid_y[k])` (shape part only, column 0 is the
+    // constant `1`). The linear `ε·(y − median)` floor is added per row.
+    let grid_shape = grid_raw_val.dot(&resp_transform);
+
+    let beta_mat_ref = &beta_mat;
+    let cov_mat_ref = &cov_mat;
+    let grid_shape_ref = &grid_shape;
+    let grid_y_ref = &grid_y;
+    let rows: Vec<Result<Vec<f64>, String>> = (0..n)
+        .into_par_iter()
+        .map(|i| {
+            let cov_row = cov_mat_ref.row(i);
+            let gamma0 = beta_mat_ref.row(0).dot(&cov_row);
+            // Squared shape factors γ_r(x)² (non-negative, r ≥ 1).
+            let mut gamma_sq = vec![0.0_f64; p_shape];
+            for r in 1..p_resp {
+                let g = beta_mat_ref.row(r).dot(&cov_row);
+                gamma_sq[r - 1] = g * g;
+            }
+            // `h(y_k | x_i)` on the shared grid: monotone increasing in k.
+            let mut h_row = vec![0.0_f64; GRID];
+            for k in 0..GRID {
+                let mut val = gamma0;
+                let shape_row = grid_shape_ref.row(k);
+                for r in 0..p_shape {
+                    val += shape_row[r] * gamma_sq[r];
+                }
+                h_row[k] =
+                    val + offset[i] + monotonicity_eps * (grid_y_ref[k] - response_median);
+                if !h_row[k].is_finite() {
+                    let max_abs_cov = inf_norm(cov_row.iter().copied());
+                    return Err(format!(
+                        "transformation-normal transform at row {i}, grid node {k} is not finite: h={:.6e}; max_abs_covariate_basis={max_abs_cov:.6e}",
+                        h_row[k]
+                    ));
+                }
+            }
+            // Structural monotonicity guard: under SCOP `h' ≥ ε > 0`, so a
+            // non-increasing grid signals floating-point cancellation.
+            for k in 1..GRID {
+                if h_row[k] <= h_row[k - 1] {
+                    return Err(format!(
+                        "transformation-normal transform is not strictly increasing at row {i} between grid nodes {} and {k} (h={:.6e} -> {:.6e}); under SCOP h' = ε + Σ M_r γ_r² is structurally positive, so this indicates floating-point cancellation",
+                        k - 1,
+                        h_row[k - 1],
+                        h_row[k]
+                    ));
+                }
+            }
+            Ok(h_row)
+        })
+        .collect();
+    let mut h_grid = Array2::<f64>::zeros((n, GRID));
+    for (i, row) in rows.into_iter().enumerate() {
+        let row = row.map_err(|reason| PredictInputError::InvalidInput {
+            reason: format!("prediction failed: {reason}"),
+        })?;
+        for (k, v) in row.into_iter().enumerate() {
+            h_grid[[i, k]] = v;
+        }
+    }
+    Ok((grid_y, h_grid))
+}
+
+/// Invert a monotone increasing tabulated row `z = h_grid_row(grid_y)` at the
+/// latent value `target` by bracketing + linear interpolation; values outside
+/// the tabulated range clamp to the support endpoints. Shared by the CTM
+/// response-scale mean quadrature and (mirrored in the generative sampler) the
+/// inverse-transform draw, so both invert the transform identically.
+fn invert_transformation_normal_grid(
+    grid_y: &Array1<f64>,
+    h_grid: &Array2<f64>,
+    row: usize,
+    target: f64,
+) -> f64 {
+    let g = grid_y.len();
+    let h = h_grid.row(row);
+    if target <= h[0] {
+        return grid_y[0];
+    }
+    if target >= h[g - 1] {
+        return grid_y[g - 1];
+    }
+    let mut lo = 0usize;
+    let mut hi = g - 1;
+    while hi - lo > 1 {
+        let mid = (lo + hi) / 2;
+        if h[mid] <= target {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    let t = (target - h[lo]) / (h[hi] - h[lo]);
+    grid_y[lo] + t * (grid_y[hi] - grid_y[lo])
+}
+
+/// The response-scale conditional mean `E[Y|x] = E_{Z~N(0,1)}[h⁻¹(Z|x)]` for
+/// each row of a CTM transform grid, by averaging the grid inverse over a
+/// standard-normal midpoint quadrature in probability space (see the predict
+/// branch for the derivation). Used by BOTH the predict mean (#1612) and the
+/// generate sampler's reference mean (#1613), so they agree by construction.
+fn transformation_normal_conditional_mean(
+    grid_y: &Array1<f64>,
+    h_grid: &Array2<f64>,
+) -> Result<Array1<f64>, PredictInputError> {
+    let n = h_grid.nrows();
+    const QUAD: usize = TRANSFORMATION_NORMAL_MEAN_QUADRATURE;
+    let z_nodes: Vec<f64> = (0..QUAD)
+        .map(|k| {
+            let p = ((k as f64) + 0.5) / (QUAD as f64);
+            standard_normal_quantile(p)
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| PredictInputError::InvalidInput { reason: e })?;
+    let mean = Array1::<f64>::from_shape_fn(n, |i| {
+        let mut acc = 0.0_f64;
+        for &z in &z_nodes {
+            acc += invert_transformation_normal_grid(grid_y, h_grid, i, z);
+        }
+        acc / (QUAD as f64)
+    });
+    if mean.iter().any(|value| !value.is_finite()) {
+        return Err(PredictInputError::InvalidInput {
+            reason:
+                "transformation-normal conditional mean E[Y|x] produced non-finite values"
+                    .to_string(),
+        });
+    }
+    Ok(mean)
+}
+
+/// The response-scale conditional quantile grid for a fitted CTM at the supplied
+/// covariates — the public entry the `gam generate` path uses to build an
+/// inverse-transform sampler (#1613).
+pub struct TransformationNormalQuantileGrid {
+    /// Shared, strictly increasing response grid (length `g ≥ 2`).
+    pub grid_y: Array1<f64>,
+    /// `h_grid[[i, k]] = h(grid_y[k] | x_i)`, strictly increasing in `k`.
+    pub h_grid: Array2<f64>,
+    /// Response-scale conditional mean `E[Y|x_i]` — the same value `predict`
+    /// returns (#1612), provided so the generate spec's reference mean and the
+    /// prediction mean cannot diverge.
+    pub conditional_mean: Array1<f64>,
+}
+
+/// Build the CTM conditional quantile grid + response-scale mean at the supplied
+/// covariates. Mirrors the design assembly of [`build_predict_input_for_model`]
+/// so generation and prediction rebuild exactly the same covariate design and
+/// invert the same monotone transform.
+pub fn build_transformation_normal_quantile_grid(
+    model: &FittedModel,
+    data: ndarray::ArrayView2<'_, f64>,
+    col_map: &HashMap<String, usize>,
+    training_headers: Option<&Vec<String>>,
+    offset: &Array1<f64>,
+) -> Result<TransformationNormalQuantileGrid, String> {
+    if model.predict_model_class() != PredictModelClass::TransformationNormal {
+        return Err(
+            "build_transformation_normal_quantile_grid called on a non-transformation-normal model"
+                .to_string(),
+        );
+    }
+    let spec = resolve_termspec_for_prediction(
+        &model.resolved_termspec,
+        training_headers,
+        col_map,
+        "resolved_termspec",
+    )
+    .map_err(|e| String::from(PredictInputError::from(e)))?;
+    let clipped = model.axis_clip_to_training_ranges(data, col_map);
+    let design_input = clipped.as_ref().map_or(data, |arr| arr.view());
+    let design = build_term_collection_design(design_input, &spec)
+        .map_err(|e| format!("failed to build generation design: {e}"))?;
+    let n = data.nrows();
+    if offset.len() != n {
+        return Err(format!(
+            "generation offset length mismatch: rows={n}, offset={}",
+            offset.len()
+        ));
+    }
+    let (grid_y, h_grid) =
+        transformation_normal_quantile_grid(model, &design, n, offset).map_err(String::from)?;
+    let conditional_mean =
+        transformation_normal_conditional_mean(&grid_y, &h_grid).map_err(String::from)?;
+    Ok(TransformationNormalQuantileGrid {
+        grid_y,
+        h_grid,
+        conditional_mean,
+    })
+}
+
 fn build_predict_input_for_model_inner(
     model: &FittedModel,
     data: ndarray::ArrayView2<'_, f64>,
@@ -379,257 +719,31 @@ fn build_predict_input_for_model_inner(
                             .to_string(),
                 });
             }
-            let payload = model.payload();
-            let response_knots =
-                payload
-                    .transformation_response_knots
-                    .as_ref()
-                    .ok_or_else(|| PredictInputError::MissingMetadata {
-                        reason: "saved transformation-normal model missing response_knots"
-                            .to_string(),
-                    })?;
-            let response_transform_vecs = payload
-                .transformation_response_transform
-                .as_ref()
-                .ok_or_else(|| PredictInputError::MissingMetadata {
-                    reason: "saved transformation-normal model missing response_transform"
-                        .to_string(),
-                })?;
-            let response_degree = payload.transformation_response_degree.ok_or_else(|| {
-                PredictInputError::MissingMetadata {
-                    reason: "saved transformation-normal model missing response_degree".to_string(),
-                }
-            })?;
-            let response_median = payload.transformation_response_median.ok_or_else(|| {
-                PredictInputError::MissingMetadata {
-                    reason: "saved transformation-normal model missing response_median".to_string(),
-                }
-            })?;
-
-            let t_rows = response_transform_vecs.len();
-            let t_cols = if t_rows > 0 {
-                response_transform_vecs[0].len()
-            } else {
-                0
-            };
-            let mut resp_transform = ndarray::Array2::<f64>::zeros((t_rows, t_cols));
-            for (i, row) in response_transform_vecs.iter().enumerate() {
-                for (j, &v) in row.iter().enumerate() {
-                    resp_transform[[i, j]] = v;
-                }
-            }
-            let resp_knots = ndarray::Array1::from_vec(response_knots.clone());
-
-            let response_col_name = payload
-                .formula
-                .split('~')
-                .next()
-                .map(str::trim)
-                .ok_or_else(|| PredictInputError::InvalidInput {
-                    reason: "cannot parse response column from formula".to_string(),
-                })?;
-            let response_col_idx = resolve_role_col(col_map, response_col_name, "response")?;
-            let response_new = data.column(response_col_idx).to_owned();
-            for value in response_new.iter().copied() {
-                if !value.is_finite() {
-                    return Err(PredictInputError::InvalidInput {
-                        reason: format!(
-                            "transformation-normal response value in prediction data is not finite: {value}"
-                        ),
-                    });
-                }
-            }
-
-            let (raw_val_basis, _) = create_basis::<Dense>(
-                response_new.view(),
-                KnotSource::Provided(resp_knots.view()),
-                response_degree,
-                BasisOptions::i_spline(),
-            )
-            .map_err(|e| PredictInputError::InvalidInput {
-                reason: e.to_string(),
-            })?;
-            let raw_val = raw_val_basis.as_ref().clone();
-            if raw_val.ncols() != resp_transform.nrows() {
-                return Err(PredictInputError::DimensionMismatch {
-                    reason: format!(
-                        "saved transformation-normal response transform shape mismatch: raw I-spline cols={} transform rows={}",
-                        raw_val.ncols(),
-                        resp_transform.nrows()
-                    ),
-                });
-            }
-            let shape_val = raw_val.dot(&resp_transform);
-            let p_shape = resp_transform.ncols();
-            let p_resp = 1 + p_shape;
-            let mut resp_val = ndarray::Array2::<f64>::zeros((n, p_resp));
-            resp_val.column_mut(0).fill(1.0);
-            resp_val.slice_mut(ndarray::s![.., 1..]).assign(&shape_val);
-
-            let raw_deriv = create_ispline_derivative_dense(
-                response_new.view(),
-                &resp_knots,
-                response_degree,
-                1,
-            )
-            .map_err(|e| PredictInputError::InvalidInput {
-                reason: e.to_string(),
-            })?;
-            if raw_deriv.ncols() != resp_transform.nrows() {
-                return Err(PredictInputError::DimensionMismatch {
-                    reason: format!(
-                        "saved transformation-normal derivative transform shape mismatch: raw M-spline cols={} transform rows={}",
-                        raw_deriv.ncols(),
-                        resp_transform.nrows()
-                    ),
-                });
-            }
-            let shape_deriv = raw_deriv.dot(&resp_transform);
-            let mut resp_deriv = ndarray::Array2::<f64>::zeros((n, p_resp));
-            resp_deriv
-                .slice_mut(ndarray::s![.., 1..])
-                .assign(&shape_deriv);
-
-            let fit_saved = model
-                .unified()
-                .ok_or_else(|| PredictInputError::MissingMetadata {
-                    reason: "saved transformation-normal model missing unified fit".to_string(),
-                })?;
-            let beta = &fit_saved.blocks[0].beta;
-            let p_cov = design.design.ncols();
-            if beta.len() != p_resp * p_cov {
-                return Err(PredictInputError::DimensionMismatch {
-                    reason: format!(
-                        "beta length {} != p_resp({}) * p_cov({})",
-                        beta.len(),
-                        p_resp,
-                        p_cov
-                    ),
-                });
-            }
-            let beta_mat = beta
-                .view()
-                .into_shape_with_order((p_resp, p_cov))
-                .map_err(|e| PredictInputError::DimensionMismatch {
-                    reason: format!("beta reshape failed: {e}"),
-                })?;
-            let cov_mat =
-                design
-                    .design
-                    .try_row_chunk(0..n)
-                    .map_err(|e| PredictInputError::InvalidInput {
-                        reason: e.to_string(),
-                    })?;
-            let calibration = payload
-                .transformation_score_calibration
-                .as_ref()
-                .ok_or_else(|| PredictInputError::MissingMetadata {
-                    reason: "saved transformation-normal model missing score calibration"
-                        .to_string(),
-                })?;
-            calibration.validate("saved transformation-normal score calibration")?;
-
-            if resp_knots.is_empty() {
-                return Err(PredictInputError::MissingMetadata {
-                    reason: "saved transformation-normal response knots are empty".to_string(),
-                });
-            }
-            let mut response_lower_basis = vec![0.0; p_resp];
-            let mut response_upper_basis = vec![0.0; p_resp];
-            response_lower_basis[0] = 1.0;
-            response_upper_basis[0] = 1.0;
-            for col in 0..p_shape {
-                response_upper_basis[col + 1] = resp_transform.column(col).sum();
-            }
-            let response_lower_floor_offset =
-                TRANSFORMATION_MONOTONICITY_EPS * (resp_knots[0] - response_median);
-            let response_upper_floor_offset = TRANSFORMATION_MONOTONICITY_EPS
-                * (resp_knots[resp_knots.len() - 1] - response_median);
-
-            // Under SCOP-CTN with I-spline shape components,
-            // `h'(y, x) = ε + Σ_{r≥1} M_r(y) · γ_r(x)²`. Both M_r and γ_r²
-            // are non-negative for every (β, x, y), and ε is the fixed
-            // derivative floor serialized through the model definition.
-            let monotonicity_eps = TRANSFORMATION_MONOTONICITY_EPS;
-            let beta_mat_ref = &beta_mat;
-            let cov_mat_ref = &cov_mat;
-            let resp_deriv_ref = &resp_deriv;
-            let min_h_prime: f64 = (0..n)
-                .into_par_iter()
-                .map(|i| {
-                    let cov_row = cov_mat_ref.row(i);
-                    let resp_row = resp_deriv_ref.row(i);
-                    let mut hp = resp_row[0] * beta_mat_ref.row(0).dot(&cov_row);
-                    for r in 1..p_resp {
-                        let gamma = beta_mat_ref.row(r).dot(&cov_row);
-                        hp += resp_row[r] * gamma * gamma;
-                    }
-                    hp + monotonicity_eps
-                })
-                .reduce(|| f64::INFINITY, f64::min);
-            if min_h_prime < monotonicity_eps {
-                return Err(PredictInputError::InvalidInput {
-                    reason: format!(
-                        "prediction failed: transformation-normal h'(y, x) numerical floor \
-                         violated. Minimum evaluated h'(y, x) is {min_h_prime:.3e}, threshold \
-                         {monotonicity_eps:.0e}. Under SCOP h' = ε + Σ M_r γ_r² holds \
-                         structurally, so this indicates floating-point cancellation below \
-                         the fixed derivative floor."
-                    ),
-                });
-            }
-
-            // h_i and finite-support endpoints share the same γ_r(x_i). The
-            // prediction score is the fitted PIT, not a post-h location/scale
-            // normalization.
-            let pit_vec: Vec<Result<f64, String>> = (0..n)
-                .into_par_iter()
-                .map(|i| {
-                    let resp_row = resp_val.row(i);
-                    let cov_row = cov_mat.row(i);
-                    let gamma0 = beta_mat.row(0).dot(&cov_row);
-                    let mut val = resp_row[0] * gamma0;
-                    let mut lower = response_lower_basis[0] * gamma0;
-                    let mut upper = response_upper_basis[0] * gamma0;
-                    let mut max_abs_gamma = gamma0.abs();
-                    for r in 1..p_resp {
-                        let gamma = beta_mat.row(r).dot(&cov_row);
-                        max_abs_gamma = max_abs_gamma.max(gamma.abs());
-                        val += resp_row[r] * gamma * gamma;
-                        lower += response_lower_basis[r] * gamma * gamma;
-                        upper += response_upper_basis[r] * gamma * gamma;
-                    }
-                    let h = val
-                        + offset[i]
-                        + monotonicity_eps * (response_new[i] - response_median);
-                    let h_lower = lower + offset[i] + response_lower_floor_offset;
-                    let h_upper = upper + offset[i] + response_upper_floor_offset;
-                    if !h.is_finite() || !h_lower.is_finite() || !h_upper.is_finite() {
-                        let max_abs_cov = inf_norm(cov_row.iter().copied());
-                        return Err(format!(
-                            "prediction failed: transformation-normal finite-support scores at row {i} are not finite: h={h:.6e}, lower={h_lower:.6e}, upper={h_upper:.6e}; max_abs_covariate_basis={max_abs_cov:.6e}, max_abs_gamma={max_abs_gamma:.6e}"
-                        ));
-                    }
-                    transformation_normal_pit_score(h, h_lower, h_upper, calibration.clip_eps)
-                        .map_err(|err| format!("prediction failed at row {i}: {err}"))
-                })
-                .collect();
-            let calibrated = ndarray::Array1::<f64>::from_vec(
-                pit_vec.into_iter().collect::<Result<Vec<_>, _>>()?,
-            );
-            if calibrated
-                .iter()
-                .any(|value| !value.is_finite() || value.abs() > TRANSFORMATION_NORMAL_H_ABS_MAX)
-            {
-                return Err(PredictInputError::InvalidInput {
-                    reason:
-                        "prediction failed: transformation-normal PIT produced non-finite or out-of-range z values"
-                            .to_string(),
-                });
-            }
+            // ── Response-scale conditional mean E[Y|x] (issue #1612) ──────────
+            //
+            // The CTM latent model is `h(Y|x) ~ N(0, 1)` with `h(·|x)` strictly
+            // increasing in `y`, so the response-scale conditional mean
+            //   `E[Y|x] = E_{Z~N(0,1)}[ h⁻¹(Z | x) ]`
+            // is a function of the covariates alone (it does NOT depend on any
+            // supplied response). We tabulate the monotone transform once via
+            // `transformation_normal_quantile_grid` — the SAME curve the
+            // `gam generate` inverse-transform sampler inverts (#1613) — and
+            // average its inverse over a standard-normal quadrature: writing
+            // `E[Y|x] = ∫₀¹ h⁻¹(Φ⁻¹(p)|x) dp`, apply the midpoint rule on `m`
+            // evenly spaced probability levels `p_k = (k + ½)/m`, `z_k = Φ⁻¹(p_k)`.
+            // Probability space keeps every node inside the finite I-spline
+            // support (no normal-tail truncation) and needs no Gauss–Hermite
+            // weights.
+            let (grid_y, h_grid) =
+                transformation_normal_quantile_grid(model, &design, n, offset)?;
+            let conditional_mean =
+                transformation_normal_conditional_mean(&grid_y, &h_grid)?;
+            // The predictor passes the offset through unchanged as `eta` and
+            // `mean`, so storing E[Y|x] here yields a y-independent response-scale
+            // prediction for both columns on a covariate-only frame.
             Ok(PredictInput {
                 design: DesignMatrix::from(ndarray::Array2::from_shape_fn((n, 1), |_| 1.0)),
-                offset: calibrated,
+                offset: conditional_mean,
                 design_noise: None,
                 offset_noise: None,
                 auxiliary_scalar: None,

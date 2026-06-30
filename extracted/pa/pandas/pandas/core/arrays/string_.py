@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import partial
 import operator
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -1150,23 +1151,7 @@ class StringArray(BaseStringArray, NumpyExtensionArray):  # type: ignore[misc]
         >>> arr.searchsorted([4])
         array([3])
         """
-
-        # GH#65837: avoid O(n) scan; NA confined to array ends in sorted data.
-        # When sorter is given, the sorted order is ndarray[sorter], so check
-        # the first/last positions via sorter instead of raw ndarray positions.
-        ndarray = self._ndarray
-        if len(ndarray):
-            if sorter is None:
-                has_na = libmissing.checknull(ndarray[0]) or libmissing.checknull(
-                    ndarray[-1]
-                )
-            else:
-                has_na = libmissing.checknull(
-                    ndarray[sorter[0]]
-                ) or libmissing.checknull(ndarray[sorter[-1]])
-        else:
-            has_na = False
-        if has_na:
+        if self._hasna:
             raise ValueError(
                 "searchsorted requires array to be sorted, which is impossible "
                 "with NAs present."
@@ -1231,7 +1216,8 @@ class StringArray(BaseStringArray, NumpyExtensionArray):  # type: ignore[misc]
             result = np.empty_like(self._ndarray, dtype="object")
             result[mask] = self.dtype.na_value
             result[valid] = op(self._ndarray[valid], other)
-            if not lib.is_string_array(result, skipna=True):
+            if isinstance(other, Path):
+                # GH#61940
                 return result
             return self._from_backing_data(result)
         else:

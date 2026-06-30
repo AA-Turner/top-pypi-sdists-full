@@ -82,6 +82,7 @@ __all__ = (
     "DescribeAlarmsForMetricOutputTypeDef",
     "DescribeAlarmsInputPaginateTypeDef",
     "DescribeAlarmsInputTypeDef",
+    "DescribeAlarmsInputWaitExtraExtraTypeDef",
     "DescribeAlarmsInputWaitExtraTypeDef",
     "DescribeAlarmsInputWaitTypeDef",
     "DescribeAlarmsOutputTypeDef",
@@ -143,6 +144,7 @@ __all__ = (
     "ListMetricsOutputTypeDef",
     "ListTagsForResourceInputTypeDef",
     "ListTagsForResourceOutputTypeDef",
+    "LogAlarmTypeDef",
     "ManagedRuleDescriptionTypeDef",
     "ManagedRuleStateTypeDef",
     "ManagedRuleTypeDef",
@@ -184,6 +186,7 @@ __all__ = (
     "PutDashboardInputTypeDef",
     "PutDashboardOutputTypeDef",
     "PutInsightRuleInputTypeDef",
+    "PutLogAlarmInputTypeDef",
     "PutManagedInsightRulesInputTypeDef",
     "PutManagedInsightRulesOutputTypeDef",
     "PutMetricAlarmInputMetricPutAlarmTypeDef",
@@ -196,7 +199,11 @@ __all__ = (
     "RangeTypeDef",
     "ResponseMetadataTypeDef",
     "RuleTypeDef",
+    "ScheduleConfigurationTypeDef",
     "ScheduleTypeDef",
+    "ScheduledQueryConfigurationOutputTypeDef",
+    "ScheduledQueryConfigurationTypeDef",
+    "ScheduledQueryConfigurationUnionTypeDef",
     "SetAlarmStateInputAlarmSetStateTypeDef",
     "SetAlarmStateInputTypeDef",
     "SingleMetricAnomalyDetectorOutputTypeDef",
@@ -503,6 +510,11 @@ class ScheduleTypeDef(TypedDict):
     Duration: str
     Timezone: NotRequired[str]
 
+class ScheduleConfigurationTypeDef(TypedDict):
+    ScheduleExpression: str
+    StartTimeOffset: NotRequired[int]
+    EndTimeOffset: NotRequired[int]
+
 class SetAlarmStateInputAlarmSetStateTypeDef(TypedDict):
     StateValue: StateValueType
     StateReason: str
@@ -739,6 +751,18 @@ class ListDashboardsInputPaginateTypeDef(TypedDict):
     DashboardNamePrefix: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class DescribeAlarmsInputWaitExtraExtraTypeDef(TypedDict):
+    AlarmNames: NotRequired[Sequence[str]]
+    AlarmNamePrefix: NotRequired[str]
+    AlarmTypes: NotRequired[Sequence[AlarmTypeType]]
+    ChildrenOfAlarmName: NotRequired[str]
+    ParentsOfAlarmName: NotRequired[str]
+    StateValue: NotRequired[StateValueType]
+    ActionPrefix: NotRequired[str]
+    MaxRecords: NotRequired[int]
+    NextToken: NotRequired[str]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
 class DescribeAlarmsInputWaitExtraTypeDef(TypedDict):
     AlarmNames: NotRequired[Sequence[str]]
     AlarmNamePrefix: NotRequired[str]
@@ -877,6 +901,24 @@ MuteTargetsUnionTypeDef = Union[MuteTargetsTypeDef, MuteTargetsOutputTypeDef]
 class RuleTypeDef(TypedDict):
     Schedule: ScheduleTypeDef
 
+class ScheduledQueryConfigurationOutputTypeDef(TypedDict):
+    QueryString: str
+    ScheduledQueryRoleARN: str
+    ScheduleConfiguration: ScheduleConfigurationTypeDef
+    AggregationExpression: str
+    LogGroupIdentifiers: NotRequired[list[str]]
+    QueryARN: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+
+class ScheduledQueryConfigurationTypeDef(TypedDict):
+    QueryString: str
+    ScheduledQueryRoleARN: str
+    ScheduleConfiguration: ScheduleConfigurationTypeDef
+    AggregationExpression: str
+    LogGroupIdentifiers: NotRequired[Sequence[str]]
+    QueryARN: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
 class ListMetricsOutputTypeDef(TypedDict):
     Metrics: list[MetricOutputTypeDef]
     OwningAccounts: list[str]
@@ -977,6 +1019,34 @@ class PutAlarmMuteRuleInputTypeDef(TypedDict):
     StartDate: NotRequired[TimestampTypeDef]
     ExpireDate: NotRequired[TimestampTypeDef]
 
+class LogAlarmTypeDef(TypedDict):
+    AlarmName: NotRequired[str]
+    AlarmArn: NotRequired[str]
+    AlarmDescription: NotRequired[str]
+    AlarmConfigurationUpdatedTimestamp: NotRequired[datetime]
+    ActionsEnabled: NotRequired[bool]
+    OKActions: NotRequired[list[str]]
+    AlarmActions: NotRequired[list[str]]
+    InsufficientDataActions: NotRequired[list[str]]
+    StateValue: NotRequired[StateValueType]
+    StateReason: NotRequired[str]
+    StateReasonData: NotRequired[str]
+    StateUpdatedTimestamp: NotRequired[datetime]
+    ScheduledQueryConfiguration: NotRequired[ScheduledQueryConfigurationOutputTypeDef]
+    QueryResultsToEvaluate: NotRequired[int]
+    QueryResultsToAlarm: NotRequired[int]
+    Threshold: NotRequired[float]
+    ComparisonOperator: NotRequired[ComparisonOperatorType]
+    TreatMissingData: NotRequired[str]
+    StateTransitionedTimestamp: NotRequired[datetime]
+    EvaluationState: NotRequired[EvaluationStateType]
+    ActionLogLineCount: NotRequired[int]
+    ActionLogLineRoleArn: NotRequired[str]
+
+ScheduledQueryConfigurationUnionTypeDef = Union[
+    ScheduledQueryConfigurationTypeDef, ScheduledQueryConfigurationOutputTypeDef
+]
+
 class MetricDataQueryOutputTypeDef(TypedDict):
     Id: str
     MetricStat: NotRequired[MetricStatOutputTypeDef]
@@ -1039,6 +1109,23 @@ class PutMetricStreamInputTypeDef(TypedDict):
     StatisticsConfigurations: NotRequired[Sequence[MetricStreamStatisticsConfigurationUnionTypeDef]]
     IncludeLinkedAccountsMetrics: NotRequired[bool]
 
+class PutLogAlarmInputTypeDef(TypedDict):
+    AlarmName: str
+    ScheduledQueryConfiguration: ScheduledQueryConfigurationUnionTypeDef
+    QueryResultsToEvaluate: int
+    QueryResultsToAlarm: int
+    Threshold: float
+    ComparisonOperator: ComparisonOperatorType
+    AlarmDescription: NotRequired[str]
+    ActionLogLineCount: NotRequired[int]
+    ActionLogLineRoleArn: NotRequired[str]
+    ActionsEnabled: NotRequired[bool]
+    OKActions: NotRequired[Sequence[str]]
+    AlarmActions: NotRequired[Sequence[str]]
+    InsufficientDataActions: NotRequired[Sequence[str]]
+    TreatMissingData: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
 class MetricAlarmTypeDef(TypedDict):
     AlarmName: NotRequired[str]
     AlarmArn: NotRequired[str]
@@ -1092,6 +1179,7 @@ class DescribeAlarmsForMetricOutputTypeDef(TypedDict):
 class DescribeAlarmsOutputTypeDef(TypedDict):
     CompositeAlarms: list[CompositeAlarmTypeDef]
     MetricAlarms: list[MetricAlarmTypeDef]
+    LogAlarms: list[LogAlarmTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

@@ -67,6 +67,7 @@ EventTypeType = Literal[
     "Campaign-Orchestration",
     "Campaign-SMS",
     "Campaign-Telephony",
+    "Campaign-WebNotification",
     "Campaign-WhatsApp",
 ]
 ExternalCampaignTypeType = Literal["JOURNEY", "MANAGED"]

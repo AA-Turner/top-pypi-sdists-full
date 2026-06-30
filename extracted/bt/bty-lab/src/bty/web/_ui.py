@@ -42,6 +42,7 @@ from bty.web import (
     _db,
     _events_log,
     _labels,
+    _ramboot_cache,
     _releases,
     _settings_store,
     _sysconfig,
@@ -466,6 +467,10 @@ def register_ui_routes(
             machine_events = _events_log.list_events(
                 conn, subject_kind="machine", limit=_events_log.RECENT_EVENTS_LIMIT
             )
+            # Per-row ramboot pre-warm status. One lookup; the row
+            # template renders the status pill under the boot-mode
+            # badge when boot_mode=ramboot.
+            ramboot_status_by_ref = _ramboot_cache.statuses_by_ref(conn)
         machines = [_row_to_dict(r, label_map.get(r["mac"], [])) for r in rows]
         # v0.32.4: ``?deleted=<mac>`` / ``?missing=<mac>`` carried over
         # from ``POST /ui/machines/{mac}/delete`` so the operator gets a
@@ -516,6 +521,7 @@ def register_ui_routes(
             sse_eligible=sse_eligible,
             flash_deleted=flash_deleted,
             flash_missing=flash_missing,
+            ramboot_status_by_ref=ramboot_status_by_ref,
         )
 
     @app.get(
@@ -1524,6 +1530,20 @@ def register_ui_routes(
             netboot_repo_override = _settings_store.get(conn, _settings_store.KEY_NETBOOT_REPO)
             netboot_tag_override = _settings_store.get(conn, _settings_store.KEY_NETBOOT_TAG)
             catalog_url_override = _settings_store.get(conn, _settings_store.KEY_CATALOG_URL)
+            display_timezone_override = _settings_store.get(conn, _settings_store.KEY_DISPLAY_TZ)
+            try:
+                display_timezone_effective = str(_settings_store.resolve_display_timezone(conn))
+            except _settings_store.SettingValueError as exc:
+                # A bad stored value; surface as the effective value
+                # so the operator sees what's broken on the form, but
+                # don't 500 the page render.
+                display_timezone_effective = f"(invalid: {exc})"
+            nbdmux_url_override = _settings_store.get(conn, _settings_store.KEY_NBDMUX_URL)
+            nbdmux_url_effective = _settings_store.resolve_nbdmux_url(conn) or ""
+            ramboot_overlay_size_override = _settings_store.get(
+                conn, _settings_store.KEY_RAMBOOT_OVERLAY_SIZE
+            )
+            ramboot_overlay_size_effective = _settings_store.resolve_ramboot_overlay_size(conn)
         upstream = {
             "netboot_repo": netboot_repo,
             "netboot_repo_override": netboot_repo_override,
@@ -1676,6 +1696,13 @@ def register_ui_routes(
             backup_cadences=_settings_store.BACKUP_CADENCES,
             backup_retention_count=backup_retention_count,
             backup_last_run_at=backup_last_run_at,
+            display_timezone_override=display_timezone_override,
+            display_timezone_effective=display_timezone_effective,
+            nbdmux_url_override=nbdmux_url_override,
+            nbdmux_url_effective=nbdmux_url_effective,
+            ramboot_overlay_size_override=ramboot_overlay_size_override,
+            ramboot_overlay_size_effective=ramboot_overlay_size_effective,
+            ramboot_overlay_size_default=_settings_store.DEFAULT_RAMBOOT_OVERLAY_SIZE,
             missing_netboot_artifacts=_releases.missing_netboot_artifacts(boot_root),
             # Provenance / write-target info for the editable config
             # rows: the path the Settings POST handler writes to (or
@@ -1703,6 +1730,8 @@ def register_ui_routes(
         flash_map = {
             "upstream": "Upstream sources saved.",
             "backup": "Backup schedule saved.",
+            "display": "Display settings saved.",
+            "ramboot": "Ramboot settings saved.",
         }
         flash = flash_map.get(saved or "")
         return _render_settings_page(request, flash=flash, flash_kind="success" if flash else None)
@@ -1998,6 +2027,120 @@ def register_ui_routes(
         return RedirectResponse(
             "/ui/settings?saved=backup#backup-schedule",
             status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    @app.post(
+        "/ui/settings/display",
+        include_in_schema=False,
+        dependencies=[Depends(require_ui_auth)],
+    )
+    def ui_settings_display(
+        request: Request,
+        display_timezone: Annotated[str, Form()] = "",
+    ) -> RedirectResponse:
+        """Save (or clear) the display-timezone override. The value is
+        an IANA zone name (``Europe/Copenhagen``, ``UTC``, ...) used to
+        render every operator-facing timestamp in bty-web. An empty
+        field clears the override and reverts to UTC (the bty storage
+        standard).
+
+        The new value is validated by constructing a :class:`ZoneInfo`
+        before persisting; a bad name redirects back with an error
+        rather than writing a broken value the renderer would fall
+        back from. After a successful write the renderer cache is
+        invalidated so the change takes effect on the next page.
+        """
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+        from bty.web._app import invalidate_display_tz_cache
+
+        raw = display_timezone.strip()
+        if raw:
+            try:
+                ZoneInfo(raw)
+            except ZoneInfoNotFoundError:
+                return RedirectResponse(
+                    "/ui/settings?error="
+                    + urllib.parse.quote(f"unknown timezone {raw!r}", safe=""),
+                    status_code=status.HTTP_303_SEE_OTHER,
+                )
+        with _db.open_db(state_path) as conn:
+            old = _settings_store.get(conn, _settings_store.KEY_DISPLAY_TZ)
+            if raw:
+                _settings_store.set_value(conn, _settings_store.KEY_DISPLAY_TZ, raw)
+            else:
+                _settings_store.clear(conn, _settings_store.KEY_DISPLAY_TZ)
+            _events_log.record(
+                conn,
+                kind="settings.display.updated",
+                summary=f"display timezone set to {raw or '(default UTC)'}",
+                subject_kind="settings",
+                subject_id="display",
+                actor="operator",
+                source_ip=_client_ip(request),
+                details={"display_timezone": {"old": old, "new": raw or None}},
+            )
+            conn.commit()
+        invalidate_display_tz_cache(state_path)
+        return RedirectResponse(
+            "/ui/settings?saved=display#display", status_code=status.HTTP_303_SEE_OTHER
+        )
+
+    @app.post(
+        "/ui/settings/ramboot",
+        include_in_schema=False,
+        dependencies=[Depends(require_ui_auth)],
+    )
+    def ui_settings_ramboot(
+        request: Request,
+        nbdmux_url: Annotated[str, Form()] = "",
+        ramboot_overlay_size: Annotated[str, Form()] = "",
+    ) -> RedirectResponse:
+        """Save (or clear) the ramboot bytes-path overrides.
+
+        ``nbdmux_url`` is the HTTP control plane URL of the nbdmux
+        daemon (e.g. ``http://nbdmux:4040``); empty clears the
+        override and ramboot becomes unavailable until either the
+        override or the matching env / bty.toml value is set.
+        ``ramboot_overlay_size`` is the default tmpfs size for the
+        in-target overlay (``10G`` by default); empty reverts to
+        the default. The Linux mount layer validates the size at
+        boot time, so we accept any non-empty string here and let
+        the operator see size-format errors on the serial console
+        rather than rejecting at form-submit time.
+        """
+        nbdmux = nbdmux_url.strip()
+        overlay = ramboot_overlay_size.strip()
+        with _db.open_db(state_path) as conn:
+            old_nbdmux = _settings_store.get(conn, _settings_store.KEY_NBDMUX_URL)
+            old_overlay = _settings_store.get(conn, _settings_store.KEY_RAMBOOT_OVERLAY_SIZE)
+            if nbdmux:
+                _settings_store.set_value(conn, _settings_store.KEY_NBDMUX_URL, nbdmux)
+            else:
+                _settings_store.clear(conn, _settings_store.KEY_NBDMUX_URL)
+            if overlay:
+                _settings_store.set_value(conn, _settings_store.KEY_RAMBOOT_OVERLAY_SIZE, overlay)
+            else:
+                _settings_store.clear(conn, _settings_store.KEY_RAMBOOT_OVERLAY_SIZE)
+            _events_log.record(
+                conn,
+                kind="settings.ramboot.updated",
+                summary=(
+                    f"ramboot: nbdmux_url={nbdmux or '(default)'}, "
+                    f"overlay_size={overlay or '(default)'}"
+                ),
+                subject_kind="settings",
+                subject_id="ramboot",
+                actor="operator",
+                source_ip=_client_ip(request),
+                details={
+                    "nbdmux_url": {"old": old_nbdmux, "new": nbdmux or None},
+                    "ramboot_overlay_size": {"old": old_overlay, "new": overlay or None},
+                },
+            )
+            conn.commit()
+        return RedirectResponse(
+            "/ui/settings?saved=ramboot#ramboot", status_code=status.HTTP_303_SEE_OTHER
         )
 
     @app.post(

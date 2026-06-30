@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fido2
-Version: 2.2.0
+Version: 2.2.1
 Summary: FIDO2/WebAuthn library for implementing clients and servers.
 License: Copyright (c) 2018 Yubico AB
          All rights reserved.
@@ -48,7 +48,7 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: pcsc
-Requires-Dist: cryptography (>=2.6,!=35,<49)
+Requires-Dist: cryptography (>=2.6,!=35,<52)
 Requires-Dist: pyscard (>=1.9,<3) ; extra == "pcsc"
 Project-URL: Homepage, https://github.com/Yubico/python-fido2
 Description-Content-Type: text/plain

@@ -111,6 +111,21 @@ fn parameters_may_be_passed_with_short_options() {
     .success();
 }
 
+#[test]
+fn short_option_defaults_to_first_character_of_parameter_name() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', short)]
+        @foo bar:
+          echo bar={{bar}}
+      ",
+    )
+    .args(["foo", "-b", "baz"])
+    .stdout("bar=baz\n")
+    .success();
+}
+
 const LONG_SHORT: &str = "
   [arg('bar', long='bar', short='b')]
   @foo bar:
@@ -145,17 +160,68 @@ fn parameters_with_both_long_and_short_may_not_use_both() {
 }
 
 #[test]
-fn multiple_short_options_in_one_argument_is_an_error() {
+fn multiple_short_options_may_be_combined() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', short='a', value='1')]
+        [arg('baz', short='b', value='2')]
+        [arg('qux', short='c', value='3')]
+        @foo bar baz qux:
+          echo {{bar}} {{baz}} {{qux}}
+      ",
+    )
+    .args(["foo", "-abc"])
+    .stdout("1 2 3\n")
+    .success();
+}
+
+#[test]
+fn combined_short_options_may_end_with_a_value_option() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', short='a', value='1')]
+        [arg('baz', short='b', value='2')]
+        [arg('qux', short='c')]
+        @foo bar baz qux:
+          echo {{bar}} {{baz}} {{qux}}
+      ",
+    )
+    .args(["foo", "-abc", "D"])
+    .stdout("1 2 D\n")
+    .success();
+}
+
+#[test]
+fn combined_short_value_option_must_be_last() {
   Test::new()
     .justfile(
       "
         [arg('bar', short='a')]
-        [arg('baz', short='b')]
+        [arg('baz', short='b', value='2')]
         @foo bar baz:
       ",
     )
     .args(["foo", "-ab"])
-    .stderr("error: passing multiple short options (`-ab`) in one argument is not supported\n")
+    .stderr(
+      "error: recipe `foo` option `-a` takes a value and so must be last when combined with other options\n",
+    )
+    .failure();
+}
+
+#[test]
+fn combined_short_options_may_not_repeat() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', short='a', value='1')]
+        [arg('baz', short='b', value='2')]
+        @foo bar baz:
+      ",
+    )
+    .args(["foo", "-aab"])
+    .stderr("error: recipe `foo` option `-a` cannot be passed more than once\n")
     .failure();
 }
 
@@ -186,21 +252,18 @@ fn defaulted_duplicate_long_option() {
   Test::new()
     .justfile(
       "
-        [arg(
-          'aaa',
-          long='bar'
-        )]
-        [arg(      'bar', long)]
+        [arg('aaa', long='bar')]
+        [arg('bar', long)]
         foo aaa bar:
       ",
     )
     .stderr(
       "
         error: recipe `foo` defines option `--bar` multiple times
-         ——▶ justfile:5:19
+         ——▶ justfile:1:18
           │
-        5 │ [arg(      'bar', long)]
-          │                   ^^^^
+        1 │ [arg('aaa', long='bar')]
+          │                  ^^^^^
       ",
     )
     .failure();
@@ -229,45 +292,109 @@ fn duplicate_short_option_attributes_are_forbidden() {
 }
 
 #[test]
-fn variadics_with_long_options_are_forbidden() {
+fn defaulted_duplicate_short_option() {
   Test::new()
     .justfile(
       "
-        [arg('bar', long='bar')]
-        foo +bar:
+        [arg('bar', short='b')]
+        [arg('baz', short)]
+        foo bar baz:
       ",
     )
     .stderr(
       "
-        error: variadic parameters may not be options
-         ——▶ justfile:2:6
+        error: recipe `foo` defines option `-b` multiple times
+         ——▶ justfile:2:13
           │
-        2 │ foo +bar:
-          │      ^^^
+        2 │ [arg('baz', short)]
+          │             ^^^^^
       ",
     )
     .failure();
 }
 
 #[test]
-fn variadics_with_short_options_are_forbidden() {
+fn defaulted_short_option_with_empty_argument_name() {
   Test::new()
     .justfile(
       "
-        [arg('bar', short='b')]
-        foo +bar:
+        [arg('', short)]
+        foo bar:
       ",
     )
     .stderr(
       "
-        error: variadic parameters may not be options
-         ——▶ justfile:2:6
+        error: argument attribute for undefined argument ``
+         ——▶ justfile:1:6
           │
-        2 │ foo +bar:
-          │      ^^^
+        1 │ [arg('', short)]
+          │      ^^
       ",
     )
     .failure();
+}
+
+#[test]
+fn plus_variadic_long_option_is_repeatable() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', long='bar')]
+        @foo +bar:
+          echo bar={{bar}}
+      ",
+    )
+    .args(["foo", "--bar", "a", "--bar", "b"])
+    .stdout("bar=a b\n")
+    .success();
+}
+
+#[test]
+fn star_variadic_option_may_be_omitted() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', long='bar')]
+        @foo *bar:
+          echo bar={{bar}}
+      ",
+    )
+    .arg("foo")
+    .stdout("bar=\n")
+    .success();
+}
+
+#[test]
+fn plus_variadic_option_requires_one_argument() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', long='bar')]
+        @foo +bar:
+          echo bar={{bar}}
+      ",
+    )
+    .arg("foo")
+    .stderr("error: recipe `foo` requires option `--bar`\n")
+    .failure();
+}
+
+#[test]
+fn variadic_option_is_list() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+
+        [arg('bar', long='bar')]
+        @foo +bar:
+          echo bar='{{ show(bar) }}'
+      ",
+    )
+    .unstable()
+    .args(["foo", "--bar", "a", "--bar", "b"])
+    .stdout("bar=[\"a\", \"b\"]\n")
+    .success();
 }
 
 #[test]
@@ -755,7 +882,7 @@ fn value_expression_is_pattern_checked() {
     )
     .args(["foo", "--bar"])
     .stderr(
-      "error: argument `baz` passed to recipe `foo` parameter `bar` does not match pattern '[0-9]+'\n",
+      "error: argument `baz` passed to recipe `foo` parameter `bar` does not match pattern `[0-9]+`\n",
     )
     .failure();
 }
@@ -774,6 +901,25 @@ fn value_omitted_uses_default() {
     )
     .args(["foo"])
     .stdout("bar=qux\n")
+    .success();
+}
+
+#[test]
+fn value_uses_forwarded_dependency_argument() {
+  Test::new()
+    .justfile(
+      "
+        BAZ := 'baz'
+
+        [arg('bar', long='bar', value=BAZ)]
+        @foo bar='qux':
+          echo bar={{bar}}
+
+        caller: (foo 'forwarded')
+      ",
+    )
+    .args(["caller"])
+    .stdout("bar=forwarded\n")
     .success();
 }
 
@@ -806,7 +952,7 @@ fn flag_passed_is_true() {
           echo bar={{bar}}
       ",
     )
-    .env("JUST_UNSTABLE", "1")
+    .unstable()
     .args(["foo", "--bar"])
     .stdout("bar=true\n")
     .success();
@@ -824,7 +970,7 @@ fn flag_omitted_is_empty() {
           echo bar={{show(bar)}}
       ",
     )
-    .env("JUST_UNSTABLE", "1")
+    .unstable()
     .args(["foo"])
     .stdout("bar=[]\n")
     .success();
@@ -947,8 +1093,159 @@ fn flags_passed_with_a_value_are_an_error() {
           echo bar={{bar}}
       ",
     )
-    .env("JUST_UNSTABLE", "1")
+    .unstable()
     .args(["foo", "--bar=baz"])
     .stderr("error: recipe `foo` flag `--bar` does not take value\n")
+    .failure();
+}
+
+#[test]
+fn multiple_option_is_list() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+
+        [arg('bar', long, multiple)]
+        @foo bar:
+          echo bar='{{ show(bar) }}'
+      ",
+    )
+    .unstable()
+    .args(["foo", "--bar", "a", "--bar", "b"])
+    .stdout(
+      r#"
+        bar=["a", "b"]
+      "#,
+    )
+    .success();
+}
+
+#[test]
+fn multiple_flag_counts_occurrences() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+
+        [arg('verbose', short, flag, multiple)]
+        @foo verbose:
+          echo verbose='{{ show(verbose) }}'
+      ",
+    )
+    .unstable()
+    .args(["foo", "-vvv"])
+    .stdout(
+      r#"
+        verbose=["true", "true", "true"]
+      "#,
+    )
+    .success();
+}
+
+#[test]
+fn multiple_value_option_repeats_value() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+
+        [arg('bar', long, value='baz', multiple)]
+        @foo bar:
+          echo bar='{{ show(bar) }}'
+      ",
+    )
+    .unstable()
+    .args(["foo", "--bar", "--bar"])
+    .stdout(
+      r#"
+        bar=["baz", "baz"]
+      "#,
+    )
+    .success();
+}
+
+#[test]
+fn multiple_value_option_concatenates_list_values() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+
+        [arg('bar', long, value=['a', 'b'], multiple)]
+        @foo bar:
+          echo bar='{{ show(bar) }}'
+      ",
+    )
+    .unstable()
+    .args(["foo", "--bar", "--bar"])
+    .stdout(
+      r#"
+        bar=["a", "b", "a", "b"]
+      "#,
+    )
+    .success();
+}
+
+#[test]
+fn multiple_requires_set_lists() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', long, multiple)]
+        foo bar:
+      ",
+    )
+    .stderr(
+      "
+        error: `[arg(multiple)]` requires `set lists`
+         ——▶ justfile:1:19
+          │
+        1 │ [arg('bar', long, multiple)]
+          │                   ^^^^^^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn multiple_requires_long_or_short() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', multiple)]
+        foo bar:
+      ",
+    )
+    .stderr(
+      "
+        error: argument attribute `multiple` only valid with `long` or `short`
+         ——▶ justfile:1:13
+          │
+        1 │ [arg('bar', multiple)]
+          │             ^^^^^^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn multiple_takes_no_value() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', long, multiple='baz')]
+        foo bar:
+      ",
+    )
+    .stderr(
+      "
+        error: attribute key `multiple` takes no value
+         ——▶ justfile:1:19
+          │
+        1 │ [arg('bar', long, multiple='baz')]
+          │                   ^^^^^^^^
+      ",
+    )
     .failure();
 }

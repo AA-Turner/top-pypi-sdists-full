@@ -99,6 +99,7 @@ def run_auto_start(
                     action="start",
                     success=False,
                     message="Skipped: defaultRolloutMode is not 'autopilot'",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -114,6 +115,7 @@ def run_auto_start(
                     action="start",
                     success=False,
                     message="Skipped: autopilotConfig.autoStart is false",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -135,6 +137,7 @@ def run_auto_start(
                     action="start",
                     success=False,
                     message=str(e),
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -152,6 +155,7 @@ def run_auto_start(
                     action="start",
                     success=True,
                     message=f"Would start rollout (strategy={strategy}, step_pct={step_pct}%)",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -182,6 +186,7 @@ def run_auto_start(
                     action="start",
                     success=False,
                     message=f"Failed to start: {e}",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -214,6 +219,7 @@ def run_auto_start(
                     action="start",
                     success=False,
                     message=f"Started but failed to set initial percentage: {e}",
+                    tier=rollout.tier,
                 )
             )
         else:
@@ -226,11 +232,18 @@ def run_auto_start(
                     action="start",
                     success=True,
                     message=f"Started rollout and set to {step_pct}% (strategy={strategy})",
+                    tier=rollout.tier,
                 )
             )
 
     logger.info("auto-start: %s", result.summary)
     return result
+
+
+# States that auto-advance should handle: in_progress for normal advancement,
+# workflow_started for recovery (Phase 2 of a prior tier promotion failed before
+# setting the initial percentage).
+_ADVANCE_STATES = ["in_progress", "workflow_started"]
 
 
 def run_auto_advance(
@@ -239,21 +252,25 @@ def run_auto_advance(
     connector: str | None = None,
     dry_run: bool = False,
 ) -> AutopilotResult:
-    """Advance IN_PROGRESS rollouts within their current tier.
+    """Advance rollouts within their current tier.
 
-    Health-gated: before each advancement step, evaluates the failure
-    threshold via `check_health_gate`. If failures >= threshold, skips
-    advancement (no status changes — auto-triage-failed handles pausing).
+    Handles two cases:
+    - `in_progress` rollouts: normal percentage advancement, health-gated.
+    - `workflow_started` rollouts: recovery from a failed tier promotion
+      where `start_connector_rollout` succeeded but the subsequent
+      `progress_connector_rollout` call failed.  These are advanced to
+      their initial percentage *without* a health gate check (there is no
+      sync data yet).
     """
     result = AutopilotResult(command="auto-advance", dry_run=dry_run)
 
     raw_rows = query_connector_rollouts(active_only=True, limit=None)
     rollouts = [ConnectorRolloutRecord.from_db_row(r) for r in raw_rows]
     rollouts = filter_rollouts_by_connector(rollouts, connector)
-    in_progress = [r for r in rollouts if r.state in ["in_progress"]]
+    advanceable = [r for r in rollouts if r.state in _ADVANCE_STATES]
 
-    if not in_progress:
-        logger.info("auto-advance: No IN_PROGRESS rollouts found.")
+    if not advanceable:
+        logger.info("auto-advance: No advanceable rollouts found.")
         return result
 
     user_id = get_admin_user_id(
@@ -262,8 +279,9 @@ def run_auto_advance(
         bearer_token=auth.bearer_token,
     )
 
-    for rollout in in_progress:
+    for rollout in advanceable:
         rc_version = rollout.rc_docker_image_tag or "unknown"
+        is_recovery = rollout.state == "workflow_started"
 
         rollout_config = get_connector_rollout_config(
             rollout.actor_definition_id, rc_version=rc_version
@@ -278,6 +296,7 @@ def run_auto_advance(
                     action="advance",
                     success=False,
                     message="Skipped: defaultRolloutMode is not 'autopilot'",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -285,7 +304,7 @@ def run_auto_advance(
         current_pct = rollout.current_target_rollout_pct or 0
         final_pct = rollout.final_target_rollout_pct or 100
 
-        if current_pct >= final_pct:
+        if current_pct >= final_pct and not is_recovery:
             result.skipped.append(
                 AutopilotAction(
                     rollout_id=rollout.rollout_id,
@@ -295,6 +314,7 @@ def run_auto_advance(
                     action="advance",
                     success=False,
                     message=f"Skipped: already at target ({current_pct}% >= {final_pct}%)",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -317,61 +337,74 @@ def run_auto_advance(
                     action="advance",
                     success=False,
                     message=str(e),
+                    tier=rollout.tier,
                 )
             )
             continue
         step_pct = STRATEGY_STEP_MAP[strategy]
         next_pct = min(current_pct + step_pct, final_pct)
 
-        # --- Health gate: check failure threshold before advancing ---
-        try:
-            sync_info = api_client.get_actor_sync_info(
-                rollout_id=rollout.rollout_id,
-                config_api_root=constants.CLOUD_CONFIG_API_ROOT,
-                client_id=auth.client_id,
-                client_secret=auth.client_secret,
-                bearer_token=auth.bearer_token,
-            )
-        except Exception as e:
-            logger.warning(
-                "auto-advance: Failed to fetch sync info for health gate "
-                "(rollout=%s): %s — skipping advancement as precaution",
-                rollout.rollout_id,
-                e,
-            )
-            result.errors.append(
-                AutopilotAction(
-                    rollout_id=rollout.rollout_id,
-                    actor_definition_id=rollout.actor_definition_id,
-                    connector_name=rollout.connector_name,
-                    rc_version=rc_version,
-                    action="advance",
-                    success=False,
-                    message=f"Failed to fetch sync info for health gate: {e}",
-                )
-            )
-            continue
-
-        gate = check_health_gate(rollout, sync_info, strategy)
-        if gate.should_rollback:
-            logger.warning(
-                "auto-advance: Failure threshold hit for %s (rollout=%s): %s",
+        # --- Health gate: skip for workflow_started recovery (no sync data) ---
+        if is_recovery:
+            logger.info(
+                "auto-advance: Recovering workflow_started rollout %s (%s, %s) "
+                "— restarting workflow and advancing to %d%%",
                 rollout.connector_name,
                 rollout.rollout_id,
-                gate.reason,
+                rollout.tier,
+                next_pct,
             )
-            result.skipped.append(
-                AutopilotAction(
+        else:
+            try:
+                sync_info = api_client.get_actor_sync_info(
                     rollout_id=rollout.rollout_id,
-                    actor_definition_id=rollout.actor_definition_id,
-                    connector_name=rollout.connector_name,
-                    rc_version=rc_version,
-                    action="advance",
-                    success=False,
-                    message=(f"Skipped: failure threshold hit — {gate.reason}"),
+                    config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+                    client_id=auth.client_id,
+                    client_secret=auth.client_secret,
+                    bearer_token=auth.bearer_token,
                 )
-            )
-            continue
+            except Exception as e:
+                logger.warning(
+                    "auto-advance: Failed to fetch sync info for health gate "
+                    "(rollout=%s): %s — skipping advancement as precaution",
+                    rollout.rollout_id,
+                    e,
+                )
+                result.errors.append(
+                    AutopilotAction(
+                        rollout_id=rollout.rollout_id,
+                        actor_definition_id=rollout.actor_definition_id,
+                        connector_name=rollout.connector_name,
+                        rc_version=rc_version,
+                        action="advance",
+                        success=False,
+                        message=f"Failed to fetch sync info for health gate: {e}",
+                        tier=rollout.tier,
+                    )
+                )
+                continue
+
+            gate = check_health_gate(rollout, sync_info, strategy)
+            if gate.should_rollback:
+                logger.warning(
+                    "auto-advance: Failure threshold hit for %s (rollout=%s): %s",
+                    rollout.connector_name,
+                    rollout.rollout_id,
+                    gate.reason,
+                )
+                result.skipped.append(
+                    AutopilotAction(
+                        rollout_id=rollout.rollout_id,
+                        actor_definition_id=rollout.actor_definition_id,
+                        connector_name=rollout.connector_name,
+                        rc_version=rc_version,
+                        action="advance",
+                        success=False,
+                        message=(f"Skipped: failure threshold hit — {gate.reason}"),
+                        tier=rollout.tier,
+                    )
+                )
+                continue
 
         if dry_run:
             result.actions.append(
@@ -383,9 +416,43 @@ def run_auto_advance(
                     action="advance",
                     success=True,
                     message=f"Would advance {current_pct}% -> {next_pct}% (strategy={strategy})",
+                    tier=rollout.tier,
                 )
             )
             continue
+
+        # For workflow_started recovery, restart the Temporal workflow via
+        # manual_start before calling progress.  The platform uses
+        # WORKFLOW_ID_CONFLICT_POLICY_TERMINATE_EXISTING, so this safely
+        # terminates any stale workflow and starts a fresh one.
+        if is_recovery:
+            try:
+                api_client.start_connector_rollout(
+                    docker_repository=rollout.rc_docker_repository or "",
+                    docker_image_tag=rc_version,
+                    actor_definition_id=rollout.actor_definition_id,
+                    updated_by=user_id,
+                    rollout_strategy="manual",
+                    config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+                    client_id=auth.client_id,
+                    client_secret=auth.client_secret,
+                    bearer_token=auth.bearer_token,
+                    customer_tier=rollout.tier,
+                )
+            except Exception as e:
+                result.errors.append(
+                    AutopilotAction(
+                        rollout_id=rollout.rollout_id,
+                        actor_definition_id=rollout.actor_definition_id,
+                        connector_name=rollout.connector_name,
+                        rc_version=rc_version,
+                        action="advance",
+                        success=False,
+                        message=f"Failed to restart workflow for recovery: {e}",
+                        tier=rollout.tier,
+                    )
+                )
+                continue
 
         try:
             api_client.progress_connector_rollout(
@@ -410,9 +477,15 @@ def run_auto_advance(
                     action="advance",
                     success=False,
                     message=f"Failed to advance: {e}",
+                    tier=rollout.tier,
                 )
             )
         else:
+            action_label = (
+                f"Recovered workflow_started: restarted workflow and set to {next_pct}%"
+                if is_recovery
+                else f"Advanced {current_pct}% -> {next_pct}% (strategy={strategy})"
+            )
             result.actions.append(
                 AutopilotAction(
                     rollout_id=rollout.rollout_id,
@@ -421,7 +494,8 @@ def run_auto_advance(
                     rc_version=rc_version,
                     action="advance",
                     success=True,
-                    message=f"Advanced {current_pct}% -> {next_pct}% (strategy={strategy})",
+                    message=action_label,
+                    tier=rollout.tier,
                 )
             )
 
@@ -486,6 +560,7 @@ def run_auto_promote(
                     action="promote",
                     success=False,
                     message="Skipped: defaultRolloutMode is not 'autopilot'",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -501,6 +576,7 @@ def run_auto_promote(
                     action="promote",
                     success=False,
                     message="Skipped: autopilotConfig.autoPromoteStages is false",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -517,6 +593,7 @@ def run_auto_promote(
                     action="promote",
                     success=False,
                     message=f"Skipped: not at target pct ({current_pct}% < {final_pct}%)",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -538,6 +615,7 @@ def run_auto_promote(
                     action="promote",
                     success=False,
                     message=str(e),
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -562,6 +640,7 @@ def run_auto_promote(
                     action="promote",
                     success=False,
                     message=f"Failed to fetch sync info for health gate: {e}",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -577,6 +656,7 @@ def run_auto_promote(
                     action="promote",
                     success=False,
                     message=f"Health gate not passed: {gate.reason}",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -602,6 +682,7 @@ def run_auto_promote(
                             f"Would finalize as succeeded (promote to GA). "
                             f"Health: {gate.reason}"
                         ),
+                        tier=rollout.tier,
                     )
                 )
                 continue
@@ -629,6 +710,7 @@ def run_auto_promote(
                         action="promote",
                         success=False,
                         message=f"Failed to finalize: {e}",
+                        tier=rollout.tier,
                     )
                 )
             else:
@@ -641,6 +723,7 @@ def run_auto_promote(
                         action="promote",
                         success=True,
                         message="Finalized as succeeded (promoted to GA)",
+                        tier=rollout.tier,
                     )
                 )
         else:
@@ -658,12 +741,14 @@ def run_auto_promote(
             step_pct = STRATEGY_STEP_MAP[strategy_key]
 
             # Deduplication guard: skip if a rollout for the next tier already
-            # exists (prevents repeated promotion attempts on subsequent cron cycles).
+            # exists in ANY active state (not just in_progress).  A prior
+            # promotion attempt may have created a rollout that is stuck in
+            # workflow_started; auto-advance will recover it.
             next_tier_exists = any(
                 r.tier == next_t
                 and r.actor_definition_id == rollout.actor_definition_id
                 and r.rc_docker_image_tag == rc_version
-                for r in in_progress
+                for r in rollouts
                 if r.rollout_id != rollout.rollout_id
             )
             if next_tier_exists:
@@ -679,6 +764,7 @@ def run_auto_promote(
                             f"Skipped: {next_t} rollout already exists "
                             f"for {rollout.connector_name} {rc_version}"
                         ),
+                        tier=rollout.tier,
                     )
                 )
                 continue
@@ -697,6 +783,7 @@ def run_auto_promote(
                             f"(start new rollout at {step_pct}%). "
                             f"Health: {gate.reason}"
                         ),
+                        tier=rollout.tier,
                     )
                 )
                 continue
@@ -727,6 +814,7 @@ def run_auto_promote(
                         action="promote",
                         success=False,
                         message=(f"Failed to start {next_t} rollout: {e}"),
+                        tier=rollout.tier,
                     )
                 )
                 continue
@@ -745,6 +833,7 @@ def run_auto_promote(
                             f"Started {next_t} rollout but response "
                             f"missing rollout ID: {start_resp}"
                         ),
+                        tier=rollout.tier,
                     )
                 )
                 continue
@@ -776,6 +865,7 @@ def run_auto_promote(
                             f"Started {next_t} rollout ({new_rollout_id}) but "
                             f"failed to set initial percentage: {e}"
                         ),
+                        tier=next_t.value,
                     )
                 )
             else:
@@ -799,6 +889,7 @@ def run_auto_promote(
                             f"Promoted {current_tier} -> {next_t}: "
                             f"started new rollout {new_rollout_id} at {step_pct}%"
                         ),
+                        tier=next_t.value,
                     )
                 )
 
@@ -869,16 +960,16 @@ def run_auto_triage_failed(
     connector: str | None = None,
     dry_run: bool = False,
 ) -> AutopilotResult:
-    """Triage failed rollouts and detect IN_PROGRESS failure thresholds.
+    """Triage failed rollouts and detect failure thresholds on active rollouts.
 
     Two responsibilities:
 
     1. **Existing failures** (errored/paused): Log all, check unpin eligibility
        per `unsafeDowngrades`. Actor-level unpinning not yet implemented.
-    2. **Failure threshold detection** (IN_PROGRESS autopilot rollouts): Calls
-       `check_health_gate` on active rollouts. If failure count >= threshold,
-       cancels the rollout (retaining pins) and sends an HITL notification.
-       Cancellation moves the rollout out of IN_PROGRESS, preventing duplicate
+    2. **Failure threshold detection** (`in_progress` and `workflow_started`
+       autopilot rollouts): Calls `check_health_gate` on active rollouts. If
+       failure count >= threshold, cancels the rollout (retaining pins) and
+       sends an HITL notification.  Cancellation prevents duplicate
        notifications on subsequent cron runs. Auto-advance and auto-promote
        independently skip on the same gate as defense-in-depth.
     """
@@ -894,9 +985,12 @@ def run_auto_triage_failed(
         bearer_token=auth.bearer_token,
     )
 
-    # --- Part 1: Check IN_PROGRESS rollouts for failure threshold ---
-    in_progress = [r for r in rollouts if r.state in ["in_progress"]]
-    for rollout in in_progress:
+    # --- Part 1: Check active rollouts for failure threshold ---
+    # Include workflow_started so that stuck rollouts are also triaged.
+    active_for_triage = [
+        r for r in rollouts if r.state in ["in_progress", "workflow_started"]
+    ]
+    for rollout in active_for_triage:
         rc_version = rollout.rc_docker_image_tag or "unknown"
 
         rollout_config = get_connector_rollout_config(
@@ -912,6 +1006,7 @@ def run_auto_triage_failed(
                     action="triage",
                     success=False,
                     message="Skipped: defaultRolloutMode is not 'autopilot'",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -934,6 +1029,7 @@ def run_auto_triage_failed(
                     action="triage",
                     success=False,
                     message=str(e),
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -962,6 +1058,7 @@ def run_auto_triage_failed(
                     action="triage",
                     success=False,
                     message=f"Failed to fetch sync info: {e}",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -991,6 +1088,7 @@ def run_auto_triage_failed(
                         f"Would cancel rollout and send HITL notification "
                         f"(failure threshold): {gate.reason}"
                     ),
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -1026,8 +1124,10 @@ def run_auto_triage_failed(
                     action="triage",
                     success=False,
                     message=f"Failed to cancel rollout: {e}",
+                    tier=rollout.tier,
                 )
             )
+            continue
 
         sent = _send_failure_threshold_hitl(rollout, rc_version, gate)
         result.actions.append(
@@ -1042,13 +1142,14 @@ def run_auto_triage_failed(
                     f"Rollout canceled (retain pins) and HITL notification "
                     f"{'sent' if sent else 'FAILED'}: {gate.reason}"
                 ),
+                tier=rollout.tier,
             )
         )
 
     # --- Part 2: Triage already-failed rollouts (errored/paused) ---
     failed = [r for r in rollouts if r.state in ["errored", "paused"]]
 
-    if not failed and not in_progress:
+    if not failed and not active_for_triage:
         logger.info("auto-triage-failed: No rollouts to triage.")
         return result
 
@@ -1078,6 +1179,7 @@ def run_auto_triage_failed(
                     action="triage",
                     success=False,
                     message=f"Cannot unpin: {rc_version} is in unsafeDowngrades",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -1092,6 +1194,7 @@ def run_auto_triage_failed(
                     action="triage",
                     success=True,
                     message=f"Would unpin failing actors (state={rollout.state})",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -1110,6 +1213,7 @@ def run_auto_triage_failed(
                 action="triage",
                 success=False,
                 message=f"Skipped: actor unpin API not yet implemented (state={rollout.state})",
+                tier=rollout.tier,
             )
         )
 
@@ -1161,6 +1265,7 @@ def run_auto_rollback_failed(
                     action="rollback",
                     success=False,
                     message=f"Skipped: {rc_version} is in unsafeDowngrades (cannot safely rollback)",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -1175,6 +1280,7 @@ def run_auto_rollback_failed(
                     action="rollback",
                     success=True,
                     message="Would finalize as failed_rolled_back",
+                    tier=rollout.tier,
                 )
             )
             continue
@@ -1204,6 +1310,7 @@ def run_auto_rollback_failed(
                     action="rollback",
                     success=False,
                     message=f"Failed to rollback: {e}",
+                    tier=rollout.tier,
                 )
             )
         else:
@@ -1216,6 +1323,7 @@ def run_auto_rollback_failed(
                     action="rollback",
                     success=True,
                     message="Finalized as failed_rolled_back",
+                    tier=rollout.tier,
                 )
             )
 

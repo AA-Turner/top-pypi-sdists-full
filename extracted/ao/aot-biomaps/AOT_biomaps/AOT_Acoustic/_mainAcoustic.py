@@ -1,7 +1,7 @@
 import copy
 import AOT_biomaps
 from AOT_biomaps.Config import config
-from AOT_biomaps.AOT_Acoustic.AcousticTools import calculate_envelope, calculate_envelope_squared, loadmat, reshape_field
+from AOT_biomaps.AOT_Acoustic.AcousticTools import calculate_envelope, calculate_envelope_squared, loadmat, reshape_field_cpu, reshape_field_gpu
 from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, Dim, FormatSave, WaveType
 from AOT_biomaps.AOT_Medium import Medium
 
@@ -21,6 +21,14 @@ import sys
 import platform
 import uuid
 
+
+# Check for CuPy availability
+try:
+    import cupy as cp
+    CUPY_AVAILABLE = True
+except ImportError:
+    CUPY_AVAILABLE = False
+
 # Optional kwave imports - will be None if kwave is not installed
 KWAVE_AVAILABLE = False
 KWAVE_BINARIES_AVAILABLE = False
@@ -38,6 +46,17 @@ try:
     # Check if kwave binaries are available and executable
     import subprocess
     import sys
+
+    _original_popen = subprocess.Popen
+
+    class PatchedPopen(_original_popen):
+        def __init__(self, *args, **kwargs):
+            if kwargs.get('text', False) or kwargs.get('universal_newlines', False):
+                kwargs.setdefault('encoding', 'utf-8')
+                kwargs.setdefault('errors', 'replace') # Remplace les caractères impossibles à lire
+            super().__init__(*args, **kwargs)
+
+    subprocess.Popen = PatchedPopen
     try:
         # Try to check if the CUDA binary exists and is executable
         import kwave
@@ -144,7 +163,7 @@ class AcousticField(ABC):
 
     ## TOOLS METHODS ##
 
-    def generate_field(self, isGpu=config.get_process() == 'gpu',tempFieldName="Kwave", generation_type="envelope_squarred", show_log=False):
+    def generate_field(self, isGPU=None, GPUdevice=None,tempFieldName="Kwave", generation_type="envelope_squarred", show_log=False):
         """
         Generate the acoustic field based on the specified simulation type and parameters.
         """
@@ -157,21 +176,21 @@ class AcousticField(ABC):
             elif self.params.acoustic['typeSim'] == TypeSim.KWAVE.value:
                 if self.params.acoustic["dim"] == Dim.D2.value:
                     try:
-                        field = self._generate_acoustic_field_KWAVE_2D(isGpu, tempFieldName=tempFieldName, show_log=show_log)
+                        field = self._generate_acoustic_field_KWAVE_2D(isGPU, GPUdevice, tempFieldName=tempFieldName, show_log=show_log)
                     except Exception as e:
                         raise RuntimeError(f"Failed to generate 2D acoustic field: {e}")
                     if generation_type == "envelope_squarred":
-                        self.field = calculate_envelope_squared(field)
+                        self.field = calculate_envelope_squared(field, isGPU, GPUdevice)
                     elif generation_type == "envelope":
-                        self.field = calculate_envelope(field)
+                        self.field = calculate_envelope(field, isGPU, GPUdevice)
                     elif generation_type == "field":
                         self.field = field
                     else:  
                         raise ValueError(f"Invalid generation_type: {generation_type}. Supported types are: 'envelope_squarred', 'envelope', 'field'.")
                 elif self.params.acoustic["dim"] == Dim.D3.value:
-                    field = self._generate_acoustic_field_KWAVE_3D(isGpu, tempFieldName=tempFieldName, show_log=show_log)
+                    field = self._generate_acoustic_field_KWAVE_3D(isGPU, GPUdevice, tempFieldName=tempFieldName, show_log=show_log)
                     if generation_type == "envelope_squarred":
-                        self.field = calculate_envelope_squared(field)
+                        self.field = calculate_envelope_squared(field, isGPU, GPUdevice)
                     elif generation_type == "envelope":
                         self.field = calculate_envelope(field)
                     elif generation_type == "field":
@@ -442,11 +461,16 @@ class AcousticField(ABC):
             print(f"Error in __generate_burst_signal method: {e}")
             raise
 
-    def _generate_acoustic_field_KWAVE_2D(self, isGPU=True if config.get_process() == 'gpu' else False, tempFieldName="Kwave", show_log=True):
+    def _generate_acoustic_field_KWAVE_2D(self, isGPU=None, GPUdevice=None, tempFieldName="Kwave", show_log=True):
         """
         Base function to generate a 2D acoustic field using k-Wave.
         Handles common setup, simulation, and post-processing.
         """
+        if isGPU is None:
+            isGPU = True if config.get_process() == 'gpu' else False
+        if GPUdevice is None:
+            GPUdevice = config.select_best_gpu()
+
         unique_id = uuid.uuid4().hex
         input_filename = os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_IN.h5")
         output_filename = os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_OUT.h5")
@@ -475,8 +499,8 @@ class AcousticField(ABC):
         )
 
         execution_options = SimulationExecutionOptions(
-            is_gpu_simulation='gpu' if isGPU else 'cpu',
-            device_num=0,
+            is_gpu_simulation=isGPU,
+            device_num=GPUdevice,
             show_sim_log=show_log
         )
 
@@ -498,15 +522,83 @@ class AcousticField(ABC):
             pass
 
         data = sensor_data['p'].reshape(self.medium.kgrid.Nt, self.medium.Nz_reshaped, self.medium.Nx_reshaped)
-
+        if isGPU is None:
+            isGPU = True if config.get_process() == 'gpu' else False
+        if GPUdevice is None:
+            GPUdevice = config.select_best_gpu()
         if self.medium.factorT != 1 or self.medium.factorX != 1 or self.medium.factorZ != 1:
-            data = reshape_field(data, [self.medium.factorT, self.medium.factorX, self.medium.factorZ])
-            xStart = (self.medium.Nx_reshaped // 2) // self.medium.factorX - (self.params.general['Nx'] // 2)
-            return data[:, :self.params.general['Nz'], xStart:xStart+self.params.general['Nx']]
-        else:
-            xStart = (self.medium.Nx_reshaped // 2) - (self.params.general['Nx'] // 2)
-            return data[:, :self.params.general['Nz'], xStart:xStart+self.params.general['Nx']]
+            if isGPU and CUPY_AVAILABLE:
+                data = reshape_field_gpu(data, [self.medium.factorT, self.medium.factorZ, self.medium.factorX], GPUdevice=GPUdevice)
+            else:
+                data = reshape_field_cpu(data, [self.medium.factorT, self.medium.factorZ, self.medium.factorX])
+
+        return data
     
+    def reshape_field(self, dx=None, dy=None, dz=None, dt=None, Nx=None, Ny=None, Nz=None, Nt=None, factorX=None, factorY=None, factorZ=None, factorT=None, reshape_type='NxNyNzNt', isGPU=None, GPUdevice=None):
+        """
+        Reshape the acoustic field based on the specified spatial resolutions.
+
+        Parameters:
+        - dx (float): Desired spatial resolution in the x-direction (optional).
+        - dy (float): Desired spatial resolution in the y-direction (optional).
+        - dz (float): Desired spatial resolution in the z-direction (optional).
+        - dt (float): Desired temporal resolution (optional).
+        - Nx (int): Desired number of points in the x-direction (optional).
+        - Ny (int): Desired number of points in the y-direction (optional).
+        - Nz (int): Desired number of points in the z-direction (optional).
+        - Nt (int): Desired number of time points (optional).
+        - factorX (int): Reshaping factor in the x-direction (optional).
+        - factorY (int): Reshaping factor in the y-direction (optional).
+        - factorZ (int): Reshaping factor in the z-direction (optional).
+        - factorT (int): Reshaping factor in the time direction (optional).
+        - reshape_type (str): Type of reshaping to perform. Options are 'NxNyNzNt' (default) or 'factor'. 
+          - 'NxNyNzNt': Reshape based on the desired number of points (Nx, Ny, Nz, Nt).
+          - 'dxdydzdt': Reshape based on the desired spatial resolutions (dx, dy, dz, dt).
+          - 'factor': Reshape based on the specified factors (factorX, factorY, factorZ).
+        """
+        try:
+            if self.field is None:
+                raise ValueError("Field data is not available. Please generate or load the field first.")
+
+            if reshape_type == 'NxNyNzNt':
+                factorX = self.field.shape[2] // Nx if Nx is not None else 1
+                factorY = self.field.shape[1] // Ny if Ny is not None else 1
+                factorZ = self.field.shape[0] // Nz if Nz is not None else 1
+                factorT = self.field.shape[3] // Nt if Nt is not None else 1
+            elif reshape_type == 'dxdydzdt':
+                factorX = int(np.round(self.params.general['dx'] / dx)) if dx else 1
+                factorY = int(np.round(self.params.general['dy'] / dy)) if dy else 1
+                factorZ = int(np.round(self.params.general['dz'] / dz)) if dz else 1
+                factorT = int(np.round(self.params.general['dt'] / dt)) if dt else 1
+            elif reshape_type == 'factor':
+                factorX = factorX if factorX is not None else 1
+                factorY = factorY if factorY is not None else 1
+                factorZ = factorZ if factorZ is not None else 1
+                factorT = factorT if factorT is not None else 1
+            else:
+                raise ValueError("Invalid reshape_type. Supported types are: 'NxNyNzNt', 'dxdydzdt', 'factor'.")
+            factorX = max(1, factorX)
+            factorY = max(1, factorY)
+            factorZ = max(1, factorZ)
+            factorT = max(1, factorT)
+
+            if isGPU is None:
+                isGPU = True if config.get_process() == 'gpu' else False
+            if GPUdevice is None:
+                GPUdevice = config.select_best_gpu()
+
+            if self.params.acoustic["dim"] == Dim.D2.value:
+                factor = [factorT, factorZ, factorX]
+            elif self.params.acoustic["dim"] == Dim.D3.value:
+                factor = [factorT, factorZ, factorY, factorX]
+
+            if isGPU and CUPY_AVAILABLE:
+                self.field = reshape_field_gpu(self.field, factor, GPUdevice=GPUdevice)
+            else:
+                self.field = reshape_field_cpu(self.field, factor)
+        except Exception as e:
+            print(f"Error in reshape_fields method: {e}")
+            raise
 
     # def _generate_acoustic_field_KWAVE_3D(self, isGPU=True, show_log=True):
     #     """

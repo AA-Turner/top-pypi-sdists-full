@@ -1953,6 +1953,25 @@ class ContextUsage(pycarlo.lib.types.Enum):
     __choices__ = ("CUSTOM_FIELDS", "PROMPT_AND_RESPONSE", "PROMPT_ONLY", "RESPONSE_ONLY")
 
 
+class ConversationClusteringState(pycarlo.lib.types.Enum):
+    """Enablement state for an (agent, scope). ``OPT_IN`` /
+    ``LOW_VOLUME`` are surfaced by the windowed panel read (P7); this
+    read emits DISABLED / DISCOVERING / ENABLED from Postgres alone
+    (no ClickHouse volume count).
+
+    Enumeration Choices:
+
+    * `DISABLED`None
+    * `DISCOVERING`None
+    * `ENABLED`None
+    * `LOW_VOLUME`None
+    * `OPT_IN`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DISABLED", "DISCOVERING", "ENABLED", "LOW_VOLUME", "OPT_IN")
+
+
 class ConversationFilterFieldName(pycarlo.lib.types.Enum):
     """Field names for conversation filters.
 
@@ -6432,6 +6451,7 @@ class ReportTypeEnum(pycarlo.lib.types.Enum):
     * `LINEAGE_EDGES_REPORT`None
     * `MONITORS_REPORT`None
     * `MONITOR_LOGS_REPORT`None
+    * `MONITOR_RUNS_REPORT`None
     """
 
     __schema__ = schema
@@ -6443,6 +6463,7 @@ class ReportTypeEnum(pycarlo.lib.types.Enum):
         "LINEAGE_EDGES_REPORT",
         "MONITORS_REPORT",
         "MONITOR_LOGS_REPORT",
+        "MONITOR_RUNS_REPORT",
     )
 
 
@@ -8916,12 +8937,19 @@ class AirflowEnvInput(sgqlc.types.Input):
 
 class AlertGroupingInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("mode",)
+    __field_names__ = ("mode", "max_hours")
     mode = sgqlc.types.Field(sgqlc.types.non_null(AlertGroupingMode), graphql_name="mode")
     """Alert grouping strategy. group_into_open_alert: fold new breaches
     from this monitor into its currently-open alert (table monitors
-    also key on schema) until the alert is resolved. Omit / null for
-    legacy per-type grouping.
+    also key on schema) until the alert is resolved or the max_hours
+    window elapses. Omit / null for legacy per-type grouping.
+    """
+
+    max_hours = sgqlc.types.Field(Int, graphql_name="maxHours")
+    """Maximum number of hours, from when the alert first opened, that
+    new breaches are grouped into it. After this window a new breach
+    starts a fresh alert. Defaults to 5 when omitted. Must be a
+    positive integer.
     """
 
 
@@ -9772,6 +9800,76 @@ class ClassifiedAssetScopeInput(sgqlc.types.Input):
     """Limit results to this schema."""
 
 
+class ClusteringConfigInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "discovery_model_id",
+        "classify_model_id",
+        "max_clusters",
+        "discovery_sample_size",
+        "discovery_lookback_days",
+        "min_nonempty_user_turns",
+        "classify_cap_per_run",
+        "min_confidence",
+        "user_input_char_cap",
+        "agent_response_char_cap",
+        "window_days",
+        "min_conversations",
+        "classify_cadence_minutes",
+        "collection_lag_hours",
+    )
+    discovery_model_id = sgqlc.types.Field(String, graphql_name="discoveryModelId")
+    """Bedrock model id for the one-time taxonomy synthesis."""
+
+    classify_model_id = sgqlc.types.Field(String, graphql_name="classifyModelId")
+    """Bedrock model id for per-conversation classification (and
+    discovery summaries).
+    """
+
+    max_clusters = sgqlc.types.Field(Int, graphql_name="maxClusters")
+    """Cap on discovered clusters (excludes the Uncategorized bucket)."""
+
+    discovery_sample_size = sgqlc.types.Field(Int, graphql_name="discoverySampleSize")
+    """Number of newest eligible conversations fed to discovery."""
+
+    discovery_lookback_days = sgqlc.types.Field(Int, graphql_name="discoveryLookbackDays")
+    """Maximum history, in days, discovery scans back to fill its sample."""
+
+    min_nonempty_user_turns = sgqlc.types.Field(Int, graphql_name="minNonemptyUserTurns")
+    """Discovery-only floor on a conversation's non-empty user turns."""
+
+    classify_cap_per_run = sgqlc.types.Field(Int, graphql_name="classifyCapPerRun")
+    """Maximum conversations classified per run (uniform random sample)."""
+
+    min_confidence = sgqlc.types.Field(Float, graphql_name="minConfidence")
+    """Confidence below which a conversation routes to Uncategorized."""
+
+    user_input_char_cap = sgqlc.types.Field(Int, graphql_name="userInputCharCap")
+    """Per-turn cap on user-input characters sent to the model."""
+
+    agent_response_char_cap = sgqlc.types.Field(Int, graphql_name="agentResponseCharCap")
+    """Per-turn cap on agent-response characters sent to the model."""
+
+    window_days = sgqlc.types.Field(Int, graphql_name="windowDays")
+    """Rolling cluster-share window in days; display only."""
+
+    min_conversations = sgqlc.types.Field(Int, graphql_name="minConversations")
+    """Minimum discovery-eligible conversations before clustering
+    activates.
+    """
+
+    classify_cadence_minutes = sgqlc.types.Field(Int, graphql_name="classifyCadenceMinutes")
+    """Minimum minutes between COMPLETED runs of a kind before the
+    orchestrator dispatches the next — it rate-limits both
+    classification and (pre-taxonomy) discovery dispatch. Only
+    COMPLETED runs count, so a failed run is retried on the next tick
+    rather than waiting out this interval.
+    """
+
+    collection_lag_hours = sgqlc.types.Field(Int, graphql_name="collectionLagHours")
+    """Settle window in hours before a conversation's last turn counts."""
+
+
 class CollectionBlockInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("resource_id", "project", "dataset", "filter_type")
@@ -10053,6 +10151,39 @@ class CreateOrUpdateAgentTraceTableInput(sgqlc.types.Input):
 
     span_format = sgqlc.types.Field(AgentTraceFormatEnum, graphql_name="spanFormat")
     """Format of spans in the table"""
+
+
+class CreateOrUpdateConversationClusteringSpaceInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "space_uuid",
+        "agent_name",
+        "trace_table_mcon",
+        "scope_workflow",
+        "is_enabled",
+        "user_guidance",
+        "config_overrides",
+    )
+    space_uuid = sgqlc.types.Field(UUID, graphql_name="spaceUuid")
+    """Set to update an existing space; null to create."""
+
+    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    """Required on create; immutable on update."""
+
+    trace_table_mcon = sgqlc.types.Field(String, graphql_name="traceTableMcon")
+    """Required on create; immutable on update."""
+
+    scope_workflow = sgqlc.types.Field(String, graphql_name="scopeWorkflow")
+    """Null = whole agent; set on create, immutable."""
+
+    is_enabled = sgqlc.types.Field(Boolean, graphql_name="isEnabled")
+    """Pause (false) / resume (true) an existing space."""
+
+    user_guidance = sgqlc.types.Field(String, graphql_name="userGuidance")
+    """Free-text guidance that steers cluster identity during discovery."""
+
+    config_overrides = sgqlc.types.Field(ClusteringConfigInput, graphql_name="configOverrides")
+    """Partial config overrides applied on top of the current settings."""
 
 
 class CreateOrUpdatePlatformAgentInput(sgqlc.types.Input):
@@ -11408,6 +11539,25 @@ class GcpDataformConnectionDetails(sgqlc.types.Input):
     service_account_info = sgqlc.types.Field(
         sgqlc.types.non_null(JSONString), graphql_name="serviceAccountInfo"
     )
+    """GCP service account JSON key with Dataform API access. Stored
+    encrypted.
+    """
+
+
+class GcpDataformUpdateConnectionDetails(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("project_id", "locations", "service_account_info")
+    project_id = sgqlc.types.Field(String, graphql_name="projectId")
+    """GCP project ID containing Dataform repositories."""
+
+    locations = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="locations"
+    )
+    """GCP regions to scan for Dataform repositories (e.g. ``["us-
+    central1"]``).
+    """
+
+    service_account_info = sgqlc.types.Field(JSONString, graphql_name="serviceAccountInfo")
     """GCP service account JSON key with Dataform API access. Stored
     encrypted.
     """
@@ -16110,21 +16260,27 @@ class IEtlAssetPerformanceSummary(sgqlc.types.Interface):
     run_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="runCount")
     """Total runs for the asset, in the period"""
 
-    last_run_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="lastRunUuid")
-    """Last run of the asset, in the period"""
+    last_run_uuid = sgqlc.types.Field(UUID, graphql_name="lastRunUuid")
+    """Last run of the asset, in the period. Null when the asset has no
+    runs in the period (e.g. a job that hasn't run, or an integration
+    that never reports runs).
+    """
 
-    last_run_start_time = sgqlc.types.Field(
-        sgqlc.types.non_null(DateTime), graphql_name="lastRunStartTime"
-    )
-    """The start time of the last run of the asset, in the period"""
+    last_run_start_time = sgqlc.types.Field(DateTime, graphql_name="lastRunStartTime")
+    """The start time of the last run of the asset, in the period. Null
+    when the asset has no runs in the period.
+    """
 
     last_run_end_time = sgqlc.types.Field(DateTime, graphql_name="lastRunEndTime")
-    """The end time of the last run of the asset, in the period"""
+    """The end time of the last run of the asset, in the period. Null
+    when the asset has no runs in the period, or when the last run has
+    not yet ended.
+    """
 
-    last_run_status = sgqlc.types.Field(
-        sgqlc.types.non_null(EtlRunStatus), graphql_name="lastRunStatus"
-    )
-    """The status of the last run of the asset, in the period."""
+    last_run_status = sgqlc.types.Field(EtlRunStatus, graphql_name="lastRunStatus")
+    """The status of the last run of the asset, in the period. Null when
+    the asset has no runs in the period.
+    """
 
     avg_run_duration = sgqlc.types.Field(Int, graphql_name="avgRunDuration")
     """Average duration of runs for the asset in the period, in ms"""
@@ -16142,8 +16298,10 @@ class IEtlAssetPerformanceSummary(sgqlc.types.Interface):
     why
     """
 
-    failure_rate = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="failureRate")
-    """Failure rate, expressed as a decimal percentage (.50 = 50%)"""
+    failure_rate = sgqlc.types.Field(Float, graphql_name="failureRate")
+    """Failure rate, expressed as a decimal percentage (.50 = 50%). Null
+    when the asset has no runs in the period.
+    """
 
     runs = sgqlc.types.Field(
         sgqlc.types.non_null(
@@ -20570,12 +20728,19 @@ class AlertEdge(sgqlc.types.Type):
 
 class AlertGrouping(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("mode",)
+    __field_names__ = ("mode", "max_hours")
     mode = sgqlc.types.Field(sgqlc.types.non_null(AlertGroupingMode), graphql_name="mode")
     """Alert grouping strategy. group_into_open_alert: fold new breaches
     from this monitor into its currently-open alert (table monitors
-    also key on schema) until the alert is resolved. Omit / null for
-    legacy per-type grouping.
+    also key on schema) until the alert is resolved or the max_hours
+    window elapses. Omit / null for legacy per-type grouping.
+    """
+
+    max_hours = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="maxHours")
+    """Maximum number of hours, from when the alert first opened, that
+    new breaches are grouped into it. After this window a new breach
+    starts a fresh alert. Defaults to 5 when omitted. Must be a
+    positive integer.
     """
 
 
@@ -23594,6 +23759,98 @@ class ClearMemoryData(sgqlc.types.Type):
     """True if memories were cleared successfully."""
 
 
+class ClusteringConfig(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "discovery_model_id",
+        "classify_model_id",
+        "max_clusters",
+        "discovery_sample_size",
+        "discovery_lookback_days",
+        "min_nonempty_user_turns",
+        "classify_cap_per_run",
+        "min_confidence",
+        "user_input_char_cap",
+        "agent_response_char_cap",
+        "window_days",
+        "min_conversations",
+        "classify_cadence_minutes",
+        "collection_lag_hours",
+    )
+    discovery_model_id = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="discoveryModelId"
+    )
+    """Bedrock model id for the one-time taxonomy synthesis."""
+
+    classify_model_id = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="classifyModelId"
+    )
+    """Bedrock model id for per-conversation classification (and
+    discovery summaries).
+    """
+
+    max_clusters = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="maxClusters")
+    """Cap on discovered clusters (excludes the Uncategorized bucket)."""
+
+    discovery_sample_size = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="discoverySampleSize"
+    )
+    """Number of newest eligible conversations fed to discovery."""
+
+    discovery_lookback_days = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="discoveryLookbackDays"
+    )
+    """Maximum history, in days, discovery scans back to fill its sample."""
+
+    min_nonempty_user_turns = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="minNonemptyUserTurns"
+    )
+    """Discovery-only floor on a conversation's non-empty user turns."""
+
+    classify_cap_per_run = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="classifyCapPerRun"
+    )
+    """Maximum conversations classified per run (uniform random sample)."""
+
+    min_confidence = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="minConfidence")
+    """Confidence below which a conversation routes to Uncategorized."""
+
+    user_input_char_cap = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="userInputCharCap"
+    )
+    """Per-turn cap on user-input characters sent to the model."""
+
+    agent_response_char_cap = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="agentResponseCharCap"
+    )
+    """Per-turn cap on agent-response characters sent to the model."""
+
+    window_days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="windowDays")
+    """Rolling cluster-share window in days; display only."""
+
+    min_conversations = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="minConversations"
+    )
+    """Minimum discovery-eligible conversations before clustering
+    activates.
+    """
+
+    classify_cadence_minutes = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="classifyCadenceMinutes"
+    )
+    """Minimum minutes between COMPLETED runs of a kind before the
+    orchestrator dispatches the next — it rate-limits both
+    classification and (pre-taxonomy) discovery dispatch. Only
+    COMPLETED runs count, so a failed run is retried on the next tick
+    rather than waiting out this interval.
+    """
+
+    collection_lag_hours = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="collectionLagHours"
+    )
+    """Settle window in hours before a conversation's last turn counts."""
+
+
 class CollectionBlockConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges")
@@ -24372,6 +24629,179 @@ class Conversation(sgqlc.types.Type):
     """Latest stored eval score per (monitor, dimension) for this
     conversation. Empty when the conversation has not been scored by
     any conversation eval monitor.
+    """
+
+
+class ConversationClusterConnection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges", "total_count")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("ConversationClusterEdge")), graphql_name="edges"
+    )
+    """Contains the nodes in this connection."""
+
+    total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
+    """Total clusters in the current taxonomy version."""
+
+
+class ConversationClusterEdge(sgqlc.types.Type):
+    """A Relay edge containing a `ConversationCluster` and its cursor."""
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("ConversationClusterType", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
+class ConversationClusterType(sgqlc.types.Type):
+    """One discovered cluster in a space's current taxonomy version."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "cluster_key",
+        "name",
+        "description",
+        "classification_criteria",
+        "exemplars",
+        "ordinal",
+        "taxonomy_version",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Stable cluster id."""
+
+    cluster_key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="clusterKey")
+    """Stable slug; the join key for per-conversation assignments."""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Human-readable cluster name."""
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+    """One-line intent descriptor."""
+
+    classification_criteria = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="classificationCriteria"
+    )
+    """What belongs in this cluster and how it differs from its siblings."""
+
+    exemplars = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="exemplars",
+    )
+    """Representative user asks for this cluster."""
+
+    ordinal = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="ordinal")
+    """Display order within the taxonomy."""
+
+    taxonomy_version = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="taxonomyVersion")
+    """Taxonomy version this cluster belongs to."""
+
+
+class ConversationClusteringSpaceConnection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges", "total_count")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("ConversationClusteringSpaceEdge")),
+        graphql_name="edges",
+    )
+    """Contains the nodes in this connection."""
+
+    total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
+    """Total spaces for the (agent, table)."""
+
+
+class ConversationClusteringSpaceEdge(sgqlc.types.Type):
+    """A Relay edge containing a `ConversationClusteringSpace` and its
+    cursor.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("ConversationClusteringSpaceType", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
+class ConversationClusteringSpaceType(sgqlc.types.Type):
+    """A configured clustering space for an (agent, scope)."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "agent_name",
+        "scope_workflow",
+        "is_enabled",
+        "taxonomy_version",
+        "discovery_completed_at",
+        "user_guidance",
+        "state",
+        "config",
+        "clusters",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Stable space id."""
+
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent (service_name) this space clusters."""
+
+    scope_workflow = sgqlc.types.Field(String, graphql_name="scopeWorkflow")
+    """Null = whole agent; else one workflow."""
+
+    is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
+    """Whether clustering is active; false means paused (taxonomy
+    retained).
+    """
+
+    taxonomy_version = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="taxonomyVersion")
+    """Current taxonomy version."""
+
+    discovery_completed_at = sgqlc.types.Field(DateTime, graphql_name="discoveryCompletedAt")
+    """When the current taxonomy completed discovery; null while still
+    discovering.
+    """
+
+    user_guidance = sgqlc.types.Field(String, graphql_name="userGuidance")
+    """Free-text guidance that steers cluster identity during discovery."""
+
+    state = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationClusteringState), graphql_name="state"
+    )
+    """Computed enablement state for the (agent, scope)."""
+
+    config = sgqlc.types.Field(sgqlc.types.non_null(ClusteringConfig), graphql_name="config")
+    """Discovery and classification settings."""
+
+    clusters = sgqlc.types.Field(
+        ConversationClusterConnection,
+        graphql_name="clusters",
+        args=sgqlc.types.ArgDict(
+            (
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Current-version taxonomy clusters, in display order.
+
+    Arguments:
+
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
     """
 
 
@@ -25557,6 +25987,12 @@ class CreateOrUpdateComparisonRule(sgqlc.types.Type):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="queries"
     )
     """SQL queries that will be run by the monitor on each execution."""
+
+
+class CreateOrUpdateConversationClusteringSpace(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("space",)
+    space = sgqlc.types.Field(ConversationClusteringSpaceType, graphql_name="space")
 
 
 class CreateOrUpdateCustomIntegration(sgqlc.types.Type):
@@ -38656,6 +39092,8 @@ class Mutation(sgqlc.types.Type):
         "update_custom_dashboard_widget_ordering",
         "add_or_update_custom_dashboard_widget_from_definition",
         "update_platform_service",
+        "create_or_update_conversation_clustering_space",
+        "refresh_conversation_clustering_space",
         "create_or_update_agent_trace_table",
         "configure_linear_integration",
         "set_linear_webhook_secret",
@@ -38729,6 +39167,7 @@ class Mutation(sgqlc.types.Type):
         "update_dbt_cloud_credentials_v2_mutation",
         "update_transactional_db_credentials_v2",
         "update_informatica_v2_credentials_v2",
+        "update_gcp_dataform_credentials_v2",
         "update_glue_credentials_v2",
         "update_athena_credentials_v2",
         "update_big_query_credentials_v2",
@@ -40182,6 +40621,52 @@ class Mutation(sgqlc.types.Type):
 
     * `name` (`String`): New service name
     * `service_uuid` (`UUID!`): UUID of the platform service to update
+    """
+
+    create_or_update_conversation_clustering_space = sgqlc.types.Field(
+        CreateOrUpdateConversationClusteringSpace,
+        graphql_name="createOrUpdateConversationClusteringSpace",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(CreateOrUpdateConversationClusteringSpaceInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create or update a conversation-clustering space:
+    scope, config overrides, guidance, and pause/resume.
+
+    Arguments:
+
+    * `input` (`CreateOrUpdateConversationClusteringSpaceInput!`)None
+    """
+
+    refresh_conversation_clustering_space = sgqlc.types.Field(
+        "RefreshConversationClusteringSpace",
+        graphql_name="refreshConversationClusteringSpace",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "space_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="spaceUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Regenerate a clustering space's taxonomy from
+    scratch (bumps the taxonomy version and re-discovers).
+
+    Arguments:
+
+    * `space_uuid` (`UUID!`)None
     """
 
     create_or_update_agent_trace_table = sgqlc.types.Field(
@@ -42973,6 +43458,38 @@ class Mutation(sgqlc.types.Type):
 
     * `changes` (`InformaticaV2UpdateConnectionDetails!`): Updated
       Informatica v2 connection parameters.
+    * `connection_id` (`UUID!`): ID for connection to update.
+    """
+
+    update_gcp_dataform_credentials_v2 = sgqlc.types.Field(
+        "UpdateGcpDataformCredentialsV2Mutation",
+        graphql_name="updateGcpDataformCredentialsV2",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "changes",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GcpDataformUpdateConnectionDetails),
+                        graphql_name="changes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Updates GCP Dataform credentials for an existing
+    connection
+
+    Arguments:
+
+    * `changes` (`GcpDataformUpdateConnectionDetails!`): Updated GCP
+      Dataform connection parameters.
     * `connection_id` (`UUID!`): ID for connection to update.
     """
 
@@ -64367,6 +64884,7 @@ class Query(sgqlc.types.Type):
         "lookup_custom_dashboard_time_series_id_by_monitor",
         "get_custom_dashboard_widget_as_definition",
         "get_open_telemetry_data_stores",
+        "get_conversation_clustering_spaces",
         "get_agent_metadata",
         "get_agent_metadata_v2",
         "get_agent_observability_billing_info",
@@ -65452,6 +65970,43 @@ class Query(sgqlc.types.Type):
         graphql_name="getOpenTelemetryDataStores",
     )
     """(experimental) List all OpenTelemetry data stores for the account"""
+
+    get_conversation_clustering_spaces = sgqlc.types.Field(
+        ConversationClusteringSpaceConnection,
+        graphql_name="getConversationClusteringSpaces",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
+                    ),
+                ),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """(experimental) List conversation-clustering spaces for an agent +
+    trace table, each with its current-version taxonomy clusters.
+
+    Arguments:
+
+    * `agent_name` (`String!`)None
+    * `trace_table_mcon` (`String!`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
 
     get_agent_metadata = sgqlc.types.Field(
         sgqlc.types.list_of(AgentMetadata),
@@ -88122,6 +88677,12 @@ class ReInviteUsers(sgqlc.types.Type):
     """
 
 
+class RefreshConversationClusteringSpace(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("space",)
+    space = sgqlc.types.Field(ConversationClusteringSpaceType, graphql_name="space")
+
+
 class RefreshEntitlements(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
@@ -95490,6 +96051,23 @@ class UpdateDbtProjectInfo(sgqlc.types.Type):
     __field_names__ = ("project",)
     project = sgqlc.types.Field("DbtProject", graphql_name="project")
     """dbt project after the update"""
+
+
+class UpdateGcpDataformCredentialsV2Mutation(sgqlc.types.Type):
+    """Update credentials for an existing GCP Dataform connection.
+    Note: This mutation only uploads credentials and returns a
+    temporary key. To complete the update:  Call
+    testUpdatedCredentialsV2 with the returned key as
+    tempCredentialsKey and the same connectionId to validate the
+    credentials  Call updateCredentialsV2 with the same
+    tempCredentialsKey and connectionId to persist the changes.  See
+    full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("result",)
+    result = sgqlc.types.Field(UpdateCredentialsV2Result, graphql_name="result")
 
 
 class UpdateGithubAppInstallation(sgqlc.types.Type):
@@ -105869,6 +106447,11 @@ class ReportArgumentsEvents(sgqlc.types.Type, ReportArgumentsInterface):
 
 
 class ReportArgumentsMonitorLogs(sgqlc.types.Type, ReportArgumentsInterface):
+    __schema__ = schema
+    __field_names__ = ()
+
+
+class ReportArgumentsMonitorRuns(sgqlc.types.Type, ReportArgumentsInterface):
     __schema__ = schema
     __field_names__ = ()
 

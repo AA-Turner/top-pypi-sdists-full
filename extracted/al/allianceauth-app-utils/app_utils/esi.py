@@ -1,31 +1,34 @@
 """Helpers for working with ESI."""
 
+import datetime as dt
+import random
+import warnings
+from contextlib import contextmanager
+from http import HTTPStatus
+from typing import Optional
+
+from celery import Task
+
+from django.core.cache import cache
+from django.utils.timezone import now
+
+from allianceauth.services.hooks import get_extension_logger
+from app_utils import __title__, __version__
+from app_utils._app_settings import (
+    APPUTILS_ESI_DAILY_DOWNTIME_END,
+    APPUTILS_ESI_DAILY_DOWNTIME_START,
+)
+from app_utils.logging import LoggerAddTag
+
 try:
-    from bravado.exception import HTTPError
+    from esi import clients  # noqa: F401
 except ImportError:
     pass  # this tools do not work with the OpenAPI client / AA 5
 
 else:
-    import datetime as dt
-    import random
-    import warnings
-    from contextlib import contextmanager
-    from http import HTTPStatus
-    from typing import Optional
+    from bravado.exception import HTTPError
 
-    from celery import Task
-
-    from django.core.cache import cache
-    from django.utils.timezone import now
     from esi.clients import EsiClientProvider
-
-    from allianceauth.services.hooks import get_extension_logger
-    from app_utils import __title__, __version__
-    from app_utils._app_settings import (
-        APPUTILS_ESI_DAILY_DOWNTIME_END,
-        APPUTILS_ESI_DAILY_DOWNTIME_START,
-    )
-    from app_utils.logging import LoggerAddTag
 
     _ERROR_LIMIT_KEY = "app-utils-error-limit-due"
 

@@ -677,6 +677,14 @@ def test_vibration_sensitivity_very_low():
 def test_valve_position():
     svc = _make_svc(ValveTappetService, {"position": 42, "value": "VALVE_ADAPTION_SUCCESSFUL"})
     assert svc.position == 42
+    assert isinstance(svc.position, float)
+
+
+def test_valve_position_keeps_decimals():
+    # Thermostat II types position as number; int() previously truncated it.
+    svc = _make_svc(ValveTappetService, {"position": 42.5, "value": "VALVE_ADAPTION_SUCCESSFUL"})
+    assert svc.position == 42.5
+    assert isinstance(svc.position, float)
 
 
 def test_valve_state_successful():
@@ -1469,6 +1477,14 @@ def test_air_quality_combined_rating_bad():
 def test_air_quality_temperature():
     svc = _make_svc(AirQualityLevelService, {**_AQ_BASE, "temperature": 21})
     assert svc.temperature == 21
+    assert isinstance(svc.temperature, float)
+
+
+def test_air_quality_temperature_keeps_decimals():
+    # Bosch sends one decimal; int() previously truncated 21.7 -> 21 (#352).
+    svc = _make_svc(AirQualityLevelService, {**_AQ_BASE, "temperature": 21.7})
+    assert svc.temperature == 21.7
+    assert isinstance(svc.temperature, float)
 
 
 def test_air_quality_temperature_rating():
@@ -1479,6 +1495,14 @@ def test_air_quality_temperature_rating():
 def test_air_quality_humidity():
     svc = _make_svc(AirQualityLevelService, {**_AQ_BASE, "humidity": 60})
     assert svc.humidity == 60
+    assert isinstance(svc.humidity, float)
+
+
+def test_air_quality_humidity_keeps_decimals():
+    # Bosch types humidity as number; int() previously truncated it (#352 follow-up).
+    svc = _make_svc(AirQualityLevelService, {**_AQ_BASE, "humidity": 55.5})
+    assert svc.humidity == 55.5
+    assert isinstance(svc.humidity, float)
 
 
 def test_air_quality_humidity_rating():
@@ -1489,6 +1513,13 @@ def test_air_quality_humidity_rating():
 def test_air_quality_purity():
     svc = _make_svc(AirQualityLevelService, {**_AQ_BASE, "purity": 1200})
     assert svc.purity == 1200
+    assert isinstance(svc.purity, float)
+
+
+def test_air_quality_purity_keeps_decimals():
+    svc = _make_svc(AirQualityLevelService, {**_AQ_BASE, "purity": 812.5})
+    assert svc.purity == 812.5
+    assert isinstance(svc.purity, float)
 
 
 def test_air_quality_purity_rating():

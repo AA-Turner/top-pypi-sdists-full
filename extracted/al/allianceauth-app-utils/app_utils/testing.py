@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from itertools import count
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from typing_extensions import deprecated
+
 from django.contrib.auth.models import Group, User
 from django.db import models
 from django.http import HttpResponse, JsonResponse
@@ -319,6 +321,7 @@ def add_character_to_user_2(
     return character
 
 
+@deprecated("Replaced by `UserMainFactory`")
 def create_fake_user(
     character_id: int,
     character_name: str,
@@ -353,7 +356,7 @@ def create_fake_user(
         alliance_name=alliance_name or "",
     )
     if permissions:
-        add_permissions_to_user_by_name(user=user, permission_names=permissions)
+        user = add_permissions_to_user_by_name(user=user, permission_names=permissions)
 
     return user
 

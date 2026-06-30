@@ -3279,19 +3279,14 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
-                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
-                    self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
                     self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
+                    self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
+                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
+                    self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
 
-                class _RefacetDuringLoad(PyArgumentsParameterSubItem):
+                class _Deviation(PyArgumentsNumericalSubItem):
                     """
-                    This option is available when DSCO is selected for the Import Route. When enabled, this option will refacet the geometry as it is converted to a .fmd file. This option eliminates the need for any refaceting operation after the geometry is loaded, which can be expensive.
-                    """
-
-                class _NormalAngle(PyArgumentsNumericalSubItem):
-                    """
-                    Specify a rotational angle (in degrees) of transformation.
+                    Specify the distance between facet edges and the geometry edges. Decreasing this value will result in more facets along curved edges.
                     """
 
                 class _MaxSize(PyArgumentsNumericalSubItem):
@@ -3299,9 +3294,14 @@ class Root(PyMenu):
                     Specify a maximum element size for the imported model to avoid very large facets during the file import.
                     """
 
-                class _Deviation(PyArgumentsNumericalSubItem):
+                class _NormalAngle(PyArgumentsNumericalSubItem):
                     """
-                    Specify the distance between facet edges and the geometry edges. Decreasing this value will result in more facets along curved edges.
+                    Specify a rotational angle (in degrees) of transformation.
+                    """
+
+                class _RefacetDuringLoad(PyArgumentsParameterSubItem):
+                    """
+                    This option is available when DSCO is selected for the Import Route. When enabled, this option will refacet the geometry as it is converted to a .fmd file. This option eliminates the need for any refaceting operation after the geometry is loaded, which can be expensive.
                     """
 
         def create_instance(self) -> _AppendFmdFilesArguments:
@@ -3614,8 +3614,8 @@ class Root(PyMenu):
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
                     self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
-                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
                     self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
+                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
                     self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
 
                 class _RefacetDuringLoad(PyArgumentsParameterSubItem):
@@ -3623,14 +3623,14 @@ class Root(PyMenu):
                     This option is available when DSCO is selected for the Import Route. When enabled, this option will refacet the geometry as it is converted to a .fmd file. This option eliminates the need for any refaceting operation after the geometry is loaded, which can be expensive.
                     """
 
-                class _NormalAngle(PyArgumentsNumericalSubItem):
-                    """
-                    Specify a rotational angle (in degrees) of transformation.
-                    """
-
                 class _MaxSize(PyArgumentsNumericalSubItem):
                     """
                     Specify a maximum element size for the imported model to avoid very large facets during the file import.
+                    """
+
+                class _NormalAngle(PyArgumentsNumericalSubItem):
+                    """
+                    Specify a rotational angle (in degrees) of transformation.
                     """
 
                 class _Deviation(PyArgumentsNumericalSubItem):
@@ -3792,19 +3792,14 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
-                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
-                    self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
                     self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
+                    self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
+                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
+                    self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
 
-                class _RefacetDuringLoad(PyArgumentsParameterSubItem):
+                class _Deviation(PyArgumentsNumericalSubItem):
                     """
-                    This option is available when DSCO is selected for the Import Route. When enabled, this option will refacet the geometry as it is converted to a .fmd file. This option eliminates the need for any refaceting operation after the geometry is loaded, which can be expensive.
-                    """
-
-                class _NormalAngle(PyArgumentsNumericalSubItem):
-                    """
-                    Specify a rotational angle (in degrees) of transformation.
+                    Specify the distance between facet edges and the geometry edges. Decreasing this value will result in more facets along curved edges.
                     """
 
                 class _MaxSize(PyArgumentsNumericalSubItem):
@@ -3812,9 +3807,14 @@ class Root(PyMenu):
                     Specify a maximum element size for the imported model to avoid very large facets during the file import.
                     """
 
-                class _Deviation(PyArgumentsNumericalSubItem):
+                class _NormalAngle(PyArgumentsNumericalSubItem):
                     """
-                    Specify the distance between facet edges and the geometry edges. Decreasing this value will result in more facets along curved edges.
+                    Specify a rotational angle (in degrees) of transformation.
+                    """
+
+                class _RefacetDuringLoad(PyArgumentsParameterSubItem):
+                    """
+                    This option is available when DSCO is selected for the Import Route. When enabled, this option will refacet the geometry as it is converted to a .fmd file. This option eliminates the need for any refaceting operation after the geometry is loaded, which can be expensive.
                     """
 
         def create_instance(self) -> _LoadFmdFileArguments:

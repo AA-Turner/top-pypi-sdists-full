@@ -56,9 +56,9 @@ Example Terminal layout:
 
 from typing import List, Optional
 
+import bigtree.tree.studio.actions as actions
 import bigtree.tree.studio.utils as studio_utils
-from bigtree.tree.studio.details import Details
-from bigtree.tree.studio.prompt import Prompt
+from bigtree.tree.studio.screens import Details, Help, Prompt
 from bigtree.tree.tree import Tree as BTTree
 from bigtree.utils import exceptions
 
@@ -115,25 +115,7 @@ class Studio(App):  # type: ignore[misc]
         padding: 1;
     }
     """
-
-    BINDINGS = [
-        # space: Expand
-        # single click: view attribute
-        # double click: Expand
-        ("a", "add_node", "Add Child"),
-        ("A", "add_sibling", "Add Sibling"),
-        ("d", "delete_node", "Delete"),
-        ("r", "rename_node", "Rename"),
-        ("t", "edit_attr", "Edit Attribute"),
-        ("/", "search", "Search"),
-        ("n", "next_match", "Next"),
-        ("N", "prev_match", "Prev"),
-        ("e", "toggle_expand", "Expand"),
-        ("E", "expand_all", "Expand All"),
-        ("z", "collapse_all", "Collapse All"),
-        ("S", "save_as", "Save As"),
-        ("q", "quit", "Quit"),
-    ]
+    BINDINGS = studio_utils.BINDINGS
 
     def __init__(self, tree: BTTree, depth: int = 2):
         super().__init__()
@@ -200,7 +182,7 @@ class Studio(App):  # type: ignore[misc]
     @exceptions.safe_action
     def _add_node(self, value: str | None) -> None:
         sel = self._get_selected()
-        studio_utils.action_add_node(self.bt_tree, sel, value)
+        actions.ActionAddNode(self.bt_tree, sel, value).run()
 
     def action_add_sibling(self) -> None:
         self.push_screen(Prompt("Add sibling node"), self._add_sibling)
@@ -208,11 +190,11 @@ class Studio(App):  # type: ignore[misc]
     @exceptions.safe_action
     def _add_sibling(self, value: Optional[str]) -> None:
         sel = self._get_selected()
-        studio_utils.action_add_sibling(self.bt_tree, sel, value)
+        actions.ActionAddSibling(self.bt_tree, sel, value).run()
 
     def action_delete_node(self) -> None:
         sel = self._get_selected()
-        studio_utils.action_delete_node(self.bt_tree, sel)
+        actions.ActionDeleteNode(self.bt_tree, sel).run()
 
     def action_rename_node(self) -> None:
         self.push_screen(Prompt("Rename node"), self._rename_node)
@@ -220,7 +202,8 @@ class Studio(App):  # type: ignore[misc]
     @exceptions.safe_action
     def _rename_node(self, value: Optional[str]) -> None:
         sel = self._get_selected()
-        studio_utils.action_rename_node(self.bt_tree, sel, value)
+        actions.ActionRenameNode(self.bt_tree, sel, value).run()
+        self._update_details(sel)
 
     def action_edit_attr(self) -> None:
         sel = self._get_selected()
@@ -236,27 +219,24 @@ class Studio(App):  # type: ignore[misc]
     @exceptions.safe_action
     def _edit_attr(self, value: Optional[str]) -> None:
         sel = self._get_selected()
-        studio_utils.action_edit_attr(self.bt_tree, sel, value)
+        actions.ActionEditAttr(self.bt_tree, sel, value).run()
         self._update_details(sel)
 
     def action_search(self) -> None:
-        self.push_screen(Prompt("Search node name"), self._search)
+        self.push_screen(
+            Prompt(
+                "Search by name, attribute, or query",
+                additional_context=studio_utils.SEARCH_EXAMPLES,
+            ),
+            self._search,
+        )
 
+    @exceptions.safe_action
     def _search(self, value: Optional[str]) -> None:
         if not value:
             return
 
-        matches = []
-
-        def walk(item: TreeNode) -> None:
-            if value == str(item.label):
-                matches.append(item)
-            for _child in item.children:
-                walk(_child)
-
-        for child in self.textual_tree.root.children:
-            walk(child)
-
+        matches = actions.ActionSearch(self.bt_tree, self.textual_tree, value).run()
         self.search_matches = matches
         self.search_index = 0
 
@@ -298,10 +278,13 @@ class Studio(App):  # type: ignore[misc]
 
     @exceptions.safe_action
     def _save_as(self, value: Optional[str]) -> None:
-        studio_utils.action_save_as(self.bt_tree, value)
+        actions.ActionSaveAs(self.bt_tree, value=value).run()
         self.notify(
             f"Saved to {value}", title="Save Successful", severity="information"
         )
+
+    def action_help(self) -> None:
+        self.push_screen(Help())
 
 
 def run_app_cli() -> None:

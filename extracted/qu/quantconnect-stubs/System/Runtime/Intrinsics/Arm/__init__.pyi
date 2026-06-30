@@ -76,6 +76,33 @@ class ArmBase(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
+class Sha256(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def hash_update_1(hash_abcd: System.Runtime.Intrinsics.Vector128[int], hash_efgh: System.Runtime.Intrinsics.Vector128[int], wk: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def hash_update_2(hash_efgh: System.Runtime.Intrinsics.Vector128[int], hash_abcd: System.Runtime.Intrinsics.Vector128[int], wk: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def schedule_update_0(w_0_3: System.Runtime.Intrinsics.Vector128[int], w_4_7: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def schedule_update_1(w_0_3: System.Runtime.Intrinsics.Vector128[int], w_8_11: System.Runtime.Intrinsics.Vector128[int], w_12_15: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+
 class AdvSimd(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -3860,208 +3887,6 @@ class AdvSimd(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
         ...
 
 
-class Sha256(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-    IS_SUPPORTED: bool
-
-    @staticmethod
-    def hash_update_1(hash_abcd: System.Runtime.Intrinsics.Vector128[int], hash_efgh: System.Runtime.Intrinsics.Vector128[int], wk: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def hash_update_2(hash_efgh: System.Runtime.Intrinsics.Vector128[int], hash_abcd: System.Runtime.Intrinsics.Vector128[int], wk: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def schedule_update_0(w_0_3: System.Runtime.Intrinsics.Vector128[int], w_4_7: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def schedule_update_1(w_0_3: System.Runtime.Intrinsics.Vector128[int], w_8_11: System.Runtime.Intrinsics.Vector128[int], w_12_15: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-
-class Rdm(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class Arm64(System.Runtime.Intrinsics.Arm.AdvSimd.Arm64, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-        @staticmethod
-        def multiply_rounded_doubling_and_add_saturate_high_scalar(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector64[int]:
-            ...
-
-        @staticmethod
-        def multiply_rounded_doubling_and_subtract_saturate_high_scalar(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector64[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def multiply_rounded_doubling_scalar_by_selected_scalar_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def multiply_rounded_doubling_scalar_by_selected_scalar_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector128[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def multiply_rounded_doubling_scalar_by_selected_scalar_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
-            ...
-
-        @staticmethod
-        @overload
-        def multiply_rounded_doubling_scalar_by_selected_scalar_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector128[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
-            ...
-
-    IS_SUPPORTED: bool
-
-    @staticmethod
-    @overload
-    def multiply_rounded_doubling_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector64[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_rounded_doubling_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_rounded_doubling_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector64[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_rounded_doubling_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_rounded_doubling_by_selected_scalar_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_rounded_doubling_by_selected_scalar_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector128[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_rounded_doubling_by_selected_scalar_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector64[int], right_index: int) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_rounded_doubling_by_selected_scalar_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int], right_index: int) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_rounded_doubling_by_selected_scalar_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_rounded_doubling_by_selected_scalar_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector128[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_rounded_doubling_by_selected_scalar_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector64[int], right_index: int) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply_rounded_doubling_by_selected_scalar_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int], right_index: int) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-
-class Sha1(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-    IS_SUPPORTED: bool
-
-    @staticmethod
-    def fixed_rotate(hash_e: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector64[int]:
-        ...
-
-    @staticmethod
-    def hash_update_choose(hash_abcd: System.Runtime.Intrinsics.Vector128[int], hash_e: System.Runtime.Intrinsics.Vector64[int], wk: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def hash_update_majority(hash_abcd: System.Runtime.Intrinsics.Vector128[int], hash_e: System.Runtime.Intrinsics.Vector64[int], wk: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def hash_update_parity(hash_abcd: System.Runtime.Intrinsics.Vector128[int], hash_e: System.Runtime.Intrinsics.Vector64[int], wk: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def schedule_update_0(w_0_3: System.Runtime.Intrinsics.Vector128[int], w_4_7: System.Runtime.Intrinsics.Vector128[int], w_8_11: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def schedule_update_1(tw_0_3: System.Runtime.Intrinsics.Vector128[int], w_12_15: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-
-class Dp(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class Arm64(System.Runtime.Intrinsics.Arm.AdvSimd.Arm64, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-    IS_SUPPORTED: bool
-
-    @staticmethod
-    @overload
-    def dot_product(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector64[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def dot_product(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def dot_product_by_selected_quadruplet(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int], right_scaled_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def dot_product_by_selected_quadruplet(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector128[int], right_scaled_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def dot_product_by_selected_quadruplet(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int], right_scaled_index: int) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def dot_product_by_selected_quadruplet(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector64[int], right_scaled_index: int) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-
 class SveMaskPattern(IntEnum):
     """This class has no documentation."""
 
@@ -4126,80 +3951,6 @@ class SvePrefetchType(IntEnum):
     STORE_L_3_TEMPORAL = 12
 
     STORE_L_3_NON_TEMPORAL = 13
-
-
-class Aes(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-    IS_SUPPORTED: bool
-
-    @staticmethod
-    def decrypt(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def encrypt(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def inverse_mix_columns(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def mix_columns(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def polynomial_multiply_widening_lower(left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    def polynomial_multiply_widening_upper(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-
-class Crc32(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        IS_SUPPORTED: bool
-
-        @staticmethod
-        def compute_crc_32(crc: int, data: int) -> int:
-            ...
-
-        @staticmethod
-        def compute_crc_32c(crc: int, data: int) -> int:
-            ...
-
-    IS_SUPPORTED: bool
-
-    @staticmethod
-    @overload
-    def compute_crc_32(crc: int, data: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compute_crc_32(crc: int, data: System.UIntPtr) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compute_crc_32c(crc: int, data: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compute_crc_32c(crc: int, data: System.UIntPtr) -> int:
-        ...
 
 
 class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
@@ -6076,6 +5827,255 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
     @staticmethod
     @overload
     def zip_low(left: System.Numerics.Vector[float], right: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        ...
+
+
+class Crc32(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+        @staticmethod
+        def compute_crc_32(crc: int, data: int) -> int:
+            ...
+
+        @staticmethod
+        def compute_crc_32c(crc: int, data: int) -> int:
+            ...
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    @overload
+    def compute_crc_32(crc: int, data: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def compute_crc_32(crc: int, data: System.UIntPtr) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def compute_crc_32c(crc: int, data: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def compute_crc_32c(crc: int, data: System.UIntPtr) -> int:
+        ...
+
+
+class Dp(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class Arm64(System.Runtime.Intrinsics.Arm.AdvSimd.Arm64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    @overload
+    def dot_product(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector64[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def dot_product(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def dot_product_by_selected_quadruplet(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int], right_scaled_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def dot_product_by_selected_quadruplet(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector128[int], right_scaled_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def dot_product_by_selected_quadruplet(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int], right_scaled_index: int) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def dot_product_by_selected_quadruplet(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector64[int], right_scaled_index: int) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+
+class Rdm(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class Arm64(System.Runtime.Intrinsics.Arm.AdvSimd.Arm64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+        @staticmethod
+        def multiply_rounded_doubling_and_add_saturate_high_scalar(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector64[int]:
+            ...
+
+        @staticmethod
+        def multiply_rounded_doubling_and_subtract_saturate_high_scalar(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector64[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def multiply_rounded_doubling_scalar_by_selected_scalar_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def multiply_rounded_doubling_scalar_by_selected_scalar_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector128[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def multiply_rounded_doubling_scalar_by_selected_scalar_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
+            ...
+
+        @staticmethod
+        @overload
+        def multiply_rounded_doubling_scalar_by_selected_scalar_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector128[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
+            ...
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    @overload
+    def multiply_rounded_doubling_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector64[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_rounded_doubling_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_rounded_doubling_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector64[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_rounded_doubling_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_rounded_doubling_by_selected_scalar_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_rounded_doubling_by_selected_scalar_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector128[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_rounded_doubling_by_selected_scalar_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector64[int], right_index: int) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_rounded_doubling_by_selected_scalar_and_add_saturate_high(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int], right_index: int) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_rounded_doubling_by_selected_scalar_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_rounded_doubling_by_selected_scalar_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector64[int], left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector128[int], right_index: int) -> System.Runtime.Intrinsics.Vector64[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_rounded_doubling_by_selected_scalar_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector64[int], right_index: int) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply_rounded_doubling_by_selected_scalar_and_subtract_saturate_high(minuend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int], right_index: int) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+
+class Sha1(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def fixed_rotate(hash_e: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector64[int]:
+        ...
+
+    @staticmethod
+    def hash_update_choose(hash_abcd: System.Runtime.Intrinsics.Vector128[int], hash_e: System.Runtime.Intrinsics.Vector64[int], wk: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def hash_update_majority(hash_abcd: System.Runtime.Intrinsics.Vector128[int], hash_e: System.Runtime.Intrinsics.Vector64[int], wk: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def hash_update_parity(hash_abcd: System.Runtime.Intrinsics.Vector128[int], hash_e: System.Runtime.Intrinsics.Vector64[int], wk: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def schedule_update_0(w_0_3: System.Runtime.Intrinsics.Vector128[int], w_4_7: System.Runtime.Intrinsics.Vector128[int], w_8_11: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def schedule_update_1(tw_0_3: System.Runtime.Intrinsics.Vector128[int], w_12_15: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+
+class Aes(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def decrypt(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def encrypt(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def inverse_mix_columns(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def mix_columns(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def polynomial_multiply_widening_lower(left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def polynomial_multiply_widening_upper(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
         ...
 
 

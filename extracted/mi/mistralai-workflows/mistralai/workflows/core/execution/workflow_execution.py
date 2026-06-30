@@ -109,7 +109,7 @@ def get_execution_id() -> str | None:
 async def execute_workflow(
     workflow: Type,
     params: BaseModel,
-    execution_timeout: timedelta = ...,
+    execution_timeout: timedelta | None = ...,
     execution_id: str | None = ...,
     wait: Literal[True] = ...,
     parent_close_policy: ParentClosePolicy | None = ...,
@@ -120,7 +120,7 @@ async def execute_workflow(
 async def execute_workflow(
     workflow: Type,
     params: BaseModel,
-    execution_timeout: timedelta = ...,
+    execution_timeout: timedelta | None = ...,
     execution_id: str | None = ...,
     wait: Literal[False] = ...,
     parent_close_policy: ParentClosePolicy | None = ...,
@@ -131,7 +131,7 @@ async def execute_workflow(
 async def execute_workflow(
     workflow: Type,
     params: BaseModel,
-    execution_timeout: timedelta = ...,
+    execution_timeout: timedelta | None = ...,
     execution_id: str | None = ...,
     wait: bool = ...,
     parent_close_policy: ParentClosePolicy | None = ...,
@@ -141,7 +141,7 @@ async def execute_workflow(
 async def execute_workflow(
     workflow: Type,
     params: BaseModel,
-    execution_timeout: timedelta = timedelta(hours=1),
+    execution_timeout: timedelta | None = None,
     execution_id: str | None = None,
     wait: bool = True,
     parent_close_policy: ParentClosePolicy | None = None,
@@ -151,8 +151,9 @@ async def execute_workflow(
     Args:
         workflow (Type): The workflow class to execute. (must be decorated with @define)
         params (BaseModel): The parameters to pass to the workflow. (must be a BaseModel)
-        execution_timeout (timedelta, optional): The maximum time the workflow can run.
-                                                 Defaults to timedelta(hours=1).
+        execution_timeout (timedelta | None, optional): The maximum time the workflow can run.
+                                                 Defaults to the workflow's declared execution_timeout
+                                                 from @workflow.define (itself 1 hour if unset).
         execution_id (str | None, optional): The workflow id to use. If None, a random id will be generated.
         wait (bool, optional): If True (default), wait for the child workflow to complete and return the result.
                                If False, return a ChildWorkflowHandle immediately (only inside a workflow).
@@ -174,6 +175,9 @@ async def execute_workflow(
             code=ErrorCode.WORKFLOW_DEFINITION_ERROR,
             message=f"{workflow} class must be decorated with @workflow.define",
         )
+
+    if execution_timeout is None:
+        execution_timeout = workflow_definition.execution_timeout
 
     entrypoint_method = _get_workflow_entrypoint_method(workflow)
     if not entrypoint_method:

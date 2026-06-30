@@ -30,9 +30,79 @@ Tesseract OCR must also be available for this function to work.
 """
 
 import inspect
-from rapidocr_onnxruntime import RapidOCR
 import pymupdf
 import numpy as np
+from rapidocr_onnxruntime import RapidOCR
+from .get_culled_pixmap import get_pixmap
+
+class RapidOCR_DetOnly(RapidOCR):
+    """
+    A future-proof, detection-only variant of RapidOCR.
+
+    This class ensures:
+    - No recognition models are loaded.
+    - No recognition or classification steps are executed.
+    - Stable public API for downstream consumers.
+    - Defensive behavior against internal API changes in RapidOCR.
+    - Drop-in replacement for the standard RapidOCR class.
+
+    Intended for production use in environments where only text
+    detection (bounding boxes) is required and recognition overhead
+    must be avoided.
+    """
+
+    def __init__(self):
+        # Call base class constructor (loads all models by default)
+        super().__init__()
+
+        # Remove recognition-related components if they exist.
+        # This prevents recognition from being executed even if
+        # RapidOCR changes internal behavior in future versions.
+        for attr in ("text_recognizer", "text_classifier", "text_recognizer_session"):
+            if hasattr(self, attr):
+                setattr(self, attr, None)
+
+        # If RapidOCR introduces flags in future versions, disable them.
+        for flag in ("use_rec", "use_cls"):
+            if hasattr(self, flag):
+                setattr(self, flag, False)
+
+    def __call__(self, img):
+        """
+        Execute detection only.
+
+        Always returns a tuple: (boxes, scores)
+
+        This method is defensive: if RapidOCR changes the return
+        format of text_detector(), a clear error is raised instead
+        of silently producing incorrect results.
+        """
+        # Ensure the detector exists
+        if not hasattr(self, "text_detector") or self.text_detector is None:
+            raise RuntimeError("RapidOCR_DetOnly: No text_detector available.")
+
+        # Run detection
+        result = self.text_detector(img)
+
+        # Validate return format (RapidOCR may change this in the future)
+        if isinstance(result, (list, tuple)) and len(result) >= 2:
+            boxes, scores = result[0], result[1]
+        else:
+            raise RuntimeError(
+                f"RapidOCR_DetOnly: Unexpected return format from text_detector: {type(result)}"
+            )
+
+        return boxes, scores
+
+    def detect(self, img):
+        """
+        Stable public API for detection.
+
+        Downstream users should call this method instead of __call__().
+        This ensures API stability even if internal behavior changes.
+        """
+        return self.__call__(img)
+
 
 TESSDATA = pymupdf.get_tessdata()
 if TESSDATA is None:
@@ -43,15 +113,17 @@ if TESSDATA is None:
 FONT = pymupdf.Font("cjk")  # this is the "Droid Sans Fallback" font
 FONTNAME = "myfont"  # its reference name in the page
 REPLACEMENT_UNICODE = chr(0xFFFD)  # Unicode Replacement Character
+STROKED_TEXT = pymupdf.mupdf.FZ_STEXT_STROKED
+FILLED_TEXT = pymupdf.mupdf.FZ_STEXT_FILLED
 
 
 def ocr_text(span) -> bool:
-    if not (span["char_flags"] & 32) and not (span["char_flags"] & 16):
-        return True
-    return False
+    if (span["char_flags"] & STROKED_TEXT) or (span["char_flags"] & FILLED_TEXT):
+        return False
+    return True
 
 
-ENGINE = RapidOCR()
+ENGINE = RapidOCR_DetOnly()
 
 # prepare for more advanced use of Tesseract by checking a function signature
 sig = inspect.signature(pymupdf.Pixmap.pdfocr_tobytes)
@@ -67,12 +139,13 @@ def get_text(pixmap, irect, language="eng"):
     The irect is expected to contain one line only, so we use
     tessedit_pageseg_mode=7.
     """
+    if irect.is_empty:
+        return ""
     my_irect = irect + (-2, -2, 2, 2)
     # these options ensure a much improved Tesseract behavior
     options = "tessedit_pageseg_mode=7,preserve_interword_spaces=1"
     this_pix = pymupdf.Pixmap(pymupdf.csRGB, my_irect)
     this_pix.copy(pixmap, my_irect)
-
     if USE_TESS_OPTIONS:
         # use options if pymupdf already provides this
         data = this_pix.pdfocr_tobytes(
@@ -94,11 +167,11 @@ def exec_ocr(page, dpi=300, pixmap=None, language="eng", keep_ocr_text=False):
     """This callback function performs OCR on the given page.
 
     It uses RapidOCR for text region detection and Tesseract OCR for text
-    recognition in each identified region (boundary box).
+    recognition in each identified region (bounding box).
 
-    If a Pixmap is provided, the DPI parameter is ignored. Otherwise, an RGB
-    Pixmap is created from the page at the specified DPI.
-    The DPI parameter is also used if extractable text is present.
+    The pixmap parameter is deprecated and ignored.
+    The keep_ocr parameter is ignored. If this plugin is called,
+    existing OCR text will ALWAYS be removed and replaced with new OCR text.
     """
 
     def adjust_width(text, fontsize, rect):
@@ -119,89 +192,76 @@ def exec_ocr(page, dpi=300, pixmap=None, language="eng", keep_ocr_text=False):
         return
 
     """
-    We ensure that legible extractable text is excluded from OCR. If present
-    on page we make a temporary copy without such text and perform OCR
-    on that copy.
+    We ensure that legible extractable text is excluded from OCR. We render
+    the page without "good" text and perform OCR on the rest.
     """
-    text_blocks = page.get_text("dict", flags=pymupdf.TEXT_ACCURATE_BBOXES)["blocks"]
-    # get bboxes with significant legible text on page
-    spans = []
-    fffd_spans = []
+    displaylist = page.get_displaylist()
+    stextpage = displaylist.get_textpage(flags=pymupdf.TEXT_ACCURATE_BBOXES)
+    textpage = pymupdf.TextPage(stextpage)
+    text_blocks = textpage.extractDICT()["blocks"]
+
+    # get bboxes with multiple text categories on page
+    spans = []  # bboxes with good text
+    fffd_spans = []  # boxes with illegible text
+    ocr_spans = []  # boxes with old OCR text
     for b in text_blocks:
         for l in b["lines"]:
             for s in l["spans"]:
                 if ocr_text(s):
-                    if keep_ocr_text:
-                        spans.append(s["bbox"])
-                    else:
-                        fffd_spans.append(s["bbox"])
-                    continue
-                if not REPLACEMENT_UNICODE in s["text"]:
-                    spans.append(s["bbox"])
-                else:
+                    ocr_spans.append(s["bbox"])
+                elif REPLACEMENT_UNICODE in s["text"]:
                     fffd_spans.append(s["bbox"])
+                else:
+                    # for removal of good text regions
+                    spans.append(s["bbox"])
+    if ocr_spans and keep_ocr_text:
+        # If there are already OCR spans and the user wants to keep them, we skip OCR.
+        # This is because we cannot distinguish between "good" text and "bad" OCR text.
+        return
+    # make a Pixmap without "good" text
+    pix = get_pixmap(displaylist, dpi=dpi, rects=spans)
 
-    if spans:
-        temp_pdf = pymupdf.open()  # create a temporary PDF in memory
-        # insert the page
-        temp_pdf.insert_pdf(
-            page.parent,
-            from_page=page.number,
-            to_page=page.number,
-        )
-        temp_page = temp_pdf[0]
-        for sbbox in spans:
-            # add redaction annotation for each text span
-            temp_page.add_redact_annot(sbbox)
-
-        # remove text
-        temp_page.apply_redactions(
-            images=pymupdf.PDF_REDACT_IMAGE_NONE,
-            graphics=pymupdf.PDF_REDACT_LINE_ART_NONE,
-            text=pymupdf.PDF_REDACT_TEXT_REMOVE,
-        )
-        # make pixmap from the page where text is removed
-        pixmap = temp_page.get_pixmap(dpi=dpi)
-
-    # make pixmap if not provided
-    if pixmap is None:
-        pixmap = page.get_pixmap(dpi=dpi)
+    # For converting ENGINE box coordinates to page coordinates
+    matrix = pymupdf.Rect(pix.irect).torect(page.rect)
 
     # make numpy array from pixmap
-    img = np.frombuffer(pixmap.samples, dtype=np.uint8).reshape(
-        pixmap.height, pixmap.width, pixmap.n
+    img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
+        pix.height,
+        pix.width,
+        3,
     )
 
-    if fffd_spans:
-        # if there are spans with U+FFFD, we add redaction annotations for them
-        # and apply redactions to the pixmap to remove them before OCR
-        for sbbox in fffd_spans:
+    # Execute ENGINE's Detector
+    boxes, score = ENGINE.detect(img)
+
+    if boxes is None or not len(boxes):  # nothing detected
+        return
+
+    # Remove all OCR spans and spans containing a U+FFFD.
+    # The OCR engine will restore them according to its best ability.
+    redaction_rects = fffd_spans + ocr_spans
+    if redaction_rects:
+        for sbbox in redaction_rects:
             page.add_redact_annot(sbbox)
         page.apply_redactions(
             images=pymupdf.PDF_REDACT_IMAGE_NONE,
             graphics=pymupdf.PDF_REDACT_LINE_ART_NONE,
             text=pymupdf.PDF_REDACT_TEXT_REMOVE,
         )
-    # for converting box coordinates to page coordinates
-    matrix = pymupdf.Rect(pixmap.irect).torect(page.rect)
-    # t0 = time.perf_counter()
-    # Execute the ENGINE's bbox Detector
-    boxes, _ = ENGINE.text_detector(img)
-    # t1 = time.perf_counter()
+
     # Execute Tesseract's text Recognizer
     # List of Tesseract text results
     tess_results = []
     for box in boxes:
-        # top-left, top-right, bottom-right, bottom-left
-        tl, tr, br, bl = box
-        irect = pymupdf.IRect(tl[0], tl[1], br[0], br[1])
-        text = get_text(pixmap, irect)  # execute Tesseract OCR on the line box
+        irect = pymupdf.IRect(min(p[0] for p in box),
+                              min(p[1] for p in box),
+                              max(p[0] for p in box),
+                              max(p[1] for p in box))
+        text = get_text(pix, irect)  # execute Tesseract OCR on the line box
         tess_results.append((irect, text))
     if not tess_results:  # guard against no text found
         return
-    # t2 = time.perf_counter()
-    # print(f"RapidOCR detection time: {t1 - t0:.2f} seconds")
-    # print(f"Tesseract OCR time: {t2 - t1:.2f} seconds")
+
     # insert the OCR font into the page
     page.insert_font(fontname=FONTNAME, fontbuffer=FONT.buffer)
 
@@ -209,7 +269,7 @@ def exec_ocr(page, dpi=300, pixmap=None, language="eng", keep_ocr_text=False):
         # this is the line box
         rect = pymupdf.Rect(irect) * matrix
 
-        # this matrix will adjust the rendered text width to fit text box
+        # this matrix will ensure text width = rect width
         mat = adjust_width(text, rect.height, rect)
 
         # Insert one line of text. Insertion point is the bottom-left box
@@ -223,6 +283,5 @@ def exec_ocr(page, dpi=300, pixmap=None, language="eng", keep_ocr_text=False):
             text,  # text to render
             fontsize=rect.height,  # take this as font size
             fontname=FONTNAME,  # fallback font
-            # render_mode=0,
             morph=(rect.bl, mat),  # adjust width to fit the line box
         )

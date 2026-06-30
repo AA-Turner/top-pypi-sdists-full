@@ -1,21 +1,9 @@
 [workspace]
-members = ["crates/*"]
-exclude = [
-    "crates/tree-sitter-language-pack-ffi",
-    "crates/tree-sitter-language-pack-wasm",
-    "crates/ts-pack-elixir",
-    "crates/ts-pack-java",
-    "crates/ts-pack-node",
-    "crates/ts-pack-php",
-    "e2e/rust",
-    "packages/elixir/native/tree_sitter_language_pack_nif",
-    "packages/ruby/ext/ts_pack_core_rb/native",
-    "test_apps/rust",
-]
 resolver = "2"
+members = ["crates/ts-pack-core-py"]
 
 [workspace.package]
-version = "1.11.0"
+version = "1.12.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/xberg-io/tree-sitter-language-pack"
@@ -70,27 +58,10 @@ toml_edit = "0.25"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tree-sitter = "0.26"
-tree-sitter-language-pack = { path = "crates/ts-pack-core" }
+tree-sitter-language-pack = { }
 ureq = { version = "3", features = ["platform-verifier", "socks-proxy"] }
 walkdir = "2.5"
 wasm-bindgen = "0.2"
 wasm-bindgen-test = "0.3"
 zstd = "0.13"
 
-[workspace.lints.clippy]
-all = { level = "deny", priority = -1 }
-duplicated_attributes = "allow"
-
-[workspace.lints.rust]
-unsafe_code = "deny"
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(alef)'] }
-
-[profile.release]
-lto = "thin"
-codegen-units = 1
-opt-level = 3
-strip = true
-
-[profile.dev]
-opt-level = 0
-debug = true

@@ -27,7 +27,7 @@ dependencies = [
     "grpcio >= 1.62.1; platform_system!='Emscripten'",
     "humanize >= 4.6.0; platform_system!='Emscripten'",
     "libusb1 >= 2.0.1; platform_system!='Emscripten'",
-    "libusb-package == 1.0.26.1; platform_system!='Emscripten' and platform_system!='Android'",
+    "libusb-package == 1.0.26.4; platform_system!='Emscripten' and platform_system!='Android'",
     "platformdirs >= 3.10.0; platform_system!='Emscripten'",
     "prompt_toolkit >= 3.0.16; platform_system!='Emscripten'",
     "prettytable >= 3.6.0; platform_system!='Emscripten'",
@@ -43,9 +43,9 @@ dependencies = [
 [project.optional-dependencies]
 build = ["build >= 0.7"]
 test = [
-    "pytest >= 8.2",
-    "pytest-asyncio >= 0.23.5",
-    "pytest-html >= 3.2.0",
+    "pytest >= 9.0",
+    "pytest-asyncio >= 1.4",
+    "pytest-html >= 4.2",
     "coverage >= 6.4",
 ]
 development = [
@@ -132,6 +132,7 @@ write_to = "bumble/_version.py"
 [tool.pytest.ini_options]
 pythonpath = "."
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.pylint.master]
 init-hook = 'import sys; sys.path.append(".")'

@@ -27,5 +27,5 @@ zip-safe = false
 version = {attr = "streamsets.sdk.__version__.__version__"}
 
 [build-system]
-requires = ["setuptools>=80.9.0", "setuptools-scm"]
+requires = ["setuptools>=75.0.0", "setuptools-scm"]
 build-backend = "setuptools.build_meta"

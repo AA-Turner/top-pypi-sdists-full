@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-google-adk
-Version: 0.1.15
+Version: 0.1.16
 Summary: OpenInference Google ADK Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-google-adk
 Author-email: OpenInference Authors <oss@arize.com>
@@ -106,7 +106,7 @@ def get_weather(city: str) -> dict:
 
 agent = Agent(
    name="test_agent",
-   model="gemini-2.0-flash-exp",
+   model="gemini-3.5-flash",
    description="Agent to answer questions using tools.",
    instruction="You must use the available tools to find an answer.",
    tools=[get_weather]

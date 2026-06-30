@@ -147,6 +147,7 @@ __all__ = (
     "TaskStopCodeType",
     "TasksRunningWaiterName",
     "TasksStoppedWaiterName",
+    "ThresholdTypeType",
     "TransportProtocolType",
     "UlimitNameType",
     "VersionConsistencyType",
@@ -381,6 +382,7 @@ TaskStopCodeType = Literal[
 ]
 TasksRunningWaiterName = Literal["tasks_running"]
 TasksStoppedWaiterName = Literal["tasks_stopped"]
+ThresholdTypeType = Literal["BOUNDED_PERCENT", "COUNT", "UNBOUNDED_PERCENT"]
 TransportProtocolType = Literal["tcp", "udp"]
 UlimitNameType = Literal[
     "core",
@@ -622,6 +624,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",

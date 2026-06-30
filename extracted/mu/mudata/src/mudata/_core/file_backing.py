@@ -1,7 +1,6 @@
 from os import PathLike
 from pathlib import Path
 from typing import Literal
-from weakref import WeakSet
 
 import anndata as ad
 import h5py
@@ -11,7 +10,7 @@ from anndata._core.file_backing import AnnDataFileManager
 class MuDataFileManager(AnnDataFileManager):
     def __init__(self, filename: PathLike | None = None, filemode: Literal["r", "r+"] | None = None):
         self._counter = 0
-        self._children = WeakSet()
+        self._children = set()
         if filename is not None:
             filename = Path(filename)
         super().__init__(ad.AnnData(), filename, filemode)
@@ -62,7 +61,7 @@ class MuDataFileManager(AnnDataFileManager):
 
     @AnnDataFileManager.filename.setter
     def filename(self, filename: PathLike | None):
-        self._filename = None if filename is None else filename
+        self._filename = filename
 
 
 class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
@@ -97,9 +96,13 @@ class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
         self._parent._close()
 
     def _to_memory_mode(self):
-        self._adata._X = self._adata.X[()]
+        X = self._adata.X[()]
         self.close()
         self.filename = None
+        if hasattr(self._adata, "_X"):  # anndata < 0.13
+            self._adata._X = X
+        else:
+            self._adata.X = X  # anndata >= 0.13
 
     @property
     def is_open(self) -> bool:

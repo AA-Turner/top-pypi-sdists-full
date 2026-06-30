@@ -807,6 +807,16 @@ def features(
         The `cache_nulls` and `cache_defaults` options can be used together on the same feature with the
         following exceptions: if `cache_nulls=False`, then `cache_defaults` cannot be `"evict_defaults"`, and if
         `cache_nulls="evict_defaults"`, then `cache_defaults` cannot be `False`.
+    part_of
+        Use `part_of` to group features as part of an existing `@features` class
+        without adding every field to the same Python class definition. Chalk
+        folds the auxiliary class's fields into the target feature class named
+        by `part_of`, so the deployed feature FQNs use the target namespace. For
+        example, defining `balance_amount` on `@features(part_of="User") class
+        UserBalanceFeatures` creates `user.balance_amount`, not
+        `user_balance_features.balance_amount`. Reference features in queries and
+        resolver annotations from the target class, such as `User.balance_amount`;
+        keep the primary key on the target class.
 
     Other Parameters
     ----------------

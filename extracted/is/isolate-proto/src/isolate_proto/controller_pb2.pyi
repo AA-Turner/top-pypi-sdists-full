@@ -751,12 +751,26 @@ global___MachineRequirements = MachineRequirements
 class ApplicationHealthCheckConfig(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    class _Method:
+        ValueType = typing.NewType("ValueType", builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
+
+    class _MethodEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[ApplicationHealthCheckConfig._Method.ValueType], builtins.type):
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        GET: ApplicationHealthCheckConfig._Method.ValueType  # 0
+        POST: ApplicationHealthCheckConfig._Method.ValueType  # 1
+
+    class Method(_Method, metaclass=_MethodEnumTypeWrapper): ...
+    GET: ApplicationHealthCheckConfig.Method.ValueType  # 0
+    POST: ApplicationHealthCheckConfig.Method.ValueType  # 1
+
     PATH_FIELD_NUMBER: builtins.int
     START_PERIOD_SECONDS_FIELD_NUMBER: builtins.int
     TIMEOUT_SECONDS_FIELD_NUMBER: builtins.int
     FAILURE_THRESHOLD_FIELD_NUMBER: builtins.int
     CALL_REGULARLY_FIELD_NUMBER: builtins.int
     ALLOW_ON_BUSY_FIELD_NUMBER: builtins.int
+    METHOD_FIELD_NUMBER: builtins.int
     path: builtins.str
     """path to the health check endpoint"""
     start_period_seconds: builtins.int
@@ -773,6 +787,8 @@ class ApplicationHealthCheckConfig(google.protobuf.message.Message):
     """
     allow_on_busy: builtins.bool
     """do not perform health check if the runner has inflight requests"""
+    method: global___ApplicationHealthCheckConfig.Method.ValueType
+    """HTTP method to use for the health check request"""
     def __init__(
         self,
         *,
@@ -782,15 +798,18 @@ class ApplicationHealthCheckConfig(google.protobuf.message.Message):
         failure_threshold: builtins.int | None = ...,
         call_regularly: builtins.bool | None = ...,
         allow_on_busy: builtins.bool | None = ...,
+        method: global___ApplicationHealthCheckConfig.Method.ValueType | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_allow_on_busy", b"_allow_on_busy", "_call_regularly", b"_call_regularly", "_failure_threshold", b"_failure_threshold", "_start_period_seconds", b"_start_period_seconds", "_timeout_seconds", b"_timeout_seconds", "allow_on_busy", b"allow_on_busy", "call_regularly", b"call_regularly", "failure_threshold", b"failure_threshold", "start_period_seconds", b"start_period_seconds", "timeout_seconds", b"timeout_seconds"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_allow_on_busy", b"_allow_on_busy", "_call_regularly", b"_call_regularly", "_failure_threshold", b"_failure_threshold", "_start_period_seconds", b"_start_period_seconds", "_timeout_seconds", b"_timeout_seconds", "allow_on_busy", b"allow_on_busy", "call_regularly", b"call_regularly", "failure_threshold", b"failure_threshold", "path", b"path", "start_period_seconds", b"start_period_seconds", "timeout_seconds", b"timeout_seconds"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_allow_on_busy", b"_allow_on_busy", "_call_regularly", b"_call_regularly", "_failure_threshold", b"_failure_threshold", "_method", b"_method", "_start_period_seconds", b"_start_period_seconds", "_timeout_seconds", b"_timeout_seconds", "allow_on_busy", b"allow_on_busy", "call_regularly", b"call_regularly", "failure_threshold", b"failure_threshold", "method", b"method", "start_period_seconds", b"start_period_seconds", "timeout_seconds", b"timeout_seconds"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_allow_on_busy", b"_allow_on_busy", "_call_regularly", b"_call_regularly", "_failure_threshold", b"_failure_threshold", "_method", b"_method", "_start_period_seconds", b"_start_period_seconds", "_timeout_seconds", b"_timeout_seconds", "allow_on_busy", b"allow_on_busy", "call_regularly", b"call_regularly", "failure_threshold", b"failure_threshold", "method", b"method", "path", b"path", "start_period_seconds", b"start_period_seconds", "timeout_seconds", b"timeout_seconds"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_allow_on_busy", b"_allow_on_busy"]) -> typing_extensions.Literal["allow_on_busy"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_call_regularly", b"_call_regularly"]) -> typing_extensions.Literal["call_regularly"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_failure_threshold", b"_failure_threshold"]) -> typing_extensions.Literal["failure_threshold"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_method", b"_method"]) -> typing_extensions.Literal["method"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_start_period_seconds", b"_start_period_seconds"]) -> typing_extensions.Literal["start_period_seconds"] | None: ...
     @typing.overload
@@ -828,6 +847,7 @@ class RegisterApplicationRequest(google.protobuf.message.Message):
     BUILD_ENVIRONMENT_FIELD_NUMBER: builtins.int
     ENV_ID_FIELD_NUMBER: builtins.int
     RETRY_CONFIG_FIELD_NUMBER: builtins.int
+    ATTACH_TO_DEPLOYMENT_FIELD_NUMBER: builtins.int
     @property
     def environments(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[server_pb2.EnvironmentDefinition]:
         """Environment definitions."""
@@ -899,6 +919,8 @@ class RegisterApplicationRequest(google.protobuf.message.Message):
     """
     retry_config: builtins.str
     """App-level default retry config"""
+    attach_to_deployment: builtins.bool
+    """Option to attach to the deployment process"""
     def __init__(
         self,
         *,
@@ -928,11 +950,14 @@ class RegisterApplicationRequest(google.protobuf.message.Message):
         build_environment: builtins.bool | None = ...,
         env_id: builtins.str | None = ...,
         retry_config: builtins.str | None = ...,
+        attach_to_deployment: builtins.bool | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_application_name", b"_application_name", "_auth_mode", b"_auth_mode", "_build_environment", b"_build_environment", "_deployment_strategy", b"_deployment_strategy", "_env_id", b"_env_id", "_environment_name", b"_environment_name", "_fetch_openapi", b"_fetch_openapi", "_health_check_config", b"_health_check_config", "_health_check_path", b"_health_check_path", "_machine_requirements", b"_machine_requirements", "_max_concurrency", b"_max_concurrency", "_metadata", b"_metadata", "_private_logs", b"_private_logs", "_retry_config", b"_retry_config", "_run_on_main_thread", b"_run_on_main_thread", "_scale", b"_scale", "_secrets", b"_secrets", "_setup_func", b"_setup_func", "_source_code", b"_source_code", "_termination_grace_period_seconds", b"_termination_grace_period_seconds", "application_name", b"application_name", "auth_mode", b"auth_mode", "build_environment", b"build_environment", "callable", b"callable", "deployment_strategy", b"deployment_strategy", "entrypoint", b"entrypoint", "env_id", b"env_id", "environment_name", b"environment_name", "fetch_openapi", b"fetch_openapi", "function", b"function", "health_check_config", b"health_check_config", "health_check_path", b"health_check_path", "machine_requirements", b"machine_requirements", "max_concurrency", b"max_concurrency", "metadata", b"metadata", "private_logs", b"private_logs", "retry_config", b"retry_config", "run_on_main_thread", b"run_on_main_thread", "scale", b"scale", "secrets", b"secrets", "setup_func", b"setup_func", "source_code", b"source_code", "termination_grace_period_seconds", b"termination_grace_period_seconds"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_application_name", b"_application_name", "_auth_mode", b"_auth_mode", "_build_environment", b"_build_environment", "_deployment_strategy", b"_deployment_strategy", "_env_id", b"_env_id", "_environment_name", b"_environment_name", "_fetch_openapi", b"_fetch_openapi", "_health_check_config", b"_health_check_config", "_health_check_path", b"_health_check_path", "_machine_requirements", b"_machine_requirements", "_max_concurrency", b"_max_concurrency", "_metadata", b"_metadata", "_private_logs", b"_private_logs", "_retry_config", b"_retry_config", "_run_on_main_thread", b"_run_on_main_thread", "_scale", b"_scale", "_secrets", b"_secrets", "_setup_func", b"_setup_func", "_source_code", b"_source_code", "_termination_grace_period_seconds", b"_termination_grace_period_seconds", "application_name", b"application_name", "auth_mode", b"auth_mode", "build_environment", b"build_environment", "callable", b"callable", "data_mounts", b"data_mounts", "deployment_strategy", b"deployment_strategy", "entrypoint", b"entrypoint", "env_id", b"env_id", "environment_name", b"environment_name", "environments", b"environments", "fetch_openapi", b"fetch_openapi", "files", b"files", "function", b"function", "health_check_config", b"health_check_config", "health_check_path", b"health_check_path", "machine_requirements", b"machine_requirements", "max_concurrency", b"max_concurrency", "metadata", b"metadata", "private_logs", b"private_logs", "retry_config", b"retry_config", "run_on_main_thread", b"run_on_main_thread", "scale", b"scale", "secrets", b"secrets", "setup_func", b"setup_func", "skip_retry_conditions", b"skip_retry_conditions", "source_code", b"source_code", "termination_grace_period_seconds", b"termination_grace_period_seconds"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_application_name", b"_application_name", "_attach_to_deployment", b"_attach_to_deployment", "_auth_mode", b"_auth_mode", "_build_environment", b"_build_environment", "_deployment_strategy", b"_deployment_strategy", "_env_id", b"_env_id", "_environment_name", b"_environment_name", "_fetch_openapi", b"_fetch_openapi", "_health_check_config", b"_health_check_config", "_health_check_path", b"_health_check_path", "_machine_requirements", b"_machine_requirements", "_max_concurrency", b"_max_concurrency", "_metadata", b"_metadata", "_private_logs", b"_private_logs", "_retry_config", b"_retry_config", "_run_on_main_thread", b"_run_on_main_thread", "_scale", b"_scale", "_secrets", b"_secrets", "_setup_func", b"_setup_func", "_source_code", b"_source_code", "_termination_grace_period_seconds", b"_termination_grace_period_seconds", "application_name", b"application_name", "attach_to_deployment", b"attach_to_deployment", "auth_mode", b"auth_mode", "build_environment", b"build_environment", "callable", b"callable", "deployment_strategy", b"deployment_strategy", "entrypoint", b"entrypoint", "env_id", b"env_id", "environment_name", b"environment_name", "fetch_openapi", b"fetch_openapi", "function", b"function", "health_check_config", b"health_check_config", "health_check_path", b"health_check_path", "machine_requirements", b"machine_requirements", "max_concurrency", b"max_concurrency", "metadata", b"metadata", "private_logs", b"private_logs", "retry_config", b"retry_config", "run_on_main_thread", b"run_on_main_thread", "scale", b"scale", "secrets", b"secrets", "setup_func", b"setup_func", "source_code", b"source_code", "termination_grace_period_seconds", b"termination_grace_period_seconds"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_application_name", b"_application_name", "_attach_to_deployment", b"_attach_to_deployment", "_auth_mode", b"_auth_mode", "_build_environment", b"_build_environment", "_deployment_strategy", b"_deployment_strategy", "_env_id", b"_env_id", "_environment_name", b"_environment_name", "_fetch_openapi", b"_fetch_openapi", "_health_check_config", b"_health_check_config", "_health_check_path", b"_health_check_path", "_machine_requirements", b"_machine_requirements", "_max_concurrency", b"_max_concurrency", "_metadata", b"_metadata", "_private_logs", b"_private_logs", "_retry_config", b"_retry_config", "_run_on_main_thread", b"_run_on_main_thread", "_scale", b"_scale", "_secrets", b"_secrets", "_setup_func", b"_setup_func", "_source_code", b"_source_code", "_termination_grace_period_seconds", b"_termination_grace_period_seconds", "application_name", b"application_name", "attach_to_deployment", b"attach_to_deployment", "auth_mode", b"auth_mode", "build_environment", b"build_environment", "callable", b"callable", "data_mounts", b"data_mounts", "deployment_strategy", b"deployment_strategy", "entrypoint", b"entrypoint", "env_id", b"env_id", "environment_name", b"environment_name", "environments", b"environments", "fetch_openapi", b"fetch_openapi", "files", b"files", "function", b"function", "health_check_config", b"health_check_config", "health_check_path", b"health_check_path", "machine_requirements", b"machine_requirements", "max_concurrency", b"max_concurrency", "metadata", b"metadata", "private_logs", b"private_logs", "retry_config", b"retry_config", "run_on_main_thread", b"run_on_main_thread", "scale", b"scale", "secrets", b"secrets", "setup_func", b"setup_func", "skip_retry_conditions", b"skip_retry_conditions", "source_code", b"source_code", "termination_grace_period_seconds", b"termination_grace_period_seconds"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_application_name", b"_application_name"]) -> typing_extensions.Literal["application_name"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_attach_to_deployment", b"_attach_to_deployment"]) -> typing_extensions.Literal["attach_to_deployment"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_auth_mode", b"_auth_mode"]) -> typing_extensions.Literal["auth_mode"] | None: ...
     @typing.overload

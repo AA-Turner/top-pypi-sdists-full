@@ -7,6 +7,7 @@
 This module provides implementations of classes with which users may interact in the course of
 writing tests that exercise ControlHub functionality.
 """
+
 # fmt: off
 import collections
 import copy
@@ -3306,6 +3307,7 @@ class Pipeline(BaseModel):
         self._builder = builder
 
         self._parameters = None
+        self._loading_data = False  # Flag to prevent recursion during _load_data()
 
     @property
     def _pipeline_definition(self):
@@ -3411,12 +3413,20 @@ class Pipeline(BaseModel):
         self._pipeline_definition_internal = pipeline_definition
 
     def _load_data(self):
-        data = self._control_hub.api_client.get_pipeline_commit(self.commit_id).response.json()
-        self._data_internal['libraryDefinitions'] = data['libraryDefinitions']
-        self._data_internal['pipelineDefinition'] = data['pipelineDefinition']
-        self._data_internal['currentRules'] = data['currentRules']
-        self._pipeline_definition_internal = json.loads(data['pipelineDefinition'])
-        self._rules_definition = json.loads(data['currentRules']['rulesDefinition'])
+        # Check if we're already loading data to prevent recursion
+        if self._loading_data:
+            return
+
+        self._loading_data = True  # Set flag to prevent recursion
+        try:
+            data = self._control_hub.api_client.get_pipeline_commit(self.commit_id).response.json()
+            self._data_internal['libraryDefinitions'] = data['libraryDefinitions']
+            self._data_internal['pipelineDefinition'] = data['pipelineDefinition']
+            self._data_internal['currentRules'] = data['currentRules']
+            self._pipeline_definition_internal = json.loads(data['pipelineDefinition'])
+            self._rules_definition = json.loads(data['currentRules']['rulesDefinition'])
+        finally:
+            self._loading_data = False  # Always reset flag, even if an exception occurs
 
     @property
     def commits(self):

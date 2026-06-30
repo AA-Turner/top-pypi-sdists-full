@@ -84,6 +84,17 @@ SCHEMAS = [
         },
     },
     {
+        "name": "ViewImage",
+        "description": "Look at an image file with your vision — use this when you need to SEE a screenshot, mockup, diagram, photo, or rendered output (.png/.jpg/.jpeg/.gif/.webp/.bmp). The image is shown to you so you can describe it, read text from it, or debug it. (Reading an image with the Read tool gives binary garbage; use ViewImage instead.)",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Path to the image file"},
+            },
+            "required": ["path"],
+        },
+    },
+    {
         "name": "Write",
         "description": "Write content to a file, creating parent directories as needed.",
         "input_schema": {
@@ -474,8 +485,39 @@ def _file_index(lines: list[str], fp: str) -> str:
     return f"{head}\nKey locations ({len(anchors)}):\n{body}"
 
 
+_IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")
+_MAX_VIEW_IMAGE_BYTES = 20_000_000
+
+
+def tool_viewimage(params: dict, config: dict) -> str:
+    """Validate an image path and return a result that names it; the API boundary
+    (providers.messages_to_openai) attaches the actual image to THIS tool result
+    so the vision model sees it. Returns a plain error string on any problem
+    (never an attachable path) so a bad call can't try to attach nothing."""
+    raw = (params.get("path") or params.get("file_path") or "").strip()
+    if not raw:
+        return "Error: ViewImage needs a `path` to an image file."
+    fp = _resolve_path(raw, config)
+    if os.path.splitext(fp)[1].lower() not in _IMAGE_EXTS:
+        return (f"Error: {raw} is not a supported image. ViewImage handles "
+                f"{', '.join(_IMAGE_EXTS)}.")
+    if not os.path.isfile(fp):
+        return f"Error: no image file at {raw} (resolved to {fp})."
+    size = os.path.getsize(fp)
+    if size > _MAX_VIEW_IMAGE_BYTES:
+        return f"Error: {raw} is {size // 1_000_000}MB — too large to view (limit 20MB)."
+    kind = os.path.splitext(fp)[1].lstrip(".").upper()
+    # The absolute path in this text is what the API boundary attaches.
+    return (f"Loaded image {fp} ({kind}, {size // 1024 or 1}KB) — it is now visible "
+            "to you. Describe it, read any text in it, or use it to answer the task.")
+
+
 def tool_read(params: dict, config: dict) -> str:
     fp = _resolve_path(params["file_path"], config)
+    # Reading an image as text yields binary garbage — point at the vision tool.
+    if os.path.splitext(fp)[1].lower() in _IMAGE_EXTS and os.path.isfile(fp):
+        return (f"{params['file_path']} is an image — Read would return binary "
+                "garbage. Use the ViewImage tool to actually SEE it.")
     limit = params.get("limit")  # None = caller didn't specify a window
     offset = params.get("offset", 0)
     try:
@@ -1010,22 +1052,41 @@ def tool_todo(params: dict, config: dict) -> str:
 # Tools a sub-agent may use. Excludes Write/Edit/todo (no silent mutations the
 # parent can't see) and `task` itself (no recursion). Bash is included for real
 # exploration (ls/cat/grep/find/git log) and is bounded by the same bash_safety.
-SUBAGENT_TOOLS = ("Read", "Glob", "Grep", "Bash")
+SUBAGENT_TOOLS = ("Read", "ViewImage", "Glob", "Grep", "Bash")
 
 _SUBAGENT_SYSTEM = (
     "You are a focused exploration sub-agent inside Drydock. You have read-only "
     "tools: Read, Glob, Grep, and Bash (use Bash only to INSPECT — ls, cat, "
     "grep, find, git log — never to modify files). Investigate the task you are "
     "given, then STOP and reply with a concise, factual summary of what you "
-    "found: concrete file:line references and the key code, not narration. Do "
-    "NOT try to edit or create files — the main agent acts on your findings."
+    "found: concrete file:line references and only the few key code snippets that "
+    "matter, not narration and not whole files. Aim for under ~250 words — the "
+    "main agent only gets this summary (not your tool output), so distill, don't "
+    "dump. Do NOT try to edit or create files — the main agent acts on your findings."
 )
+
+
+# A sub-agent's whole job is to keep its investigation OUT of the main agent's
+# context and hand back only a partition. The system prompt asks for a concise
+# summary, but a runaway model could still return a wall of text — so cap what
+# crosses back into the parent's window. ~4000 chars ≈ ~1000 tokens.
+_SUBAGENT_SUMMARY_CAP = 4000
+
+
+def _cap_summary(text: str) -> str:
+    if len(text) <= _SUBAGENT_SUMMARY_CAP:
+        return text
+    head = text[:_SUBAGENT_SUMMARY_CAP].rsplit("\n", 1)[0] or text[:_SUBAGENT_SUMMARY_CAP]
+    dropped = len(text) - len(head)
+    return (head + f"\n[… sub-agent summary truncated, {dropped} chars dropped to keep it out "
+            "of the main context. Ask a narrower follow-up sub-agent task if you need more.]")
 
 
 def _run_subagent(prompt: str, config: dict) -> str:
     """Run one read-only sub-agent to completion and return its final summary.
     Shared by `task` (one) and `Dispatch` (many in parallel). Hard-capped; never
-    raises (a sub-agent must not crash the parent turn)."""
+    raises (a sub-agent must not crash the parent turn). The returned summary is
+    size-capped (_cap_summary) so a sub-agent can never bloat the main context."""
     from drydock.agent import run as agent_run, AgentState, TurnDone
 
     sub_state = AgentState()
@@ -1048,7 +1109,7 @@ def _run_subagent(prompt: str, config: dict) -> str:
         return f"[sub-agent error: {e}]"
     for msg in reversed(sub_state.messages):
         if msg.get("role") == "assistant" and (msg.get("content") or "").strip():
-            return msg["content"].strip()
+            return _cap_summary(msg["content"].strip())
     return f"[sub-agent finished {steps} step(s) with no summary]"
 
 
@@ -1409,7 +1470,8 @@ def register_all():
     for schema in SCHEMAS:
         name = schema["name"]
         func = {
-            "Read": tool_read, "Write": tool_write, "Edit": tool_edit,
+            "Read": tool_read, "ViewImage": tool_viewimage,
+            "Write": tool_write, "Edit": tool_edit,
             "Bash": tool_bash, "Glob": tool_glob, "Grep": tool_grep,
             "todo": tool_todo, "task": tool_task, "Dispatch": tool_dispatch,
             "Knowledge": tool_knowledge,
@@ -1422,8 +1484,8 @@ def register_all():
         # Read-only w.r.t. the parent's files (GitStatus/Diff/Log inspect only;
         # GitCommit + GraphAdd write).
         read_only = name in (
-            "Read", "Glob", "Grep", "task", "Dispatch", "Knowledge", "GraphQuery",
-            "StigRules", "StigRule",
+            "Read", "ViewImage", "Glob", "Grep", "task", "Dispatch", "Knowledge",
+            "GraphQuery", "StigRules", "StigRule",
             "WebSearch", "WebFetch", "GitStatus", "GitDiff", "GitLog",
         )
         register(ToolDef(name=name, schema=schema, func=func, read_only=read_only))

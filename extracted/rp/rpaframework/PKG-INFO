@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rpaframework
-Version: 32.0.0
+Version: 32.0.1
 Summary: A collection of tools and libraries for RPA
 Project-URL: homepage, https://rpaframework.org/
 Project-URL: documentation, https://rpaframework.org/
@@ -25,7 +25,7 @@ Requires-Dist: beautifulsoup4>=4.7.0
 Requires-Dist: chardet>=3.0.0
 Requires-Dist: click>=8.1.2
 Requires-Dist: comtypes>=1.1.11; sys_platform == 'win32'
-Requires-Dist: cryptography>=46.0.7
+Requires-Dist: cryptography>=48.0.1
 Requires-Dist: docutils>=0.21.2
 Requires-Dist: exchangelib>=5.1.0
 Requires-Dist: graphviz>=0.13.2
@@ -43,7 +43,7 @@ Requires-Dist: openpyxl>=3.0.9
 Requires-Dist: pendulum>=3.0.0
 Requires-Dist: pillow>=12.2.0
 Requires-Dist: psutil>=5.7.0; sys_platform == 'win32'
-Requires-Dist: pyjwt>=2.12.0
+Requires-Dist: pyjwt>=2.13.0
 Requires-Dist: pynput>=1.8.1
 Requires-Dist: pyotp>=2.6.0
 Requires-Dist: pyperclip>=1.8.0

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rebulk
-Version: 5.0.0
+Version: 6.0.0
 Summary: Rebulk - Define simple search patterns in bulk to perform advanced matching on any string.
 Keywords: re,regexp,regular expression,search,pattern,string,match
 Author: Rémi Alvergnat
@@ -581,6 +581,41 @@ datetime.date(2008, 1, 2)
 
 ```
 
+A single `key=` wires one match name and formatter. For a `children=True`
+pattern that exposes several named groups, pass a sequence of keys to the same
+`key=` parameter instead: each key's converter is registered under its name as a
+per-name formatter, and an explicit per-pattern `formatter` entry still
+overrides it.
+
+```python
+>>> season = Key("season", int)
+>>> episode = Key("episode", int)
+>>> matches = Rebulk().regex(r'S(?P<season>\d+)E(?P<episode>\d+)',
+...                          key=[season, episode], children=True) \
+...                   .matches("Show.S03E07.mkv")
+>>> matches[season]
+3
+>>> matches[episode]
+7
+
+```
+
+To avoid repeating the same per-name formatters across many patterns, declare
+the keys once on the builder with `declare_keys`. Every pattern built afterwards
+inherits each key's converter as a per-name formatter for the matching group
+name; a pattern that defines its own formatter for that name still overrides it,
+so formatter variance across patterns is preserved.
+
+```python
+>>> rb = Rebulk().declare_keys(season, episode)
+>>> _ = rb.regex(r'S(?P<season>\d+)E(?P<episode>\d+)', children=True)   # inherits int, int
+>>> _ = rb.regex(r'(?P<season>\d+)x(?P<episode>\d+)', children=True)    # inherits int, int
+>>> matches = rb.matches("Show.S03E07.mkv")
+>>> matches[season], matches[episode]
+(3, 7)
+
+```
+
 You can also project the matches onto a typed dataclass with `to`. Each field
 is filled from matches sharing its name: a `list[...]` field collects all
 values, any other field takes the first, and unmatched fields fall back to
@@ -628,6 +663,82 @@ or `TypedDict` is rejected, as a flat match sequence has no record grouping.
 >>> digit = Key("digit", int)
 >>> Rebulk().regex(r'\d', key=digit).matches("1 2 3").to(list[int])
 [1, 2, 3]
+
+```
+
+Keys declared with `declare_keys` are carried on the resulting `Matches` (as
+`matches.declared_keys`) and used by `to` to close the typing loop: a model
+field whose type contradicts the declared `value_type` of a key with the same
+name raises `TypeError`, instead of silently building an ill-typed result. A
+`list[...]` field is checked against the declared *element* type, and fields
+with no matching declared key are left untouched.
+
+```python
+>>> @dataclass
+... class Wrong:
+...     season: str   # declared as int by the key above
+>>> Rebulk().declare_keys(season).regex(r'S(?P<season>\d+)', children=True) \
+...        .matches("S03").to(Wrong)
+Traceback (most recent call last):
+    ...
+TypeError: Wrong field 'season' typed <class 'str'> contradicts declared key 'season' of value_type <class 'int'>
+
+```
+
+The declared `value_type` only describes the *output*; the actual conversion is
+the per-pattern formatter, which `declare_keys` lets a pattern override. An
+opt-in contract check verifies the two agree: when enabled, `matches` asserts
+that every named match value is an instance of the declared key's `value_type`,
+raising `TypeError` on a mismatch (a `None` value, a `value=`-mapped literal that
+never went through the converter, are exempt). It is **off by default** (zero
+cost in production) — turn it on in development or CI to catch a formatter
+override that does not produce the declared type:
+
+```python
+>>> from rebulk import debug
+>>> debug.CHECK_DECLARED_KEYS = True   # or env REBULK_CHECK_DECLARED_KEYS=1
+>>> bad = Rebulk().declare_keys(season).regex(r'S(?P<season>\d+)', formatter={'season': str}, children=True)
+>>> bad.matches("S03")
+Traceback (most recent call last):
+    ...
+TypeError: match 'season' value '03' of type 'str' does not match declared key 'season' value_type <class 'int'>
+>>> debug.CHECK_DECLARED_KEYS = False
+
+```
+
+A declared key binds by *name*, so a typo or a name kept after its pattern was
+removed silently no-ops. `check_keys` guards against that: it returns the
+declared key names that no built pattern can produce (its `name`, regex group
+names, and declared `properties`, across the rebulk and its children). The full
+pattern set is considered regardless of `disabled`, so the result is
+deterministic — assert it in a test so a typo fails fast instead of doing
+nothing. A name produced only by a rule (e.g. `RenameMatch`) or dynamically by a
+functional pattern is not statically detectable; pass such names — or any other
+intentionally pattern-less key — to `allowed_unused` (a single name or an
+iterable).
+
+```python
+>>> rb = Rebulk().declare_keys(Key('season', int), Key('seson', int)) \
+...        .regex(r'S(?P<season>\d+)', children=True)
+>>> rb.check_keys()
+['seson']
+>>> rb.check_keys(allowed_unused=['seson'])
+[]
+
+```
+
+A functional pattern emits its match names dynamically, so they cannot be read
+off the pattern statically. Rather than allowlisting them, declare the names the
+callable emits via `properties` — a `{name: [values]}` mapping `check_keys`
+reads as the names that pattern can produce (the values are unused here). This
+keeps the key statically accounted for instead of silently exempted:
+
+```python
+>>> part = Key('part', int)
+>>> rb = Rebulk().declare_keys(part) \
+...        .functional(lambda string: None, properties={'part': [None]})
+>>> rb.check_keys()
+[]
 
 ```
 

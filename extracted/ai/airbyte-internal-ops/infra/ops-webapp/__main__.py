@@ -59,6 +59,10 @@ AIRBYTE_DOMAIN = "airbyte.io"
 
 OAUTH_CLIENT_SECRET_ID = "ops-webapp-oauth-client-secret"
 GOOGLE_OAUTH_CLIENT_SECRET_ID = "ops-webapp-google-oauth-client-secret"
+# The container image tag is a placeholder — the deploy-ops-webapp workflow
+# manages the actual image via `gcloud run services update --image=<sha-tag>`.
+# Pulumi ignores changes to the container image (see ignore_changes below)
+# to avoid overwriting the deploy workflow's SHA-tagged revision.
 CONTAINER_IMAGE = (
     f"{REGION}-docker.pkg.dev/{PROJECT}/{SERVICE_NAME}/{SERVICE_NAME}:latest"
 )
@@ -217,6 +221,7 @@ def define_cloud_run_service(
         opts=pulumi.ResourceOptions(
             delete_before_replace=False,
             depends_on=api_services,
+            ignore_changes=["template.containers[*].image"],
         ),
     )
 
@@ -292,6 +297,7 @@ def define_preview_cloud_run_service(
         opts=pulumi.ResourceOptions(
             delete_before_replace=False,
             depends_on=api_services,
+            ignore_changes=["template.containers[*].image"],
         ),
     )
 

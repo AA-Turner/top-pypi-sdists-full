@@ -1,7 +1,7 @@
 import numpy as np
 
-cpf_val = np.array([0.0, 1.0, 0.0, 0.53846157, 0.7307692], dtype=np.float32)
-cpf_val_fromzero = np.array([0.0, 1.0, 0.21153846, 0.53846157, 0.7307692], dtype=np.float32)
+cpf_val = np.array([0.0, 1.0, 0.0, 0.53921568, 0.7352941], dtype=np.float32)
+cpf_val_fromzero = np.array([0.0, 1.0, 0.2254902, 0.53921568, 0.7352941], dtype=np.float32)
 cpf_ens = np.array(
     [
         [299.3667, 299.97998, 276.91553, 298.83936, 296.2339],
@@ -58,6 +58,7 @@ cpf_ens = np.array(
     ],
     dtype=np.float32,
 )
+cpf_ens = cpf_ens[:, :, np.newaxis, np.newaxis]
 cpf_clim = np.array(
     [
         [298.3246, 292.73083, 272.6996, 296.6996, 290.91833],
@@ -164,8 +165,9 @@ cpf_clim = np.array(
     ],
     dtype=np.float32,
 )
+cpf_clim = cpf_clim[:, :, np.newaxis, np.newaxis]
 
-cpf_val2 = np.array([0.0, 0.94230774, 0.7307692], dtype=np.float32)
+cpf_val2 = np.array([0.0, 0.95098037, 0.7352941], dtype=np.float32)
 cpf_ens2 = np.array(
     [
         [7.62939453e-03, 2.47192383e00, 1.14059448e01],
@@ -222,6 +224,7 @@ cpf_ens2 = np.array(
     ],
     dtype=np.float32,
 )
+cpf_ens2 = cpf_ens2[:, :, np.newaxis, np.newaxis]
 cpf_clim2 = np.array(
     [
         [0.00000000e00, 0.00000000e00, 0.00000000e00],
@@ -328,8 +331,9 @@ cpf_clim2 = np.array(
     ],
     dtype=np.float32,
 )
+cpf_clim2 = cpf_clim2[:, :, np.newaxis, np.newaxis]
 
-cpf_val3 = np.array([0.9809273481, 0.1153846383, 0.9897592068, 0.5961538553, 1.0], dtype=np.float32)
+cpf_val3 = np.array([0.9901960492, 0.1274510026, 0.9934056401, 0.5980392098, 1.0], dtype=np.float32)
 cpf_ens3 = np.array(
     [
         [298.41162109, 297.77490234, 298.49560547, 284.96630859, 300.28857422],
@@ -386,6 +390,7 @@ cpf_ens3 = np.array(
     ],
     dtype=np.float32,
 )
+cpf_ens3 = cpf_ens3[:, :, np.newaxis, np.newaxis]
 cpf_clim3 = np.array(
     [
         [297.19958496, 294.48083496, 297.19958496, 279.07458496, 298.73083496],
@@ -492,3 +497,4 @@ cpf_clim3 = np.array(
     ],
     dtype=np.float32,
 )
+cpf_clim3 = cpf_clim3[:, :, np.newaxis, np.newaxis]

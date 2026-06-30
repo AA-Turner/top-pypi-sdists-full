@@ -7,7 +7,7 @@ import os
 import numpy as np
 from scipy.ndimage import zoom
 import matplotlib.pyplot as plt
-
+from scipy.io import loadmat
 
 class Focus(Experiment):
     """
@@ -56,13 +56,15 @@ class Focus(Experiment):
 
         return True, "Experiment is correctly initialized."
 
-    def generate_acoustic_fields(self, fieldDataPath=None, tempFieldName="Kwave", nameBlock=None, generation_type="envelope_squarred", show_log=False):
+    def generate_acoustic_fields(self, fieldDataPath=None, isGPU=None, GPUdevice=None, tempFieldName="Kwave", nameBlock=None, generation_type="envelope_squarred", show_log=False):
         """
         Generate a list of focused acoustic fields for each probe element.
         Uses trange to display a progress bar and manages memory.
 
         Parameters:
             fieldDataPath (str): Path to save generated fields.
+            isGPU (bool): Whether to use GPU for field generation. (Default is None, which uses CPU.)
+            GPUdevice (int): The GPU device to use for field generation. (Default is None, which uses the default GPU.)
             tempFieldName (str): Name for the temporary field files.
             nameBlock (str): Optional name for the h5 file format.
             generation_type (str): The type of field generation to perform.
@@ -95,14 +97,14 @@ class Focus(Experiment):
                 except Exception as e:
                     progress_bar.set_postfix_str(f"Error loading field -> Generating field - {field_name}")
                     focused_wave = FocusedWave(params=self.params, focal_line=x_k, medium=self.medium)
-                    focused_wave.generate_field(tempFieldName=tempFieldName, generation_type=generation_type, show_log=show_log)
+                    focused_wave.generate_field(isGPU=isGPU, GPUdevice=GPUdevice, tempFieldName=tempFieldName, generation_type=generation_type, show_log=show_log)
                     if not os.path.exists(pathField):
                         os.makedirs(os.path.dirname(pathField), exist_ok=True)
                         focused_wave.save_field(fieldDataPath)
             else:
                 progress_bar.set_postfix_str(f"Generating field - {field_name}")
                 focused_wave = FocusedWave(params=self.params, focal_line=x_k, medium=self.medium)
-                focused_wave.generate_field(tempFieldName=tempFieldName, generation_type=generation_type, show_log=show_log)
+                focused_wave.generate_field(isGPU=isGPU, GPUdevice=GPUdevice, tempFieldName=tempFieldName, generation_type=generation_type, show_log=show_log)
                 if pathField is not None:
                     os.makedirs(os.path.dirname(pathField), exist_ok=True)
                     focused_wave.save_field(fieldDataPath)
@@ -111,6 +113,29 @@ class Focus(Experiment):
             progress_bar.set_postfix_str("")
 
         self.AcousticFields = listAcousticFields
+
+    def load_experiment_data(self, file_path, withTumor=True):
+        self.expParams = {}
+        f = loadmat(file_path)
+        self.expParams['data_raw'] = np.array(f['raw']) if f.get('raw') is not None else None
+        self.expParams['Naverage'] = int(f['NTrig'][0,0]) if f.get('NTrig') is not None else None
+        self.expParams['Foc'] = int(f['Foc'][0,0]) if f.get('Foc') is not None else None
+        self.expParams['FreqSonde'] = int(f['NTrig'][0,0])*1e6 if f.get('NTrig') is not None else None
+        self.expParams['Nelement'] = int(f['NbElemts'][0,0]) if f.get('NbElemts') is not None else None
+        self.expParams['Nlines'] = int(f['Nlines'][0,0]) if f.get('Nlines') is not None else None
+        self.expParams['SampleRate'] = float(f['SampleRate'][0,0]) if f.get('SampleRate') is not None else None
+        self.expParams['Volt'] = float(f['Volt'][0,0]) if f.get('Volt') is not None else None
+        self.expParams['nbHemicycle'] = int(f['NbHemicycle'][0,0]) if f.get('NbHemicycle') is not None else None
+        self.expParams['prof'] = int(f['Prof'][0,0]) if f.get('Prof') is not None else None
+        if self.expParams['data_raw'] is None:
+            print("Warning: 'raw' dataset not found in the MAT file.")
+            print("Available variables:", list(f.keys()))
+        else:
+            self.expParams['data_raw'] = self.expParams['data_raw'].reshape(self.expParams['Naverage'], self.expParams['Nlines'], -1)
+            if withTumor:
+                self.AOsignal_withTumor = np.mean(self.expParams['data_raw'], axis=0).T
+            else:   
+                self.AOsignal_withoutTumor = np.mean(self.expParams['data_raw'], axis=0).T
 
     def recon_focus(self, withTumor=True, signals_AO=None):
         """

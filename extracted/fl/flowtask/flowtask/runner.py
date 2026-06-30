@@ -37,13 +37,8 @@ from .utils.stats import TaskMonitor
 from .parsers.argparser import ConfigParser
 from .exceptions import (
     TaskError,
-    TaskException,
     NotSupported,
-    TaskParseError,
-    ConfigError
 )
-from .tasks.task import Task
-from .tasks.command import Command
 
 
 def my_handler():
@@ -51,6 +46,62 @@ def my_handler():
     print("Stopping")
     for task in asyncio.all_tasks():
         task.cancel()
+
+
+def resolve_runner_route(
+    cli_executor: str | None,
+    no_worker: bool,
+    wait_for_result: bool,
+    default_executor: str | None,
+) -> tuple[str, str]:
+    """Decide the executor name and execution mode for a console task.
+
+    The Runner mirrors the scheduler's priority-driven router
+    (``flowtask/scheduler/functions.py``): here the *CLI flags* — not a
+    priority string — pick whether a task runs in-process or is handed to the
+    QWorker queue.  ``"local"`` is the router sentinel, NOT a force-in-process
+    selector.
+
+    Resolution (highest precedence first):
+
+    * ``cli_executor`` (``--executor=<name>``) → that executor, as-is
+      (``qworker``, ``docker``, ``k8s``, ``publish``, ``local``…).
+    * ``no_worker`` (``--no-worker``) → ``"local"`` (run in-process).
+    * otherwise → the QWorker, unless ``default_executor`` names a non-local
+      global backend (e.g. ``docker``/``k8s``), which is honoured instead.
+
+    Mode for the QWorker:
+
+    * default → ``"dispatch"`` (fire-and-forget, ``QClient.queue()``).
+    * ``wait_for_result`` (``--run``) → ``"run"`` (``QClient.run()``, waits).
+
+    Every non-QWorker executor (local/docker/k8s/…) always runs and waits, so
+    its mode is ``"run"``.
+
+    Args:
+        cli_executor: Value of the ``--executor`` flag, or ``None``.
+        no_worker: Whether ``--no-worker`` was passed.
+        wait_for_result: Whether ``--run`` was passed.
+        default_executor: The global ``DEFAULT_EXECUTOR`` conf value.
+
+    Returns:
+        A ``(executor_name, mode)`` tuple where ``mode`` is ``"run"`` or
+        ``"dispatch"``.
+    """
+    if cli_executor:
+        executor_name = cli_executor
+    elif no_worker:
+        executor_name = "local"
+    else:
+        global_default = default_executor or "local"
+        executor_name = "qworker" if global_default == "local" else global_default
+
+    if executor_name == "qworker":
+        mode = "run" if wait_for_result else "dispatch"
+    else:
+        mode = "run"
+
+    return executor_name, mode
 
 class TaskRunner:
     """
@@ -187,55 +238,56 @@ class TaskRunner:
             await self.stat.start()
         except Exception as err:
             raise TaskError(f"Task Runner: Error on TaskMonitor: {err}") from err
-        # create the task object:
-        if self.task_type == "command":
-            try:
-                self._task = Command(
-                    task_id=self.task_id,
-                    task=self._command,
-                    program=self._program,
-                    loop=self._loop,
-                    parser=self._argparser,
-                    **self._kwargs,
-                )
-            except Exception as err:
-                raise TaskException(f"{err!s}") from err
-        elif self.task_type == "task":
-            try:
-                self._task = Task(
-                    task_id=self.task_id,
-                    task=self._taskname,
-                    program=self._program,
-                    loop=self._loop,
-                    parser=self._argparser,
-                    storage=self._taskstorage,
-                    disable_notifications=self.no_notify,
-                    no_events=self.no_events,
-                    **self._kwargs,
-                )
-            except Exception as err:
-                raise TaskException(f"{err!s}") from err
-        # then, try to "start" the task:
+        # NOTE: do NOT instantiate or start a Task/Command here.  Since the
+        # executor-framework refactor (TASK-073), run() resolves an executor
+        # and that executor owns the entire task lifecycle (it builds its own
+        # Task and calls start()+run()).  Creating + start()ing a Task here as
+        # well caused the task to be parsed/started twice — duplicate
+        # "Starting Task" events, a duplicate local execution alongside the
+        # intended executor, and a leaked TaskMonitor sampler.  start() is now
+        # only responsible for resolving the task type and the monitor; run()
+        # performs the execution.
         logging.debug(
-            f"::: FlowTask: Running {self.task_type}: {self._task!r} with id: {self.task_id}"
+            f"::: FlowTask: Prepared {self.task_type}: {self._taskname} with id: {self.task_id}"
         )
-        try:
-            self._task.setStat(self.stat)
-            await self._task.start()
-        except (ConfigError, TaskParseError, TaskError):
-            raise
-        except Exception as err:
-            logging.error(err)
-            raise TaskException(f"{err!s}") from err
         return True
 
     async def run(self):
-        from flowtask.executors.resolver import resolve_executor, determine_execution_mode
+        from flowtask.executors.resolver import resolve_executor
+        from flowtask.conf import DEFAULT_EXECUTOR
         try:
-            # Build a minimal task definition for the resolver
-            task_def = {"executor": getattr(self._options, "executor", None) or "default"}
+            # ── Flag-driven executor router ──────────────────────────────────
+            # The Runner mirrors the scheduler's priority-driven router
+            # (flowtask/scheduler/functions.py): here the *CLI flags* — not a
+            # priority string — decide whether a console task runs in-process
+            # or is handed to the QWorker queue.  "local" is the router
+            # sentinel, NOT a force-in-process flag.
+            #
+            #   --no-worker            → local    (run in-process, wait)
+            #   --executor=<name>      → <name>   (explicit override: qworker,
+            #                                       docker, k8s, publish, local…)
+            #   (no flag)              → qworker  (default dispatch)
+            #
+            # DEFAULT_EXECUTOR only switches the *global* backend (e.g. a
+            # deployment that runs everything on docker/k8s).  When it is the
+            # plain "local" sentinel, normal CLI dispatch routes to the worker;
+            # an explicit non-local DEFAULT_EXECUTOR is honoured as the default
+            # backend.
+            executor_name, mode = resolve_runner_route(
+                cli_executor=getattr(self._options, "executor", None),
+                no_worker=self.no_worker,
+                wait_for_result=getattr(self._options, "run", False),
+                default_executor=DEFAULT_EXECUTOR,
+            )
+
+            # Resolve via the executor name we just decided.  Setting it on the
+            # options object (instead of relying on the legacy --no-worker /
+            # --queued handling inside resolve_executor) makes the choice
+            # explicit and suppresses the deprecation warnings, exactly like
+            # the scheduler does.
+            self._options.executor = executor_name
+            task_def = {"executor": executor_name}
             executor = resolve_executor(task_def, self._options)
-            mode = determine_execution_mode(self._options)
             # The executor builds a fresh Task WITHOUT the CLI parser, so options
             # that the Task only reads from the parser (run_only, ignore,
             # override_attributes, variables, conditions) would be silently lost

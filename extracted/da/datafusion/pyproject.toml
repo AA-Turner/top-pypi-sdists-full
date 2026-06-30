@@ -40,10 +40,18 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: Free Threading :: 2 - Beta",
   "Programming Language :: Python",
   "Programming Language :: Rust",
 ]
 dependencies = [
+  # cloudpickle is invoked by the Rust-side PythonLogicalCodec /
+  # PythonPhysicalCodec via pyo3 to serialize Python UDF callables —
+  # scalar, aggregate, and window — into the proto wire format.
+  # Lazy-imported on the encode / decode hot paths (and cached after
+  # the first import), so users who never serialize a plan or
+  # expression incur no runtime cost beyond the install footprint.
+  "cloudpickle>=2.0",
   "pyarrow>=16.0.0;python_version<'3.14'",
   "pyarrow>=22.0.0;python_version>='3.14'",
   "typing-extensions;python_version<'3.13'",
@@ -111,6 +119,7 @@ extend-allowed-calls = ["datafusion.lit", "lit"]
   "ARG",
   "BLE001",
   "D",
+  "FBT003",
   "PD",
   "PLC0415",
   "PLR0913",
@@ -175,6 +184,7 @@ extend-allowed-calls = ["datafusion.lit", "lit"]
 [tool.codespell]
 skip = [
   "*/tests/test_functions.py",
+  "*/tests/test_spark_functions.py",
   "*/target",
   "./uv.lock",
   "uv.lock",
@@ -182,6 +192,16 @@ skip = [
 ]
 count = true
 ignore-words-list = ["IST", "ans"]
+
+[tool.uv]
+# Keep typing-extensions on a single version across all supported Pythons.
+# Adding the docs `myst-nb` stack pulled a newer typing-extensions only on
+# Python < 3.11, splitting it into two locked versions. Our own
+# `typing-extensions; python_full_version < '3.13'` dependency then spanned
+# that split, which uv records as an under-specified lock entry that older
+# uv versions (such as the one in CI) refuse to parse. Pinning to one
+# version removes the fork.
+constraint-dependencies = ["typing-extensions>=4.15.0"]
 
 [dependency-groups]
 dev = [
@@ -193,21 +213,27 @@ dev = [
   "numpy>=2.3.2;python_version>='3.14'",
   "pre-commit>=4.3.0",
   "pyarrow>=19.0.0",
-  "pygithub==2.5.0",
   "pytest-asyncio>=0.23.3",
+  "pytest-timeout>=2.3.1",
   "pytest>=7.4.4",
   "pyyaml>=6.0.3",
   "ruff>=0.15.1",
   "toml>=0.10.2",
 ]
+# Release tooling only. Kept out of `dev` because pygithub pulls in
+# cryptography, which ships no free-threaded wheel and fails to build
+# from sdist under free-threaded interpreters (PyO3 < 3.14 support).
+release = ["pygithub==2.5.0"]
 docs = [
-  "ipython>=8.12.3",
   "jinja2>=3.1.5",
-  "myst-parser>=3.0.1",
+  # myst-nb supersedes myst-parser: MyST markdown parsing plus executable
+  # `{code-cell}` notebook directives. Pulls myst-parser, ipykernel, and the
+  # jupyter execution stack transitively.
+  "myst-nb>=1.1",
   "pandas>=2.0.3",
-  "pickleshare>=0.7.5",
-  "pydata-sphinx-theme==0.8.0",
+  "pydata-sphinx-theme>=0.16,<0.17",
   "setuptools>=75.3.0",
   "sphinx-autoapi>=3.4.0",
+  "sphinx-reredirects>=0.1.5",
   "sphinx>=7.1.2",
 ]

@@ -66,6 +66,14 @@ from meshtastic.version import get_active_version
 
 logger = logging.getLogger(__name__)
 
+# Map dotted preference paths to the protobuf enum that defines their flags.
+# These fields are stored as uint32 bitmasks in the protobuf but have an
+# associated enum that names the individual flags.
+BITFIELD_ENUMS = {
+    "network.enabled_protocols": config_pb2.Config.NetworkConfig.ProtocolFlags,
+    "position.position_flags": config_pb2.Config.PositionConfig.PositionFlags,
+}
+
 def onReceive(packet, interface) -> None:
     """Callback invoked when a packet arrives"""
     args = mt_config.args
@@ -238,13 +246,28 @@ def setPref(config, comp_name, raw_val) -> bool:
         print("Warning: network.wifi_psk must be 8 or more characters.")
         return False
 
+    # Handle uint32 bitfields that have an associated enum of flag names.
+    bitfield_enum = None
+    if config_type.message_type is not None:
+        bitfield_path = f"{config_type.name}.{pref.name}"
+        bitfield_enum = BITFIELD_ENUMS.get(bitfield_path)
+    if bitfield_enum and isinstance(val, str):
+        # At this point fromStr() could not parse val as int/float/bool/bytes,
+        # so treat it as a comma-separated list of bitfield flag names.
+        flag_names = [name.strip() for name in val.split(",") if name.strip()]
+        try:
+            val = meshtastic.util.flags_from_list(bitfield_enum, flag_names)
+        except ValueError as e:
+            print(f"ERROR: {e}")
+            return False
+
     enumType = pref.enum_type
     # pylint: disable=C0123
     if enumType and type(val) == str:
         # We've failed so far to convert this string into an enum, try to find it by reflection
-        e = enumType.values_by_name.get(val)
-        if e:
-            val = e.number
+        ev = enumType.values_by_name.get(val)
+        if ev:
+            val = ev.number
         else:
             print(
                 f"{name[0]}.{uni_name} does not have an enum called {val}, so you can not set it."
@@ -551,6 +574,13 @@ def onConnected(interface):
             closeNow = True
             waitForAckNak = True
             interface.getNode(args.dest, False, **getNode_kwargs).resetNodeDb()
+
+        if args.add_contact:
+            closeNow = True
+            waitForAckNak = True
+            interface.getNode(args.dest, False, **getNode_kwargs).addContactURL(
+                args.add_contact
+            )
 
         if args.sendtext:
             closeNow = True
@@ -1074,6 +1104,20 @@ def onConnected(interface):
             else:
                 print("Install pyqrcode to view a QR code printed to terminal.")
 
+        if args.contact_qr:
+            closeNow = True
+            url = interface.getNode(args.dest, True, **getNode_kwargs).getContactURL(
+                args.contact_qr,
+                should_ignore=args.contact_ignore,
+                manually_verified=args.contact_verified,
+            )
+            print(f"Contact URL: {url}")
+            if pyqrcode is not None:
+                qr = pyqrcode.create(url)
+                print(qr.terminal())
+            else:
+                print("Install pyqrcode to view a QR code printed to terminal.")
+
         log_set: Optional = None  # type: ignore[annotation-unchecked]
         # we need to keep a reference to the logset so it doesn't get GCed early
 
@@ -1362,6 +1406,11 @@ def common():
             if not stripped_ham_name:
                 meshtastic.util.our_exit("ERROR: Ham radio callsign cannot be empty or contain only whitespace characters")
 
+        # Early validation for OTA firmware file before attempting device connection
+        if hasattr(args, 'ota_update') and args.ota_update is not None:
+            if not os.path.isfile(args.ota_update):
+                meshtastic.util.our_exit(f"Error: OTA firmware file not found: {args.ota_update}", 1)
+
         if have_powermon:
             create_power_meter()
 
@@ -1595,10 +1644,12 @@ def addConnectionArgs(parser: argparse.ArgumentParser) -> argparse.ArgumentParse
         "--host",
         "--tcp",
         "-t",
-        help="Connect to a device using TCP, optionally passing hostname or IP address to use. (defaults to '%(const)s')",
+        help=("Connect to a device using TCP, optionally passing hostname or IP address to use. (defaults to '%(const)s'). "
+              "A port number may be specified as well, e.g. meshtastic.local:4404. The default port is 4403."),
         nargs="?",
         default=None,
         const="localhost",
+        metavar="HOST[:PORT]",
     )
 
     group.add_argument(
@@ -1859,6 +1910,24 @@ def addChannelConfigArgs(parser: argparse.ArgumentParser) -> argparse.ArgumentPa
     )
 
     group.add_argument(
+        "--contact-qr",
+        help="Display a QR code for a node's contact data. "
+        "Use the node ID with a '!' or '0x' prefix or the node number. "
+        "Also shows the shareable contact URL.",
+        metavar="!xxxxxxxx",
+    )
+    group.add_argument(
+        "--contact-verified",
+        help="Set the IS_KEY_MANUALLY_VERIFIED bit in the generated contact URL",
+        action="store_true",
+    )
+    group.add_argument(
+        "--contact-ignore",
+        help="Mark this contact as blocked/ignored in the generated contact URL",
+        action="store_true",
+    )
+
+    group.add_argument(
         "--ch-enable",
         help="Enable the specified channel. Use --ch-add instead whenever possible.",
         action="store_true",
@@ -1910,7 +1979,8 @@ def addPositionConfigArgs(parser: argparse.ArgumentParser) -> argparse.ArgumentP
 
     group.add_argument(
         "--pos-fields",
-        help="Specify fields to send when sending a position. Use no argument for a list of valid values. "
+        help="Deprecated: use '--set position.position_flags FLAG1,FLAG2' instead. "
+        "Specify fields to send when sending a position. Use no argument for a list of valid values. "
         "Can pass multiple values as a space separated list like "
         "this: '--pos-fields ALTITUDE HEADING SPEED'",
         nargs="*",
@@ -2093,6 +2163,13 @@ def addRemoteAdminArgs(parser: argparse.ArgumentParser) -> argparse.ArgumentPars
         "--reset-nodedb",
         help="Tell the destination node to clear its list of nodes",
         action="store_true",
+    )
+
+    group.add_argument(
+        "--add-contact",
+        help="Add a contact (User) to the NodeDB from a shareable URL. "
+        "Example: https://meshtastic.org/v/#<base64>",
+        metavar="URL",
     )
 
     group.add_argument(

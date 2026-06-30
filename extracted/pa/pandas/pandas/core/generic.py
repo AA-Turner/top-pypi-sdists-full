@@ -600,11 +600,23 @@ class NDFrame(PandasObject, indexing.IndexingMixin):
         Used in :meth:`DataFrame.eval`.
         """
         from pandas.core.computation.parsing import clean_column_name
+        from pandas.core.series import Series
 
         if isinstance(self, ABCSeries):
             return {clean_column_name(self.name): self}
 
-        return {clean_column_name(k): v for k, v in self.items()}
+        dtypes = self.dtypes
+        return {
+            clean_column_name(k): Series(
+                v, copy=False, index=self.index, name=k, dtype=dtype
+            ).__finalize__(self)
+            for k, v, dtype in zip(
+                self.columns,
+                self._iter_column_arrays(),
+                dtypes,
+                strict=True,
+            )
+        }
 
     @final
     @property

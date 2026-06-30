@@ -30,28 +30,6 @@ class BinaryDistribution (setuptools.Distribution):
         return True
 
 
-def bdist_factory(incoming_plat_tag):
-    
-    class pypdfium_bdist (bdist_wheel):
-        
-        def finalize_options(self, *args, **kws):
-            bdist_wheel.finalize_options(self, *args, **kws)
-            # should be handled by the distclass already, but set it again to be on the safe side
-            self.root_is_pure = False
-        
-        def get_tag(self, *args, **kws):
-            plat_tag = incoming_plat_tag
-            if not plat_tag:  # sourcebuild
-                # In case of cross-compilation (or even just proper packaging), the caller needs to set the tag.
-                plat_tag = os.environ.get("CROSS_TAG")
-                # Otherwise, forward the host's tag as provided by bdist_wheel (wraps sysconfig.get_platform())
-                if not plat_tag:
-                    _py, _abi, plat_tag = bdist_wheel.get_tag(self, *args, **kws)
-            return "py3", "none", plat_tag
-    
-    return pypdfium_bdist
-
-
 def buildpy_factory(pl_name, modnames, datagen, helpers_info, package_data):
     
     # https://cibuildwheel.pypa.io/en/stable/faq/#actions-you-need-to-perform-before-building
@@ -72,6 +50,29 @@ def buildpy_factory(pl_name, modnames, datagen, helpers_info, package_data):
             buildpy_orig.run(self, *args, **kwargs)
     
     return pypdfium_buildpy
+
+
+def bdist_factory(pl_name, dll_path):
+    
+    class pypdfium_bdist (bdist_wheel):
+        
+        def finalize_options(self, *args, **kws):
+            bdist_wheel.finalize_options(self, *args, **kws)
+            # should be handled by the distclass already, but set it again to be on the safe side
+            self.root_is_pure = False
+        
+        def get_tag(self, *args, **kws):
+            if pl_name == ExtPlats.sourcebuild:
+                # In case of cross-compilation (or even just proper packaging), the caller needs to set the tag.
+                plat_tag = os.environ.get("CROSS_TAG")
+                # Otherwise, forward the host's tag as provided by bdist_wheel (wraps sysconfig.get_platform())
+                if not plat_tag:
+                    _py, _abi, plat_tag = bdist_wheel.get_tag(self, *args, **kws)
+            else:
+                plat_tag = get_wheel_tag(pl_name, dll_path)
+            return "py3", "none", plat_tag
+    
+    return pypdfium_bdist
 
 
 def _get_fixed_helpers_info(pl_name):
@@ -143,6 +144,8 @@ def run_setup(modnames, pl_name, datagen):
     elif modnames == [ModuleRaw]:
         kwargs["name"] += "_raw"
         kwargs["description"] += " (raw module)"
+        # FIXME Requires pre-generated version file. This is since 5.10, when datagen was deferred into build_py.
+        log(f"Warning: PYPDFIUM_MODULES=raw expects pre-generated version file at src/pypdfium2_raw/{VersionFN}. Callers must ensure this matches the version being built!")
         pdfium_fullver, _ = read_pdfium_info(ModuleDir_Raw)
         kwargs["version"] = str(pdfium_fullver)
     else:
@@ -168,13 +171,19 @@ def run_setup(modnames, pl_name, datagen):
     elif pl_name == ExtPlats.system:
         kwargs["exclude_package_data"] = {"pypdfium2_raw": LIBNAME_GLOBS}
     else:
+        
         if pl_name == ExtPlats.sourcebuild:
-            plat_tag = None
+            use_tarball_licenses = False
         else:  # pdfium-binaries
-            plat_tag = get_wheel_tag(pl_name, dll_path)
-        license_files.append("BUILD_LICENSES/**")
+            use_tarball_licenses = bool(int( os.getenv("USE_TARBALL_LICENSES", 0) ))
+        
+        if use_tarball_licenses:
+            license_files.append(f"data/{pl_name}/BUILD_LICENSES/**")
+        else:
+            license_files.append("BUILD_LICENSES/**")
+        
         kwargs["distclass"] = BinaryDistribution
-        kwargs["cmdclass"]["bdist_wheel"] = bdist_factory(plat_tag)
+        kwargs["cmdclass"]["bdist_wheel"] = bdist_factory(pl_name, dll_path)
     
     kwargs["cmdclass"]["build_py"] = buildpy_factory(pl_name, modnames, datagen, helpers_info, kwargs["package_data"])
     kwargs["license_files"] = license_files

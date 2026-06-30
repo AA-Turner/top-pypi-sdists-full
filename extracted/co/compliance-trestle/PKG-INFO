@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: compliance-trestle
-Version: 4.0.3
+Version: 4.1.0
 Summary: Tools to manage & autogenerate python objects representing the OSCAL layers/models
 Project-URL: Homepage, https://oscal-compass.github.io/compliance-trestle
 Project-URL: Documentation, https://oscal-compass.github.io/compliance-trestle
@@ -37,6 +37,7 @@ Requires-Dist: python-dotenv>=0.10.4
 Requires-Dist: python-frontmatter
 Requires-Dist: pywin32>=1.0; platform_system == 'Windows'
 Requires-Dist: requests>=2.32.2
+Requires-Dist: rfc8785>=0.1.4
 Requires-Dist: ruamel-yaml
 Provides-Extra: dev
 Requires-Dist: cairosvg; extra == 'dev'
@@ -213,7 +214,7 @@ If you would like to see the detailed LICENSE click [here](LICENSE).
 Consult [contributors](https://github.com/oscal-compass/compliance-trestle/graphs/contributors) for a list of authors and [maintainers](MAINTAINERS.md) for the core team.
 
 ```text
-# Copyright (c) 2024 The OSCAL Compass Authors. All rights reserved.
+# Copyright (c) 2026 The OSCAL Compass Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

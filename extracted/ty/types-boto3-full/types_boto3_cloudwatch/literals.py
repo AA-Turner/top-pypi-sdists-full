@@ -42,6 +42,7 @@ __all__ = (
     "ListAlarmMuteRulesPaginatorName",
     "ListDashboardsPaginatorName",
     "ListMetricsPaginatorName",
+    "LogAlarmExistsWaiterName",
     "MetricStreamOutputFormatType",
     "OTelEnrichmentStatusType",
     "PaginatorName",
@@ -62,7 +63,7 @@ ActionsSuppressedByType = Literal["Alarm", "ExtensionPeriod", "WaitPeriod"]
 AlarmExistsWaiterName = Literal["alarm_exists"]
 AlarmMuteRuleExistsWaiterName = Literal["alarm_mute_rule_exists"]
 AlarmMuteRuleStatusType = Literal["ACTIVE", "EXPIRED", "SCHEDULED"]
-AlarmTypeType = Literal["CompositeAlarm", "MetricAlarm"]
+AlarmTypeType = Literal["CompositeAlarm", "LogAlarm", "MetricAlarm"]
 AnomalyDetectorStateValueType = Literal["PENDING_TRAINING", "TRAINED", "TRAINED_INSUFFICIENT_DATA"]
 AnomalyDetectorTypeType = Literal["METRIC_MATH", "SINGLE_METRIC"]
 ComparisonOperatorType = Literal[
@@ -90,6 +91,7 @@ HistoryItemTypeType = Literal[
 ListAlarmMuteRulesPaginatorName = Literal["list_alarm_mute_rules"]
 ListDashboardsPaginatorName = Literal["list_dashboards"]
 ListMetricsPaginatorName = Literal["list_metrics"]
+LogAlarmExistsWaiterName = Literal["log_alarm_exists"]
 MetricStreamOutputFormatType = Literal["json", "opentelemetry0.7", "opentelemetry1.0"]
 OTelEnrichmentStatusType = Literal["Running", "Stopped"]
 RecentlyActiveType = Literal["PT3H"]
@@ -568,7 +570,9 @@ PaginatorName = Literal[
     "list_dashboards",
     "list_metrics",
 ]
-WaiterName = Literal["alarm_exists", "alarm_mute_rule_exists", "composite_alarm_exists"]
+WaiterName = Literal[
+    "alarm_exists", "alarm_mute_rule_exists", "composite_alarm_exists", "log_alarm_exists"
+]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 
 import os
 import numpy as np
-from tqdm import trange
+from tqdm import tqdm, trange
 from datetime import datetime
 import copy
 import warnings
@@ -112,6 +112,20 @@ class Experiment(ABC):
         self.medium.save_medium(folderPath, fileName)
 
     @abstractmethod
+    def load_experiment_data(self, file_path, withTumor=True):
+        """
+        Load experiment data from a mat file.
+        
+        Parameters:
+        - file_path (str): The path to the file containing the experiment data.
+        - withTumor (bool): Whether to load data with tumor or without tumor.
+        
+        Raises:
+            NotImplementedError: This method should be implemented by subclasses.
+        """
+        pass    
+    
+    @abstractmethod
     def generate_acoustic_fields(self, fieldDataPath, fieldParamPath, generation_type="envelope_squarred", show_log=True):
         """
         Generate the acoustic fields for simulation.
@@ -124,6 +138,17 @@ class Experiment(ABC):
             systemMatrix: A numpy array of the generated fields.
         """
         pass
+
+    def reshape_acoustic_fields(self,dx=None, dy=None, dz=None, Nx=None, Ny=None, Nz=None, factorX=None, factorY=None, factorZ=None, reshape_type='NxNyNz', isGPU=None, GPUdevice=None):
+        """
+        Reshape the acoustic fields by downsampling them by a given factor.
+        Args:
+            factor: Downsampling factor (tuple of 3 integers for Z, Y, X).
+            GPUdevice: GPU device to use for reshaping (if isGPU is True).
+            isGPU: Whether to use GPU for reshaping. If None, it will be determined based on configuration.
+        """
+        for field in tqdm(self.AcousticFields,  desc="Reshaping Acoustic Fields", unit="field"):
+            field.reshape_field(dx=dx, dy=dy, dz=dz, Nx=Nx, Ny=Ny, Nz=Nz, factorX=factorX, factorY=factorY, factorZ=factorZ, reshape_type=reshape_type, isGPU=isGPU, GPUdevice=GPUdevice)
 
     def generate_random_absorbers(self,N_min=0, N_max=5, min_radius_mm=0.5, max_radius_mm=5, min_amplitude=0, max_amplitude=1, seed=None):
         if seed is not None:

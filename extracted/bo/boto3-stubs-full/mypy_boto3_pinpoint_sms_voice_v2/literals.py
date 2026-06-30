@@ -92,6 +92,7 @@ __all__ = (
     "ProtectStatusType",
     "RcsAgentFilterNameType",
     "RcsAgentStatusType",
+    "RcsFallbackChannelType",
     "RegionName",
     "RegistrationAssociationBehaviorType",
     "RegistrationAssociationFilterNameType",
@@ -192,6 +193,15 @@ EventTypeType = Literal[
     "MEDIA_TTL_EXPIRED",
     "MEDIA_UNKNOWN",
     "MEDIA_UNREACHABLE",
+    "RCS_ALL",
+    "RCS_DELIVERED",
+    "RCS_FAILED",
+    "RCS_FALLEN_BACK_TO_SMS",
+    "RCS_PROTECT_BLOCKED",
+    "RCS_QUEUED",
+    "RCS_READ",
+    "RCS_SENT",
+    "RCS_TTL_EXPIRED",
     "TEXT_ALL",
     "TEXT_BLOCKED",
     "TEXT_CARRIER_BLOCKED",
@@ -320,6 +330,7 @@ RcsAgentFilterNameType = Literal[
     "two-way-enabled",
 ]
 RcsAgentStatusType = Literal["ACTIVE", "CREATED", "DELETED", "PARTIAL", "PENDING", "TESTING"]
+RcsFallbackChannelType = Literal["MMS", "SMS"]
 RegistrationAssociationBehaviorType = Literal[
     "ASSOCIATE_AFTER_COMPLETE", "ASSOCIATE_BEFORE_SUBMIT", "ASSOCIATE_ON_APPROVAL"
 ]
@@ -367,6 +378,7 @@ SenderIdFilterNameType = Literal[
 SpendLimitNameType = Literal[
     "MEDIA_MESSAGE_MONTHLY_SPEND_LIMIT",
     "NOTIFY_MESSAGE_MONTHLY_SPEND_LIMIT",
+    "RCS_MESSAGE_MONTHLY_SPEND_LIMIT",
     "TEXT_MESSAGE_MONTHLY_SPEND_LIMIT",
     "VOICE_MESSAGE_MONTHLY_SPEND_LIMIT",
 ]

@@ -106,25 +106,35 @@ def _create_resources_rc(build_ver):
     content = content.replace("$VERSION", str(build_ver))
     output_path.write_text(content)
 
-def patch_pdfium(build_ver, target_cpu, target_os, patch_clang):
+def patch_pdfium(build_ver, target_cpu, target_os, patch_clang, prefer_gcc):
     # TODO in the future, we might want to extract separate DLLs for the imaging libraries (e.g. libjpeg, libpng)
+    
     shared_autopatches(PDFiumDir)
+    
     if sys.platform.startswith("win32"):
         git_apply_patch(PatchDir/"win"/"use_resources_rc.patch", PDFiumDir)
         git_apply_patch(PatchDir/"win"/"build.patch", PDFiumDir_build)
         _create_resources_rc(build_ver)
         if Host._raw_machine == "arm64":
             git_apply_patch(PatchDir/"win"/"arm64_native.patch", PDFiumDir_build)
-    if sys.platform.startswith("linux") and target_cpu == "ppc64":
-        git_apply_patch(PatchDir/"ppc64_cross.patch", PDFiumDir)
+    
     if target_os == "android":
         # without this patch, we end up with a tiny binary that has no symbols
         git_apply_patch(PatchDir/"android_cross.patch", PDFiumDir_build)
-    if PORTABLE_MODE:
-        git_apply_patch(PatchDir/"gcc_toolchain.patch", PDFiumDir_build)
-        if patch_clang:
-            git_apply_patch(PatchDir/"clang_22_compat.patch", PDFiumDir_build)
+    
+    if sys.platform.startswith("linux"):
+        is_mips = target_cpu in ("mips64el", "mipsel")
+        is_mips_clang = is_mips and not prefer_gcc
+        if target_cpu == "ppc64":
+            git_apply_patch(PatchDir/"ppc64_cross.patch", PDFiumDir)
+        if is_mips_clang:
+            git_apply_patch(PatchDir/"mips_cross.patch", PDFiumDir_build)
+        if (PORTABLE_MODE and patch_clang) or is_mips_clang:
             git_apply_patch(PatchDir/"no_libclang_rt.patch", PDFiumDir_build)
+        if PORTABLE_MODE and patch_clang:
+            git_apply_patch(PatchDir/"clang_22_compat.patch", PDFiumDir_build)
+        if PORTABLE_MODE or prefer_gcc:
+            git_apply_patch(PatchDir/"gcc_toolchain.patch", PDFiumDir_build)
 
 
 def _get_tool(name):
@@ -157,7 +167,6 @@ def handle_portable_mode(config, use_sysroot, clang_path):
         # TODO in install_buildtools(), check system GN version and install gn-dist if it is too old
         install_buildtools()
     
-    config["clang_use_chrome_plugins"] = False
     if clang_path:
         clang_ver = get_clang_version(clang_path)
         patch_clang = clang_ver < 23
@@ -165,6 +174,7 @@ def handle_portable_mode(config, use_sysroot, clang_path):
             "is_clang": True,  # default
             "clang_base_path": str(clang_path),  # without trailing slash
             "clang_version": clang_ver,
+            "clang_use_chrome_plugins": False,
         })
     else:
         config.update({
@@ -194,23 +204,22 @@ def handle_windows(win_sdk_dir):
 
 def handle_cross(config, target_cpu, target_os):
     
-    # TODO compare target_cpu against host to determine whether it's actually cross
+    # TODO compare target_cpu (and target_os) against host to determine whether it's actually cross
     # this is a bit difficult currently as we don't have a direct mapping between google and python-style CPU names
     is_cross = False
     
     if target_cpu:
         config["target_cpu"] = target_cpu
         is_cross = True  # assumed
-        if sys.platform.startswith("linux"):
-            if not target_os:
-                sysroot_cpu = target_cpu
-                if target_cpu == "ppc64":
-                    sysroot_cpu = "ppc64el"
-                sysroot_script = PDFiumDir/"build"/"linux"/"sysroot_scripts"/"install-sysroot.py"
-                run_cmd([sys.executable, str(sysroot_script), "--arch", sysroot_cpu], cwd=PDFiumDir)
+        if sys.platform.startswith("linux") and not target_os:
+            sysroot_cpu = target_cpu
+            # //build/config/sysroot.gni does not handle ppc64 yet
             if target_cpu == "ppc64":
-                config["sysroot"] = "//build/linux/debian_bullseye_ppc64el-sysroot"
+                sysroot_cpu = "ppc64el"
+                config["sysroot"] = f"//build/linux/debian_bullseye_{sysroot_cpu}-sysroot"
                 config["use_sysroot"] = True
+            sysroot_script = PDFiumDir/"build"/"linux"/"sysroot_scripts"/"install-sysroot.py"
+            run_cmd([sys.executable, str(sysroot_script), "--arch", sysroot_cpu], cwd=PDFiumDir)
     
     if target_os:
         config["target_os"] = target_os
@@ -228,6 +237,7 @@ def main(
         win_sdk_dir  = None,
         target_cpu   = None,
         target_os    = None,
+        prefer_gcc   = None,
         use_sysroot  = None,
         clang_path   = None,
     ):
@@ -243,13 +253,15 @@ def main(
     
     v_full, pdfium_rev, chromium_rev = handle_sbuild_vers(build_ver)
     config = DefaultConfig.copy()
+    if prefer_gcc:
+        config["is_clang"] = False
     patch_clang = handle_portable_mode(config, use_sysroot, clang_path)
     handle_windows(win_sdk_dir)
     
     orig_path = dl_depottools(do_update)
     did_pdfium_sync = dl_pdfium(do_update, pdfium_rev, target_os, orig_path)
     if did_pdfium_sync:
-        patch_pdfium(build_ver, target_cpu, target_os, patch_clang)
+        patch_pdfium(build_ver, target_cpu, target_os, patch_clang, prefer_gcc)
     
     is_cross = handle_cross(config, target_cpu, target_os)
     config_str = serialize_gn_config(config)
@@ -294,9 +306,14 @@ def parse_args(argv):
         help = "The target operating system, similar to --target-cpu. This is intended for compiling the mobile platforms (e.g. Android) from a desktop device. Note, this script has some issues with rebuilds - you may need to pass --update so that new patches can be applied."
     )
     parser.add_argument(
+        "--prefer-gcc",
+        action = "store_true",
+        help = "Attempt to use GCC for (cross-)compilation. This will set is_clang = false but leave use_custom_libcxx unchanged. This may or may not work for you, as the vendored libc++ requires a very cutting edge compiler. This option is effectively ignored in PORTABLE_MODE, where GCC & system libc++ are default.",
+    )
+    parser.add_argument(
         "--use-sysroot",
         action = "store_true",
-        help = "(PORTABLE_MODE only) Attempt to use a sysroot, on behalf of packaging, assuming a sysroot is available for the platform in question and has been automatically downloaded by gclient. This may or may not work with GCC / system libcxx. If it does not, bring your own clang and pass --clang-path.",
+        help = "(PORTABLE_MODE only) Attempt to use a sysroot, on behalf of packaging, assuming a sysroot is available for the platform in question and has been automatically downloaded by gclient. Be careful, using a sysroot may or may not work with GCC / system libc++. If it does not, bring your own clang and pass --clang-path.",
     )
     parser.add_argument(
         "--clang-path",

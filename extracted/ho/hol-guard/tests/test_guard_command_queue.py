@@ -359,6 +359,87 @@ def test_local_request_snapshot_items_continues_when_request_claim_is_invalid(tm
     assert snapshot[0]["claim"] is None
 
 
+def test_local_request_snapshot_strips_command_when_redaction_is_full(tmp_path: Path) -> None:
+    class RequestStore(FakeStore):
+        def list_approval_requests(
+            self,
+            *,
+            status: str | None = "pending",
+            harness: str | None = None,
+            limit: int | None = 50,
+            cursor: str | None = None,
+            search: str | None = None,
+        ) -> list[dict[str, object]]:
+            del harness, limit, cursor, search
+            if status == "pending":
+                row = _approval_request_row("req-full-redaction")
+                row["raw_command_text"] = "sed -n '1,80p' .env"
+                row["rawCommandText"] = "cat PRIVATE_KEY_FILE"
+                row["commandText"] = "cat CREDENTIAL_FILE"
+                row["raw_target_paths"] = ["secret-config.txt"]
+                row["request_payload_json"] = {"command": "cat secret-config.txt"}
+                return [row]
+            return []
+
+    store = RequestStore(tmp_path / "guard-home")
+    store.payloads["cloud_receipt_redaction_level"] = {"level": "full"}
+
+    snapshot = command_executors._local_request_snapshot_items(store)
+
+    payload = snapshot[0]["requestPayload"]
+    assert isinstance(payload, dict)
+    envelope = payload["action_envelope_json"]
+    assert isinstance(envelope, dict)
+    assert payload["raw_command_text"] is None
+    assert payload["command_text"] is None
+    assert "rawCommandText" not in payload
+    assert "commandText" not in payload
+    assert "raw_target_paths" not in payload
+    assert "request_payload_json" not in payload
+    assert "command" not in envelope
+
+
+def test_local_request_snapshot_syncs_scrubbed_command_when_redaction_is_partial(tmp_path: Path) -> None:
+    class RequestStore(FakeStore):
+        def list_approval_requests(
+            self,
+            *,
+            status: str | None = "pending",
+            harness: str | None = None,
+            limit: int | None = 50,
+            cursor: str | None = None,
+            search: str | None = None,
+        ) -> list[dict[str, object]]:
+            del harness, limit, cursor, search
+            if status == "pending":
+                row = _approval_request_row("req-partial-redaction")
+                row["rawCommandText"] = "grep sk-test-token src/config.ts"
+                row["action_envelope_json"] = {
+                    "action_type": "shell_command",
+                    "command": "cat PRIVATE_KEY_FILE",
+                    "tool_name": "grep",
+                    "target_paths": ["src/config.ts"],
+                }
+                return [row]
+            return []
+
+    store = RequestStore(tmp_path / "guard-home")
+    store.payloads["cloud_receipt_redaction_level"] = {"level": "partial"}
+
+    snapshot = command_executors._local_request_snapshot_items(store)
+
+    payload = snapshot[0]["requestPayload"]
+    assert isinstance(payload, dict)
+    envelope = payload["action_envelope_json"]
+    assert isinstance(envelope, dict)
+    assert payload["raw_command_text"] == "grep sk-***** src/config.ts"
+    assert payload["command_text"] == "grep sk-***** src/config.ts"
+    assert "rawCommandText" not in payload
+    assert "commandText" not in payload
+    assert envelope["command"] == "grep sk-***** src/config.ts"
+    assert "target_paths" not in envelope
+
+
 def test_executor_rejects_remote_approval_without_trusted_keyring(tmp_path: Path) -> None:
     class RequestStore(FakeStore):
         def __init__(self, guard_home: Path) -> None:
@@ -1461,6 +1542,115 @@ def test_executor_resolves_local_approval_request(tmp_path: Path) -> None:
         }
     ]
 
+
+def test_executor_blocks_local_approval_request(tmp_path: Path) -> None:
+    class ApprovalStore(FakeStore):
+        def __init__(self, guard_home: Path) -> None:
+            super().__init__(guard_home)
+            self.resolved: list[dict[str, object]] = []
+            self.request_row = _approval_request_row("request-block-1")
+
+        def get_approval_request(self, request_id: str) -> dict[str, object] | None:
+            return self.request_row if request_id == "request-block-1" else None
+
+        def resolve_request_with_signed_remote_result(
+            self,
+            request_id: str,
+            *,
+            resolution_action: str,
+            resolution_scope: str,
+            reason: str | None,
+            resolved_at: str,
+        ) -> dict[str, object]:
+            self.resolved.append(
+                {
+                    "request_id": request_id,
+                    "resolution_action": resolution_action,
+                    "resolution_scope": resolution_scope,
+                    "reason": reason,
+                    "resolved_at": resolved_at,
+                }
+            )
+            return {"resolved": True, "resolved_request": {"request_id": request_id}}
+
+    store = ApprovalStore(tmp_path / "guard-home")
+    remote_approval = _signed_remote_approval(
+        store,
+        store.request_row,
+        decision="block",
+        receipt_id="cloud-receipt-block",
+    )
+    result = command_executors.execute_guard_command_job(
+        {
+            "operation": "guard.approval.resolve",
+            "payload": {
+                "localRequestId": "request-block-1",
+                "action": "block",
+                "remoteApproval": remote_approval,
+                "scope": "artifact",
+            },
+        },
+        context=_context(tmp_path),
+        store=store,  # type: ignore[arg-type]
+        now=lambda: "2026-06-13T00:00:00+00:00",
+    )
+
+    assert result["data"]["status"] == "completed"
+    assert store.resolved == [
+        {
+            "request_id": "request-block-1",
+            "resolution_action": "block",
+            "resolution_scope": "artifact",
+            "reason": "Guard Cloud signed remote approval",
+            "resolved_at": "2026-06-13T00:00:00+00:00",
+        }
+    ]
+
+
+def test_executor_ignores_stale_remote_approval_request_id(tmp_path: Path) -> None:
+    class StaleRequestStore(FakeStore):
+        def __init__(self, guard_home: Path) -> None:
+            super().__init__(guard_home)
+            self.present_request_row = _approval_request_row("request-present")
+            self.stale_request_row = _approval_request_row("request-stale")
+            self.claimed_receipts: list[str] = []
+
+        def get_approval_request(self, request_id: str) -> dict[str, object] | None:
+            return self.stale_request_row if request_id == "request-stale" else None
+
+        def claim_remote_once_receipt(
+            self,
+            receipt_id: str,
+            *,
+            request_id: str,
+            claimed_at: str,
+        ) -> bool:
+            del request_id, claimed_at
+            self.claimed_receipts.append(receipt_id)
+            return True
+
+    store = StaleRequestStore(tmp_path / "guard-home")
+    remote_approval = _signed_remote_approval(
+        store,
+        store.present_request_row,
+        receipt_id="cloud-receipt-stale",
+    )
+    result = command_executors.execute_guard_command_job(
+        {
+            "operation": "guard.approval.resolve",
+            "payload": {
+                "localRequestId": "request-stale",
+                "action": "allow_once",
+                "remoteApproval": remote_approval,
+            },
+        },
+        context=_context(tmp_path),
+        store=store,  # type: ignore[arg-type]
+        now=lambda: "2026-06-13T00:00:00+00:00",
+    )
+
+    assert result["failureCode"] == "remote_approval_request_id_mismatch"
+    assert store.claimed_receipts == []
 
 def test_executor_releases_remote_once_receipt_when_resolution_not_applied(tmp_path: Path) -> None:
     class ApprovalStore(FakeStore):

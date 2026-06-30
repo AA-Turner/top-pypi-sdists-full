@@ -115,6 +115,7 @@ __all__ = (
     "UpdateQueueRequestTypeDef",
     "UpdateQueueResponseTypeDef",
     "UpdateQueueSlurmConfigurationRequestTypeDef",
+    "UpdateSchedulerRequestTypeDef",
     "UpdateSlurmRestRequestTypeDef",
 )
 
@@ -324,6 +325,9 @@ class UpdateAccountingRequestTypeDef(TypedDict):
     defaultPurgeTimeInDays: NotRequired[int]
     mode: NotRequired[AccountingModeType]
 
+class UpdateSchedulerRequestTypeDef(TypedDict):
+    version: str
+
 class UpdateSlurmRestRequestTypeDef(TypedDict):
     mode: NotRequired[SlurmRestModeType]
 
@@ -508,6 +512,7 @@ class UpdateClusterRequestTypeDef(TypedDict):
     clusterIdentifier: str
     clientToken: NotRequired[str]
     slurmConfiguration: NotRequired[UpdateClusterSlurmConfigurationRequestTypeDef]
+    scheduler: NotRequired[UpdateSchedulerRequestTypeDef]
 
 class CreateComputeNodeGroupResponseTypeDef(TypedDict):
     computeNodeGroup: ComputeNodeGroupTypeDef

@@ -23,6 +23,14 @@ class TestMCA(_TestCA):
 
         n_components = 5
         n_active_rows = 1_000
+        # FactoMineR 2.15's `svd.triplet` uses `irlba` whenever
+        # `ncp < 0.5 * min(nrow_active, ncol_indicator)`. For the Hearthstone
+        # dataset that means anything below ~19 picks the iterative solver,
+        # whose approximation on later components drifts well past Prince's
+        # full-SVD precision (1-5% relative error on component 5). Asking
+        # FactoMineR for more components forces the full-SVD branch; we then
+        # slice the outputs back down to `n_components` before comparing.
+        n_components_R = 20
 
         # Fit Prince
         self.dataset = prince.datasets.load_hearthstone_cards()
@@ -40,7 +48,7 @@ class TestMCA(_TestCA):
             self.dataset.to_csv(fp)
             R(f"dataset <- read.csv('{fp.name}')[,-1]")
 
-        args = f"dataset, ncp={n_components}, graph=F"
+        args = f"dataset, ncp={n_components_R}, graph=F"
         if self.sup_cols:
             if self.sup_rows:
                 R(
@@ -53,6 +61,24 @@ class TestMCA(_TestCA):
                 R(f"ca <- MCA({args}, ind.sup=c({n_active_rows + 1}:nrow(dataset)))")
             else:
                 R(f"ca <- MCA({args})")
+
+        # Slice FactoMineR's outputs back down to `n_components` so the rest
+        # of the assertions (inherited from TestCA) compare matching shapes.
+        R(f"""
+        nc <- {n_components}
+        ca$svd$U <- ca$svd$U[, 1:nc, drop=FALSE]
+        ca$svd$V <- ca$svd$V[, 1:nc, drop=FALSE]
+        ca$ind$coord   <- ca$ind$coord[, 1:nc, drop=FALSE]
+        ca$ind$cos2    <- ca$ind$cos2[, 1:nc, drop=FALSE]
+        ca$ind$contrib <- ca$ind$contrib[, 1:nc, drop=FALSE]
+        ca$var$coord   <- ca$var$coord[, 1:nc, drop=FALSE]
+        ca$var$cos2    <- ca$var$cos2[, 1:nc, drop=FALSE]
+        ca$var$contrib <- ca$var$contrib[, 1:nc, drop=FALSE]
+        if (!is.null(ca$ind.sup))   ca$ind.sup$coord    <- ca$ind.sup$coord[, 1:nc, drop=FALSE]
+        if (!is.null(ca$ind.sup))   ca$ind.sup$cos2     <- ca$ind.sup$cos2[, 1:nc, drop=FALSE]
+        if (!is.null(ca$quali.sup)) ca$quali.sup$coord  <- ca$quali.sup$coord[, 1:nc, drop=FALSE]
+        if (!is.null(ca$quali.sup)) ca$quali.sup$cos2   <- ca$quali.sup$cos2[, 1:nc, drop=FALSE]
+        """)
 
     @pytest.mark.parametrize("method_name", ("row_coordinates", "transform"))
     def test_row_coords(self, method_name):
@@ -243,6 +269,93 @@ def test_issue_161():
     3  1.664888 -0.640285
 
     """
+
+
+def test_non_subset_correction_matches_ca_mjca():
+    """Non-subset Benzécri/Greenacre corrections match R's ``ca::mjca(lambda='adjusted')``.
+
+    FactoMineR doesn't expose these corrections, but Greenacre's own ``ca`` package does,
+    and its closed-form is what prince's non-subset path implements.
+    """
+    wines = prince.datasets.load_burgundy_wines().drop(columns=["Oak type"], level=0)
+    wines.columns = [f"{a}_{b}" for a, b in wines.columns]
+
+    R("library('ca')")
+    with tempfile.NamedTemporaryFile(suffix=".csv") as fp:
+        wines.to_csv(fp.name, index=False)
+        R(f"dataset <- read.csv('{fp.name}')")
+    R("""
+    dataset <- data.frame(lapply(dataset, factor))
+    mj <- mjca(dataset, lambda='adjusted', nd=4)
+    """)
+    r_lambda = np.array(R("mj$sv")) ** 2
+    r_inertia_e = np.array(R("mj$inertia.e"))
+    n_nonzero = int(np.sum(r_lambda > 0))
+
+    mca_g = prince.MCA(n_components=4, correction="greenacre").fit(wines)
+    np.testing.assert_allclose(mca_g.eigenvalues_[:n_nonzero], r_lambda[:n_nonzero], atol=1e-8)
+    np.testing.assert_allclose(
+        mca_g.percentage_of_variance_[:n_nonzero] / 100, r_inertia_e[:n_nonzero], atol=1e-8
+    )
+
+    # Benzécri shares the same adjusted eigenvalues; only the percentages differ — they
+    # renormalise to sum to 100% instead of using Greenacre's adjusted-inertia denominator.
+    mca_b = prince.MCA(n_components=4, correction="benzecri").fit(wines)
+    np.testing.assert_allclose(mca_b.eigenvalues_[:n_nonzero], r_lambda[:n_nonzero], atol=1e-8)
+    expected_benzecri_pct = r_lambda[:n_nonzero] / r_lambda.sum() * 100
+    np.testing.assert_allclose(
+        mca_b.percentage_of_variance_[:n_nonzero], expected_benzecri_pct, atol=1e-8
+    )
+
+
+def test_subset_greenacre_matches_ca_mjca():
+    """Subset-MCA Greenacre correction matches R's ``ca::mjca(lambda='adjusted', subsetcat=...)``.
+
+    Background: https://github.com/MaxHalford/prince/issues/206
+    """
+    wines = prince.datasets.load_burgundy_wines().drop(columns=["Oak type"], level=0)
+    wines.columns = [f"{a}_{b}" for a, b in wines.columns]
+    sep = "__"
+    one_hot = pd.get_dummies(wines, columns=wines.columns, prefix_sep=sep)
+    to_drop = [c for c in one_hot.columns if c.endswith(f"{sep}No")]
+
+    mca = prince.MCA(
+        n_components=4,
+        correction="greenacre",
+        one_hot_prefix_sep=sep,
+        one_hot_columns_to_drop=to_drop,
+    ).fit(wines)
+
+    R("library('ca')")
+    with tempfile.NamedTemporaryFile(suffix=".csv") as fp:
+        wines.to_csv(fp.name, index=False)
+        R(f"dataset <- read.csv('{fp.name}')")
+    R("""
+    dataset <- data.frame(lapply(dataset, factor))
+    lvl_lens <- sapply(dataset, nlevels)
+    offs <- c(0, cumsum(lvl_lens)[-length(lvl_lens)])
+    subsetcat <- c()
+    for (i in seq_along(dataset)) {
+      lv <- levels(dataset[[i]])
+      for (j in seq_along(lv)) {
+        if (lv[j] != 'No') subsetcat <- c(subsetcat, offs[i] + j)
+      }
+    }
+    mj <- mjca(dataset, lambda='adjusted', subsetcat=subsetcat, nd=4)
+    """)
+    r_lambda = np.array(R("mj$sv"))[: mca.eigenvalues_.shape[0]] ** 2
+    r_inertia_e = np.array(R("mj$inertia.e"))
+    r_inertia_t = float(np.array(R("mj$inertia.t"))[0])
+
+    np.testing.assert_allclose(mca.eigenvalues_[: len(r_lambda)], r_lambda, atol=1e-8)
+    np.testing.assert_allclose(
+        mca.percentage_of_variance_[: len(r_inertia_e)] / 100, r_inertia_e, atol=1e-8
+    )
+    np.testing.assert_allclose(
+        mca.percentage_of_variance_[: len(r_inertia_e)] / 100,
+        mca.eigenvalues_[: len(r_inertia_e)] / r_inertia_t,
+        atol=1e-10,
+    )
 
 
 def test_abdi_2007_correction():

@@ -293,8 +293,12 @@ class WorkerVersioningConfig(BaseSettings):
             self.deployment_name = controller_deployment
             self.build_id = controller_build_id
             self.enabled = True
-            if self.auto_register_as_current is None:
-                self.auto_register_as_current = False
+            if self.auto_register_as_current:
+                logger.warning(
+                    "Ignoring WORKER_AUTO_REGISTER_AS_CURRENT=true: controller manages version promotion",
+                    deployment_name=self.deployment_name,
+                )
+            self.auto_register_as_current = False
             logger.info(
                 "Worker managed by Temporal Worker Controller",
                 deployment_name=self.deployment_name,

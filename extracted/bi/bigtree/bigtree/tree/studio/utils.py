@@ -5,38 +5,77 @@ from bigtree.tree import tree
 from bigtree.utils import common
 
 try:
-    import json
-except ImportError:  # pragma: no cover
-    from unittest.mock import MagicMock
-
-    json = MagicMock()
-
-try:
-    from textual.widgets import Static
+    from textual.widgets import Tree
     from textual.widgets._tree import TreeNode
 
 except ImportError:  # pragma: no cover
     from unittest.mock import MagicMock
 
+    Tree = MagicMock()
     TreeNode = MagicMock()
-    Static = MagicMock()
 
 
 __all__ = [
+    "get_corresponding_bt_node",
+    "get_attr_bt_node",
+    "assemble_data",
     "populate_textual_tree",
     "update_details",
     "expand_parents",
-    "action_add_node",
-    "action_add_sibling",
-    "action_delete_node",
-    "action_rename_node",
     "select_edit_attr",
-    "action_edit_attr",
-    "action_save_as",
 ]
 
 
-def _get_textual_node_path(textual_node: TreeNode, sep: str = "/") -> str:
+# Shortcut, key binding function, footer description, help description
+HELP: dict[str, list[tuple[str, ...]]] = {
+    "Navigation": [
+        ("↑ / ↓", "Move selection"),
+        ("Enter / Click", "View node attributes"),
+        ("Space / Double Click", "Expand or collapse node"),
+    ],
+    "Editing": [
+        ("a", "add_node", "Add Child", "Add child node"),
+        ("A", "add_sibling", "Add Sibling", "Add sibling node"),
+        ("r", "rename_node", "Rename", "Rename selected node"),
+        ("d", "delete_node", "Delete", "Delete selected node"),
+        ("t", "edit_attr", "Edit Attributes", "Edit attributes"),
+    ],
+    "Search": [
+        ("/", "search", "Search", "Search"),
+        ("n", "next_match", "Next", "Next search result"),
+        ("N", "prev_match", "Prev", "Previous search result"),
+    ],
+    "View": [
+        ("e", "toggle_expand", "Expand", "Toggle expand"),
+        ("E", "expand_all", "Expand All", "Expand all"),
+        ("z", "collapse_all", "Collapse All", "Collapse all"),
+    ],
+    "File": [
+        ("S", "save_as", "Save As", "Save As"),
+        ("q", "quit", "Quit", "Quit Studio"),
+    ],
+}
+
+BINDINGS = [
+    # enter / single click: View attribute
+    # space / double click: Expand or collapse
+    *(
+        (item[0], item[1], item[2])
+        for section, items in HELP.items()
+        if section in ["Editing", "Search", "View", "File"]
+        for item in items
+    ),
+    ("?", "help", "Help"),
+]
+
+
+SEARCH_EXAMPLES = """[b]Examples[/]
+[cyan]alice[/]                                    Exact name
+[cyan]name:^ali.*[/]                              Regex name
+[cyan]query:age >= 30 OR node_name LIKE ".*e"[/]  Advanced query"""
+
+
+def _get_textual_node_path(textual_node: TreeNode) -> list[str]:
     """Get node path of textual TreeNode, reads the node name recursively until root node.
 
     Args:
@@ -51,10 +90,10 @@ def _get_textual_node_path(textual_node: TreeNode, sep: str = "/") -> str:
     while parent:
         path.append(str(parent.label))
         parent = parent.parent
-    return sep.join(path[::-1])
+    return path[::-1]
 
 
-def _get_corresponding_bt_node(bt_tree: tree.Tree, textual_node: TreeNode) -> node.Node:
+def get_corresponding_bt_node(bt_tree: tree.Tree, textual_node: TreeNode) -> node.Node:
     """Get corresponding bigtree node from textual node.
 
     Args:
@@ -65,10 +104,12 @@ def _get_corresponding_bt_node(bt_tree: tree.Tree, textual_node: TreeNode) -> no
         bigtree tree node
     """
     node_path = _get_textual_node_path(textual_node)
-    return bt_tree.find_full_path(node_path)  # type: ignore[attr-defined, no-any-return]
+    for next_path in node_path[1:]:
+        bt_tree = bt_tree[next_path]
+    return bt_tree.node
 
 
-def _get_attr_bt_node(
+def get_attr_bt_node(
     bt_tree: tree.Tree, textual_node: TreeNode, **kwargs: Any
 ) -> dict[str, Any]:
     """Get attribute of bigtree node from textual node.
@@ -80,14 +121,26 @@ def _get_attr_bt_node(
     Returns:
         bigtree tree node
     """
-    bt_node = _get_corresponding_bt_node(bt_tree, textual_node)
+    bt_node = get_corresponding_bt_node(bt_tree, textual_node)
     return common.assemble_attributes(bt_node, **kwargs)
+
+
+def assemble_data(bt_node: node.Node) -> dict[str, str]:
+    """Assemble data for textual node from bigtree node
+
+    Args:
+        bt_node: bigtree node
+
+    Returns:
+        data dictionary
+    """
+    return {"path_name": bt_node.path_name}
 
 
 def populate_textual_tree(
     bt_tree: tree.Tree,
-    textual_tree: TreeNode,
-    max_depth: int,
+    textual_tree: Tree,
+    max_depth: int = 2,
 ) -> None:
     """Populate textual tree with bigtree tree.
 
@@ -96,17 +149,20 @@ def populate_textual_tree(
         textual_tree: textual tree
         max_depth: maximum depth of tree to expand
     """
-    textual_tree.clear()
-    textual_tree.root.label = bt_tree.node.name
-    textual_tree.root.expand()
 
     def add(bt_parent: node.Node, textual_parent: TreeNode, depth: int = 1) -> None:
         # Depth + 1 because we are calculating the depth of children
         expand = True if depth + 1 < max_depth else False
         for bt_child in bt_parent.children:
-            textual_child = textual_parent.add(bt_child.node_name, expand=expand)
+            textual_child = textual_parent.add(
+                bt_child.node_name, data=assemble_data(bt_child), expand=expand
+            )
             add(bt_child, textual_child, depth + 1)
 
+    textual_tree.clear()
+    textual_tree.root.label = bt_tree.node.name
+    textual_tree.root.data = assemble_data(bt_tree.node)
+    textual_tree.root.expand()
     add(bt_tree.node, textual_tree.root)
 
 
@@ -120,7 +176,7 @@ def update_details(bt_tree: tree.Tree, textual_node: TreeNode) -> str:
     Returns:
         Formatted attribute details
     """
-    attrs = _get_attr_bt_node(
+    attrs = get_attr_bt_node(
         bt_tree, textual_node, name_key="__name", path_key="__path"
     )
     attr_text = "\n".join(
@@ -146,74 +202,6 @@ def expand_parents(textual_node: TreeNode) -> None:
         parent = parent.parent
 
 
-def action_add_node(
-    bt_tree: tree.Tree, textual_node: TreeNode, value: str | None
-) -> None:
-    """Add new child node to existing node, implements for bigtree tree and textual tree in-place.
-
-    Args:
-        bt_tree: bigtree tree
-        textual_node: textual tree node
-        value: name of node to add
-    """
-    if not value or not textual_node:
-        return
-    bt_node = _get_corresponding_bt_node(bt_tree, textual_node)
-    node.Node(value, parent=bt_node)
-    textual_node.add(value)
-    textual_node.expand()
-
-
-def action_add_sibling(
-    bt_tree: tree.Tree, textual_node: TreeNode, value: str | None
-) -> None:
-    """Add new sibling node to existing node, implements for bigtree tree and textual tree in-place.
-
-    Args:
-        bt_tree: bigtree tree
-        textual_node: textual tree node
-        value: name of node to add
-    """
-    if not textual_node.parent:
-        raise ValueError("Cannot add sibling for root node.")
-    if not value or not textual_node:
-        return
-    bt_node = _get_corresponding_bt_node(bt_tree, textual_node)
-    node.Node(value, parent=bt_node.parent)
-    textual_node.parent.add(value)
-
-
-def action_delete_node(bt_tree: tree.Tree, textual_node: TreeNode) -> None:
-    """Delete node, implements for bigtree tree and textual tree in-place.
-
-    Args:
-        bt_tree: bigtree tree
-        textual_node: textual tree node
-    """
-    if not textual_node:
-        return
-    bt_node = _get_corresponding_bt_node(bt_tree, textual_node)
-    bt_node.parent = None
-    textual_node.remove()
-
-
-def action_rename_node(
-    bt_tree: tree.Tree, textual_node: TreeNode, value: str | None
-) -> None:
-    """Delete node, implements for bigtree tree and textual tree in-place.
-
-    Args:
-        bt_tree: bigtree tree
-        textual_node: textual tree node
-        value: new node name
-    """
-    if not textual_node or not value:
-        return
-    bt_node = _get_corresponding_bt_node(bt_tree, textual_node)
-    bt_node.rename(value)
-    textual_node.set_label(value)
-
-
 def select_edit_attr(bt_tree: tree.Tree, textual_node: TreeNode) -> str:
     """Get existing attribute of bigtree node from textual node.
 
@@ -224,44 +212,5 @@ def select_edit_attr(bt_tree: tree.Tree, textual_node: TreeNode) -> str:
     Returns:
         Formatted attribute (e.g., key=value,key1=value1)
     """
-    attrs = _get_attr_bt_node(bt_tree, textual_node)
-    return ",".join(f"{k}={v}" for k, v in attrs.items())
-
-
-def action_edit_attr(
-    bt_tree: tree.Tree, textual_node: TreeNode, value: str | None
-) -> None:
-    """Delete node, implements for bigtree tree and textual tree in-place.
-
-    Args:
-        bt_tree: bigtree tree
-        textual_node: textual tree node
-        value: new node name
-    """
-    if not textual_node or not value:
-        return
-    kv_pairs = [kv.strip().split("=") for kv in value.split(",")]
-    try:
-        new_attrs = dict(kv_pairs)
-    except ValueError as err:
-        raise ValueError(f"Input malformed, check `{value}`") from err
-    bt_node = _get_corresponding_bt_node(bt_tree, textual_node)
-    existing_attrs = _get_attr_bt_node(bt_tree, textual_node)
-    attrs_to_remove = set(existing_attrs) - set(new_attrs)
-    for attr_to_remove in attrs_to_remove:
-        del bt_node.__dict__[attr_to_remove]
-    bt_node.set_attrs(new_attrs)
-
-
-def action_save_as(bt_tree: tree.Tree, value: str | None) -> None:
-    """Save tree as json file.
-
-    Args:
-        bt_tree: bigtree tree
-        value: save path
-    """
-    if not value:
-        return
-    data = bt_tree.to_dict(name_key=None, all_attrs=True)  # type: ignore[attr-defined]
-    with open(value, "w") as f:
-        json.dump(data, f, indent=2)
+    attrs = get_attr_bt_node(bt_tree, textual_node)
+    return ",".join(f"{k}={repr(v)}" for k, v in attrs.items())

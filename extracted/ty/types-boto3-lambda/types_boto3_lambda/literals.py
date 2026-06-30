@@ -83,6 +83,7 @@ __all__ = (
     "ResourceServiceName",
     "ResponseStreamingInvocationTypeType",
     "RuntimeType",
+    "S3ObjectStorageModeType",
     "SchemaRegistryEventRecordFormatType",
     "ServiceName",
     "SnapStartApplyOnType",
@@ -268,6 +269,7 @@ RuntimeType = Literal[
     "ruby3.4",
     "ruby4.0",
 ]
+S3ObjectStorageModeType = Literal["COPY", "REFERENCE"]
 SchemaRegistryEventRecordFormatType = Literal["JSON", "SOURCE"]
 SnapStartApplyOnType = Literal["None", "PublishedVersions"]
 SnapStartOptimizationStatusType = Literal["Off", "On"]

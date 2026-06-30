@@ -337,6 +337,7 @@ class CreateServiceRequestTypeDef(TypedDict):
     customDomainName: NotRequired[str]
     certificateArn: NotRequired[str]
     authType: NotRequired[AuthTypeType]
+    idleTimeoutSeconds: NotRequired[int]
 
 class DeleteAccessLogSubscriptionRequestTypeDef(TypedDict):
     accessLogSubscriptionIdentifier: str
@@ -741,6 +742,7 @@ class UpdateServiceRequestTypeDef(TypedDict):
     serviceIdentifier: str
     certificateArn: NotRequired[str]
     authType: NotRequired[AuthTypeType]
+    idleTimeoutSeconds: NotRequired[int]
 
 CreateAccessLogSubscriptionResponseTypeDef = TypedDict(
     "CreateAccessLogSubscriptionResponseTypeDef",
@@ -964,6 +966,7 @@ UpdateServiceResponseTypeDef = TypedDict(
         "customDomainName": str,
         "certificateArn": str,
         "authType": AuthTypeType,
+        "idleTimeoutSeconds": int,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1023,6 +1026,7 @@ CreateServiceResponseTypeDef = TypedDict(
         "certificateArn": str,
         "status": ServiceStatusType,
         "authType": AuthTypeType,
+        "idleTimeoutSeconds": int,
         "dnsEntry": DnsEntryTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -1086,6 +1090,7 @@ GetServiceResponseTypeDef = TypedDict(
         "certificateArn": str,
         "status": ServiceStatusType,
         "authType": AuthTypeType,
+        "idleTimeoutSeconds": int,
         "failureCode": str,
         "failureMessage": str,
         "ResponseMetadata": ResponseMetadataTypeDef,

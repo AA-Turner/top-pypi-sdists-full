@@ -105,6 +105,7 @@ all-plugins = [
 [tool.uv]
 exclude-newer = "2 days"
 exclude-newer-package = { mistralai = false }
+override-dependencies = ["cryptography>=48.0.1"]
 [tool.uv.sources]
 mistralai-workflows-plugins-mistralai = { path = "plugins/mistralai", editable = true }
 mistralai-workflows-plugins-webhook = { path = "plugins/webhook", editable = true }

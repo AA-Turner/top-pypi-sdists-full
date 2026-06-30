@@ -11,6 +11,8 @@ on:
       - "uv.lock"
       - "Dockerfile.ops-mcp"
       - "Dockerfile.ops-mcp.dockerignore"
+  repository_dispatch:
+    types: [deploy-cloud-mcp]
   workflow_dispatch:
     inputs:
       mcp-server:
@@ -19,6 +21,7 @@ on:
         type: choice
         options:
           - ops-mcp
+          - cloud-mcp
         default: ops-mcp
       pr:
         description: "PR number. When provided, deploys to the preview service instead of production."
@@ -38,20 +41,27 @@ permissions:
 env:
   GCP_PROJECT: internal-airbyte-ai-infra
   GCP_REGION: us-west3
-  MCP_SERVER: ${{ github.event.inputs.mcp-server || 'ops-mcp' }}
+  MCP_SERVER: ${{ github.event.client_payload.mcp-server || github.event.inputs.mcp-server || 'ops-mcp' }}
   MCP_PR: ${{ github.event.inputs.pr || '' }}
   MCP_COMMENT_ID: ${{ github.event.inputs.comment-id || '' }}
+  MCP_PREVIEW: ${{ github.event.client_payload.preview || '' }}
 
 jobs:
-  deploy-mcp:
-    name: "Deploy ${{ github.event.inputs.mcp-server || 'ops-mcp' }}"
+  resolve-vars:
+    name: "Resolve deployment variables"
     runs-on: ubuntu-latest
-    environment:
-      name: "Cloud Run (${{ (github.event.inputs.pr || github.event.inputs.comment-id) && format('{0}-preview', github.event.inputs.mcp-server || 'ops-mcp') || github.event.inputs.mcp-server || 'ops-mcp' }})"
-      url: "https://mcp.internal.airbyte.ai/${{ (github.event.inputs.pr || github.event.inputs.comment-id) && format('{0}-preview', github.event.inputs.mcp-server || 'ops-mcp') || github.event.inputs.mcp-server || 'ops-mcp' }}"
+    outputs:
+      ref: ${{ steps.resolve.outputs.ref }}
+      short_sha: ${{ steps.resolve.outputs.short_sha }}
+      source: ${{ steps.resolve.outputs.source }}
+      image: ${{ steps.resolve.outputs.image }}
+      image_repo: ${{ steps.resolve.outputs.image_repo }}
+      service: ${{ steps.resolve.outputs.service }}
+      public_url: ${{ steps.resolve.outputs.public_url }}
+      is_preview: ${{ steps.resolve.outputs.is_preview }}
     steps:
       - name: Resolve deployment variables
-        id: resolve-vars
+        id: resolve
         env:
           GH_TOKEN: ${{ github.token }}
           GCP_REGION: ${{ env.GCP_REGION }}
@@ -74,7 +84,7 @@ jobs:
             exit 1
           fi
 
-          if [ -n "$MCP_PR" ] || [ -n "$MCP_COMMENT_ID" ]; then
+          if [ -n "$MCP_PR" ] || [ -n "$MCP_COMMENT_ID" ] || [ "$MCP_PREVIEW" = "true" ]; then
             is_preview="true"
           fi
 
@@ -112,6 +122,14 @@ jobs:
             printf "is_preview=%s\n" "$is_preview"
           } | tee -a "$GITHUB_OUTPUT"
 
+  deploy-mcp:
+    name: "Deploy ${{ needs.resolve-vars.outputs.service }}"
+    needs: resolve-vars
+    runs-on: ubuntu-latest
+    environment:
+      name: "Cloud Run (${{ needs.resolve-vars.outputs.service }})"
+      url: ${{ needs.resolve-vars.outputs.public_url }}
+    steps:
       - name: Append comment with deployment job link
         id: post-start-comment
         if: env.MCP_PR != ''
@@ -123,15 +141,15 @@ jobs:
           body: |
             > 🚀 **${{ env.MCP_SERVER }} Deploy Job Info**
             >
-            > Deploying `${{ steps.resolve-vars.outputs.source }}` to `${{ steps.resolve-vars.outputs.public_url }}`.
-            > Image: `${{ steps.resolve-vars.outputs.image }}`
+            > Deploying `${{ needs.resolve-vars.outputs.source }}` to `${{ needs.resolve-vars.outputs.public_url }}`.
+            > Image: `${{ needs.resolve-vars.outputs.image }}`
             >
             > ⏳ Job started... [Check job output.](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
       - name: Checkout deployment target
         uses: actions/checkout@v6
         with:
-          ref: ${{ steps.resolve-vars.outputs.ref }}
+          ref: ${{ needs.resolve-vars.outputs.ref }}
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
@@ -144,13 +162,13 @@ jobs:
 
       - name: Verify Artifact Registry repository
         run: >
-          gcloud artifacts repositories describe "${{ steps.resolve-vars.outputs.image_repo }}"
+          gcloud artifacts repositories describe "${{ needs.resolve-vars.outputs.image_repo }}"
           --project="${{ env.GCP_PROJECT }}"
           --location="${{ env.GCP_REGION }}"
 
       - name: Verify Cloud Run service
         run: >
-          gcloud run services describe "${{ steps.resolve-vars.outputs.service }}"
+          gcloud run services describe "${{ needs.resolve-vars.outputs.service }}"
           --project="${{ env.GCP_PROJECT }}"
           --region="${{ env.GCP_REGION }}"
           --format="value(metadata.name)"
@@ -164,24 +182,24 @@ jobs:
         run: >
           docker build
           --file Dockerfile.${MCP_SERVER}
-          --tag "${{ steps.resolve-vars.outputs.image }}"
+          --tag "${{ needs.resolve-vars.outputs.image }}"
           .
 
       - name: Push image
-        run: docker push "${{ steps.resolve-vars.outputs.image }}"
+        run: docker push "${{ needs.resolve-vars.outputs.image }}"
 
       - name: Update Cloud Run service image
         run: >
-          gcloud run services update "${{ steps.resolve-vars.outputs.service }}"
+          gcloud run services update "${{ needs.resolve-vars.outputs.service }}"
           --project="${{ env.GCP_PROJECT }}"
           --region="${{ env.GCP_REGION }}"
-          --image="${{ steps.resolve-vars.outputs.image }}"
+          --image="${{ needs.resolve-vars.outputs.image }}"
           --quiet
 
       - name: Route traffic to latest revision (production only)
-        if: steps.resolve-vars.outputs.is_preview != 'true'
+        if: needs.resolve-vars.outputs.is_preview != 'true'
         run: >
-          gcloud run services update-traffic "${{ steps.resolve-vars.outputs.service }}"
+          gcloud run services update-traffic "${{ needs.resolve-vars.outputs.service }}"
           --project="${{ env.GCP_PROJECT }}"
           --region="${{ env.GCP_REGION }}"
           --to-latest
@@ -189,14 +207,14 @@ jobs:
 
       - name: Find existing preview comment
         id: find-preview-comment
-        if: steps.resolve-vars.outputs.is_preview == 'true' && env.MCP_PR != ''
+        if: needs.resolve-vars.outputs.is_preview == 'true' && env.MCP_PR != ''
         uses: peter-evans/find-comment@v3
         with:
           issue-number: ${{ env.MCP_PR }}
           body-includes: "<!-- ${{ env.MCP_SERVER }}-preview -->"
 
       - name: Post or update preview comment
-        if: steps.resolve-vars.outputs.is_preview == 'true' && env.MCP_PR != ''
+        if: needs.resolve-vars.outputs.is_preview == 'true' && env.MCP_PR != ''
         uses: peter-evans/create-or-update-comment@v5
         with:
           comment-id: ${{ steps.find-preview-comment.outputs.comment-id }}
@@ -206,8 +224,8 @@ jobs:
             <!-- ${{ env.MCP_SERVER }}-preview -->
             ### 🔍 ${{ env.MCP_SERVER }} Preview
 
-            **Preview URL:** ${{ steps.resolve-vars.outputs.public_url }}
-            **Commit:** `${{ steps.resolve-vars.outputs.short_sha }}`
+            **Preview URL:** ${{ needs.resolve-vars.outputs.public_url }}
+            **Commit:** `${{ needs.resolve-vars.outputs.short_sha }}`
 
             > This preview deploys to a dedicated preview service at `mcp.internal.airbyte.ai/${{ env.MCP_SERVER }}-preview`. It shares the same OIDC config and secrets as production. Only one preview is active at a time — subsequent deploys replace the previous one.
 
@@ -215,11 +233,11 @@ jobs:
         run: |
           {
             printf "%s deployed.\n" "${{ env.MCP_SERVER }}"
-            printf "Source: %s\n" "${{ steps.resolve-vars.outputs.source }}"
-            printf "Commit: %s\n" "${{ steps.resolve-vars.outputs.ref }}"
-            printf "Image: %s\n" "${{ steps.resolve-vars.outputs.image }}"
-            printf "Service: %s\n" "${{ steps.resolve-vars.outputs.service }}"
-            printf "URL: %s\n" "${{ steps.resolve-vars.outputs.public_url }}"
+            printf "Source: %s\n" "${{ needs.resolve-vars.outputs.source }}"
+            printf "Commit: %s\n" "${{ needs.resolve-vars.outputs.ref }}"
+            printf "Image: %s\n" "${{ needs.resolve-vars.outputs.image }}"
+            printf "Service: %s\n" "${{ needs.resolve-vars.outputs.service }}"
+            printf "URL: %s\n" "${{ needs.resolve-vars.outputs.public_url }}"
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Append success comment
@@ -234,7 +252,7 @@ jobs:
           edit-mode: append
           reactions: hooray
           body: |
-            > ✅ ${{ env.MCP_SERVER }} deploy completed successfully: ${{ steps.resolve-vars.outputs.public_url }}
+            > ✅ ${{ env.MCP_SERVER }} deploy completed successfully: ${{ needs.resolve-vars.outputs.public_url }}
 
       - name: Append failure comment
         if: >

@@ -24,18 +24,26 @@ else:
 __all__ = (
     "ActionPointType",
     "AppConfigServiceName",
+    "DeleteTypeType",
     "DeletionProtectionCheckType",
     "DeploymentCompleteWaiterName",
     "DeploymentEventTypeType",
     "DeploymentStateType",
+    "DeploymentTypeType",
     "EnvironmentReadyForDeploymentWaiterName",
     "EnvironmentStateType",
+    "ExperimentDefinitionStatusType",
+    "ExperimentRunEventTypeType",
+    "ExperimentRunStatusType",
     "GrowthTypeType",
     "ListApplicationsPaginatorName",
     "ListConfigurationProfilesPaginatorName",
     "ListDeploymentStrategiesPaginatorName",
     "ListDeploymentsPaginatorName",
     "ListEnvironmentsPaginatorName",
+    "ListExperimentDefinitionsPaginatorName",
+    "ListExperimentRunEventsPaginatorName",
+    "ListExperimentRunsPaginatorName",
     "ListExtensionAssociationsPaginatorName",
     "ListExtensionsPaginatorName",
     "ListHostedConfigurationVersionsPaginatorName",
@@ -59,6 +67,7 @@ ActionPointType = Literal[
     "PRE_CREATE_HOSTED_CONFIGURATION_VERSION",
     "PRE_START_DEPLOYMENT",
 ]
+DeleteTypeType = Literal["ARCHIVE", "DESTROY"]
 DeletionProtectionCheckType = Literal["ACCOUNT_DEFAULT", "APPLY", "BYPASS"]
 DeploymentCompleteWaiterName = Literal["deployment_complete"]
 DeploymentEventTypeType = Literal[
@@ -73,16 +82,25 @@ DeploymentEventTypeType = Literal[
 DeploymentStateType = Literal[
     "BAKING", "COMPLETE", "DEPLOYING", "REVERTED", "ROLLED_BACK", "ROLLING_BACK", "VALIDATING"
 ]
+DeploymentTypeType = Literal["MANAGED", "USER"]
 EnvironmentReadyForDeploymentWaiterName = Literal["environment_ready_for_deployment"]
 EnvironmentStateType = Literal[
     "DEPLOYING", "READY_FOR_DEPLOYMENT", "REVERTED", "ROLLED_BACK", "ROLLING_BACK"
 ]
+ExperimentDefinitionStatusType = Literal["ACTIVE", "ARCHIVED", "IDLE"]
+ExperimentRunEventTypeType = Literal[
+    "EXPOSURE_UPDATED", "OVERRIDES_UPDATED", "RUN_STARTED", "RUN_STOPPED"
+]
+ExperimentRunStatusType = Literal["DONE", "RUNNING"]
 GrowthTypeType = Literal["EXPONENTIAL", "LINEAR"]
 ListApplicationsPaginatorName = Literal["list_applications"]
 ListConfigurationProfilesPaginatorName = Literal["list_configuration_profiles"]
 ListDeploymentStrategiesPaginatorName = Literal["list_deployment_strategies"]
 ListDeploymentsPaginatorName = Literal["list_deployments"]
 ListEnvironmentsPaginatorName = Literal["list_environments"]
+ListExperimentDefinitionsPaginatorName = Literal["list_experiment_definitions"]
+ListExperimentRunEventsPaginatorName = Literal["list_experiment_run_events"]
+ListExperimentRunsPaginatorName = Literal["list_experiment_runs"]
 ListExtensionAssociationsPaginatorName = Literal["list_extension_associations"]
 ListExtensionsPaginatorName = Literal["list_extensions"]
 ListHostedConfigurationVersionsPaginatorName = Literal["list_hosted_configuration_versions"]
@@ -311,6 +329,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -414,6 +434,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -441,6 +462,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -524,6 +546,9 @@ PaginatorName = Literal[
     "list_deployment_strategies",
     "list_deployments",
     "list_environments",
+    "list_experiment_definitions",
+    "list_experiment_run_events",
+    "list_experiment_runs",
     "list_extension_associations",
     "list_extensions",
     "list_hosted_configuration_versions",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: injective-py
-Version: 1.15.0
+Version: 1.16.0
 Summary: Injective Python SDK, with Exchange API Client
 License: Apache-2.0
 License-File: LICENSE.md

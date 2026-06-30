@@ -433,6 +433,10 @@ class FutureFillModel(QuantConnect.Orders.Fills.ImmediateFillModel):
         ...
 
 
+class FutureOptionFillModel(QuantConnect.Orders.Fills.FutureFillModel):
+    """Represents the default fill model used to simulate order fills for future options"""
+
+
 class EquityFillModel(QuantConnect.Orders.Fills.FillModel):
     """Represents the fill model used to simulate order fills for equities"""
 
@@ -537,10 +541,6 @@ class EquityFillModel(QuantConnect.Orders.Fills.FillModel):
         :returns: Order fill information detailing the average price and quantity filled.
         """
         ...
-
-
-class FutureOptionFillModel(QuantConnect.Orders.Fills.FutureFillModel):
-    """Represents the default fill model used to simulate order fills for future options"""
 
 
 class LatestPriceFillModel(QuantConnect.Orders.Fills.ImmediateFillModel):

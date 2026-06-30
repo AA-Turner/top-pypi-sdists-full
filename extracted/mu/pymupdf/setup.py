@@ -201,6 +201,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import sysconfig
 import tarfile
 import traceback
 import urllib.request
@@ -719,12 +720,9 @@ def build():
                         header_rel = header_abs[len(root)+1:]
                         add('d', f'{header_abs}', f'{to_dir_d}/include/{header_rel}')
     
-    # Add a .py file containing location of MuPDF.
-    try:
-        sha, comment, diff, branch = git_info(g_root)
-    except Exception as e:
-        log(f'Failed to get git information: {e}')
-        sha, comment, diff, branch = (None, None, None, None)
+    # Add a .py file containing build-time information - location of MuPDF,
+    # pymupdf git info, swig version etc.
+    #
     swig = PYMUPDF_SETUP_SWIG or 'swig'
     swig_version_text = run(f'{swig} -version', capture=1)
     m = re.search('\nSWIG Version ([^\n]+)', swig_version_text)
@@ -740,12 +738,10 @@ def build():
     version_p_tuple = tuple(int_or_0(i) for i in version_p.split('.'))
     log(f'{swig_version=}')
     text = ''
+    text += pipcl.git_info_py(g_root, check=0, prefix = 'pymupdf_git_')
     text += f'mupdf_location = {mupdf_location!r}\n'
     text += f'pymupdf_version = {version_p!r}\n'
     text += f'pymupdf_version_tuple = {version_p_tuple!r}\n'
-    text += f'pymupdf_git_sha = {sha!r}\n'
-    text += f'pymupdf_git_diff = {diff!r}\n'
-    text += f'pymupdf_git_branch = {branch!r}\n'
     text += f'swig_version = {swig_version!r}\n'
     text += f'swig_version_tuple = {swig_version_tuple!r}\n'
     text += f'fake_no_gil = {PYMUPDF_SETUP_FAKE_NOGIL=="1"!r}\n'
@@ -829,7 +825,11 @@ def build_mupdf_windows(
         windows_build_tail += f'-Py_LIMITED_API_{pipcl.current_py_limited_api()}'
     if PYMUPDF_SETUP_FAKE_NOGIL == '1':
         windows_build_tail += '-nogil'
-    windows_build_tail += f'-x{wp.cpu.bits}-py{wp.version}'
+    windows_build_tail += f'-{wp.cpu.windows_name}-py{wp.version}'
+    pipcl.log(f'{sysconfig.get_config_var("Py_GIL_DISABLED")=}')
+    if sysconfig.get_config_var('Py_GIL_DISABLED')==1:
+        # We are building with free-threading python.
+        windows_build_tail += '-t'
     windows_build_dir = f'{mupdf_local}\\{windows_build_tail}'
     #log( f'Building mupdf.')
     devenv = os.environ.get('PYMUPDF_SETUP_DEVENV')
@@ -884,9 +884,8 @@ def build_mupdf_windows(
 
 
 def _windows_lib_directory(mupdf_local, build_type):
-    ret = f'{mupdf_local}/platform/win32/'
-    if _cpu_bits() == 64:
-        ret += 'x64/'
+    wc = pipcl.wdev.WindowsCpu()
+    ret = f'{mupdf_local}/platform/win32/{wc.windows_subdir}'
     if build_type == 'release':
         ret += 'Release/'
     elif build_type == 'debug':
@@ -1180,6 +1179,9 @@ def _extension_flags( mupdf_local, mupdf_build_dir, build_type):
         libs = f'mupdfcpp{wp.cpu.windows_suffix}.lib'
         libraries = f'{mupdf_local}\\platform\\{infix}\\{wp.cpu.windows_subdir}{build_type_infix}\\{libs}'
         compiler_extra = ''
+        if sysconfig.get_config_var('Py_GIL_DISABLED')==1:
+            # Required to link with python3.14t etc.
+            compiler_extra += ' /D Py_GIL_DISABLED'
     else:
         libs = ['mupdf']
         compiler_extra += (
@@ -1245,6 +1247,7 @@ def clean(all_):
         shutil.rmtree(f'{path_mupdf}/platform/win32', ignore_errors=True)
         shutil.rmtree(f'{path_mupdf}/platform/win32/Release', ignore_errors=True)
         shutil.rmtree(f'{path_mupdf}/platform/win32/x64', ignore_errors=True)
+        shutil.rmtree(f'{path_mupdf}/platform/win32/arm64', ignore_errors=True)
     
     pipcl.log(f'Returning: {ret=}')
     return ret
@@ -1312,9 +1315,9 @@ classifier = [
 #
 
 # PyMuPDF version.
-version_p = '1.27.2.3'
+version_p = '1.28.0'
 
-version_mupdf = '1.27.2'
+version_mupdf = '1.28.0'
 
 # PyMuPDFb version. This is the PyMuPDF version whose PyMuPDFb wheels we will
 # (re)use if generating separate PyMuPDFb wheels. Though as of PyMuPDF-1.24.11
@@ -1335,7 +1338,7 @@ if os.path.exists(f'{g_root}/{g_pymupdfb_sdist_marker}'):
         return list()
     
     p = pipcl.Package(
-            'PyMuPDFb',
+            'pymupdfb',
             version_b,
             summary = 'Dummy PyMuPDFb wheel',
             description = '',
@@ -1363,11 +1366,11 @@ else:
     
     if 'p' in PYMUPDF_SETUP_FLAVOUR:
         version = version_p
-        name = 'PyMuPDF'
+        name = 'pymupdf'
         readme = readme_p
         summary = 'A high performance Python library for data extraction, analysis, conversion & manipulation of PDF (and other) documents.'
         if 'b' not in PYMUPDF_SETUP_FLAVOUR:
-            requires_dist.append(f'PyMuPDFb =={version_b}')
+            requires_dist.append(f'pymupdfb =={version_b}')
         # Create a `pymupdf` command.
         entry_points = textwrap.dedent('''
                 [console_scripts]
@@ -1375,15 +1378,15 @@ else:
                 ''')
     elif 'b' in PYMUPDF_SETUP_FLAVOUR:
         version = version_b
-        name = 'PyMuPDFb'
+        name = 'pymupdfb'
         readme = readme_b
-        summary = 'MuPDF shared libraries for PyMuPDF.'
+        summary = 'MuPDF shared libraries for pymupdf.'
         tag_python = 'py3'
     elif 'd' in PYMUPDF_SETUP_FLAVOUR:
         version = version_b
-        name = 'PyMuPDFd'
+        name = 'pymupdfd'
         readme = readme_d
-        summary = 'MuPDF build-time files for PyMuPDF.'
+        summary = 'MuPDF build-time files for pymupdf.'
         tag_python = 'py3'
     else:
         assert 0, f'Unrecognised {PYMUPDF_SETUP_FLAVOUR=}.'
@@ -1426,6 +1429,21 @@ else:
             #wheel_compression = zipfile.ZIP_DEFLATED if (darwin or pyodide) else zipfile.ZIP_LZMA,
             wheel_compresslevel = 9,
             )
+    
+    # Patch up macos platform tag - we require at least 10.15 because otherwise
+    # std::filesystem appears to be not available.
+    if pipcl.darwin():
+        pt = p.tag_platform()
+        #pipcl.log(f'{pt=}')
+        m = re.match('^(macosx_)(([0-9]+)_([0-9]+))(.*)', pt)
+        #pipcl.log(f'{m=}')
+        if m:
+            v = int(m.group(3)), int(m.group(4))
+            #pipcl.log(f'{v=}')
+            if v < (10, 15):
+                pt2 = f'{m.group(1)}10_15{m.group(5)}'
+                pipcl.log(f'Changing tag_platform from {pt!r} to {pt2!r}')
+                p.tag_platform_ = pt2
 
     def get_requires_for_build_wheel(config_settings=None):
         '''

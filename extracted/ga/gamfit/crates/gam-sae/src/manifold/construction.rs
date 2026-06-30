@@ -221,6 +221,7 @@ impl SaeManifoldTerm {
             dictionary_cocollapse_reseeds: 0,
             best_cocollapse_incumbent: None,
             decoder_repulsion_gate: None,
+            barrier_coactivation_gate: None,
             hybrid_split_report: None,
             atom_inner_fits: None,
             oos_linear_images: None,
@@ -2464,6 +2465,25 @@ impl SaeManifoldTerm {
         let manifold_for = |atom_idx: usize| -> gam_terms::latent::LatentManifold {
             self.assignment.coords[atom_idx].manifold().clone()
         };
+        // #1026 EV-preservation gate denominator: the full target's total
+        // column-centered variance `SST_full` (the SAME `sst` the reconstruction
+        // EV is measured against), so the gate vetoes any collapse that would drop
+        // full-reconstruction EV by more than its tolerance.
+        let total_centered_variance = {
+            let mut tss = 0.0_f64;
+            for col in 0..p {
+                let mut mean = 0.0_f64;
+                for row in 0..n {
+                    mean += target[[row, col]];
+                }
+                mean /= n as f64;
+                for row in 0..n {
+                    let c = target[[row, col]] - mean;
+                    tss += c * c;
+                }
+            }
+            tss
+        };
         crate::hybrid_split::build_hybrid_split_report(
             &self.atoms,
             eligible.into_iter(),
@@ -2473,6 +2493,7 @@ impl SaeManifoldTerm {
             target_resid_for,
             manifold_for,
             delta_ev_for,
+            total_centered_variance,
         )
     }
 
@@ -3394,6 +3415,37 @@ impl SaeManifoldTerm {
         Ok(value)
     }
 
+    /// Whether assembling `registry` will scatter an isometry Gauss-Newton
+    /// cross-block (`H_tβ`) into the per-row dense `htbeta` slabs.
+    ///
+    /// `add_sae_isometry_metric_gn_blocks` writes the coupled cross-block (and
+    /// flips on `activate_dense_htbeta_supplement`) only when (a) the registry
+    /// carries an `Isometry` penalty and (b) the atom's chart
+    /// `preserves_isometry_cross_block_coherence` (flat charts — `Euclidean`,
+    /// `Circle`, and flat products — keep the full `μ AᵀA` coupling; curved /
+    /// boundary charts drop it to stay PSD). On the non-frames matrix-free path
+    /// the data-fit cross-block is carried by the Kronecker row operator and the
+    /// per-row `htbeta` slab is allocated at zero width (#1406/#1407 anti-leak),
+    /// so this dense isometry supplement has nowhere to land unless the slab is
+    /// widened to the full `beta_dim`. This predicate decides exactly that. The
+    /// effective isometry weight `μ` is NOT consulted here: a near-zero `μ`
+    /// short-circuits the per-row write, but the slab must still exist so the
+    /// solver's `htbeta_dense_supplement` read is well-shaped.
+    pub(crate) fn registry_writes_dense_isometry_cross_block(
+        &self,
+        registry: &AnalyticPenaltyRegistry,
+    ) -> bool {
+        registry
+            .penalties
+            .iter()
+            .any(|p| matches!(p, AnalyticPenaltyKind::Isometry(_)))
+            && self
+                .assignment
+                .coords
+                .iter()
+                .any(|coord| coord.manifold().preserves_isometry_cross_block_coherence())
+    }
+
     /// Extra analytic-penalty energy that has no native `SaeManifoldLoss`
     /// component but is part of the penalized objective ranked by the SAE
     /// Laplace/REML criterion.
@@ -3660,6 +3712,13 @@ impl SaeManifoldTerm {
         // gradient/curvature (assembled below) and its value (read by the
         // line-search `penalized_objective_total`) share one frozen gate.
         self.refresh_decoder_repulsion_gate();
+        // #1625 — freeze the SEPARATION barrier's normalized-coactivation `q_jk`
+        // at the same chokepoint. The barrier weights its decoder-shape repulsion
+        // by the routing coactivation, but its gradient treats that weight as a
+        // constant; recomputing it from the trial logits in the line-search value
+        // desyncs value vs gradient in the logit block and stalls the inner solve
+        // (#1625). Freezing it here makes value/gradient/curvature consistent.
+        self.refresh_barrier_coactivation_gate();
         let n = self.n_obs();
         let p = self.output_dim();
         let k_atoms = self.k_atoms();
@@ -3930,11 +3989,32 @@ impl SaeManifoldTerm {
         // touches `block.htbeta`. Allocating it at `beta_dim = K·M·p` there is the
         // ~6 TiB high-K leak (#1405/#1406): allocate ZERO columns instead. Frames
         // still use the (much smaller) factored border width.
-        let row_htbeta_dim = if frames_engaged && !fixed_decoder {
+        // #795/#1406/#1407: the non-frames matrix-free path normally holds a
+        // ZERO-width per-row cross-block slab — the data-fit `H_tβ` is carried by
+        // the Kronecker row operator (`set_row_htbeta_operator`), and allocating
+        // the dense slab at `beta_dim = K·M·p` is the high-K memory leak. But an
+        // ISOMETRY penalty on a coherence-preserving (flat) chart scatters an
+        // ADDITIONAL Gauss-Newton cross-block into the dense per-row `htbeta`
+        // slab and flips on `activate_dense_htbeta_supplement` — dropping it would
+        // leave the Newton system block-diagonal and forfeit the strong `t↔B`
+        // isometry coupling the circle fit needs to reach KKT stationarity (#795).
+        // So on the non-frames path widen the slab to `beta_dim` exactly when that
+        // dense supplement will be written, and keep zero width otherwise.
+        let dense_isometry_cross_block = !fixed_decoder
+            && analytic_penalties
+                .map(|registry| self.registry_writes_dense_isometry_cross_block(registry))
+                .unwrap_or(false);
+        let row_htbeta_dim = if fixed_decoder {
+            // Fixed-decoder mode skips the β tier entirely.
+            0
+        } else if frames_engaged {
             self.factored_border_dim()
+        } else if dense_isometry_cross_block {
+            // Matrix-free data-fit cross-block + dense isometry supplement: the
+            // supplement is written/read in the full-`B` β coordinate system.
+            beta_dim
         } else {
-            // #1406/#1407: matrix-free path and fixed-decoder mode hold no dense
-            // cross-block slab (fixed-decoder skips the β tier entirely).
+            // Matrix-free path with no dense cross-block supplement.
             0
         };
         // Build the Arrow-Schur system: heterogeneous row dims when a compact
@@ -5127,8 +5207,45 @@ impl SaeManifoldTerm {
         // curvature on normalized shapes weighted by coactivation. Both accumulate
         // into the full-`B` β-tier here, BEFORE the frame transform, so a framed
         // system carries them identically to the analytic β penalties.
-        if self.add_sae_separation_barrier(&mut sys, penalty_scale, dense_beta_curvature) {
-            beta_penalty_assembly.record_curvature(dense_beta_curvature);
+        // #1610 — on the dense path the barrier's Levenberg majorizer scatters
+        // onto `sys.hbb`; on the matrix-free / framed production path `sys.hbb` is
+        // unused, so the barrier hands back a per-atom scalar ridge which we fold
+        // into `smooth_scaled_s` (the single source for the CPU composite penalty
+        // op AND the device smooth blocks), restoring the collapse-prevention
+        // curvature the operator was silently dropping there.
+        let mut sep_atom_curv = vec![0.0_f64; self.atoms.len()];
+        if self.add_sae_separation_barrier(
+            &mut sys,
+            penalty_scale,
+            dense_beta_curvature,
+            &mut sep_atom_curv,
+        ) {
+            if dense_beta_curvature {
+                beta_penalty_assembly.record_curvature(true);
+            } else {
+                // Fold the per-atom majorizer `lev_k·I_{M_k}` into the smooth
+                // penalty factor `λ S_k`. With `⊗ I_p` (full-`B`) or `⊗ I_{r_k}`
+                // (factored, `U_kᵀU_k = I`) this is exactly the `lev_k·I` block
+                // diagonal the dense path writes — and it now flows through the
+                // structured penalty op and the device smooth blocks. No
+                // `deferred_factored` mark: the curvature is in the smooth op, not
+                // a deferred dense block, so the device path stays engaged.
+                for atom_idx in 0..self.atoms.len() {
+                    let c = sep_atom_curv[atom_idx];
+                    if c > 0.0 {
+                        let m = smooth_scaled_s[atom_idx].nrows();
+                        for i in 0..m {
+                            smooth_scaled_s[atom_idx][[i, i]] += c;
+                        }
+                        smooth_ops[atom_idx] = Arc::new(IdentityRightKroneckerPenaltyOp {
+                            factor_a: smooth_scaled_s[atom_idx].clone(),
+                            p,
+                            global_offset: beta_offsets[atom_idx],
+                            k: beta_dim,
+                        });
+                    }
+                }
+            }
         }
         if frames_engaged {
             // ── #972 / #977 T1 — FACTORED β-tier transform ──────────────────
@@ -5196,10 +5313,30 @@ impl SaeManifoldTerm {
                     self.project_dense_penalty_to_factored(sys.hbb.view(), &frame_projection);
                 ops.push(Arc::new(DensePenaltyOp(hbb_c)));
             } else if beta_penalty_assembly.deferred_factored {
-                let registry =
-                    analytic_penalties.expect("deferred beta curvature requires registry");
-                let hbb_c = self.build_factored_beta_penalty_curvature(
-                    registry,
+                // Registry Beta-tier curvature deferred to factored-space probing.
+                // The registry may be absent when `deferred_factored` was set ONLY
+                // by the frozen-gate decoder repulsion (which is
+                // registry-independent), so start from a zero factored block in
+                // that case instead of unwrapping.
+                let mut hbb_c = match analytic_penalties {
+                    Some(registry) => self.build_factored_beta_penalty_curvature(
+                        registry,
+                        penalty_scale,
+                        &frame_projection,
+                    ),
+                    None => Array2::<f64>::zeros((
+                        frame_projection.border_dim(),
+                        frame_projection.border_dim(),
+                    )),
+                };
+                // #1610 — the frozen-gate decoder repulsion's PSD majorizer was
+                // dropped on this matrix-free/framed path (only its gradient was
+                // applied). Project it into the factored block via the same
+                // `psd_majorizer_hvp` + frame-projection probe pattern the registry
+                // DecoderIncoherence uses, so the collapse-prevention curvature
+                // reaches the operator here too. No-op when no repulsion is active.
+                self.add_factored_repulsion_curvature(
+                    &mut hbb_c,
                     penalty_scale,
                     &frame_projection,
                 );
@@ -5568,6 +5705,48 @@ impl SaeManifoldTerm {
             }
         }
         assert_eq!(p, self.output_dim());
+    }
+
+    /// #1610 — project the frozen-gate decoder-repulsion PSD majorizer into the
+    /// factored β block `hbb_c`. Mirrors the `DecoderIncoherence` arm of
+    /// [`Self::add_factored_beta_penalty_curvature_for_penalty`] but sources the
+    /// penalty from [`Self::live_decoder_repulsion_penalty`] (registry-independent,
+    /// collinearity-gated), so the repulsion curvature reaches the operator on the
+    /// matrix-free/framed path where the dense `sys.hbb` write is unused. No-op
+    /// when no repulsion is active.
+    pub(crate) fn add_factored_repulsion_curvature(
+        &self,
+        hbb_c: &mut Array2<f64>,
+        penalty_scale: f64,
+        projection: &FrameProjection,
+    ) {
+        let Some(per_fit) = self.live_decoder_repulsion_penalty() else {
+            return;
+        };
+        let beta_dim = self.beta_dim();
+        let target_beta = self.flatten_beta();
+        // The repulsion penalty is non-learnable; its strength is already folded
+        // into the frozen gate (see `live_decoder_repulsion_penalty`), so the rho
+        // slice is empty/inert.
+        let rho_local = Array1::<f64>::zeros(0);
+        let mut probe = Array1::<f64>::zeros(beta_dim);
+        for k in 0..self.atoms.len() {
+            for basis_col in 0..projection.basis_sizes[k] {
+                for frame_col in 0..projection.ranks[k] {
+                    probe.fill(0.0);
+                    projection.lift_axis_into(&mut probe, k, basis_col, frame_col);
+                    let col =
+                        projection.border_offsets[k] + basis_col * projection.ranks[k] + frame_col;
+                    let hv =
+                        per_fit.psd_majorizer_hvp(target_beta.view(), rho_local.view(), probe.view());
+                    projection
+                        .project_border_vec(hv.view())
+                        .iter()
+                        .enumerate()
+                        .for_each(|(row, &v)| hbb_c[[row, col]] += penalty_scale * v);
+                }
+            }
+        }
     }
 
     pub(crate) fn ext_coord_matrix(&self) -> Array2<f64> {
@@ -6143,7 +6322,11 @@ impl SaeManifoldTerm {
         // β off the seed), so we factor exactly once at the frozen iterate and
         // return that undamped cache without invoking the stationarity gate.
         // The caller has already run `run_joint_fit_arrow_schur(..., 0, ...)`,
-        // which left the seed untouched, so `self` is at the warm-start β here.
+        // which under the `max_iter == 0` freeze (gam#577/#579, #850) runs ONLY
+        // the β-neutral basis refresh and returns the loss without touching β —
+        // it skips the rank-reduction, frame activation, re-seed guards, and the
+        // #1026 decoder-LSQ polish that would otherwise refit β off the seed — so
+        // `self` is at the warm-start β here.
         if inner_max_iter == 0 {
             let sys = self
                 .assemble_arrow_schur(target, rho, registry)
@@ -7628,6 +7811,18 @@ impl SaeManifoldTerm {
             .map_err(|err| format!("assignment_log_strength_hessian_trace: {err}"))?;
         let assignment_dim = self.assignment.assignment_coord_dim();
         let total_t = cache.delta_t_len();
+        // #932 FRONT C: row-local Takahashi selected inverse on the plain arrow
+        // for the per-row deflation correction below (the diagonal trace already
+        // uses the cheap `latent_inverse_diagonal`); gauge / cross-row Woodbury
+        // fall back to the per-row full-system `solve` loop.
+        let fast_selected = solver.plain_selected_inverse_available();
+        let selected_beta_inv = if fast_selected && cache.k > 0 {
+            solver
+                .beta_inv()
+                .map_err(|err| format!("assignment_log_strength_hessian_trace: {err}"))?
+        } else {
+            Array2::<f64>::zeros((0, 0))
+        };
         // #1416 cross-row IBP source: the per-row block that the deflation
         // factorizes is the NO-SELF base `H₀'` — the rank-one self curvature
         // `d_k·J_ik²` is DOWNDATED from each logit diagonal and re-applied through
@@ -7698,18 +7893,30 @@ impl SaeManifoldTerm {
                 .map(Vec::as_slice)
                 .unwrap_or(&[]);
             if !dirs.is_empty() {
-                let mut inv_vv = Array2::<f64>::zeros((q, q));
-                for col in 0..q {
-                    let mut rhs_t = Array1::<f64>::zeros(total_t);
-                    let rhs_beta = Array1::<f64>::zeros(cache.k);
-                    rhs_t[row_base + col] = 1.0;
-                    let solved = solver.solve(rhs_t.view(), rhs_beta.view()).map_err(|err| {
-                        format!("assignment_log_strength_hessian_trace: selected inverse: {err}")
-                    })?;
-                    for r in 0..q {
-                        inv_vv[[r, col]] = solved.t[row_base + r];
+                let inv_vv = if fast_selected {
+                    let (inv_vv, _inv_vbeta) = solver
+                        .selected_inverse_row_blocks(row, &selected_beta_inv)
+                        .map_err(|err| {
+                            format!("assignment_log_strength_hessian_trace: selected inverse: {err}")
+                        })?;
+                    inv_vv
+                } else {
+                    let mut inv_vv = Array2::<f64>::zeros((q, q));
+                    for col in 0..q {
+                        let mut rhs_t = Array1::<f64>::zeros(total_t);
+                        let rhs_beta = Array1::<f64>::zeros(cache.k);
+                        rhs_t[row_base + col] = 1.0;
+                        let solved = solver.solve(rhs_t.view(), rhs_beta.view()).map_err(|err| {
+                            format!(
+                                "assignment_log_strength_hessian_trace: selected inverse: {err}"
+                            )
+                        })?;
+                        for r in 0..q {
+                            inv_vv[[r, col]] = solved.t[row_base + r];
+                        }
                     }
-                }
+                    inv_vv
+                };
                 let mut d_mat = Array2::<f64>::zeros((q, q));
                 for s in 0..q {
                     d_mat[[s, s]] = d_diag[s];
@@ -7997,10 +8204,20 @@ impl SaeManifoldTerm {
         let second_jets = self.atom_second_jets()?;
         let border = self.border_channels_for_cache(cache)?;
 
-        // β-tier selected inverse `(H⁻¹)_ββ` (shared across rows): one solve per
-        // β coordinate, exactly as the θ-adjoint builds `beta_inv`.
-        let mut beta_inv = Array2::<f64>::zeros((cache.k, cache.k));
-        if cache.k > 0 {
+        // β-tier selected inverse `(H⁻¹)_ββ` (shared across rows). #932 FRONT C:
+        // on the plain bordered arrow this is the cached dense `S⁻¹` formed once
+        // (no `K` full-system solves); when a gauge / #1038 cross-row Woodbury is
+        // active the row-local Takahashi blocks are NOT valid, so we fall back to
+        // the per-β-coordinate `solve` loop (bit-identical, just O(n) per call).
+        let fast_selected = solver.plain_selected_inverse_available();
+        let beta_inv = if cache.k == 0 {
+            Array2::<f64>::zeros((0, 0))
+        } else if fast_selected {
+            solver.beta_inv().map_err(|err| {
+                format!("learnable_ibp_data_logdet_alpha_trace: beta inverse: {err}")
+            })?
+        } else {
+            let mut beta_inv = Array2::<f64>::zeros((cache.k, cache.k));
             let rhs_t = Array1::<f64>::zeros(total_t);
             for col in 0..cache.k {
                 let mut rhs_beta = Array1::<f64>::zeros(cache.k);
@@ -8012,7 +8229,8 @@ impl SaeManifoldTerm {
                     beta_inv[[r, col]] = solved.beta[r];
                 }
             }
-        }
+            beta_inv
+        };
         // Atom index of each β border channel (the `k_b` weight for the β leg).
         let border_atom: Vec<usize> = border.iter().map(|c| c.atom).collect();
 
@@ -8035,7 +8253,6 @@ impl SaeManifoldTerm {
                 jet_window_next = self.refill_jet_window(
                     rho,
                     jet_window_next,
-                    n,
                     cache,
                     &second_jets,
                     &border,
@@ -8054,22 +8271,34 @@ impl SaeManifoldTerm {
                 .collect();
 
             // Per-row selected inverse blocks `(H⁻¹)_tt` (q×q) and `(H⁻¹)_tβ`.
-            let mut inv_vv = Array2::<f64>::zeros((q, q));
-            let mut inv_vbeta = Array2::<f64>::zeros((q, cache.k));
-            for col in 0..q {
-                let mut rhs_t = Array1::<f64>::zeros(total_t);
-                let rhs_beta = Array1::<f64>::zeros(cache.k);
-                rhs_t[base + col] = 1.0;
-                let solved = solver.solve(rhs_t.view(), rhs_beta.view()).map_err(|err| {
-                    format!("learnable_ibp_data_logdet_alpha_trace: selected inverse: {err}")
-                })?;
-                for r in 0..q {
-                    inv_vv[[r, col]] = solved.t[base + r];
+            // #932 FRONT C: row-local Takahashi (O(q·(q+K))) on the plain arrow;
+            // per-row full-system `solve` loop (O(n·q)) under gauge / cross-row
+            // Woodbury where the row-local blocks are not valid.
+            let (inv_vv, inv_vbeta) = if fast_selected {
+                solver
+                    .selected_inverse_row_blocks(row, &beta_inv)
+                    .map_err(|err| {
+                        format!("learnable_ibp_data_logdet_alpha_trace: selected inverse: {err}")
+                    })?
+            } else {
+                let mut inv_vv = Array2::<f64>::zeros((q, q));
+                let mut inv_vbeta = Array2::<f64>::zeros((q, cache.k));
+                for col in 0..q {
+                    let mut rhs_t = Array1::<f64>::zeros(total_t);
+                    let rhs_beta = Array1::<f64>::zeros(cache.k);
+                    rhs_t[base + col] = 1.0;
+                    let solved = solver.solve(rhs_t.view(), rhs_beta.view()).map_err(|err| {
+                        format!("learnable_ibp_data_logdet_alpha_trace: selected inverse: {err}")
+                    })?;
+                    for r in 0..q {
+                        inv_vv[[r, col]] = solved.t[base + r];
+                    }
+                    for b in 0..cache.k {
+                        inv_vbeta[[col, b]] = solved.beta[b];
+                    }
                 }
-                for b in 0..cache.k {
-                    inv_vbeta[[col, b]] = solved.beta[b];
-                }
-            }
+                (inv_vv, inv_vbeta)
+            };
 
             // #1026 — UNGATED (background-tier) atoms have a force-fixed unit gate,
             // so their mass `a_k ≡ 1` is α-INDEPENDENT: every data-Jacobian column
@@ -8643,8 +8872,18 @@ impl SaeManifoldTerm {
         let mut gamma_beta = Array1::<f64>::zeros(cache.k);
         let second_jets = self.atom_second_jets()?;
         let border = self.border_channels_for_cache(cache)?;
-        let mut beta_inv = Array2::<f64>::zeros((cache.k, cache.k));
-        if cache.k > 0 {
+        // #932 FRONT C: plain-arrow `(H⁻¹)_ββ = S⁻¹` formed once from the cached
+        // Schur factor; gauge / #1038 cross-row Woodbury fall back to the per-β
+        // `solve` loop where the row-local Takahashi blocks are not valid.
+        let fast_selected = solver.plain_selected_inverse_available();
+        let beta_inv = if cache.k == 0 {
+            Array2::<f64>::zeros((0, 0))
+        } else if fast_selected {
+            solver
+                .beta_inv()
+                .map_err(|err| format!("logdet_theta_adjoint: beta selected inverse: {err}"))?
+        } else {
+            let mut beta_inv = Array2::<f64>::zeros((cache.k, cache.k));
             let rhs_t = Array1::<f64>::zeros(total_t);
             for col in 0..cache.k {
                 let mut rhs_beta = Array1::<f64>::zeros(cache.k);
@@ -8656,7 +8895,8 @@ impl SaeManifoldTerm {
                     beta_inv[[row, col]] = solved.beta[row];
                 }
             }
-        }
+            beta_inv
+        };
         // IBP `hessian_diag` logit third-derivative channels (#1006). The full
         // IBP Hessian also has per-column cross-row rank-one terms
         // `H_(i,k),(j,k) = d_k·J_ik·J_jk`; these ARE carried in `H` via the #1038
@@ -8720,7 +8960,6 @@ impl SaeManifoldTerm {
                 jet_window_next = self.refill_jet_window(
                     rho,
                     jet_window_next,
-                    n,
                     cache,
                     &second_jets,
                     &border,
@@ -8729,22 +8968,33 @@ impl SaeManifoldTerm {
             }
             let jets = jet_window.pop_front().expect("jet window must be non-empty");
 
-            let mut inv_vv = Array2::<f64>::zeros((q, q));
-            let mut inv_vbeta = Array2::<f64>::zeros((q, cache.k));
-            for col in 0..q {
-                let mut rhs_t = Array1::<f64>::zeros(total_t);
-                let rhs_beta = Array1::<f64>::zeros(cache.k);
-                rhs_t[base + col] = 1.0;
-                let solved = solver.solve(rhs_t.view(), rhs_beta.view()).map_err(|err| {
-                    format!("logdet_theta_adjoint: selected inverse solve: {err}")
-                })?;
-                for r in 0..q {
-                    inv_vv[[r, col]] = solved.t[base + r];
+            // #932 FRONT C: row-local Takahashi on the plain arrow; per-row
+            // full-system `solve` loop under gauge / cross-row Woodbury.
+            let (inv_vv, inv_vbeta) = if fast_selected {
+                solver
+                    .selected_inverse_row_blocks(row, &beta_inv)
+                    .map_err(|err| {
+                        format!("logdet_theta_adjoint: selected inverse: {err}")
+                    })?
+            } else {
+                let mut inv_vv = Array2::<f64>::zeros((q, q));
+                let mut inv_vbeta = Array2::<f64>::zeros((q, cache.k));
+                for col in 0..q {
+                    let mut rhs_t = Array1::<f64>::zeros(total_t);
+                    let rhs_beta = Array1::<f64>::zeros(cache.k);
+                    rhs_t[base + col] = 1.0;
+                    let solved = solver.solve(rhs_t.view(), rhs_beta.view()).map_err(|err| {
+                        format!("logdet_theta_adjoint: selected inverse solve: {err}")
+                    })?;
+                    for r in 0..q {
+                        inv_vv[[r, col]] = solved.t[base + r];
+                    }
+                    for b in 0..cache.k {
+                        inv_vbeta[[col, b]] = solved.beta[b];
+                    }
                 }
-                for b in 0..cache.k {
-                    inv_vbeta[[col, b]] = solved.beta[b];
-                }
-            }
+                (inv_vv, inv_vbeta)
+            };
 
             // Record each active logit's column, global t-index, and
             // selected-inverse diagonal (H⁻¹)_ik,ik for the IBP cross-row pass.
@@ -9079,7 +9329,6 @@ impl SaeManifoldTerm {
                 jet_window_next = self.refill_jet_window(
                     rho,
                     jet_window_next,
-                    n,
                     cache,
                     &second_jets,
                     &border,

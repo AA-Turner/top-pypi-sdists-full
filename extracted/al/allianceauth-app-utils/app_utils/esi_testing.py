@@ -1,16 +1,20 @@
 """Tools for building unit tests with django-esi."""
 
+import datetime as dt
+import inspect
+from collections import defaultdict
+from copy import copy
+from dataclasses import dataclass
+from typing import Any, Callable, List, Optional, Tuple, Union
+
+from django.utils.dateparse import parse_datetime
+
 try:
     from bravado.exception import HTTPError
 except ImportError:
     pass  # this tools do not work with the OpenAPI client / AA 5
 
 else:
-    import inspect
-    from collections import defaultdict
-    from copy import copy
-    from dataclasses import dataclass
-    from typing import Any, Callable, List, Optional, Tuple, Union
 
     from bravado.exception import (
         HTTPBadGateway,
@@ -22,9 +26,6 @@ else:
         HTTPServiceUnavailable,
         HTTPUnauthorized,
     )
-    from pytz import utc
-
-    from django.utils.dateparse import parse_datetime
 
     class BravadoResponseStub:
         """Stub for IncomingResponse in bravado, e.g. for HTTPError exceptions."""
@@ -268,7 +269,9 @@ else:
                         if isinstance(value, str):
                             try:
                                 if my_datetime := parse_datetime(value):
-                                    item[key] = my_datetime.replace(tzinfo=utc)
+                                    item[key] = my_datetime.replace(
+                                        tzinfo=dt.timezone.utc
+                                    )
                             except ValueError:
                                 pass
 

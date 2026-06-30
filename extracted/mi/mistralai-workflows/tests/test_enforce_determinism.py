@@ -116,3 +116,17 @@ class TestEnforceDeterminism:
         log_if_sandbox_restriction_error(ValueError("unrelated"), context="execution")
 
         assert "sandbox" not in caplog.text.lower()
+
+    @pytest.mark.timeout(5)
+    def test_log_if_sandbox_restriction_error_terminates_on_cyclic_chain(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A cyclic __cause__ chain must not spin the walker (would trip the deadlock detector)."""
+        first = RuntimeError("first")
+        second = RuntimeError("second")
+        first.__cause__ = second
+        second.__cause__ = first
+
+        log_if_sandbox_restriction_error(first, context="execution")
+
+        assert "sandbox" not in caplog.text.lower()

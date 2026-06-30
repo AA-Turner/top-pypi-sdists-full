@@ -16,11 +16,51 @@ import numpy as np
 import pytest
 
 import blosc2
-from blosc2.dsl_kernel import DSLSyntaxError
+from blosc2.dsl_kernel import DSLSyntaxError, kernel_from_source, validate_dsl
 from blosc2.lazyexpr import _apply_jit_backend_pragma
 
 where = np.where
 clip = np.clip
+
+
+def _jit_backend_available():
+    """Whether the miniexpr runtime JIT backend is bundled in this build.
+
+    The JIT compiler is not shipped on every platform (e.g. the Windows wheels lack
+    it); there a DSL kernel still compiles and runs, but via the interpreter rather
+    than a JIT kernel.  Probe a trivial kernel once so the JIT-specific assertions can
+    be gated on the platform actually having a JIT backend."""
+    try:
+
+        @blosc2.dsl_kernel
+        def _probe(a):
+            return a + 1.0
+
+        return bool(blosc2.validate_dsl_jit(_probe, [np.float64], np.float64).get("jit"))
+    except Exception:
+        return False
+
+
+JIT_AVAILABLE = _jit_backend_available()
+
+
+def _expect_jit(status):
+    """Assert *status* compiled, and that it produced a runtime JIT kernel where the
+    platform actually has a JIT backend (see :func:`_jit_backend_available`)."""
+    assert status["compiled"]
+    if JIT_AVAILABLE:
+        assert status["jit"]
+
+
+@pytest.fixture(autouse=True)
+def _no_auto_js_backend(monkeypatch):
+    """Keep this module on the miniexpr/DSL path. Under WebAssembly the default prefers the
+    JS backend for float kernels, which would bypass ``_set_pref_expr`` and break the
+    miniexpr-specific assertions here. Stubbing the dtype gate to ``False`` disables only the
+    *auto* prefer-js (explicit ``jit_backend="js"`` still works, and is covered by
+    test_dsl_js.py / test_wasm_dsl_jit.py). No-op off WebAssembly (prefer-js never engages)."""
+    # `blosc2.lazyexpr` the attribute is the re-exported function; patch the actual module.
+    monkeypatch.setattr(sys.modules["blosc2.lazyexpr"], "_js_dtypes_ok", lambda *a, **k: False)
 
 
 def _make_arrays(shape=(8, 8), chunks=(4, 4), blocks=(2, 2)):
@@ -318,6 +358,10 @@ def test_dsl_kernel_index_symbols_float_cast_uses_miniexpr_fast_path(monkeypatch
     assert "float(_i0)" in captured["expr"]
     assert "_n1" in captured["expr"]
     assert "_i1" in captured["expr"]
+    # ...and it JIT-compiles rather than silently running on the interpreter.
+    _expect_jit(
+        blosc2.validate_dsl_jit(kernel_index_ramp_float_cast, {"x": np.float32}, np.float32, shape=shape)
+    )
 
 
 def test_dsl_kernel_index_symbols_int_cast_matches_expected_ramp():
@@ -447,6 +491,12 @@ def test_dsl_kernel_scalar_param_keeps_miniexpr_fast_path(monkeypatch):
         assert "# loop count comes from scalar niter" in captured["expr"]
         assert "range(niter)" not in captured["expr"]
         assert "float(niter)" not in captured["expr"]
+        # ...and the loop+scalar kernel JIT-compiles (the original G3 fallback shape).
+        _expect_jit(
+            blosc2.validate_dsl_jit(
+                kernel_loop_param, {"x": a2.dtype, "y": b2.dtype, "niter": niter}, a2.dtype, shape=(32, 32)
+            )
+        )
     finally:
         lazyexpr_mod.try_miniexpr = old_try_miniexpr
 
@@ -1005,3 +1055,105 @@ def test_dsl_save_dictstore_operands(tmp_path):
     reloaded = blosc2.open(str(expr_path), mode="r")
     expected = (np.arange(shape[0], dtype=np.float64) * 3) ** 2
     np.testing.assert_allclose(reloaded.compute()[...], expected, rtol=1e-5, atol=1e-6)
+
+
+# --- plans/dsl-glitches.md regressions: G1 (one-per-line), G2 (input reassign),
+#     G3 (variable name colliding with miniexpr codegen identifier) ---
+
+
+def test_dsl_kernel_semicolon_joined_statements_rejected():
+    # Source built from a string so the formatter cannot rewrite the ';'-join away.
+    result = validate_dsl(
+        kernel_from_source("def k(a, b):\n    x = a * a; y = b * b\n    return x + y\n", "k")
+    )
+    assert not result["valid"]
+    assert "one statement per line" in result["error"].lower()
+
+
+def test_dsl_kernel_reassigning_input_param_rejected():
+    result = validate_dsl(kernel_from_source("def k(a, b):\n    a = a - b\n    return a\n", "k"))
+    assert not result["valid"]
+    assert "input parameter 'a'" in result["error"]
+
+
+def test_dsl_kernel_variable_named_out_compiles(monkeypatch):
+    # G3: 'out' collides with the codegen output pointer -> used to silently fall
+    # back to the interpreter.  miniexpr now namespaces its codegen identifiers
+    # under "__me", so a kernel variable named 'out' is passed through verbatim
+    # (no blosc2-side rename) and JIT-compiles instead of falling back.
+    @blosc2.dsl_kernel
+    def k(a, b, max_iter):
+        z = a
+        flag = 0.0
+        cnt = float(max_iter)
+        for i in range(max_iter):
+            z = z * z + b
+            if z > 4.0:
+                flag = 1.0
+                cnt = float(i)
+                break
+        out = cnt
+        if flag > 0.5:
+            out = cnt + 1000.0
+        return out
+
+    # The reserved name reaches miniexpr verbatim -- no blosc2-side rename.
+    assert any(line.strip().startswith("out =") for line in k.dsl_source.splitlines())
+    assert "out_" not in k.dsl_source
+
+    captured = {"expr": None}
+    original = blosc2.NDArray._set_pref_expr
+
+    def wrapped(self, expression, inputs, fp_accuracy, aux_reduc=None, jit=None):
+        captured["expr"] = expression.decode("utf-8") if isinstance(expression, bytes) else expression
+        return original(self, expression, inputs, fp_accuracy, aux_reduc, jit=jit)
+
+    monkeypatch.setattr(blosc2.NDArray, "_set_pref_expr", wrapped)
+
+    a = np.linspace(-1, 1, 64, dtype=np.float64).reshape(8, 8)
+    a2 = blosc2.asarray(a, chunks=(4, 4), blocks=(2, 2))
+    res = blosc2.lazyudf(k, (a2, a2, 32), dtype=np.float64, jit=True)[:]
+
+    # Bare 'out' was handed to miniexpr and the result matches the interpreter.
+    assert captured["expr"] is not None
+    assert any(line.strip().startswith("out =") for line in captured["expr"].splitlines())
+    expected = blosc2.lazyudf(k, (a2, a2, 32), dtype=np.float64, jit=False)[:]
+    np.testing.assert_allclose(res, expected)
+
+
+def test_validate_dsl_jit_reports_compile_and_fallback(monkeypatch):
+    @blosc2.dsl_kernel
+    def simple(a, b):
+        return a * a + b * b
+
+    st = blosc2.validate_dsl_jit(simple, [np.float64, np.float64], np.float64)
+    assert st["valid"]
+    _expect_jit(st)
+    assert st["status"] == "ME_COMPILE_SUCCESS"
+
+    # A scalar param is inlined (passed as a value); a variable named 'out' (the
+    # former silent-fallback collision) now JIT-compiles through to miniexpr.  Built
+    # from source so the linter does not rewrite the deliberate 'out' variable.
+    with_out = kernel_from_source(
+        "def withk(a, b, niter):\n    out = a + b * float(niter)\n    return out\n", "withk"
+    )
+    st = blosc2.validate_dsl_jit(with_out, {"a": np.float64, "b": np.float64, "niter": 3}, np.float64)
+    _expect_jit(st)
+
+    # Invalid syntax -> not valid, nothing compiled.
+    invalid = kernel_from_source("def k(a, b):\n    a = a - b\n    return a\n", "k")
+    st = blosc2.validate_dsl_jit(invalid, [np.float64, np.float64], np.float64)
+    assert not st["valid"]
+    assert not st["jit"]
+    assert "input parameter 'a'" in st["error"]
+
+    # JIT disabled in the environment -> compiles but falls back to the interpreter.
+    monkeypatch.setenv("ME_DSL_JIT", "0")
+
+    @blosc2.dsl_kernel
+    def other(a, b):
+        return a - b * 0.5
+
+    st = blosc2.validate_dsl_jit(other, [np.float64, np.float64], np.float64)
+    assert st["compiled"]
+    assert not st["jit"]

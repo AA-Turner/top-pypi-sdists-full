@@ -109,6 +109,7 @@ from .literals import (
     TaskDefinitionStatusType,
     TaskFilesystemTypeType,
     TaskStopCodeType,
+    ThresholdTypeType,
     TransportProtocolType,
     UlimitNameType,
     VersionConsistencyType,
@@ -510,6 +511,7 @@ __all__ = (
     "TaskSetTypeDef",
     "TaskTypeDef",
     "TaskVolumeConfigurationTypeDef",
+    "ThresholdConfigurationTypeDef",
     "TimeoutConfigurationTypeDef",
     "TimestampTypeDef",
     "TmpfsOutputTypeDef",
@@ -976,9 +978,13 @@ class DeploymentAlarmsTypeDef(TypedDict):
     rollback: bool
     enable: bool
 
-class DeploymentCircuitBreakerTypeDef(TypedDict):
-    enable: bool
-    rollback: bool
+ThresholdConfigurationTypeDef = TypedDict(
+    "ThresholdConfigurationTypeDef",
+    {
+        "type": ThresholdTypeType,
+        "value": int,
+    },
+)
 
 class LinearConfigurationTypeDef(TypedDict):
     stepPercent: NotRequired[float]
@@ -1947,6 +1953,12 @@ class PutAccountSettingDefaultResponseTypeDef(TypedDict):
 class PutAccountSettingResponseTypeDef(TypedDict):
     setting: SettingTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class DeploymentCircuitBreakerTypeDef(TypedDict):
+    enable: bool
+    rollback: bool
+    resetOnHealthyTask: NotRequired[bool]
+    thresholdConfiguration: NotRequired[ThresholdConfigurationTypeDef]
 
 class DeploymentLifecycleHookOutputTypeDef(TypedDict):
     targetType: NotRequired[DeploymentLifecycleHookTargetTypeType]

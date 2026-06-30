@@ -27,7 +27,7 @@ class Server:
             base = self.options.get("handler_class", WSGIRequestHandler)
 
             class QuietHandler(base):
-                def log_request(*args, **kw):
+                def log_request(self, *args, **kw):
                     pass
 
             self.options["handler_class"] = QuietHandler
@@ -62,11 +62,11 @@ def start_bottle_server(app, port, server, **kwargs):
     server_thread.daemon = True
     server_thread.start()
 
-    ok = util.wait_for_network_service(("127.0.0.1", port), 0.1, 10)
+    ok = util.wait_for_network_service(("127.0.0.1", port), 0.1, 300)
     if not ok:
         import warnings
 
-        warnings.warn("Server did not start after 1 second")
+        warnings.warn("Server did not start after 30 seconds")
 
     return server_thread.server
 

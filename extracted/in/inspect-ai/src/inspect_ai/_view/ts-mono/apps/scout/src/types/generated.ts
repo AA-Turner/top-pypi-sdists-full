@@ -510,6 +510,8 @@ export interface paths {
         /**
          * Search a transcript
          * @description Search a transcript using grep or LLM-based search.
+         *
+         *     Returns cached results if the same search was run before.
          */
         post: operations["search_transcripts__dir___id__search_post"];
         delete?: never;

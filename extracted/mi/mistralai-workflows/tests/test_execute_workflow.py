@@ -34,6 +34,9 @@ from .fixtures import (
     ProcessingResult,
     PydanticChildWorkflow,
     PydanticParentWorkflow,
+    ReportsExecutionTimeoutChild,
+    ReportsTimeoutOverrideParent,
+    ReportsTimeoutParent,
     StandaloneWorkflowWithMultiArgs,
     StandaloneWorkflowWithPydantic,
     StartThenAwaitParentWorkflow,
@@ -372,3 +375,48 @@ class TestChildWorkflowCustomEntrypoint:
             )
 
             assert result == "Child with custom entrypoint says: Test"
+
+
+class TestExecuteWorkflowDeclaredTimeout:
+    """execute_workflow honours the child's declared @define(execution_timeout=...) unless overridden."""
+
+    @pytest.mark.asyncio
+    async def test_uses_declared_execution_timeout_when_not_overridden(self, temporal_env: Any) -> None:
+        async with create_test_worker(
+            temporal_env,
+            workflows=[ReportsTimeoutParent, ReportsExecutionTimeoutChild],
+            activities=[],
+        ):
+            workflow_def = get_workflow_definition(ReportsTimeoutParent)
+            handle = await temporal_env.client.start_workflow(
+                workflow_def.name,
+                {"tag": "abc"},
+                id="test-declared-timeout-honoured",
+                task_queue="test-task-queue",
+            )
+            result = await handle.result()
+            assert result["result"] == 2.0, (
+                "child dispatched without an explicit execution_timeout should inherit its declared "
+                f"2s; before the fix execute_workflow forced the 1h (3600s) default, got {result['result']}s"
+            )
+
+    @pytest.mark.asyncio
+    async def test_explicit_execution_timeout_overrides_declared(self, temporal_env: Any) -> None:
+        async with create_test_worker(
+            temporal_env,
+            workflows=[ReportsTimeoutOverrideParent, ReportsExecutionTimeoutChild],
+            activities=[],
+        ):
+            workflow_def = get_workflow_definition(ReportsTimeoutOverrideParent)
+            handle = await temporal_env.client.start_workflow(
+                workflow_def.name,
+                {"tag": "abc"},
+                id="test-declared-timeout-overridden",
+                task_queue="test-task-queue",
+            )
+
+            result = await handle.result()
+            assert result["result"] == 30 * 60, (
+                "explicit execution_timeout (30 min) passed to execute_workflow should override the "
+                f"child's declared 2s, got {result['result']}s"
+            )

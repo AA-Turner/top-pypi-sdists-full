@@ -37,6 +37,7 @@ __all__ = (
     "ListViewsPaginatorName",
     "OperationStatusType",
     "PaginatorName",
+    "RecorderTypeType",
     "RegionName",
     "ResourceExplorerServiceName",
     "ResourceServiceName",
@@ -58,6 +59,7 @@ ListStreamingAccessForServicesPaginatorName = Literal["list_streaming_access_for
 ListSupportedResourceTypesPaginatorName = Literal["list_supported_resource_types"]
 ListViewsPaginatorName = Literal["list_views"]
 OperationStatusType = Literal["FAILED", "IN_PROGRESS", "SKIPPED", "SUCCEEDED"]
+RecorderTypeType = Literal["AWS", "THIRD_PARTY"]
 SearchPaginatorName = Literal["search"]
 ResourceExplorerServiceName = Literal["resource-explorer-2"]
 ServiceName = Literal[
@@ -281,6 +283,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -384,6 +388,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -411,6 +416,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

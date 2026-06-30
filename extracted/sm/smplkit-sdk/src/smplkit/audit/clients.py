@@ -289,6 +289,7 @@ def _build_record_body(
     actor_id: str | None,
     actor_label: str | None,
     category: str | None,
+    severity: str | None,
     data: dict[str, Any] | None,
     do_not_forward: bool,
     environment: str | None,
@@ -315,6 +316,8 @@ def _build_record_body(
         attrs.actor_label = actor_label
     if category is not None:
         attrs.category = category
+    if severity is not None:
+        attrs.severity = severity
     if data is not None:
         attrs.data = _GenEventData.from_dict(data)
     if do_not_forward:
@@ -366,6 +369,7 @@ class EventsClient:
         actor_id: str | None = None,
         actor_label: str | None = None,
         category: str | None = None,
+        severity: str | None = None,
         data: dict[str, Any] | None = None,
         idempotency_key: str | None = None,
         do_not_forward: bool = False,
@@ -411,6 +415,11 @@ class EventsClient:
                 filter and the ``categories`` discovery listing
                 (:meth:`AuditClient.categories`). Omit it to leave the
                 event uncategorized.
+            severity: Optional severity level for the event — one of
+                ``"TRACE"``, ``"DEBUG"``, ``"INFO"``, ``"WARN"``,
+                ``"ERROR"``, or ``"FATAL"``. Powers the audit log's
+                ``filter[severity]`` filter. Omit it to default to
+                ``"INFO"`` server-side.
             data: Free-form contextual JSON. To record a resource
                 snapshot, place it inside ``data`` -- smplkit's internal
                 convention nests it at ``data["snapshot"]`` for
@@ -447,6 +456,7 @@ class EventsClient:
             actor_id=actor_id,
             actor_label=actor_label,
             category=category,
+            severity=severity,
             data=data,
             do_not_forward=do_not_forward,
             environment=self._environment,
@@ -777,6 +787,7 @@ class AsyncEventsClient:
         actor_id: str | None = None,
         actor_label: str | None = None,
         category: str | None = None,
+        severity: str | None = None,
         data: dict[str, Any] | None = None,
         idempotency_key: str | None = None,
         do_not_forward: bool = False,
@@ -816,6 +827,11 @@ class AsyncEventsClient:
                 exactly as supplied; powers the audit log's category
                 filter and the ``categories`` discovery listing. Omit it
                 to leave the event uncategorized.
+            severity: Optional severity level for the event — one of
+                ``"TRACE"``, ``"DEBUG"``, ``"INFO"``, ``"WARN"``,
+                ``"ERROR"``, or ``"FATAL"``. Powers the audit log's
+                ``filter[severity]`` filter. Omit it to default to
+                ``"INFO"`` server-side.
             data: Free-form contextual JSON. To record a resource
                 snapshot, place it inside ``data`` — smplkit's own
                 convention nests it at ``data["snapshot"]`` for
@@ -844,6 +860,7 @@ class AsyncEventsClient:
             actor_id=actor_id,
             actor_label=actor_label,
             category=category,
+            severity=severity,
             data=data,
             do_not_forward=do_not_forward,
             environment=self._environment,

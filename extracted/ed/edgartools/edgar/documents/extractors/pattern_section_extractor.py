@@ -482,6 +482,17 @@ class SectionExtractor:
         """
         headers = []
 
+        # Build a node→position map once so per-node lookups are O(1) instead of
+        # O(N) full-tree walks — avoids O(M·N) cost when many candidate nodes exist.
+        _pos_map: dict = {}
+        _pos = 0
+        for _n in document.root.walk():
+            _pos_map[id(_n)] = _pos
+            _pos += 1
+
+        def _node_position(node: Node) -> int:
+            return _pos_map.get(id(node), 0)
+
         # Strategy 1: Find all heading nodes (most reliable)
         heading_nodes = document.root.find(lambda n: isinstance(n, HeadingNode))
 
@@ -489,7 +500,7 @@ class SectionExtractor:
             text = node.text()
             if text:
                 # Get position in document
-                position = self._get_node_position(node, document)
+                position = _node_position(node)
                 headers.append((node, text, position))
 
         # Strategy 2: Also check for section nodes with embedded headings
@@ -500,7 +511,7 @@ class SectionExtractor:
             if first_heading:
                 text = first_heading.text()
                 if text:
-                    position = self._get_node_position(node, document)
+                    position = _node_position(node)
                     headers.append((node, text, position))
 
         # Strategy 3: Fallback to bold ParagraphNode objects
@@ -526,8 +537,57 @@ class SectionExtractor:
                 if self._is_bold(node):
                     text = node.text()
                     if text and self._looks_like_section_header(text):
-                        position = self._get_node_position(node, document)
+                        position = _node_position(node)
                         headers.append((node, text, position))
+
+        # Strategy 3b: ParagraphNodes with bold *children* that read as section headers.
+        #
+        # Some filings render section headings as a ParagraphNode whose *child*
+        # TextNodes carry bold weight (fw=700) but whose own style is unstyled
+        # (fw=None).  Strategy 3 misses these because _is_bold() checks the paragraph
+        # node itself, not its children.  Strategy 1 only captures them when a
+        # HeadingNode child is present.  This sub-strategy fills the gap.
+        #
+        # For 10-K: catches Part III "incorporated by reference" stubs where Items
+        # 11-14 have bold-child paragraph headers (GH #880 / edgartools-01x4).
+        #
+        # For 8-K: catches the SIGNATURES block, which Workiva renders as a
+        # ParagraphNode with an unstyled wrapper and a bold-child TextNode
+        # (font-weight:700 on the <span>).  Without this, the last 8-K item
+        # over-extends into the signature block (edgartools-papt, GH #879).
+        # The `_looks_like_section_header` guard already restricts candidates to
+        # structural headers (Item, SIGNATURES, PART, EXHIBIT, ...) so false
+        # positives from stray bold text cannot occur.
+        #
+        # Other forms (10-Q, S-1, 424B) are excluded: their stray bold paragraphs
+        # would produce unwanted boundaries.
+        # Deduplicates against positions already captured.
+        if self.form in ('10-K', '8-K'):
+            existing_positions = {pos for _, _, pos in headers}
+            from edgar.documents.nodes import ParagraphNode, TextNode as _TextNode
+
+            def _has_bold_descendant(n) -> bool:
+                for child in (getattr(n, 'children', None) or []):
+                    if isinstance(child, _TextNode) and self._is_bold(child):
+                        return True
+                    if _has_bold_descendant(child):
+                        return True
+                return False
+
+            for node in document.root.find(lambda n: isinstance(n, ParagraphNode)):
+                text = node.text()
+                if not text:
+                    continue
+                if not self._looks_like_section_header(text):
+                    continue
+                position = _node_position(node)
+                if position in existing_positions:
+                    continue  # already captured (e.g. via HeadingNode child in Strategy 1)
+                # Recurse into nested descendants — a filer may wrap the bold
+                # "ITEM 11." text in a nested inline element, not a direct child.
+                if _has_bold_descendant(node):
+                    headers.append((node, text.strip(), position))
+                    existing_positions.add(position)
 
         # Strategy 4: Fallback to table cells with Item patterns
         # Many 8-K filings use tables for layout with Items in table cells
@@ -552,7 +612,7 @@ class SectionExtractor:
 
                     # Check if this row contains an Item pattern
                     if re.match(r'^\s*Item\s+\d', row_text, re.IGNORECASE):
-                        position = self._get_node_position(table, document)
+                        position = _node_position(table)
                         headers.append((table, row_text, position))
                         # Only take the first Item from each table to avoid duplicates
                         break
@@ -573,9 +633,46 @@ class SectionExtractor:
                     text_start = text[:100].strip()
                     # Match Item X.XX at the start
                     if re.match(r'^\s*Item\s+\d', text_start, re.IGNORECASE):
-                        position = self._get_node_position(node, document)
+                        position = _node_position(node)
                         # Use the full paragraph text for matching
                         headers.append((node, text.strip(), position))
+
+        # Strategy 5b: SIGNATURES terminal header for 8-K (and 8-K/A).
+        #
+        # 8-Ks end with a SIGNATURES block that bounds the last item.  The preceding
+        # strategies only pick up the block when the heading is bold (Strategy 3 /
+        # Strategy 3b). Many filers (e.g. JPMorgan, Workiva-processed filings) render
+        # "SIGNATURES" or "SIGNATURE" as plain text with underline styling instead of
+        # bold, so those strategies miss it.  This step scans every ParagraphNode for
+        # a short text that matches the structural pattern (only "SIGNATURES?" passes
+        # `_looks_like_section_header`) and inserts it as a header when not already
+        # present.  Runs after all other strategies so it deduplicates automatically.
+        # Scoped to 8-K because no other registered form needs this (10-K, 10-Q,
+        # 20-F all use the TOC/anchor path; S-1/424B are title-based).
+        # (edgartools-papt, GH #879)
+        if self.form in ('8-K', '8-K/A'):
+            has_sig_header = any(
+                re.match(r'^\s*SIGNATURES?\s*$', text, re.IGNORECASE)
+                for _, text, _ in headers
+            )
+            if not has_sig_header:
+                from edgar.documents.nodes import ParagraphNode
+                existing_positions = {pos for _, _, pos in headers}
+                for node in document.root.find(lambda n: isinstance(n, ParagraphNode)):
+                    text = node.text()
+                    if not text:
+                        continue
+                    stripped = text.strip()
+                    # Only match a bare "SIGNATURES" or "SIGNATURE" line — not
+                    # longer paragraphs that merely contain the word.
+                    if not re.match(r'^\s*SIGNATURES?\s*$', stripped, re.IGNORECASE):
+                        continue
+                    position = _node_position(node)
+                    if position in existing_positions:
+                        continue
+                    headers.append((node, stripped, position))
+                    existing_positions.add(position)
+                    break  # one SIGNATURES header is enough
 
         # Sort by position
         headers.sort(key=lambda x: x[2])
@@ -676,7 +773,16 @@ class SectionExtractor:
 
                     # For 10-Q part-qualified patterns, validate against part context
                     if part_context and section_name.startswith('part_'):
-                        expected_part = "Part I" if section_name.startswith('part_i_') else "Part II"
+                        _PART_PREFIX_MAP = {
+                            'part_i_': 'Part I',
+                            'part_ii_': 'Part II',
+                            'part_iii_': 'Part III',
+                            'part_iv_': 'Part IV',
+                        }
+                        expected_part = next(
+                            (v for k, v in _PART_PREFIX_MAP.items() if section_name.startswith(k)),
+                            'Part II',
+                        )
                         actual_part = part_context.get(i)
                         # Skip if part context doesn't match expected part
                         if actual_part and actual_part != expected_part:

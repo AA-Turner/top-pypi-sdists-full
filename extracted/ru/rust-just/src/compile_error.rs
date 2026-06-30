@@ -31,10 +31,10 @@ impl Display for CompileError<'_> {
     use CompileErrorKind::*;
 
     match &*self.kind {
-      ArgAttributeRequiresOption { keyword } => {
+      ArgAttributeRequiresOption { key } => {
         write!(
           f,
-          "argument attribute `{keyword}` only valid with `long` or `short`"
+          "argument attribute `{key}` only valid with `long` or `short`"
         )
       }
       ArgumentPatternRegex { .. } => {
@@ -66,6 +66,9 @@ impl Display for CompileError<'_> {
           "attribute `{attribute}` arguments must be string literals"
         )
       }
+      AttributeKeyTakesNoValue { key } => {
+        write!(f, "attribute key `{key}` takes no value")
+      }
       AttributePositionalFollowsKeyword => {
         write!(
           f,
@@ -95,6 +98,7 @@ impl Display for CompileError<'_> {
           )
         }
       }
+      ConstEval(error) => write!(f, "{error}"),
       DependencyArgumentCountMismatch {
         dependency,
         found,
@@ -433,7 +437,6 @@ impl Display for CompileError<'_> {
       UnterminatedBacktick => write!(f, "unterminated backtick"),
       UnterminatedInterpolation => write!(f, "unterminated interpolation"),
       UnterminatedString => write!(f, "unterminated string"),
-      VariadicParameterWithOption => write!(f, "variadic parameters may not be options"),
     }
   }
 }

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-appconfig
-Version: 1.43.0
-Summary: Type annotations for boto3 AppConfig 1.43.0 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.37
+Summary: Type annotations for boto3 AppConfig 1.43.37 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 AppConfig 1.43.0](https://pypi.org/project/boto3/)
+Type annotations for [boto3 AppConfig 1.43.37](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.37' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `AppConfig` service.
 4. Use provided commands to install generated packages.
@@ -344,6 +344,9 @@ from mypy_boto3_appconfig.paginator import (
     ListDeploymentStrategiesPaginator,
     ListDeploymentsPaginator,
     ListEnvironmentsPaginator,
+    ListExperimentDefinitionsPaginator,
+    ListExperimentRunEventsPaginator,
+    ListExperimentRunsPaginator,
     ListExtensionAssociationsPaginator,
     ListExtensionsPaginator,
     ListHostedConfigurationVersionsPaginator,
@@ -362,6 +365,15 @@ list_deployment_strategies_paginator: ListDeploymentStrategiesPaginator = client
 )
 list_deployments_paginator: ListDeploymentsPaginator = client.get_paginator("list_deployments")
 list_environments_paginator: ListEnvironmentsPaginator = client.get_paginator("list_environments")
+list_experiment_definitions_paginator: ListExperimentDefinitionsPaginator = client.get_paginator(
+    "list_experiment_definitions"
+)
+list_experiment_run_events_paginator: ListExperimentRunEventsPaginator = client.get_paginator(
+    "list_experiment_run_events"
+)
+list_experiment_runs_paginator: ListExperimentRunsPaginator = client.get_paginator(
+    "list_experiment_runs"
+)
 list_extension_associations_paginator: ListExtensionAssociationsPaginator = client.get_paginator(
     "list_extension_associations"
 )

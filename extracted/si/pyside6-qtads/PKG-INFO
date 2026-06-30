@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PySide6-QtAds
-Version: 4.5.0.5
+Version: 5.0.0
 Summary: PySide6 bindings to Qt Advanced Docking System
 License: PySide6-QtAds is licensed under GNU LGPL v2.1.
         
@@ -34,7 +34,7 @@ Project-URL: Homepage, https://github.com/mborgerson/pyside6_qtads/
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: PySide6-Essentials

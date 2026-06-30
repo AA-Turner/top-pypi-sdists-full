@@ -327,6 +327,16 @@ const REVIDX_KNOWN_FLAGS: u16 = REVISION_FLAG_CENSORED
 
 const NULL_REVLOG_ENTRY_FLAGS: u16 = 0;
 
+const REVIDX_DELTA_INFO_FLAGS: u16 = REVISION_FLAG_DELTA_IS_SNAPSHOT
+    | REVISION_FLAG_DELTA_HAS_QUALITY
+    | REVISION_FLAG_DELTA_IS_GOOD
+    | REVISION_FLAG_DELTA_P1_IS_SMALL
+    | REVISION_FLAG_DELTA_P2_IS_SMALL;
+
+const LENGTH_NEUTRAL_FLAGS: u16 = REVISION_FLAG_HASCOPIESINFO
+    | REVISION_FLAG_HASMETA
+    | REVIDX_DELTA_INFO_FLAGS;
+
 #[derive(Debug, derive_more::From, derive_more::Display)]
 pub enum RevlogError {
     #[display("invalid revision identifier: {}", "_0")]
@@ -800,8 +810,7 @@ impl<'revlog> RevlogEntry<'revlog> {
 
     pub fn has_length_affecting_flag_processor(&self) -> bool {
         // Relevant Python code: revlog.size()
-        // note: ELLIPSIS is known to not change the content
-        (self.flags & (REVIDX_KNOWN_FLAGS ^ REVISION_FLAG_ELLIPSIS)) != 0
+        (self.flags & !LENGTH_NEUTRAL_FLAGS) != 0
     }
 
     fn check_data(&self, data: RawData) -> Result<RawData, RevlogError> {

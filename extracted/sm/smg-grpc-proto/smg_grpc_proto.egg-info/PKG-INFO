@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: smg-grpc-proto
-Version: 0.4.11
+Version: 0.4.12
 Summary: SMG gRPC proto definitions for vLLM, TRT-LLM, MLX, TokenSpeed, and SGLang
 Author-email: Chang Su <mckvtl@gmail.com>, Simo Lin <linsimo.mark@gmail.com>, Keyang Ru <rukeyang@gmail.com>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/lightseekorg/smg
 Project-URL: Repository, https://github.com/lightseekorg/smg
 Classifier: Programming Language :: Python :: 3
@@ -11,12 +11,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: grpcio>=1.81.1
 Requires-Dist: protobuf>=5.26.0
+Dynamic: license-file
 
 # smg-grpc-proto
 

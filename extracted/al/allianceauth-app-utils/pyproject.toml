@@ -26,7 +26,7 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
-dependencies = ["allianceauth>=4,<6", "requests", "pytz"]
+dependencies = ["allianceauth>=4,<6", "requests", "pytz", "typing_extensions"]
 
 [project.urls]
 Homepage = "https://gitlab.com/ErikKalkoken/allianceauth-app-utils"

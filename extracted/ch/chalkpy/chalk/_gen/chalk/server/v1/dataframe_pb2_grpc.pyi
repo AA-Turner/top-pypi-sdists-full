@@ -14,6 +14,8 @@ from chalk._gen.chalk.server.v1.dataframe_pb2 import (
     GetDataFramePlanUploadUrlResponse,
     GetDataFrameRunDownloadUrlsRequest,
     GetDataFrameRunDownloadUrlsResponse,
+    GetDataFrameRunPlanRequest,
+    GetDataFrameRunPlanResponse,
     GetDataFrameRunRequest,
     GetDataFrameRunResponse,
     GetDataFrameRunStatusRequest,
@@ -38,6 +40,11 @@ class DataFrameServiceStub:
         GetDataFrameRunRequest,
         GetDataFrameRunResponse,
     ]
+    GetDataFrameRunPlan: UnaryUnaryMultiCallable[
+        GetDataFrameRunPlanRequest,
+        GetDataFrameRunPlanResponse,
+    ]
+    """Get the persisted (renderable) plan artifact for a specific dataframe run."""
     GetDataFramePlanUploadUrl: UnaryUnaryMultiCallable[
         GetDataFramePlanUploadUrlRequest,
         GetDataFramePlanUploadUrlResponse,
@@ -73,6 +80,13 @@ class DataFrameServiceServicer(metaclass=ABCMeta):
         request: GetDataFrameRunRequest,
         context: ServicerContext,
     ) -> GetDataFrameRunResponse: ...
+    @abstractmethod
+    def GetDataFrameRunPlan(
+        self,
+        request: GetDataFrameRunPlanRequest,
+        context: ServicerContext,
+    ) -> GetDataFrameRunPlanResponse:
+        """Get the persisted (renderable) plan artifact for a specific dataframe run."""
     @abstractmethod
     def GetDataFramePlanUploadUrl(
         self,

@@ -1,7 +1,5 @@
-import abc
 import datetime
 from collections.abc import (
-    AsyncGenerator,
     AsyncIterator,
     Callable,
     Iterable,
@@ -10,11 +8,28 @@ from collections.abc import (
 )
 from enum import Enum, IntEnum
 from functools import total_ordering
-from typing import Any, final
+from typing import Any, TypeVar, final
 
 import numpy as np
 
 from icechunk.types import CommitMethod
+
+_T_co = TypeVar("_T_co", covariant=True)
+
+@final
+class AsyncCloseableIterator(AsyncIterator[_T_co]):
+    """An async iterator backed by a rust stream.
+
+    Supports ``async for`` iteration and ``aclose()`` for deterministic
+    cleanup (e.g. via :func:`contextlib.aclosing`) when iteration exits early.
+    It is an async *iterator*, not an async generator: it does not implement
+    ``asend``/``athrow``.
+    """
+
+    def __aiter__(self) -> AsyncCloseableIterator[_T_co]: ...
+    async def __anext__(self) -> _T_co: ...
+    async def aclose(self) -> None: ...
+    def __class_getitem__(cls, item: Any) -> Any: ...
 
 @final
 class ChecksumAlgorithm(Enum):
@@ -293,7 +308,9 @@ class ObjectStoreConfig:
 
     class Http:
         def __new__(
-            cls, opts: Mapping[str, str] | None = None
+            cls,
+            opts: Mapping[str, str] | None = None,
+            headers: Mapping[str, str] | None = None,
         ) -> ObjectStoreConfig.Http: ...
         def __repr__(self) -> str: ...
         def __str__(self) -> str: ...
@@ -364,7 +381,16 @@ class VirtualChunkSpec:
         ...
     @property
     def location(self) -> str:
-        """The URL to the virtual chunk data, something like 's3://bucket/foo.nc'"""
+        """The URL to the virtual chunk data, something like 's3://bucket/foo.nc'.
+
+        The location is a URL and the object key is its path, used verbatim:
+        repeated slashes (``//``) and ``.``/``..`` segments are preserved, not
+        normalized. Because it is a URL, any character that is reserved in a URL
+        but is part of the key must be percent-encoded -- in particular ``?`` and
+        ``#`` (an unescaped one starts the query/fragment and is dropped from the
+        key) and a literal ``%``. For example, the key ``a?b#c`` must be written
+        ``s3://bucket/a%3Fb%23c`` (and ``%`` as ``%25``).
+        """
         ...
     @property
     def offset(self) -> int:
@@ -2442,7 +2468,7 @@ class PyRepository:
         branch: str | None = None,
         tag: str | None = None,
         snapshot_id: str | None = None,
-    ) -> AsyncIterator[SnapshotInfo]: ...
+    ) -> AsyncCloseableIterator[SnapshotInfo]: ...
     def ancestry_graph(
         self,
         *,
@@ -2459,7 +2485,7 @@ class PyRepository:
         snapshot_id: str | None = None,
         plain: bool = False,
     ) -> AncestryGraph: ...
-    def async_ops_log(self) -> AsyncIterator[Update]: ...
+    def async_ops_log(self) -> AsyncCloseableIterator[Update]: ...
     def create_branch(self, branch_name: str, snapshot_id: str) -> None: ...
     async def create_branch_async(self, branch_name: str, snapshot_id: str) -> None: ...
     def list_branches(self) -> set[str]: ...
@@ -2707,7 +2733,7 @@ class PySession:
     async def all_virtual_chunk_locations_async(self) -> list[str]: ...
     def chunk_coordinates(
         self, array_path: str, batch_size: int
-    ) -> AsyncIterator[list[list[int]]]: ...
+    ) -> AsyncCloseableIterator[list[list[int]]]: ...
     def chunk_type(self, array_path: str, coords: Sequence[int]) -> ChunkType: ...
     async def chunk_type_async(
         self, array_path: str, coords: Sequence[int]
@@ -2800,7 +2826,7 @@ class PyStore:
         self,
         array_path: str,
         batch_size: int,
-    ) -> AsyncIterator[
+    ) -> AsyncCloseableIterator[
         tuple[
             np.ndarray[tuple[int, int], np.dtype[np.uint32]],  # coords (n, ndim)
             np.ndarray[tuple[int], np.dtype[np.uint8]],  # kinds (n,)
@@ -2864,15 +2890,11 @@ class PyStore:
     ) -> None: ...
     @property
     def supports_listing(self) -> bool: ...
-    def list(self) -> _PyAsyncStringGenerator: ...
-    def list_prefix(self, prefix: str) -> _PyAsyncStringGenerator: ...
-    def list_dir(self, prefix: str) -> _PyAsyncStringGenerator: ...
+    def list(self) -> AsyncCloseableIterator[str]: ...
+    def list_prefix(self, prefix: str) -> AsyncCloseableIterator[str]: ...
+    def list_dir(self, prefix: str) -> AsyncCloseableIterator[str]: ...
     async def getsize(self, key: str) -> int: ...
     async def getsize_prefix(self, prefix: str) -> int: ...
-
-class _PyAsyncStringGenerator(AsyncGenerator[str], metaclass=abc.ABCMeta):
-    def __aiter__(self) -> _PyAsyncStringGenerator: ...
-    async def __anext__(self) -> str: ...
 
 class SnapshotInfo:
     """Metadata for a snapshot"""
@@ -2905,10 +2927,6 @@ class SnapshotInfo:
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
     def _repr_html_(self) -> str: ...
-
-class _PyAsyncSnapshotGenerator(AsyncGenerator[SnapshotInfo], metaclass=abc.ABCMeta):
-    def __aiter__(self) -> _PyAsyncSnapshotGenerator: ...
-    async def __anext__(self) -> SnapshotInfo: ...
 
 @final
 class AncestryGraph:
@@ -3253,7 +3271,26 @@ class Credentials:
     class Azure:
         def __new__(cls, credentials: AzureCredentials) -> Credentials.Azure: ...
 
-_AnyCredential = Credentials.S3 | Credentials.Gcs | Credentials.Azure
+    class LocalFileSystemAccess:
+        """Sentinel authorizing access to a local-filesystem (``file://``) virtual
+        chunk container, which requires no credentials. Surfaced as
+        ``LocalFileSystemAccess``."""
+
+        def __new__(cls) -> Credentials.LocalFileSystemAccess: ...
+
+    class HttpAccess:
+        """Sentinel authorizing access to an HTTP(S) virtual chunk container, which
+        requires no credentials."""
+
+        def __new__(cls) -> Credentials.HttpAccess: ...
+
+_AnyCredential = (
+    Credentials.S3
+    | Credentials.Gcs
+    | Credentials.Azure
+    | Credentials.LocalFileSystemAccess
+    | Credentials.HttpAccess
+)
 
 @final
 class LatencyStorage(Storage):
@@ -3340,6 +3377,7 @@ class Storage:
         bucket: str,
         prefix: str | None,
         credentials: _AnyS3Credential | None = None,
+        legacy_rooted_keys: bool | None = None,
     ) -> Storage: ...
     @classmethod
     def new_s3_object_store(
@@ -3357,6 +3395,7 @@ class Storage:
         prefix: str | None,
         use_weak_consistency: bool,
         credentials: _AnyS3Credential | None = None,
+        legacy_rooted_keys: bool | None = None,
     ) -> Storage: ...
     @classmethod
     def new_in_memory(cls) -> Storage: ...
@@ -3379,6 +3418,7 @@ class Storage:
         prefix: str | None = None,
         account_id: str | None = None,
         credentials: _AnyS3Credential | None = None,
+        legacy_rooted_keys: bool | None = None,
     ) -> Storage: ...
     @classmethod
     def new_azure_blob(
@@ -3395,6 +3435,7 @@ class Storage:
         cls,
         base_url: str,
         config: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> Storage: ...
     @classmethod
     def new_redirect(
@@ -3683,6 +3724,9 @@ def initialize_logs() -> None:
 
     Reads the value of the environment variable ICECHUNK_LOG to obtain the filters.
     This is autamtically called on `import icechunk`.
+
+    Logs are written to stderr by default. Set ICECHUNK_LOG_TO_STDOUT (to any value)
+    before importing icechunk to write them to stdout instead.
     """
     ...
 
@@ -3704,6 +3748,30 @@ def set_logs_filter(log_filter_directive: str | None) -> None:
         The comma separated list of directives for modules and log levels.
         If None, the directive will be read from the environment variable
         ICECHUNK_LOG
+    """
+    ...
+
+def shutdown_telemetry() -> None:
+    """
+    Flush and shut down OpenTelemetry trace export.
+
+    Experimental: OpenTelemetry export and its configuration may change in future
+    releases.
+
+    Registered with `atexit` on `import icechunk`, so the final batch of spans is
+    exported before the interpreter exits. Idempotent, and a no-op unless the
+    library was built with the `otel` feature and an OTLP endpoint was configured.
+
+    Trace export is opt-in and off by default. It is configured at `import icechunk`
+    through these environment variables (each Icechunk-specific variable falls back
+    to the standard OpenTelemetry one):
+
+    - ICECHUNK_OTLP_ENDPOINT (else OTEL_EXPORTER_OTLP_ENDPOINT): OTLP/gRPC endpoint of
+      the collector. Setting it enables export; with neither set, nothing is exported.
+    - ICECHUNK_OTEL_SERVICE_NAME (else OTEL_SERVICE_NAME): the `service.name` reported
+      to the collector. Defaults to "icechunk".
+    - ICECHUNK_OTEL_FILTER: which spans are exported, in `tracing-subscriber` filter
+      syntax. Defaults to "icechunk=info".
     """
     ...
 

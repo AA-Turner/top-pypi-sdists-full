@@ -49,19 +49,19 @@ def test_helpers():
     psm = l2cap.L2CAP_Connection_Request.serialize_psm(0x242311)
     assert psm == bytes([0x11, 0x23, 0x24])
 
-    (offset, psm) = l2cap.L2CAP_Connection_Request.parse_psm(
+    offset, psm = l2cap.L2CAP_Connection_Request.parse_psm(
         bytes([0x00, 0x01, 0x00, 0x44]), 1
     )
     assert offset == 3
     assert psm == 0x01
 
-    (offset, psm) = l2cap.L2CAP_Connection_Request.parse_psm(
+    offset, psm = l2cap.L2CAP_Connection_Request.parse_psm(
         bytes([0x00, 0x23, 0x10, 0x44]), 1
     )
     assert offset == 3
     assert psm == 0x1023
 
-    (offset, psm) = l2cap.L2CAP_Connection_Request.parse_psm(
+    offset, psm = l2cap.L2CAP_Connection_Request.parse_psm(
         bytes([0x00, 0x11, 0x23, 0x24, 0x44]), 1
     )
     assert offset == 4
@@ -197,7 +197,7 @@ async def test_basic_connection():
 
 
 # -----------------------------------------------------------------------------
-@pytest.mark.parametrize("info_type,", list(l2cap.L2CAP_Information_Request.InfoType))
+@pytest.mark.parametrize("info_type", list(l2cap.L2CAP_Information_Request.InfoType))
 async def test_l2cap_information_request(monkeypatch, info_type):
     # TODO: Replace handlers with API when implemented
     devices = await TwoDevices.create_with_connection()
@@ -321,7 +321,7 @@ async def test_mtu():
 
 # -----------------------------------------------------------------------------
 @pytest.mark.asyncio
-@pytest.mark.parametrize("mtu,", (50, 255, 256, 1000))
+@pytest.mark.parametrize("mtu", (50, 255, 256, 1000))
 async def test_enhanced_retransmission_mode(mtu: int):
     devices = TwoDevices()
     await devices.setup_connection()
@@ -455,6 +455,81 @@ def test_fcs(cid: int, payload: str, expected: str):
     '''Core Spec 6.1, Vol 3, Part A, 3.3.5. Frame Check Sequence.'''
     pdu = l2cap.L2CAP_PDU(cid, bytes.fromhex(payload))
     assert pdu.to_bytes(with_fcs=True) == bytes.fromhex(expected)
+
+
+# -----------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_abort_while_disconnecting():
+    # Setup client and server channels
+    devices = TwoDevices()
+    await devices.setup_connection()
+    psm = 1234
+
+    server_channels = asyncio.Queue[l2cap.LeCreditBasedChannel]()
+    devices.devices[1].create_l2cap_server(
+        spec=l2cap.LeCreditBasedChannelSpec(psm=psm),
+        handler=server_channels.put_nowait,
+    )
+    client_channel = await devices.connections[0].create_l2cap_channel(
+        spec=l2cap.LeCreditBasedChannelSpec(psm)
+    )
+    server_channel = await server_channels.get()
+
+    # Stub the server's request handler to ignore the disconnection request.
+    # This keeps the client channel in the DISCONNECTING state, waiting for a response,
+    # so we can simulate calling abort() during an active disconnection.
+    server_channel.on_disconnection_request = lambda request: None
+
+    # Intercept state change to DISCONNECTING and call abort()
+    original_change_state = client_channel._change_state
+    abort_called = False
+
+    def intercept_change_state_and_abort(new_state):
+        nonlocal abort_called
+        original_change_state(new_state)
+        if (
+            new_state == l2cap.LeCreditBasedChannel.State.DISCONNECTING
+            and not abort_called
+        ):
+            abort_called = True
+            client_channel.abort()
+
+    client_channel._change_state = intercept_change_state_and_abort
+
+    # Start disconnection and wait with a timeout. It should resolve immediately due to the abort.
+    await asyncio.wait_for(client_channel.disconnect(), timeout=1.0)
+    assert client_channel.state == l2cap.LeCreditBasedChannel.State.DISCONNECTED
+
+
+# -----------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_disconnection_collision():
+    # Setup client and server channels
+    devices = TwoDevices()
+    await devices.setup_connection()
+    psm = 1234
+
+    server_channels = asyncio.Queue[l2cap.LeCreditBasedChannel]()
+    devices.devices[1].create_l2cap_server(
+        spec=l2cap.LeCreditBasedChannelSpec(psm=psm),
+        handler=server_channels.put_nowait,
+    )
+    client_channel = await devices.connections[0].create_l2cap_channel(
+        spec=l2cap.LeCreditBasedChannelSpec(psm)
+    )
+    server_channel = await server_channels.get()
+
+    # Trigger disconnection from both sides concurrently to cause a collision.
+    # Both channels will transition to DISCONNECTING and send DISCONNECTION_REQUESTs.
+    # When each side receives the peer's request, it will handle it and resolve the
+    # disconnection_result future.
+    await asyncio.gather(
+        client_channel.disconnect(),
+        server_channel.disconnect(),
+    )
+
+    assert client_channel.state == l2cap.LeCreditBasedChannel.State.DISCONNECTED
+    assert server_channel.state == l2cap.LeCreditBasedChannel.State.DISCONNECTED
 
 
 # -----------------------------------------------------------------------------

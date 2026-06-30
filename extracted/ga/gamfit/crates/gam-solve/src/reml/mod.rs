@@ -955,6 +955,132 @@ mod tests {
         );
     }
 
+    /// #1575 multi-slot outer-eval cache correctness oracle.
+    ///
+    /// A memoization is only safe if a hit returns *exactly* what the miss path
+    /// stored. This pins three properties of the bounded LRU:
+    ///   1. round-trip fidelity — a hit is `f64::to_bits`-identical in cost AND
+    ///      every gradient component to the value stored on the miss path;
+    ///   2. no aliasing — distinct rho-keys never return each other's eval;
+    ///   3. honest eviction — once an evicted key is requested again it MISSES
+    ///      (so the caller recomputes) rather than returning a stale neighbour.
+    #[test]
+    pub(crate) fn outer_eval_lru_hit_is_bit_identical_and_evicts_honestly_1575() {
+        use super::OUTER_EVAL_LRU_CAPACITY;
+
+        // Helper: a deterministic OuterEval whose bits encode `seed`, so any
+        // cross-key contamination is detectable bit-for-bit.
+        let make_eval = |seed: f64| OuterEval {
+            cost: (seed * std::f64::consts::PI).sin() / 3.0 - seed,
+            gradient: array![seed, -seed * 2.0, seed.recip()],
+            hessian: HessianResult::Unavailable,
+            inner_beta_hint: Some(array![seed + 0.5, seed - 0.5]),
+        };
+        let bits_eq = |a: &OuterEval, b: &OuterEval| -> bool {
+            a.cost.to_bits() == b.cost.to_bits()
+                && a.gradient.len() == b.gradient.len()
+                && a.gradient
+                    .iter()
+                    .zip(b.gradient.iter())
+                    .all(|(x, y)| x.to_bits() == y.to_bits())
+        };
+
+        let cache = EvalCacheManager::new();
+
+        // (1) Round-trip fidelity: store at rho_a, then a forced hit must equal
+        // the stored eval bit-for-bit (the "hit == miss" guarantee).
+        let rho_a = array![0.25, -1.5];
+        let key_a = EvalCacheManager::sanitized_rhokey(&rho_a);
+        let eval_a = make_eval(0.25);
+        cache.store_outer_eval(&key_a, &eval_a);
+        let hit_a = cache
+            .cached_outer_eval(&key_a)
+            .expect("stored rho_a must hit");
+        assert!(
+            bits_eq(&hit_a, &eval_a),
+            "cache hit must be bit-identical (cost+gradient) to the stored miss-path eval"
+        );
+        assert_eq!(
+            hit_a.inner_beta_hint.as_ref().map(|b| b.to_vec()),
+            eval_a.inner_beta_hint.as_ref().map(|b| b.to_vec()),
+            "inner_beta_hint must round-trip unchanged"
+        );
+
+        // (2) No aliasing: a second, distinct rho must return its OWN eval, and
+        // the first key must still return the first eval untouched.
+        let rho_b = array![0.25, -1.4999999999999998];
+        let key_b = EvalCacheManager::sanitized_rhokey(&rho_b);
+        assert_ne!(key_a, key_b, "the two rho-keys must differ");
+        let eval_b = make_eval(7.0);
+        cache.store_outer_eval(&key_b, &eval_b);
+        assert!(
+            bits_eq(
+                &cache.cached_outer_eval(&key_b).expect("rho_b must hit"),
+                &eval_b
+            ),
+            "rho_b must return its own eval, not rho_a's"
+        );
+        assert!(
+            bits_eq(
+                &cache.cached_outer_eval(&key_a).expect("rho_a must still hit"),
+                &eval_a
+            ),
+            "rho_a must be unaffected by the rho_b insert"
+        );
+
+        // (3) Honest eviction: overflow the LRU with fresh keys. The
+        // least-recently-used entry must be evicted and then MISS (forcing a
+        // recompute), while a still-resident key returns its exact stored bits.
+        let cache = EvalCacheManager::new();
+        let mut keys = Vec::new();
+        let mut evals = Vec::new();
+        for i in 0..OUTER_EVAL_LRU_CAPACITY {
+            let rho = array![i as f64, -(i as f64)];
+            let key = EvalCacheManager::sanitized_rhokey(&rho);
+            let eval = make_eval(i as f64 + 0.123);
+            cache.store_outer_eval(&key, &eval);
+            keys.push(key);
+            evals.push(eval);
+        }
+        // Cache is exactly full; key[0] is the least-recently-used.
+        assert_eq!(
+            cache.outer_eval_lru.read().unwrap().entries.len(),
+            OUTER_EVAL_LRU_CAPACITY
+        );
+        // One more distinct key evicts the LRU (key[0]).
+        let rho_overflow = array![999.0, -999.0];
+        let key_overflow = EvalCacheManager::sanitized_rhokey(&rho_overflow);
+        let eval_overflow = make_eval(42.0);
+        cache.store_outer_eval(&key_overflow, &eval_overflow);
+        assert_eq!(
+            cache.outer_eval_lru.read().unwrap().entries.len(),
+            OUTER_EVAL_LRU_CAPACITY,
+            "capacity must stay bounded"
+        );
+        assert!(
+            cache.cached_outer_eval(&keys[0]).is_none(),
+            "the least-recently-used key must be evicted and now MISS (recompute), not return stale"
+        );
+        assert!(
+            bits_eq(
+                &cache
+                    .cached_outer_eval(&keys[1])
+                    .expect("a still-resident key must hit"),
+                &evals[1]
+            ),
+            "a still-resident key must return its exact stored bits"
+        );
+        assert!(
+            bits_eq(
+                &cache
+                    .cached_outer_eval(&key_overflow)
+                    .expect("the freshest key must hit"),
+                &eval_overflow
+            ),
+            "the freshest key must hit with its own eval"
+        );
+    }
+
     #[test]
     pub(crate) fn reset_outer_seed_state_clears_pirls_cache() {
         // Build a minimal logit RemlState, populate the cross-call PIRLS LRU
@@ -4252,6 +4378,42 @@ pub struct FirthDenseOperator {
     pub(crate) p_b_base: Array2<f64>,
 }
 
+/// β-independent (design-only) factor of the Firth/Jeffreys operator.
+///
+/// Everything stored here depends ONLY on the fixed design `X` and the fixed
+/// prior/observation weights `a_i` — NOT on the current linear predictor `η`
+/// (i.e. NOT on β). For a single inner PIRLS solve the design and prior weights
+/// are constant while `η` changes every Newton iteration, so this factor can be
+/// built once per solve and reused, hoisting the O(n·p²) Gram, the O(p³)
+/// identifiable-subspace eigendecomposition, and the two n×p design clones out
+/// of the per-iteration hot path (#1575).
+///
+/// The β-dependent remainder (Fisher weights `w(η)`, reduced Fisher
+/// `I_r = X_rᵀ W X_r`, its inverse `K_r`, the hat diagonal `h`, and the
+/// half-log-determinant) is rebuilt per iteration from this factor via
+/// [`FirthDenseOperator::build_from_design_factor`] (full operator) or
+/// [`FirthDenseOperator::pirls_diagnostics_from_factor`] (the three PIRLS
+/// diagnostics only). Both reproduce the un-hoisted build bit-for-bit.
+#[derive(Clone)]
+pub(crate) struct FirthDesignFactor {
+    // Raw design and its transpose (the operator stores owned copies).
+    pub(crate) x_dense: Array2<f64>,
+    pub(crate) x_dense_t: Array2<f64>,
+    // Orthonormal identifiable-subspace basis Q of (A^{1/2} X)ᵀ(A^{1/2} X).
+    pub(crate) q_basis: Array2<f64>,
+    // Reduced identifiable design X_r = A^{1/2} X Q.
+    pub(crate) x_reduced: Array2<f64>,
+    // Fixed case-weight square roots (sqrt(a_i)), if any.
+    pub(crate) observation_weight_sqrt: Option<Array1<f64>>,
+    // Retained positive spectrum of the design Gram = S_r diagonal.
+    pub(crate) metric_spectrum: Array1<f64>,
+    // diag(S_r^{-1}); precomputed reciprocal of `metric_spectrum`.
+    pub(crate) x_metric_reduced_inv_diag: Array1<f64>,
+    // rank r = ncols(q_basis); n = nrows(x_dense).
+    pub(crate) r: usize,
+    pub(crate) n: usize,
+}
+
 #[derive(Clone)]
 pub(crate) struct FirthDirection {
     pub(crate) deta: Array1<f64>,
@@ -4697,6 +4859,77 @@ pub(crate) fn symmetric_matrix_cache_bytes(m: &gam_linalg::matrix::SymmetricMatr
     }
 }
 
+/// Capacity (number of distinct rho-points) of the outer-eval reuse LRU.
+///
+/// Sized to comfortably span a binomial seed grid's local revisit window
+/// (baseline + isotropic shifts + per-axis refinements) plus a few
+/// line-search trial points without unbounded growth. Each slot holds one
+/// `OuterEval` (a scalar cost, a length-k gradient, an optional inner-beta
+/// hint, and a usually-`Unavailable` Hessian), so the footprint is tiny.
+pub(crate) const OUTER_EVAL_LRU_CAPACITY: usize = 8;
+
+/// Bounded least-recently-used cache of converged outer REML evaluations,
+/// keyed by sanitized rho-bits.
+///
+/// CORRECTNESS: the key (`Vec<u64>` of `f64::to_bits`, with ±0 canonicalized)
+/// is the complete result-determining input for a fixed `RemlState`. Every
+/// other input to `OuterEval` — design matrix, prior weights, offset, penalty
+/// structure, link/SAS/mixture state, Firth/Jeffreys configuration, and the
+/// rho-prior — is immutable for the lifetime of the state that owns the cache,
+/// so the stored cost / gradient / inner-beta hint depend only on rho. A hit
+/// therefore returns exactly the value a recompute at that rho would converge
+/// to (to the solver's own tolerance, identical to the trust the pre-existing
+/// single-slot cache already placed in rho-only keying). Distinct rho-points
+/// never alias: lookups compare the full key vector.
+pub(crate) struct OuterEvalLru {
+    capacity: usize,
+    /// Front = least-recently-used, back = most-recently-used.
+    entries: std::collections::VecDeque<(Vec<u64>, OuterEval)>,
+}
+
+impl OuterEvalLru {
+    pub(crate) fn new(capacity: usize) -> Self {
+        Self {
+            capacity: capacity.max(1),
+            entries: std::collections::VecDeque::new(),
+        }
+    }
+
+    /// Returns a clone of the eval stored under `key`, if present, promoting it
+    /// to most-recently-used. A miss returns `None` so the caller recomputes —
+    /// never a stale value from a different key.
+    pub(crate) fn get(&mut self, key: &[u64]) -> Option<OuterEval> {
+        let pos = self
+            .entries
+            .iter()
+            .position(|(k, _)| k.as_slice() == key)?;
+        let entry = self.entries.remove(pos)?;
+        let eval = entry.1.clone();
+        self.entries.push_back(entry);
+        Some(eval)
+    }
+
+    /// Inserts (or refreshes) the eval for `key` as most-recently-used,
+    /// evicting the least-recently-used entry once capacity is exceeded.
+    pub(crate) fn insert(&mut self, key: Vec<u64>, eval: OuterEval) {
+        if let Some(pos) = self
+            .entries
+            .iter()
+            .position(|(k, _)| k.as_slice() == key.as_slice())
+        {
+            self.entries.remove(pos);
+        }
+        self.entries.push_back((key, eval));
+        while self.entries.len() > self.capacity {
+            self.entries.pop_front();
+        }
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.entries.clear();
+    }
+}
+
 /// Centralized cache/memoization owner for REML evaluations.
 ///
 /// This keeps cache-key identity, bundle reuse, and invalidation policy out of
@@ -4705,7 +4938,24 @@ pub(crate) struct EvalCacheManager {
     pub(crate) pirls_cache: RwLock<PirlsLruCache>,
     pub(crate) penalty_subspace_cache: RwLock<PenaltySubspaceCache>,
     pub(crate) current_eval_bundle: RwLock<Option<EvalShared>>,
+    /// Most-recently-*stored* outer eval (single slot). Retained verbatim so
+    /// `previous_outer_gradient_norm` keeps its exact "immediately previous
+    /// distinct eval" semantics, independent of the multi-slot reuse cache.
     pub(crate) current_outer_eval: RwLock<Option<(Vec<u64>, OuterEval)>>,
+    /// Bounded multi-slot LRU of converged outer evaluations keyed by the
+    /// sanitized rho-bits (#1575).
+    ///
+    /// For a frozen `RemlState` (fixed design, prior weights, offset, penalty
+    /// structure, link state, Firth/Jeffreys configuration, and rho-prior — all
+    /// of which are immutable for the lifetime of the state that owns this
+    /// manager and therefore the lifetime of the cache), the outer objective
+    /// value, its gradient, and the inner-beta hint are deterministic functions
+    /// of rho alone. The sanitized rho-bits are thus the complete result key.
+    /// The binomial REML fit performs ~20-32 seed-grid pre-solves plus
+    /// line-search revisits; with only the single `current_outer_eval` slot,
+    /// any revisit to an earlier rho re-ran a full n-sized P-IRLS. This LRU
+    /// returns the stored cost/gradient for those revisited rho-points.
+    pub(crate) outer_eval_lru: RwLock<OuterEvalLru>,
     pub(crate) pirls_cache_enabled: AtomicBool,
 }
 
@@ -4716,6 +4966,7 @@ impl EvalCacheManager {
             penalty_subspace_cache: RwLock::new(PenaltySubspaceCache::new()),
             current_eval_bundle: RwLock::new(None),
             current_outer_eval: RwLock::new(None),
+            outer_eval_lru: RwLock::new(OuterEvalLru::new(OUTER_EVAL_LRU_CAPACITY)),
             pirls_cache_enabled: AtomicBool::new(true),
         }
     }
@@ -4766,20 +5017,29 @@ impl EvalCacheManager {
 
     pub(crate) fn cached_outer_eval(&self, key: &Option<Vec<u64>>) -> Option<OuterEval> {
         let key = key.as_ref()?;
-        let guard = self.current_outer_eval.read().unwrap();
-        let (cached_key, eval): &(Vec<u64>, OuterEval) = guard.as_ref()?;
-        (cached_key == key).then(|| eval.clone())
+        // The LRU is the authoritative multi-slot store; it always contains the
+        // most-recently-stored eval too (kept in sync by `store_outer_eval`), so
+        // a single LRU probe subsumes the old single-slot fast path while also
+        // serving revisited (non-immediate) rho-points. `get` is a tiny linear
+        // scan (capacity is `OUTER_EVAL_LRU_CAPACITY`) that promotes the hit to
+        // most-recently-used; hence the write lock.
+        self.outer_eval_lru.write().unwrap().get(key)
     }
 
     pub(crate) fn store_outer_eval(&self, key: &Option<Vec<u64>>, eval: &OuterEval) {
         if let Some(key) = key.clone() {
-            *self.current_outer_eval.write().unwrap() = Some((key, eval.clone()));
+            // Keep the single-slot mirror for `previous_outer_gradient_norm`,
+            // whose "immediately previous distinct eval" contract reads it
+            // directly and must stay byte-for-byte unchanged.
+            *self.current_outer_eval.write().unwrap() = Some((key.clone(), eval.clone()));
+            self.outer_eval_lru.write().unwrap().insert(key, eval.clone());
         }
     }
 
     pub(crate) fn invalidate_eval_bundle(&self) {
         self.current_eval_bundle.write().unwrap().take();
         self.current_outer_eval.write().unwrap().take();
+        self.outer_eval_lru.write().unwrap().clear();
     }
 
     pub(crate) fn clear_eval_and_factor_caches(&self) {
@@ -4938,6 +5198,21 @@ pub(crate) struct RemlState<'a> {
     /// that the estimated path injects. The single final reported fit still
     /// ML-refreshes θ at the converged η. Reset on `reset_surface`.
     pub(crate) frozen_negbin_theta: Arc<AtomicU64>,
+
+    /// Tweedie exponential-dispersion `phi` frozen for the smoothing-parameter
+    /// (λ) search (#1477), bit-packed `f64` (`f64::to_bits`). `0` (the default)
+    /// signals "not yet frozen". On the first non-screening λ-search inner solve
+    /// of an estimated-φ Tweedie fit, the seed's Pearson `phî` is captured once
+    /// and stored here; every subsequent λ-search evaluation pins the inner
+    /// solve to this value via
+    /// `GlmLikelihoodSpec::with_tweedie_phi_frozen_for_search`, so the REML
+    /// criterion `F(ρ) = REML(ρ, φ_frozen)` is a stationary function of ρ. The
+    /// Tweedie LAML omits the `phi`-dependent saddlepoint normalizer, so a `phi`
+    /// drifting with each warm-start η lets the criterion reward dispersion
+    /// inflation and rail a double-penalty null-space `λ` to the box bound (the
+    /// #1477 boundary blow-up). The single final reported fit still
+    /// Pearson-refreshes `phi` at the converged η. Reset on `reset_surface`.
+    pub(crate) frozen_tweedie_phi: Arc<AtomicU64>,
 
     /// Last observed IFT-prediction residual (`‖β_converged − β_predicted‖
     /// / ‖β_converged‖`) from the most recent non-screening solve where

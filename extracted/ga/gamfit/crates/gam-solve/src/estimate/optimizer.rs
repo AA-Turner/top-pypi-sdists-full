@@ -50,16 +50,46 @@ where
 pub(crate) fn external_reml_seed_config(k: usize, link: LinkFunction) -> SeedConfig {
     let gaussian = matches!(link, LinkFunction::Identity);
     if k >= REML_SEED_SCREENING_RHO_CAP {
-        let seed_budget = if gaussian { 1 } else { 2 };
+        if gaussian {
+            // #1074: the over-smoothing safety net (heavy probe + budget-2
+            // lowest-cost keep-best) must remain reachable for MULTI-TERM
+            // Gaussian fits, not just the single-smooth k < CAP case. A textbook
+            // geostatistical model `mag ~ s(long,lat,bs="tp") + s(depth)` carries
+            // FOUR penalty blocks (two double-penalized smooths), so it lands in
+            // this k >= CAP branch — where the old single-anchor `seed_budget = 1`
+            // path descends from the heuristic anchor straight into the flexible
+            // (low-λ) basin and over-fits the weak earthquake-magnitude signal
+            // (edf ≈ 104 vs mgcv ≈ 15, held-out R² ≈ 0.02). The single-smooth arm
+            // (`s(long,lat)` alone, k = 2) does NOT over-fit precisely because it
+            // already gets this net.
+            //
+            // Cost: the probe is ONE extra seed and the heavily-penalized basin
+            // solves cheaply (its inner P-IRLS collapses into the penalty null
+            // space — few effective dof — so it converges in a handful of
+            // iterations), so the added work is ~one cheap solve, NOT a 2× of the
+            // expensive flexible solve. The seed lattice stays minimal (anchor +
+            // 4 global shifts + the probe = 6 candidates, `max_seeds = 4` so no
+            // exploratory lattice is appended), honouring the perf-guard intent of
+            // the cap (no large seed lattice for high-rho fits) while restoring the
+            // basin coverage. Lowest-cost keep-best adopts the heavy basin only
+            // when it scores a strictly lower REML, so a genuinely flexible
+            // multi-term Gaussian surface is never worsened — only a weak-signal
+            // over-rich fit escapes the over-fit basin it currently rails into.
+            return SeedConfig {
+                bounds: (-12.0, 12.0),
+                max_seeds: 4,
+                seed_budget: 2,
+                risk_profile: SeedRiskProfile::Gaussian,
+                screen_max_inner_iterations: SeedConfig::default().screen_max_inner_iterations,
+                num_auxiliary_trailing: 0,
+                over_smoothing_probe_rho: Some(8.0),
+            };
+        }
         return SeedConfig {
             bounds: (-12.0, 12.0),
-            max_seeds: seed_budget,
-            seed_budget,
-            risk_profile: if gaussian {
-                SeedRiskProfile::Gaussian
-            } else {
-                SeedRiskProfile::GeneralizedLinear
-            },
+            max_seeds: 2,
+            seed_budget: 2,
+            risk_profile: SeedRiskProfile::GeneralizedLinear,
             screen_max_inner_iterations: SeedConfig::default().screen_max_inner_iterations,
             num_auxiliary_trailing: 0,
             over_smoothing_probe_rho: None,
@@ -68,7 +98,13 @@ pub(crate) fn external_reml_seed_config(k: usize, link: LinkFunction) -> SeedCon
     SeedConfig {
         bounds: (-12.0, 12.0),
         max_seeds: if gaussian && k <= 4 {
-            2
+            // #1074: widen the small-k Gaussian candidate pool from 2 to 4 so the
+            // flexible anchor shifts AND the absolute over-smoothing probe (set
+            // below) both survive into the screened pool instead of one being
+            // truncated. With promote-extreme seeding (now enabled for Gaussian)
+            // and seed_budget 2, the flexible basin is solved at slot 0 and the
+            // heavy basin at slot 1.
+            4
         } else if gaussian && k <= 12 {
             4
         } else if gaussian {
@@ -80,7 +116,13 @@ pub(crate) fn external_reml_seed_config(k: usize, link: LinkFunction) -> SeedCon
         } else {
             10
         },
-        seed_budget: if gaussian && k <= 6 { 1 } else { 2 },
+        // #1074: Gaussian small-k fits get TWO full-budget solves (was 1) so the
+        // heavily-penalized basin is actually solved alongside the flexible one;
+        // lowest-cost keep-best then returns whichever has the lower REML, so a
+        // genuinely flexible fit (tp_2d/te_3d) is never worsened while a
+        // weak-signal over-rich spatial fit (quakes) can escape the over-fit
+        // basin it currently rails into (edf≈104 → mgcv-like).
+        seed_budget: 2,
         risk_profile: if gaussian {
             SeedRiskProfile::Gaussian
         } else {
@@ -88,7 +130,12 @@ pub(crate) fn external_reml_seed_config(k: usize, link: LinkFunction) -> SeedCon
         },
         screen_max_inner_iterations: SeedConfig::default().screen_max_inner_iterations,
         num_auxiliary_trailing: 0,
-        over_smoothing_probe_rho: None,
+        // #1074: an ABSOLUTE high-λ probe (interior, below the 11.5 over-smoothing
+        // boundary so it is promoted as the heaviest interior seed rather than
+        // parked at the tail) seeds the over-smoothed basin the Gaussian global
+        // shifts (±4) and baseline centers (±6) never reach. None for non-Gaussian
+        // (their symmetric shifts + promote-extreme already span both basins).
+        over_smoothing_probe_rho: if gaussian { Some(8.0) } else { None },
     }
 }
 
@@ -2760,27 +2807,44 @@ where
         w_o.view(),
     );
 
-    // Report the fitted Negative-Binomial overdispersion `theta` on the family
-    // variant (issue #802). Unlike the Gamma shape / Tweedie φ (which live only
-    // in `likelihood_scale`) and the Beta φ (whose estimate downstream consumers
-    // read from `likelihood_scale` via a separate override), NB `theta` is the
-    // *canonical* parameter on `ResponseFamily::NegativeBinomial { theta }` that
-    // every NB predictive consumer (prediction-interval variance, quadrature,
-    // sampling, `generate` draws) reads directly off the saved family. The fit
-    // updated it in lock-step with the `EstimatedNegBinTheta` scale metadata via
-    // `with_negbin_theta`, so threading that fitted `theta` back onto the reported
-    // family is what makes those consumers see the data's overdispersion instead
-    // of the seed. Non-NB families keep `opts.family` (their estimates live in the
-    // scale metadata), preserving the existing seed-in-family convention.
+    // Report the fitted dispersion parameter on the family variant for the two
+    // families whose *reporting log-likelihood kernel* reads it from the family
+    // enum rather than from `likelihood_scale`: Negative-Binomial `theta` (issue
+    // #802) and Beta `phi` (issue #1608). For both, `ResponseFamily` carries the
+    // parameter directly (`NegativeBinomial { theta }`, `Beta { phi }`), the
+    // PIRLS deviance/log-likelihood arms read it off that variant, and the inner
+    // solve updated the family variant in lock-step with the scale metadata via
+    // `with_negbin_theta` / `with_beta_phi`. But `opts.family` is the *seed* spec
+    // (θ/φ at their construction defaults), so cloning it and stopping there would
+    // ship the seed dispersion in the saved model while `likelihood_scale` carries
+    // the fitted value — the two views diverge and the kernel reads the seed.
+    // Threading the fitted dispersion back onto the reported family restores the
+    // `with_negbin_theta` / `with_beta_phi` invariant (family variant ⇔ scale
+    // metadata are two synchronized views of one estimated parameter) in the
+    // terminal output, so every consumer — the diagnose AIC/PSIS-LOO kernel
+    // included — sees the data's dispersion instead of the seed.
+    //
+    // Gamma shape and Tweedie φ are deliberately NOT threaded here: their family
+    // variants carry no dispersion (`Gamma` is parameterless, `Tweedie { p }`
+    // carries only the power), so their kernels read the fitted scale from
+    // `likelihood_scale` directly and there is nothing on the family to sync.
     let mut reported_family = opts.family.clone();
-    if let (
-        ResponseFamily::NegativeBinomial { theta, .. },
-        LikelihoodScaleMetadata::EstimatedNegBinTheta {
-            theta: fitted_theta,
-        },
-    ) = (&mut reported_family.response, likelihood_scale_field)
-    {
-        *theta = fitted_theta;
+    match (&mut reported_family.response, likelihood_scale_field) {
+        (
+            ResponseFamily::NegativeBinomial { theta, .. },
+            LikelihoodScaleMetadata::EstimatedNegBinTheta {
+                theta: fitted_theta,
+            },
+        ) => {
+            *theta = fitted_theta;
+        }
+        (
+            ResponseFamily::Beta { phi },
+            LikelihoodScaleMetadata::EstimatedBetaPhi { phi: fitted_phi },
+        ) => {
+            *phi = fitted_phi;
+        }
+        _ => {}
     }
 
     let result = ExternalOptimResult {

@@ -1,8 +1,15 @@
 #!/usr/bin/env python
 """CPR (Cursor Position Report) round-trip latency benchmark."""
-# theory: that some terminals respond to CPR at different times, depending on the time it was
-# received, they might have for example a thread poll at 10ms or so, depending on its "time within
-# the window".
+# this dool was designed to discover slow response times from VTE-based terminals.
+#
+# theory is that some terminals respond to CPR at different times, depending on the time it was
+# received, or how many bytes are also received in output, is sometimes in some separate lockstep/
+# buffer/event signal, or poll at 10ms or so, depending on its arrival -- so this test exercises
+# many different timings and "burst" cycle measurements.
+#
+# this hypothesis was proven correct -- gnome terminal processed automatic responses at most 60Hz,
+# and because of ping-pong response/delay, often less than 30Hz (~16-32ms) delay for each and every
+# automatic response.
 import collections
 import random
 import sys

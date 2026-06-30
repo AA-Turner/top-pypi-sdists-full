@@ -42,27 +42,43 @@ class TestPrincipalBuilderSmoke:
         """Smoke: principal builder produces architecture + multi-file features."""
         from sage.core.code_doctors import DoctorReport
         from sage.core.integrity_pass import IntegrityReport
-        with patch(
-            "sage.core.principal_builder._verify_iterate_until_green",
-            return_value=[],
-        ), patch(
-            "sage.core.principal_builder.run_bootstrap",
-            return_value=[],  # skip real CLI scaffolders in tests
-        ), patch(
-            "sage.core.principal_builder.run_code_doctors",
-            return_value=DoctorReport(),  # skip mechanical fixers in test
-        ), patch(
-            "sage.core.principal_builder.run_integrity_pass",
-            return_value=IntegrityReport(),  # skip ruff+LLM repair in tests
-        ):
-            report = build_project_principal(
-                "Build a FastAPI + RN Web auth + dashboard app",
-                tmp_path,
-                _stub_gen(),
-                progress=lambda _: None,
-                enable_review=False,  # skip review in smoke test
-                enable_heal=False,    # stub-generated code can't pass real install
-            )
+        from sage.core.integration_check import IntegrationReport
+        import os
+        old_val = os.environ.pop("SAGE_TESTING", None)
+        try:
+            with patch(
+                "sage.core.principal_builder._verify_iterate_until_green",
+                return_value=[],
+            ), patch(
+                "sage.core.principal_builder.run_bootstrap",
+                return_value=[],  # skip real CLI scaffolders in tests
+            ), patch(
+                "sage.core.principal_builder.run_code_doctors",
+                return_value=DoctorReport(),  # skip mechanical fixers in test
+            ), patch(
+                "sage.core.principal_builder.run_integrity_pass",
+                return_value=IntegrityReport(),  # skip ruff+LLM repair in tests
+            ), patch(
+                "sage.core.principal_builder.run_integration_check",
+                return_value=IntegrationReport(),
+            ), patch(
+                "sage.core.pre_write_validator.validate_generated_file",
+                return_value=__import__("sage.core.pre_write_validator").core.pre_write_validator.ValidationResult(ok=True),
+            ), patch(
+                "sage.core.principal_builder.run_final_polish",
+                return_value=__import__("sage.core.final_polish").core.final_polish.PolishReport(),
+            ):
+                report = build_project_principal(
+                    "Build a FastAPI + RN Web auth + dashboard app",
+                    tmp_path,
+                    _stub_gen(),
+                    progress=lambda _: None,
+                    enable_review=False,  # skip review in smoke test
+                    enable_heal=False,    # stub-generated code can't pass real install
+                )
+        finally:
+            if old_val is not None:
+                os.environ["SAGE_TESTING"] = old_val
 
         # Layout invariants
         assert (tmp_path / "frontend").is_dir()

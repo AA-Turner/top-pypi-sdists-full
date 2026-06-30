@@ -149,6 +149,35 @@ def test_literal_early_return_in_branch_validates() -> None:
     assert any(e.from_ == "W::cond_0" and e.kind == "branch_exit_true" for e in graph.edges)
 
 
+def test_both_branches_return_converge_to_single_output() -> None:
+    # WFL-1853: a trivial conditional where both arms `return await <activity>()`
+    # must converge on a single workflow output node — no spurious extra output
+    # ("int") node and no duplicate per-branch "exit" nodes.
+    graph = _analyze(
+        """
+        if x == 0:
+            return await do_it()
+        else:
+            return await do_it()
+"""
+    )
+
+    assert graph.incomplete is False
+
+    outputs = _outputs(graph)
+    assert len(outputs) == 1
+    assert not outputs[0].is_error
+    out_id = outputs[0].id
+
+    # Both arms reach the single output through branch-exit edges.
+    exit_kinds = {e.kind for e in graph.edges if e.to == out_id}
+    assert exit_kinds == {"branch_exit_true", "branch_exit_false"}
+
+    # No spurious sequential fall-through straight from the conditional to the output.
+    cond_id = next(n.id for n in graph.nodes if n.type == "conditional")
+    assert not any(e.from_ == cond_id and e.to == out_id and e.kind == "sequential" for e in graph.edges)
+
+
 def test_nested_if_with_exiting_arms_validates() -> None:
     graph = _analyze(
         """

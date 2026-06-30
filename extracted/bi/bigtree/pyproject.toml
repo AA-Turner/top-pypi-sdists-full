@@ -80,6 +80,7 @@ dependencies = [
   "pyvis",
   "rich",
   "ruff",
+  "textual",
 ]
 
 [tool.hatch.envs.default.scripts]
@@ -148,7 +149,8 @@ omit = [
   "*/tests/*",
   "*/workflows/*",
   "bigtree/tree/construct/render.py",
-  "bigtree/tree/studio/*"
+  "bigtree/tree/studio/screens/*",
+  "bigtree/tree/studio/app.py",
 ]
 
 [tool.coverage.report]

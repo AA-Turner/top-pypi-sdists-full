@@ -58,6 +58,7 @@ from .literals import (
     ProtectStatusType,
     RcsAgentFilterNameType,
     RcsAgentStatusType,
+    RcsFallbackChannelType,
     RegistrationAssociationBehaviorType,
     RegistrationAssociationFilterNameType,
     RegistrationDisassociationBehaviorType,
@@ -152,6 +153,7 @@ __all__ = (
     "DeleteProtectConfigurationRuleSetNumberOverrideResultTypeDef",
     "DeleteRcsAgentRequestTypeDef",
     "DeleteRcsAgentResultTypeDef",
+    "DeleteRcsMessageSpendLimitOverrideResultTypeDef",
     "DeleteRegistrationAttachmentRequestTypeDef",
     "DeleteRegistrationAttachmentResultTypeDef",
     "DeleteRegistrationFieldValueRequestTypeDef",
@@ -295,6 +297,24 @@ __all__ = (
     "PutResourcePolicyResultTypeDef",
     "RcsAgentFilterTypeDef",
     "RcsAgentInformationTypeDef",
+    "RcsCardContentTypeDef",
+    "RcsCardMediaTypeDef",
+    "RcsCarouselCardContentTypeDef",
+    "RcsCarouselCardMediaTypeDef",
+    "RcsCarouselTypeDef",
+    "RcsContentTypeDef",
+    "RcsCreateCalendarEventActionTypeDef",
+    "RcsDialPhoneActionTypeDef",
+    "RcsFallbackConfigurationTypeDef",
+    "RcsFileMessageTypeDef",
+    "RcsMessageContentTypeDef",
+    "RcsOpenUrlActionTypeDef",
+    "RcsReplyActionTypeDef",
+    "RcsRequestLocationActionTypeDef",
+    "RcsShowLocationActionTypeDef",
+    "RcsStandaloneCardTypeDef",
+    "RcsSuggestedActionTypeDef",
+    "RcsTextMessageTypeDef",
     "RegistrationAssociationFilterTypeDef",
     "RegistrationAssociationMetadataTypeDef",
     "RegistrationAttachmentFilterTypeDef",
@@ -332,6 +352,8 @@ __all__ = (
     "SendNotifyTextMessageResultTypeDef",
     "SendNotifyVoiceMessageRequestTypeDef",
     "SendNotifyVoiceMessageResultTypeDef",
+    "SendRcsMessageRequestTypeDef",
+    "SendRcsMessageResultTypeDef",
     "SendTextMessageRequestTypeDef",
     "SendTextMessageResultTypeDef",
     "SendVoiceMessageRequestTypeDef",
@@ -351,6 +373,8 @@ __all__ = (
     "SetMediaMessageSpendLimitOverrideResultTypeDef",
     "SetNotifyMessageSpendLimitOverrideRequestTypeDef",
     "SetNotifyMessageSpendLimitOverrideResultTypeDef",
+    "SetRcsMessageSpendLimitOverrideRequestTypeDef",
+    "SetRcsMessageSpendLimitOverrideResultTypeDef",
     "SetTextMessageSpendLimitOverrideRequestTypeDef",
     "SetTextMessageSpendLimitOverrideResultTypeDef",
     "SetVoiceMessageSpendLimitOverrideRequestTypeDef",
@@ -966,6 +990,80 @@ class TestingAgentInformationTypeDef(TypedDict):
     TestingAgentId: NotRequired[str]
 
 
+class RcsCardMediaTypeDef(TypedDict):
+    FileUrl: str
+    ThumbnailUrl: NotRequired[str]
+    Height: NotRequired[str]
+
+
+class RcsCarouselCardMediaTypeDef(TypedDict):
+    FileUrl: str
+    ThumbnailUrl: NotRequired[str]
+    Height: NotRequired[str]
+
+
+class RcsFileMessageTypeDef(TypedDict):
+    FileUrl: str
+    ThumbnailUrl: NotRequired[str]
+
+
+class RcsTextMessageTypeDef(TypedDict):
+    Body: str
+
+
+RcsDialPhoneActionTypeDef = TypedDict(
+    "RcsDialPhoneActionTypeDef",
+    {
+        "Text": str,
+        "PostbackData": str,
+        "PhoneNumber": str,
+    },
+)
+
+
+class RcsFallbackConfigurationTypeDef(TypedDict):
+    Channel: RcsFallbackChannelType
+    MessageBody: NotRequired[str]
+    MediaUrls: NotRequired[Sequence[str]]
+    OriginationIdentity: NotRequired[str]
+
+
+RcsOpenUrlActionTypeDef = TypedDict(
+    "RcsOpenUrlActionTypeDef",
+    {
+        "Text": str,
+        "PostbackData": str,
+        "Url": str,
+        "Application": NotRequired[str],
+        "WebviewViewMode": NotRequired[str],
+    },
+)
+RcsReplyActionTypeDef = TypedDict(
+    "RcsReplyActionTypeDef",
+    {
+        "Text": str,
+        "PostbackData": str,
+    },
+)
+RcsRequestLocationActionTypeDef = TypedDict(
+    "RcsRequestLocationActionTypeDef",
+    {
+        "Text": str,
+        "PostbackData": str,
+    },
+)
+RcsShowLocationActionTypeDef = TypedDict(
+    "RcsShowLocationActionTypeDef",
+    {
+        "Text": str,
+        "PostbackData": str,
+        "Latitude": float,
+        "Longitude": float,
+        "Label": NotRequired[str],
+    },
+)
+
+
 class RegistrationDeniedReasonInformationTypeDef(TypedDict):
     Reason: str
     ShortDescription: str
@@ -1135,6 +1233,10 @@ class SetNotifyMessageSpendLimitOverrideRequestTypeDef(TypedDict):
     MonthlyLimit: int
 
 
+class SetRcsMessageSpendLimitOverrideRequestTypeDef(TypedDict):
+    MonthlyLimit: int
+
+
 class SetTextMessageSpendLimitOverrideRequestTypeDef(TypedDict):
     MonthlyLimit: int
 
@@ -1197,6 +1299,10 @@ class UpdateRcsAgentRequestTypeDef(TypedDict):
     TwoWayChannelArn: NotRequired[str]
     TwoWayChannelRole: NotRequired[str]
     TwoWayEnabled: NotRequired[bool]
+    TwoWayMediaS3BucketName: NotRequired[str]
+    TwoWayMediaS3KeyPrefix: NotRequired[str]
+    TwoWayMediaS3Role: NotRequired[str]
+    TwoWayRcsEventsEnabled: NotRequired[Sequence[str]]
 
 
 class UpdateSenderIdRequestTypeDef(TypedDict):
@@ -1370,6 +1476,12 @@ class DeleteRcsAgentResultTypeDef(TypedDict):
     TwoWayChannelArn: str
     TwoWayChannelRole: str
     TwoWayEnabled: bool
+    TwoWayRcsEventsEnabled: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteRcsMessageSpendLimitOverrideResultTypeDef(TypedDict):
+    MonthlyLimit: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1575,6 +1687,11 @@ class SendNotifyVoiceMessageResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class SendRcsMessageResultTypeDef(TypedDict):
+    MessageId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class SendTextMessageResultTypeDef(TypedDict):
     MessageId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1618,6 +1735,11 @@ class SetMediaMessageSpendLimitOverrideResultTypeDef(TypedDict):
 
 
 class SetNotifyMessageSpendLimitOverrideResultTypeDef(TypedDict):
+    MonthlyLimit: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class SetRcsMessageSpendLimitOverrideResultTypeDef(TypedDict):
     MonthlyLimit: int
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1708,6 +1830,10 @@ class UpdateRcsAgentResultTypeDef(TypedDict):
     TwoWayChannelArn: str
     TwoWayChannelRole: str
     TwoWayEnabled: bool
+    TwoWayMediaS3BucketName: str
+    TwoWayMediaS3KeyPrefix: str
+    TwoWayMediaS3Role: str
+    TwoWayRcsEventsEnabled: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1874,6 +2000,10 @@ class CreateRcsAgentResultTypeDef(TypedDict):
     TwoWayChannelArn: str
     TwoWayChannelRole: str
     TwoWayEnabled: bool
+    TwoWayMediaS3BucketName: str
+    TwoWayMediaS3KeyPrefix: str
+    TwoWayMediaS3Role: str
+    TwoWayRcsEventsEnabled: list[str]
     Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2514,6 +2644,19 @@ class PutProtectConfigurationRuleSetNumberOverrideRequestTypeDef(TypedDict):
     ExpirationTimestamp: NotRequired[TimestampTypeDef]
 
 
+RcsCreateCalendarEventActionTypeDef = TypedDict(
+    "RcsCreateCalendarEventActionTypeDef",
+    {
+        "Text": str,
+        "PostbackData": str,
+        "Title": str,
+        "StartTime": TimestampTypeDef,
+        "EndTime": TimestampTypeDef,
+        "Description": NotRequired[str],
+    },
+)
+
+
 class RcsAgentInformationTypeDef(TypedDict):
     RcsAgentArn: str
     RcsAgentId: str
@@ -2526,6 +2669,10 @@ class RcsAgentInformationTypeDef(TypedDict):
     TwoWayChannelArn: NotRequired[str]
     TwoWayChannelRole: NotRequired[str]
     PoolId: NotRequired[str]
+    TwoWayMediaS3BucketName: NotRequired[str]
+    TwoWayMediaS3KeyPrefix: NotRequired[str]
+    TwoWayMediaS3Role: NotRequired[str]
+    TwoWayRcsEventsEnabled: NotRequired[list[str]]
     TestingAgent: NotRequired[TestingAgentInformationTypeDef]
 
 
@@ -2616,6 +2763,15 @@ class DescribeNotifyTemplatesResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class RcsSuggestedActionTypeDef(TypedDict):
+    Reply: NotRequired[RcsReplyActionTypeDef]
+    OpenUrl: NotRequired[RcsOpenUrlActionTypeDef]
+    DialPhone: NotRequired[RcsDialPhoneActionTypeDef]
+    ShowLocation: NotRequired[RcsShowLocationActionTypeDef]
+    RequestLocation: NotRequired[RcsRequestLocationActionTypeDef]
+    CreateCalendarEvent: NotRequired[RcsCreateCalendarEventActionTypeDef]
+
+
 class DescribeRcsAgentsResultTypeDef(TypedDict):
     RcsAgents: list[RcsAgentInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2659,8 +2815,60 @@ class DescribeConfigurationSetsResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class RcsCardContentTypeDef(TypedDict):
+    Title: NotRequired[str]
+    Description: NotRequired[str]
+    Media: NotRequired[RcsCardMediaTypeDef]
+    Suggestions: NotRequired[Sequence[RcsSuggestedActionTypeDef]]
+
+
+class RcsCarouselCardContentTypeDef(TypedDict):
+    Title: NotRequired[str]
+    Description: NotRequired[str]
+    Media: NotRequired[RcsCarouselCardMediaTypeDef]
+    Suggestions: NotRequired[Sequence[RcsSuggestedActionTypeDef]]
+
+
 class DescribeRegistrationFieldDefinitionsResultTypeDef(TypedDict):
     RegistrationType: str
     RegistrationFieldDefinitions: list[RegistrationFieldDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class RcsStandaloneCardTypeDef(TypedDict):
+    CardOrientation: str
+    CardContent: RcsCardContentTypeDef
+    ThumbnailImageAlignment: NotRequired[str]
+
+
+class RcsCarouselTypeDef(TypedDict):
+    CardWidth: str
+    CardContents: Sequence[RcsCarouselCardContentTypeDef]
+
+
+class RcsContentTypeDef(TypedDict):
+    TextMessage: NotRequired[RcsTextMessageTypeDef]
+    FileMessage: NotRequired[RcsFileMessageTypeDef]
+    RichCard: NotRequired[RcsStandaloneCardTypeDef]
+    Carousel: NotRequired[RcsCarouselTypeDef]
+
+
+class RcsMessageContentTypeDef(TypedDict):
+    Content: RcsContentTypeDef
+    Suggestions: NotRequired[Sequence[RcsSuggestedActionTypeDef]]
+
+
+class SendRcsMessageRequestTypeDef(TypedDict):
+    DestinationPhoneNumber: str
+    OriginationIdentity: str
+    RcsMessageContent: NotRequired[RcsMessageContentTypeDef]
+    TimeToLive: NotRequired[int]
+    MessageTrafficType: NotRequired[str]
+    FallbackConfiguration: NotRequired[RcsFallbackConfigurationTypeDef]
+    ProtectConfigurationId: NotRequired[str]
+    ConfigurationSetName: NotRequired[str]
+    MaxPrice: NotRequired[str]
+    DryRun: NotRequired[bool]
+    Context: NotRequired[Mapping[str, str]]
+    MessageFeedbackEnabled: NotRequired[bool]

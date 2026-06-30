@@ -7,9 +7,11 @@ operations. General Cloud authentication is handled by PyAirbyte's airbyte.cloud
 
 from __future__ import annotations
 
+import logging
 import os
 
 from airbyte import constants as airbyte_constants
+from fastmcp.server.dependencies import get_access_token
 
 from airbyte_ops_mcp.cloud_admin import api_client
 from airbyte_ops_mcp.constants import (
@@ -18,6 +20,8 @@ from airbyte_ops_mcp.constants import (
     EXPECTED_ADMIN_EMAIL_DOMAIN,
     EXPECTED_ADMIN_FLAG_VALUE,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CloudAuthError(Exception):
@@ -94,24 +98,69 @@ def require_internal_admin_flag_only() -> None:
         )
 
 
-def get_admin_user_email() -> str:
-    """Get the admin user email from environment.
+def _resolve_oidc_user_email() -> str | None:
+    """Extract the authenticated user's email from the OIDC access token.
 
-    This function validates admin access and returns the configured
-    admin user email address.
+    In hosted mode (OIDCProxy via Keycloak), the upstream access token
+    contains JWT claims including `email`. This function retrieves that
+    claim so admin tools can identify the logged-in user without requiring
+    the `AIRBYTE_INTERNAL_ADMIN_USER` env var.
+
+    Returns `None` when no OIDC session is active (e.g. stdio mode) or
+    when the token has no `email` claim.
+    """
+    access_token = get_access_token()
+    if access_token is None:
+        return None
+
+    claims: dict[str, object] = getattr(access_token, "claims", {})
+    email = claims.get("email")
+    if isinstance(email, str) and email.strip():
+        return email.strip()
+
+    return None
+
+
+def get_admin_user_email() -> str:
+    """Get the admin user email, resolving from OIDC token or environment.
+
+    Resolution order:
+    1. `AIRBYTE_INTERNAL_ADMIN_USER` env var (local/stdio mode)
+    2. OIDC access token `email` claim (hosted mode via Keycloak)
+
+    When the email comes from OIDC, only `AIRBYTE_INTERNAL_ADMIN_FLAG` is
+    required (not the full `require_internal_admin` check which also demands
+    the env var).
 
     Returns:
-        The admin user email address
+        The admin user email address.
 
     Raises:
-        CloudAuthError: If admin credentials are not properly configured
+        CloudAuthError: If admin credentials are not properly configured.
     """
-    require_internal_admin()
+    # Path 1: env var is set — use the existing full admin check
     admin_user = os.environ.get(ENV_AIRBYTE_INTERNAL_ADMIN_USER)
-    if not admin_user:
-        # This should never happen after require_internal_admin(), but be defensive
-        raise CloudAuthError(f"{ENV_AIRBYTE_INTERNAL_ADMIN_USER} is not set")
-    return admin_user
+    if admin_user:
+        require_internal_admin()
+        return admin_user
+
+    # Path 2: no env var — try OIDC token email (hosted mode)
+    require_internal_admin_flag_only()
+    oidc_email = _resolve_oidc_user_email()
+    if oidc_email:
+        if EXPECTED_ADMIN_EMAIL_DOMAIN not in oidc_email:
+            raise CloudAuthError(
+                f"OIDC user email '{oidc_email}' is not an "
+                f"{EXPECTED_ADMIN_EMAIL_DOMAIN} address."
+            )
+        logger.info("Resolved admin user email from OIDC token: %s", oidc_email)
+        return oidc_email
+
+    raise CloudAuthError(
+        f"{ENV_AIRBYTE_INTERNAL_ADMIN_USER} is not set and no OIDC session is active. "
+        f"Set {ENV_AIRBYTE_INTERNAL_ADMIN_USER}=<your-email{EXPECTED_ADMIN_EMAIL_DOMAIN}> "
+        f"or authenticate via OIDC."
+    )
 
 
 def get_admin_user_id(
@@ -120,10 +169,10 @@ def get_admin_user_id(
     client_secret: str | None = None,
     bearer_token: str | None = None,
 ) -> str:
-    """Resolve the admin user UUID from the `AIRBYTE_INTERNAL_ADMIN_USER` env var.
+    """Resolve the admin user UUID from env var or OIDC token.
 
     Combines `get_admin_user_email` with `api_client.get_user_id_by_email` to
-    look up the UUID for the configured admin email address. The inner
+    look up the UUID for the admin email address. The inner
     `get_user_id_by_email` call is LRU-cached, so repeated invocations
     within the same process avoid redundant API round-trips.
     """

@@ -394,10 +394,39 @@ def get_non_categoricals(
             else:
                 values = fv["values"]
 
+            # A JSON link table (e.g. RecordJson) must only hold non-categorical
+            # (scalar/JSON) values. A categorical dtype here means the value was
+            # written to the wrong link table -- it belongs in a relational link
+            # table such as RecordRecord -- e.g. by bypassing the validated API.
+            # Surface it loudly instead of silently displaying an invalid entry.
+            if feature_dtype is not None and (
+                feature_dtype.startswith("cat") or feature_dtype.startswith("list[cat")
+            ):
+                raise ValidationError(
+                    f"invalid entry for feature {feature_name!r}: it has the "
+                    f"categorical dtype {format_dtype_for_display(feature_dtype)!r}, so "
+                    f"its value must be stored as a relational link (in a link table "
+                    f"such as RecordRecord), but the value {values!r} was found stored "
+                    f"as raw JSON in the RecordJson link table. This typically happens "
+                    f"when a value is written without going through the validated API. "
+                    f"Fix it by re-writing the value via the validated API, e.g.\n"
+                    f"    record.features.set_values({{{feature_name!r}: <value>}})"
+                )
+
             if connections[self._state.db].vendor == "sqlite":
                 # undo GROUP_CONCAT
                 if isinstance(values, str):
                     values = {value.strip('"') for value in values.split(", ")}
+
+            # PostgreSQL ArrayAgg wraps values in a list. Scalars are converted to
+            # sets below; dict and list features must be unwrapped here instead.
+            if (
+                connections[self._state.db].vendor == "postgresql"
+                and isinstance(values, list)
+                and len(values) == 1
+                and (feature_dtype == "dict" or feature_dtype.startswith("list"))
+            ):
+                values = values[0]
 
             # Convert single values to sets
             if not isinstance(values, (list, dict, set)):
@@ -550,8 +579,8 @@ def get_features_data(
     for features, is_categoricals in [(categoricals, True), (non_categoricals, False)]:
         for (feature_name, feature_dtype), values in sorted(features.items()):
             # Handle dictionary conversion
-            if feature_dtype.startswith("list[cat"):
-                converted_values = values  # is already a list
+            if feature_dtype.startswith(("list", "dict")):
+                converted_values = values
             else:
                 converted_values = values if len(values) > 1 else next(iter(values))
             if to_dict:
@@ -830,7 +859,22 @@ def _filter_one_feature_clause(
                 value_subquery = ArtifactJsonValue.objects.filter(
                     jsonvalue__feature=feature
                 ).values("artifact_id")
+            elif queryset.model is Run:
+                from .run import RunJsonValue
+
+                value_subquery = RunJsonValue.objects.filter(
+                    jsonvalue__feature=feature
+                ).values("run_id")
+            elif queryset.model is Record:
+                value_subquery = RecordJson.objects.filter(feature=feature).values(
+                    "record_id"
+                )
+            else:
+                raise NotImplementedError
+            if value:  # True
                 return queryset.exclude(id__in=Subquery(value_subquery))
+            else:
+                return queryset.filter(id__in=Subquery(value_subquery))
 
         if comparator in {"__startswith", "__contains"}:
             logger.important(
@@ -1382,6 +1426,7 @@ class FeatureManager:
         not_validated_values: dict[str, tuple[str, list[str]]],
         resolved_records_by_feature_id: dict[int, dict[Any, list[SQLRecord]]]
         | None = None,
+        index_feature: Feature | None = None,
     ) -> None:
         from ..base.dtypes import is_iterable_of_sqlrecord
         from .can_curate import CanCurate
@@ -1391,7 +1436,8 @@ class FeatureManager:
             get_type_schema_index,
         )
 
-        index_feature = get_type_schema_index(record.type)  # type: ignore
+        if index_feature is None:
+            index_feature = get_type_schema_index(record.type)  # type: ignore
 
         for feature in feature_objects:
             if index_feature is not None and feature.uid == index_feature.uid:
@@ -2186,6 +2232,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
         return None
 
     batch_schema: Schema | None = None
+    batch_schema_index: Feature | None = None
     prepared_records: list[
         tuple[Record, FeatureManager, dict[str, Any], list[Feature], dict[str, Any]]
     ] = []
@@ -2200,6 +2247,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             )
         if batch_schema is None:
             batch_schema = schema
+            batch_schema_index = batch_schema.index  # one DB query for the whole batch
         elif schema.id != batch_schema.id:
             raise ValidationError(
                 "Bulk setting features in records requires all records to have the same type schema."
@@ -2211,9 +2259,9 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             explicit_features,
             values_by_feature_uid,
         ) = manager._resolve_feature_value_dictionary(record._features)
-        from .record import inject_index_into_feature_dict
 
-        inject_index_into_feature_dict(record, dictionary)
+        if batch_schema_index is not None and record.name is not None:
+            dictionary[batch_schema_index.name] = record.name
         prepared_rows.append(dictionary)
         prepared_records.append(
             (record, manager, dictionary, explicit_features, values_by_feature_uid)
@@ -2221,17 +2269,48 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
 
     assert batch_schema is not None  # noqa: S101
     schema_features = list(batch_schema.members.all())
-    dataframe = pd.DataFrame(prepared_rows)
+    from .feature import convert_to_pandas_dtype
     from .record import move_schema_index_column_to_dataframe_index
 
+    # Build the validation dataframe column-by-column with the dtype declared by
+    # each schema feature, instead of calling pd.DataFrame(prepared_rows) and
+    # letting pandas re-infer dtypes. The chopped per-row dicts drop null cells,
+    # so a naive pd.DataFrame would backfill NaN and widen partial-null columns
+    # (bool -> object, int -> float64), failing validation even for valid input.
+    # Supplying each column's declared pandas dtype up front propagates the type
+    # correctly through construction and removes the need for per-type casting.
+    # Note: benchmark this when modifying, for reference -> https://lamin.ai/laminlabs/lamindata/transform/JuJZZEsit1KV
+    feature_dtype_by_name = {
+        feature.name: convert_to_pandas_dtype(feature.dtype_as_str)
+        for feature in schema_features
+    }
+    # single pass to discover which columns actually appear across all rows
+    # (rows may differ once null cells are dropped)
+    present_columns: set[str] = set()
+    for row in prepared_rows:
+        present_columns.update(row)
+
+    # schema features first (stable, declared order), then any extra injected
+    # columns (e.g. the index/name), sorted for determinism
+    ordered_columns = [f.name for f in schema_features if f.name in present_columns]
+    ordered_columns += sorted(
+        column for column in present_columns if column not in feature_dtype_by_name
+    )
+
+    data: dict[str, pd.Series] = {}
+    for column in ordered_columns:
+        values = [row.get(column, pd.NA) for row in prepared_rows]
+        target_dtype = feature_dtype_by_name.get(column)
+        if target_dtype is not None:
+            data[column] = pd.Series(values, dtype=target_dtype)
+        else:
+            data[column] = pd.Series(values)
+    if data:
+        dataframe = pd.DataFrame(data)
+    else:
+        dataframe = pd.DataFrame(index=range(len(prepared_rows)))
+
     dataframe = move_schema_index_column_to_dataframe_index(dataframe, batch_schema)
-    for feature in schema_features:
-        if (
-            feature.name in dataframe
-            and feature.dtype_as_str.startswith("cat")
-            and not feature.dtype_as_str.startswith("list[cat")
-        ):
-            dataframe[feature.name] = dataframe[feature.name].astype("category")
     # Single-pass dataframe curation:
     # validate schema and resolve categoricals once for the entire batch.
     #
@@ -2294,7 +2373,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
         feature_objects = manager._merge_feature_objects(
             explicit_features, looked_up_features
         )
-        if batch_schema.index is not None:
+        if batch_schema_index is not None:
             from .record import strip_index_for_record_persistence
 
             dictionary, feature_objects = strip_index_for_record_persistence(
@@ -2303,6 +2382,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
                 dictionary,
                 feature_objects,
                 values_by_feature_uid=values_by_feature_uid,
+                index_feature=batch_schema_index,
             )
         manager._collect_record_feature_writes(
             record=record,
@@ -2313,6 +2393,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             links_by_model=links_by_model,
             not_validated_values=not_validated_values,
             resolved_records_by_feature_id=resolved_records_by_feature_id,
+            index_feature=batch_schema_index,
         )
     FeatureManager._raise_not_validated_values(not_validated_values)
     if feature_json_values:
@@ -2322,11 +2403,12 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             save(links, ignore_conflicts=False)
         except Exception:
             save(links, ignore_conflicts=True)
-    from .record import get_type_schema_index
     from .save import bulk_update
 
-    if get_type_schema_index(records_with_features[0].type) is not None:
-        bulk_update(records_with_features)
+    if batch_schema_index is not None:
+        # only `name` was modified (via strip_index_for_record_persistence)
+        # updating all fields generates a massive CASE WHEN SQL for large batches
+        bulk_update(records_with_features, update_fields=["name"])
     for record in records_with_features:
         del record._features
     return None

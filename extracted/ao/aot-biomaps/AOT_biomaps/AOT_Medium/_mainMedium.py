@@ -31,22 +31,36 @@ class Medium:
         if KWAVE_AVAILABLE:
             self.kgrid = kWaveGrid([self.params.general["Nx"], self.params.general["Nz"]], 
                                    [self.params.general["dx"], self.params.general["dz"]])
-
-            if self.params.acoustic['f_AQ'] is None:
+            
+            if self.params.acoustic['f_AQ'] is None or self.params.acoustic['f_AQ'] == "AUTO":
                 self.kgrid.makeTime(self.params.acoustic['medium']['c0'])
                 self.params.acoustic['f_AQ'] = int(1/self.kgrid.dt)
-                self.params.acoustic['f_saving'] = self.params.acoustic['f_AQ'] if self.params.acoustic['f_saving'] is None or self.params.acoustic['f_saving'] == "AUTO" else int(float(self.params.acoustic['f_saving']))            
+                
+            if self.params.general['Nt'] is None or self.params.general['Nt'] == "None":
+                Lx = self.params.general["Nx"] * self.params.general["dx"]
+                Lz = self.params.general['Zrange'][1] - self.params.general['Zrange'][0]
+                theta = np.radians(20) 
+                distance_max = (Lx * np.sin(theta)) + (Lz * np.cos(theta))
+                f_aq = float(self.params.acoustic['f_AQ'])
+                c0 = float(self.params.acoustic['medium']['c0'])
+                Nt_strict = distance_max * f_aq / c0
+                margin = 1.05 
+                Nt = int(np.ceil(Nt_strict * margin))
+                
+                self.params.general['Nt'] = Nt
             else:
-                if self.params.general['Nt'] is None or self.params.general['Nt'] == "None":
-                    Nt = int(1.5*(np.ceil((self.params.general['Zrange'][1] - self.params.general['Zrange'][0])*float(self.params.acoustic['f_AQ']) / self.params.acoustic['medium']['c0']))/np.cos(np.radians(20)))
-                    self.params.general['Nt'] = Nt
-                else:
-                    Nt = self.params.general['Nt']
-                self.kgrid.setTime(Nt, 1/float(self.params.acoustic['f_AQ']))
-            self.Nt_reshaped = self.kgrid.Nt
+                Nt = self.params.general['Nt']
+
+            self.kgrid.setTime(Nt, 1/float(self.params.acoustic['f_AQ']))
+            
+            if self.params.acoustic['f_saving'] is None or self.params.acoustic['f_saving'] == "AUTO":
+                self.params.acoustic['f_saving'] = self.params.acoustic['f_AQ']
+            else:
+                self.params.acoustic['f_saving'] = int(float(self.params.acoustic['f_saving']))
+                
         else:
             self.kgrid = None
-            self.Nt_reshaped = self.params.general.get('Nt', 100)
+            self.Nt_reshaped = self.params.general.get('Nt', 400)
             warnings.warn("kWave is not available. Using default values for grid parameters.", UserWarning)
 
     @abstractmethod

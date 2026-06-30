@@ -69,6 +69,7 @@ EventTypeType = Literal[
     "Campaign-Orchestration",
     "Campaign-SMS",
     "Campaign-Telephony",
+    "Campaign-WebNotification",
     "Campaign-WhatsApp",
 ]
 ExternalCampaignTypeType = Literal["JOURNEY", "MANAGED"]
@@ -314,6 +315,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -417,6 +420,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -444,6 +448,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

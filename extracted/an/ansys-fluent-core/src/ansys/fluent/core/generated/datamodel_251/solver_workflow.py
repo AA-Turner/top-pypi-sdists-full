@@ -921,22 +921,17 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.Energy = self._Energy(self, "Energy", service, rules, path)
-                    self.EFM = self._EFM(self, "EFM", service, rules, path)
+                    self.OpP = self._OpP(self, "OpP", service, rules, path)
                     self.Density = self._Density(self, "Density", service, rules, path)
                     self.CEBtn = self._CEBtn(self, "CEBtn", service, rules, path)
-                    self.Vrpm = self._Vrpm(self, "Vrpm", service, rules, path)
-                    self.OpP = self._OpP(self, "OpP", service, rules, path)
+                    self.EFM = self._EFM(self, "EFM", service, rules, path)
                     self.WF = self._WF(self, "WF", service, rules, path)
+                    self.Energy = self._Energy(self, "Energy", service, rules, path)
+                    self.Vrpm = self._Vrpm(self, "Vrpm", service, rules, path)
 
-                class _Energy(PyArgumentsParameterSubItem):
+                class _OpP(PyArgumentsNumericalSubItem):
                     """
-                    Indicates whether or not temperature conditions are to be considered.
-                    """
-
-                class _EFM(PyArgumentsTextualSubItem):
-                    """
-                    Displays the current existing fluid assigned to the CFD model. Use the Create/Edit... button to create your own material, or edit other existing materials.
+                    Specify the operating pressure, or keep the default value.
                     """
 
                 class _Density(PyArgumentsNumericalSubItem):
@@ -949,19 +944,24 @@ class Root(PyMenu):
                     Argument CEBtn.
                     """
 
-                class _Vrpm(PyArgumentsNumericalSubItem):
+                class _EFM(PyArgumentsTextualSubItem):
                     """
-                    Specify the rotation speed, or keep the default value.
-                    """
-
-                class _OpP(PyArgumentsNumericalSubItem):
-                    """
-                    Specify the operating pressure, or keep the default value.
+                    Displays the current existing fluid assigned to the CFD model. Use the Create/Edit... button to create your own material, or edit other existing materials.
                     """
 
                 class _WF(PyArgumentsTextualSubItem):
                     """
                     Choose one of the following materials as the working fluid for the CFD model.
+                    """
+
+                class _Energy(PyArgumentsParameterSubItem):
+                    """
+                    Indicates whether or not temperature conditions are to be considered.
+                    """
+
+                class _Vrpm(PyArgumentsNumericalSubItem):
+                    """
+                    Specify the rotation speed, or keep the default value.
                     """
 
         def create_instance(self) -> _TWF_TurboPhysicsArguments:

@@ -113,6 +113,18 @@ def paga_compare(  # noqa: PLR0912, PLR0913
     -------
     A list of :class:`~matplotlib.axes.Axes` if `show` is `False`.
 
+    Examples
+    --------
+    Compute a PAGA graph on the bundled PBMC dataset and show it next to the UMAP embedding.
+
+    .. plot::
+        :context: close-figs
+
+        import scanpy as sc
+        adata = sc.datasets.pbmc68k_reduced()
+        sc.tl.paga(adata, groups="bulk_labels")
+        sc.pl.paga_compare(adata, basis="umap")
+
     """
     axs, _, _, _ = _utils.setup_axes(panels=[0, 1], right_margin=right_margin)
     if color is None:
@@ -247,7 +259,7 @@ def _compute_pos(  # noqa: PLR0912
     else:
         # igraph layouts
         random.seed(random_state.bytes(8))
-        g = _sc_utils.get_igraph_from_adjacency(adjacency_solid)
+        g = _sc_utils.get_igraph_from_adjacency(adjacency_solid, directed=False)
         if "rt" in layout:
             g_tree = _sc_utils.get_igraph_from_adjacency(adj_tree)
             pos_list = g_tree.layout(
@@ -1358,8 +1370,7 @@ def paga_path(  # noqa: PLR0912, PLR0913, PLR0915
             cmap=matplotlib.colors.ListedColormap(
                 # the following line doesn't work because of normalization
                 # adata.uns['paga_groups_colors'])
-                palette_groups[np.min(groups).astype(int) :],
-                N=int(np.max(groups) + 1 - np.min(groups)),
+                palette_groups[int(np.min(groups)) : int(np.max(groups)) + 1]
             ),
         )
         if show_yticks:

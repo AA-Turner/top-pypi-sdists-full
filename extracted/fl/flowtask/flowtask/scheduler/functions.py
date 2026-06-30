@@ -240,16 +240,39 @@ class TaskScheduler:
                 pass
 
             opts = _Opts()
-            opts.executor = self._executor_name
             opts.executor_image = None
             opts.executor_namespace = None
-            # Map legacy priority flags to no_worker / queued for the resolver.
             opts.no_worker = False
-            opts.queued = self.priority not in ("direct", None) and not self._executor_name
 
-            task_def: dict = {}
-            if self._executor_name:
-                task_def["executor"] = self._executor_name
+            # --- Routing decision -------------------------------------------------
+            # The default scheduler executor ("local" / None) is a priority-driven
+            # *router*, not a force-local flag:
+            #   * priority == "local"  -> "local"   (run in-scheduler)
+            #   * any other priority   -> "qworker" (dispatch via QWorker; the
+            #     qworker executor maps pub→publish, direct→run,
+            #     low/high/None/<list-key>→queue)
+            # priority == "local" is normally intercepted upstream in
+            # get_function() via launch_task and never reaches here, but the branch
+            # is kept explicit so the routing decision is self-contained.
+            #
+            # An explicit executor name (qworker/docker/k8s/…) overrides the router:
+            #   * "qworker" relies solely on QWorker dispatch
+            #   * anything else resolves to that executor as-is
+            #
+            # We set ``opts.executor`` directly (instead of the legacy ``queued``
+            # flag) so resolve_executor() picks the executor without emitting the
+            # ``--queued is deprecated`` warning.
+            if self._executor_name in (None, "local"):
+                opts.executor = "local" if self.priority == "local" else "qworker"
+            else:
+                opts.executor = self._executor_name
+
+            # Mode: the qworker executor dispatches fire-and-forget, except
+            # "direct" which waits for the worker result (QClient.run). Every other
+            # executor (local/docker/k8s/…) runs and waits.
+            opts.queued = opts.executor == "qworker"
+
+            task_def: dict = {"executor": opts.executor}
 
             executor = resolve_executor(task_def, opts)
 
@@ -259,6 +282,8 @@ class TaskScheduler:
             }
 
             mode = determine_execution_mode(opts)
+            if self.priority == "direct" and opts.executor == "qworker":
+                mode = "run"
 
             if mode == "dispatch":
                 self._scheduled = True

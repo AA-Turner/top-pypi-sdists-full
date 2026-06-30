@@ -1,3 +1,6 @@
+from datetime import timedelta
+
+import temporalio.workflow
 from pydantic import BaseModel
 from temporalio.exceptions import ApplicationError
 
@@ -370,3 +373,38 @@ class WorkflowWithPydanticHandlers:
         old = self.current_value
         self.current_value = input_data.new_value
         return UpdateResult(old_value=old, new_value=self.current_value, success=True)
+
+
+class DeclaredTimeoutChildParams(BaseModel):
+    tag: str
+
+
+@workflow.define(name="reports_execution_timeout_child", execution_timeout=timedelta(seconds=2))
+class ReportsExecutionTimeoutChild:
+    @workflow.entrypoint
+    async def run(self, tag: str) -> float:
+        timeout = temporalio.workflow.info().execution_timeout
+        return timeout.total_seconds() if timeout is not None else -1.0
+
+
+@workflow.define(name="reports_timeout_parent")
+class ReportsTimeoutParent:
+    @workflow.entrypoint
+    async def run(self, tag: str) -> float:
+        return await workflow.execute_workflow(
+            ReportsExecutionTimeoutChild,
+            params=DeclaredTimeoutChildParams(tag=tag),
+            wait=True,
+        )
+
+
+@workflow.define(name="reports_timeout_override_parent")
+class ReportsTimeoutOverrideParent:
+    @workflow.entrypoint
+    async def run(self, tag: str) -> float:
+        return await workflow.execute_workflow(
+            ReportsExecutionTimeoutChild,
+            params=DeclaredTimeoutChildParams(tag=tag),
+            execution_timeout=timedelta(minutes=30),
+            wait=True,
+        )

@@ -61,23 +61,24 @@ from opentelemetry import context as otel_context
 from opentelemetry import trace as otel_trace
 from opentelemetry.trace import StatusCode
 
+from weave.conversation.adapters.openai import (
+    message_from_openai_responses_input,
+    reasoning_from_openai_responses,
+    usage_from_openai_responses,
+)
+from weave.conversation.agent_context import resolve_agent_name
+from weave.conversation.conversation_otel import (
+    execute_tool_attributes,
+    invoke_agent_attributes,
+    llm_attributes,
+)
+from weave.conversation.types import Message, Reasoning, Usage
 from weave.integrations.openai_agents.openai_agents import (
     OPENAI_AGENTS_INTEGRATION,
     _call_name,
     _is_task_span_data,
     _is_turn_span_data,
 )
-from weave.session.adapters.openai import (
-    message_from_openai_responses_input,
-    reasoning_from_openai_responses,
-    usage_from_openai_responses,
-)
-from weave.session.session_otel import (
-    execute_tool_attributes,
-    invoke_agent_attributes,
-    llm_attributes,
-)
-from weave.session.types import Message, Reasoning, Usage
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,7 @@ _warned_unhandled_span_types: set[type] = set()
 
 # Keys we extract from ``GenerationSpanData.model_config`` into the equivalent
 # ``llm_attributes`` request_* kwargs. The map keeps the wire shape (raw openai
-# request body keys) → the Session SDK kwarg name in one place.
+# request body keys) → the Conversation SDK kwarg name in one place.
 _GENERATION_MODEL_CONFIG_KEYS = {
     "temperature": "request_temperature",
     "top_p": "request_top_p",
@@ -140,7 +141,8 @@ def _agent_attrs(span: Span[AgentSpanData], conversation_id: str) -> dict[str, A
     """
     sd = span.span_data
     attrs = invoke_agent_attributes(
-        agent_name=sd.name or "",
+        # An explicit ambient override wins over the SDK-native agent name.
+        agent_name=resolve_agent_name(sd.name or ""),
         conversation_id=conversation_id,
         provider_name=_PROVIDER_NAME,
     )
@@ -629,7 +631,9 @@ def _otel_span_name(span: Span) -> str:
     sd = span.span_data
     name = _call_name(span)
     if isinstance(sd, AgentSpanData):
-        return f"invoke_agent {name}"
+        # Keep the span name aligned with gen_ai.agent.name in _agent_attrs:
+        # an explicit ambient override wins over the SDK-native name.
+        return f"invoke_agent {resolve_agent_name(name)}"
     if _is_task_span_data(sd):
         # Structural span — NOT invoke_agent, since a Task wraps a workflow
         # not an agent. See _task_attrs.

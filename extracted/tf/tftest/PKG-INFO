@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tftest
-Version: 1.8.7
+Version: 1.8.8
 Summary: Simple Terraform test helper
 Home-page: https://github.com/GoogleCloudPlatform/terraform-python-testing-helper
 Author: Ludovico Magnocavallo

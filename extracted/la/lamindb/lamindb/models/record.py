@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, overload
+import os
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import pgtrigger
 from django.conf import settings as django_settings
@@ -24,19 +23,20 @@ from ..base.uids import base62_16
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
-from .feature import Feature, convert_to_pandas_dtype
+from .feature import Feature
 from .has_parents import HasParents, _query_relatives
 from .query_set import (
     QuerySet,
     encode_lamindb_fields_as_columns,
     get_default_branch_ids,
-    reorder_subset_columns_in_df,
 )
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
 from .sqlrecord import (
     BaseSQLRecord,
+    Branch,
     HasType,
     IsLink,
+    Space,
     SQLRecord,
     _get_record_kwargs,
     pop_space_branch_kwargs,
@@ -45,6 +45,8 @@ from .transform import Transform
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     import pandas as pd
 
     from ._feature_manager import FeatureManager
@@ -141,10 +143,13 @@ def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -
 
 
 def pop_index_from_feature_dictionary(
-    dictionary: dict[str, Any], schema: Schema
+    dictionary: dict[str, Any],
+    schema: Schema,
+    index_feature: Feature | None = None,
 ) -> tuple[str | None, dict[str, Any]]:
     """Extract index value for `record.name` and remove it from feature payload."""
-    index_feature = schema.index
+    if index_feature is None:
+        index_feature = schema.index
     if index_feature is None:
         return None, dictionary
     index_name = index_feature.name
@@ -242,9 +247,11 @@ def strip_index_for_record_persistence(
     feature_objects: list[Feature],
     *,
     values_by_feature_uid: dict[str, Any] | None = None,
+    index_feature: Feature | None = None,
 ) -> tuple[dict[str, Any], list[Feature]]:
     """Move schema index values to `record.name` and drop them from link-table writes."""
-    index_feature = schema.index
+    if index_feature is None:
+        index_feature = schema.index
     if index_feature is None:
         return dictionary, feature_objects
 
@@ -263,6 +270,175 @@ def strip_index_for_record_persistence(
         feature for feature in feature_objects if feature.uid != index_feature.uid
     ]
     return dictionary, feature_objects
+
+
+IndexNameConflict = Literal["keep_name", "keep_feature"]
+
+
+def _record_sheet_label(record: Record) -> str:
+    if record.type_id is None:
+        return "unknown sheet"
+    sheet = record.type
+    if sheet is None:
+        return f"type_id={record.type_id}"
+    if sheet.name:
+        return f"{sheet.name} ({sheet.uid})"
+    return sheet.uid
+
+
+def _collect_promote_index_name_conflicts(
+    json_links: list[tuple[int, int, Any]],
+    records_by_id: dict[int, Record],
+    feature: Feature,
+) -> list[tuple[int, str, str, str]]:
+    conflicts: list[tuple[int, str, str, str]] = []
+    for _, record_id, value in json_links:
+        record = records_by_id.get(record_id)
+        if record is None:
+            continue
+        feature_name = coerce_index_value_to_record_name(value, feature)
+        if feature_name is not None and record.name and record.name != feature_name:
+            conflicts.append(
+                (record_id, _record_sheet_label(record), record.name, feature_name)
+            )
+    return conflicts
+
+
+def _resolve_index_name_conflict(
+    conflicts: list[tuple[int, str, str, str]],
+    feature: Feature,
+    resolution: IndexNameConflict | None,
+) -> IndexNameConflict:
+    if not conflicts:
+        return "keep_name"
+    if resolution is not None:
+        return resolution
+    if os.getenv("LAMIN_TESTING") == "true":
+        return "keep_name"
+
+    feature_name = feature.name
+    n = len(conflicts)
+    example_lines = "\n".join(
+        f"  sheet {sheet_label}, record {record_id}: Record.name={name!r}, {feature_name}={feature_value!r}"
+        for record_id, sheet_label, name, feature_value in conflicts[:3]
+    )
+    if n > 3:
+        example_lines += f"\n  ... and {n - 3} more"
+    response = input(
+        f"{n} sheet row(s) have both Record.name and '{feature_name}' values that differ.\n"
+        f"{example_lines}\n"
+        "Keep Record.name (y) or use feature values (n)? "
+    )
+    if response == "y":
+        return "keep_name"
+    if response == "n":
+        return "keep_feature"
+    raise ValueError("schema save cancelled: index name conflict not resolved")
+
+
+def migrate_record_sheet_index_on_schema_save(
+    schema: Schema,
+    *,
+    old_index_uid: str | None,
+    new_index_uid: str | None,
+    using: str | None = None,
+    index_name_conflict: IndexNameConflict | None = None,
+) -> None:
+    """Migrate sheet row keys when ``schema.index`` changes on save."""
+    if (
+        old_index_uid == new_index_uid
+        or schema.is_type
+        or schema.itype != "Feature"
+        or schema.otype == "Composite"
+    ):
+        return
+
+    from django.db import transaction
+
+    from .save import bulk_create
+
+    db = using or schema._state.db
+    sheet_type_ids = (
+        Record.objects.using(db)
+        .filter(is_type=True, schema_id=schema.id)
+        .values_list("id", flat=True)
+    )
+    if not sheet_type_ids:
+        return
+
+    row_ids = (
+        Record.objects.using(db)
+        .filter(is_type=False, type_id__in=sheet_type_ids)
+        .values_list("id", flat=True)
+    )
+
+    with transaction.atomic(using=db):
+        if old_index_uid is not None:
+            old_feature = Feature.objects.using(db).get(uid=old_index_uid)
+            rows_with_name = (
+                Record.objects.using(db)
+                .filter(
+                    id__in=row_ids,
+                    name__isnull=False,
+                )
+                .exclude(name="")
+            )
+            json_to_create = [
+                RecordJson(record_id=record_id, feature=old_feature, value=name)
+                for record_id, name in rows_with_name.values_list("id", "name")
+                if name
+            ]
+            if json_to_create:
+                bulk_create(json_to_create, ignore_conflicts=True)
+            rows_with_name.update(name=None)
+
+        if new_index_uid is not None:
+            new_feature = Feature.objects.using(db).get(uid=new_index_uid)
+            validate_record_sheet_index_feature(new_feature)
+            json_links = (
+                RecordJson.objects.using(db)
+                .filter(
+                    record_id__in=row_ids,
+                    feature=new_feature,
+                )
+                .values_list("id", "record_id", "value")
+            )
+            if not json_links:
+                return
+
+            records_by_id = {
+                record.id: record
+                for record in Record.objects.using(db)
+                .filter(id__in={record_id for _, record_id, _ in json_links})
+                .select_related("type")
+            }
+            conflicts = _collect_promote_index_name_conflicts(
+                list(json_links), records_by_id, new_feature
+            )
+            resolution = _resolve_index_name_conflict(
+                conflicts, new_feature, index_name_conflict
+            )
+            records_to_update: list[Record] = []
+            json_ids_to_delete: list[int] = []
+            for link_id, record_id, value in json_links:
+                record = records_by_id.get(record_id)
+                if record is None:
+                    json_ids_to_delete.append(link_id)
+                    continue
+                name = coerce_index_value_to_record_name(value, new_feature)
+                if name is not None:
+                    if not record.name:
+                        record.name = name
+                        records_to_update.append(record)
+                    elif record.name != name and resolution == "keep_feature":
+                        record.name = name
+                        records_to_update.append(record)
+                json_ids_to_delete.append(link_id)
+
+            if records_to_update:
+                Record.objects.using(db).bulk_update(records_to_update, ["name"])
+            if json_ids_to_delete:
+                RecordJson.objects.using(db).filter(id__in=json_ids_to_delete).delete()
 
 
 class RecordBatch:
@@ -321,12 +497,12 @@ class RecordBatch:
 
             if index_feature is not None and self._resolved_type.schema is not None:
                 name_from_features, features = pop_index_from_feature_dictionary(
-                    features, self._resolved_type.schema
+                    features, self._resolved_type.schema, index_feature=index_feature
                 )
                 if name is None:
                     name = name_from_features
 
-            record_kwargs: dict[str, Any] = {"type": self._resolved_type}
+            record_kwargs: dict[str, Any] = {"type": self._resolved_type, "_search_names": False}
             if features:
                 record_kwargs["features"] = features
             records.append(self._cls(name=name, **record_kwargs))
@@ -360,6 +536,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         schema: `Schema | None = None` A schema defining allowed features for records of this type. Only applicable when `is_type=True`.
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space.
+
 
     See Also:
         :class:`~lamindb.Feature`
@@ -383,7 +562,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         # describe the record
         sample1.describe()
 
-    Group several records in a registry by creating a record type, optionally constrained with a :class:`~lamindb.Schema`::
+    Group records in a dynamic registry by creating a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
 
         # create an experiments registry
         experiments_registry = ln.Record(name="Experiments", is_type=True).save()
@@ -406,7 +585,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         })
 
-    Export all records under a type to a dataframe::
+    Export all records of a type to a dataframe::
 
         experiments_registry.to_dataframe()
         #> __lamindb_record_name__   ...
@@ -438,21 +617,10 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Query records by features:
 
-    .. tab-set::
+    .. code-block:: python
 
-        .. tab-item:: Via objects
-
-            .. code-block:: python
-
-                ln.Record.filter(gc_content == 0.55)  # exact match
-                ln.Record.filter(gc_content > 0.5)    # greater than
-
-        .. tab-item:: Via strings
-
-            .. code-block:: python
-
-                ln.Record.filter(gc_content=0.55)  # exact match
-                ln.Record.filter(gc_content__gt=0.5)    # greater than
+        ln.Record.filter(gc_content == 0.55)  # exact match
+        ln.Record.filter(gc_content > 0.5)    # greater than
 
     Query records by field::
 
@@ -490,6 +658,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         The features of a `Record` are flexible: you can dynamically define features and add features to a record.
         The fields of a `SQLRecord` are static: you need to define them in code and then migrate the underlying database.
+
+        In complete analogy to this: A **record type** can model a registry dynamically, whereas a :class:`~lamindb.models.Registry` has to be
+        defined as a static Python class together with its SQL database migration:  `lamin migrate create` and `lamin migrate deploy`.
 
         See :class:`~lamindb.models.SQLRecord` or the glossary for more information: :term:`docs:record`.
 
@@ -699,6 +870,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         schema: Schema | None = None,
         reference: str | None = None,
         reference_type: str | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload
@@ -728,6 +901,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         space_branch_kwargs = pop_space_branch_kwargs(kwargs)
         _skip_validation = kwargs.pop("_skip_validation", False)
         _aux = kwargs.pop("_aux", None)
+        _search_names = kwargs.pop("_search_names", None)
         if len(kwargs) > 0:
             valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Record)])
             raise FieldValidationError(
@@ -738,7 +912,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             is_type = True
         if features is not None:
             self._features = features
-        super().__init__(
+        super_kwargs: dict[str, Any] = dict(
             name=name,
             type=type,
             is_type=is_type,
@@ -750,6 +924,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             _aux=_aux,
             **space_branch_kwargs,
         )
+        if _search_names is not None:
+            super_kwargs["_search_names"] = _search_names
+        super().__init__(**super_kwargs)
 
     def save(self, *args, **kwargs) -> Record:
         if self.is_type:
@@ -938,7 +1115,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 transform=transform,
                 initiated_by_run=initiated_by_run,
                 status="started",
-            ).save()  # type: ignore
+            )
+            run.space = self.space
+            run.save()  # type: ignore
             run.initiated_by_run = initiated_by_run  # available in memory
         else:
             run = None
@@ -948,7 +1127,6 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     def to_dataframe(
         cls_or_self,
         recurse: bool = False,
-        filters: Any | None = None,
         is_run_input: bool | Run | None = None,
         link_individual_inputs: bool = True,
         **kwargs,
@@ -974,22 +1152,13 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
                 sample_sheet.to_dataframe()
 
-            Export only records with high GC content::
-
-                sample_sheet.to_dataframe(filters=gc_content > 0.55)
-
         Args:
             recurse: Whether to include records of sub-types recursively.
-            filters: Filters applied before export. Supports filter kwargs via
-                a `dict`, Django `Q` expressions, and feature predicates
-                (e.g. `my_feature > 5`), including iterables of expressions.
             is_run_input: Whether to track the record as a run input.
             link_individual_inputs: Whether to link all exported records as
                 inputs of the export run. If `False`, only links the record type.
             **kwargs: Keyword arguments passed to :meth:`~lamindb.models.QuerySet.to_dataframe`.
         """
-        import pandas as pd
-
         if isinstance(cls_or_self, type):
             return type(cls_or_self).to_dataframe(cls_or_self, **kwargs)  # type: ignore
         if not cls_or_self.is_type:
@@ -1005,107 +1174,20 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             if recurse
             else self.records.filter(branch_id__in=branch_ids)
         )
-        if isinstance(filters, dict):
-            # Keep kwargs behavior aligned with the historic `self.records.filter(...)`
-            # semantics where fields like `name` target record fields.
-            qs = qs.filter(**filters)
-        elif filters is not None:
-            # Feature predicates are only supported through Record.filter(...).
-            qs = (
-                self.query_records()
-                if recurse
-                else self.__class__.filter(type=self, branch_id__in=branch_ids)
-            )
-            if isinstance(filters, Iterable) and not isinstance(filters, (str, bytes)):
-                qs = qs.filter(*filters)
-            else:
-                qs = qs.filter(filters)
-        logger.important(f"exporting {qs.count()} records of '{self.name}'")
-        if "order_by" not in kwargs:
-            kwargs["order_by"] = "id"
-        features_arg = kwargs.pop("features", "queryset")
-        index_feature = self.schema.index if self.schema is not None else None
-        include_record_metadata = export_includes_record_metadata(self.schema)
+        kwargs.setdefault("include", "features")
         df = qs.to_dataframe(
-            features=features_arg,
-            limit=None,
-            record_metadata=include_record_metadata,
+            is_run_input=is_run_input,
+            link_individual_inputs=link_individual_inputs,
+            _record_type=self,
             **kwargs,
         )
-        if not include_record_metadata and self.schema is not None:
-            schema_feature_names = set(
-                self.schema.members.values_list("name", flat=True)
-            )
-            pk_name = self._meta.pk.name
-            if pk_name in df.columns and pk_name not in schema_feature_names:
-                df = df.drop(columns=[pk_name])
-        encoded_id = encode_lamindb_fields_as_columns(self.__class__, "id")
-        assert isinstance(encoded_id, str)  # noqa: S101
-        encoded_uid = encode_lamindb_fields_as_columns(self.__class__, "uid")
-        encoded_name = encode_lamindb_fields_as_columns(self.__class__, "name")
-        assert isinstance(encoded_name, str)  # noqa: S101
-        # encode the django id, uid and name fields
-        if include_record_metadata and df.index.name == "id":
-            df.index.name = encoded_id
-        if (
-            include_record_metadata
-            and "uid" in df.columns
-            and encoded_uid not in df.columns
-        ):
-            df = df.rename(columns={"uid": encoded_uid})
-        if index_feature is not None:
-            if "name" in df.columns and index_feature.name != "name":
-                df[index_feature.name] = df["name"]
-                df = df.drop(columns=["name"])
-            if encoded_name in df.columns:
-                df = df.drop(columns=[encoded_name])
-            df = apply_schema_index_to_export_dataframe(
-                df,
-                index_feature,
-                encoded_id=encoded_id,
-                encoded_name=encoded_name,
-                include_record_metadata=include_record_metadata,
-            )
-        elif "name" in df.columns and encoded_name not in df.columns:
-            df = df.rename(columns={"name": encoded_name})
-        if not include_record_metadata:
-            df = drop_record_metadata_columns(df)
-        if self.schema is not None:
-            all_features = self.schema.members.all()
-            index_feature_uid = None if index_feature is None else index_feature.uid
-            desired_order = [
-                feature.name
-                for feature in all_features
-                if index_feature_uid is None or feature.uid != index_feature_uid
-            ]
-            for feature in all_features:
-                if index_feature_uid is not None and feature.uid == index_feature_uid:
-                    continue
-                if feature.name not in df.columns:
-                    df[feature.name] = pd.Series(
-                        dtype=convert_to_pandas_dtype(feature._dtype_str)
-                    )
-        else:
-            # sort alphabetically for now
-            desired_order = df.columns[2:].tolist()
-            desired_order.sort()
-        df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
-        self._set_export_run(is_run_input=is_run_input)
-        # always link the type record
-        self._export_run.input_records.add(self)
-        if link_individual_inputs:
-            input_record_ids = qs.values_list("id", flat=True)
-            self._export_run.input_records.add(*input_record_ids)
-        self._export_run.finished_at = datetime.now(timezone.utc)
-        self._export_run._status_code = 0  # completed
-        self._export_run.save()
-        return df.sort_index()  # order by id
+        self._export_run = getattr(qs, "_record_export_run", None)
+        return df
 
     def to_artifact(
         self,
         key: str | None = None,
         suffix: str | None = None,
-        filters: Any | None = None,
         is_run_input: bool | Run | None = None,
         link_individual_inputs: bool = True,
         **kwargs,
@@ -1125,14 +1207,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
                 sample_sheet.to_artifact()
 
-            Export only records with high GC content::
-
-                sample_sheet.to_artifact(filters=gc_content > 0.55)
-
         Args:
             key: `str | None = None` The artifact key.
             suffix: `str | None = None` The suffix to append to the default key if no key is passed.
-            filters: Filters applied before export.
             is_run_input: Whether to track the record as a run input.
             link_individual_inputs: Whether to link all exported records as
                 inputs of the export run. If `False`, only links the record type.
@@ -1146,7 +1223,6 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         description = f": {self.description}" if self.description is not None else ""
         return Artifact.from_dataframe(
             self.to_dataframe(
-                filters=filters,
                 is_run_input=is_run_input,
                 link_individual_inputs=link_individual_inputs,
                 **kwargs,
@@ -1158,6 +1234,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 "index": self.schema is not None and self.schema.index is not None
             },
             run=self._export_run,
+            space=self.space,
         ).save()
 
 

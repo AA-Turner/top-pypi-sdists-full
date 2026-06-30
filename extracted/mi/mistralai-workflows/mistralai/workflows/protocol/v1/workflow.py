@@ -322,6 +322,7 @@ class WorkflowExecutionWithoutResultResponse(BaseModel):
     parent_execution_id: str | None = Field(None, description="The parent execution ID of the workflow execution")
     root_execution_id: str = Field(description="The root execution ID of the workflow execution")
     run_id: str | None = Field(default=None, description="The unique run identifier (database UUID)")
+    user_id: str | None = Field(default=None, description="The ID of the user who triggered the execution")
     status: WorkflowExecutionStatus | None = Field(description="The status of the workflow execution")
     start_time: datetime = Field(description="The start time of the workflow execution")
     end_time: datetime | None = Field(description="The end time of the workflow execution, if available")

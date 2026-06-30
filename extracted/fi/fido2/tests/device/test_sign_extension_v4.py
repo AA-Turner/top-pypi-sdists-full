@@ -1,6 +1,7 @@
 import os
 from collections.abc import Callable
 from enum import IntEnum
+from importlib.metadata import version
 from typing import Mapping, cast
 
 import cryptography.exceptions
@@ -13,6 +14,12 @@ from fido2.utils import sha256
 from fido2.webauthn import AttestationObject
 
 from . import TEST_PIN
+
+
+@pytest.fixture(autouse=True, scope="module")
+def check_arkg_support():
+    if int(version("cryptography").split(".")[0]) < 45:
+        pytest.skip("ARKG support requires cryptography 45 or later")
 
 
 class AuthenticatorInput(IntEnum):
@@ -191,7 +198,7 @@ def generate_key(dev_manager):
 
         pin_protocol = None
         pin_uv_param = None
-        if options is not None and options["rk"]:
+        if dev_manager.ctap2.info.options.get("clientPin"):
             client_pin = ClientPin(dev_manager.ctap2)
             pin_protocol = client_pin.protocol.VERSION
             pin_token = client_pin.get_pin_token(TEST_PIN)

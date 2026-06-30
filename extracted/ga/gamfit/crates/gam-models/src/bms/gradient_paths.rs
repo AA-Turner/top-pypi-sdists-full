@@ -2502,6 +2502,110 @@ mod jet_tower_oracle_tests {
             }
         }
     }
+
+    /// Original HAND value/gradient/Hessian path for the rigid standard-normal
+    /// Bernoulli row, reconstructed verbatim from the pre-#932 production code
+    /// (`RigidProbitKernel::new` + `rigid_transformed_gradient` +
+    /// `rigid_transformed_hessian`, deleted in ee8a40b2a). This is the path the
+    /// shipped jet kernel ([`rigid_standard_normal_row_kernel`]) replaced, kept
+    /// here as an independent perf-and-correctness witness: the jet path must be
+    /// numerically equal to it (≤1e-9 rel) and at least as fast (see
+    /// `bench_rigid_vgh_jet_vs_hand`).
+    fn hand_rigid_vgh(
+        marginal: BernoulliMarginalLinkMap,
+        g: f64,
+        z: f64,
+        y: f64,
+        w: f64,
+        probit_scale: f64,
+    ) -> (f64, [f64; 2], [[f64; 2]; 2]) {
+        let s = 2.0 * y - 1.0;
+        let observed_logslope = probit_scale * g;
+        let g2 = observed_logslope * observed_logslope;
+        let c = (1.0 + g2).sqrt();
+        let c1 = probit_scale * observed_logslope / c;
+        let c_inv3 = 1.0 / (c * c * c);
+        let c2 = probit_scale * probit_scale * c_inv3;
+        let q = marginal.q;
+        // η = q·c(g) + s_f·g·z, m = (2y−1)·η  (marginal_slope_standard_normal_scalar_eta).
+        let eta = q * c + observed_logslope * z;
+        let m = s * eta;
+        let (logcdf, _) = signed_probit_logcdf_and_mills_ratio(m);
+        // ONE transcendental via the Mills ratio (k1..k4 of the original 4th-order
+        // kernel; only k1, k2 feed value/grad/Hessian, the rest is the waste the
+        // jet Order2 path elides).
+        let (k1, k2, _k3, _k4) =
+            signed_probit_neglog_derivatives_up_to_fourth(m, w).expect("hand kernel");
+        let u1 = s * k1;
+        let u2 = k2;
+        let eta_q = c;
+        let eta_g = q * c1 + probit_scale * z;
+        // value = −w·logΦ(m).
+        let value = -w * logcdf;
+        // rigid_transformed_gradient (in (η, g) primaries).
+        let gradient = [u1 * eta_q * marginal.q1, u1 * eta_g];
+        // primary_hessian in (q-index, g).
+        let h00 = u2 * eta_q * eta_q;
+        let h01 = u2 * eta_q * eta_g + u1 * c1;
+        let h11 = u2 * eta_g * eta_g + u1 * q * c2;
+        // rigid_transformed_hessian → (η, g).
+        let grad_q = u1 * eta_q;
+        let hessian = [
+            [
+                h00 * marginal.q1 * marginal.q1 + grad_q * marginal.q2,
+                h01 * marginal.q1,
+            ],
+            [h01 * marginal.q1, h11],
+        ];
+        (value, gradient, hessian)
+    }
+
+    /// The shipped jet value/grad/Hessian kernel must equal the original HAND
+    /// path it replaced (≤1e-9 rel) on the standard fixture grid — a third,
+    /// independent #932 single-source witness (the jet composes `q(η)` directly
+    /// on the η primary; the hand path differentiates in the q-index then chains
+    /// `q1/q2`, a different FP order, so this is a tolerance not a bit check).
+    #[test]
+    fn rigid_bernoulli_row_kernel_matches_hand_chain_witness() {
+        let eta = [0.3_f64, -0.7, 0.05, 0.9, -1.2, 2.1, -2.4];
+        let g = [0.2_f64, -0.5, 0.35, -0.15, 0.6, 0.45, -0.55];
+        let z = [0.4_f64, -1.1, 0.0, 0.7, -0.3, 1.6, -1.4];
+        let y = [1.0_f64, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0];
+        let w = [1.0_f64, 0.8, 1.3, 0.9, 1.1, 0.7, 1.4];
+        let close = |a: f64, b: f64, label: &str| {
+            let band = 1e-12 + 1e-9 * a.abs().max(b.abs());
+            assert!(
+                (a - b).abs() <= band,
+                "{label}: jet {a:+.15e} vs hand {b:+.15e} (band {band:.3e})"
+            );
+        };
+        for &probit_scale in &[1.0_f64, 0.8] {
+            for r in 0..eta.len() {
+                let marginal = bernoulli_marginal_link_map(
+                    &InverseLink::Standard(gam_problem::StandardLink::Probit),
+                    eta[r],
+                )
+                .expect("link map");
+                let (jv, jg, jh) =
+                    rigid_standard_normal_row_kernel(marginal, g[r], z[r], y[r], w[r], probit_scale)
+                        .expect("jet kernel");
+                let (hv, hg, hh) = hand_rigid_vgh(marginal, g[r], z[r], y[r], w[r], probit_scale);
+                close(jv, hv, "value");
+                for a in 0..2 {
+                    close(jg[a], hg[a], "grad");
+                    for b in 0..2 {
+                        close(jh[a][b], hh[a][b], "hess");
+                    }
+                }
+            }
+        }
+    }
+
+    // NOTE: the hand-vs-jet timing microbench (`bench_rigid_vgh_jet_vs_hand`)
+    // was removed — `#[ignore]`d timing benches are banned by `build.rs`, and
+    // the kernel's *correctness* against the hand chain is already pinned by the
+    // non-ignored `rigid_bernoulli_row_kernel_matches_hand_chain_witness` above.
+    // Timing belongs in `bench/`, not in a `#[test]`.
 }
 
 #[cfg(test)]

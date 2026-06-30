@@ -113,6 +113,7 @@ from .type_defs import (
     DeleteProtectConfigurationRuleSetNumberOverrideResultTypeDef,
     DeleteRcsAgentRequestTypeDef,
     DeleteRcsAgentResultTypeDef,
+    DeleteRcsMessageSpendLimitOverrideResultTypeDef,
     DeleteRegistrationAttachmentRequestTypeDef,
     DeleteRegistrationAttachmentResultTypeDef,
     DeleteRegistrationFieldValueRequestTypeDef,
@@ -219,6 +220,8 @@ from .type_defs import (
     SendNotifyTextMessageResultTypeDef,
     SendNotifyVoiceMessageRequestTypeDef,
     SendNotifyVoiceMessageResultTypeDef,
+    SendRcsMessageRequestTypeDef,
+    SendRcsMessageResultTypeDef,
     SendTextMessageRequestTypeDef,
     SendTextMessageResultTypeDef,
     SendVoiceMessageRequestTypeDef,
@@ -235,6 +238,8 @@ from .type_defs import (
     SetMediaMessageSpendLimitOverrideResultTypeDef,
     SetNotifyMessageSpendLimitOverrideRequestTypeDef,
     SetNotifyMessageSpendLimitOverrideResultTypeDef,
+    SetRcsMessageSpendLimitOverrideRequestTypeDef,
+    SetRcsMessageSpendLimitOverrideResultTypeDef,
     SetTextMessageSpendLimitOverrideRequestTypeDef,
     SetTextMessageSpendLimitOverrideResultTypeDef,
     SetVoiceMessageSpendLimitOverrideRequestTypeDef,
@@ -617,6 +622,17 @@ class PinpointSMSVoiceV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/delete_rcs_agent.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#delete_rcs_agent)
+        """
+
+    def delete_rcs_message_spend_limit_override(
+        self,
+    ) -> DeleteRcsMessageSpendLimitOverrideResultTypeDef:
+        """
+        Deletes an account-level monthly spending limit override for sending RCS
+        messages.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/delete_rcs_message_spend_limit_override.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#delete_rcs_message_spend_limit_override)
         """
 
     def delete_registration(
@@ -1184,6 +1200,16 @@ class PinpointSMSVoiceV2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#send_notify_voice_message)
         """
 
+    def send_rcs_message(
+        self, **kwargs: Unpack[SendRcsMessageRequestTypeDef]
+    ) -> SendRcsMessageResultTypeDef:
+        """
+        Creates a new RCS message and sends it to a recipient's phone number.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/send_rcs_message.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#send_rcs_message)
+        """
+
     def send_text_message(
         self, **kwargs: Unpack[SendTextMessageRequestTypeDef]
     ) -> SendTextMessageResultTypeDef:
@@ -1262,6 +1288,16 @@ class PinpointSMSVoiceV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/set_notify_message_spend_limit_override.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#set_notify_message_spend_limit_override)
+        """
+
+    def set_rcs_message_spend_limit_override(
+        self, **kwargs: Unpack[SetRcsMessageSpendLimitOverrideRequestTypeDef]
+    ) -> SetRcsMessageSpendLimitOverrideResultTypeDef:
+        """
+        Sets an account level monthly spend limit override for sending RCS messages.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/set_rcs_message_spend_limit_override.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#set_rcs_message_spend_limit_override)
         """
 
     def set_text_message_spend_limit_override(

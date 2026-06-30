@@ -64,11 +64,13 @@ class Tomography(Experiment):
 
         return True, "Experiment is correctly initialized."
 
-    def generate_acoustic_fields(self, fieldDataPath=None, tempFieldName="Kwave", nameBlock=None, generation_type="envelope_squarred", show_log=True):
+    def generate_acoustic_fields(self, isGPU=None, GPUdevice=None, fieldDataPath=None, tempFieldName="Kwave", nameBlock=None, generation_type="envelope_squarred", show_log=True):
         """
         Generate the acoustic fields for simulation.
 
         Parameters:
+            isGPU (bool): Whether to use GPU for simulation. (If None, the default setting will be used.)
+            GPUdevice (int): The GPU device to use. (If None, the default GPU will be used.)
             fieldDataPath (str): Path to save the generated fields.
             tempFieldName (str): Name for the temporary field files. Mainly used for multithreading to avoid multiple threads writing to the same file.
             nameBlock (str): Optional name for h5 file.
@@ -81,7 +83,7 @@ class Tomography(Experiment):
         if self.medium is None:
             raise ValueError("Medium is not initialized. Please generate the medium first.")
         if self.TypeAcoustic.value == WaveType.StructuredWave.value:
-            self.AcousticFields = self._generate_acousticFields_STRUCT(fieldDataPath, tempFieldName, nameBlock, generation_type, show_log)
+            self.AcousticFields = self._generate_acousticFields_STRUCT(isGPU=isGPU, GPUdevice=GPUdevice, fieldDataPath=fieldDataPath, tempFieldName=tempFieldName, nameBlock=nameBlock, generation_type=generation_type, show_log=show_log)
         else:
             raise ValueError("Unsupported wave type.")
 
@@ -245,6 +247,30 @@ class Tomography(Experiment):
         plt.tight_layout()
         plt.show()
 
+    def load_experiment_data(self, file_path, withTumor=True):
+        self.expParams = {}
+        print("loading experiment data from:", file_path)
+        with h5py.File(file_path, 'r') as f:
+            self.expParams['data_raw'] = np.array(f['data']) if f.get('data') is not None else None
+            self.expParams['ActiveListMatrix'] = np.array(f['ActiveListMatrix']) if f.get('ActiveListMatrix') is not None else None
+            self.expParams['AngleMatrix'] = np.array(f['AngleMatrix'][0, :]) if f.get('AngleMatrix') is not None else None
+            self.expParams['FreqSonde'] = float(f['FreqSonde'][0,0])*1e6 if f.get('FreqSonde') is not None else None
+            self.expParams['Naverage'] = int(f['Naverage'][0,0]) if f.get('Naverage') is not None else None
+            self.expParams['Nelement'] = int(f['Nelement'][0,0]) if f.get('Nelement') is not None else None
+            self.expParams['Npoints'] = int(f['Npoints'][0,0]) if f.get('Npoints') is not None else None
+            self.expParams['SampleRate'] = float(f['SampleRate'][0,0]) if f.get('SampleRate') is not None else None
+            self.expParams['Volt'] = float(f['Volt'][0,0]) if f.get('Volt') is not None else None
+            self.expParams['nbHemicycle'] = float(f['nbHemicycle'][0,0]) if f.get('nbHemicycle') is not None else None
+            self.expParams['prof'] = float(f['prof'][0,0]) if f.get('prof') is not None else None
+            if self.expParams['data_raw'] is None:
+                print("Warning: 'data' dataset not found in the HDF5 file.")
+                print("Available datasets:", list(f.keys()))
+            else:
+                if withTumor:
+                    self.AOsignal_withTumor = np.mean(self.expParams['data_raw'], axis=0).T
+                else:   
+                    self.AOsignal_withoutTumor = np.mean(self.expParams['data_raw'], axis=0).T
+
     def load_activeList(self, fieldParamPath):
         """
         Load the active list patterns from a parameter file.
@@ -335,6 +361,31 @@ class Tomography(Experiment):
                 raise ValueError("Generated patterns failed validation.")
         else:
             raise ValueError("Either N (>=2) or both decimations and angles must be provided for pattern generation.")
+
+    def generate_activeList_from_exp(self):
+        if self.expParams is None:
+            raise ValueError("expParams is not initialized. Please load the experiment data first.")
+        active_elements = convert_to_hex_list(self.expParams['ActiveListMatrix'])
+        self.DelayLaw = []
+        self.theta = []
+        self.decimations = []
+        self.ActiveList = []
+        self.patterns = []
+        for i in range(len(active_elements)):
+            self.patterns.append({"fileName": f"{active_elements[i]}_{format_angle(self.expParams['AngleMatrix'][i])}"})
+            self.theta.append(self.expParams['AngleMatrix'][i])
+            self.ActiveList = active_elements
+            new_Delay = 1000 * (1/self.params.acoustic['medium']['c0']) * np.sin(np.deg2rad(self.theta[-1])) * np.arange(1, self.params.acoustic['probe']['num_elements'] + 1) * self.params.acoustic['probe']['element_width']
+            self.DelayLaw.append(new_Delay - np.min(new_Delay))
+            self.decimations.append(get_frequency(active_elements[i], self.params.acoustic['probe']['num_elements'], self.params.acoustic['probe']['element_width']))
+
+    def check_ActiveList(self, activeList_path):
+        with open(activeList_path, 'r') as f:
+            for i,line in enumerate(f):
+                if line.strip() != self.patterns[i]["fileName"]:
+                    print(f"Mismatch at line {i+1}: file has '{line.strip()}', but generated list has '{self.patterns[i]['fileName']}'")
+                    return False    
+        return True
 
     def save_AOsignals_matlab(self, filePath):
         """
@@ -812,12 +863,14 @@ class Tomography(Experiment):
         print("Apodization done.")
 
     # PRIVATE METHODS
-    def _generate_acousticFields_STRUCT(self, fieldDataPath=None, tempFieldName="Kwave", nameBlock=None, generation_type="envelope_squarred", show_log=False):
+    def _generate_acousticFields_STRUCT(self, fieldDataPath=None, isGPU=None, GPUdevice=None, tempFieldName="Kwave", nameBlock=None, generation_type="envelope_squarred", show_log=False):
         """
         Generate acoustic fields for structured waves using CPU-based simulation.
 
         Parameters:
             fieldDataPath (str): Path to save generated fields.
+            isGPU (bool): Whether to use GPU for simulation. (Default is None, which uses CPU.)
+            GPUdevice (int): The GPU device to use. (Default is None, which uses the default GPU.)
             tempFieldName (str): Name for the temporary field files (default is "Kwave"). Mainly used for multithreading to avoid multiple threads writing to the same file.
             nameBlock (str): Optional name for the block when saving.
             generation_type (str): The type of field generation to perform. Must be one of "envelope_squarred", "envelope", or "field".
@@ -854,14 +907,14 @@ class Tomography(Experiment):
                     AcousticField.load_field(fieldDataPath, self.FormatSave, nameBlock)
                 except:
                     progress_bar.set_postfix_str(f"Error loading field -> Generating field - {AcousticField.get_name_field()} ---- processing on {config.get_process().upper()} ----")
-                    AcousticField.generate_field(tempFieldName=tempFieldName, generation_type=generation_type, show_log=show_log)
+                    AcousticField.generate_field(isGPU=isGPU, GPUdevice=GPUdevice, tempFieldName=tempFieldName, generation_type=generation_type, show_log=show_log)
                     if not os.path.exists(pathField):
                         progress_bar.set_postfix_str(f"Saving field - {AcousticField.get_name_field()}")
                         os.makedirs(os.path.dirname(pathField), exist_ok=True)
                         AcousticField.save_field(fieldDataPath)
             else:
                 progress_bar.set_postfix_str(f"Generating field - {AcousticField.get_name_field()} ---- processing on {config.get_process().upper()} ----")
-                AcousticField.generate_field(tempFieldName=tempFieldName, generation_type=generation_type, show_log=show_log)
+                AcousticField.generate_field(isGPU=isGPU, GPUdevice=GPUdevice, tempFieldName=tempFieldName, generation_type=generation_type, show_log=show_log)
                 if pathField is not None and not os.path.exists(pathField) and self.params.acoustic['typeSim'] != TypeSim.SIMPLE_SIM.value:
                     progress_bar.set_postfix_str(f"Saving field - {AcousticField.get_name_field()}")
                     os.makedirs(os.path.dirname(pathField), exist_ok=True)

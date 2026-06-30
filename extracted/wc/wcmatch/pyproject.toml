@@ -9,7 +9,7 @@ name = "wcmatch"
 description = "Wildcard/glob file name matcher."
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Isaac Muse", email = "Isaac.Muse@gmail.com" },
 ]
@@ -138,8 +138,8 @@ commands=
 deps=
     -r requirements/docs.txt
 commands=
-    {envpython} -m mkdocs build --clean --verbose --strict
-    {envbindir}/pyspelling -j 8
+    "{envpython}" -m zensical.main build -f zensical.yml --clean
+    "{envpython}" -m pyspelling -j 8
 
 [pytest]
 addopts=-p no:warnings

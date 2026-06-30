@@ -419,50 +419,31 @@ class MockPinningAdapter(OpsMcpAdapter):
         """List published versions for a connector."""
         return self.versions.get(connector_id, ())
 
-    def list_versions_with_pins_or_rollouts(
-        self,
-        connector_id: str | None = None,
-    ) -> list[dict[str, object]]:
-        """Return mock versions enriched with pin counts and rollout state."""
+    def list_versions_with_pins(self) -> list[dict[str, object]]:
+        """Return mock versions that have at least one pin (no rollout data)."""
         time.sleep(_MOCK_DELAY_HEAVY)
-        if connector_id is None:
-            return []
-        versions = self.versions.get(connector_id, ())
-        rollouts = self.rollouts.get(connector_id, ())
-        rc_tags: set[str] = set()
-        for rollout in rollouts:
-            if rollout.rc_docker_image_tag:
-                rc_tags.add(rollout.rc_docker_image_tag)
-        # Build pin counts per version_id from self.version_pins
-        pin_counts: dict[str, int] = {}
-        for version in versions:
-            pins = self.version_pins.get(version.version_id, ())
-            if pins:
-                pin_counts[version.version_id] = len(pins)
         result: list[dict[str, object]] = []
-        for version in versions:
-            pin_count = pin_counts.get(version.version_id, 0)
-            rollout_state = ""
-            rollout_id = ""
-            if version.docker_image_tag in rc_tags:
-                for rollout in rollouts:
-                    if rollout.rc_docker_image_tag == version.docker_image_tag:
-                        rollout_state = rollout.state
-                        rollout_id = rollout.rollout_id
-                        break
-            if pin_count > 0 or rollout_state:
-                result.append(
-                    {
-                        "version_id": version.version_id,
-                        "connector_definition_id": connector_id,
-                        "docker_repository": version.docker_repository,
-                        "docker_image_tag": version.docker_image_tag,
-                        "last_published": version.last_published,
-                        "pin_count": pin_count,
-                        "rollout_state": rollout_state,
-                        "rollout_id": rollout_id,
-                    }
-                )
+        for connector_id, versions in self.versions.items():
+            for version in versions:
+                pins = self.version_pins.get(version.version_id, ())
+                if pins:
+                    actor_pins = sum(1 for p in pins if p.scope_type == "actor")
+                    workspace_pins = sum(1 for p in pins if p.scope_type == "workspace")
+                    org_pins = sum(1 for p in pins if p.scope_type == "organization")
+                    result.append(
+                        {
+                            "version_id": version.version_id,
+                            "connector_definition_id": connector_id,
+                            "connector_name": "",
+                            "docker_repository": version.docker_repository,
+                            "docker_image_tag": version.docker_image_tag,
+                            "last_published": version.last_published,
+                            "pin_count": len(pins),
+                            "actor_pins": actor_pins,
+                            "workspace_pins": workspace_pins,
+                            "org_pins": org_pins,
+                        }
+                    )
         return result
 
     def list_recent_releases(

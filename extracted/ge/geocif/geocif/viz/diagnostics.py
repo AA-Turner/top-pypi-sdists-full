@@ -326,7 +326,7 @@ def forest_yield_ci(
 # Scatter: Observed vs Predicted
 # ---------------------------------------------------------------------------
 
-def scatter_obs_pred(df, title, dir_out, fname, color_by="year"):
+def scatter_obs_pred(df, title, dir_out, fname, color_by="year", yield_units="Mg/ha"):
     """Scatter plot of observed vs predicted yield.
 
     Args:
@@ -404,12 +404,12 @@ def scatter_obs_pred(df, title, dir_out, fname, color_by="year"):
     ax.set_ylim(0, max_val)
 
     ax.annotate(
-        f"RMSE: {rmse:.2f} tn/ha\nMAPE: {mape:.2%}\n$r^2$: {r2:.2f}\nN: {len(df)}",
+        f"RMSE: {rmse:.2f} {yield_units}\nMAPE: {mape:.2%}\n$r^2$: {r2:.2f}\nN: {len(df)}",
         xy=(0.05, 0.95), xycoords="axes fraction",
         fontsize=9, verticalalignment="top",
     )
-    ax.set_xlabel("Observed Yield (tn/ha)")
-    ax.set_ylabel("Predicted Yield (tn/ha)")
+    ax.set_xlabel(f"Observed Yield ({yield_units})")
+    ax.set_ylabel(f"Predicted Yield ({yield_units})")
     ax.set_title(title, fontsize=10)
 
     if region_colors is not None:
@@ -437,6 +437,239 @@ def scatter_obs_pred(df, title, dir_out, fname, color_by="year"):
     plt.tight_layout()
     Path(dir_out).mkdir(parents=True, exist_ok=True)
     fig.savefig(Path(dir_out) / fname, dpi=250, bbox_inches="tight")
+    plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
+# Trigger-Evaluation plot (insurance-style 2×2 confusion on a yield scatter)
+# ---------------------------------------------------------------------------
+
+def _compute_trigger_confusion(df, threshold, obs_col, pred_col, year_col):
+    """Return a per-year + ALL confusion-summary DataFrame.
+
+    Quadrants are formed by `threshold` on BOTH axes:
+      * correct_payout   : obs<t  AND pred<t   (predicted loss, actual loss)
+      * correct_nopay    : obs>=t AND pred>=t  (predicted ok, actual ok)
+      * missed_payout    : obs<t  AND pred>=t  (real loss, no trigger fired)
+      * false_payout     : obs>=t AND pred<t   (trigger fired, no actual loss)
+
+    Rates:
+      * miss_rate_%         = missed_payout / n_low_yield     (recall miss)
+      * false_payout_rate_% = false_payout  / (n - n_low_yield)
+      * accuracy_%          = (correct_payout + correct_nopay) / n
+    """
+    def _row(label, sub):
+        n = len(sub)
+        if n == 0:
+            return None
+        obs_low = sub[obs_col] < threshold
+        pred_low = sub[pred_col] < threshold
+        n_low = int(obs_low.sum())
+        n_nolow = n - n_low
+        cp = int((obs_low & pred_low).sum())
+        cn = int((~obs_low & ~pred_low).sum())
+        mp = int((obs_low & ~pred_low).sum())
+        fp = int((~obs_low & pred_low).sum())
+        return {
+            "period": label,
+            "n": n,
+            "n_low_yield": n_low,
+            "correct_payout": cp,
+            "correct_nopay": cn,
+            "missed_payout": mp,
+            "false_payout": fp,
+            "miss_rate_%": round(100.0 * mp / n_low) if n_low else 0,
+            "false_payout_rate_%": round(100.0 * fp / n_nolow) if n_nolow else 0,
+            "accuracy_%": round(100.0 * (cp + cn) / n),
+        }
+
+    rows = []
+    all_row = _row("ALL", df)
+    if all_row is not None:
+        rows.append(all_row)
+    if year_col in df.columns:
+        for yr in sorted(df[year_col].dropna().unique()):
+            sub = df[df[year_col] == yr]
+            r = _row(str(int(yr)), sub)
+            if r is not None:
+                rows.append(r)
+    return pd.DataFrame(rows)
+
+
+def trigger_eval_plot(
+    df,
+    title,
+    dir_out,
+    fname,
+    *,
+    threshold: float = 18.9,
+    yield_units: str = "Mg/ha",
+    year_col: str = "Harvest Year",
+):
+    """Trigger-evaluation scatter (index-insurance 2×2) + confusion summary.
+
+    Reuses the standard ``Observed Yield (tn per ha)`` / ``Predicted Yield
+    (tn per ha)`` column names (DataFrame internal contract; same as
+    ``scatter_obs_pred``). The ``yield_units`` string is purely for display.
+
+    Returns the per-year confusion DataFrame so the caller can save it
+    alongside the PNG.
+    """
+    from matplotlib.patches import Rectangle
+
+    obs_col = "Observed Yield (tn per ha)"
+    pred_col = "Predicted Yield (tn per ha)"
+
+    df = df.dropna(subset=[obs_col, pred_col]).copy()
+    if len(df) < 2:
+        return pd.DataFrame()
+
+    y_obs = df[obs_col].astype(float)
+    y_pred = df[pred_col].astype(float)
+
+    # Per-year coloring (viridis); falls back to steelblue if no year col
+    years = pd.to_numeric(df[year_col], errors="coerce") if year_col in df.columns else None
+    if years is not None and years.notna().any():
+        cmap = plt.cm.viridis
+        norm = plt.Normalize(vmin=years.min(), vmax=years.max())
+        colors = [cmap(norm(y)) for y in years]
+    else:
+        colors = "steelblue"
+
+    confusion = _compute_trigger_confusion(df, threshold, obs_col, pred_col, year_col)
+
+    try:
+        with _science_style_context():
+            fig, ax = plt.subplots(figsize=(7, 5.5))
+    except OSError:
+        fig, ax = plt.subplots(figsize=(7, 5.5))
+
+    axis_max = max(y_obs.max(), y_pred.max(), threshold) * 1.1
+    ax.set_xlim(0, axis_max)
+    ax.set_ylim(0, axis_max)
+
+    # Shade the two error quadrants (drawn first so they sit behind everything else).
+    # Pink top-left: missed payout (obs<t & pred>=t).
+    ax.add_patch(Rectangle((0, threshold), threshold, axis_max - threshold,
+                           facecolor="#f4c2c2", alpha=0.35, zorder=0,
+                           edgecolor="none"))
+    # Yellow bottom-right: false payout (obs>=t & pred<t).
+    ax.add_patch(Rectangle((threshold, 0), axis_max - threshold, threshold,
+                           facecolor="#fdf5b9", alpha=0.55, zorder=0,
+                           edgecolor="none"))
+
+    # Diagonal 1:1 reference + threshold cross-hair
+    ax.plot([0, axis_max], [0, axis_max], color="gray", linestyle="-",
+            linewidth=0.8, zorder=1)
+    ax.axhline(threshold, color="red", linestyle="--", linewidth=0.9, zorder=2)
+    ax.axvline(threshold, color="red", linestyle="--", linewidth=0.9, zorder=2)
+
+    ax.scatter(y_obs, y_pred, color=colors, s=24, zorder=3)
+
+    # "False payout" annotation centered in the yellow region. Pink region
+    # is self-evident (top-left), label is omitted to avoid clutter.
+    ax.annotate(
+        "False\npayout",
+        xy=((threshold + axis_max) / 2, threshold / 2),
+        ha="center", va="center", fontsize=8, color="#7a6500",
+        zorder=4,
+    )
+
+    ax.set_xlabel(f"Observed yield ({yield_units})")
+    ax.set_ylabel(f"Predicted yield ({yield_units})")
+    full_title = (
+        f"{title} (threshold = {threshold:g} {yield_units})"
+        if title else f"Trigger Evaluation (threshold = {threshold:g} {yield_units})"
+    )
+    ax.set_title(full_title, fontsize=10)
+
+    # Year legend (small, top-left of plot) when years available.
+    if years is not None and years.notna().any():
+        from matplotlib.lines import Line2D
+        uniq_years = sorted({int(y) for y in years.dropna()})
+        if len(uniq_years) <= 12:
+            handles = [
+                Line2D([0], [0], marker="o", linestyle="",
+                       markerfacecolor=cmap(norm(y)),
+                       markeredgecolor="none", markersize=5, label=str(y))
+                for y in uniq_years
+            ]
+            ax.legend(handles=handles, title="year", loc="upper left",
+                      fontsize=7, title_fontsize=7, frameon=True,
+                      framealpha=0.8)
+
+    plt.tight_layout()
+    Path(dir_out).mkdir(parents=True, exist_ok=True)
+    fig.savefig(Path(dir_out) / fname, dpi=250, bbox_inches="tight")
+    plt.close(fig)
+
+    return confusion
+
+
+def trigger_eval_table_image(df_confusion, title, dir_out, fname):
+    """Render the trigger-evaluation confusion-summary DataFrame as a PNG.
+
+    Companion to :func:`trigger_eval_plot` — same data the CSV carries,
+    rendered as a quick-glance image for slide decks / shared review.
+
+    Layout: matplotlib ``ax.table`` with a bold header row, a highlighted
+    ALL row (first row), and alternating row stripes for readability.
+    """
+    if df_confusion is None or df_confusion.empty:
+        return
+
+    col_labels = list(df_confusion.columns)
+    cell_text = [
+        [
+            f"{v}" if not (isinstance(v, float) and not v.is_integer())
+            else f"{v:.1f}"
+            for v in row
+        ]
+        for row in df_confusion.itertuples(index=False, name=None)
+    ]
+
+    n_rows = len(cell_text)
+    fig_h = max(2.5, 0.32 * n_rows + 1.2)
+    fig_w = 0.85 * len(col_labels) + 1.5
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    ax.axis("off")
+
+    table = ax.table(
+        cellText=cell_text,
+        colLabels=col_labels,
+        cellLoc="center",
+        colLoc="center",
+        loc="center",
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(8)
+    table.scale(1.0, 1.4)
+    table.auto_set_column_width(col=list(range(len(col_labels))))
+
+    # Header: bold, light-gray background
+    for j in range(len(col_labels)):
+        cell = table[0, j]
+        cell.set_facecolor("#dcdcdc")
+        cell.set_text_props(weight="bold")
+
+    # Data rows: highlight ALL (row 1 of the matplotlib table — first data row);
+    # alternate stripes for the rest.
+    for r in range(1, n_rows + 1):
+        is_all_row = (r == 1)
+        for j in range(len(col_labels)):
+            cell = table[r, j]
+            if is_all_row:
+                cell.set_facecolor("#f0f0f0")
+                cell.set_text_props(weight="bold")
+            elif r % 2 == 1:
+                cell.set_facecolor("#fafafa")
+
+    if title:
+        ax.set_title(title, fontsize=10, pad=10, fontweight="bold")
+
+    plt.tight_layout()
+    Path(dir_out).mkdir(parents=True, exist_ok=True)
+    fig.savefig(Path(dir_out) / fname, dpi=200, bbox_inches="tight")
     plt.close(fig)
 
 

@@ -29,6 +29,7 @@ from airbyte_ops_mcp.cloud_admin.registry_lookup import (
 )
 from airbyte_ops_mcp.constants import OrganizationAliasEnum, WorkspaceAliasEnum
 from airbyte_ops_mcp.prod_db_access.queries import (
+    is_source_connector,
     query_actors_pinned_to_version,
     query_connection_sync_activity_from_prod,
     query_connections_by_connector,
@@ -42,10 +43,12 @@ from airbyte_ops_mcp.prod_db_access.queries import (
     query_new_connector_releases,
     query_recent_syncs_for_connector,
     query_source_connection_stats,
-    query_syncs_for_version_pinned_connector,
-    query_versions_with_pins_or_rollouts,
+    query_syncs_for_connector_version,
+    query_versions_with_pins,
     query_workspace_info,
     query_workspaces_by_email_domain,
+    resolve_version_id_by_tag,
+    resolve_version_info,
     search_organizations,
     search_workspaces,
 )
@@ -430,11 +433,38 @@ def query_prod_actors_by_pinned_connector_version(
     read_only=True,
     idempotent=True,
 )
-def query_prod_recent_syncs_for_version_pinned_connector(
+def query_prod_recent_syncs_for_connector_version(
     connector_version_id: Annotated[
-        str,
-        Field(description="Connector version UUID to find sync results for"),
-    ],
+        str | None,
+        Field(
+            description=(
+                "Connector version UUID. Provide this OR "
+                "connector_name + connector_version."
+            ),
+            default=None,
+        ),
+    ] = None,
+    connector_name: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Canonical connector name (e.g. `source-pokeapi`, "
+                "`destination-duckdb`). Used with `connector_version` to "
+                "resolve the version UUID."
+            ),
+            default=None,
+        ),
+    ] = None,
+    connector_version: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Semver version tag (e.g. `0.3.59`). "
+                "Used with `connector_name` to resolve the version UUID."
+            ),
+            default=None,
+        ),
+    ] = None,
     days: Annotated[
         int,
         Field(description="Number of days to look back (default: 7)", default=7),
@@ -446,35 +476,60 @@ def query_prod_recent_syncs_for_version_pinned_connector(
     successful_only: Annotated[
         bool,
         Field(
-            description="If True, only return successful syncs (default: False)",
+            description="If `True`, only return successful syncs (default: `False`)",
             default=False,
         ),
     ] = False,
 ) -> list[dict[str, Any]]:
-    """List sync job results for actors PINNED to a specific connector version.
+    """List sync jobs that were run with a specific connector version.
 
-    IMPORTANT: This tool ONLY returns results for actors that are effectively
-    pinned to the specified version via scoped_configuration at any scope level
-    (actor, workspace, or organization). Most connections run unpinned and will
-    NOT appear in these results.
+    Works for both source and destination connectors. Automatically detects
+    the connector type from the version metadata and uses the appropriate
+    query variant.
 
-    Use this tool when you want to monitor rollout health for actors that have been
-    pinned to a pre-release or specific version. For finding healthy connections
-    across ALL actors using a connector type (regardless of pinning),
-    use query_prod_recent_syncs_for_connector instead.
+    Accepts either `connector_version_id` (UUID) or `connector_name` +
+    `connector_version` (e.g. `source-pokeapi` + `0.3.59`). When using
+    name + version, the `docker_repository` is derived from the canonical
+    name (e.g. `source-pokeapi` → `airbyte/source-pokeapi`).
 
-    The actor_id field is the actor ID (superset of source_id/destination_id).
+    Filters on the version stamped into `jobs.config` at job-creation time,
+    not the current pin state. This avoids false positives (pre-pin syncs
+    counted as RC) and false negatives (post-unpin syncs missed).
 
-    Returns list of dicts with keys: job_id, connection_id, job_status, started_at,
-    job_updated_at, connection_name, actor_id, actor_name, connector_definition_id,
-    pin_origin_type, pin_origin, pin_scope_type, workspace_id, workspace_name,
-    organization_id, dataplane_group_id, dataplane_name
+    Pin columns (`pin_origin_type`, `pin_origin`, `pin_scope_type`) are
+    still included as informational output but are not used for filtering.
 
-    pin_scope_type is 'actor', 'workspace', or 'organization' indicating which scope
-    level the effective pin came from.
+    Returns list of dicts with keys: `job_id`, `connection_id`, `job_status`,
+    `started_at`, `job_updated_at`, `connection_name`, `actor_id`, `actor_name`,
+    `actor_definition_id`, `source_definition_version_id`,
+    `destination_definition_version_id`, `pin_origin_type`,
+    `pin_origin`, `pin_scope_type`, `workspace_id`, `workspace_name`,
+    `organization_id`, `dataplane_group_id`, `dataplane_name`.
     """
-    return query_syncs_for_version_pinned_connector(
+    # Resolve inputs to a version UUID and connector type.
+    if connector_version_id is not None:
+        version_info = resolve_version_info(connector_version_id)
+        docker_repository = version_info["docker_repository"]
+    elif connector_name is not None and connector_version is not None:
+        # Derive docker_repository from canonical name.
+        docker_repository = f"airbyte/{connector_name}"
+        version_info = resolve_version_id_by_tag(
+            docker_repository=docker_repository,
+            docker_image_tag=connector_version,
+        )
+        connector_version_id = version_info["version_id"]
+    else:
+        raise PyAirbyteInputError(
+            message=(
+                "Provide either `connector_version_id` or both "
+                "`connector_name` and `connector_version`."
+            ),
+        )
+
+    is_destination = not is_source_connector(docker_repository)
+    return query_syncs_for_connector_version(
         connector_version_id,
+        is_destination=is_destination,
         days=days,
         limit=limit,
         successful_only=successful_only,
@@ -1890,7 +1945,7 @@ def query_prod_connection_sync_activity(
 
 
 class PinnedConnectorVersionInfo(BaseModel):
-    """A connector version that has at least one pin or an active progressive rollout."""
+    """A connector version that has at least one scoped configuration pin."""
 
     version_id: str = Field(description="The actor_definition_version UUID")
     connector_definition_id: str = Field(description="The connector definition UUID")
@@ -1901,16 +1956,11 @@ class PinnedConnectorVersionInfo(BaseModel):
         default=None, description="ISO timestamp when this version was last published"
     )
     pin_count: int = Field(
-        description="Number of scoped_configuration rows pinning to this version"
+        description="Total number of scoped_configuration rows pinning to this version"
     )
-    rollout_state: str | None = Field(
-        default=None,
-        description="Active rollout state if this version is an RC, otherwise null",
-    )
-    rollout_id: str | None = Field(
-        default=None,
-        description="Active rollout UUID if present, otherwise null",
-    )
+    actor_pins: int = Field(description="Number of actor-scoped pins")
+    workspace_pins: int = Field(description="Number of workspace-scoped pins")
+    org_pins: int = Field(description="Number of organization-scoped pins")
 
 
 @mcp_tool(
@@ -1918,7 +1968,7 @@ class PinnedConnectorVersionInfo(BaseModel):
     idempotent=True,
     open_world=True,
 )
-def query_connector_rollout_stats(
+def query_connector_pin_stats(
     connector_definition_id: Annotated[
         str | None,
         Field(
@@ -1935,11 +1985,11 @@ def query_connector_rollout_stats(
         ),
     ] = None,
 ) -> list[PinnedConnectorVersionInfo]:
-    """Query connector versions that have at least one pin or an active rollout.
+    """Query connector versions that have at least one scoped configuration pin.
 
     Returns versions from the prod DB that are referenced by at least one
-    `scoped_configuration` pin or by an active `connector_rollout` as the
-    release candidate. Includes aggregate pin count and rollout state per version.
+    `scoped_configuration` pin (`key = 'connector_version'`).  Each version
+    appears exactly once with per-scope pin breakdown (actor, workspace, org).
 
     If neither filter is provided, returns the global superset across all connectors.
     """
@@ -1959,7 +2009,7 @@ def query_connector_rollout_stats(
     elif connector_definition_id:
         resolved_id = connector_definition_id
 
-    rows = query_versions_with_pins_or_rollouts(actor_definition_id=resolved_id)
+    rows = query_versions_with_pins(actor_definition_id=resolved_id)
     return [
         PinnedConnectorVersionInfo(
             version_id=str(row["version_id"]),
@@ -1971,8 +2021,9 @@ def query_connector_rollout_stats(
                 row["last_published"].isoformat() if row.get("last_published") else None
             ),
             pin_count=row["pin_count"],
-            rollout_state=row["rollout_state"],
-            rollout_id=row["rollout_id"],
+            actor_pins=row.get("actor_pins", 0),
+            workspace_pins=row.get("workspace_pins", 0),
+            org_pins=row.get("org_pins", 0),
         )
         for row in rows
     ]

@@ -430,6 +430,20 @@ impl SurvivalLsRowKernel<'_> {
         &self,
         row: usize,
     ) -> Result<([f64; SLS_ROW_K], SurvivalExactRowKernel), String> {
+        self.row_nll_inputs_opt(row)?
+            .ok_or_else(|| format!("survival location-scale row {row} has no exact kernel"))
+    }
+
+    /// Like [`Self::row_nll_inputs`] but returns `Ok(None)` for degenerate rows
+    /// (survival probability underflowed to 0, derivatives non-finite) instead of
+    /// converting `None` to an error. Callers that accumulate per-row quantities
+    /// (third/fourth contracted forms) use this to skip degenerate rows with a
+    /// zero contribution — the same policy as `exact_row_kernel_rescaled` and the
+    /// `evaluate()` path which also treat these rows as non-contributors.
+    fn row_nll_inputs_opt(
+        &self,
+        row: usize,
+    ) -> Result<Option<([f64; SLS_ROW_K], SurvivalExactRowKernel)>, String> {
         let p = self.row_primary_values(row);
         let state = self.family.row_predictor_state(
             self.dynamic.h_entry[row],
@@ -441,9 +455,8 @@ impl SurvivalLsRowKernel<'_> {
         );
         let kernel = self
             .family
-            .exact_row_kernel_rescaled(row, state, self.deriv_log_scale)?
-            .ok_or_else(|| format!("survival location-scale row {row} has no exact kernel"))?;
-        Ok((p, kernel))
+            .exact_row_kernel_rescaled(row, state, self.deriv_log_scale)?;
+        Ok(kernel.map(|k| (p, k)))
     }
 }
 
@@ -1361,6 +1374,20 @@ impl crate::row_kernel::RowKernel<SLS_ROW_K> for SurvivalLsRowKernel<'_> {
         // ∂²/∂p_a∂p_b directly. Bit-identical to `row_nll_tower(row)?` value/grad/
         // Hessian by the `survival_ls_joint_row_kernel_agrees_with_jet_tower_program_all_channels`
         // oracle (≤ 1e-9).
+        //
+        // PERF GUARD (#932 speed audit, measured CPU): this dense `Order2<9>`
+        // v/g/H definition is ORACLE-PINNED but currently GATED OFF in production
+        // — `row_kernel_joint_hessian_supported()` returns `false`, so the joint
+        // Hessian ships the bespoke sparse `assemble_joint_hessian_from_quantities`
+        // instead. It is kept gated off on purpose: the dense jet is ~3.8–5.3×
+        // SLOWER than that bespoke sparse assembler (standalone ns/row + `--emit
+        // asm` op counts), because a dense order-2 tower over 9 channels cannot
+        // recover the 3-functionally-independent-index × ≤5-touched-channel
+        // sparsity the bespoke chain rule hard-codes — this is inherent, not a
+        // tuning gap. DO NOT flip `row_kernel_joint_hessian_supported()` to `true`
+        // (or otherwise route the production joint Hessian through this dense
+        // `Order2<9>` row kernel) without FIRST replacing this with a
+        // sparsity-aware packed jet; doing so as-is is a 3.8–5.3× regression.
         let (p, kernel) = self.row_nll_inputs(row)?;
         let vars: [Order2<SLS_ROW_K>; SLS_ROW_K] =
             std::array::from_fn(|a| Order2::variable(p[a], a));
@@ -1518,7 +1545,13 @@ impl crate::row_kernel::RowKernel<SLS_ROW_K> for SurvivalLsRowKernel<'_> {
         // channel is exactly `Σ_c ℓ_{abc} dir_c` without materialising the dense
         // `t3`. Bit-identical to `row_nll_tower(row)?.third_contracted(dir)` by
         // the `survival_ls_packed_scalar_*` oracle.
-        let (p, kernel) = self.row_nll_inputs(row)?;
+        //
+        // Degenerate rows (survival probability underflowed to 0) return None
+        // from the exact kernel — treat their contribution as zero, consistent
+        // with how evaluate() and the zero-weight (w<=0) path handle them.
+        let Some((p, kernel)) = self.row_nll_inputs_opt(row)? else {
+            return Ok([[0.0; SLS_ROW_K]; SLS_ROW_K]);
+        };
         let vars: [OneSeed<SLS_ROW_K>; SLS_ROW_K] =
             std::array::from_fn(|a| OneSeed::seed_direction(p[a], a, dir[a]));
         Ok(sls_row_nll(&vars, &kernel)?.contracted_third())
@@ -1533,7 +1566,11 @@ impl crate::row_kernel::RowKernel<SLS_ROW_K> for SurvivalLsRowKernel<'_> {
         // Packed two-seed scalar (2.8 KiB/row): the εδ-Hessian channel is exactly
         // `Σ_{cd} ℓ_{abcd} u_c v_d` without materialising the dense `t4`.
         // Bit-identical to `row_nll_tower(row)?.fourth_contracted(u, v)`.
-        let (p, kernel) = self.row_nll_inputs(row)?;
+        //
+        // Degenerate rows: same zero-contribution policy as row_third_contracted.
+        let Some((p, kernel)) = self.row_nll_inputs_opt(row)? else {
+            return Ok([[0.0; SLS_ROW_K]; SLS_ROW_K]);
+        };
         let vars: [TwoSeed<SLS_ROW_K>; SLS_ROW_K] =
             std::array::from_fn(|a| TwoSeed::seed(p[a], a, dir_u[a], dir_v[a]));
         Ok(sls_row_nll(&vars, &kernel)?.contracted_fourth())
@@ -1667,6 +1704,18 @@ impl SurvivalLocationScaleFamily {
         // bespoke path is the derivative path that currently tracks the
         // survival location-scale likelihood for every supported residual
         // distribution and time-varying channel layout.
+        //
+        // PERF GUARD (#932 speed audit, measured CPU): returning `false` here is
+        // also a deliberate SPEED decision, not only a coverage one. Routing the
+        // joint Hessian through the dense `Order2<9>` single-source row kernel
+        // (`RowKernel<9>::row_kernel`) is ~3.8–5.3× SLOWER than this bespoke
+        // sparse `assemble_joint_hessian_from_quantities` (standalone ns/row +
+        // `--emit asm` op counts): a dense order-2 tower over 9 channels cannot
+        // recover the 3-functionally-independent-index × ≤5-touched-channel
+        // sparsity the bespoke assembler hard-codes. DO NOT return `true` (or
+        // otherwise enable the dense `Order2<9>` joint-Hessian path) without
+        // FIRST replacing the dense row kernel with a sparsity-aware packed jet;
+        // flipping this as-is is a 3.8–5.3× regression on the live fit hot path.
         false
     }
 

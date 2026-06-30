@@ -9,6 +9,7 @@ user's environment.
 import asyncio
 import io
 import json
+import re
 import tokenize as _tokenize
 from collections import defaultdict
 from dataclasses import dataclass
@@ -17,7 +18,9 @@ from typing import Literal
 
 import structlog
 from mistralai.client import Mistral
+from mistralai.client.errors import MistralError
 from mistralai.client.models import ChatCompletionRequestMessage, SystemMessage, UserMessage
+from mistralai.client.utils import BackoffStrategy, RetryConfig
 from pydantic import BaseModel, Field, RootModel, ValidationError
 
 from mistralai.workflows.client import get_mistral_client
@@ -50,7 +53,7 @@ _SYSTEM_PROMPT = (
     "- Write in present tense.\n"
     "- Focus on business/domain logic, not implementation details.\n"
     "- Do not repeat the node id or type verbatim.\n"
-    "- Nodes with type=unknown represent unrecognised Python code; "
+    "- Nodes with type=unknown represent Python code; "
     "describe what that code does based on its 'source' field. "
     "Never skip them — every node id must appear in your response.\n\n"
     "Respond with a single JSON object whose keys are node ids and whose values are "
@@ -59,6 +62,24 @@ _SYSTEM_PROMPT = (
 )
 
 _LLM_TIMEOUT_S = 60
+
+# Transient API failures (HTTP 429 rate limits and 5xx) are retried inside the Mistral
+# SDK with exponential backoff that honours any ``Retry-After`` header. Supplying a
+# RetryConfig is what activates this — without one the SDK performs no retries at all.
+# ``max_elapsed_time`` bounds only the cumulative backoff sleeps, not per-request time.
+# Graph upload runs as a background task (see worker._run_worker), off the startup
+# critical path, so we can afford a generous budget to ride out sustained rate limits.
+_RETRY_MAX_ELAPSED_S = 300
+_RETRY_CONFIG = RetryConfig(
+    strategy="backoff",
+    backoff=BackoffStrategy(
+        initial_interval=500,
+        max_interval=8000,
+        exponent=1.5,
+        max_elapsed_time=_RETRY_MAX_ELAPSED_S * 1000,
+    ),
+    retry_connection_errors=True,
+)
 
 
 # Cached so we don't rebuild the client (and its httpx clients) on every workflow
@@ -80,7 +101,13 @@ def _redact_string_literals(source: str) -> str:
                 tokens.append(tok)
         return _tokenize.untokenize(tokens)
     except (_tokenize.TokenError, SyntaxError):
-        return ""
+        # Best-effort regex redaction for code fragments the tokenizer rejects
+        # (e.g. bare elif blocks). Handles triple-quoted, escaped, and simple strings.
+        s = re.sub(r'"""[\s\S]*?"""', "'...'", source)
+        s = re.sub(r"'''[\s\S]*?'''", "'...'", s)
+        s = re.sub(r'"(?:[^"\\]|\\.)*"', "'...'", s)
+        s = re.sub(r"'(?:[^'\\]|\\.)*'", "'...'", s)
+        return s
 
 
 class NodeSummary(BaseModel):
@@ -134,7 +161,7 @@ def _bottom_up_order(nodes: list[FlatNode]) -> list[FlatNode]:
     return result
 
 
-def _serialize_node(node: FlatNode, source: str | None = None) -> str:
+def _serialize_node(node: FlatNode, source_bytes: bytes | None = None) -> str:
     is_unknown = node.type == "unknown"
     lines = [
         f"--- node: {node.id} ---",
@@ -145,10 +172,10 @@ def _serialize_node(node: FlatNode, source: str | None = None) -> str:
         lines.append(f"calls: {', '.join(node.callees)}")
     if node.dispatch_label:
         lines.append(f"dispatch: {node.dispatch_label}")
-    if is_unknown and source is not None:
+    if is_unknown and source_bytes is not None:
         sr = node.source_range
         if sr:
-            snippet = source[sr.begin : sr.end]
+            snippet = source_bytes[sr.begin : sr.end].decode("utf-8", errors="replace")
             snippet = _redact_string_literals(snippet)
             if len(snippet) > _SOURCE_SNIPPET_LIMIT:
                 snippet = snippet[:_SOURCE_SNIPPET_LIMIT] + "…"
@@ -157,24 +184,24 @@ def _serialize_node(node: FlatNode, source: str | None = None) -> str:
     return "\n".join(lines)
 
 
-def _concatenate_sources(wire: AtlasWireFormat) -> str | None:
+def _concatenate_source_bytes(wire: AtlasWireFormat) -> bytes | None:
     """Reconstruct the concatenated source blob from per-file ``sources`` + ``files``."""
     sources = wire.sources
     files = wire.files
     if not sources or not files:
         return None
     ordered = sorted(files.items(), key=lambda kv: kv[1].begin)
-    return "".join(sources.get(path, "") for path, _ in ordered)
+    return b"".join(sources.get(path, "").encode("utf-8") for path, _ in ordered)
 
 
 def _build_user_message(wire: AtlasWireFormat) -> str:
     nodes = wire.nodes
-    source: str | None = _concatenate_sources(wire)
+    source_bytes = _concatenate_source_bytes(wire)
     ordered = _bottom_up_order(nodes)
     filtered = [n for n in ordered if n.type not in _SKIP_TYPES]
     if not filtered:
         return ""
-    blocks = "\n\n".join(_serialize_node(n, source) for n in filtered)
+    blocks = "\n\n".join(_serialize_node(n, source_bytes) for n in filtered)
     return f"Workflow: {wire.workflow_name}\n\n{blocks}"
 
 
@@ -219,8 +246,11 @@ async def summarise_workflow(wire: AtlasWireFormat) -> SummaryResult:
                     temperature=0.1,
                     response_format={"type": "json_object"},
                     messages=msgs,
+                    retries=_RETRY_CONFIG,
                 ),
-                timeout=_LLM_TIMEOUT_S,
+                # The ceiling must cover the SDK's internal retry/backoff budget so it
+                # does not cancel legitimate 429/5xx retries before they complete.
+                timeout=_LLM_TIMEOUT_S + _RETRY_MAX_ELAPSED_S,
             )
             message = response.choices[0].message if response.choices else None
             content = message.content if message is not None else None
@@ -232,7 +262,13 @@ async def summarise_workflow(wire: AtlasWireFormat) -> SummaryResult:
             last_exc = exc
             logger.warning("LLM summary validation failed", attempt=attempt + 1, exc_info=exc)
         except Exception as exc:
-            logger.warning("LLM summary API error", exc_info=exc)
+            # 429/5xx are already retried with backoff inside the SDK; reaching here means
+            # the rate limit persisted past the retry budget. Log it distinctly so the
+            # exhausted-retry case is visible rather than blending into generic API errors.
+            if isinstance(exc, MistralError) and exc.status_code == 429:
+                logger.warning("LLM summary rate-limited after retries", exc_info=exc)
+            else:
+                logger.warning("LLM summary API error", exc_info=exc)
             raise SummariseError(f"LLM API error: {exc}") from exc
 
     logger.warning("LLM summary failed after 3 attempts", exc_info=last_exc)

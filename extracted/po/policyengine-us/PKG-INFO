@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: policyengine-us
-Version: 1.746.0
+Version: 1.749.0
 Summary: US federal and state tax-benefit microsimulation model.
 Author-email: PolicyEngine <hello@policyengine.org>
 License-File: LICENSE
@@ -44,3 +44,10 @@ Description-Content-Type: text/markdown
 PolicyEngine US is a microsimulation model of the US state and federal tax and benefit system.
 
 To install, run `pip install policyengine-us`.
+
+To install PolicyEngine US as part of a certified PolicyEngine bundle, use the
+bundle installer published by `policyengine`, for example:
+
+```bash
+uvx --from policyengine policyengine bundle install --country us --venv .venv
+```

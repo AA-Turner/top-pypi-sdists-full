@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bernstein"
-version = "2.8.2"
+version = "2.8.5"
 description = "Audit-grade multi-agent orchestration for CLI coding agents (Claude Code, Codex, Gemini CLI, and 40 more): HMAC-chained audit log, signed agent cards, per-artefact lineage, air-gap deploy. The orchestrator your compliance team will sign off on."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -96,7 +96,7 @@ dependencies = [
     # Pure-Python PDF generation for the EU AI Act Article 12 evidence pack
     # rendered by `bernstein compliance pack`. MIT-licensed, no native deps.
     # Used exclusively by ``bernstein.core.compliance.article12``.
-    "reportlab>=4.0,<5",
+    "reportlab>=5,<6",
     # YAML frontmatter parsing for `bernstein ticket validate` (SDD ticket
     # schema). Lightweight, MIT-licensed; piggybacks on the already-pinned
     # PyYAML for the YAML body. The validator gracefully falls back to a

@@ -1,3 +1,4 @@
+import hashlib
 from typing import (
     Any,
     Mapping,
@@ -9,7 +10,7 @@ import structlog
 import temporalio
 from opentelemetry.trace import StatusCode
 from temporalio.client import Interceptor
-from temporalio.contrib.opentelemetry import TracingInterceptor, workflow
+from temporalio.contrib.opentelemetry import TracingInterceptor, TracingWorkflowInboundInterceptor, workflow
 from temporalio.contrib.pydantic import PydanticPayloadConverter
 from temporalio.converter import PayloadConverter
 
@@ -19,6 +20,48 @@ from mistralai.workflows.core.tracing.utils import CUSTOM_TRACING_ATTRIBUTES, ge
 from mistralai.workflows.models import EventAttributes, EventSpanType
 
 logger = structlog.get_logger(__name__)
+
+
+def _non_zero_hex(value: bytes, width: int) -> str:
+    return f"{int.from_bytes(value, byteorder='big') or 1:0{width}x}"
+
+
+def _deterministic_workflow_traceparent(namespace: str, workflow_id: str, run_id: str) -> str:
+    digest = hashlib.sha256(f"{namespace}:{workflow_id}:{run_id}".encode("utf-8")).digest()
+    trace_id = _non_zero_hex(digest[:16], 32)
+    span_id = _non_zero_hex(digest[16:24], 16)
+    return f"00-{trace_id}-{span_id}-01"
+
+
+def _carrier_has_valid_span(
+    propagator: Any,
+    carrier: Mapping[str, Any],
+) -> bool:
+    context = propagator.extract(carrier)
+    return opentelemetry.trace.get_current_span(context).get_span_context().is_valid
+
+
+class _MistralTracingWorkflowInboundInterceptor(TracingWorkflowInboundInterceptor):
+    def _load_workflow_context_carrier(self) -> dict[str, Any] | None:
+        carrier = super()._load_workflow_context_carrier()
+        if carrier and _carrier_has_valid_span(self.text_map_propagator, carrier):
+            return carrier
+
+        info = temporalio.workflow.info()
+        fallback_carrier = {
+            **(carrier or {}),
+            "traceparent": _deterministic_workflow_traceparent(info.namespace, info.workflow_id, info.run_id),
+        }
+        self._workflow_context_carrier = fallback_carrier
+        return fallback_carrier
+
+
+class MistralTemporalTracingInterceptor(TracingInterceptor):
+    def workflow_interceptor_class(
+        self, input: temporalio.worker.WorkflowInterceptorClassInput
+    ) -> type[TracingWorkflowInboundInterceptor]:
+        super().workflow_interceptor_class(input)
+        return _MistralTracingWorkflowInboundInterceptor
 
 
 class TraceDataSerializer:
@@ -281,7 +324,7 @@ def get_temporal_tracing_interceptors() -> list[Interceptor]:
     # TracingInterceptor handles trace context propagation from Temporal headers.
     # always_create_workflow_spans=True ensures scheduled workflows get their own trace
     # instead of polluting other workflow traces.
-    interceptors: list[Interceptor] = [TracingInterceptor(always_create_workflow_spans=True)]
+    interceptors: list[Interceptor] = [MistralTemporalTracingInterceptor(always_create_workflow_spans=True)]
     if config.common.otel_enabled:
         interceptors.append(MistralWorkflowTracingInterceptor())
     return interceptors

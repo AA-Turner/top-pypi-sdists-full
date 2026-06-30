@@ -447,3 +447,42 @@ def test_4965():
                 print(f'        {name=}')
                 print(f'        {value=}')
                 print(f'        {f_type=}')
+
+
+def test_4114():
+    print()
+    path = os.path.normpath(f'{__file__}/../../tests/resources/test_4114.pdf')
+    path_out = os.path.normpath(f'{__file__}/../../tests/test_4114_out.pdf')
+    expected_values = [' - Select One - ', '  ', 'Cincinnati, OH 45999', 'Memphis, TN 37501', 'Ogden, UT 84201', 'Philadelphia, PA 19255']
+    expected_values2 = [expected_values, expected_values]
+    values = list()
+    with pymupdf.open(path) as document:
+        for page_i, page in enumerate(document):
+            for widget in page.widgets():
+                if widget.field_type_string == 'ComboBox':
+                    print(f'test_4114(): {page_i=} {widget.choice_values=}')
+                    values.append(widget.choice_values)
+                widget.update()
+        document.save(path_out)
+    assert values == expected_values2
+
+
+def test_4950():
+    with pymupdf.open() as document:
+        page = document.new_page()
+        page.set_rotation(90)
+
+        # Simulate an existing invisible signature field with a zero-dimension
+        # rectangle. Creating such a widget through add_widget() is rejected by
+        # validation, so create a valid widget first and then modify the PDF
+        # object directly.
+        widget = pymupdf.Widget()
+        widget.field_name = "Signature"
+        widget.field_type = pymupdf.PDF_WIDGET_TYPE_SIGNATURE
+        widget.rect = pymupdf.Rect(0, 0, 10, 10)
+        page.add_widget(widget)
+        document.xref_set_key(page.first_widget.xref, "Rect", "[0 0 0 0]")
+        page = document.reload_page(page)
+
+        page.remove_rotation()
+        assert page.rotation == 0

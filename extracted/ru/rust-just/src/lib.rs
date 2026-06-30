@@ -34,6 +34,7 @@ pub(crate) use {
     config::Config,
     config_error::ConfigError,
     const_error::ConstError,
+    const_eval_error::ConstEvalError,
     constants::constants,
     count::Count,
     delimiter::Delimiter,
@@ -62,6 +63,7 @@ pub(crate) use {
     justfile::Justfile,
     keyed::Keyed,
     keyword::Keyword,
+    layer::Layer,
     lexer::Lexer,
     line::Line,
     list::List,
@@ -113,6 +115,7 @@ pub(crate) use {
     string_kind::StringKind,
     string_literal::StringLiteral,
     string_state::StringState,
+    style::Style,
     subcommand::Subcommand,
     suggestion::Suggestion,
     switch::Switch,
@@ -146,7 +149,7 @@ pub(crate) use {
   std::{
     borrow::{Borrow, Cow},
     cmp::Ordering,
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet, btree_map},
     env::{self, VarError},
     ffi::{OsStr, OsString},
     fmt::{self, Debug, Display, Formatter},
@@ -241,6 +244,7 @@ mod conditional_operator;
 mod config;
 mod config_error;
 mod const_error;
+mod const_eval_error;
 mod constants;
 mod count;
 mod delimiter;
@@ -270,6 +274,7 @@ mod item;
 mod justfile;
 mod keyed;
 mod keyword;
+mod layer;
 mod lexer;
 mod line;
 mod list;
@@ -323,6 +328,7 @@ mod string_delimiter;
 mod string_kind;
 mod string_literal;
 mod string_state;
+mod style;
 mod subcommand;
 mod suggestion;
 mod switch;

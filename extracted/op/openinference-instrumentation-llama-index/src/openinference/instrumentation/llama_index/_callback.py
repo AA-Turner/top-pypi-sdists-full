@@ -28,7 +28,7 @@ from opentelemetry import trace as trace_api
 from opentelemetry.context import _SUPPRESS_INSTRUMENTATION_KEY
 from opentelemetry.util.types import AttributeValue
 from typing_extensions import TypeAlias, TypeGuard
-from wrapt import ObjectProxy  # type: ignore[attr-defined,unused-ignore]
+from wrapt import ObjectProxy
 
 from llama_index.core import Response
 from llama_index.core.base.response.schema import AsyncStreamingResponse, StreamingResponse
@@ -172,7 +172,10 @@ def payload_to_semantic_attributes(
             if model_name := serialized.get("model_name"):
                 attributes[EMBEDDING_MODEL_NAME] = model_name
         if event_type is CBEventType.LLM:
-            if model_name := serialized.get("model"):
+            # Newer llama-index-core serializes the LLM via `to_payload()`, which
+            # exposes the model under "model_name" (from LLMMetadata) rather than
+            # the "model" key returned by the older `to_dict()` serialization.
+            if model_name := (serialized.get("model") or serialized.get("model_name")):
                 attributes[LLM_MODEL_NAME] = model_name
                 invocation_parameters = _extract_invocation_parameters(serialized)
                 invocation_parameters["model"] = model_name

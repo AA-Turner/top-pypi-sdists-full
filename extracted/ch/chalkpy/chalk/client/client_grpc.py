@@ -2518,8 +2518,18 @@ class ChalkGRPCClient:
         plan: "DataFramePlan",
         resource_group: Optional[str] = None,
         correlation_id: Optional[str] = None,
+        update_performance_summary_interval_secs: Optional[float] = None,
     ) -> str:
         """Submit a DataFramePlan for remote async execution.
+
+        Args:
+            plan: The serialized DataFramePlan to execute.
+            resource_group: Optional resource group to run the job on.
+            correlation_id: Optional correlation id for tracking.
+            update_performance_summary_interval_secs: Seconds between periodic
+                performance-summary writes during execution, powering the live
+                performance summary in the dashboard. ``None`` (default) leaves the
+                server default; ``0`` disables the live summary.
 
         Returns the operation_id string.
         """
@@ -2530,6 +2540,8 @@ class ChalkGRPCClient:
             request.correlation_id = correlation_id
         if resource_group is not None:
             request.resource_group = resource_group
+        if update_performance_summary_interval_secs is not None:
+            request.update_performance_summary_interval_secs = update_performance_summary_interval_secs
 
         response = self._stub_refresher.call_api_dataframe_stub(lambda x: x.ExecuteDataFramePlan(request))
         return response.operation_id
@@ -2581,6 +2593,7 @@ class ChalkGRPCClient:
         resource_group: Optional[str] = None,
         correlation_id: Optional[str] = None,
         poll_interval: float = 2.0,
+        update_performance_summary_interval_secs: Optional[float] = None,
     ) -> str:
         """Submit a DataFramePlan for remote execution and wait for it to complete.
 
@@ -2592,6 +2605,7 @@ class ChalkGRPCClient:
             plan=plan,
             resource_group=resource_group,
             correlation_id=correlation_id,
+            update_performance_summary_interval_secs=update_performance_summary_interval_secs,
         )
         self.follow_dataframe_run(operation_id, poll_interval=poll_interval)
         return operation_id
@@ -4550,6 +4564,7 @@ class ChalkGRPCClient:
         target_cpu_utilization_percentage: Optional[int] = None,
         validate: bool = True,
         skip_upload_to_volumes: bool = False,
+        secrets: Optional[List[Any]] = None,
     ) -> dict[str, Any]:
         """Deploy a registered model version as a scaling group.
 
@@ -4594,6 +4609,25 @@ class ChalkGRPCClient:
 
         if env_vars:
             container_spec["env_vars"] = env_vars
+
+        if secrets is not None:
+            try:
+                from chalkcompute import (  # pyright: ignore[reportMissingImports]
+                    ConnectClient,
+                    Secret,
+                    resolve_lazy_secrets,
+                )
+
+                if not all(isinstance(s, Secret) for s in secrets):
+                    raise TypeError("Input `secrets` must be a list of Secret")
+
+                resolved_secrets, _ = resolve_lazy_secrets(secrets, ConnectClient(chalk_client=self))
+                container_spec["secretRefs"] = [
+                    s._to_proto_dict() for s in resolved_secrets  # pyright: ignore[reportPrivateUsage]
+                ]
+
+            except ImportError:
+                raise ImportError("Please install `chalkcompute` to enable injecting secrets into Scaling Groups.")
 
         if inferred_volumes:
             container_spec["volumes"] = inferred_volumes

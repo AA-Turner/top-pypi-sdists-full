@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: evergreen.py
-Version: 3.19.0
+Version: 3.19.1
 Summary: Python client for the Evergreen API
 License: Apache-2.0
 Author: DevProd Services & Integrations Team

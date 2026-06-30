@@ -1459,7 +1459,7 @@ def _compute_group_metric(df_exp, groupby_col, metric):
 
 _METRIC_LABELS = {
     "MAPE": ("MAPE (%)", "YlOrRd", True),   # (ylabel, cmap, ascending_is_better)
-    "RMSE": ("RMSE (tn/ha)", "YlOrRd", True),
+    "RMSE": ("RMSE (Mg/ha)", "YlOrRd", True),
     "R2": ("R²", "RdYlGn", False),
 }
 

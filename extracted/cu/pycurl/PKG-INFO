@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycurl
-Version: 7.46.0
+Version: 7.47.0
 Summary: PycURL -- A Python Interface To The cURL library
 Author-email: Kjetil Jacobsen <kjetilja@gmail.com>, "Markus F.X.J. Oberhumer" <markus@oberhumer.com>, Oleg Pudeyev <oleg@bsdpower.com>
 Maintainer-email: Oleg Pudeyev <oleg@bsdpower.com>
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 1 - Unstable
 Classifier: Topic :: Internet :: File Transfer Protocol (FTP)
 Classifier: Topic :: Internet :: WWW/HTTP
 Requires-Python: >=3.10

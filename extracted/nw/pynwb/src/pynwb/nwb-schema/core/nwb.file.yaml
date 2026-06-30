@@ -7,7 +7,7 @@ groups:
   attributes:
   - name: nwb_version
     dtype: text
-    value: "2.9.0"
+    value: "2.10.0"
     doc: File version string. Use semantic versioning, e.g. 1.2.1. This will be the
       name of the format with trailing major, minor and patch numbers.
   datasets:
@@ -268,6 +268,10 @@ groups:
         date made, injection location, volume, etc.
       quantity: '?'
     groups:
+    - name: external_resources
+      neurodata_type_inc: HERD
+      doc: This is the HERD structure for this specific NWBFile, storing the mapped external resources.
+      quantity: "?"
     - neurodata_type_inc: LabMetaData
       doc: Place-holder than can be extended so that lab-specific meta-data can be
         placed in /general.
@@ -386,12 +390,13 @@ groups:
     groups:
     - name: epochs
       neurodata_type_inc: TimeIntervals
-      doc: Divisions in time marking experimental stages or sub-divisions of a single
-        recording session.
+      doc: Time intervals marking coarse-grained experimental phases or subdivisions
+        of a recording session, such as baseline, task, rest, or sleep stages.
       quantity: '?'
     - name: trials
       neurodata_type_inc: TimeIntervals
-      doc: Repeated experimental events that have a logical grouping.
+      doc: Time intervals corresponding to repeated experimental units with consistent
+        structure, such as individual stimulus-response-reward cycles.
       quantity: '?'
     - name: invalid_times
       neurodata_type_inc: TimeIntervals
@@ -399,6 +404,27 @@ groups:
       quantity: '?'
     - neurodata_type_inc: TimeIntervals
       doc: Optional additional table(s) for describing other experimental time intervals.
+      quantity: '*'
+  - name: events
+    doc: Experimental event tables for the session, stored as `EventsTable`
+      instances. This is the recommended location for all event tables in the file,
+      regardless of whether the events were emitted directly by the acquisition
+      system (TTL edges, hardware event channels), derived by user processing
+      (filtering, detection algorithms), or added as post-hoc annotations. The
+      provenance of each table can be recorded in the `source_description`
+      attribute of the `EventsTable` and described in more detail in its
+      `description`. Each
+      `EventsTable` should hold events of a single type (i.e., events sharing the
+      same per-event metadata columns). For periods with required start and stop
+      times, see `/intervals/`. For continuous acquired signals or stimulus
+      templates from which events may have been derived, see `/acquisition/` or
+      `/stimulus/`.
+    quantity: '?'
+    groups:
+    - neurodata_type_inc: EventsTable
+      doc: An EventsTable holding a collection of event times of a particular type
+        (e.g., licks, rewards, stimulus presentations) along with their per-event
+        metadata.
       quantity: '*'
   - name: units
     neurodata_type_inc: Units
@@ -415,7 +441,12 @@ groups:
   datasets:
   - name: age
     dtype: text
-    doc: Age of subject. Can be supplied instead of 'date_of_birth'.
+    doc: "Age of subject. Can be supplied instead of 'date_of_birth'.
+      The ISO 8601 Duration format is recommended, e.g., 'P90D' for 90 days old.
+      If the precise age is unknown, an age range can be given by '[lower bound]/[upper bound]' e.g.
+      'P10D/P20D' would mean that the age is in between 10 and 20 days. If only the lower bound is known,
+      then including only the slash after that lower bound can be used to indicate a missing bound.
+      For instance, 'P90Y/' would indicate that the age is 90 years or older."
     quantity: '?'
     attributes:
       - name: reference

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ophyd-async
-Version: 0.19.2
+Version: 0.19.3
 Summary: Asynchronous Bluesky hardware abstraction code, compatible with control systems like EPICS and Tango
 Author-email: Tom Cobb <tom.cobb@diamond.ac.uk>
 License: BSD 3-Clause License
@@ -38,6 +38,7 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE

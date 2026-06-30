@@ -8,12 +8,13 @@ use std::{env, fs};
 fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR must be set"));
     fs::write(out_dir.join("lint_errors.rs"), "").expect("failed to write lint_errors.rs");
-    // Do NOT emit wall-clock `cargo:rustc-env=GAM_BUILD_TIMESTAMP=<now>`.
+    // Do not emit wall-clock `cargo:rustc-env=GAM_BUILD_TIMESTAMP=<now>`.
     // Cargo records every build-script `rustc-env` in the crate fingerprint, so a
     // value that changes on every run makes the `gam` lib fingerprint dirty on
     // EVERY build — forcing a full recompile of gam + all downstream test crates
     // (~4min) regardless of whether any source changed, and defeating any shared
-    // warm target. The variable was consumed nowhere in the tree, so it is removed.
+    // warm target. The variable was consumed nowhere in the tree, so it is removed
+    // and must not be reintroduced.
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=crates/gam-terms/src/analytic_penalties/manifest.rs");
     println!("cargo:rerun-if-changed=SPEC.md");
@@ -5413,7 +5414,44 @@ fn collect_called_idents(stripped: &str, out: &mut Vec<String>) {
             i += 1;
             continue;
         }
-        let mut start = i;
+        // The callee identifier ends just before the `(` — unless a turbofish
+        // (`name::<…>(`) sits between them. A generic-helper delegation such as
+        // `check_bit_identical::<2>(seed, n)` puts the turbofish-closing `>`
+        // immediately before the `(`, so step back over the balanced `::<…>`
+        // segment to reach the real callee identifier. Without this, every
+        // `#[test]` whose only assertions live in a generic helper it calls
+        // through a turbofish reads as assertion-less.
+        let mut id_end = i;
+        if i > 0 && bytes[i - 1] == b'>' {
+            let mut depth = 0i32;
+            let mut p = i - 1;
+            let mut turbofish_open = None;
+            loop {
+                match bytes[p] {
+                    b'>' => depth += 1,
+                    b'<' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            turbofish_open = Some(p);
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+                if p == 0 {
+                    break;
+                }
+                p -= 1;
+            }
+            if let Some(lt) = turbofish_open
+                && lt >= 2
+                && bytes[lt - 1] == b':'
+                && bytes[lt - 2] == b':'
+            {
+                id_end = lt - 2;
+            }
+        }
+        let mut start = id_end;
         while start > 0 {
             let b = bytes[start - 1];
             if b == b'_' || b.is_ascii_alphanumeric() {
@@ -5422,8 +5460,8 @@ fn collect_called_idents(stripped: &str, out: &mut Vec<String>) {
                 break;
             }
         }
-        if start < i {
-            out.push(stripped[start..i].to_string());
+        if start < id_end {
+            out.push(stripped[start..id_end].to_string());
         }
         i += 1;
     }

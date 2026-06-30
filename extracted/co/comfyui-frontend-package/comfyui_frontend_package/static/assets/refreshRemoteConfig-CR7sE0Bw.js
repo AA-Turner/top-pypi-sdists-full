@@ -1,1 +1,0 @@
-import"./vendor-primevue-BXegqzQe.js";import"./remoteConfig-Dvjq2CJn.js";import{t as e}from"./refreshRemoteConfig-TImHtLN4.js";export{e as refreshRemoteConfig};

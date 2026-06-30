@@ -394,13 +394,13 @@ class abaqus(Command):
     ----------
         file_name : str
             The desired file name to export.
-        surface_name_list : List
+        surface_name_list : list
             List of surfaces to export.
         structural_analysis : bool
             Specifies whether structural analysis or not.
         write_loads : bool
             Specifies whether to write loads.
-        loads : List
+        loads : list
             The structural loads type to export.
     """
     _version = '242'
@@ -433,7 +433,7 @@ class mechanical_apdl(Command):
     ----------
         file_name : str
             The desired file name to export.
-        thread_name_list : List
+        thread_name_list : list
             Cell zone name list.
     """
     _version = '242'
@@ -463,13 +463,13 @@ class mechanical_apdl_input(Command):
     ----------
         file_name : str
             The desired file name to export.
-        surface_name_list : List
+        surface_name_list : list
             Surface.
         structural_analysis : bool
             Specifies whether structural analysis or not.
         write_loads : bool
             Specifies whether to write loads.
-        loads : List
+        loads : list
             The structural loads type to export.
     """
     _version = '242'
@@ -520,11 +520,11 @@ class ascii(Command):
     ----------
         file_name : str
             The desired file name to export.
-        surface_name_list : List
+        surface_name_list : list
             List of surfaces to export.
         delimiter : str
             The delimiter separating the fields.
-        cell_func_domain : List
+        cell_func_domain : list
             The list of quantities to export.
         location : str
             The node or cell-center to export data values.
@@ -559,7 +559,7 @@ class avs(Command):
     ----------
         file_name : str
             The desired file name to export.
-        cell_func_domain_export : List
+        cell_func_domain_export : list
             The list of quantities to export.
     """
     _version = '242'
@@ -580,7 +580,7 @@ class ensight(Command):
     ----------
         file_name : str
             The desired file name to export.
-        cell_func_domain_export : List
+        cell_func_domain_export : list
             The list of quantities to export.
     """
     _version = '242'
@@ -637,13 +637,13 @@ class ensight_gold(Command):
     ----------
         file_name : str
             The desired file name to export.
-        cell_func_domain_export : List
+        cell_func_domain_export : list
             The list of quantities to export.
         binary_format : bool
             Specifies whether to export in binary format.
-        cellzones : List
+        cellzones : list
             List of cell zones to export.
-        interior_zone_surfaces : List
+        interior_zone_surfaces : list
             List of surfaces to export.
         cell_centered : bool
             Specifies whether export the cell center data values.
@@ -670,7 +670,7 @@ class fieldview(Command):
     ----------
         file_name : str
             The desired file name to export.
-        cell_func_domain_export : List
+        cell_func_domain_export : list
             The list of quantities to export.
     """
     _version = '242'
@@ -691,7 +691,7 @@ class fieldview_data(Command):
     ----------
         file_name : str
             The desired file name to export.
-        cell_func_domain_export : List
+        cell_func_domain_export : list
             The list of quantities to export.
     """
     _version = '242'
@@ -712,7 +712,7 @@ class gambit(Command):
     ----------
         file_name : str
             The desired file name to export.
-        cell_func_domain_export : List
+        cell_func_domain_export : list
             The list of quantities to export.
     """
     _version = '242'
@@ -780,15 +780,15 @@ class cgns(Command):
             The desired file name to export.
         scope : str
             The scope of the export (volume, surface, full domain).
-        cell_zones : List
+        cell_zones : list
             Cell zone name list.
-        surfaces : List
+        surfaces : list
             Surface.
         cell_centered : bool
             Specifies whether export the cell center data values.
         format_class : str
             The format to export.
-        cgns_scalar : List
+        cgns_scalar : list
             The list of quantities to export.
     """
     _version = '242'
@@ -834,7 +834,7 @@ class custom_heat_flux(Command):
             The desired file name to export.
         wall_function : bool
             Specifies whether to include the wall function.
-        surface_name_list : List
+        surface_name_list : list
             The list of surfaces to export.
     """
     _version = '242'
@@ -865,9 +865,9 @@ class dx(Command):
     ----------
         file_name : str
             The desired file name to export.
-        surfaces : List
+        surfaces : list
             Surface.
-        techplot_scalars : List
+        techplot_scalars : list
             The list of quantities to export.
     """
     _version = '242'
@@ -900,11 +900,11 @@ class ensight_gold_parallel_surfaces(Command):
             The desired file name to export.
         binary_format : bool
             Specifies whether to export in binary format.
-        surfaces : List
+        surfaces : list
             Surface.
         cell_centered : bool
             Specifies whether export the cell center data values.
-        cell_function : List
+        cell_function : list
             The list of quantities to export.
     """
     _version = '242'
@@ -939,11 +939,11 @@ class ensight_gold_parallel_volume(Command):
             The desired file name to export.
         binary_format : bool
             Specifies whether to export in binary format.
-        cellzones : List
+        cellzones : list
             Cell zone name list.
         cell_centered : bool
             Specifies whether export the cell center data values.
-        cell_function : List
+        cell_function : list
             The list of quantities to export.
     """
     _version = '242'
@@ -1057,7 +1057,7 @@ class taitherm(Command):
     ----------
         file_name : str
             The desired file name to export.
-        surface_name_list : List
+        surface_name_list : list
             Surface.
         wall_function : bool
             Specifies whether to write the heat transfer coefficient from wall function.
@@ -1093,11 +1093,11 @@ class fieldview_unstruct(Command):
     ----------
         file_name : str
             The desired file name to export.
-        surfaces : List
+        surfaces : list
             List of surfaces to export.
-        cellzones : List
+        cellzones : list
             List of cell zones to export.
-        cell_func_domain : List
+        cell_func_domain : list
             The list of quantities to export.
     """
     _version = '242'
@@ -1120,11 +1120,11 @@ class fieldview_unstruct_mesh(Command):
     ----------
         file_name : str
             The desired file name to export.
-        surfaces : List
+        surfaces : list
             List of surfaces to export.
-        cellzones : List
+        cellzones : list
             List of cell zones to export.
-        cell_func_domain : List
+        cell_func_domain : list
             The list of quantities to export.
     """
     _version = '242'
@@ -1147,11 +1147,11 @@ class fieldview_unstruct_data(Command):
     ----------
         file_name : str
             The desired file name to export.
-        surfaces : List
+        surfaces : list
             List of surfaces to export.
-        cellzones : List
+        cellzones : list
             List of cell zones to export.
-        cell_func_domain : List
+        cell_func_domain : list
             The list of quantities to export.
     """
     _version = '242'
@@ -1185,9 +1185,9 @@ class fieldview_unstruct_surfaces(Command):
             Specifies whether to export results, mesh or combined.
         file_name : str
             The desired file name to export.
-        surfaces : List
+        surfaces : list
             Surface.
-        cell_func_domain : List
+        cell_func_domain : list
             The list of quantities to export.
     """
     _version = '242'
@@ -1210,15 +1210,15 @@ class ideas(Command):
     ----------
         file_name : str
             The desired file name to export.
-        surfaces : List
+        surfaces : list
             List of surfaces to export.
         structural_analysis : bool
             Specifies whether structural analysis or not.
         write_loads : bool
             Specifies whether to write loads.
-        loads : List
+        loads : list
             The structural loads type to export.
-        cell_func_domain_export : List
+        cell_func_domain_export : list
             The list of quantities to export.
     """
     _version = '242'
@@ -1252,17 +1252,17 @@ class nastran(Command):
     ----------
         file_name : str
             The desired file name to export.
-        bndry_threads : List
+        bndry_threads : list
             Boundary zone name list.
-        surfaces : List
+        surfaces : list
             Surface.
         structural_analysis : bool
             Specifies whether structural analysis or not.
         write_loads : bool
             Specifies whether to write loads.
-        loads : List
+        loads : list
             The structural loads type to export.
-        cell_func_domain_export : List
+        cell_func_domain_export : list
             The list of quantities to export.
     """
     _version = '242'
@@ -1288,15 +1288,15 @@ class patran_neutral(Command):
     ----------
         file_name : str
             The desired file name to export.
-        surfaces : List
+        surfaces : list
             Surface.
         structural_analysis : bool
             Specifies whether structural analysis or not.
         write_loads : bool
             Specifies whether to write loads.
-        loads : List
+        loads : list
             The structural loads type to export.
-        cell_func_domain_export : List
+        cell_func_domain_export : list
             The list of quantities to export.
     """
     _version = '242'
@@ -1330,9 +1330,9 @@ class patran_nodal(Command):
     ----------
         file_name : str
             The desired file name to export.
-        surfaces : List
+        surfaces : list
             The list of surfaces to export.
-        cell_func_domain_export : List
+        cell_func_domain_export : list
             The list of quantities to export.
     """
     _version = '242'
@@ -1354,9 +1354,9 @@ class tecplot(Command):
     ----------
         file_name : str
             The desired file name to export.
-        surfaces : List
+        surfaces : list
             Surface.
-        cell_func_domain_export : List
+        cell_func_domain_export : list
             The list of quantities to export.
     """
     _version = '242'
@@ -2041,7 +2041,7 @@ class read_journal(Command):
     
     Parameters
     ----------
-        file_name_list : List
+        file_name_list : list
             'file_name_list' child.
     """
     _version = '242'
@@ -2352,7 +2352,7 @@ class data_file_options(Command):
     ----------
         reset_defined_derived_quantities : bool
             'reset_defined_derived_quantities' child.
-        derived_quantities : List
+        derived_quantities : list
             'derived_quantities' child.
     """
     _version = '242'
@@ -3124,7 +3124,7 @@ class deactivate_cell_zone(Command):
     
     Parameters
     ----------
-        cell_deactivate_list : List
+        cell_deactivate_list : list
             Deactivate a cell zone.
     """
     _version = '242'
@@ -3151,7 +3151,7 @@ class delete_cell_zone(Command):
     
     Parameters
     ----------
-        cell_zones : List
+        cell_zones : list
             Delete a cell zone.
     """
     _version = '242'
@@ -3220,9 +3220,9 @@ class copy_move_cell_zone(Command):
             Specifies whether copied zone should be translated (#t) or rotated (#f).
         rotation_angle : real
             'rotation_angle' child.
-        offset : List
+        offset : list
             'offset' child.
-        axis : List
+        axis : list
             'axis' child.
     """
     _version = '242'
@@ -3273,7 +3273,7 @@ class extrude_face_zone_delta(Command):
     ----------
         face_zone : str
             The zone name.
-        distance_delta : List
+        distance_delta : list
             'distance_delta' child.
     """
     _version = '242'
@@ -3314,7 +3314,7 @@ class extrude_face_zone_para(Command):
             The zone name.
         normal_distance : real
             'normal_distance' child.
-        parametric_coordinates : List
+        parametric_coordinates : list
             'parametric_coordinates' child.
     """
     _version = '242'
@@ -3352,7 +3352,7 @@ class fuse_face_zones(Command):
     
     Parameters
     ----------
-        zone_names : List
+        zone_names : list
             Merge duplicate faces and nodes of zones in list.
         zone_name : str
             'zone_name' child.
@@ -3391,9 +3391,9 @@ class scale_zone(Command):
     
     Parameters
     ----------
-        zone_names : List
+        zone_names : list
             Scale specified cell zones.
-        scale : List
+        scale : list
             'scale' child.
     """
     _version = '242'
@@ -3430,13 +3430,13 @@ class rotate_zone(Command):
     
     Parameters
     ----------
-        zone_names : List
+        zone_names : list
             Rotate specified cell zones.
         rotation_angle : real
             'rotation_angle' child.
-        origin : List
+        origin : list
             'origin' child.
-        axis : List
+        axis : list
             'axis' child.
     """
     _version = '242'
@@ -3466,9 +3466,9 @@ class translate_zone(Command):
     
     Parameters
     ----------
-        zone_names : List
+        zone_names : list
             Translate specified cell zones.
-        offset : List
+        offset : list
             'offset' child.
     """
     _version = '242'
@@ -3496,7 +3496,7 @@ class merge_zones(Command):
     
     Parameters
     ----------
-        zone_names : List
+        zone_names : list
             Zone name list.
     """
     _version = '242'
@@ -3956,7 +3956,7 @@ class make_periodic(Command):
             'create' child.
         auto_translation : bool
             'auto_translation' child.
-        direction : List
+        direction : list
             'direction' child.
     """
     _version = '242'
@@ -4099,11 +4099,11 @@ class create_periodic_interface(Command):
             'rotate_periodic' child.
         new_axis : bool
             'new_axis' child.
-        origin : List
+        origin : list
             'origin' child.
         new_direction : bool
             'new_direction' child.
-        direction : List
+        direction : list
             'direction' child.
         auto_angle : bool
             'auto_angle' child.
@@ -4111,7 +4111,7 @@ class create_periodic_interface(Command):
             'rotation_angle' child.
         auto_translation : bool
             'auto_translation' child.
-        translation : List
+        translation : list
             'translation' child.
         create_periodic : bool
             'create_periodic' child.
@@ -4119,7 +4119,7 @@ class create_periodic_interface(Command):
             'auto_offset' child.
         nonconformal_angle : real
             'nonconformal_angle' child.
-        nonconformal_translation : List
+        nonconformal_translation : list
             'nonconformal_translation' child.
         create_matching : bool
             'create_matching' child.
@@ -4216,7 +4216,7 @@ class zone_type(Command):
     
     Parameters
     ----------
-        zone_names : List
+        zone_names : list
             Zone id/name.
         new_type : str
             Give new zone type.
@@ -4246,7 +4246,7 @@ class del_cell_by_id(Command):
     
     Parameters
     ----------
-        cellids : List
+        cellids : list
             Provide a list of cell ids.
     """
     _version = '242'
@@ -4883,9 +4883,9 @@ class rotate(Command):
     ----------
         angle : real
             'angle' child.
-        origin : List
+        origin : list
             'origin' child.
-        axis_components : List
+        axis_components : list
             'axis_components' child.
     """
     _version = '242'
@@ -5100,7 +5100,7 @@ class translate(Command):
     
     Parameters
     ----------
-        offset : List
+        offset : list
             'offset' child.
     """
     _version = '242'
@@ -7174,7 +7174,7 @@ class delete_1(CommandWithPositionalArgs):
     
     Parameters
     ----------
-        name_list : List
+        name_list : list
             Objects to be deleted.
     """
     _version = '242'
@@ -16417,7 +16417,7 @@ class raw_data(Command):
             Import raw data in the NTGK model.
         number_of_files : int
             Total number of discharging files.
-        files : List
+        files : list
             Discharging file names in the NTGK model.
         capacify_fade_enabled : bool
             Enable capacity fade model in the NTGK model.
@@ -20894,7 +20894,7 @@ class ntgk_curve_fitting(Command):
     
     Parameters
     ----------
-        filename : List
+        filename : list
             File names used in the NTGK model fitting.
         capacity : real
             Battery capacity used in the NTGK model fitting.
@@ -21008,7 +21008,7 @@ class ecm_curve_fitting(Command):
     
     Parameters
     ----------
-        filename : List
+        filename : list
             File names used in ECM model parameter fitting.
         capacity : real
             Battery capacity used in ECM model parameter fitting.
@@ -21016,7 +21016,7 @@ class ecm_curve_fitting(Command):
             Circuit model used in ECM model parameter fitting.
         fitting_method : str
             Fitting method used in ECM model parameter fitting.
-        rs_fix : List
+        rs_fix : list
             Fix-Rs used in ECM model parameter fitting.
         capacity_fade_enabled : bool
             Include capacity fade effect used in ECM model parameter fitting.
@@ -21024,7 +21024,7 @@ class ecm_curve_fitting(Command):
             Import discharging curves used in ECM model parameter fitting.
         number_discharge_file : int
             Number of total discharging files used in ECM model parameter fitting.
-        discharge_filename : List
+        discharge_filename : list
             File name for discharing curve used in ECM model parameter fitting.
     """
     _version = '242'
@@ -21406,7 +21406,7 @@ class delete_rom_parameter(Command):
     
     Parameters
     ----------
-        parameter_names : List
+        parameter_names : list
             Deleted parameter lists.
     """
     _version = '242'
@@ -24632,7 +24632,7 @@ class stack_create_fcu(Command):
     ----------
         fcu_name : str
             'fcu_name' child.
-        cellzones : List
+        cellzones : list
             Cell zone name list.
     """
     _version = '242'
@@ -24653,7 +24653,7 @@ class stack_modify_fcu(Command):
     ----------
         fcu_name : str
             'fcu_name' child.
-        cellzones : List
+        cellzones : list
             Cell zone name list.
     """
     _version = '242'
@@ -33156,7 +33156,7 @@ class copy_1(Command):
     ----------
         from_ : str
             Copy boundary conditions from zone.
-        to : List
+        to : list
             Copy boundary conditions to zone.
         verbosity : bool
             Copy boundary conditions: Print more information.
@@ -33187,7 +33187,7 @@ class set_zone_type(Command):
     
     Parameters
     ----------
-        zone_list : List
+        zone_list : list
             Zone name list.
         new_type : str
             Give new zone type.
@@ -33217,7 +33217,7 @@ class activate_cell_zone(Command):
     
     Parameters
     ----------
-        cell_zone_list : List
+        cell_zone_list : list
             Id/name of cell-zones to activate.
     """
     _version = '242'
@@ -49306,7 +49306,7 @@ class add_suffix_or_prefix(Command):
     
     Parameters
     ----------
-        zone_name : List
+        zone_name : list
             Zone name list.
         append : bool
             Add suffix to zone name.
@@ -49348,7 +49348,7 @@ class rename_by_adjacency(Command):
     
     Parameters
     ----------
-        zone_name : List
+        zone_name : list
             Zone name list.
         abbreviate_types : bool
             Specifies whether to provide abbreviate types.
@@ -49381,7 +49381,7 @@ class rename_to_default(Command):
     
     Parameters
     ----------
-        zone_name : List
+        zone_name : list
             Zone name list.
         abbrev : bool
             Specifies whether to provide abbreviate types.
@@ -50233,7 +50233,7 @@ class display_1(Command):
     
     Parameters
     ----------
-        zones : List
+        zones : list
             Zone-name to be displayed.
     """
     _version = '242'
@@ -50361,9 +50361,9 @@ class create_manually(Command):
     ----------
         name : str
             The prefix for mesh interface names.
-        zone_list_1 : List
+        zone_list_1 : list
             The boundary zones belonging to the first group.
-        zone_list_2 : List
+        zone_list_2 : list
             The boundary zones belonging to the second group.
     """
     _version = '242'
@@ -50441,7 +50441,7 @@ class auto_pairing(Command):
             Automatic pairing of all unintersected interface zones?.
         one_to_one_pairs : bool
             Create one-to-one pairs only?.
-        interface_zones : List
+        interface_zones : list
             Unintersected interface zones for pairing.
         create : bool
             Create mesh interfaces with all these pairs?.
@@ -51842,7 +51842,7 @@ class export_boundary_mesh(Command):
     ----------
         filename_2 : str
             Output file name.
-        boundary_list : List
+        boundary_list : list
             Boundary zones for exporting mesh.
         global_ : bool
             Enable/disable output of mesh global number.
@@ -54073,7 +54073,7 @@ class split(Command):
     ----------
         name : str
             Input new volume name.
-        location : List
+        location : list
             Input location name which should be part of new volume.
     """
     _version = '242'
@@ -60273,7 +60273,7 @@ class compute_2(Command):
     
     Parameters
     ----------
-        report_defs : List
+        report_defs : list
             Compute the net value of the selected report definition.
     """
     _version = '242'
@@ -62609,9 +62609,9 @@ class calculate_patch(Command):
     ----------
         domain : str
             Domain.
-        cell_zones : List
+        cell_zones : list
             Cell zone.
-        registers : List
+        registers : list
             Register.
         variable : str
             Variable.
@@ -62786,9 +62786,9 @@ class customize(Command):
     ----------
         multi_level_grid : int
             Number of multigrid levels.
-        residual_reduction : List
+        residual_reduction : list
             Number of residual reduction levels.
-        cycle_count : List
+        cycle_count : list
             Number of cycles.
     """
     _version = '242'
@@ -65449,11 +65449,11 @@ class add_datasets(Command):
     
     Parameters
     ----------
-        zone_names : List
+        zone_names : list
             One or more zone names.
         domain : str
             The domain.
-        quantities : List
+        quantities : list
             One or more quantities.
         min : bool
             Specifies whether to specify the minimum value of the selected quantity(s) will be collected.
@@ -66763,7 +66763,7 @@ class create_multiple_zone_surfaces(Command):
     
     Parameters
     ----------
-        zone_names : List
+        zone_names : list
             Zone name list.
     """
     _version = '242'
@@ -66848,9 +66848,9 @@ class create_multiple_iso_surfaces(Command):
             The field variable.
         name : str
             The Iso-surface name.
-        surfaces : List
+        surfaces : list
             The surface(s) that will be used to define the iso-surface.
-        zones : List
+        zones : list
             The zone(s) that will be used to define the iso-surface.
         min : real
             Min.
@@ -66914,25 +66914,25 @@ class create_multiple_plane_surfaces(Command):
             The location on the Y-axis where the ZX plane will be created.
         z : real
             The location on the Z-axis where the XY plane will be created.
-        point : List
+        point : list
             The XYZ coordinates of the point.
         normal_computation_method : str
             The normal computation method.
         surface_aligned_normal : str
             The surface you want to compute the normal components.
-        normal : List
+        normal : list
             The XYZ components of the normal.
-        p0 : List
+        p0 : list
             The XYZ coordinates of Point 1 for the Three Points plane creation method.
-        p1 : List
+        p1 : list
             The XYZ coordinates of Point 2 for the Three Points plane creation method.
-        p2 : List
+        p2 : list
             The XYZ coordinates of Point 3 for the Three Points plane creation method.
         bounded : bool
             Specifies whether the plane is bounded by its defining points.
         sample_points : bool
             Specifies whether you want to specify a uniform distribution of points on the plane.
-        edges : List
+        edges : list
             The point density for edges.
         surfaces : int
             The number of surfaces to be created.
@@ -66988,7 +66988,7 @@ class create_group_surfaces(Command):
     
     Parameters
     ----------
-        surfaces : List
+        surfaces : list
             List of surfaces.
         name : str
             The name for the group surface.
@@ -70505,7 +70505,7 @@ class surfaces_11(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             The list of surfaces to set color and material.
         color : str
             'color' child.
@@ -71229,7 +71229,7 @@ class position_1(Command):
     
     Parameters
     ----------
-        xyz : List
+        xyz : list
             'xyz' child.
     """
     _version = '242'
@@ -71292,7 +71292,7 @@ class target_1(Command):
     
     Parameters
     ----------
-        xyz : List
+        xyz : list
             'xyz' child.
     """
     _version = '242'
@@ -71310,7 +71310,7 @@ class up_vector(Command):
     
     Parameters
     ----------
-        xyz : List
+        xyz : list
             'xyz' child.
     """
     _version = '242'
@@ -71473,7 +71473,7 @@ class write_1(Command):
     ----------
         file_name : str
             'file_name' child.
-        state_name : List
+        state_name : list
             'state_name' child.
     """
     _version = '242'
@@ -72016,7 +72016,7 @@ class write_views(Command):
     ----------
         file_name : str
             'file_name' child.
-        view_list : List
+        view_list : list
             'view_list' child.
     """
     _version = '242'
@@ -72044,7 +72044,7 @@ class apply_mirror_planes(Command):
     
     Parameters
     ----------
-        mirror_planes : List
+        mirror_planes : list
             Apply selectd mirror planes.
     """
     _version = '242'
@@ -73542,7 +73542,7 @@ class free_file_data(Command):
     
     Parameters
     ----------
-        file_data_list : List
+        file_data_list : list
             File-data to delete.
     """
     _version = '242'
@@ -76160,9 +76160,9 @@ class mass_flow_1(Command):
     ----------
         domain : str
             The domain.
-        zones : List
+        zones : list
             Zone name list.
-        physics : List
+        physics : list
             'physics' child.
         write_to_file : bool
             Specifies whether to write to a file.
@@ -76193,9 +76193,9 @@ class heat_transfer(Command):
     ----------
         domain : str
             The domain.
-        zones : List
+        zones : list
             Zone name list.
-        physics : List
+        physics : list
             'physics' child.
         write_to_file : bool
             Specifies whether to write to a file.
@@ -76226,9 +76226,9 @@ class heat_transfer_sensible(Command):
     ----------
         domain : str
             The domain.
-        zones : List
+        zones : list
             Zone name list.
-        physics : List
+        physics : list
             'physics' child.
         write_to_file : bool
             Specifies whether to write to a file.
@@ -76259,9 +76259,9 @@ class radiation_heat_transfer(Command):
     ----------
         domain : str
             The domain.
-        zones : List
+        zones : list
             Zone name list.
-        physics : List
+        physics : list
             'physics' child.
         write_to_file : bool
             Specifies whether to write to a file.
@@ -76292,9 +76292,9 @@ class film_mass_flow(Command):
     ----------
         domain : str
             The domain.
-        zones : List
+        zones : list
             Zone name list.
-        physics : List
+        physics : list
             'physics' child.
         write_to_file : bool
             Specifies whether to write to a file.
@@ -76325,9 +76325,9 @@ class film_heat_transfer(Command):
     ----------
         domain : str
             The domain.
-        zones : List
+        zones : list
             Zone name list.
-        physics : List
+        physics : list
             'physics' child.
         write_to_file : bool
             Specifies whether to write to a file.
@@ -76358,9 +76358,9 @@ class electric_current(Command):
     ----------
         domain : str
             The domain.
-        zones : List
+        zones : list
             Zone name list.
-        physics : List
+        physics : list
             'physics' child.
         write_to_file : bool
             Specifies whether to write to a file.
@@ -76391,9 +76391,9 @@ class pressure_work_1(Command):
     ----------
         domain : str
             The domain.
-        zones : List
+        zones : list
             Zone name list.
-        physics : List
+        physics : list
             'physics' child.
         write_to_file : bool
             Specifies whether to write to a file.
@@ -76424,9 +76424,9 @@ class viscous_work(Command):
     ----------
         domain : str
             The domain.
-        zones : List
+        zones : list
             Zone name list.
-        physics : List
+        physics : list
             'physics' child.
         write_to_file : bool
             Specifies whether to write to a file.
@@ -76554,7 +76554,7 @@ class modified_setting(Command):
     
     Parameters
     ----------
-        setting_type : List
+        setting_type : list
             'setting_type' child.
     """
     _version = '242'
@@ -76734,9 +76734,9 @@ class moments(Command):
     
     Parameters
     ----------
-        surface_list : List
+        surface_list : list
             Surface.
-        volume_list : List
+        volume_list : list
             Cell zone name list.
         num_of_moments : int
             'num_of_moments' child.
@@ -77109,9 +77109,9 @@ class area_2(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77148,9 +77148,9 @@ class area_weighted_avg(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77187,9 +77187,9 @@ class vector_based_flux(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77226,9 +77226,9 @@ class vector_flux(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77265,9 +77265,9 @@ class vector_weighted_average(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77304,9 +77304,9 @@ class facet_avg(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77343,9 +77343,9 @@ class facet_min(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77382,9 +77382,9 @@ class facet_max(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77421,9 +77421,9 @@ class flow_rate_1(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77460,9 +77460,9 @@ class integral(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77499,9 +77499,9 @@ class mass_flow_rate_4(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77538,9 +77538,9 @@ class mass_weighted_avg(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77577,9 +77577,9 @@ class standard_deviation(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77616,9 +77616,9 @@ class sum(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77655,9 +77655,9 @@ class uniformity_index_area_weighted(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77694,9 +77694,9 @@ class uniformity_index_mass_weighted(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77733,9 +77733,9 @@ class vertex_avg(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77772,9 +77772,9 @@ class vertex_min(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77811,9 +77811,9 @@ class vertex_max(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77850,9 +77850,9 @@ class volume_flow_rate(Command):
     
     Parameters
     ----------
-        surface_names : List
+        surface_names : list
             Surface.
-        geometry_names : List
+        geometry_names : list
             UTL Geometry.
         cust_vec_func : str
             The custom vectors.
@@ -77948,9 +77948,9 @@ class mass_average(Command):
     
     Parameters
     ----------
-        cell_zones : List
+        cell_zones : list
             Volume id/name.
-        volumes : List
+        volumes : list
             UTL Volume name.
         cell_function : str
             Field.
@@ -77984,9 +77984,9 @@ class mass_integral(Command):
     
     Parameters
     ----------
-        cell_zones : List
+        cell_zones : list
             Volume id/name.
-        volumes : List
+        volumes : list
             UTL Volume name.
         cell_function : str
             Field.
@@ -78020,9 +78020,9 @@ class mass(Command):
     
     Parameters
     ----------
-        cell_zones : List
+        cell_zones : list
             Volume id/name.
-        volumes : List
+        volumes : list
             UTL Volume name.
         cell_function : str
             Field.
@@ -78056,9 +78056,9 @@ class sum_1(Command):
     
     Parameters
     ----------
-        cell_zones : List
+        cell_zones : list
             Volume id/name.
-        volumes : List
+        volumes : list
             UTL Volume name.
         cell_function : str
             Field.
@@ -78092,9 +78092,9 @@ class twopisum(Command):
     
     Parameters
     ----------
-        cell_zones : List
+        cell_zones : list
             Volume id/name.
-        volumes : List
+        volumes : list
             UTL Volume name.
         cell_function : str
             Field.
@@ -78128,9 +78128,9 @@ class minimum_4(Command):
     
     Parameters
     ----------
-        cell_zones : List
+        cell_zones : list
             Volume id/name.
-        volumes : List
+        volumes : list
             UTL Volume name.
         cell_function : str
             Field.
@@ -78164,9 +78164,9 @@ class maximum_4(Command):
     
     Parameters
     ----------
-        cell_zones : List
+        cell_zones : list
             Volume id/name.
-        volumes : List
+        volumes : list
             UTL Volume name.
         cell_function : str
             Field.
@@ -78200,9 +78200,9 @@ class volume_2(Command):
     
     Parameters
     ----------
-        cell_zones : List
+        cell_zones : list
             Volume id/name.
-        volumes : List
+        volumes : list
             UTL Volume name.
         cell_function : str
             Field.
@@ -78236,9 +78236,9 @@ class volume_average(Command):
     
     Parameters
     ----------
-        cell_zones : List
+        cell_zones : list
             Volume id/name.
-        volumes : List
+        volumes : list
             UTL Volume name.
         cell_function : str
             Field.
@@ -78272,9 +78272,9 @@ class volume_integral(Command):
     
     Parameters
     ----------
-        cell_zones : List
+        cell_zones : list
             Volume id/name.
-        volumes : List
+        volumes : list
             UTL Volume name.
         cell_function : str
             Field.
@@ -78415,13 +78415,13 @@ class forces(Command):
             The type of report (Forces, Moments, or Center of Pressure).
         domain : str
             The domain.
-        wall_zones : List
+        wall_zones : list
             Wall zone name list.
-        direction_vector : List
+        direction_vector : list
             The XYZ components of the direction vector.
-        momentum_center : List
+        momentum_center : list
             The XYZ coordinates of the moment center.
-        momentum_axis : List
+        momentum_axis : list
             The XYZ components of the moment axis.
         pressure_coordinate : str
             The line on which the center of pressure will be calculated.
@@ -78495,7 +78495,7 @@ class particle_summary(Command):
     
     Parameters
     ----------
-        injection_names : List
+        injection_names : list
             'injection_names' child.
     """
     _version = '242'
@@ -78540,11 +78540,11 @@ class projected_surface_area(Command):
     
     Parameters
     ----------
-        surfaces : List
+        surfaces : list
             Surface.
         min_feature_size : real
             'min_feature_size' child.
-        proj_plane_norm_comp : List
+        proj_plane_norm_comp : list
             'proj_plane_norm_comp' child.
     """
     _version = '242'
@@ -81112,7 +81112,7 @@ class get_bounds(Command):
     
     Parameters
     ----------
-        bounded_zones : List
+        bounded_zones : list
             Zones used to determine region bounds.
         comfortable_region : bool
             Use comfortable region than the selected zones.
@@ -81471,7 +81471,7 @@ class reverse_surfaces(Command):
     
     Parameters
     ----------
-        surfaces : List
+        surfaces : list
             Surfaces orientations to be reverse.
     """
     _version = '242'
@@ -81584,7 +81584,7 @@ class delete_surfaces(Command):
     
     Parameters
     ----------
-        surfaces : List
+        surfaces : list
             Surfaces to be deleted.
     """
     _version = '242'
@@ -82055,7 +82055,7 @@ class reload(Command):
     
     Parameters
     ----------
-        file_list : List
+        file_list : list
             Sensitivities list to reload.
     """
     _version = '242'
@@ -82082,7 +82082,7 @@ class remove(Command):
     
     Parameters
     ----------
-        file_list : List
+        file_list : list
             Sensitivities list to remove.
     """
     _version = '242'
@@ -82339,7 +82339,7 @@ class stl_surfaces(Command):
     
     Parameters
     ----------
-        surfaces : List
+        surfaces : list
             Surfaces to be exported as .stl file.
         file_name : str
             Export specified surfaces from 3D cases as an .stl file.
@@ -83305,7 +83305,7 @@ class remove_1(Command):
     
     Parameters
     ----------
-        files : List
+        files : list
             List of training data files to remove.
     """
     _version = '242'
@@ -83848,7 +83848,7 @@ class optimize(Command):
     
     Parameters
     ----------
-        current_warnings : List
+        current_warnings : list
             Warnings based on current settings.
         disable_settings_validation : bool
             Ignore warnings and proceed with optimization.
@@ -84205,7 +84205,7 @@ class delete_design_points(Command):
     
     Parameters
     ----------
-        design_points : List
+        design_points : list
             'design_points' child.
     """
     _version = '242'
@@ -84250,7 +84250,7 @@ class clear_generated_data(Command):
     
     Parameters
     ----------
-        design_points : List
+        design_points : list
             'design_points' child.
     """
     _version = '242'
@@ -84286,7 +84286,7 @@ class update_selected(Command):
     
     Parameters
     ----------
-        design_points : List
+        design_points : list
             'design_points' child.
     """
     _version = '242'

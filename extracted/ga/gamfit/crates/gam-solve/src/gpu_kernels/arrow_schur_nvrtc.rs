@@ -214,9 +214,12 @@ void arrow_schur_forward_pgroup(
         }
         // ---- Load g_i into u (will be overwritten by L^{-1} g). ----
         u[tid] = g_stack[(size_t) i * P_MAX + tid];
-        // ---- Load B_i into Y (will be overwritten by L^{-1} B). ----
+        // ---- Load B_i into Y (will be overwritten by L^{-1} B). The B block
+        //      stride is P_MAX·R_TEMPLATE per row block i (see signature), so
+        //      the per-i multiplier is R_TEMPLATE, NOT P_MAX (using P_MAX walks
+        //      off the smaller b_stack whenever P_MAX > R_TEMPLATE). ----
         for (int c = 0; c < r_runtime; ++c) {
-            Y[tid][c] = b_stack[((size_t) i * P_MAX + c) * P_MAX + tid];
+            Y[tid][c] = b_stack[((size_t) i * R_TEMPLATE + c) * P_MAX + tid];
         }
     }
     __syncthreads();
@@ -272,8 +275,11 @@ void arrow_schur_forward_pgroup(
             l_out[((size_t) i * P_MAX + c) * P_MAX + tid] = L[tid][c];
         }
         u_out[(size_t) i * P_MAX + tid] = u[tid];
+        // y_out has block stride P_MAX·R_TEMPLATE per row block i (the host
+        // readback reads it at `i·P_MAX·R_TEMPLATE + c·P_MAX + r`), so the
+        // per-i multiplier is R_TEMPLATE, not P_MAX.
         for (int c = 0; c < r_runtime; ++c) {
-            y_out[((size_t) i * P_MAX + c) * P_MAX + tid] = Y[tid][c];
+            y_out[((size_t) i * R_TEMPLATE + c) * P_MAX + tid] = Y[tid][c];
         }
     }
 
@@ -331,8 +337,10 @@ void arrow_schur_back_sub_pgroup(
             L[tid][c] = l_stack[((size_t) i * P_MAX + c) * P_MAX + tid];
         }
         double acc = u_stack[(size_t) i * P_MAX + tid];
+        // y_stack block stride is P_MAX·R_TEMPLATE per row block i (written by
+        // the forward kernel); per-i multiplier is R_TEMPLATE, not P_MAX.
         for (int c = 0; c < r_runtime; ++c) {
-            acc += y_stack[((size_t) i * P_MAX + c) * P_MAX + tid] * delta_beta[c];
+            acc += y_stack[((size_t) i * R_TEMPLATE + c) * P_MAX + tid] * delta_beta[c];
         }
         w[tid] = acc;
     }
@@ -438,6 +446,10 @@ pub fn system_admits_fused_path(sys: &ArrowSchurSystem) -> bool {
 /// device. Test-only: production routes through the real NVRTC kernel
 /// (`FORWARD_KERNEL_SOURCE` / `plan_fused_launch`), never this emulation.
 #[cfg(test)]
+// On non-linux the consumers of these imports live in `#[cfg(target_os = "linux")]`
+// test bodies (CI runs the device-parity tests on linux), so the imports read as
+// unused under `-D warnings`. Keep the macOS lib-test binary building for everyone.
+#[cfg_attr(not(target_os = "linux"), allow(unused_imports))]
 mod test_support {
     use super::*;
 
@@ -783,6 +795,9 @@ pub fn emulate_fused_arrow_newton_step(
 }
 
 #[cfg(test)]
+// See `test_support`: linux-gated test bodies are the only consumers, so on
+// non-linux these imports are unused under `-D warnings`.
+#[cfg_attr(not(target_os = "linux"), allow(unused_imports))]
 mod tests {
     use super::*;
     use super::test_support::*;

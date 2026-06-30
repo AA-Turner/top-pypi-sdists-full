@@ -356,8 +356,10 @@ def test_3594():
     wt = pymupdf.TOOLS.mupdf_warnings()
     if pymupdf.mupdf_version_tuple < (1, 26, 8):
         assert not wt
-    else:
+    elif pymupdf.mupdf_version_tuple < (1, 28):
         assert wt == 'Actualtext with no position. Text may be lost or mispositioned.\n... repeated 2 times...'
+    else:
+        assert wt == 'ActualText with no position. Text may be lost or mispositioned.\n... repeated 2 times...'
 
 
 def test_3687():
@@ -432,7 +434,12 @@ def test_4026():
         blocks = page.get_text('blocks')
         for i, block in enumerate(blocks):
             print(f'block {i}: {block}')
-        assert len(blocks) == 5
+        if pymupdf.mupdf_version_tuple >= (1, 28):
+            # 2026-05-01: Expect slightly better splitting of text into
+            # paragraphs.
+            assert len(blocks) == 8
+        else:
+            assert len(blocks) == 5
 
 def test_3725():
     # This currently just shows the extracted text. We don't check it is as expected.
@@ -905,7 +912,10 @@ def test_4546():
     wt = pymupdf.TOOLS.mupdf_warnings()
     if pymupdf.mupdf_version_tuple >= (1, 26, 8):
         assert text == expected_mupdf_1_27_0
-        assert wt == 'Actualtext with no position. Text may be lost or mispositioned.\n... repeated 120 times...'
+        if pymupdf.mupdf_version_tuple >= (1, 28):
+            assert wt == 'ActualText with no position. Text may be lost or mispositioned.\n... repeated 120 times...'
+        else:
+            assert wt == 'Actualtext with no position. Text may be lost or mispositioned.\n... repeated 120 times...'
     elif pymupdf.mupdf_version_tuple >= (1, 26, 1):
         assert text == expected_mupdf_1_26_1
         assert not wt

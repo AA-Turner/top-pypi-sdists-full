@@ -3,13 +3,15 @@
 import json
 import logging
 import re
+import time
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 from hypothesis import given, strategies as st
 
 from meshtastic.supported_device import SupportedDevice
-from meshtastic.protobuf import mesh_pb2
+from meshtastic.protobuf import mesh_pb2, config_pb2
 from meshtastic.util import (
     DEFAULT_KEY,
     Timeout,
@@ -20,6 +22,8 @@ from meshtastic.util import (
     convert_mac_addr,
     eliminate_duplicate_port,
     findPorts,
+    flags_from_list,
+    flags_to_list,
     fixme,
     fromPSK,
     fromStr,
@@ -37,6 +41,7 @@ from meshtastic.util import (
     stripnl,
     support_info,
     message_to_json,
+    to_node_num,
     Acknowledgment
 )
 
@@ -234,20 +239,111 @@ def test_remove_keys_from_dict_nested():
     assert remove_keys_from_dict(keys, adict) == exp
 
 
-@pytest.mark.unitslow
-def test_Timeout_not_found():
-    """Test Timeout()"""
-    to = Timeout(0.2)
-    attrs = "foo"
-    to.waitForSet("bar", attrs)
+@pytest.mark.unit
+def test_Timeout_waitForSet_found():
+    """waitForSet returns True when all required attrs are truthy on target."""
+    to = Timeout(0.01)
+    target = SimpleNamespace(foo=1, bar="ok")
+    assert to.waitForSet(target, ("foo", "bar")) is True
 
 
-@pytest.mark.unitslow
-def test_Timeout_found():
-    """Test Timeout()"""
-    to = Timeout(0.2)
-    attrs = ()
-    to.waitForSet("bar", attrs)
+@pytest.mark.unit
+@patch("meshtastic.util.time.sleep")
+def test_Timeout_waitForSet_not_found(mock_sleep):  # pylint: disable=unused-argument
+    """waitForSet returns False when attrs remain falsy until timeout."""
+    to = Timeout(0.01)
+    target = SimpleNamespace(foo=None, bar=0)
+    assert to.waitForSet(target, ("foo", "bar")) is False
+
+
+@pytest.mark.unit
+def test_Timeout_waitForSet_empty_attrs():
+    """waitForSet returns True immediately when attrs is empty (vacuous truth)."""
+    to = Timeout(0.01)
+    assert to.waitForSet(object(), ()) is True
+
+
+@pytest.mark.unit
+def test_Timeout_reset():
+    """reset() sets expireTime to now + expireTimeout."""
+    to = Timeout(maxSecs=5)
+    before = time.time()
+    to.reset()
+    assert to.expireTime == pytest.approx(before + 5, abs=0.1)
+
+
+@pytest.mark.unit
+def test_Timeout_reset_custom():
+    """reset(expireTimeout) overrides the stored expireTimeout."""
+    to = Timeout(maxSecs=5)
+    before = time.time()
+    to.reset(expireTimeout=10)
+    assert to.expireTime == pytest.approx(before + 10, abs=0.1)
+
+
+@pytest.mark.unit
+def test_Timeout_waitForAckNak_found():
+    """waitForAckNak returns True when any acknowledgment attr is set, and clears it."""
+    to = Timeout(0.01)
+    ack = Acknowledgment()
+    ack.receivedAck = True
+    assert to.waitForAckNak(ack) is True
+    assert ack.receivedAck is False  # cleared after detection
+
+
+@pytest.mark.unit
+@patch("meshtastic.util.time.sleep")
+def test_Timeout_waitForAckNak_not_found(mock_sleep):  # pylint: disable=unused-argument
+    """waitForAckNak returns False when no acknowledgment attr is set."""
+    to = Timeout(0.01)
+    ack = Acknowledgment()
+    assert to.waitForAckNak(ack) is False
+
+
+@pytest.mark.unit
+def test_Timeout_waitForTraceRoute_found():
+    """waitForTraceRoute returns True on receivedTraceRoute, and clears it."""
+    to = Timeout(0.01)
+    ack = Acknowledgment()
+    ack.receivedTraceRoute = True
+    assert to.waitForTraceRoute(3.0, ack) is True
+    assert ack.receivedTraceRoute is False
+
+
+@pytest.mark.unit
+@patch("meshtastic.util.time.sleep")
+def test_Timeout_waitForTraceRoute_not_found(mock_sleep):  # pylint: disable=unused-argument
+    """waitForTraceRoute returns False on timeout."""
+    to = Timeout(0.01)
+    ack = Acknowledgment()
+    assert to.waitForTraceRoute(3.0, ack) is False
+
+
+@pytest.mark.unit
+def test_Timeout_waitForTelemetry_found():
+    """waitForTelemetry returns True when receivedTelemetry is set."""
+    to = Timeout(0.01)
+    ack = Acknowledgment()
+    ack.receivedTelemetry = True
+    assert to.waitForTelemetry(ack) is True
+
+
+@pytest.mark.unit
+def test_Timeout_waitForPosition_found():
+    """waitForPosition returns True when receivedPosition is set."""
+    to = Timeout(0.01)
+    ack = Acknowledgment()
+    ack.receivedPosition = True
+    assert to.waitForPosition(ack) is True
+
+
+@pytest.mark.unit
+def test_Timeout_waitForWaypoint_found():
+    """waitForWaypoint returns True when receivedWaypoint is set."""
+    to = Timeout(0.01)
+    ack = Acknowledgment()
+    ack.receivedWaypoint = True
+    assert to.waitForWaypoint(ack) is True
 
 
 @pytest.mark.unitslow
@@ -715,3 +811,162 @@ def test_generate_channel_hash_fuzz_aes256(channel_name, key_bytes):
     "Test generate_channel_hash with fuzzed channel names and 256-bit keys, ensuring it produces single-byte values"
     hashed = generate_channel_hash(channel_name, key_bytes)
     assert 0 <= hashed <= 0xFF
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("input_val,expected", [
+    # int passthrough
+    (0, 0),
+    (1, 1),
+    (6, 6),
+    (502009325, 502009325),
+    (2198819370, 2198819370),
+    (0xFFFFFFFF, 0xFFFFFFFF),
+    # !hex format (always treated as hex)
+    ("!00000000", 0x00000000),
+    ("!00000001", 0x00000001),
+    ("!00000010", 0x00000010),
+    ("!000000ff", 0x000000FF),
+    ("!830f522a", 0x830F522A),
+    ("!1dec0ded", 0x1DEC0DED),
+    ("!ffffffff", 0xFFFFFFFF),
+    ("!FFFFFFFF", 0xFFFFFFFF),
+    # 0xhex format
+    ("0x00000000", 0x00000000),
+    ("0x00000010", 0x00000010),
+    ("0x830f522a", 0x830F522A),
+    ("0x1dec0ded", 0x1DEC0DED),
+    ("0xFFFFFFFF", 0xFFFFFFFF),
+    # Unprefixed hex string (falls back to hex when decimal fails)
+    ("830f522a", 0x830F522A),
+    ("1dec0ded", 0x1DEC0DED),
+    # Decimal string
+    ("42", 42),
+    ("12345678", 12345678),
+    ("0", 0),
+    ("1", 1),
+    # With whitespace
+    ("  !830f522a  ", 2198819370),
+    ("  !00000010  ", 16),
+    ("  0x830f522a  ", 2198819370),
+])
+def test_to_node_num(input_val, expected):
+    """Test to_node_num with various valid inputs"""
+    assert to_node_num(input_val) == expected
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("input_val", [
+    "",
+    "!",
+    "!!",
+    "!0x10",
+    "!xyz",
+])
+def test_to_node_num_invalid(input_val):
+    """Test to_node_num raises ValueError for invalid inputs"""
+    with pytest.raises(ValueError):
+        to_node_num(input_val)
+
+
+@pytest.mark.unit
+@given(st.integers(min_value=0, max_value=2**32 - 1))
+def test_to_node_num_hypothesis_roundtrip(n):
+    """Property: all supported input formats roundtrip for any valid node number"""
+    assert to_node_num(n) == n
+    assert to_node_num(f"!{n:08x}") == n
+    assert to_node_num(f"0x{n:x}") == n
+    assert to_node_num(str(n)) == n
+
+
+_EXCLUDED_MODULES = mesh_pb2.ExcludedModules
+_POSITION_FLAGS = config_pb2.Config.PositionConfig.PositionFlags
+_NETWORK_PROTOCOLS = config_pb2.Config.NetworkConfig.ProtocolFlags
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("flag_type,flags,expected", [
+    (_EXCLUDED_MODULES, 0, []),
+    (_EXCLUDED_MODULES, 1, ["MQTT_CONFIG"]),
+    (_EXCLUDED_MODULES, 3, ["MQTT_CONFIG", "SERIAL_CONFIG"]),
+    (_EXCLUDED_MODULES, 0x7FFF, [
+        "MQTT_CONFIG", "SERIAL_CONFIG", "EXTNOTIF_CONFIG", "STOREFORWARD_CONFIG",
+        "RANGETEST_CONFIG", "TELEMETRY_CONFIG", "CANNEDMSG_CONFIG", "AUDIO_CONFIG",
+        "REMOTEHARDWARE_CONFIG", "NEIGHBORINFO_CONFIG", "AMBIENTLIGHTING_CONFIG",
+        "DETECTIONSENSOR_CONFIG", "PAXCOUNTER_CONFIG", "BLUETOOTH_CONFIG",
+        "NETWORK_CONFIG",
+    ]),
+    (_EXCLUDED_MODULES, 0x8000, ["UNKNOWN_ADDITIONAL_FLAGS(32768)"]),
+    (_EXCLUDED_MODULES, 0x8001, ["MQTT_CONFIG", "UNKNOWN_ADDITIONAL_FLAGS(32768)"]),
+    (_POSITION_FLAGS, 0, []),
+    (_POSITION_FLAGS, 0x09, ["ALTITUDE", "DOP"]),
+    (_POSITION_FLAGS, 0x1FF, [
+        "ALTITUDE", "ALTITUDE_MSL", "GEOIDAL_SEPARATION", "DOP", "HVDOP",
+        "SATINVIEW", "SEQ_NO", "TIMESTAMP", "HEADING",
+    ]),
+])
+def test_flags_to_list(flag_type, flags, expected):
+    """Test flags_to_list decodes set bits in enum order and reports unknown remainders."""
+    assert flags_to_list(flag_type, flags) == expected
+
+
+@pytest.mark.unit
+@given(st.integers(min_value=0, max_value=0xFFFFF))
+def test_flags_to_list_conservation(flags):
+    """Property: flags_to_list partitions `flags` into known names plus an exact unknown remainder.
+
+    Every known bit that is set must appear as a name, and the leftover reported in
+    UNKNOWN_ADDITIONAL_FLAGS(...) must together with the named bits reconstruct the input.
+    """
+    for flag_type in (_EXCLUDED_MODULES, _POSITION_FLAGS):
+        known_union = 0
+        for key in flag_type.keys():
+            value = flag_type.Value(key)
+            if key != "EXCLUDED_NONE" and value:
+                known_union |= value
+
+        result = flags_to_list(flag_type, flags)
+
+        accounted = 0
+        leftover = 0
+        for name in result:
+            if name.startswith("UNKNOWN_ADDITIONAL_FLAGS("):
+                leftover = int(name[len("UNKNOWN_ADDITIONAL_FLAGS("):-1])
+            else:
+                accounted |= flag_type.Value(name)
+
+        assert accounted == (flags & known_union)
+        assert (accounted | leftover) == flags
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("flag_type, flags, expected", [
+    (_NETWORK_PROTOCOLS, ["UDP_BROADCAST"], 1),
+    (_NETWORK_PROTOCOLS, ["NO_BROADCAST"], 0),
+    (_NETWORK_PROTOCOLS, [], 0),
+    (_POSITION_FLAGS, ["ALTITUDE"], 1),
+    (_POSITION_FLAGS, ["ALTITUDE", "SPEED"], 513),
+    (_POSITION_FLAGS, ["ALTITUDE", " SPEED "], 513),
+])
+def test_flags_from_list(flag_type, flags, expected):
+    """Test flags_from_list combines named flags into the expected bitmask."""
+    assert flags_from_list(flag_type, flags) == expected
+
+
+@pytest.mark.unit
+def test_flags_from_list_unknown_flag():
+    """Test flags_from_list raises ValueError for an unknown flag name."""
+    with pytest.raises(ValueError, match="Unknown flag 'TCP'"):
+        flags_from_list(_NETWORK_PROTOCOLS, ["UDP_BROADCAST", "TCP"])
+
+
+@pytest.mark.unit
+@given(st.lists(st.sampled_from(list(_POSITION_FLAGS.keys())), unique=True))
+def test_flags_from_list_roundtrip(flags):
+    """Property: flags_from_list and flags_to_list are inverses for known position flags."""
+    combined = flags_from_list(_POSITION_FLAGS, flags)
+    decoded = flags_to_list(_POSITION_FLAGS, combined)
+    # flags_to_list drops zero-value flags and may report unknown remainders,
+    # but for combinations of known non-zero flags it should return the same set of names.
+    nonzero_flags = {f for f in flags if _POSITION_FLAGS.Value(f)}
+    assert set(decoded) == nonzero_flags

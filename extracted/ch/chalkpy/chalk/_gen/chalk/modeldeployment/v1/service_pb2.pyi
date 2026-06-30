@@ -17,7 +17,7 @@ from typing import (
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class ModelContainerSpec(_message.Message):
-    __slots__ = ("tags", "resources", "env_vars", "volumes", "routing", "authentication")
+    __slots__ = ("tags", "resources", "env_vars", "volumes", "routing", "authentication", "secret_refs")
     class TagsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -40,12 +40,14 @@ class ModelContainerSpec(_message.Message):
     VOLUMES_FIELD_NUMBER: _ClassVar[int]
     ROUTING_FIELD_NUMBER: _ClassVar[int]
     AUTHENTICATION_FIELD_NUMBER: _ClassVar[int]
+    SECRET_REFS_FIELD_NUMBER: _ClassVar[int]
     tags: _containers.ScalarMap[str, str]
     resources: _service_pb2.ResourceLimits
     env_vars: _containers.ScalarMap[str, str]
     volumes: _containers.RepeatedCompositeFieldContainer[_service_pb2.VolumeMount]
     routing: str
     authentication: str
+    secret_refs: _containers.RepeatedCompositeFieldContainer[_service_pb2.SecretRef]
     def __init__(
         self,
         tags: _Optional[_Mapping[str, str]] = ...,
@@ -54,6 +56,7 @@ class ModelContainerSpec(_message.Message):
         volumes: _Optional[_Iterable[_Union[_service_pb2.VolumeMount, _Mapping]]] = ...,
         routing: _Optional[str] = ...,
         authentication: _Optional[str] = ...,
+        secret_refs: _Optional[_Iterable[_Union[_service_pb2.SecretRef, _Mapping]]] = ...,
     ) -> None: ...
 
 class CreateModelScalingGroupRequest(_message.Message):

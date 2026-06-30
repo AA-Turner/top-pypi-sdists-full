@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uipath-runtime
-Version: 0.11.4
+Version: 0.11.5
 Summary: Runtime abstractions and interfaces for building agents and automation scripts in the UiPath ecosystem
 Project-URL: Homepage, https://uipath.com
 Project-URL: Repository, https://github.com/UiPath/uipath-runtime-python
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Build Tools
 Requires-Python: >=3.11
-Requires-Dist: uipath-core<0.6.0,>=0.5.22
+Requires-Dist: uipath-core<0.6.0,>=0.5.26
 Description-Content-Type: text/markdown
 
 # UiPath Runtime

@@ -149,17 +149,31 @@ impl SaeBetaPenaltyAssembly {
 /// ceiling, never this constant.
 pub(crate) const SAE_FIT_DATA_COLLAPSE_EV_FLOOR: f64 = 0.10;
 
-/// #1522 — fraction of the rank-`K` PCA / Eckart-Young EV ceiling below which a
-/// fit counts as a structural co-collapse. The collapse bar is
-/// `SAE_COLLAPSE_PCA_EV_FRACTION · pca_ev_ceiling(target, dictionary_rank)`: the
-/// ceiling is the BEST EV any rank-`K` linear dictionary could reach on THIS
-/// centered target, so the bar is data-derived (scales with what the data
-/// actually admits) rather than an absolute corpus-tuned number. `0.5` encodes
-/// the decision "a fit that explains less than HALF of the linearly-achievable
-/// variance has structurally collapsed, whatever its absolute EV" — a
-/// dimensionless ratio with that single, explicit meaning, not a magnitude tuned
-/// to any one corpus. It is the sole source for the ratio used at every
-/// collapse-guard site.
+/// #1522/#1610 — fraction of the REACHABLE-rank PCA / Eckart-Young EV ceiling
+/// below which a fit counts as a structural co-collapse. The collapse bar is
+/// `SAE_COLLAPSE_PCA_EV_FRACTION · pca_ev_ceiling(target, dictionary_rank)`,
+/// where `dictionary_rank` is the dictionary's GEOMETRICALLY REACHABLE rank
+/// ([`super::outer_objective::reachable_dictionary_rank`] = `Σ_k rank(Φ_k)`),
+/// not the nominal coefficient count `Σ_k basis_size_k`. The ceiling is the BEST
+/// EV any rank-`dictionary_rank` LINEAR dictionary could reach on THIS centered
+/// target, so the bar is data-derived (scales with what the data actually
+/// admits) rather than an absolute corpus-tuned number.
+///
+/// #1610 — the previous rank `Σ_k basis_size_k` was biased HIGH for a NONLINEAR
+/// dictionary (the owner's audit table: "nonlinear dict vs linear PCA ceiling
+/// (biased high)"): a curved `latent_dim = d` atom decoded through a smooth
+/// chart spans only `rank(Φ_k) ≤ basis_size_k` linear output directions, so
+/// summing the nominal coefficient counts over-stated the linearly-achievable
+/// ceiling the fraction is taken against. Keying the rank on each chart's
+/// REALIZED image rank `rank(Φ_k)` (read from the chart design alone, so a
+/// co-collapsed decoder still reports full geometric reach) calibrates the bar
+/// against what the dictionary geometry can actually reach.
+///
+/// `0.5` encodes the decision "a fit that explains less than HALF of the variance
+/// a reachable-rank dictionary could has structurally collapsed, whatever its
+/// absolute EV" — a dimensionless ratio with that single, explicit meaning, not
+/// a magnitude tuned to any one corpus. It is the sole source for the ratio used
+/// at every collapse-guard site.
 pub(crate) const SAE_COLLAPSE_PCA_EV_FRACTION: f64 = 0.5;
 
 pub(crate) const SAE_FIT_DATA_COLLAPSE_COST: f64 = 1.0e12;
@@ -176,11 +190,11 @@ pub(crate) const SAE_FINAL_DECODER_POLISH_PROJECTION_RESOLUTION: usize = 256;
 
 pub(crate) const SAE_SEED_DISPERSION_FLOOR: f64 = 1.0e-12;
 
-/// #1026 decoder-repulsion conditioner strength. Small fixed weight on the
-/// collinearity-gated cross-decoder repulsion that injects POSITIVE curvature in
-/// the inter-atom co-collapse direction. It is a conditioner/separator, not a
-/// primary objective term: it is identically zero (value, gradient, curvature)
-/// unless two atom decoders exceed
+/// #1026/#1610 decoder-repulsion conditioner strength as a DIMENSIONLESS ratio of
+/// the primary separation-barrier strength. The collinearity-gated cross-decoder
+/// repulsion injects POSITIVE curvature in the inter-atom co-collapse direction.
+/// It is a conditioner/separator, not a primary objective term: it is identically
+/// zero (value, gradient, curvature) unless two atom decoders exceed
 /// [`SAE_DECODER_REPULSION_COLLINEARITY_GATE`], so it is a strict no-op for
 /// well-separated atoms and for `K = 1`. Without it the SAE joint inner Newton
 /// solve has NO inter-atom repulsion (data-fit is independent per atom given the
@@ -188,7 +202,39 @@ pub(crate) const SAE_SEED_DISPERSION_FLOOR: f64 = 1.0e-12;
 /// onto the same decoder direction, the per-row `H_tt` block goes near-singular,
 /// the reduced β-Schur over-subtracts and goes indefinite, and the inner solve
 /// never converges (#1026).
-pub(crate) const SAE_DECODER_REPULSION_STRENGTH: f64 = 1.0e-3;
+///
+/// #1610 — the previous value was an absolute `1e-3` whose magnitude was NOT
+/// derived: it was four orders below the separation barrier (`10.0`) with no
+/// stated relationship, and it weighted the un-normalized cross-Gram energy
+/// `‖B_jB_kᵀ‖²_F = c_jk²·‖B_j‖²_F·‖B_k‖²_F`, so the repulsion's force on the
+/// collinearity `c_jk²` scaled with the decoder energy `‖B_j‖²_F·‖B_k‖²_F` while
+/// the separation barrier's force on the SAME `c_jk²` was scale-free. The `1e-3`
+/// was therefore implicitly absorbing the decoder-energy units at one assumed
+/// corpus scale — exactly the unprincipled, non-generalizing hand-pick #1610
+/// flags. The fix (see [`super::penalties::SaeManifoldTerm::refresh_decoder_repulsion_gate`])
+/// normalizes the per-pair weight by `‖B_j‖²_F·‖B_k‖²_F`, so the repulsion now
+/// penalizes the SAME dimensionless collinearity `c_jk² ∈ [0,1]` the separation
+/// barrier does. With both terms acting on the dimensionless `c_jk²`, the
+/// repulsion strength is a pure dimensionless ratio of the barrier strength:
+///
+///   `μ_rep = SAE_DECODER_REPULSION_BARRIER_RATIO · μ_sep`.
+///
+/// The repulsion is a SUBDOMINANT conditioner — the separation barrier is the
+/// primary anti-collapse cure (it DIVERGES at `c²→1`; the repulsion is a finite
+/// PSD quadratic). The ratio `1e-4` keeps the repulsion four orders below the
+/// barrier BY DESIGN (so it conditions the indefinite directions without fighting
+/// the barrier's restoring force), and at the canonical unit decoder scale
+/// (`‖B_k‖²_F ≈ 1`) the effective per-pair weight `μ_sep·1e-4 = 10·1e-4 = 1e-3`
+/// reduces EXACTLY to the historical absolute constant, so unit-scale fits are
+/// byte-unchanged. Unlike the old absolute `1e-3` this engages identically at any
+/// corpus scale.
+pub(crate) const SAE_DECODER_REPULSION_BARRIER_RATIO: f64 = 1.0e-4;
+
+// The derived decoder-repulsion strength is a dimensionless fraction
+// [`SAE_DECODER_REPULSION_BARRIER_RATIO`] of the data-derived (possibly
+// runtime-overridden) separation-barrier strength μ_C; it is computed on the
+// term itself (it needs the dictionary's overcompleteness, not a global
+// constant) — see [`super::penalties::SaeManifoldTerm::decoder_repulsion_strength`].
 
 /// #1026 normalized collinearity score
 /// `s_jk = ‖B_jB_kᵀ‖²_F / (‖B_j‖²_F·‖B_k‖²_F)` at/above which the decoder
@@ -226,10 +272,10 @@ pub(crate) const SAE_COACTIVE_RELATIVE_MASS_FLOOR: f64 = 1.0e-3;
 // collapse boundary, so the inner Newton can never reach it.
 
 // #1026/#1522 — RUNTIME separation-barrier-strength override. Read through the
-// accessor below instead of the raw const so a SINGLE compiled wheel can sweep
-// μ_sep from Python (`set_sae_barrier_overrides`) without recompiling. A
-// quiet-NaN sentinel means "unset → use the compiled default const", so 0.0
-// remains a legitimate swept value (barrier disabled). The amplitude
+// accessor below so a SINGLE compiled wheel can sweep μ_sep from Python
+// (`set_sae_barrier_overrides`) without recompiling. A quiet-NaN sentinel means
+// "unset → derive μ_C from the problem" (the data-derived overcompleteness
+// ratio), so 0.0 remains a legitimate swept value (barrier disabled). The amplitude
 // (keep-alive) barrier was removed: an over-complete dictionary's surplus
 // features SHOULD die, and a dead atom's decoder block is parked into a
 // well-conditioned state by the inner per-row Tikhonov ridge — forcing the
@@ -237,18 +283,22 @@ pub(crate) const SAE_COACTIVE_RELATIVE_MASS_FLOOR: f64 = 1.0e-3;
 // death. So there is no amplitude strength or active-atom gate to override.
 static SAE_SEP_STRENGTH_OVERRIDE_BITS: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0x7ff8_0000_0000_0000);
-pub(crate) fn sae_separation_barrier_strength() -> f64 {
+/// #1026/#1522/#1610 — read the process-global separation-barrier-strength
+/// override, or `None` when unset. `None` ⇒ the data-derived μ_C (the
+/// overcompleteness ratio from
+/// [`super::penalties::SaeManifoldTerm::separation_barrier_strength`]) is used.
+/// A quiet-NaN sentinel means "unset → derive from the problem"; `0.0` stays a
+/// legitimate swept value (barrier disabled).
+pub(crate) fn sae_separation_barrier_override() -> Option<f64> {
     let v =
         f64::from_bits(SAE_SEP_STRENGTH_OVERRIDE_BITS.load(std::sync::atomic::Ordering::Relaxed));
-    if v.is_nan() {
-        SAE_SEPARATION_BARRIER_STRENGTH
-    } else {
-        v
-    }
+    if v.is_nan() { None } else { Some(v) }
 }
 
 /// Set the process-global SAE separation-barrier strength override (one wheel,
-/// many configs). `sep_strength` is NaN to clear back to the compiled default.
+/// many configs). `sep_strength` is NaN to clear the override back to the
+/// data-derived μ_C (`K / reachable_rank`); there is no compiled-constant
+/// default any more.
 /// The amplitude (keep-alive) barrier and its active-atom gate were removed
 /// (surplus features are allowed to die into a ridge-parked state), so this
 /// takes only the separation strength. Called from the gamfit Python FFI.
@@ -257,32 +307,67 @@ pub fn set_sae_barrier_overrides(sep_strength: f64) {
         .store(sep_strength.to_bits(), std::sync::atomic::Ordering::Relaxed);
 }
 
-/// #1026/#1522 SEPARATION barrier strength `μ_C`. Penalty
-/// `P_sep = -μ_C · Σ_{j<k} q_jk · log(1 - c_jk² + ε)` on the NORMALIZED decoder
-/// shapes `U_k = B_k/‖B_k‖`, `c_jk² = ‖U_jU_kᵀ‖²_F` (squared principal-angle
-/// cosine ∈ [0,1]), weighted by the normalized coactivation
-/// `q_jk = (Σ_i a_ij a_ik)/sqrt(Σa_ij²·Σa_ik²) ∈ [0,1]`. Force on `c_jk`
-/// `∂P/∂c_jk = 2μ_C q_jk c_jk/(1-c_jk²+ε)` DIVERGES as atoms align (`c_jk→1`) and
-/// is exactly 0 when `c_jk = 0` — and, unlike the threshold repulsion, it does
-/// NOT switch off at small amplitude (it sees only the SHAPE `U_k`).
-///
-/// `10` — the separation force already DIVERGES near alignment (`1/(1-c²+ε)`),
-/// so a large flat-region prefactor is unnecessary and only adds outer-objective
-/// stiffness away from collapse. (This is the sole remaining barrier; the
-/// amplitude keep-alive barrier was removed — surplus features in an
-/// over-complete dictionary are allowed to die into a ridge-parked state.)
-pub(crate) const SAE_SEPARATION_BARRIER_STRENGTH: f64 = 10.0;
+// #1026/#1522/#1610 — the SEPARATION barrier strength `μ_C` is NO LONGER a
+// hand-picked absolute constant (it was `10.0`, matched to no problem scale).
+// It is now DATA-DERIVED from the dictionary's overcompleteness — see the full
+// derivation on [`super::penalties::SaeManifoldTerm::separation_barrier_strength`]
+// (the penalty form `P_sep = -μ_C Σ q_jk log(1-c²+ε)` on the normalized decoder
+// shapes is documented there). The runtime override
+// (`set_sae_barrier_overrides`) still takes precedence over the derived value.
 
 /// #1026/#1522 SEPARATION barrier softening `ε` in `log(1 - c_jk² + ε)`. Bounds
 /// the barrier (and its PSD majorizer) at the exact-alignment limit `c_jk² = 1`.
 pub(crate) const SAE_SEPARATION_BARRIER_EPS: f64 = 1.0e-6;
 
-/// #1026/#1522 decoder-norm floor below which an atom is treated as inactive /
-/// shape-undefined for the SEPARATION barrier (its `U_k` is ill-conditioned). The
-/// AMPLITUDE barrier is what restores such an atom; the separation barrier simply
-/// abstains for the pair until the amplitude barrier has lifted the norm above
-/// this floor.
-pub(crate) const SAE_BARRIER_ACTIVE_NORM_FLOOR: f64 = 1.0e-6;
+/// #1625 — normalized collinearity `c_jk² = ‖U_jU_kᵀ‖²_F ∈ [0,1]` at/above which
+/// the SEPARATION barrier engages, the analog of
+/// [`SAE_DECODER_REPULSION_COLLINEARITY_GATE`] for the primary anti-collapse
+/// barrier. A C1 smoothstep ramps the barrier from exactly 0 at this threshold to
+/// full strength (and the interior-point divergence) as `c_jk² → 1`, so the
+/// barrier is a genuine COLLAPSE-prevention force — active only once two coactive
+/// atoms are materially aligned — rather than a global orthogonality prior that
+/// taxes every distinct-but-correlated pair.
+///
+/// WHY a gate at all (the ungated `−log(1−c²+ε)` was the #1625 stall): the
+/// interior-point shape has force `∂P/∂c² = 1/(1−c²+ε) ≈ 1` even at MODERATE
+/// collinearity, so two genuinely-distinct atoms (e.g. `c² = 0.36`, a 53° angle —
+/// nowhere near the `c² → 1` collapse) feel an O(1) separating force that, on a
+/// well-specified fit whose data residual is near zero, DOMINATES the objective and
+/// drags the decoders off the data optimum. The inner (t, β) Newton then has to
+/// chase a barrier-shifted optimum it converges to only slowly, and
+/// `reml_criterion`'s undamped-PD inner solve never reaches KKT stationarity —
+/// the #1625 "inner solve did not converge" refusal. Gating the barrier to the
+/// near-collapse regime (`c² ≳ 0.5`) leaves well-separated dictionaries at their
+/// data optimum (so they converge) while preserving the divergent restoring force
+/// exactly where collapse happens (`c² → 1`).
+///
+/// Chosen equal to the repulsion gate (`0.5`): the two anti-collapse terms then
+/// engage on the same near-collinear pair set, the barrier as the divergent
+/// interior-point core and the repulsion as its subdominant conditioner. Pairs
+/// below `0.5` (≥ 45° apart) are not collapsing and need no anti-collapse force.
+pub(crate) const SAE_SEPARATION_BARRIER_COLLINEARITY_GATE: f64 = 0.5;
+
+/// #1026/#1522/#1610 RELATIVE decoder-norm floor below which an atom is treated
+/// as inactive / shape-undefined for the SEPARATION barrier (its `U_k` is
+/// ill-conditioned). The separation barrier abstains for a pair until the
+/// decoder norm is lifted above the floor.
+///
+/// #1610 — this is a RELATIVE fraction of the live dictionary's largest decoder
+/// energy (`max_k ‖B_k‖_F`), NOT an absolute magnitude. The previous absolute
+/// `1e-6` floor was NOT scale-invariant: the SAE decoders inherit the scale of
+/// the activations being modeled, so under a global rescaling of the corpus by a
+/// factor `s` every decoder norm scales by `s` while the absolute floor stayed
+/// fixed — on a corpus whose natural decoder scale is below `1e-6` the barrier
+/// spuriously abstained on EVERY pair (collapse prevention silently disabled),
+/// and on a corpus scaled far above it the floor was inert. Keying the floor to
+/// `max_k ‖B_k‖²_F` makes the abstain set scale-free: it depends only on the
+/// RATIO of an atom's energy to the dictionary's, so collapse prevention engages
+/// identically regardless of the corpus scale. At the canonical unit decoder
+/// scale (`max_k ‖B_k‖²_F ≈ 1`) it reduces to the historical `1e-6` floor.
+/// Consumed via [`super::penalties::barrier_norm_floor_sq`], the single source
+/// for both the barrier value and its gradient/curvature, so the line-search
+/// value never desyncs from the step.
+pub(crate) const SAE_BARRIER_ACTIVE_NORM_REL_FLOOR: f64 = 1.0e-6;
 
 /// Full SAE-manifold term.
 #[derive(Debug)]
@@ -429,8 +514,10 @@ pub struct SaeManifoldTerm {
     /// #1026 decoder-repulsion gate, frozen per assembly (lagged-diffusivity
     /// discipline, exactly like [`SaeManifoldAtom::smooth_penalty`]): the
     /// symmetric `(K, K)` matrix of collinearity gate weights
-    /// `gate(s_jk)·SAE_DECODER_REPULSION_STRENGTH` computed from the decoder
-    /// state at assembly entry. Both the assembly (gradient into `gb`, PSD
+    /// `gate(s_jk)·decoder_repulsion_strength()/(‖B_j‖²_F·‖B_k‖²_F)` computed
+    /// from the decoder state at assembly entry (#1610: energy-normalized, so the
+    /// realized penalty is a function of the dimensionless collinearity `c_jk²`
+    /// alone). Both the assembly (gradient into `gb`, PSD
     /// curvature into `hbb`) and the line-search value path
     /// ([`Self::penalized_objective_total`]) read THIS frozen gate, so the
     /// repulsion's value, gradient, and curvature stay mutually consistent
@@ -445,6 +532,26 @@ pub struct SaeManifoldTerm {
     /// (above the collinearity gate) ever carry a nonzero weight, so this list is
     /// tiny even at large `K` — never the dense `K×K` matrix (8 GiB at K=32768).
     pub(crate) decoder_repulsion_gate: Option<Vec<(usize, usize, f64)>>,
+    /// #1625 — the SEPARATION barrier's frozen normalized-coactivation weights
+    /// `q_jk`, the analog of [`Self::decoder_repulsion_gate`] for the #1522
+    /// collapse-prevention barrier. The barrier energy
+    /// `P_sep = μ_C·Σ_{j<k} −q_jk·log(1−c_jk²+ε)` is weighted by the normalized
+    /// coactivation `q_jk = (Σ_i a_ij a_ik)/√(Σa_ij²·Σa_ik²)`, which is a function
+    /// of the assignment masses `a_ik` (hence the logits). The barrier's GRADIENT
+    /// assembly ([`Self::add_sae_separation_barrier`]) treats `q_jk` as a constant
+    /// multiplicative weight (it differentiates only the decoder shape `c_jk²`), so
+    /// for value/gradient consistency the VALUE path
+    /// ([`Self::separation_barrier_value`], read by the line-search
+    /// [`Self::penalized_objective_total`]) MUST read the SAME `q_jk` the gradient
+    /// used — not recompute it from the trial logits the line search moves.
+    /// Freezing it here at assembly entry (lagged-diffusivity, exactly like the
+    /// smoothness Gram and the repulsion gate) makes the barrier a pure function of
+    /// the decoder shapes within a Newton step, so it exerts NO phantom force on
+    /// the routing and the inner solve reaches true KKT stationarity. `None` when
+    /// no pair co-fires (`K < 2`, or a fully-disjoint routing — the strict no-op);
+    /// callers fall back to the live coactivation in that case. Transient: not part
+    /// of the persisted term identity (Clone starts `None`, rebuilt next assembly).
+    pub(crate) barrier_coactivation_gate: Option<Vec<(usize, usize, f64)>>,
     /// #1026: the load-bearing curved-vs-linear hybrid-split verdict, computed
     /// once in [`Self::canonicalize_charts_post_fit`] after the joint fit
     /// converges. Each eligible `d = 1` atom's fitted curved image is adjudicated
@@ -507,6 +614,9 @@ impl Clone for SaeManifoldTerm {
             best_cocollapse_incumbent: None,
             // Transient per-assembly frozen gate — rebuilt at the next assembly.
             decoder_repulsion_gate: None,
+            // #1625 — transient per-assembly frozen barrier coactivation; rebuilt
+            // at the next assembly, exactly like the repulsion gate above.
+            barrier_coactivation_gate: None,
             hybrid_split_report: self.hybrid_split_report.clone(),
             atom_inner_fits: self.atom_inner_fits.clone(),
             oos_linear_images: self.oos_linear_images.clone(),

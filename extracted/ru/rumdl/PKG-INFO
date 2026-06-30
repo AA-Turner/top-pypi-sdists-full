@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.2.25
+Version: 0.2.26
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -236,7 +236,7 @@ mise ls-remote rumdl
 mise install rumdl
 
 # Use a specific version for the project
-mise use rumdl@0.2.25
+mise use rumdl@0.2.26
 ```
 
 ### Using Nix (macOS/Linux)
@@ -465,7 +465,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.25
+    rev: v0.2.26
     hooks:
       - id: rumdl      # Lint only; add args [--fix] to auto-fix
       - id: rumdl-fmt  # Pure format, always exits 0
@@ -481,7 +481,7 @@ This mirrors the `ruff` + `ruff-format` split: the linter hook reports by defaul
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.25
+    rev: v0.2.26
     hooks:
       - id: rumdl
         args: [--fix]  # Auto-fix violations in place
@@ -498,7 +498,7 @@ However, for pre-commit workflows where you want to include all files, even when
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.25
+    rev: v0.2.26
     hooks:
       - id: rumdl
         args: [--no-exclude]  # Disable all exclude patterns
@@ -1291,6 +1291,31 @@ If a release breaks something documented as stable, that is a bug.
 ```bash
 make build
 ```
+
+#### Building for WebAssembly / WASI
+
+The CLI can be compiled for WASI (e.g. to run under [wasmtime](https://wasmtime.dev/))
+using the `wasi` feature, which excludes the host-only language server, jemalloc,
+and tokio stack:
+
+```bash
+rustup target add wasm32-wasip1-threads
+cargo build --target wasm32-wasip1-threads --no-default-features --features wasi
+# Or simply: make build-wasi
+```
+
+The browser/npm package uses a separate `wasm` feature (via `wasm-bindgen`)
+targeting `wasm32-unknown-unknown`:
+
+```bash
+make build-wasm
+# Equivalent to: wasm-pack build --target web --no-default-features --features wasm
+```
+
+Always pass `--no-default-features` for wasm targets: the default `native`
+feature pulls in tokio and the language server, neither of which builds for wasm.
+Both wasm builds are exercised on every push in CI (`make build-wasi` /
+`make build-wasm`).
 
 ### Testing
 

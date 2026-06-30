@@ -10,20 +10,6 @@ QuantConnect_Configuration_Config_GetValue_T = typing.TypeVar("QuantConnect_Conf
 QuantConnect_Configuration_Config_TryGetValue_T = typing.TypeVar("QuantConnect_Configuration_Config_TryGetValue_T")
 
 
-class ToolboxArgumentParser(System.Object):
-    """Command Line arguments parser for Toolbox configuration"""
-
-    @staticmethod
-    def get_tickers(options_object: System.Collections.Generic.Dictionary[str, System.Object]) -> typing.List[str]:
-        """Helper method to get the tickers from the provided options"""
-        ...
-
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Argument parser constructor"""
-        ...
-
-
 class CommandLineOption(System.Object):
     """Auxiliary class to keep information about a specific command line option"""
 
@@ -259,6 +245,15 @@ class OptimizerArgumentParser(System.Object):
         ...
 
 
+class ReportArgumentParser(System.Object):
+    """Command Line arguments parser for Report Creator"""
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Parse and construct the args."""
+        ...
+
+
 class ApplicationParser(System.Object):
     """Command Line application parser"""
 
@@ -293,12 +288,17 @@ class ApplicationParser(System.Object):
         ...
 
 
-class ReportArgumentParser(System.Object):
-    """Command Line arguments parser for Report Creator"""
+class ToolboxArgumentParser(System.Object):
+    """Command Line arguments parser for Toolbox configuration"""
+
+    @staticmethod
+    def get_tickers(options_object: System.Collections.Generic.Dictionary[str, System.Object]) -> typing.List[str]:
+        """Helper method to get the tickers from the provided options"""
+        ...
 
     @staticmethod
     def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Parse and construct the args."""
+        """Argument parser constructor"""
         ...
 
 

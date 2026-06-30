@@ -1,6 +1,6 @@
 [package]
 name = "icechunk-arrow-object-store"
-version = "2.0.6"
+version = "2.1.0"
 description = "Apache Arrow object_store storage backend for icechunk"
 readme = "README.md"
 repository = "https://github.com/earth-mover/icechunk"
@@ -21,6 +21,7 @@ async-trait.workspace = true
 bytes.workspace = true
 chrono.workspace = true
 futures.workspace = true
+http.workspace = true
 object_store.workspace = true
 rand.workspace = true
 serde.workspace = true

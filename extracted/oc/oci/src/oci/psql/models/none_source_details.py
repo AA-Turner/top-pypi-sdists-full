@@ -23,7 +23,7 @@ class NoneSourceDetails(SourceDetails):
 
         :param source_type:
             The value to assign to the source_type property of this NoneSourceDetails.
-            Allowed values for this property are: "BACKUP", "NONE", "DB_SYSTEM"
+            Allowed values for this property are: "BACKUP", "NONE", "POINT_IN_TIME_DB_SYSTEM", "DB_SYSTEM"
         :type source_type: str
 
         """

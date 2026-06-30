@@ -7,23 +7,11 @@ All output goes to stderr so stdout stays clean for --json mode.
 from __future__ import annotations
 
 import sys
+from importlib.util import find_spec
 from types import TracebackType
+from typing import Any
 
-try:
-    from rich.console import Console
-    from rich.progress import (
-        BarColumn,
-        MofNCompleteColumn,
-        Progress,
-        SpinnerColumn,
-        TaskProgressColumn,
-        TextColumn,
-        TimeElapsedColumn,
-    )
-
-    _RICH_AVAILABLE = True
-except ImportError:
-    _RICH_AVAILABLE = False
+_rich_available = find_spec("rich") is not None
 
 
 class GuardProgress:
@@ -43,9 +31,21 @@ class GuardProgress:
         self._total = total
         self._completed = 0
         self._title = title
-        self._use_rich = use_rich and _RICH_AVAILABLE
+        self._use_rich = use_rich and _rich_available
+        self._progress: Any | None = None
+        self._task: Any | None = None
 
         if self._use_rich:
+            from rich.console import Console
+            from rich.progress import (
+                BarColumn,
+                Progress,
+                SpinnerColumn,
+                TaskProgressColumn,
+                TextColumn,
+                TimeElapsedColumn,
+            )
+
             self._progress = Progress(
                 SpinnerColumn(spinner_name="dots"),
                 BarColumn(bar_width=None, complete_style="green", finished_style="green"),
@@ -56,9 +56,6 @@ class GuardProgress:
                 transient=False,
                 expand=True,
             )
-            self._task: object | None = None
-        else:
-            self._progress = None  # type: ignore[assignment]
 
     # -- context manager protocol -------------------------------------------
 
@@ -90,21 +87,21 @@ class GuardProgress:
         """Advance the progress bar and update the description.
 
         Call this *before* starting the next step so the spinner shows
-        the new label while the step runs.
+        the new label while the step runs. The bar advances immediately
+        so step 1 shows 1/total (not 0%) while it runs.
         """
         if self._use_rich and self._progress is not None and self._task is not None:
+            self._progress.advance(self._task)
             self._progress.update(self._task, description=description)
-            if self._completed > 0:
-                self._progress.advance(self._task)
             self._completed += 1
         else:
+            self._completed += 1
             pct = int(self._completed * 100 / self._total) if self._total else 0
             print(
                 f"hol-guard: [{pct:3d}%] {description}",
                 file=sys.stderr,
                 flush=True,
             )
-            self._completed += 1
 
     def done(self, description: str = "Complete") -> None:
         """Mark all steps as complete with a green checkmark."""

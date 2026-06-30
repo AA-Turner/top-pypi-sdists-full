@@ -9,37 +9,6 @@ import QuantConnect.Util
 import System
 
 
-class IntrinioConfig(System.Object):
-    """Auxiliary class to access all Intrinio API data."""
-
-    rate_gate: QuantConnect.Util.RateGate = ...
-    """"""
-
-    IS_INITIALIZED: bool
-    """Check if Intrinio API user and password are not empty or null."""
-
-    password: str = ...
-    """Intrinio API password"""
-
-    user: str = ...
-    """Intrinio API user"""
-
-    @staticmethod
-    def set_time_interval_between_calls(time_span: datetime.timedelta) -> None:
-        """
-        Sets the time interval between calls.
-        For more information, please refer to: https://intrinio.com/documentation/api#limits
-        
-        :param time_span: Time interval between to consecutive calls.
-        """
-        ...
-
-    @staticmethod
-    def set_user_and_password(user: str, password: str) -> None:
-        """Set the Intrinio API user and password."""
-        ...
-
-
 class IntrinioEconomicDataSources(System.Object):
     """Intrinio Data Source"""
 
@@ -274,6 +243,37 @@ class IntrinioEconomicDataSources(System.Object):
             important trading partners index are Mexico, China, Taiwan, Korea, Singapore, Hong Kong, Malaysia, Brazil,
             Thailand, Philippines, Indonesia, India, Israel, Saudi Arabia, Russia, Argentina, Venezuela, Chile and Colombia.
         """
+
+
+class IntrinioConfig(System.Object):
+    """Auxiliary class to access all Intrinio API data."""
+
+    rate_gate: QuantConnect.Util.RateGate = ...
+    """"""
+
+    IS_INITIALIZED: bool
+    """Check if Intrinio API user and password are not empty or null."""
+
+    password: str = ...
+    """Intrinio API password"""
+
+    user: str = ...
+    """Intrinio API user"""
+
+    @staticmethod
+    def set_time_interval_between_calls(time_span: datetime.timedelta) -> None:
+        """
+        Sets the time interval between calls.
+        For more information, please refer to: https://intrinio.com/documentation/api#limits
+        
+        :param time_span: Time interval between to consecutive calls.
+        """
+        ...
+
+    @staticmethod
+    def set_user_and_password(user: str, password: str) -> None:
+        """Set the Intrinio API user and password."""
+        ...
 
 
 class IntrinioDataTransformation(IntEnum):

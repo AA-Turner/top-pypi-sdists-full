@@ -54,6 +54,12 @@ static PyMethodDef curl_methods[] = {
     {"global_init", (PyCFunction)do_global_init, METH_VARARGS, pycurl_global_init_doc},
     {"global_cleanup", (PyCFunction)do_global_cleanup, METH_NOARGS, pycurl_global_cleanup_doc},
     {"version_info", (PyCFunction)do_version_info, METH_VARARGS, pycurl_version_info_doc},
+    {"easy_strerror", (PyCFunction)do_easy_strerror, METH_VARARGS, pycurl_easy_strerror_doc},
+    {"multi_strerror", (PyCFunction)do_multi_strerror, METH_VARARGS, pycurl_multi_strerror_doc},
+    {"share_strerror", (PyCFunction)do_share_strerror, METH_VARARGS, pycurl_share_strerror_doc},
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 80, 0)
+    {"url_strerror", (PyCFunction)do_url_strerror, METH_VARARGS, pycurl_url_strerror_doc},
+#endif
     {NULL, NULL, 0, NULL}
 };
 
@@ -181,6 +187,28 @@ error:
     Py_XDECREF(protocols);
     return NULL;
 }
+
+
+#define PYCURL_DEFINE_STRERROR(name, libfn, enum_type) \
+    PYCURL_INTERNAL PyObject * \
+    do_##name(PyObject *dummy, PyObject *args) \
+    { \
+        int errornum; \
+        UNUSED(dummy); \
+        if (!PyArg_ParseTuple(args, "i:" #name, &errornum)) { \
+            return NULL; \
+        } \
+        return PyUnicode_FromString(libfn((enum_type) errornum)); \
+    }
+
+PYCURL_DEFINE_STRERROR(easy_strerror,  curl_easy_strerror,  CURLcode)
+PYCURL_DEFINE_STRERROR(multi_strerror, curl_multi_strerror, CURLMcode)
+PYCURL_DEFINE_STRERROR(share_strerror, curl_share_strerror, CURLSHcode)
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 80, 0)
+PYCURL_DEFINE_STRERROR(url_strerror,   curl_url_strerror,   CURLUcode)
+#endif
+
+#undef PYCURL_DEFINE_STRERROR
 
 
 /* Helper functions for inserting constants into the module namespace */
@@ -375,7 +403,7 @@ static void do_curlmod_free(void *unused) {
 
 static PyModuleDef curlmodule = {
     PyModuleDef_HEAD_INIT,
-    "pycurl",           /* m_name */
+    "pycurl._pycurl",   /* m_name */
     pycurl_module_doc,  /* m_doc */
     -1,                 /* m_size */
     curl_methods,       /* m_methods */
@@ -386,7 +414,7 @@ static PyModuleDef curlmodule = {
 };
 
 
-PyMODINIT_FUNC PyInit_pycurl(void)
+PyMODINIT_FUNC PyInit__pycurl(void)
 {
     PyObject *m, *d;
     const curl_version_info_data *vi;
@@ -538,6 +566,10 @@ PYCURL_IGNORE_DEPRECATED_END
     m = PyModule_Create(&curlmodule);
     if (m == NULL)
         goto error;
+
+#ifdef Py_GIL_DISABLED
+    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+#endif
 
     /* Add error object to the module */
     d = PyModule_GetDict(m);
@@ -1299,6 +1331,11 @@ PYCURL_IGNORE_DEPRECATED_END
 #ifdef HAVE_CURL_7_67_0_MULTI_STREAMS
     insint_m(d, "M_MAX_CONCURRENT_STREAMS", CURLMOPT_MAX_CONCURRENT_STREAMS);
 #endif
+#ifdef HAVE_CURL_MULTI_NOTIFY
+    insint_m(d, "M_NOTIFYFUNCTION", CURLMOPT_NOTIFYFUNCTION);
+    insint_m(d, "M_NOTIFY_INFO_READ", CURLMNOTIFY_INFO_READ);
+    insint_m(d, "M_NOTIFY_EASY_DONE", CURLMNOTIFY_EASY_DONE);
+#endif
 
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 43, 0)
     insint_m(d, "PIPE_NOTHING", CURLPIPE_NOTHING);
@@ -1812,7 +1849,8 @@ PYCURL_IGNORE_DEPRECATED_END
             goto error;
         }
 
-        arglist = Py_BuildValue("ss", "HstsIndex", "index total");
+        /* Field is `idx`, not `index`, to avoid shadowing tuple.index() on the namedtuple. */
+        arglist = Py_BuildValue("ss", "HstsIndex", "idx total");
         if (arglist == NULL) {
             goto error;
         }

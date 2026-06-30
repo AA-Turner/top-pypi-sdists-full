@@ -1,1 +1,0 @@
-import{d as e,j as t,N as r}from"./index-59ZnCLuI.js";function a(){const{connectionRole:o,isConnectionRoleLoading:n}=e();return n?null:t.jsx(r,{replace:!0,to:o==="admin"||o==="root"?"/home":"/playground"})}export{a as component};

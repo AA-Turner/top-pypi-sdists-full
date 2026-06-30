@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: awsebcli
-Version: 3.27.2
+Version: 3.27.3
 Summary: Command Line Interface for AWS EB.
 Home-page: http://aws.amazon.com/elasticbeanstalk/
 Author: AWS Elastic Beanstalk
@@ -44,6 +44,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary
@@ -126,6 +127,11 @@ in the *AWS Elastic Beanstalk Developer Guide*.
 
 Changelog
 =========
+--------------------
+3.27.3 (2026-06-29)
+--------------------
+- Fix path traversal vulnerability in zip extraction for ``eb labs download`` and ``eb create``
+
 --------------------
 3.27.2 (2026-05-13)
 --------------------

@@ -25,6 +25,7 @@ from .literals import (
     CheckResultType,
     CheckTypeType,
     ConnectorStateType,
+    ConnectorTypeType,
     EntitlementStatusType,
     EnvironmentStateType,
     HostStateType,
@@ -131,6 +132,7 @@ CheckTypeDef = TypedDict(
     "CheckTypeDef",
     {
         "type": NotRequired[CheckTypeType],
+        "id": NotRequired[str],
         "result": NotRequired[CheckResultType],
         "impairedSince": NotRequired[datetime],
     },
@@ -163,7 +165,7 @@ CreateEnvironmentConnectorRequestTypeDef = TypedDict(
     "CreateEnvironmentConnectorRequestTypeDef",
     {
         "environmentId": str,
-        "type": Literal["VCENTER"],
+        "type": ConnectorTypeType,
         "applianceFqdn": str,
         "secretIdentifier": str,
         "clientToken": NotRequired[str],
@@ -335,7 +337,7 @@ ConnectorTypeDef = TypedDict(
     {
         "environmentId": NotRequired[str],
         "connectorId": NotRequired[str],
-        "type": NotRequired[Literal["VCENTER"]],
+        "type": NotRequired[ConnectorTypeType],
         "applianceFqdn": NotRequired[str],
         "secretArn": NotRequired[str],
         "state": NotRequired[ConnectorStateType],
@@ -545,14 +547,14 @@ class CreateEnvironmentRequestTypeDef(TypedDict):
     serviceAccessSubnetId: str
     vcfVersion: VcfVersionType
     termsAccepted: bool
-    licenseInfo: Sequence[LicenseInfoTypeDef]
     initialVlans: InitialVlansTypeDef
-    hosts: Sequence[HostInfoForCreateTypeDef]
-    connectivityInfo: ConnectivityInfoUnionTypeDef
-    vcfHostnames: VcfHostnamesTypeDef
-    siteId: str
     clientToken: NotRequired[str]
     environmentName: NotRequired[str]
     kmsKeyId: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
     serviceAccessSecurityGroups: NotRequired[ServiceAccessSecurityGroupsUnionTypeDef]
+    connectivityInfo: NotRequired[ConnectivityInfoUnionTypeDef]
+    licenseInfo: NotRequired[Sequence[LicenseInfoTypeDef]]
+    hosts: NotRequired[Sequence[HostInfoForCreateTypeDef]]
+    vcfHostnames: NotRequired[VcfHostnamesTypeDef]
+    siteId: NotRequired[str]

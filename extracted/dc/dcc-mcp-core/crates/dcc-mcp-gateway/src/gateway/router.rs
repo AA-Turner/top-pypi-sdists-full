@@ -6,6 +6,8 @@ use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::trace::TraceLayer;
 
 use super::caller_attribution::caller_attribution_middleware;
+#[cfg(feature = "admin")]
+use super::handlers::{MarketplaceWsState, handle_marketplace_ws};
 use super::handlers::{
     handle_gateway_get, handle_gateway_mcp, handle_gateway_yield, handle_health, handle_instances,
     handle_proxy_dcc, handle_proxy_instance, handle_v1_call, handle_v1_call_batch,
@@ -97,11 +99,14 @@ pub fn build_gateway_router_with_admin(
     #[cfg(feature = "admin")]
     let router = if let Some(admin_st) = admin_state {
         let debug_router = super::admin::build_v1_debug_router(admin_st.clone());
-        let admin_router = super::admin::build_admin_router(admin_st);
+        let admin_router = super::admin::build_admin_router(admin_st.clone());
         // nest adds the prefix; requests to e.g. `/admin/api/health` are
         // forwarded to the sub-router as `/api/health`.
         tracing::info!("Admin UI mounted at {admin_path}");
-        router.nest(admin_path, admin_router).merge(debug_router)
+        router
+            .nest(admin_path, admin_router)
+            .merge(debug_router)
+            .merge(marketplace_ws_router(admin_st))
     } else {
         router
     };
@@ -173,4 +178,16 @@ fn build_base_router(state: GatewayState) -> Router {
             routing::get(handle_v1_update_download),
         )
         .with_state(state)
+}
+
+/// Build a standalone router for the `/marketplace/ws` WebSocket endpoint.
+///
+/// This router has its own state type (`MarketplaceWsState`) and is merged
+/// into the main gateway router when the admin feature is enabled.
+#[cfg(feature = "admin")]
+fn marketplace_ws_router(admin_state: super::admin::state::AdminState) -> Router {
+    let ws_state = MarketplaceWsState::new(admin_state);
+    Router::new()
+        .route("/marketplace/ws", routing::get(handle_marketplace_ws))
+        .with_state(ws_state)
 }

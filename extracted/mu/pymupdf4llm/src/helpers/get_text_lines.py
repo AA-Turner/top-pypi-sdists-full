@@ -139,7 +139,7 @@ def get_raw_lines(
                     continue
                 # Ignore invisible text. Type 3 font text is never invisible.
                 if (
-                    s["font"] != TYPE3_FONT_NAME
+                    not s["font"].startswith(TYPE3_FONT_NAME)
                     and s["alpha"] == 0
                     and ignore_invisible
                 ):
@@ -153,7 +153,7 @@ def get_raw_lines(
                     if len(line["spans"]) > i:
                         neighbor = line["spans"][i]
                         sbbox.y1 = neighbor["bbox"][3]
-                    s["text"] = f"[{s['text']}]"
+                    s["text"] = f"{s['text']}"
                 s["bbox"] = sbbox  # update with the Rect version
                 # include line/block numbers to facilitate separator insertion
                 s["line"] = lno
@@ -217,7 +217,7 @@ def get_text_lines(page, *, textpage=None, clip=None, sep="\t", tolerance=3, ocr
     page.remove_rotation()
     prect = page.rect if not clip else pymupdf.Rect(clip)  # area to consider
 
-    xsep = sep if sep == "|" else ""
+    sep = sep if sep == "|" else ""
 
     # make a TextPage if required
     if textpage is None:
@@ -266,6 +266,7 @@ def get_text_lines(page, *, textpage=None, clip=None, sep="\t", tolerance=3, ocr
     """
     rows = []
     xvalues = []
+    col_count = 0  # just to calm down the linter
     for lrect, line in lines:
         # if only 1 span in line and no columns identified yet...
         if len(line) == 1 and not xvalues:

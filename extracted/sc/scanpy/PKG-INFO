@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scanpy
-Version: 1.12.1
+Version: 1.12.2
 Summary: Single-Cell Analysis in Python.
 Project-URL: Bluesky, https://bsky.app/profile/scverse.bsky.social
 Project-URL: Discourse, https://discourse.scverse.org/c/help/scanpy/37
@@ -35,7 +35,7 @@ Requires-Dist: fast-array-utils[accel,sparse]>=1.4
 Requires-Dist: h5py>=3.11
 Requires-Dist: joblib
 Requires-Dist: legacy-api-wrap>=1.5
-Requires-Dist: matplotlib>=3.9
+Requires-Dist: matplotlib!=3.11,!=3.11.0rc1,!=3.11.0rc2,>=3.10
 Requires-Dist: natsort
 Requires-Dist: networkx>=2.8.8
 Requires-Dist: numba>=0.60
@@ -46,6 +46,7 @@ Requires-Dist: patsy
 Requires-Dist: pynndescent>=0.5.13
 Requires-Dist: scikit-learn>=1.6
 Requires-Dist: scipy>=1.13
+Requires-Dist: scverse-misc>=0.0.6
 Requires-Dist: seaborn>=0.13.2
 Requires-Dist: session-info2
 Requires-Dist: statsmodels>=0.14.5

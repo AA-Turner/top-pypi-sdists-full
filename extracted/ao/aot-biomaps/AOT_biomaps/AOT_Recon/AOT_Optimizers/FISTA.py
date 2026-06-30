@@ -25,9 +25,6 @@ try:
 except ImportError:
     CUPY_AVAILABLE = False
 
-    import cupy as cp
-    CUPY_AVAILABLE = True
-
 # =====================================================================
 # CuPy Kernels definition for fusion of operations (Zero-Allocation)
 # =====================================================================

@@ -1,4 +1,5 @@
 import builtins  # noqa: F401
+from urllib.parse import quote
 from files_sdk.models.agent_push_update import AgentPushUpdate
 from files_sdk.models.remote_server_configuration_file import (
     RemoteServerConfigurationFile,
@@ -77,6 +78,7 @@ class RemoteServer:
         "outbound_agent_id": None,  # int64 - Route traffic to outbound on a files-agent
         "filebase_bucket": None,  # string - Filebase: Bucket name
         "filebase_access_key": None,  # string - Filebase: Access Key.
+        "files_api_key_prefix": None,  # string - Files.com direct link: paired API key prefix.
         "cloudflare_bucket": None,  # string - Cloudflare: Bucket name
         "cloudflare_access_key": None,  # string - Cloudflare: Access Key.
         "cloudflare_endpoint": None,  # string - Cloudflare: endpoint
@@ -104,6 +106,7 @@ class RemoteServer:
         "linode_secret_key": None,  # string - Linode: Secret Key
         "s3_compatible_secret_key": None,  # string - S3-compatible: Secret Key
         "wasabi_secret_key": None,  # string - Wasabi: Secret Key
+        "files_api_key": None,  # string - Files.com direct link: API key used once to pair the remote server.
     }
 
     def __init__(self, attributes=None, options=None):
@@ -145,7 +148,9 @@ class RemoteServer:
             raise InvalidParameterError("Bad parameter: id must be an int")
         response, _options = Api.send_request(
             "POST",
-            "/remote_servers/{id}/agent_push_update".format(id=params["id"]),
+            "/remote_servers/{id}/agent_push_update".format(
+                id=quote(str(params["id"]), safe="")
+            ),
             params,
             self.options,
         )
@@ -227,7 +232,9 @@ class RemoteServer:
             )
         response, _options = Api.send_request(
             "POST",
-            "/remote_servers/{id}/configuration_file".format(id=params["id"]),
+            "/remote_servers/{id}/configuration_file".format(
+                id=quote(str(params["id"]), safe="")
+            ),
             params,
             self.options,
         )
@@ -273,6 +280,7 @@ class RemoteServer:
     #   enable_dedicated_ips - boolean - `true` if remote server only accepts connections from dedicated IPs
     #   filebase_access_key - string - Filebase: Access Key.
     #   filebase_bucket - string - Filebase: Bucket name
+    #   files_api_key - string - Files.com direct link: API key used once to pair the remote server.
     #   files_agent_permission_set - string - Local permissions for files agent. read_only, write_only, or read_write
     #   files_agent_root - string - Agent local root path
     #   files_agent_version - string - Files Agent version
@@ -530,6 +538,12 @@ class RemoteServer:
             raise InvalidParameterError(
                 "Bad parameter: filebase_bucket must be an str"
             )
+        if "files_api_key" in params and not isinstance(
+            params["files_api_key"], str
+        ):
+            raise InvalidParameterError(
+                "Bad parameter: files_api_key must be an str"
+            )
         if "files_agent_permission_set" in params and not isinstance(
             params["files_agent_permission_set"], str
         ):
@@ -728,7 +742,9 @@ class RemoteServer:
             )
         response, _options = Api.send_request(
             "PATCH",
-            "/remote_servers/{id}".format(id=params["id"]),
+            "/remote_servers/{id}".format(
+                id=quote(str(params["id"]), safe="")
+            ),
             params,
             self.options,
         )
@@ -748,7 +764,9 @@ class RemoteServer:
             raise InvalidParameterError("Bad parameter: id must be an int")
         Api.send_request(
             "DELETE",
-            "/remote_servers/{id}".format(id=params["id"]),
+            "/remote_servers/{id}".format(
+                id=quote(str(params["id"]), safe="")
+            ),
             params,
             self.options,
         )
@@ -812,7 +830,10 @@ def find(id, params=None, options=None):
     if "id" not in params:
         raise MissingParameterError("Parameter missing: id")
     response, options = Api.send_request(
-        "GET", "/remote_servers/{id}".format(id=params["id"]), params, options
+        "GET",
+        "/remote_servers/{id}".format(id=quote(str(params["id"]), safe="")),
+        params,
+        options,
     )
     return RemoteServer(response.data, options)
 
@@ -835,7 +856,9 @@ def find_configuration_file(id, params=None, options=None):
         raise MissingParameterError("Parameter missing: id")
     response, options = Api.send_request(
         "GET",
-        "/remote_servers/{id}/configuration_file".format(id=params["id"]),
+        "/remote_servers/{id}/configuration_file".format(
+            id=quote(str(params["id"]), safe="")
+        ),
         params,
         options,
     )
@@ -882,6 +905,7 @@ def find_configuration_file(id, params=None, options=None):
 #   enable_dedicated_ips - boolean - `true` if remote server only accepts connections from dedicated IPs
 #   filebase_access_key - string - Filebase: Access Key.
 #   filebase_bucket - string - Filebase: Bucket name
+#   files_api_key - string - Files.com direct link: API key used once to pair the remote server.
 #   files_agent_permission_set - string - Local permissions for files agent. read_only, write_only, or read_write
 #   files_agent_root - string - Agent local root path
 #   files_agent_version - string - Files Agent version
@@ -1157,6 +1181,12 @@ def create(params=None, options=None):
         raise InvalidParameterError(
             "Bad parameter: filebase_bucket must be an str"
         )
+    if "files_api_key" in params and not isinstance(
+        params["files_api_key"], str
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: files_api_key must be an str"
+        )
     if "files_agent_permission_set" in params and not isinstance(
         params["files_agent_permission_set"], str
     ):
@@ -1380,7 +1410,9 @@ def agent_push_update(id, params=None, options=None):
         raise MissingParameterError("Parameter missing: id")
     response, options = Api.send_request(
         "POST",
-        "/remote_servers/{id}/agent_push_update".format(id=params["id"]),
+        "/remote_servers/{id}/agent_push_update".format(
+            id=quote(str(params["id"]), safe="")
+        ),
         params,
         options,
     )
@@ -1449,7 +1481,9 @@ def configuration_file(id, params=None, options=None):
         raise MissingParameterError("Parameter missing: id")
     response, options = Api.send_request(
         "POST",
-        "/remote_servers/{id}/configuration_file".format(id=params["id"]),
+        "/remote_servers/{id}/configuration_file".format(
+            id=quote(str(params["id"]), safe="")
+        ),
         params,
         options,
     )
@@ -1496,6 +1530,7 @@ def configuration_file(id, params=None, options=None):
 #   enable_dedicated_ips - boolean - `true` if remote server only accepts connections from dedicated IPs
 #   filebase_access_key - string - Filebase: Access Key.
 #   filebase_bucket - string - Filebase: Bucket name
+#   files_api_key - string - Files.com direct link: API key used once to pair the remote server.
 #   files_agent_permission_set - string - Local permissions for files agent. read_only, write_only, or read_write
 #   files_agent_root - string - Agent local root path
 #   files_agent_version - string - Files Agent version
@@ -1773,6 +1808,12 @@ def update(id, params=None, options=None):
         raise InvalidParameterError(
             "Bad parameter: filebase_bucket must be an str"
         )
+    if "files_api_key" in params and not isinstance(
+        params["files_api_key"], str
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: files_api_key must be an str"
+        )
     if "files_agent_permission_set" in params and not isinstance(
         params["files_agent_permission_set"], str
     ):
@@ -1975,7 +2016,7 @@ def update(id, params=None, options=None):
         raise MissingParameterError("Parameter missing: id")
     response, options = Api.send_request(
         "PATCH",
-        "/remote_servers/{id}".format(id=params["id"]),
+        "/remote_servers/{id}".format(id=quote(str(params["id"]), safe="")),
         params,
         options,
     )
@@ -1994,7 +2035,7 @@ def delete(id, params=None, options=None):
         raise MissingParameterError("Parameter missing: id")
     Api.send_request(
         "DELETE",
-        "/remote_servers/{id}".format(id=params["id"]),
+        "/remote_servers/{id}".format(id=quote(str(params["id"]), safe="")),
         params,
         options,
     )

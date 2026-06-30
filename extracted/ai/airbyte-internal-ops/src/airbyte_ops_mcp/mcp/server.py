@@ -22,6 +22,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 from airbyte.cloud.auth import resolve_cloud_client_id, resolve_cloud_client_secret
 from dotenv import load_dotenv
@@ -203,7 +204,10 @@ def register_server_assets(app: FastMCP) -> None:
     - QA: Connector quality assurance (future)
     - INSIGHTS: Connector analysis and insights (future)
 
-    Note: Server info resource is now built-in via mcp_server() helper.
+    Tools annotated with `requires_client_filesystem=True` are automatically
+    hidden when `MCP_NO_CLIENT_FILESYSTEM=1` via the standard tool filter.
+
+    Note: Server info resource is now built-in via `mcp_server()` helper.
 
     Args:
         app: FastMCP application instance
@@ -290,13 +294,29 @@ def main_http() -> None:
     host = DEFAULT_HTTP_HOST
     port = DEFAULT_HTTP_PORT
 
+    # When deployed behind a path-stripping LB (MCP_SERVER_URL has a path
+    # component like /ops-mcp), serve the MCP endpoint at root so the
+    # public URL is just the base path. Otherwise keep the FastMCP default.
+    server_url = os.getenv(
+        MCP_SERVER_URL_ENV,
+        f"http://localhost:{DEFAULT_HTTP_PORT}",
+    )
+    mcp_path = "/" if urlparse(server_url).path.strip("/") else "/mcp"
+
     print("=" * 60, flush=True, file=sys.stderr)
     print(
-        f"Starting Airbyte Admin MCP server (HTTP mode) on {host}:{port}",
+        f"Starting Airbyte Admin MCP server (HTTP mode) on {host}:{port}"
+        f" (mcp_path={mcp_path!r})",
         file=sys.stderr,
     )
     try:
-        app.run(transport="streamable-http", host=host, port=port, stateless_http=True)
+        app.run(
+            transport="streamable-http",
+            host=host,
+            port=port,
+            path=mcp_path,
+            stateless_http=True,
+        )
     except KeyboardInterrupt:
         print("Airbyte Admin MCP server interrupted by user.", file=sys.stderr)
 

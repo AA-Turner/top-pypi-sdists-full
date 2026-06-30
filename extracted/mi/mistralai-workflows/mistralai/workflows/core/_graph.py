@@ -29,6 +29,7 @@ _RENDERABLE_KINDS: frozenset[str] = frozenset(
         "memory_op",
         "raise",
         "parallel",
+        "agent",
     }
 )
 _MEMORY_OPS: frozenset[str] = frozenset({"save_memory", "load_memory", "load_history"})
@@ -204,7 +205,7 @@ def _resolve_call(call: ast.Call, module_ns: dict) -> Any:
     return _resolve(call.func, module_ns)
 
 
-_ACTIVITY_KINDS = frozenset({"step", "human_input", "wait_condition", "dispatch", "memory_op"})
+_ACTIVITY_KINDS = frozenset({"step", "human_input", "wait_condition", "dispatch", "memory_op", "agent"})
 
 
 def _has_renderable_nodes(nodes: list[dict]) -> bool:
@@ -307,6 +308,7 @@ class _TreeCtx:
     memory_counter: list[int] = field(default_factory=lambda: [0])
     task_counter: list[int] = field(default_factory=lambda: [0])
     raise_counter: list[int] = field(default_factory=lambda: [0])
+    agent_counter: list[int] = field(default_factory=lambda: [0])
     cls_def: ast.ClassDef | None = None
     workflow_cls: type | None = None
     visited_methods: set[str] = field(default_factory=set)
@@ -1062,6 +1064,105 @@ def _extract_wf_arg(call: ast.Call) -> ast.expr | None:
     return call.args[0] if call.args else next((kw.value for kw in call.keywords if kw.arg == "workflow"), None)
 
 
+def _is_runner_run_call(call: ast.Call) -> bool:
+    """Return True for ``Runner.run(...)`` or aliased ``mod.Runner.run(...)`` calls.
+
+    Matches by name (like execute_workflow / asyncio.gather) so the same check
+    works in both dynamic and static analysis without resolver support.
+    """
+    func = call.func
+    if not isinstance(func, ast.Attribute) or func.attr != "run":
+        return False
+    receiver = func.value
+    if isinstance(receiver, ast.Name):
+        return receiver.id == "Runner"
+    if isinstance(receiver, ast.Attribute):
+        return receiver.attr == "Runner"
+    return False
+
+
+def _kwarg(call: ast.Call, name: str) -> ast.expr | None:
+    return next((kw.value for kw in call.keywords if kw.arg == name), None)
+
+
+def _tool_display_name(expr: ast.expr) -> str | None:
+    """Display name for one entry of an Agent ``tools=[...]`` list.
+
+    Activities/custom tools are passed as bare references (``Name``/``Attribute``);
+    built-in tools are instantiated (``WebSearchTool()``), so a ``Call`` resolves
+    to its constructor's leaf name.
+    """
+    if isinstance(expr, ast.Name):
+        return expr.id
+    if isinstance(expr, ast.Attribute):
+        return expr.attr
+    if isinstance(expr, ast.Call):
+        return _tool_display_name(expr.func)
+    return None
+
+
+def _resolve_agent_call(expr: ast.expr, ctx: "_TreeCtx") -> ast.Call | None:
+    """Resolve an agent expression to its ``Agent(...)`` call, if any.
+
+    Accepts an inline ``Agent(...)`` call directly, or a ``Name`` bound to one via
+    a prior ``agent = Agent(...)`` assignment (recorded in ``ctx.name_values``).
+    """
+    if isinstance(expr, ast.Call):
+        return expr
+    if isinstance(expr, ast.Name):
+        bound = ctx.name_values.get(expr.id)
+        if isinstance(bound, ast.Call):
+            return bound
+    return None
+
+
+def _agent_name(expr: ast.expr, agent_call: ast.Call | None) -> str:
+    """Display name for an agent reference, given its already-resolved ``Agent(...)`` call.
+
+    Prefers the ``Agent(name=...)`` keyword; falls back to the bound variable name,
+    else ``ast.unparse`` of the expression.
+    """
+    if agent_call is not None:
+        name_arg = _kwarg(agent_call, "name")
+        if name_arg is not None:
+            try:
+                return str(ast.literal_eval(name_arg))
+            except (ValueError, SyntaxError):
+                return ast.unparse(name_arg)
+    if isinstance(expr, ast.Name):
+        return expr.id
+    return ast.unparse(expr)
+
+
+def _agent_display_name(expr: ast.expr, ctx: "_TreeCtx") -> str:
+    """Display name for an agent reference (e.g. a handoff entry), resolving it via ``ctx``."""
+    return _agent_name(expr, _resolve_agent_call(expr, ctx))
+
+
+def _extract_agent_node_info(call: ast.Call, ctx: "_TreeCtx") -> tuple[str, list[str], list[str]]:
+    """Return ``(agent_name, tool_names, handoff_names)`` for a ``Runner.run`` call."""
+    agent_expr = _kwarg(call, "agent") or (call.args[0] if call.args else None)
+    if agent_expr is None:
+        return "agent", [], []
+
+    agent_call = _resolve_agent_call(agent_expr, ctx)
+    name = _agent_name(agent_expr, agent_call)
+    if agent_call is None:
+        return name, [], []
+
+    tools: list[str] = []
+    tools_arg = _kwarg(agent_call, "tools")
+    if isinstance(tools_arg, (ast.List, ast.Tuple, ast.Set)):
+        tools = [n for e in tools_arg.elts if (n := _tool_display_name(e)) is not None]
+
+    handoffs: list[str] = []
+    handoffs_arg = _kwarg(agent_call, "handoffs")
+    if isinstance(handoffs_arg, (ast.List, ast.Tuple, ast.Set)):
+        handoffs = [_agent_display_name(e, ctx) for e in handoffs_arg.elts]
+
+    return name, tools, handoffs
+
+
 class ActivityResolver:
     __slots__ = ()
 
@@ -1488,6 +1589,7 @@ def _walk_body_tree(
                             loop_counter=ctx.loop_counter,
                             try_counter=ctx.try_counter,
                             raise_counter=ctx.raise_counter,
+                            agent_counter=ctx.agent_counter,
                             cls_def=target.cls_def,
                             workflow_cls=ctx.workflow_cls,
                             visited_methods=ctx.visited_methods | {method_name},
@@ -1558,6 +1660,24 @@ def _walk_body_tree(
             else:
                 sr = _abs_range(file_ranges, file_path, cb, ce, line=call.lineno)
                 result.append(_make_ellipsis_node(ctx, workflow_name, sr))
+            continue
+
+        # --- agent run: await Runner.run(agent=..., ...) ---
+        if _is_runner_run_call(call):
+            agent_idx = ctx.agent_counter[0]
+            ctx.agent_counter[0] += 1
+            agent_name, tools, handoffs = _extract_agent_node_info(call, ctx)
+            cb, ce = _ast_span(call, index)
+            result.append(
+                {
+                    "kind": "agent",
+                    "id": f"{workflow_name}::agent_{agent_idx}@{call.lineno}",
+                    "label": agent_name,
+                    "tools": tools,
+                    "handoffs": handoffs,
+                    "source_range": _abs_range(file_ranges, file_path, cb, ce, line=call.lineno),
+                }
+            )
             continue
 
         # --- continue_as_new: terminates the branch ---
@@ -1875,15 +1995,31 @@ def _apply_child_workflow_fields(flat: dict, tree_node: dict) -> dict:
     return flat
 
 
+def _build_agent_node(node: dict, node_id: str, line: int) -> dict:
+    return {
+        "id": node_id,
+        "type": "agent",
+        "name": node.get("label", node_id),
+        "line": line,
+        "source_range": node["source_range"],
+        "tools": node.get("tools", []),
+        "handoffs": node.get("handoffs", []),
+    }
+
+
 def _flatten_tree(
     tree_nodes: list[dict],
     wf_name: str,
-    ep_name: str | None,
-    ep_begin: int | None,
-    ep_end: int | None,
-    ep_line: int | None,
     output_type: str | None,
-    file_ranges: dict[str, dict],
+    *,
+    ep_name: str | None = None,
+    ep_begin: int | None = None,
+    ep_end: int | None = None,
+    ep_line: int | None = None,
+    ep_end_line: int | None = None,
+    wf_begin: int | None = None,
+    wf_end: int | None = None,
+    wf_line: int | None = None,
 ) -> tuple[list[dict], list[dict]]:
     """Convert hierarchical tree from _walk_body_tree into flat nodes + edges."""
     flat_nodes: list[dict] = []
@@ -1896,6 +2032,10 @@ def _flatten_tree(
     # A branch/body ending in one of these is already terminated, so it is not
     # re-wired to a merge sink or the normal workflow output.
     terminal_exit_ids: set[str] = set()
+    # Conditionals whose every arm exits (return/raise) with no fall-through rejoin.
+    # The block they terminate does not flow on to the normal workflow output, so a
+    # trailing one must not emit a spurious sequential edge to it.
+    terminating_conditionals: set[str] = set()
 
     def add_node(node: dict) -> None:
         if node["id"] not in seen_node_ids:
@@ -2029,6 +2169,8 @@ def _flatten_tree(
                     "dispatch_label": child.get("dispatch_label", ""),
                 }
             )
+        elif kind == "agent":
+            add_node(_build_agent_node(child, child_id, child_line))
         elif kind == "conditional":
             if sink is None:
                 return
@@ -2300,6 +2442,19 @@ def _flatten_tree(
                 prev_id = node_id
                 first_kind = "sequential"
 
+            elif kind == "agent":
+                add_node(_build_agent_node(node, node_id, line))
+                add_edge(
+                    {
+                        "id": f"e-{prev_id}-{node_id}",
+                        "from": prev_id,
+                        "to": node_id,
+                        "kind": first_kind,
+                    }
+                )
+                prev_id = node_id
+                first_kind = "sequential"
+
             elif kind == "parallel":
                 child_ids: list[str] = []
                 branch_ids: list[list[str]] = []
@@ -2415,7 +2570,20 @@ def _flatten_tree(
                         # Terminal nodes and nested conditionals already emitted their exit edges.
                         if last_id in terminal_exit_ids or (last_id in conditional_ids and last_id != cond_id):
                             return
-                        emit_early_exit(last_id, cond_id, is_true, is_error)
+                        if is_error:
+                            emit_early_exit(last_id, cond_id, is_true, is_error)
+                        else:
+                            # A normal `return` converges on the single workflow output node
+                            # rather than a private per-branch exit node, so both arms of a
+                            # conditional meet at one downstream node.
+                            add_edge(
+                                {
+                                    "id": f"e-exit-{suffix}-{last_id}-{out_id}",
+                                    "from": last_id,
+                                    "to": out_id,
+                                    "kind": f"branch_exit_{suffix}",
+                                }
+                            )
                     elif sink is not None:
                         if last_id != cond_id:
                             if last_id not in conditional_ids and not has_edge_between(last_id, sink):
@@ -2445,20 +2613,25 @@ def _flatten_tree(
                     rejoin_start = branch_sink if branch_sink is not None else cond_id
                     prev_id = process_list(rejoin, rejoin_start, "sequential", terminal_id)
                 else:
+                    if true_exits and false_exits:
+                        terminating_conditionals.add(cond_id)
                     prev_id = cond_id
 
                 first_kind = "sequential"
 
         return prev_id
 
-    # Synthetic workflow root
+    # Synthetic workflow root — anchor at the workflow class definition rather than line 1.
+    root_line = wf_line or 1
+    root_begin = wf_begin if wf_begin is not None else 0
+    root_end = wf_end if wf_end is not None else 0
     add_node(
         {
             "id": wf_name,
             "type": "workflow",
             "name": wf_name,
-            "line": 1,
-            "source_range": {"begin": 0, "end": 0, "line": 1},
+            "line": root_line,
+            "source_range": {"begin": root_begin, "end": root_end, "line": root_line},
         }
     )
     chain_start = wf_name
@@ -2480,12 +2653,16 @@ def _flatten_tree(
 
     out_id = f"{wf_name}::output"
     out_label = output_type or "exit"
+    # Anchor the synthetic exit node at the end of the entrypoint (where the workflow
+    # returns) rather than the top of the file, so it doesn't render as "Line 1".
+    out_line = ep_end_line or 1
+    out_byte = ep_end if ep_end is not None else 0
 
     last_id = process_list(tree_nodes, chain_start, "sequential", out_id)
 
     # Suppress the normal "exit" node when nothing reaches it (e.g. the whole body
     # ends in a raise): only the red error terminal should be shown.
-    body_falls_through = last_id not in terminal_exit_ids
+    body_falls_through = last_id not in terminal_exit_ids and last_id not in terminating_conditionals
     out_referenced = any(e["to"] == out_id for e in flat_edges)
     if body_falls_through or out_referenced:
         add_node(
@@ -2493,8 +2670,8 @@ def _flatten_tree(
                 "id": out_id,
                 "type": "output",
                 "name": out_label,
-                "line": 1,
-                "source_range": {"begin": 0, "end": 0, "line": 1},
+                "line": out_line,
+                "source_range": {"begin": out_byte, "end": out_byte, "line": out_line},
             }
         )
     if body_falls_through:
@@ -2577,6 +2754,7 @@ def build_graph_dynamically(workflow_cls: type) -> AtlasWireFormat:
 
     index = _get_index(file_path, sources, asts, indices)
     ep_begin, ep_end = _ast_span(ep_def, index)
+    cls_begin, cls_end = _ast_span(cls_def, index)
     output_type: str | None = ast.unparse(ep_def.returns) if ep_def.returns is not None else None
 
     signals, updates, queries = _collect_class_handlers_runtime(workflow_cls, cls_def, index)
@@ -2584,12 +2762,15 @@ def build_graph_dynamically(workflow_cls: type) -> AtlasWireFormat:
     flat_nodes, flat_edges = _flatten_tree(
         tree_nodes,
         workflow_name,
-        ep_name,
-        ep_begin,
-        ep_end,
-        ep_def.lineno,
         output_type,
-        file_ranges,
+        ep_name=ep_name,
+        ep_begin=ep_begin,
+        ep_end=ep_end,
+        ep_line=ep_def.lineno,
+        ep_end_line=ep_def.end_lineno,
+        wf_begin=cls_begin,
+        wf_end=cls_end,
+        wf_line=cls_def.lineno,
     )
     _validate_flat_graph(workflow_name, flat_nodes, flat_edges)
 
@@ -2597,6 +2778,7 @@ def build_graph_dynamically(workflow_cls: type) -> AtlasWireFormat:
         {
             "version": 3,
             "workflow_name": workflow_name,
+            "sources": dict(sources),
             "files": file_ranges,
             "primary_file": next(iter(file_ranges), ""),
             "nodes": flat_nodes,
@@ -2733,6 +2915,7 @@ def build_graph_statically(
 
         index = _get_index(path, sources, asts, indices)
         ep_begin, ep_end = _ast_span(ep_def, index)
+        cls_begin, cls_end = _ast_span(cls_def, index)
         output_type: str | None = ast.unparse(ep_def.returns) if ep_def.returns is not None else None
 
         resolver = _StaticResolver(
@@ -2760,12 +2943,15 @@ def build_graph_statically(
         flat_nodes, flat_edges = _flatten_tree(
             tree_nodes,
             workflow_name,
-            ep_def.name,
-            ep_begin,
-            ep_end,
-            ep_def.lineno,
             output_type,
-            file_ranges,
+            ep_name=ep_def.name,
+            ep_begin=ep_begin,
+            ep_end=ep_end,
+            ep_line=ep_def.lineno,
+            ep_end_line=ep_def.end_lineno,
+            wf_begin=cls_begin,
+            wf_end=cls_end,
+            wf_line=cls_def.lineno,
         )
 
         try:
@@ -2780,6 +2966,7 @@ def build_graph_statically(
                 {
                     "version": 3,
                     "workflow_name": workflow_name,
+                    "sources": dict(sources),
                     "files": file_ranges,
                     "primary_file": next(iter(file_ranges), ""),
                     "nodes": flat_nodes,

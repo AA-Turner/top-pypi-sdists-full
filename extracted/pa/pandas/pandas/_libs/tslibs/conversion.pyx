@@ -711,7 +711,7 @@ cdef check_overflows(_TSObject obj, NPY_DATETIMEUNIT reso=NPY_FR_ns):
 # ----------------------------------------------------------------------
 # Localization
 
-cdef int _localize_tso(_TSObject obj, tzinfo tz, NPY_DATETIMEUNIT reso) except -1:
+cdef void _localize_tso(_TSObject obj, tzinfo tz, NPY_DATETIMEUNIT reso) noexcept:
     """
     Given the UTC nanosecond timestamp in obj.value, find the wall-clock
     representation of that timestamp in the given timezone.
@@ -751,8 +751,6 @@ cdef int _localize_tso(_TSObject obj, tzinfo tz, NPY_DATETIMEUNIT reso) except -
         pandas_datetime_to_datetimestruct(local_val, reso, &obj.dts)
 
     obj.tzinfo = tz
-
-    return 1
 
 
 cdef datetime _localize_pydatetime(datetime dt, tzinfo tz):

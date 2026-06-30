@@ -18,6 +18,185 @@ import System
 import System.Threading
 
 
+class LeanEngineSystemHandlers(System.Object, System.IDisposable):
+    """Provides a container for the system level handlers"""
+
+    @property
+    def api(self) -> QuantConnect.Interfaces.IApi:
+        """Gets the api instance used for communicating algorithm limits, status, and storing of log data"""
+        ...
+
+    @property
+    def notify(self) -> QuantConnect.Interfaces.IMessagingHandler:
+        """
+        Gets the messaging handler instance used for communicating various packets to listeners, including
+        debug/log messages, email/sms/web messages, as well as results and run time errors
+        """
+        ...
+
+    @property
+    def job_queue(self) -> QuantConnect.Interfaces.IJobQueueHandler:
+        """Gets the job queue responsible for acquiring and acknowledging an algorithm job"""
+        ...
+
+    @property
+    def lean_manager(self) -> QuantConnect.Lean.Engine.Server.ILeanManager:
+        """Gets the ILeanManager implementation using to enhance the hosting environment"""
+        ...
+
+    def __init__(self, job_queue: QuantConnect.Interfaces.IJobQueueHandler, api: QuantConnect.Interfaces.IApi, notify: QuantConnect.Interfaces.IMessagingHandler, lean_manager: QuantConnect.Lean.Engine.Server.ILeanManager) -> None:
+        """
+        Initializes a new instance of the LeanEngineSystemHandlers class with the specified handles
+        
+        :param job_queue: The job queue used to acquire algorithm jobs
+        :param api: The api instance used for communicating limits and status
+        :param notify: The messaging handler user for passing messages from the algorithm to listeners
+        :param lean_manager: 
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    @staticmethod
+    def from_configuration(composer: QuantConnect.Util.Composer) -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
+        """
+        Creates a new instance of the LeanEngineSystemHandlers class from the specified composer using type names from configuration
+        
+        :param composer: The composer instance to obtain implementations from
+        :returns: A fully hydrates LeanEngineSystemHandlers instance.
+        """
+        ...
+
+    def initialize(self) -> None:
+        """Initializes the Api, Messaging, and JobQueue components"""
+        ...
+
+
+class LeanEngineAlgorithmHandlers(System.Object, System.IDisposable):
+    """Provides a container for the algorithm specific handlers"""
+
+    @property
+    def results(self) -> QuantConnect.Lean.Engine.Results.IResultHandler:
+        """Gets the result handler used to communicate results from the algorithm"""
+        ...
+
+    @property
+    def setup(self) -> QuantConnect.Lean.Engine.Setup.ISetupHandler:
+        """Gets the setup handler used to initialize the algorithm state"""
+        ...
+
+    @property
+    def data_feed(self) -> QuantConnect.Lean.Engine.DataFeeds.IDataFeed:
+        """Gets the data feed handler used to provide data to the algorithm"""
+        ...
+
+    @property
+    def transactions(self) -> QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler:
+        """Gets the transaction handler used to process orders from the algorithm"""
+        ...
+
+    @property
+    def real_time(self) -> QuantConnect.Lean.Engine.RealTime.IRealTimeHandler:
+        """Gets the real time handler used to process real time events"""
+        ...
+
+    @property
+    def map_file_provider(self) -> QuantConnect.Interfaces.IMapFileProvider:
+        """Gets the map file provider used as a map file source for the data feed"""
+        ...
+
+    @property
+    def factor_file_provider(self) -> QuantConnect.Interfaces.IFactorFileProvider:
+        """Gets the map file provider used as a map file source for the data feed"""
+        ...
+
+    @property
+    def data_provider(self) -> QuantConnect.Interfaces.IDataProvider:
+        """Gets the data file provider used to retrieve security data if it is not on the file system"""
+        ...
+
+    @property
+    def data_cache_provider(self) -> QuantConnect.Interfaces.IDataCacheProvider:
+        """Gets the data file provider used to retrieve security data if it is not on the file system"""
+        ...
+
+    @property
+    def object_store(self) -> QuantConnect.Interfaces.IObjectStore:
+        """Gets the object store used for persistence"""
+        ...
+
+    @property
+    def data_permissions_manager(self) -> QuantConnect.Interfaces.IDataPermissionManager:
+        """Entity in charge of handling data permissions"""
+        ...
+
+    @property
+    def data_monitor(self) -> QuantConnect.Interfaces.IDataMonitor:
+        """Monitors data requests and reports on missing data"""
+        ...
+
+    def __init__(self, results: QuantConnect.Lean.Engine.Results.IResultHandler, setup: QuantConnect.Lean.Engine.Setup.ISetupHandler, data_feed: QuantConnect.Lean.Engine.DataFeeds.IDataFeed, transactions: QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler, real_time: QuantConnect.Lean.Engine.RealTime.IRealTimeHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider, object_store: QuantConnect.Interfaces.IObjectStore, data_permissions_manager: QuantConnect.Interfaces.IDataPermissionManager, live_mode: bool, research_mode: bool = False, data_monitor: QuantConnect.Interfaces.IDataMonitor = None) -> None:
+        """
+        Initializes a new instance of the LeanEngineAlgorithmHandlers class from the specified handlers
+        
+        :param results: The result handler for communicating results from the algorithm
+        :param setup: The setup handler used to initialize algorithm state
+        :param data_feed: The data feed handler used to pump data to the algorithm
+        :param transactions: The transaction handler used to process orders from the algorithm
+        :param real_time: The real time handler used to process real time events
+        :param map_file_provider: The map file provider used to retrieve map files for the data feed
+        :param factor_file_provider: Map file provider used as a map file source for the data feed
+        :param data_provider: file provider used to retrieve security data if it is not on the file system
+        :param object_store: The object store used for persistence
+        :param data_permissions_manager: The data permission manager to use
+        :param live_mode: True for live mode, false otherwise
+        :param research_mode: True for research mode, false otherwise. This has less priority than live_mode
+        :param data_monitor: Optionally the data monitor instance to use
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    @staticmethod
+    def from_configuration(composer: QuantConnect.Util.Composer, research_mode: bool = False) -> QuantConnect.Lean.Engine.LeanEngineAlgorithmHandlers:
+        """
+        Creates a new instance of the LeanEngineAlgorithmHandlers class from the specified composer using type names from configuration
+        
+        :param composer: The composer instance to obtain implementations from
+        :param research_mode: True for research mode, false otherwise
+        :returns: A fully hydrates LeanEngineSystemHandlers instance.
+        """
+        ...
+
+    @staticmethod
+    def initialize_auxiliary_data_providers(set_globals: bool = False) -> System.ValueTuple[QuantConnect.Interfaces.IMapFileProvider, QuantConnect.Interfaces.IFactorFileProvider, QuantConnect.Interfaces.IDataProvider]:
+        """Creates and initializes the auxiliary data providers from configuration"""
+        ...
+
+
+class Initializer(System.Object):
+    """Helper class to initialize a Lean engine"""
+
+    @staticmethod
+    def get_algorithm_handlers(research_mode: bool = False) -> QuantConnect.Lean.Engine.LeanEngineAlgorithmHandlers:
+        """Get and initializes Algorithm Handler"""
+        ...
+
+    @staticmethod
+    def get_system_handlers() -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
+        """Get and initializes System Handler"""
+        ...
+
+    @staticmethod
+    def start() -> None:
+        """Basic common Lean initialization"""
+        ...
+
+
 class AlgorithmTimeLimitManager(System.Object, QuantConnect.IIsolatorLimitResultProvider):
     """
     Provides an implementation of IIsolatorLimitResultProvider that tracks the algorithm
@@ -168,185 +347,6 @@ class AlgorithmManager(System.Object):
 
     def set_status(self, state: QuantConnect.AlgorithmStatus) -> None:
         """Set the quit state."""
-        ...
-
-
-class LeanEngineAlgorithmHandlers(System.Object, System.IDisposable):
-    """Provides a container for the algorithm specific handlers"""
-
-    @property
-    def results(self) -> QuantConnect.Lean.Engine.Results.IResultHandler:
-        """Gets the result handler used to communicate results from the algorithm"""
-        ...
-
-    @property
-    def setup(self) -> QuantConnect.Lean.Engine.Setup.ISetupHandler:
-        """Gets the setup handler used to initialize the algorithm state"""
-        ...
-
-    @property
-    def data_feed(self) -> QuantConnect.Lean.Engine.DataFeeds.IDataFeed:
-        """Gets the data feed handler used to provide data to the algorithm"""
-        ...
-
-    @property
-    def transactions(self) -> QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler:
-        """Gets the transaction handler used to process orders from the algorithm"""
-        ...
-
-    @property
-    def real_time(self) -> QuantConnect.Lean.Engine.RealTime.IRealTimeHandler:
-        """Gets the real time handler used to process real time events"""
-        ...
-
-    @property
-    def map_file_provider(self) -> QuantConnect.Interfaces.IMapFileProvider:
-        """Gets the map file provider used as a map file source for the data feed"""
-        ...
-
-    @property
-    def factor_file_provider(self) -> QuantConnect.Interfaces.IFactorFileProvider:
-        """Gets the map file provider used as a map file source for the data feed"""
-        ...
-
-    @property
-    def data_provider(self) -> QuantConnect.Interfaces.IDataProvider:
-        """Gets the data file provider used to retrieve security data if it is not on the file system"""
-        ...
-
-    @property
-    def data_cache_provider(self) -> QuantConnect.Interfaces.IDataCacheProvider:
-        """Gets the data file provider used to retrieve security data if it is not on the file system"""
-        ...
-
-    @property
-    def object_store(self) -> QuantConnect.Interfaces.IObjectStore:
-        """Gets the object store used for persistence"""
-        ...
-
-    @property
-    def data_permissions_manager(self) -> QuantConnect.Interfaces.IDataPermissionManager:
-        """Entity in charge of handling data permissions"""
-        ...
-
-    @property
-    def data_monitor(self) -> QuantConnect.Interfaces.IDataMonitor:
-        """Monitors data requests and reports on missing data"""
-        ...
-
-    def __init__(self, results: QuantConnect.Lean.Engine.Results.IResultHandler, setup: QuantConnect.Lean.Engine.Setup.ISetupHandler, data_feed: QuantConnect.Lean.Engine.DataFeeds.IDataFeed, transactions: QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler, real_time: QuantConnect.Lean.Engine.RealTime.IRealTimeHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider, object_store: QuantConnect.Interfaces.IObjectStore, data_permissions_manager: QuantConnect.Interfaces.IDataPermissionManager, live_mode: bool, research_mode: bool = False, data_monitor: QuantConnect.Interfaces.IDataMonitor = None) -> None:
-        """
-        Initializes a new instance of the LeanEngineAlgorithmHandlers class from the specified handlers
-        
-        :param results: The result handler for communicating results from the algorithm
-        :param setup: The setup handler used to initialize algorithm state
-        :param data_feed: The data feed handler used to pump data to the algorithm
-        :param transactions: The transaction handler used to process orders from the algorithm
-        :param real_time: The real time handler used to process real time events
-        :param map_file_provider: The map file provider used to retrieve map files for the data feed
-        :param factor_file_provider: Map file provider used as a map file source for the data feed
-        :param data_provider: file provider used to retrieve security data if it is not on the file system
-        :param object_store: The object store used for persistence
-        :param data_permissions_manager: The data permission manager to use
-        :param live_mode: True for live mode, false otherwise
-        :param research_mode: True for research mode, false otherwise. This has less priority than live_mode
-        :param data_monitor: Optionally the data monitor instance to use
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    @staticmethod
-    def from_configuration(composer: QuantConnect.Util.Composer, research_mode: bool = False) -> QuantConnect.Lean.Engine.LeanEngineAlgorithmHandlers:
-        """
-        Creates a new instance of the LeanEngineAlgorithmHandlers class from the specified composer using type names from configuration
-        
-        :param composer: The composer instance to obtain implementations from
-        :param research_mode: True for research mode, false otherwise
-        :returns: A fully hydrates LeanEngineSystemHandlers instance.
-        """
-        ...
-
-    @staticmethod
-    def initialize_auxiliary_data_providers(set_globals: bool = False) -> System.ValueTuple[QuantConnect.Interfaces.IMapFileProvider, QuantConnect.Interfaces.IFactorFileProvider, QuantConnect.Interfaces.IDataProvider]:
-        """Creates and initializes the auxiliary data providers from configuration"""
-        ...
-
-
-class LeanEngineSystemHandlers(System.Object, System.IDisposable):
-    """Provides a container for the system level handlers"""
-
-    @property
-    def api(self) -> QuantConnect.Interfaces.IApi:
-        """Gets the api instance used for communicating algorithm limits, status, and storing of log data"""
-        ...
-
-    @property
-    def notify(self) -> QuantConnect.Interfaces.IMessagingHandler:
-        """
-        Gets the messaging handler instance used for communicating various packets to listeners, including
-        debug/log messages, email/sms/web messages, as well as results and run time errors
-        """
-        ...
-
-    @property
-    def job_queue(self) -> QuantConnect.Interfaces.IJobQueueHandler:
-        """Gets the job queue responsible for acquiring and acknowledging an algorithm job"""
-        ...
-
-    @property
-    def lean_manager(self) -> QuantConnect.Lean.Engine.Server.ILeanManager:
-        """Gets the ILeanManager implementation using to enhance the hosting environment"""
-        ...
-
-    def __init__(self, job_queue: QuantConnect.Interfaces.IJobQueueHandler, api: QuantConnect.Interfaces.IApi, notify: QuantConnect.Interfaces.IMessagingHandler, lean_manager: QuantConnect.Lean.Engine.Server.ILeanManager) -> None:
-        """
-        Initializes a new instance of the LeanEngineSystemHandlers class with the specified handles
-        
-        :param job_queue: The job queue used to acquire algorithm jobs
-        :param api: The api instance used for communicating limits and status
-        :param notify: The messaging handler user for passing messages from the algorithm to listeners
-        :param lean_manager: 
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    @staticmethod
-    def from_configuration(composer: QuantConnect.Util.Composer) -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
-        """
-        Creates a new instance of the LeanEngineSystemHandlers class from the specified composer using type names from configuration
-        
-        :param composer: The composer instance to obtain implementations from
-        :returns: A fully hydrates LeanEngineSystemHandlers instance.
-        """
-        ...
-
-    def initialize(self) -> None:
-        """Initializes the Api, Messaging, and JobQueue components"""
-        ...
-
-
-class Initializer(System.Object):
-    """Helper class to initialize a Lean engine"""
-
-    @staticmethod
-    def get_algorithm_handlers(research_mode: bool = False) -> QuantConnect.Lean.Engine.LeanEngineAlgorithmHandlers:
-        """Get and initializes Algorithm Handler"""
-        ...
-
-    @staticmethod
-    def get_system_handlers() -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
-        """Get and initializes System Handler"""
-        ...
-
-    @staticmethod
-    def start() -> None:
-        """Basic common Lean initialization"""
         ...
 
 

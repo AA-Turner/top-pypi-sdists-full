@@ -118,11 +118,11 @@ class HomogeneousMedium(Medium):
             warnings.warn("kWave is not available. Medium properties stored in medium_properties dictionary.", UserWarning)
 
         # 8. Save variables for later use
-        self.factorX = int(np.ceil(self.params.general['dx'] / dx))
-        self.factorZ = int(np.ceil(self.params.general['dz'] / dz))
+        self.factorX = int(np.floor(self.params.general['dx'] / dx))
+        self.factorZ = int(np.floor(self.params.general['dz'] / dz))
         
         if KWAVE_AVAILABLE and self.kgrid is not None:
-            self.factorT = int(np.ceil((1 / self.kgrid.dt) / self.params.acoustic['f_saving']))
+            self.factorT = int(np.floor((1 / self.kgrid.dt) / self.params.acoustic['f_saving']))
         else:
             self.factorT = 1
             

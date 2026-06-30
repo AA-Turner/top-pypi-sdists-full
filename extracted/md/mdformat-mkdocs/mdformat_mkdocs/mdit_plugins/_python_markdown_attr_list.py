@@ -17,7 +17,6 @@ from markdown_it import MarkdownIt
 from mdformat_mkdocs._synced.admon_factories import new_token
 
 if TYPE_CHECKING:
-    from markdown_it import MarkdownIt
     from markdown_it.rules_inline import StateInline
 
 _ATTR_LIST_PATTERN = re.compile(r"{:? (?P<attrs>[^}]+) }")
@@ -38,20 +37,22 @@ def _python_markdown_attr_list(state: StateInline, silent: bool) -> bool:
     if state.linkLevel > 0:
         return False
 
-    # Look backwards for unclosed '['
-    search_start = max(0, state.pos - 100)  # Limit backwards search
-    text_before = state.src[search_start:state.pos]
+    # Look backwards for unclosed '[' — no length cap; any fixed cap fails for long URLs.
+    text_before = state.src[: state.pos]
     open_brackets = text_before.count("[") - text_before.count("]")
     if open_brackets > 0:
         # We might be inside a link, check if there's '](' after our match
         match_end_pos = state.pos + match.end()
         if match_end_pos < len(state.src):
-            lookahead = state.src[match_end_pos:min(match_end_pos + 100, len(state.src))]
+            lookahead = state.src[
+                match_end_pos : min(match_end_pos + 100, len(state.src))
+            ]
             if "](" in lookahead:
                 # Very likely inside link text, don't match
                 return False
 
     if silent:
+        state.pos += match.end()  # skipToken only auto-advances when ok=False
         return True
 
     original_pos = state.pos

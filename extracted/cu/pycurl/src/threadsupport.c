@@ -3,6 +3,18 @@
 PYCURL_INTERNAL PyThreadState *
 pycurl_get_thread_state(const CurlObject *self)
 {
+    PyThreadState **slot = pycurl_get_thread_state_slot((CurlObject *)self);
+    if (slot == NULL) {
+        return NULL;
+    } else {
+        return *slot;
+    }
+}
+
+
+PYCURL_INTERNAL PyThreadState **
+pycurl_get_thread_state_slot(CurlObject *self)
+{
     /* Get the thread state for callbacks to run in.
      * This is either `self->state' when running inside perform() or
      * `self->multi_stack->state' when running inside multi_perform().
@@ -19,7 +31,7 @@ pycurl_get_thread_state(const CurlObject *self)
         if (self->multi_stack != NULL) {
             assert(self->multi_stack->state == NULL);
         }
-        return self->state;
+        return &self->state;
     }
     if (self->multi_stack != NULL && self->multi_stack->state != NULL)
     {
@@ -27,14 +39,14 @@ pycurl_get_thread_state(const CurlObject *self)
         assert(self->handle != NULL);
         assert(self->multi_stack->multi_handle != NULL);
         assert(self->state == NULL);
-        return self->multi_stack->state;
+        return &self->multi_stack->state;
     }
     return NULL;
 }
 
 
-PYCURL_INTERNAL PyThreadState *
-pycurl_get_thread_state_multi(const CurlMultiObject *self)
+PYCURL_INTERNAL PyThreadState **
+pycurl_get_thread_state_slot_multi(CurlMultiObject *self)
 {
     /* Get the thread state for callbacks to run in when given
      * multi handles instead of regular handles
@@ -46,38 +58,39 @@ pycurl_get_thread_state_multi(const CurlMultiObject *self)
     {
         /* inside multi_perform() */
         assert(self->multi_handle != NULL);
-        return self->state;
+        return &self->state;
     }
     return NULL;
 }
 
 
 PYCURL_INTERNAL int
-pycurl_acquire_thread(const CurlObject *self, PyThreadState **state)
+pycurl_python_enter(PyThreadState **tstate)
 {
-    *state = pycurl_get_thread_state(self);
-    if (*state == NULL)
+    /* graceful skip if no perform is open on this handle */
+    if (tstate == NULL || *tstate == NULL) {
         return 0;
-    PyEval_AcquireThread(*state);
-    return 1;
-}
-
-
-PYCURL_INTERNAL int
-pycurl_acquire_thread_multi(const CurlMultiObject *self, PyThreadState **state)
-{
-    *state = pycurl_get_thread_state_multi(self);
-    if (*state == NULL)
-        return 0;
-    PyEval_AcquireThread(*state);
+    }
+    /* On 3.13+ PyEval_RestoreThread itself fatals if the calling thread
+       already has a state attached. On 3.10-3.12 there is no public
+       per-thread accessor we can check before take_gil(). */
+    PyEval_RestoreThread(*tstate);
     return 1;
 }
 
 
 PYCURL_INTERNAL void
-pycurl_release_thread(PyThreadState *state)
+pycurl_python_leave(PyThreadState **tstate)
 {
-    PyEval_ReleaseThread(state);
+    /* slot is set by PYCURL_BEGIN_ALLOW_THREADS_*; identity-check, then
+       detach without overwriting it */
+    if (tstate == NULL || *tstate == NULL) {
+        Py_FatalError("pycurl_python_leave: NULL thread state slot");
+    }
+    if (PyThreadState_Get() != *tstate) {
+        Py_FatalError("pycurl_python_leave: attached thread state differs from slot");
+    }
+    (void)PyEval_SaveThread();
 }
 
 /*************************************************************************
@@ -87,15 +100,15 @@ pycurl_release_thread(PyThreadState *state)
 #ifdef PYCURL_NEED_OPENSSL_TSL
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000
-static PyThread_type_lock *pycurl_openssl_tsl = NULL;
+static pycurl_mutex_t *pycurl_openssl_tsl = NULL;
 
 static void
 pycurl_ssl_lock(int mode, int n, const char * file, int line)
 {
     if (mode & CRYPTO_LOCK) {
-        PyThread_acquire_lock(pycurl_openssl_tsl[n], 1);
+        PYCURL_MUTEX_LOCK(&pycurl_openssl_tsl[n]);
     } else {
-        PyThread_release_lock(pycurl_openssl_tsl[n]);
+        PYCURL_MUTEX_UNLOCK(&pycurl_openssl_tsl[n]);
     }
 }
 
@@ -120,14 +133,22 @@ PYCURL_INTERNAL int
 pycurl_ssl_init(void)
 {
 #if OPENSSL_VERSION_NUMBER < 0x10100000
-    int i, c = CRYPTO_num_locks();
+    int c = CRYPTO_num_locks();
 
-    pycurl_openssl_tsl = PyMem_New(PyThread_type_lock, c);
+#if PY_VERSION_HEX >= 0x030D0000
+    pycurl_openssl_tsl = PyMem_Calloc(c, sizeof(pycurl_mutex_t));
     if (pycurl_openssl_tsl == NULL) {
         PyErr_NoMemory();
         return -1;
     }
-    memset(pycurl_openssl_tsl, 0, sizeof(PyThread_type_lock) * c);
+#else
+    int i;
+    pycurl_openssl_tsl = PyMem_New(pycurl_mutex_t, c);
+    if (pycurl_openssl_tsl == NULL) {
+        PyErr_NoMemory();
+        return -1;
+    }
+    memset(pycurl_openssl_tsl, 0, sizeof(pycurl_mutex_t) * c);
 
     for (i = 0; i < c; ++i) {
         pycurl_openssl_tsl[i] = PyThread_allocate_lock();
@@ -136,10 +157,12 @@ pycurl_ssl_init(void)
                 PyThread_free_lock(pycurl_openssl_tsl[i]);
             }
             PyMem_Free(pycurl_openssl_tsl);
+            pycurl_openssl_tsl = NULL;
             PyErr_NoMemory();
             return -1;
         }
     }
+#endif
 
 #if OPENSSL_VERSION_NUMBER >= 0x10000000
     CRYPTO_THREADID_set_callback(pycurl_ssl_threadid_callback);
@@ -156,8 +179,6 @@ pycurl_ssl_cleanup(void)
 {
 #if OPENSSL_VERSION_NUMBER < 0x10100000
     if (pycurl_openssl_tsl) {
-        int i, c = CRYPTO_num_locks();
-
 #if OPENSSL_VERSION_NUMBER >= 0x10000000
         CRYPTO_THREADID_set_callback(NULL);
 #else
@@ -165,9 +186,14 @@ pycurl_ssl_cleanup(void)
 #endif
         CRYPTO_set_locking_callback(NULL);
 
-        for (i = 0; i < c; ++i) {
-            PyThread_free_lock(pycurl_openssl_tsl[i]);
+#if PY_VERSION_HEX < 0x030D0000
+        {
+            int i, c = CRYPTO_num_locks();
+            for (i = 0; i < c; ++i) {
+                PyThread_free_lock(pycurl_openssl_tsl[i]);
+            }
         }
+#endif
 
         PyMem_Free(pycurl_openssl_tsl);
         pycurl_openssl_tsl = NULL;
@@ -276,18 +302,26 @@ pycurl_ssl_cleanup(void)
 PYCURL_INTERNAL void
 share_lock_lock(ShareLock *lock, curl_lock_data data)
 {
-    PyThread_acquire_lock(lock->locks[data], 1);
+    PYCURL_MUTEX_LOCK(&lock->locks[data]);
 }
 
 PYCURL_INTERNAL void
 share_lock_unlock(ShareLock *lock, curl_lock_data data)
 {
-    PyThread_release_lock(lock->locks[data]);
+    PYCURL_MUTEX_UNLOCK(&lock->locks[data]);
 }
 
 PYCURL_INTERNAL ShareLock *
 share_lock_new(void)
 {
+#if PY_VERSION_HEX >= 0x030D0000
+    ShareLock *lock = PyMem_Calloc(1, sizeof(ShareLock));
+    if (lock == NULL) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+    return lock;
+#else
     int i;
     ShareLock *lock = PyMem_New(ShareLock, 1);
     if (lock == NULL) {
@@ -311,20 +345,21 @@ error:
     }
     PyMem_Free(lock);
     return NULL;
+#endif
 }
 
 PYCURL_INTERNAL void
 share_lock_destroy(ShareLock *lock)
 {
-    int i;
-
     assert(lock);
-    for (i = 0; i < CURL_LOCK_DATA_LAST; ++i){
+#if PY_VERSION_HEX < 0x030D0000
+    int i;
+    for (i = 0; i < CURL_LOCK_DATA_LAST; ++i) {
         assert(lock->locks[i] != NULL);
         PyThread_free_lock(lock->locks[i]);
     }
+#endif
     PyMem_Free(lock);
-    lock = NULL;
 }
 
 PYCURL_INTERNAL void

@@ -8,7 +8,7 @@ requires = [
     "packaging",
     # XXX dependence on wheel is historical, with setuptools >= v70.1.0 this is not needed anymore
     "wheel !=0.38.0, !=0.38.1",
-    "ctypesgen @ git+https://github.com/pypdfium2-team/ctypesgen@062a4ed4f3d6e205b8638fc1f22fa7ae50ad896d",
+    "ctypesgen @ git+https://github.com/pypdfium2-team/ctypesgen@7e648e647730e267848e9dc8ba0b513470606785",
 ]
 
 [tool.cibuildwheel]
@@ -104,7 +104,7 @@ inherit.environment-pass = "append"
 environment-pass = ["RUNNER_ARCH"]
 inherit.before-all = "prepend"
 before-all = [
-    "bash ./utils/install-static-clang.sh",
+    "bash ./utils/install-static-clang.sh -d {project}/clang_image -m skip-download",
     "export CLANG_PREFIX=/opt/clang",
 ]
 inherit.environment = "append"

@@ -8,7 +8,8 @@ description: |
 
   This project manages:
   - Dedicated runtime service account (internal-mcp-sa)
-  - Cloud Run services for hosted MCP servers (ops-mcp, ops-mcp-preview)
+  - Cloud Run services for hosted MCP servers (ops-mcp, ops-mcp-preview,
+    cloud-mcp, cloud-mcp-preview)
   - External HTTPS load balancer with path-based routing and URL rewriting
   - Managed TLS certificate for mcp.internal.airbyte.ai
   - DNS A record for mcp.internal.airbyte.ai

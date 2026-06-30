@@ -56,6 +56,36 @@ PROVIDERS: dict[str, dict] = {
 }
 
 
+def probe_server_context(base_url: str, *, timeout: float = 4.0) -> int | None:
+    """Best-effort: ask the model server its REAL context window (tokens).
+    llama.cpp exposes it on `/props` (n_ctx); vLLM puts `max_model_len` on
+    `/v1/models`. Returns None if unknown/unreachable — never raises. This is the
+    definitive diagnostic for a "stuck at N tokens" cap that isn't drydock's
+    config (it's the server's own `-c` / `--ctx-size` / `max_model_len`)."""
+    import json
+    import urllib.request
+
+    root = base_url.rstrip("/")
+    base_no_v1 = root[:-3].rstrip("/") if root.endswith("/v1") else root
+
+    def _n_ctx(d):
+        return (d.get("default_generation_settings") or {}).get("n_ctx") or d.get("n_ctx")
+
+    def _max_model_len(d):
+        return next((m.get("max_model_len") for m in d.get("data", []) if m.get("max_model_len")), None)
+
+    for url, pick in ((base_no_v1 + "/props", _n_ctx), (root + "/models", _max_model_len)):
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as r:  # noqa: S310 (user's own server)
+                data = json.loads(r.read().decode("utf-8", "ignore"))
+            val = pick(data)
+            if isinstance(val, int) and val > 0:
+                return val
+        except Exception:  # noqa: BLE001 — best-effort probe
+            continue
+    return None
+
+
 class LLMUnreachable(RuntimeError):
     """The configured LLM endpoint could not be reached. Carries a
     user-facing message with remediation steps (shown verbatim in the TUI)."""
@@ -220,16 +250,11 @@ _IMAGE_MIME = {
 }
 
 
-def _user_content_with_images(content):
-    """Vision support: if the user's text references image file paths that exist
-    on disk, attach them as OpenAI multimodal image_url blocks (works with any
-    --mmproj-enabled server). Text-only prompts pass through unchanged as a plain
-    string, so display / loop-detection / compaction / token-counting (which all
-    assume string content) are untouched — the multimodal list is built ONLY here,
-    at the API boundary."""
+def detect_image_paths(content) -> list[str]:
+    """Image file paths referenced in a user message that exist on disk. Shared
+    by the multimodal attach (below) and the TUI (to confirm '📎 attached')."""
     if not isinstance(content, str) or "." not in content:
-        return content
-    import base64
+        return []
     import os
     import re
 
@@ -251,19 +276,48 @@ def _user_content_with_images(content):
         p = os.path.expanduser(raw)
         if os.path.isfile(p) and p not in seen:
             seen.append(p)
+    return seen
+
+
+_MAX_IMAGE_BYTES = 20_000_000  # don't base64 a >20MB file into a request
+
+
+def _image_url_block(path: str) -> dict | None:
+    """A base64 data-URL image_url block for an on-disk image, or None if it
+    can't be read / is too large."""
+    import base64
+    import os
+
+    try:
+        if os.path.getsize(path) > _MAX_IMAGE_BYTES:
+            return None
+        with open(path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+    except OSError:
+        return None
+    mime = _IMAGE_MIME.get(os.path.splitext(path)[1].lower(), "image/png")
+    return {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}
+
+
+def _content_with_images(content):
+    """Turn text that references on-disk image paths into a multimodal content
+    list ([text, image_url…]); text without resolvable images passes through
+    unchanged. Used for BOTH user messages (the user names an image) and
+    ViewImage tool results (the AGENT chose to view one) — built ONLY here at the
+    API boundary so display/compaction/token-counting still see plain strings."""
+    seen = detect_image_paths(content)
     if not seen:
         return content
     blocks: list[dict] = [{"type": "text", "text": content}]
     for p in seen:
-        mime = _IMAGE_MIME.get(os.path.splitext(p)[1].lower(), "image/png")
-        try:
-            with open(p, "rb") as f:
-                b64 = base64.b64encode(f.read()).decode()
-        except OSError:
-            continue
-        blocks.append({"type": "image_url",
-                       "image_url": {"url": f"data:{mime};base64,{b64}"}})
+        block = _image_url_block(p)
+        if block:
+            blocks.append(block)
     return blocks if len(blocks) > 1 else content
+
+
+# Back-compat alias (user-message vision).
+_user_content_with_images = _content_with_images
 
 
 def messages_to_openai(messages: list, system: str) -> list:
@@ -292,10 +346,17 @@ def messages_to_openai(messages: list, system: str) -> list:
                 ]
             result.append(msg)
         elif role == "tool":
+            content = m["content"]
+            # Agent-side vision: a ViewImage result names an image the agent chose
+            # to look at — attach it so the model SEES it (servers read images
+            # from tool messages too, verified). Only ViewImage, so an unrelated
+            # tool mentioning a .png path never balloons the request.
+            if m.get("name") == "ViewImage" and isinstance(content, str):
+                content = _content_with_images(content)
             result.append({
                 "role": "tool",
                 "tool_call_id": m["tool_call_id"],
-                "content": m["content"],
+                "content": content,
             })
     return result
 

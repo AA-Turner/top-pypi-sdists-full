@@ -1,32 +1,33 @@
 Metadata-Version: 2.4
 Name: earthkit-data
-Version: 0.20.0
+Version: 1.0.0
 Summary: A format-agnostic Python interface for geospatial data
 Author-email: "European Centre for Medium-Range Weather Forecasts (ECMWF)" <software.support@ecmwf.int>
-License: Apache License Version 2.0
+License-Expression: Apache-2.0
 Project-URL: Documentation, https://earthkit-data.readthedocs.io/
 Project-URL: Homepage, https://github.com/ecmwf/earthkit-data/
-Project-URL: Issues, https://github.com/ecmwf/earthkit-data.issues
+Project-URL: Issues, https://github.com/ecmwf/earthkit-data/issues
 Project-URL: Repository, https://github.com/ecmwf/earthkit-data/
-Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-License-File: LICENCE
 Requires-Dist: cfgrib>=0.9.10.1
 Requires-Dist: dask
 Requires-Dist: deprecation
-Requires-Dist: earthkit-utils<0.99,>=0.2
-Requires-Dist: eccodes>=1.7
+Requires-Dist: earthkit-utils~=1.0
+Requires-Dist: eccodes>=2.47.0
+Requires-Dist: eccodeslib==2.47.3.21
+Requires-Dist: eckit==2.1.0.21
 Requires-Dist: entrypoints
 Requires-Dist: filelock
 Requires-Dist: jinja2
@@ -41,7 +42,7 @@ Requires-Dist: pyyaml
 Requires-Dist: tqdm>=4.63
 Requires-Dist: xarray>=0.19
 Provides-Extra: all
-Requires-Dist: earthkit-data[cds,covjsonkit,ecmwf-opendata,fdb,geo,geopandas,gribjump,iris,mars,odb,polytope,projection,s3,wekeo]; extra == "all"
+Requires-Dist: earthkit-data[cds,covjsonkit,ecmwf-opendata,fdb,geopandas,gribjump,iris,mars,odb,polytope,projection,s3,wekeo]; extra == "all"
 Provides-Extra: cds
 Requires-Dist: cdsapi>=0.7.2; extra == "cds"
 Provides-Extra: ci
@@ -51,20 +52,28 @@ Requires-Dist: covjsonkit>=0.2.2; extra == "covjsonkit"
 Provides-Extra: dev
 Requires-Dist: earthkit-data[all,docs,geotiff,iris,test]; extra == "dev"
 Provides-Extra: docs
+Requires-Dist: docutils; extra == "docs"
+Requires-Dist: entrypoints; extra == "docs"
+Requires-Dist: filelock; extra == "docs"
+Requires-Dist: furo; extra == "docs"
+Requires-Dist: ipykernel; extra == "docs"
 Requires-Dist: nbsphinx; extra == "docs"
+Requires-Dist: pandas; extra == "docs"
 Requires-Dist: pygments>=2.6.1; extra == "docs"
+Requires-Dist: setuptools; extra == "docs"
 Requires-Dist: sphinx>=7.3.7; extra == "docs"
 Requires-Dist: sphinx-autoapi; extra == "docs"
 Requires-Dist: sphinx-copybutton; extra == "docs"
+Requires-Dist: sphinx-design; extra == "docs"
 Requires-Dist: sphinx-issues; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"
 Requires-Dist: sphinx-tabs; extra == "docs"
+Requires-Dist: tqdm; extra == "docs"
+Requires-Dist: xarray; extra == "docs"
 Provides-Extra: ecmwf-opendata
 Requires-Dist: ecmwf-opendata>=0.3.3; extra == "ecmwf-opendata"
 Provides-Extra: fdb
-Requires-Dist: pyfdb<1,>=0.1; extra == "fdb"
-Provides-Extra: geo
-Requires-Dist: earthkit-geo<0.99,>=0.2; extra == "geo"
+Requires-Dist: pyfdb<1.0,>=0.1; extra == "fdb"
 Provides-Extra: geopandas
 Requires-Dist: geopandas; extra == "geopandas"
 Provides-Extra: geotiff
@@ -72,7 +81,7 @@ Requires-Dist: pyproj; extra == "geotiff"
 Requires-Dist: rasterio; extra == "geotiff"
 Requires-Dist: rioxarray; extra == "geotiff"
 Provides-Extra: gribjump
-Requires-Dist: pyfdb<1,>=0.1; extra == "gribjump"
+Requires-Dist: pyfdb>=0.1; extra == "gribjump"
 Requires-Dist: pygribjump; extra == "gribjump"
 Provides-Extra: iris
 Requires-Dist: ncdata>=0.3.2; extra == "iris"
@@ -102,7 +111,6 @@ Provides-Extra: wekeo
 Requires-Dist: hda>=2.22; extra == "wekeo"
 Provides-Extra: zarr
 Requires-Dist: zarr>=3; extra == "zarr"
-Dynamic: license-file
 
 <p align="center">
   <picture>
@@ -116,7 +124,7 @@ Dynamic: license-file
     <img src="https://github.com/ecmwf/codex/raw/refs/heads/main/ESEE/foundation_badge.svg" alt="ECMWF Software EnginE">
   </a>
   <a href="https://github.com/ecmwf/codex/raw/refs/heads/main/Project Maturity">
-    <img src="https://github.com/ecmwf/codex/raw/refs/heads/main/Project Maturity/incubating_badge.svg" alt="Maturity Level">
+    <img src="https://github.com/ecmwf/codex/raw/refs/heads/main/Project Maturity/graduated_badge.svg" alt="Maturity Level">
   </a>
   <!-- <a href="https://codecov.io/gh/ecmwf/earthkit-data">
     <img src="https://codecov.io/gh/ecmwf/earthkit-data/branch/main/graph/badge.svg" alt="Code Coverage">
@@ -141,7 +149,7 @@ Dynamic: license-file
 </p>
 
 > \[!IMPORTANT\]
-> This software is **Incubating** and subject to ECMWF's guidelines on [Software Maturity](https://github.com/ecmwf/codex/raw/refs/heads/main/Project%20Maturity).
+> This software is **Graduated** and subject to ECMWF's guidelines on [Software Maturity](https://github.com/ecmwf/codex/raw/refs/heads/main/Project%20Maturity).
 
 **earthkit-data** is a format-agnostic interface for geospatial data with a focus on meteorology and
 climate science. It is the data handling component of [earthkit](https://github.com/ecmwf/earthkit).
@@ -165,7 +173,7 @@ Install from PyPI:
 pip install earthkit-data
 ```
 
-More details, such as optional dependencies can be found at https://earthkit-data.readthedocs.io/en/latest/install.html.
+More details, such as optional dependencies can be found at https://earthkit-data.readthedocs.io/en/latest/installation.html#install
 
 Alternatively, install via `conda` with:
 

@@ -3891,6 +3891,7 @@ class PlacementGroup(ServiceResource):
     spread_level: SpreadLevelType
     linked_group_id: str
     operator: OperatorResponseTypeDef
+    parent_group_id: str
     meta: EC2ResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

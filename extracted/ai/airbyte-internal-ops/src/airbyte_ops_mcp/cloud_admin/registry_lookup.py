@@ -59,8 +59,10 @@ def resolve_canonical_name_to_definition_id(canonical_name: str) -> str:
     present, searches both sources and destinations.
 
     Accepts canonical names (e.g. `source-youtube-analytics`,
-    `destination-duckdb`) or display names (e.g. `YouTube Analytics`,
-    `DuckDB`). Returns the definition UUID.
+    `destination-duckdb`), display names (e.g. `YouTube Analytics`,
+    `DuckDB`), or docker repository suffixes (e.g. `source-faker` when
+    the registry's `dockerRepository` is `airbyte/source-faker`).
+    Returns the definition UUID.
 
     Raises `PyAirbyteInputError` if the canonical name cannot be resolved.
     """
@@ -81,6 +83,9 @@ def resolve_canonical_name_to_definition_id(canonical_name: str) -> str:
                 or f"source-{slugified}" == normalized_input
             ):
                 return source["sourceDefinitionId"]
+            docker_repo = source.get("dockerRepository", "")
+            if docker_repo and docker_repo.split("/")[-1].lower() == normalized_input:
+                return source["sourceDefinitionId"]
 
     if is_destination or not is_source:
         for destination in data.get("destinations", []):
@@ -92,6 +97,9 @@ def resolve_canonical_name_to_definition_id(canonical_name: str) -> str:
                 slugified == normalized_input
                 or f"destination-{slugified}" == normalized_input
             ):
+                return destination["destinationDefinitionId"]
+            docker_repo = destination.get("dockerRepository", "")
+            if docker_repo and docker_repo.split("/")[-1].lower() == normalized_input:
                 return destination["destinationDefinitionId"]
 
     if is_source:

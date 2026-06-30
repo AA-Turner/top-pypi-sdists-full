@@ -76,11 +76,18 @@ _THIRD_PARTY_MARKERS = (
 
 
 def _find_sandbox_restriction_error(exc: BaseException) -> RestrictedWorkflowAccessError | None:
-    """Walk the exception chain to find a RestrictedWorkflowAccessError."""
+    """Walk the exception chain to find a RestrictedWorkflowAccessError.
+
+    Tracks visited exceptions so a cyclic ``__cause__`` chain (which Temporal can
+    reconstruct when converting failures back into exceptions) cannot spin the
+    workflow thread and trip the deadlock detector.
+    """
+    seen: set[int] = set()
     current: BaseException | None = exc
-    while current is not None:
+    while current is not None and id(current) not in seen:
         if isinstance(current, RestrictedWorkflowAccessError):
             return current
+        seen.add(id(current))
         current = current.__cause__
     return None
 

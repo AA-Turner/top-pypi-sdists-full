@@ -20,6 +20,34 @@ class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObjec
         ...
 
 
+class ProfileOptimization(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def set_profile_root(directory_path: str) -> None:
+        ...
+
+    @staticmethod
+    def start_profile(profile: str) -> None:
+        ...
+
+
+class AmbiguousImplementationException(System.Exception):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
 class JitInfo(System.Object):
     """This class has no documentation."""
 
@@ -33,18 +61,6 @@ class JitInfo(System.Object):
 
     @staticmethod
     def get_compiled_method_count(current_thread: bool = False) -> int:
-        ...
-
-
-class ProfileOptimization(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def set_profile_root(directory_path: str) -> None:
-        ...
-
-    @staticmethod
-    def start_profile(profile: str) -> None:
         ...
 
 
@@ -99,22 +115,6 @@ class TargetedPatchingOptOutAttribute(System.Attribute):
         ...
 
     def __init__(self, reason: str) -> None:
-        ...
-
-
-class AmbiguousImplementationException(System.Exception):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
 

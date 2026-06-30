@@ -81,7 +81,7 @@ ns_builder.export(ns_path)
 # .. tip::
 #
 #     Detailed documentation of all components and `neurodata_types` that are part of the core schema of NWB:N are
-#     available in the schema docs at `http://nwb-schema.readthedocs.io <http://nwb-schema.readthedocs.io>`_ .
+#     available in the `schema docs <https://nwb-schema.readthedocs.io/en/latest/>`_ .
 #     Before creating a new type from scratch, please have a look at the schema docs to see if using or extending an
 #     existing type may solve your problem. Also, the schema docs are helpful when extending an existing type to
 #     better understand the design and structure of the neurodata_type you are using.
@@ -347,7 +347,7 @@ nwbfile = NWBFile(
 )
 
 pmod = nwbfile.create_processing_module("module_name", "desc")
-pmod.add_container(potato_sack)
+pmod.add(potato_sack)
 
 
 with NWBHDF5IO("test_multicontainerinterface.nwb", "w") as io:
@@ -480,7 +480,7 @@ nwbfile = NWBFile("my first synthetic recording", "EXAMPLE_ID", datetime.now())
 cortex_module = nwbfile.create_processing_module(
     name="cortex", description="description"
 )
-cortex_module.add_container(cortical_surface)
+cortex_module.add(cortical_surface)
 
 
 with NWBHDF5IO("test_cortical_surface.nwb", "w") as io:

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: gluonts
-Version: 0.16.2
+Version: 0.16.3
 Summary: Probabilistic time series modeling in Python.
 Home-page: https://github.com/awslabs/gluonts/
 Author: Amazon
@@ -11,16 +11,95 @@ Project-URL: Documentation, https://ts.gluon.ai/stable/
 Project-URL: Source Code, https://github.com/awslabs/gluonts/
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
-Provides-Extra: arrow
-Provides-Extra: dev
-Provides-Extra: docs
-Provides-Extra: mxnet
-Provides-Extra: R
-Provides-Extra: Prophet
-Provides-Extra: pro
-Provides-Extra: shell
-Provides-Extra: torch
 License-File: LICENSE
+Requires-Dist: numpy<2.5,>=1.16
+Requires-Dist: pandas<3,>=1.0
+Requires-Dist: pydantic<3,>=1.7
+Requires-Dist: tqdm~=4.23
+Requires-Dist: toolz~=0.10
+Requires-Dist: typing-extensions~=4.0
+Provides-Extra: arrow
+Requires-Dist: pyarrow; extra == "arrow"
+Provides-Extra: dev
+Requires-Dist: pyarrow; extra == "dev"
+Requires-Dist: ipython; extra == "dev"
+Requires-Dist: ipykernel~=6.5; extra == "dev"
+Requires-Dist: nbconvert~=6.5.1; extra == "dev"
+Requires-Dist: nbsphinx~=0.9.7; extra == "dev"
+Requires-Dist: notedown; extra == "dev"
+Requires-Dist: lxml~=5.1.0; extra == "dev"
+Requires-Dist: pytest-runner~=2.11; extra == "dev"
+Requires-Dist: recommonmark; extra == "dev"
+Requires-Dist: sphinx~=5.0; extra == "dev"
+Requires-Dist: docutils~=0.19.0; extra == "dev"
+Requires-Dist: optuna~=2.10; extra == "dev"
+Requires-Dist: furo==2022.6.4.1; extra == "dev"
+Requires-Dist: m2r2; extra == "dev"
+Requires-Dist: myst-parser; extra == "dev"
+Requires-Dist: click; extra == "dev"
+Requires-Dist: orjson; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: holidays~=0.9; extra == "dev"
+Requires-Dist: matplotlib~=3.6; extra == "dev"
+Requires-Dist: pandas>=1.1; extra == "dev"
+Requires-Dist: pytest>7.0; extra == "dev"
+Requires-Dist: pytest-cov<5.0,>4.0; extra == "dev"
+Requires-Dist: pytest-timeout<3.0,>2.0; extra == "dev"
+Requires-Dist: pytest-xdist<4.0,>3.0; extra == "dev"
+Requires-Dist: pytest-rerunfailures<14.0,>=13.0; extra == "dev"
+Requires-Dist: ujson; extra == "dev"
+Requires-Dist: orjson; extra == "dev"
+Requires-Dist: requests; extra == "dev"
+Requires-Dist: holidays~=0.9; extra == "dev"
+Requires-Dist: matplotlib~=3.6; extra == "dev"
+Requires-Dist: flask~=3.0; extra == "dev"
+Requires-Dist: waitress~=3.0.1; extra == "dev"
+Requires-Dist: sagemaker>2.214.3,~=2.0; extra == "dev"
+Requires-Dist: s3fs~=0.6; python_version >= "3.7.0" and extra == "dev"
+Requires-Dist: s3fs~=0.5; python_version < "3.7.0" and extra == "dev"
+Requires-Dist: fsspec<0.9,~=0.8; python_version < "3.7.0" and extra == "dev"
+Provides-Extra: docs
+Requires-Dist: ipython; extra == "docs"
+Requires-Dist: ipykernel~=6.5; extra == "docs"
+Requires-Dist: nbconvert~=6.5.1; extra == "docs"
+Requires-Dist: nbsphinx~=0.9.7; extra == "docs"
+Requires-Dist: notedown; extra == "docs"
+Requires-Dist: lxml~=5.1.0; extra == "docs"
+Requires-Dist: pytest-runner~=2.11; extra == "docs"
+Requires-Dist: recommonmark; extra == "docs"
+Requires-Dist: sphinx~=5.0; extra == "docs"
+Requires-Dist: docutils~=0.19.0; extra == "docs"
+Requires-Dist: optuna~=2.10; extra == "docs"
+Requires-Dist: furo==2022.6.4.1; extra == "docs"
+Requires-Dist: m2r2; extra == "docs"
+Requires-Dist: myst-parser; extra == "docs"
+Requires-Dist: click; extra == "docs"
+Requires-Dist: orjson; extra == "docs"
+Requires-Dist: black; extra == "docs"
+Requires-Dist: holidays~=0.9; extra == "docs"
+Requires-Dist: matplotlib~=3.6; extra == "docs"
+Provides-Extra: mxnet
+Requires-Dist: numpy<1.24; extra == "mxnet"
+Requires-Dist: mxnet~=1.7; extra == "mxnet"
+Provides-Extra: r
+Requires-Dist: rpy2<3.6,~=3.5; extra == "r"
+Provides-Extra: prophet
+Requires-Dist: prophet~=1.0; extra == "prophet"
+Provides-Extra: pro
+Requires-Dist: pyarrow; extra == "pro"
+Requires-Dist: orjson; extra == "pro"
+Provides-Extra: shell
+Requires-Dist: flask~=3.0; extra == "shell"
+Requires-Dist: waitress~=3.0.1; extra == "shell"
+Provides-Extra: torch
+Requires-Dist: torch<3,>=1.9; extra == "torch"
+Requires-Dist: lightning<2.5,>=2.2.2; extra == "torch"
+Requires-Dist: pytorch_lightning<2.5,>=2.2.2; extra == "torch"
+Requires-Dist: scipy<1.16.0; python_version > "3.7.0" and extra == "torch"
+Requires-Dist: scipy~=1.7.3; python_version <= "3.7.0" and extra == "torch"
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
 
 <img class="hide-on-website" height="100px" src="https://ts.gluon.ai/dev/_static/gluonts.svg">
 

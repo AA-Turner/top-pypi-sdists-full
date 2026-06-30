@@ -394,6 +394,49 @@ def test_record_category_serialized_on_wire():
         client._close()
 
 
+def test_record_severity_serialized_on_wire():
+    """``severity=...`` survives the wrapper into the JSON body — the audit
+    service stores it and surfaces it via ``filter[severity]``. Omitting it
+    leaves the server to default the event to ``INFO``."""
+    posts: list[str] = []
+    success_body = {
+        "data": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "type": "event",
+            "attributes": {
+                "event_type": "invoice.created",
+                "resource_type": "invoice",
+                "resource_id": "inv-1",
+                "occurred_at": "2026-05-06T12:00:00+00:00",
+                "created_at": "2026-05-06T12:00:01+00:00",
+                "severity": "WARN",
+                "data": {},
+                "idempotency_key": "auto",
+            },
+        }
+    }
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        posts.append(req.content.decode())
+        return httpx.Response(201, json=success_body)
+
+    transport = httpx.MockTransport(handler)
+    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
+    try:
+        client.events.record(
+            event_type="invoice.created",
+            resource_type="invoice",
+            resource_id="inv-1",
+            severity="WARN",
+            flush=True,
+        )
+        body = "".join(posts).replace(" ", "")
+        assert '"severity":"WARN"' in body
+    finally:
+        client._close()
+
+
 def test_event_from_resource_surfaces_category():
     """The read model surfaces a recorded ``category`` and leaves it ``None``
     when the event was recorded without one."""

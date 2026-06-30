@@ -2,6 +2,8 @@
 #  PID 5900-BAF
 #  Copyright StreamSets Inc., an IBM Company 2024
 
+import copy
+
 # fmt: off
 import json
 from contextlib import nullcontext
@@ -359,3 +361,132 @@ def test_pipeline_add_metric_rule(rule_args, rule_kwargs, exception, dummy_colle
         assert (
             "dummy metric rule" == dummy_collector_pipeline._rules_definition['metricsRuleDefinitions'][0]["alertText"]
         )
+
+
+def test_pipeline_shallow_copy__library_definitions_not_called(dummy_pipeline):
+    pipeline_copy = copy.copy(dummy_pipeline)
+
+    assert id(pipeline_copy._pipeline_definition_internal) == id(dummy_pipeline._pipeline_definition_internal)
+    assert id(pipeline_copy._rules_definition) == id(dummy_pipeline._rules_definition)
+    assert id(pipeline_copy._library_definitions_internal) == id(dummy_pipeline._library_definitions_internal)
+    # library_definitions wasn't called before so each access will return different value
+    assert id(pipeline_copy.library_definitions) != id(dummy_pipeline.library_definitions)
+    # _library_definitions returns differnet objects on each access
+    assert id(pipeline_copy._library_definitions) != id(dummy_pipeline._library_definitions)
+
+    # after direct change it is no longer same value
+    pipeline_copy.library_definitions = {"dummy": "dummy"}
+    assert id(pipeline_copy._library_definitions_internal) != id(dummy_pipeline._library_definitions_internal)
+    assert id(pipeline_copy.library_definitions) != id(dummy_pipeline.library_definitions)
+
+
+def test_pipeline_shallow_copy__library_definitions_called(dummy_pipeline):
+    dummy_pipeline.library_definitions
+    pipeline_copy = copy.copy(dummy_pipeline)
+
+    assert id(pipeline_copy._pipeline_definition_internal) == id(dummy_pipeline._pipeline_definition_internal)
+    assert id(pipeline_copy._rules_definition) == id(dummy_pipeline._rules_definition)
+    assert id(pipeline_copy._library_definitions_internal) == id(dummy_pipeline._library_definitions_internal)
+    # library_definitions was called before so it should be the same object
+    assert id(pipeline_copy.library_definitions) == id(dummy_pipeline.library_definitions)
+    # _library_definitions returns differnet objects on each access
+    assert id(pipeline_copy._library_definitions) != id(dummy_pipeline._library_definitions)
+
+    # after direct change it is no longer same value
+    pipeline_copy.library_definitions = {"dummy": "dummy"}
+    assert id(pipeline_copy._library_definitions_internal) != id(dummy_pipeline._library_definitions_internal)
+    assert id(pipeline_copy.library_definitions) != id(dummy_pipeline.library_definitions)
+
+
+def test_no_recursion_error_when_accessing_name_with_null_library_definitions(dummy_pipeline, monkeypatch):
+    """
+    Test that accessing the name property of a Pipeline object with null libraryDefinitions
+    does NOT cause a RecursionError.
+
+    This test verifies the fix for the recursion issue that occurred when:
+    1. Pipeline has commit_id set
+    2. _data_internal['libraryDefinitions'] is None
+    3. Accessing the name property triggers _data property
+    4. _data property calls _load_data()
+    5. _load_data() accesses library_definitions property
+    6. library_definitions accesses _library_definitions property
+    7. _library_definitions should NOT call _load_data() again (preventing infinite loop)
+
+    The test ensures that the name can be accessed without recursion.
+    """
+    from unittest.mock import Mock
+
+    # Set up commit_id to trigger the potential recursion path
+    dummy_pipeline._data_internal['commitId'] = 'test-commit-id'
+
+    # Set up the internal state that previously triggered the recursion
+    # The key is setting libraryDefinitions to None and _pipeline_definition_internal to None
+    dummy_pipeline._data_internal['libraryDefinitions'] = None
+    dummy_pipeline._pipeline_definition_internal = None
+    dummy_pipeline._library_definitions_internal = None
+
+    # Add the engine ID to MockEngines so it can be found
+    dummy_pipeline._control_hub.engines._engines_data[dummy_pipeline.engine_id] = {"version": "6.1.1"}
+
+    # Mock the API response for get_pipeline_commit to return None for libraryDefinitions
+    # This reproduces the actual bug scenario
+    mock_response = Mock()
+    mock_response.json.return_value = {
+        'libraryDefinitions': None,  # Return None to trigger the recursion bug
+        'pipelineDefinition': '{}',
+        'currentRules': {'rulesDefinition': '{}'},
+    }
+    mock_command = Mock(response=mock_response)
+    monkeypatch.setattr(dummy_pipeline._control_hub.api_client, 'get_pipeline_commit', lambda commit_id: mock_command)
+
+    # Accessing the name property should NOT trigger RecursionError
+    name = dummy_pipeline.name
+    assert name == 'Test Pipeline'
+
+
+def test_no_recursion_error_during_fragment_filtering(dummy_pipeline, monkeypatch):
+    """
+    Test that filtering fragments by name does NOT cause a RecursionError.
+
+    This test verifies the fix for the recursion issue that occurred when:
+    sch.pipelines.get(fragment=True, name=fragment_name)
+    triggered recursion when filtering by name attribute.
+
+    The test ensures that fragments can be filtered by name without recursion.
+    """
+    from unittest.mock import Mock
+
+    from streamsets.sdk.utils import SeekableList
+
+    # Set up commit_id to trigger the potential recursion path
+    dummy_pipeline._data_internal['commitId'] = 'test-commit-id'
+
+    # Set up the state that previously caused recursion
+    dummy_pipeline._data_internal['libraryDefinitions'] = None
+    dummy_pipeline._pipeline_definition_internal = None
+    dummy_pipeline._library_definitions_internal = None
+
+    # Add the engine ID to MockEngines so it can be found
+    dummy_pipeline._control_hub.engines._engines_data[dummy_pipeline.engine_id] = {"version": "6.1.1"}
+
+    # Mock API response to return None for libraryDefinitions
+    # This reproduces the actual bug scenario
+    mock_response = Mock()
+    mock_response.json.return_value = {
+        'libraryDefinitions': None,  # Return None to trigger the recursion bug
+        'pipelineDefinition': '{}',
+        'currentRules': {'rulesDefinition': '{}'},
+    }
+    mock_command = Mock(response=mock_response)
+    monkeypatch.setattr(dummy_pipeline._control_hub.api_client, 'get_pipeline_commit', lambda commit_id: mock_command)
+
+    # Create a SeekableList with the fragment
+    fragments = SeekableList([dummy_pipeline])
+
+    # Filtering by name should NOT trigger recursion
+    # This mimics: fragments.get_all(name='Test Pipeline')
+    result = SeekableList(i for i in fragments if all(getattr(i, k) == v for k, v in {'name': 'Test Pipeline'}.items()))
+    # Force evaluation of the generator - should succeed without RecursionError
+    result_list = list(result)
+    assert len(result_list) == 1
+    assert result_list[0].name == 'Test Pipeline'

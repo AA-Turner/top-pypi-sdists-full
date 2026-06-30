@@ -19,3 +19,14 @@ filterwarnings = [
     "error",
     "ignore:numpy\\.ndarray size changed:RuntimeWarning",
 ]
+
+[tool.ruff]
+exclude = [
+    "cextern",
+    "docs/conf.py",
+]
+
+[tool.codespell]
+skip = """
+cextern/*
+"""

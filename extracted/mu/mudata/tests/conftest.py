@@ -46,6 +46,7 @@ def mdata(rng: np.random.Generator, request: pytest.FixtureRequest) -> MuData:
     mod2.var["assert-bool"] = False
     mod1.var["assert-boolean-1"] = True
     mod2.var["assert-boolean-2"] = False
+    mod2.var["mod2_unique"] = True
 
     mod1.raw = mod1[:, :10].copy()
     mods = {"mod2": mod2, "mod1": mod1}
@@ -60,6 +61,8 @@ def mdata(rng: np.random.Generator, request: pytest.FixtureRequest) -> MuData:
             [f"{attr}_{i}" for i in rng.choice(mod.shape[axis], size=mod.shape[axis], replace=False)],
         )
         setattr(mod, f"{oattr}_names", [f"{modname}_{oattr}_{i}" for i in range(mod.shape[1 - axis])])
+    mod1.obs.index.name = "fizz"
+    mod2.var.index.name = "buzz"
     mdata = MuData(mods, axis=axis)
     mdata.obs["arange"] = np.arange(mdata.n_obs)
     return mdata

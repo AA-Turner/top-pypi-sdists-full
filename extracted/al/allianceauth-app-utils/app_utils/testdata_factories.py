@@ -9,15 +9,18 @@ import factory
 import factory.fuzzy
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.db.models import Max
 
+from allianceauth.authentication.models import State
 from allianceauth.eveonline.models import (
     EveAllianceInfo,
     EveCharacter,
     EveCorporationInfo,
 )
+from allianceauth.groupmanagement.models import AuthGroup
 
-from .django import add_permissions_to_user_by_name
+from .django import add_permissions_to_user_by_name, permission_by_name
 from .testing import add_character_to_user
 
 T = TypeVar("T")
@@ -25,53 +28,10 @@ User = get_user_model()
 
 
 class BaseMetaFactory(Generic[T], factory.base.FactoryMetaClass):
+    """:meta private:"""
+
     def __call__(cls, *args, **kwargs) -> T:
         return super().__call__(*args, **kwargs)
-
-
-# django
-
-
-class UserFactory(factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[User]):
-    """Generate a User object.
-
-    Args:
-        permissions: List of permission names (optional),
-            e.g. ``["moonmining.basic_access"]``
-    """
-
-    class Meta:
-        model = User
-        django_get_or_create = ("username",)
-        exclude = ("_generated_name",)
-
-    _generated_name = factory.Faker("name")
-    username = factory.LazyAttribute(lambda obj: obj._generated_name.replace(" ", "_"))
-    first_name = factory.LazyAttribute(lambda obj: obj._generated_name.split(" ")[0])
-    last_name = factory.LazyAttribute(lambda obj: obj._generated_name.split(" ")[1])
-    email = factory.LazyAttribute(
-        lambda obj: f"{obj.first_name.lower()}.{obj.last_name.lower()}@example.com"
-    )
-
-    @factory.post_generation
-    def permissions(obj, create, extracted, **kwargs):
-        """Set default permissions. Overwrite with `permissions=["app.perm1"]`."""
-        if not create:
-            return
-        permissions = extracted or []
-        add_permissions_to_user_by_name(obj, permissions)
-
-    @classmethod
-    def _after_postgeneration(cls, obj, create, results=None):
-        """Reset permission cache to force an update."""
-        super()._after_postgeneration(obj, create, results)
-        if hasattr(obj, "_perm_cache"):
-            del obj._perm_cache
-        if hasattr(obj, "_user_perm_cache"):
-            del obj._user_perm_cache
-
-
-# auth
 
 
 class EveAllianceInfoFactory(
@@ -99,7 +59,10 @@ class EveAllianceInfoFactory(
 class EveCorporationInfoFactory(
     factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[EveCorporationInfo]
 ):
-    """Generate an EveCorporationInfo object."""
+    """Generate an EveCorporationInfo object.
+
+    Will create an alliance by default. Can be turned off with `create_alliance=False`.
+    """
 
     class Meta:
         model = EveCorporationInfo
@@ -177,20 +140,145 @@ class EveCharacterFactory(
         )
 
 
+class GroupFactory(factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[Group]):
+    """Generate a Group for AllianceAuth.
+
+    The authgroup can optionally be configured by providing parameters to `authgroup`.
+    For example: `GroupFactory(authgroup__public=True)`
+    """
+
+    class Meta:
+        model = Group
+
+    name = factory.Sequence(lambda n: f"Group #{n + 1}")
+
+    @factory.post_generation
+    def authgroup(self, create, extracted, **kwargs):
+        authgroup: AuthGroup = self.authgroup
+
+        if kwargs:
+            for field in ["states", "group_leaders", "group_leader_groups"]:
+                if field in kwargs:
+                    x = kwargs.pop(field)
+                    getattr(self.authgroup, field).add(*x)
+
+            for field, value in kwargs.items():
+                setattr(authgroup, field, value)
+
+        authgroup.save()
+
+
+class StateFactory(factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[State]):
+    """Generate a State object.
+
+    Args:
+        member_alliances (List[EveAlliance]): Members of alliances that have this state (optional)
+        member_characters (List[EveCharacter]): Characters that have this state (optional)
+        member_corporations (List[EveCorporation]): Members of corporations that have this state (optional)
+        member_factions (List[EveFaction]): Members of factions that have this state (optional)
+        permissions (List[str]): Names of permissions of this state (optional),
+            e.g. ``["moonmining.basic_access"]``
+    """
+
+    class Meta:
+        model = State
+
+    name = factory.LazyAttribute(lambda o: f"State #{o.priority}")
+    priority = factory.Sequence(lambda n: n + 900)
+    public = False
+
+    @factory.post_generation
+    def permissions(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            return
+
+        permissions = [permission_by_name(p) for p in set(extracted)]
+        self.permissions.add(*permissions)
+
+    @factory.post_generation
+    def member_characters(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            return
+
+        self.member_characters.add(*extracted)
+
+    @factory.post_generation
+    def member_corporations(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            return
+
+        self.member_corporations.add(*extracted)
+
+    @factory.post_generation
+    def member_alliances(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            return
+
+        self.member_alliances.add(*extracted)
+
+    @factory.post_generation
+    def member_factions(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            return
+
+        self.member_factions.add(*extracted)
+
+
+class UserFactory(factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[User]):
+    """Generate a User object.
+
+    Args:
+        permissions (List[str]): Names of permissions (optional),
+            e.g. ``["moonmining.basic_access"]``
+    """
+
+    class Meta:
+        model = User
+        django_get_or_create = ("username",)
+        exclude = ("_generated_name",)
+
+    _generated_name = factory.Faker("name")
+    username = factory.LazyAttribute(lambda obj: obj._generated_name.replace(" ", "_"))
+    first_name = factory.LazyAttribute(lambda obj: obj._generated_name.split(" ")[0])
+    last_name = factory.LazyAttribute(lambda obj: obj._generated_name.split(" ")[1])
+    email = factory.LazyAttribute(
+        lambda obj: f"{obj.first_name.lower()}.{obj.last_name.lower()}@example.com"
+    )
+
+    @factory.post_generation
+    def permissions(obj, create, extracted, **kwargs):
+        """Set default permissions. Overwrite with `permissions=["app.perm1"]`."""
+        if not create or not extracted:
+            return
+
+        add_permissions_to_user_by_name(obj, extracted)
+
+    @classmethod
+    def _after_postgeneration(cls, obj, create, results=None):
+        """Reset permission cache to force an update."""
+        super()._after_postgeneration(obj, create, results)
+        if hasattr(obj, "_perm_cache"):
+            del obj._perm_cache
+        if hasattr(obj, "_user_perm_cache"):
+            del obj._user_perm_cache
+
+
 class UserMainFactory(UserFactory):
     """Generate a User object with main character.
 
     Args:
-        main_character__character: EveCharacter object to be used as main (optional)
-        main_character__scopes: List of ESI scope names (optional),
+        main_character__character (EveCharacter): Character to be used as main (optional)
+        main_character__scopes (List[str]): ESI scope names (optional),
             e.g. ``["esi-characters.read_contacts.v1"]``
+        permissions (List[str]): Names of permissions (optional),
+            e.g. ``["moonmining.basic_access"]``
     """
 
     @factory.post_generation
     def main_character(obj, create, _extracted, **kwargs):
         if not create:
             return
-        if "character" in kwargs:  # TODO: maybe use extracted directly here?
+        if "character" in kwargs:
             character = kwargs["character"]
         else:
             character_name = f"{obj.first_name} {obj.last_name}"

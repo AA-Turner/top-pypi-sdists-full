@@ -66,6 +66,35 @@ class AnomalyThresholds:
     mcmc_seed: int = 42
     """BEAST MCMC seed for reproducibility."""
 
+    pad_climatology: bool = True
+    """If True, append synthetic climatology yields after the last
+    observed year before fitting BEAST. Reduces the endpoint trend-
+    bending bias (BEAST's posterior trend at y_end gets pulled toward
+    the last observation when there's no right-side data). Outputs are
+    trimmed back to the original year range BEFORE residual / MAD / z /
+    revert-lookahead, so the classifier is blind to the pad: the
+    end_of_series_spike bucket is preserved and pad years never appear
+    as flags. Plot CONTENT (trend line, cp_prob bars, flag set) will
+    shift because BEAST sees a different input series — plot STRUCTURE
+    (x-axis, layout) is unchanged."""
+
+    n_pad_years: int = 5
+    """How many synthetic climatology years to append. Should be
+    strictly greater than ``revert_lookahead`` so option-B-style
+    contamination is impossible. 5 is enough for BEAST's minimum-
+    segment-length prior to treat y_end as interior; bigger isn't
+    better because more pad years dilute the contribution of recent
+    real observations to the trend at y_end."""
+
+    climatology_method: str = "mean"
+    """How to compute the synthetic value. One of:
+        'mean'         — mean of all finite observed yields (default).
+        'median'       — median of all finite observed yields (more
+                         robust to past spikes).
+        'last_5_mean'  — mean of the last 5 finite observed yields
+                         (trailing climatology, follows recent regime).
+    Unknown values fall back to 'mean'."""
+
 
 def detect_spikes_one_series(
     years,
@@ -135,10 +164,35 @@ def detect_spikes_one_series(
             logger.error("  Rbeast not installed; skipping anomaly detection.")
         return _empty_result("beast_unavailable")
 
+    # Optional right-edge padding with synthetic climatology so BEAST's
+    # posterior trend at y_end isn't pulled toward the last observation
+    # (endpoint trend-bending bias). The pad is consumed inside BEAST
+    # and TRIMMED OFF before any residual / MAD / z / classifier work,
+    # so the pad never appears as a flag or as a synthetic revert
+    # verifier. See AnomalyThresholds.pad_climatology for full details.
+    beast_input = contiguous_yields
+    beast_start = y0
+    n_pad = 0
+    clim_value = float("nan")
+    if thresholds.pad_climatology and thresholds.n_pad_years > 0:
+        finite_yields = contiguous_yields[np.isfinite(contiguous_yields)]
+        if finite_yields.size > 0:
+            method = (thresholds.climatology_method or "mean").lower()
+            if method == "median":
+                clim_value = float(np.median(finite_yields))
+            elif method == "last_5_mean":
+                tail = finite_yields[-5:] if finite_yields.size >= 5 else finite_yields
+                clim_value = float(np.mean(tail))
+            else:  # 'mean' and any unknown method fall back to mean
+                clim_value = float(np.mean(finite_yields))
+            n_pad = int(thresholds.n_pad_years)
+            pad_block = np.full(n_pad, clim_value, dtype=float)
+            beast_input = np.concatenate([contiguous_yields, pad_block])
+
     try:
         o = rb.beast(
-            contiguous_yields,
-            start=y0, deltat=1, season="none",
+            beast_input,
+            start=beast_start, deltat=1, season="none",
             mcmc_seed=thresholds.mcmc_seed,
             quiet=True, print_param=False,
             print_progress=False, print_warning=False,
@@ -148,9 +202,15 @@ def detect_spikes_one_series(
             logger.warning(f"  BEAST failed: {exc}; skipping series.")
         return _empty_result("beast_failed", n_years_used=n_finite)
 
-    trend = np.atleast_1d(np.asarray(o.trend.Y, dtype=float)).ravel()
+    trend_full = np.atleast_1d(np.asarray(o.trend.Y, dtype=float)).ravel()
     # cpOccPr — accumulated change-point occurrence probability per year.
-    cp_prob = np.atleast_1d(np.asarray(o.trend.cpOccPr, dtype=float)).ravel()
+    cp_prob_full = np.atleast_1d(np.asarray(o.trend.cpOccPr, dtype=float)).ravel()
+    # Trim padded years off BEFORE any downstream computation, so the
+    # classifier (residual / MAD / z / revert-lookahead / flags) only
+    # sees the original [y0..y1] range. end_of_series_spike behavior
+    # is preserved because last_idx = n_steps - 1.
+    trend = trend_full[:n_steps]
+    cp_prob = cp_prob_full[:n_steps]
     # BEAST's posterior noise variance (sigma squared). For trend-only
     # mode in pure-python Rbeast it lives at o.sig2; in some versions
     # it's o.sig2[0] (an array of 1). Handle both.
@@ -266,16 +326,18 @@ def detect_spikes_one_series(
         })
 
     return {
-        "years":        contiguous_years,
-        "yields":       contiguous_yields,
-        "trend":        trend,
-        "cp_prob":      cp_prob,
-        "residual":     residual,
-        "z_score":      z_score,
-        "sig2":         sig2,
-        "flags":        flags,
-        "n_years_used": n_finite,
-        "status":       "ok",
+        "years":          contiguous_years,
+        "yields":         contiguous_yields,
+        "trend":          trend,
+        "cp_prob":        cp_prob,
+        "residual":       residual,
+        "z_score":        z_score,
+        "sig2":           sig2,
+        "flags":          flags,
+        "n_years_used":   n_finite,
+        "status":         "ok",
+        "n_pad_years":    int(n_pad),
+        "climatology":    clim_value,
     }
 
 

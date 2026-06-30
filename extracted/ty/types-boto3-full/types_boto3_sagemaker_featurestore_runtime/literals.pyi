@@ -24,6 +24,8 @@ else:
 __all__ = (
     "DeletionModeType",
     "ExpirationTimeResponseType",
+    "ListRecordsPaginatorName",
+    "PaginatorName",
     "ResourceServiceName",
     "SageMakerFeatureStoreRuntimeServiceName",
     "ServiceName",
@@ -33,6 +35,7 @@ __all__ = (
 
 DeletionModeType = Literal["HardDelete", "SoftDelete"]
 ExpirationTimeResponseType = Literal["Disabled", "Enabled"]
+ListRecordsPaginatorName = Literal["list_records"]
 TargetStoreType = Literal["OfflineStore", "OnlineStore"]
 TtlDurationUnitType = Literal["Days", "Hours", "Minutes", "Seconds", "Weeks"]
 SageMakerFeatureStoreRuntimeServiceName = Literal["sagemaker-featurestore-runtime"]
@@ -468,3 +471,4 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
+PaginatorName = Literal["list_records"]

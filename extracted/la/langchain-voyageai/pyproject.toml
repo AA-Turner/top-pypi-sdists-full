@@ -32,14 +32,14 @@ asyncio_mode = "auto"
 
 [project]
 authors = []
-requires-python = "<=3.13,>=3.10"
+requires-python = "<3.15,>=3.10"
 dependencies = [
     "langchain-core>=1.0.0",
-    "voyageai<1,>=0.3.7",
+    "voyageai<1,>=0.4.1",
     "pydantic<3,>=2",
 ]
 name = "langchain-voyageai"
-version = "0.3.3"
+version = "0.4.0"
 description = "An integration package connecting VoyageAI and LangChain"
 readme = "README.md"
 

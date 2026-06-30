@@ -23,11 +23,11 @@ from unittest.mock import Mock
 from requests.exceptions import HTTPError
 from webtest.app import TestApp
 
-from conan.api.output import ConanOutput
 from conan.api.subapi.audit import CONAN_CENTER_AUDIT_PROVIDER_NAME, _save_providers
 from conan.api.subapi.remotes import _save
 from conan.cli.exit_codes import SUCCESS
-from conan.internal.api.detect.detect_api import detect_os
+from conan.internal.api.detect.detect_api import detect_os, detect_msvc_compiler, \
+    default_msvc_ide_version
 from conan.internal.cache.cache import PackageLayout, RecipeLayout, PkgCache
 from conan.internal.cache.home_paths import HomePaths
 from conan.internal import REVISIONS
@@ -52,6 +52,10 @@ NO_SETTINGS_PACKAGE_ID = "da39a3ee5e6b4b0d3255bfef95601890afd80709"
 
 arch = platform.machine()
 arch_setting = "armv8" if arch in ["arm64", "aarch64"] else arch
+compiler, msvc_version, exe = detect_msvc_compiler()
+default_msvc_version = msvc_version
+default_vs_ide_version = default_msvc_ide_version(msvc_version)
+
 default_profiles = {
     "Windows": textwrap.dedent("""\
         [settings]
@@ -529,7 +533,6 @@ class TestClient:
                     yield
 
     def _run_cli(self, command_line, assert_error=False):
-        ConanOutput._scoped_recipe_output = False
         args = shlex.split(command_line)
         error = SUCCESS
         trace = None
@@ -822,10 +825,10 @@ class TestClient:
         return PkgReference.loads(pref)
 
     def exported_recipe_revision(self):
-        return re.search(r": Exported: .*#(\S+)", str(self.out)).group(1)
+        return re.search(r"Exported: .*#(\S+)", str(self.out)).group(1)
 
     def exported_layout(self):
-        m = re.search(r": Exported: (\S+)", str(self.out)).group(1)
+        m = re.search(r"Exported: (\S+)", str(self.out)).group(1)
         ref = RecipeReference.loads(m)
         return self.cache.recipe_layout(ref)
 

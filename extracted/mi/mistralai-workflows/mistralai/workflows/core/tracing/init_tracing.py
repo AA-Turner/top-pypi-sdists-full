@@ -43,6 +43,13 @@ def _build_export_options(
     )
 
 
+def _signal_log_field(export_config: OtelExportOptions, endpoint_override: str | None) -> dict[str, object]:
+    # A per-signal override (or the deprecated otel_endpoint) means a custom destination;
+    # otherwise the signal exports to Mistral's hosted /telemetry endpoint.
+    mode = "custom" if endpoint_override else "mistral"
+    return {"mode": mode, "endpoint": export_config.endpoint, "enabled": export_config.enabled}
+
+
 def init_tracing(
     component: Literal["api", "worker"],
     *,
@@ -71,6 +78,14 @@ def init_tracing(
             "Initializing local OpenTelemetry tracing",
             service=service_name,
             sample_rate=config.common.otel_sample_rate,
+        )
+        # Local mode ships traces + metrics to console exporters (no log export) and ignores the per-signal toggles.
+        logger.info(
+            "Telemetry enabled",
+            service=service_name,
+            traces={"mode": "local", "endpoint": None, "enabled": True},
+            metrics={"mode": "local", "endpoint": None, "enabled": True},
+            logs={"mode": "local", "endpoint": None, "enabled": False},
         )
         meter_provider, tracer_provider, logger_provider = config_otel_local(
             service_name=service_name,
@@ -111,16 +126,13 @@ def init_tracing(
         log_config = _build_export_options(log_endpoint, default_endpoint, common.mistral_workflows_otel_logs_export)
 
         logger.info(
-            "Initializing OpenTelemetry tracing",
-            traces_endpoint=trace_config.endpoint,
-            metrics_endpoint=metric_config.endpoint,
-            logs_endpoint=log_config.endpoint,
-            traces_enabled=trace_config.enabled,
-            metrics_enabled=metric_config.enabled,
-            logs_enabled=log_config.enabled,
+            "Telemetry enabled",
             service=service_name,
-            sample_rate=config.common.otel_sample_rate,
+            traces=_signal_log_field(trace_config, trace_endpoint),
+            metrics=_signal_log_field(metric_config, metric_endpoint),
+            logs=_signal_log_field(log_config, log_endpoint),
         )
+
         meter_provider, tracer_provider, logger_provider = config_otel(
             service_name=service_name,
             service_version=config.common.app_version,

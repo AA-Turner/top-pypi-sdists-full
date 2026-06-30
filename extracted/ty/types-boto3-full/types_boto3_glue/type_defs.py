@@ -1358,6 +1358,8 @@ __all__ = (
     "UnionTypeDef",
     "UnionUnionTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateAssetRequestTypeDef",
+    "UpdateAssetResponseTypeDef",
     "UpdateBlueprintRequestTypeDef",
     "UpdateBlueprintResponseTypeDef",
     "UpdateCatalogRequestTypeDef",
@@ -4438,6 +4440,13 @@ class UntagResourceRequestTypeDef(TypedDict):
     TagsToRemove: Sequence[str]
 
 
+class UpdateAssetRequestTypeDef(TypedDict):
+    Identifier: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    ClientToken: NotRequired[str]
+
+
 class UpdateBlueprintRequestTypeDef(TypedDict):
     Name: str
     BlueprintLocation: str
@@ -5343,6 +5352,14 @@ class StopSessionResponseTypeDef(TypedDict):
 
 class StopTriggerResponseTypeDef(TypedDict):
     Name: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateAssetResponseTypeDef(TypedDict):
+    Id: str
+    Name: str
+    Description: str
+    UpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 

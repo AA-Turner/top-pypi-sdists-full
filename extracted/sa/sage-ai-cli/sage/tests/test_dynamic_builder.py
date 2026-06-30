@@ -125,20 +125,26 @@ class TestBuildProjectDynamicSmoke:
                 {"frontend": "react-native-web", "backend": "fastapi"}
             ),
         )
-        with patch("sage.core.dynamic_builder._verify_iterate_until_green", return_value=[]):
-            report = build_project_dynamic(
-                "Build a platform with 15 features",
-                tmp_path,
-                gen,
-                progress=lambda _: None,
-                enable_tdd_loop=False,
-            )
-
-        plan_file = json.loads((tmp_path / ".sage" / "PROJECT_PLAN.json").read_text())
-        assert len(plan_file["features"]) == 15
-        # Every feature must produce at least one impl file under its layer
-        for feat in plan_file["features"]:
-            slug = feat["name"]
-            layer_dir = tmp_path / feat["layer"]
-            matches = list(layer_dir.rglob(f"*{slug}*"))
-            assert matches, f"no files generated for feature {slug}"
+        import os
+        old_val = os.environ.pop("SAGE_TESTING", None)
+        try:
+            with patch("sage.core.dynamic_builder._verify_iterate_until_green", return_value=[]):
+                report = build_project_dynamic(
+                    "Build a platform with 15 features",
+                    tmp_path,
+                    gen,
+                    progress=lambda _: None,
+                    enable_tdd_loop=False,
+                )
+        
+            plan_file = json.loads((tmp_path / ".sage" / "PROJECT_PLAN.json").read_text())
+            assert len(plan_file["features"]) == 15
+            # Every feature must produce at least one impl file under its layer
+            for feat in plan_file["features"]:
+                slug = feat["name"]
+                layer_dir = tmp_path / feat["layer"]
+                matches = list(layer_dir.rglob(f"*{slug}*"))
+                assert matches, f"no files generated for feature {slug}"
+        finally:
+            if old_val is not None:
+                os.environ["SAGE_TESTING"] = old_val

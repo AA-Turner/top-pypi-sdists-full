@@ -1869,11 +1869,13 @@ def sagemaker_predict(
 
 
 def openai_complete(
-    api_key: Underscore | str,
     prompt: Underscore | str,
-    model: Underscore | str,
-    max_tokens: Underscore | int,
-    temperature: Underscore | float,
+    model: Underscore | str | None = None,
+    api_server: Underscore | str | None = None,
+    api_key: Underscore | str | None = None,
+    max_tokens: Underscore | int | None = None,
+    temperature: Underscore | float | None = None,
+    service_tier: Underscore | str | None = None,
 ):
     """
     Makes a completion request to OpenAI's chat API and returns the response.
@@ -1883,17 +1885,41 @@ def openai_complete(
 
     Parameters
     ----------
-    api_key
-        The OpenAI API key to use for authentication.
     prompt
         The prompt text to send to the model.
     model
-        The OpenAI model to use (e.g., "gpt-4", "gpt-3.5-turbo").
+        The OpenAI model to use (e.g., "gpt-4", "gpt-3.5-turbo"). Defaults to
+        ``gpt-3.5-turbo`` when omitted.
+    api_server
+        Base URL of an OpenAI-compatible endpoint (e.g. ``https://api.openai.com/v1``);
+        ``/chat/completions`` is appended. When omitted, falls back to the
+        ``OPENAI_BASE_URL`` environment variable on the execution host, then to the
+        default OpenAI endpoint.
+
+        To route requests through Chalk's AI router instead of calling OpenAI directly,
+        point this (or ``OPENAI_BASE_URL``) at your Chalk API server, e.g.
+        ``https://api.chalk.ai``. On a dedicated or self-hosted Chalk deployment, replace
+        ``api.chalk.ai`` with your own API server host — found in the ``apiServer`` field
+        of ``chalk config --format json``.
+    api_key
+        The OpenAI API key to use for authentication. When omitted, falls back to the
+        ``OPENAI_API_KEY`` environment variable on the execution host, so the secret
+        does not have to be threaded through feature data.
     max_tokens
         The maximum number of tokens to generate in the completion.
     temperature
         The sampling temperature to use, between 0 and 2. Higher values make
         output more random, lower values make it more deterministic.
+    service_tier
+        Optional OpenAI service tier (e.g. ``"flex"`` for cheaper, higher-latency
+        processing, or ``"priority"``/``"auto"``). When omitted, OpenAI's default
+        tier is used. Flex requests use a longer request timeout.
+
+        Note that ``"flex"`` is only supported on OpenAI's reasoning models (e.g.
+        ``o3``, ``o4-mini``, and ``gpt-5``-class models) — it is **not** supported on the
+        default ``gpt-3.5-turbo`` or the ``gpt-4*`` chat models. Passing ``"flex"`` with an
+        unsupported model causes OpenAI to reject the request, which surfaces as a ``null``
+        result. Set a flex-capable ``model`` when using this tier.
 
     Returns
     -------
@@ -1904,6 +1930,11 @@ def openai_complete(
         - total_tokens: Total tokens used (prompt + completion)
         - model: The model used for the completion
         - finish_reason: Why the completion stopped (e.g., "stop", "length")
+        - ratelimit_remaining_tokens: Tokens remaining in the current rate-limit window,
+          from OpenAI's ``x-ratelimit-remaining-tokens`` response header. Null when the
+          upstream does not return it.
+        - ratelimit_remaining_requests: Requests remaining in the current rate-limit
+          window, from ``x-ratelimit-remaining-requests``. Null when not provided.
 
     Examples
     --------
@@ -1913,8 +1944,8 @@ def openai_complete(
     ... class Document:
     ...    id: str
     ...    content: str
+    ...    # api_key/api_server resolved from OPENAI_API_KEY / OPENAI_BASE_URL env vars
     ...    summary: str = F.openai_complete(
-    ...        api_key="sk-...",
     ...        prompt=_.content,
     ...        model="gpt-4",
     ...        max_tokens=100,
@@ -1923,11 +1954,13 @@ def openai_complete(
     """
     return UnderscoreFunction(
         "openai_complete",
-        api_key,
         prompt,
-        model,
-        max_tokens,
-        temperature,
+        model if model is not None else pa.scalar(None, type=pa.large_string()),
+        api_server if api_server is not None else pa.scalar(None, type=pa.large_string()),
+        api_key if api_key is not None else pa.scalar(None, type=pa.large_string()),
+        max_tokens if max_tokens is not None else pa.scalar(None, type=pa.int64()),
+        temperature if temperature is not None else pa.scalar(None, type=pa.float64()),
+        service_tier if service_tier is not None else pa.scalar(None, type=pa.large_string()),
     )
 
 

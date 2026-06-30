@@ -73,6 +73,8 @@ class FlatNode(BaseModel):
 
     callees: list[str] | None = Field(default=None, description="Called function names (dispatch nodes)")
     dispatch_label: str | None = Field(default=None, description="Protocol dispatch label (dispatch nodes)")
+    tools: list[str] | None = Field(default=None, description="Tool names (agent nodes)")
+    handoffs: list[str] | None = Field(default=None, description="Handoff agent names (agent nodes)")
     children: list[str] | None = Field(default=None, description="Child node IDs (loop, try_except)")
     branches: list[list[str]] | None = Field(default=None, description="Per-lane node IDs (parallel)")
     is_error: bool | None = Field(default=None, description="True for error/raise output nodes")
@@ -114,9 +116,10 @@ class FlatEdge(BaseModel):
 class AtlasWireFormat(BaseModel):
     """Top-level v3 wire format emitted by the server over SSE.
 
-    ``sources`` is populated after construction by ``attach_sources()`` in the
-    atlas-server; ``node_summaries`` is added by the worker after LLM
-    summarisation.
+    ``sources`` is populated by the builder functions (``build_graph_dynamically``
+    / ``build_graph_statically``) and excluded from ``to_dict()`` by default so
+    that user source code is not sent over the API.  ``node_summaries`` is added
+    by the worker after LLM summarisation.
     """
 
     model_config = ConfigDict(populate_by_name=True)
@@ -140,9 +143,10 @@ class AtlasWireFormat(BaseModel):
         description="LLM-generated summaries keyed by node ID",
     )
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self, *, include_sources: bool = False) -> dict[str, Any]:
         """Serialize to a JSON-compatible dict using wire field names."""
-        return self.model_dump(by_alias=True, exclude_none=True)
+        exclude = {"sources"} if not include_sources else None
+        return self.model_dump(by_alias=True, exclude_none=True, exclude=exclude)
 
 
 # ---------------------------------------------------------------------------
@@ -161,6 +165,7 @@ _NODE_TYPES_TABLE = """\
 | `loop` | Rectangle (container) | `for`/`while` body |
 | `try_except` | Rectangle (container) | `try/except` body |
 | `dispatch` | Stacked rect | Protocol dispatch; carries `callees[]` |
+| `agent` | Stacked rect | `Runner.run` agent; carries `tools[]` and `handoffs[]` |
 | `human_input` | Rounded rect | `wait_for_input` -- waits for human |
 | `wait_condition` | Rounded rect | `wait_condition` -- event wait |
 | `parallel` | Wide rect | Parallel fan-out |

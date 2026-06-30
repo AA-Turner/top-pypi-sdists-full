@@ -6,6 +6,7 @@ import pycurl
 from io import BytesIO
 
 from . import util
+from .util import LiveTracker, gc_collect_hard
 
 logger = logging.getLogger(__name__)
 
@@ -16,43 +17,6 @@ def default_share() -> pycurl.CurlShare:
     s.setopt(pycurl.SH_SHARE, pycurl.LOCK_DATA_DNS)
     s.setopt(pycurl.SH_SHARE, pycurl.LOCK_DATA_SSL_SESSION)
     return s
-
-
-def gc_collect_hard(rounds: int = 3) -> None:
-    for _ in range(rounds):
-        gc.collect()
-
-
-class Tracker:
-    """
-    Tracks python object liveness via weakref + optional gc.get_objects scan.
-    """
-
-    def __init__(self) -> None:
-        self._items: list[tuple[str, weakref.ref, int]] = []
-
-    def track(self, name: str, obj):
-        r = weakref.ref(obj)
-        self._items.append((name, r, id(obj)))
-        return obj
-
-    def assert_all_gone(self, *, also_check_gc_objects: bool = True) -> None:
-        gc_collect_hard()
-
-        # Only use gc.get_objects for live refs; ids can be reused after free.
-        live_ids: set[int] | None = None
-        if also_check_gc_objects:
-            live_ids = {id(o) for o in gc.get_objects()}
-
-        for name, r, obj_id in self._items:
-            obj = r()
-            if obj is None:
-                continue
-
-            tracked = (
-                " (gc-tracked)" if live_ids is not None and obj_id in live_ids else ""
-            )
-            raise AssertionError(f"{name} still alive{tracked} (id={obj_id})")
 
 
 @pytest.fixture(autouse=True)
@@ -142,7 +106,7 @@ def perform_all(easies: list[pycurl.Curl]) -> None:
 )
 @pytest.mark.parametrize("phase", ["idle", "in_flight"])
 def test_multi_close_matrix(app, make_multi, order, phase):
-    tr = Tracker()
+    tr = LiveTracker()
 
     url = f"{app}/long_pause"
 
@@ -210,7 +174,7 @@ def test_multi_close_and_remove_one_easy_gone_others_not(make_multi):
     for i, r in enumerate(survivor_refs):
         obj = r()
         assert obj is not None, f"survivor[{i}] unexpectedly collected"
-        assert obj.closed() is False, f"survivor[{i}] unexpectedly closed"
+        assert not obj.closed, f"survivor[{i}] unexpectedly closed"
 
     for e in survivors:
         multi.remove_handle(e)
@@ -246,7 +210,7 @@ def test_multi_close_and_remove_one_easy_gone_others_not(make_multi):
     ],
 )
 def test_share_close_matrix(app, make_share_easies, order):
-    tr = Tracker()
+    tr = LiveTracker()
     s = default_share()
     tr.track("share", s)
 
@@ -263,20 +227,20 @@ def test_share_close_matrix(app, make_share_easies, order):
     if order == "close_easies_then_close_share":
         for e in easies:
             e.close()
-            assert e.closed()
+            assert e.closed
         s.close()
-        assert s.closed()
+        assert s.closed
 
     elif order == "close_share_then_perform_then_close_easies":
         with pytest.raises(pycurl.error):
             s.close()
-        assert not s.closed()
+        assert not s.closed
         for e in easies:
             assert e.share() == s
         perform_all(easies)
         for e in easies:
             e.close()
-            assert e.closed()
+            assert e.closed
 
         for sio in sios:
             assert sio.getvalue().decode() == "success"
@@ -284,7 +248,7 @@ def test_share_close_matrix(app, make_share_easies, order):
     elif order == "close_share_then_drop":
         with pytest.raises(pycurl.error):
             s.close()
-        assert not s.closed()
+        assert not s.closed
         for e in easies:
             assert e.share() == s
 
@@ -293,7 +257,7 @@ def test_share_close_matrix(app, make_share_easies, order):
             e.setopt(pycurl.SHARE, None)
             assert e.share() is None
         s.close()
-        assert s.closed()
+        assert s.closed
 
     elif order == "del_share_without_close":
         pass
@@ -323,7 +287,7 @@ def test_share_close_detaches_and_easy_still_succeeds(app, make_share_easies):
 
     with pytest.raises(pycurl.error):
         s.close()
-    assert not s.closed()
+    assert not s.closed
 
     for e in easies:
         assert e.share() == s
@@ -364,7 +328,7 @@ def test_share_close_one_easy_does_not_keep_share_or_others_alive(
     for i, r in enumerate(survivor_refs):
         obj = r()
         assert obj is not None, f"survivor[{i}] unexpectedly collected"
-        assert obj.closed() is False, f"survivor[{i}] unexpectedly closed"
+        assert not obj.closed, f"survivor[{i}] unexpectedly closed"
 
     for e in survivors:
         e.close()
@@ -487,7 +451,7 @@ def test_mimepart_does_not_keep_parent_alive_after_parent_close():
     reason="libcurl without CURLOPT_MIMEPOST support",
 )
 def test_mimepost_cycle_gc_without_explicit_close():
-    tr = Tracker()
+    tr = LiveTracker()
 
     curl = tr.track("curl", pycurl.Curl())
     mime = tr.track("mime", _make_tracking_mime(curl))

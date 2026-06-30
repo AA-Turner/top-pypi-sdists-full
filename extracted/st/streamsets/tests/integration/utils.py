@@ -1,7 +1,7 @@
 # IBM Confidential
 # PID 5900-BAF
 # Copyright StreamSets Inc., an IBM Company 2024
-"""conftest module for pytest's user creation functionality. """
+"""conftest module for pytest's user creation functionality."""
 
 import base64
 import json
@@ -353,7 +353,7 @@ def fetch_tokens(organization_id, sch_url, sch_cookie, aster_token):
             content_tabbed = json.dumps(content, indent=2).replace('\n', '\n\t\t')
             raise Exception(
                 f'Could not fetch sch component and authToken.\n\tStatus code: {response.status_code}'
-                f'\n\tResponse dict:\n\t\t{content_tabbed}'
+                f'\n\tResponse dict: \n\t\t{content_tabbed}'
             )
         except Exception as e:
             raise e(
@@ -388,20 +388,30 @@ def _get_sch_session_cookie_from_response(response):
 
 def execute_install_script_for_docker(sch, deployment):
     install_script = sch.get_self_managed_deployment_install_script(deployment)
+
+    # Replace docker commands with podman for environments using podman
+    install_script = install_script.replace('docker', 'podman')
+
     logger.debug('Install script = %s', install_script)
     result = subprocess.run(
         install_script,
         executable='/bin/bash',
         shell=True,
         stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
         check=True,
     )
-    # Add to the list of Docker container IDs of engines that are added by this SCH instance;
+    # Log stderr output for debugging
+    if result.stderr:
+        stderr_output = result.stderr.decode('utf-8')
+        logger.error('Container install script stderr: %s', stderr_output)
+        print(f'Container install script stderr: {stderr_output}')
+
+    # Add to the list of container IDs of engines that are added by this SCH instance;
     # this is used later to clean them up
     if not hasattr(sch, '_added_engines_container_ids'):
         sch._added_engines_container_ids = []
-    # Since Docker container id is 12 characters long, from the output get those many characters.
+    # Since container id is 12 characters long, from the output get those many characters.
     sch._added_engines_container_ids.append(result.stdout.decode('utf-8')[:12])
 
 

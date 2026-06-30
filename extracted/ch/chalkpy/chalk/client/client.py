@@ -3058,6 +3058,7 @@ class ChalkClient:
         handler: Optional[str] = None,
         env_vars: Optional[Dict[str, str]] = None,
         skip_upload_to_volumes: bool = False,
+        secrets: Optional[List[Any]] = None,
     ) -> dict[str, Any]:
         """Deploy a registered model version as a scaling group.
 
@@ -3080,6 +3081,8 @@ class ChalkClient:
         skip_upload_to_volumes
             When True, skip uploading model artifacts to a chalkfs volume.
             Defaults to False.
+        secrets
+            List of Secret Registry secrets to be injected into the Scaling Group
 
         Examples
         --------

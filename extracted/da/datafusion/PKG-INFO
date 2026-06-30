@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datafusion
-Version: 53.0.0
+Version: 54.0.0
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -14,8 +14,10 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Rust
+Requires-Dist: cloudpickle>=2.0
 Requires-Dist: pyarrow>=16.0.0 ; python_full_version < '3.14'
 Requires-Dist: pyarrow>=22.0.0 ; python_full_version >= '3.14'
 Requires-Dist: typing-extensions ; python_full_version < '3.13'
@@ -244,6 +246,22 @@ You can verify the installation by running:
 >>> import datafusion
 >>> datafusion.__version__
 '0.6.0'
+```
+
+## Using DataFusion with AI coding assistants
+
+This project ships a [`SKILL.md`](skills/datafusion_python/SKILL.md) that
+teaches AI coding assistants how to write idiomatic DataFusion Python. It follows the
+[Agent Skills](https://agentskills.io) open standard.
+
+**Preferred:** `npx skills add apache/datafusion-python` — installs the skill in
+Claude Code, Cursor, Windsurf, Cline, Codex, Copilot, Gemini CLI, and other
+supported agents.
+
+**Manual:** paste this line into your project's `AGENTS.md` / `CLAUDE.md`:
+
+```
+For DataFusion Python code, see https://github.com/apache/datafusion-python/blob/main/skills/datafusion_python/SKILL.md
 ```
 
 ## How to develop

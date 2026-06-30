@@ -21,7 +21,13 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
-from .literals import AWSServiceAccessStatusType, IndexStateType, IndexTypeType, OperationStatusType
+from .literals import (
+    AWSServiceAccessStatusType,
+    IndexStateType,
+    IndexTypeType,
+    OperationStatusType,
+    RecorderTypeType,
+)
 
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
@@ -107,6 +113,7 @@ __all__ = (
     "SearchInputPaginateTypeDef",
     "SearchInputTypeDef",
     "SearchOutputTypeDef",
+    "ServiceLinkedRecorderInfoTypeDef",
     "ServiceViewTypeDef",
     "StreamingAccessDetailsTypeDef",
     "SupportedResourceTypeTypeDef",
@@ -279,6 +286,7 @@ class ListSupportedResourceTypesInputTypeDef(TypedDict):
 class SupportedResourceTypeTypeDef(TypedDict):
     Service: NotRequired[str]
     ResourceType: NotRequired[str]
+    CFNResourceTypes: NotRequired[list[str]]
 
 
 class ListTagsForResourceInputTypeDef(TypedDict):
@@ -306,6 +314,12 @@ class SearchInputTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     ViewArn: NotRequired[str]
     NextToken: NotRequired[str]
+
+
+class ServiceLinkedRecorderInfoTypeDef(TypedDict):
+    ServicePrincipal: NotRequired[str]
+    RecorderName: NotRequired[str]
+    RecorderType: NotRequired[RecorderTypeType]
 
 
 class TagResourceInputTypeDef(TypedDict):
@@ -458,15 +472,6 @@ class ManagedViewTypeDef(TypedDict):
     Version: NotRequired[str]
 
 
-class ServiceViewTypeDef(TypedDict):
-    ServiceViewArn: str
-    ServiceViewName: NotRequired[str]
-    Filters: NotRequired[SearchFilterTypeDef]
-    IncludedProperties: NotRequired[list[IncludedPropertyTypeDef]]
-    StreamingAccessForService: NotRequired[str]
-    ScopeType: NotRequired[str]
-
-
 class UpdateViewInputTypeDef(TypedDict):
     ViewArn: str
     IncludedProperties: NotRequired[Sequence[IncludedPropertyTypeDef]]
@@ -588,17 +593,23 @@ class ResourceTypeDef(TypedDict):
     Region: NotRequired[str]
     ResourceType: NotRequired[str]
     Service: NotRequired[str]
+    CfnResourceType: NotRequired[str]
     LastReportedAt: NotRequired[datetime]
     Properties: NotRequired[list[ResourcePropertyTypeDef]]
 
 
+class ServiceViewTypeDef(TypedDict):
+    ServiceViewArn: str
+    ServiceViewName: NotRequired[str]
+    Filters: NotRequired[SearchFilterTypeDef]
+    IncludedProperties: NotRequired[list[IncludedPropertyTypeDef]]
+    StreamingAccessForService: NotRequired[str]
+    ScopeType: NotRequired[str]
+    ServiceLinkedRecorder: NotRequired[ServiceLinkedRecorderInfoTypeDef]
+
+
 class GetManagedViewOutputTypeDef(TypedDict):
     ManagedView: ManagedViewTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetServiceViewOutputTypeDef(TypedDict):
-    View: ServiceViewTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -643,6 +654,11 @@ class SearchOutputTypeDef(TypedDict):
     Count: ResourceCountTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class GetServiceViewOutputTypeDef(TypedDict):
+    View: ServiceViewTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class RegionStatusTypeDef(TypedDict):

@@ -23,6 +23,7 @@ Usage::
         ListAlarmMuteRulesPaginator,
         ListDashboardsPaginator,
         ListMetricsPaginator,
+        LogAlarmExistsWaiter,
         ServiceResource,
     )
 
@@ -34,6 +35,7 @@ Usage::
     alarm_exists_waiter: AlarmExistsWaiter = client.get_waiter("alarm_exists")
     alarm_mute_rule_exists_waiter: AlarmMuteRuleExistsWaiter = client.get_waiter("alarm_mute_rule_exists")
     composite_alarm_exists_waiter: CompositeAlarmExistsWaiter = client.get_waiter("composite_alarm_exists")
+    log_alarm_exists_waiter: LogAlarmExistsWaiter = client.get_waiter("log_alarm_exists")
 
     describe_alarm_history_paginator: DescribeAlarmHistoryPaginator = client.get_paginator("describe_alarm_history")
     describe_alarms_paginator: DescribeAlarmsPaginator = client.get_paginator("describe_alarms")
@@ -55,7 +57,12 @@ from .paginator import (
     ListDashboardsPaginator,
     ListMetricsPaginator,
 )
-from .waiter import AlarmExistsWaiter, AlarmMuteRuleExistsWaiter, CompositeAlarmExistsWaiter
+from .waiter import (
+    AlarmExistsWaiter,
+    AlarmMuteRuleExistsWaiter,
+    CompositeAlarmExistsWaiter,
+    LogAlarmExistsWaiter,
+)
 
 try:
     from .service_resource import CloudWatchServiceResource
@@ -83,5 +90,6 @@ __all__ = (
     "ListAlarmMuteRulesPaginator",
     "ListDashboardsPaginator",
     "ListMetricsPaginator",
+    "LogAlarmExistsWaiter",
     "ServiceResource",
 )

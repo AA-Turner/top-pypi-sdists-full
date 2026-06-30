@@ -105,6 +105,18 @@ class ConfigParser(object):
             default=False,
             help="Put Task in Queue Worker",
         )
+        self.parser.add_argument(
+            "-r",
+            "--run",
+            dest="run",
+            action="store_true",
+            default=False,
+            help=(
+                "When dispatching to the QWorker, wait for the result "
+                "(QClient.run) instead of the default fire-and-forget "
+                "queue (QClient.queue)."
+            ),
+        )
         # ── Executor selection flags (FEAT-022) ───────────────────────────────
         self.parser.add_argument(
             "--executor",

@@ -22,7 +22,6 @@ from pandas.tests.plotting.common import (
     _check_visible,
     _flatten_visible,
 )
-from pandas.util.version import Version
 
 from pandas.io.formats.printing import pprint_thing
 
@@ -430,13 +429,7 @@ class TestDataFramePlotsSubplots:
     def test_bar_log_no_subplots(self):
         # GH3254, GH3298 matplotlib/matplotlib#1882, #1892
         # regressions in 1.2.1
-        # matplotlib 3.11 no longer pads log-axis ticks a decade past the
-        #  view limits, so the outermost tick is dropped (GH#65918)
-        expected = (
-            np.array([0.1, 1.0, 10.0, 100])
-            if Version(mpl.__version__) < Version("3.11.0rc1")
-            else np.array([0.1, 1.0, 10.0])
-        )
+        expected = np.array([0.1, 1.0, 10.0, 100])
 
         # no subplots
         df = DataFrame({"A": [3] * 5, "B": list(range(1, 6))}, index=range(5))
@@ -449,13 +442,7 @@ class TestDataFramePlotsSubplots:
         strict=False,
     )
     def test_bar_log_subplots(self):
-        # matplotlib 3.11 no longer pads log-axis ticks a decade past the
-        #  view limits, so the outermost tick is dropped (GH#65918)
-        expected = (
-            np.array([0.1, 1.0, 10.0, 100.0, 1000.0, 1e4])
-            if Version(mpl.__version__) < Version("3.11.0rc1")
-            else np.array([0.1, 1.0, 10.0, 100.0, 1000.0])
-        )
+        expected = np.array([0.1, 1.0, 10.0, 100.0, 1000.0, 1e4])
 
         ax = DataFrame([Series([200, 300]), Series([300, 500])]).plot.bar(
             log=True, subplots=True
