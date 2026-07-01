@@ -60,6 +60,8 @@ def normalize_assistant_text(content: Any) -> str:
                 t = block.get("text")
                 if isinstance(t, str):
                     parts.append(t)
+                elif isinstance(block.get("content"), str):
+                    parts.append(block["content"])
                 elif t is not None:
                     parts.append(normalize_assistant_text(t))
             else:
@@ -111,12 +113,14 @@ async def classify_nl_auto_continue(
         'Respond with JSON only: {"auto_continue": true} or {"auto_continue": false}'
     )
     try:
+        from cuga.backend.cuga_graph.utils.langfuse_tracing import get_langfuse_invoke_config
+
         resp = await llm.ainvoke(
             [
                 {"role": "system", "content": CLASSIFIER_SYSTEM_PROMPT},
                 {"role": "user", "content": user_block},
             ],
-            config={"callbacks": []},
+            config=get_langfuse_invoke_config(),
         )
         parsed = parse_auto_continue_json(getattr(resp, "content", "") or "")
         if parsed is None:

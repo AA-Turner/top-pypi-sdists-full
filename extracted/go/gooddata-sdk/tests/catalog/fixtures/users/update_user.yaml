@@ -1,0 +1,467 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/users?include=userGroups&page=0&size=500
+    response:
+      body:
+        string:
+          data:
+            - attributes: {}
+              id: admin
+              links:
+                self: http://localhost:3000/api/v1/entities/users/admin
+              relationships:
+                userGroups:
+                  data:
+                    - id: adminGroup
+                      type: userGroup
+              type: user
+            - attributes:
+                authenticationId: NORMALIZED_AUTH_ID
+                email: demo@example.com
+                firstname: Demo
+                lastname: User
+              id: demo
+              links:
+                self: http://localhost:3000/api/v1/entities/users/demo
+              relationships:
+                userGroups:
+                  data:
+                    - id: adminGroup
+                      type: userGroup
+              type: user
+            - attributes:
+                authenticationId: NORMALIZED_AUTH_ID
+              id: demo2
+              links:
+                self: http://localhost:3000/api/v1/entities/users/demo2
+              relationships:
+                userGroups:
+                  data:
+                    - id: demoGroup
+                      type: userGroup
+              type: user
+          included:
+            - attributes: {}
+              id: adminGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/adminGroup
+              type: userGroup
+            - attributes:
+                name: demo group
+              id: demoGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/demoGroup
+              type: userGroup
+          links:
+            next: http://localhost:3000/api/v1/entities/users?include=userGroups&page=1&size=500
+            self: http://localhost:3000/api/v1/entities/users?include=userGroups&page=0&size=500
+      headers:
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/users/test_update_user_temp?include=userGroups
+    response:
+      body:
+        string:
+          detail: The requested endpoint does not exist or you do not have permission
+            to access it.
+          status: 404
+          title: Not Found
+          traceId: NORMALIZED_TRACE_ID_000000000000
+      headers:
+        Content-Type:
+          - application/problem+json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 404
+        message: Not Found
+  - request:
+      body:
+        data:
+          attributes:
+            authenticationId: test_update_user_temp_auth
+            email: temp.user@example.com
+            firstname: Temp
+            lastname: User
+          id: test_update_user_temp
+          relationships:
+            userGroups:
+              data:
+                - id: demoGroup
+                  type: userGroup
+          type: user
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/entities/users
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              authenticationId: test_update_user_temp_auth
+              email: temp.user@example.com
+              firstname: Temp
+              lastname: User
+            id: test_update_user_temp
+            type: user
+          links:
+            self: http://localhost:3000/api/v1/entities/users/test_update_user_temp
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 201
+        message: Created
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/users?include=userGroups&page=0&size=500
+    response:
+      body:
+        string:
+          data:
+            - attributes: {}
+              id: admin
+              links:
+                self: http://localhost:3000/api/v1/entities/users/admin
+              relationships:
+                userGroups:
+                  data:
+                    - id: adminGroup
+                      type: userGroup
+              type: user
+            - attributes:
+                authenticationId: NORMALIZED_AUTH_ID
+                email: demo@example.com
+                firstname: Demo
+                lastname: User
+              id: demo
+              links:
+                self: http://localhost:3000/api/v1/entities/users/demo
+              relationships:
+                userGroups:
+                  data:
+                    - id: adminGroup
+                      type: userGroup
+              type: user
+            - attributes:
+                authenticationId: NORMALIZED_AUTH_ID
+              id: demo2
+              links:
+                self: http://localhost:3000/api/v1/entities/users/demo2
+              relationships:
+                userGroups:
+                  data:
+                    - id: demoGroup
+                      type: userGroup
+              type: user
+            - attributes:
+                authenticationId: test_update_user_temp_auth
+                email: temp.user@example.com
+                firstname: Temp
+                lastname: User
+              id: test_update_user_temp
+              links:
+                self: http://localhost:3000/api/v1/entities/users/test_update_user_temp
+              relationships:
+                userGroups:
+                  data:
+                    - id: demoGroup
+                      type: userGroup
+              type: user
+          included:
+            - attributes: {}
+              id: adminGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/adminGroup
+              type: userGroup
+            - attributes:
+                name: demo group
+              id: demoGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/demoGroup
+              type: userGroup
+          links:
+            next: http://localhost:3000/api/v1/entities/users?include=userGroups&page=1&size=500
+            self: http://localhost:3000/api/v1/entities/users?include=userGroups&page=0&size=500
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/users/test_update_user_temp?include=userGroups
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              authenticationId: test_update_user_temp_auth
+              email: temp.user@example.com
+              firstname: Temp
+              lastname: User
+            id: test_update_user_temp
+            relationships:
+              userGroups:
+                data:
+                  - id: demoGroup
+                    type: userGroup
+            type: user
+          included:
+            - attributes:
+                name: demo group
+              id: demoGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/demoGroup
+              type: userGroup
+          links:
+            self: http://localhost:3000/api/v1/entities/users/test_update_user_temp?include=userGroups
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        data:
+          attributes:
+            authenticationId: test_update_user_temp_123
+            email: m.scott@dundermifflin.us
+            firstname: Michael
+            lastname: Scott
+          id: test_update_user_temp
+          relationships:
+            userGroups:
+              data:
+                - id: demoGroup
+                  type: userGroup
+                - id: visitorsGroup
+                  type: userGroup
+          type: user
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: PUT
+      uri: http://localhost:3000/api/v1/entities/users/test_update_user_temp
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              authenticationId: test_update_user_temp_123
+              email: m.scott@dundermifflin.us
+              firstname: Michael
+              lastname: Scott
+            id: test_update_user_temp
+            type: user
+          links:
+            self: http://localhost:3000/api/v1/entities/users/test_update_user_temp
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/users/test_update_user_temp?include=userGroups
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              authenticationId: test_update_user_temp_123
+              email: m.scott@dundermifflin.us
+              firstname: Michael
+              lastname: Scott
+            id: test_update_user_temp
+            relationships:
+              userGroups:
+                data:
+                  - id: demoGroup
+                    type: userGroup
+                  - id: visitorsGroup
+                    type: userGroup
+            type: user
+          included:
+            - attributes:
+                name: visitors
+              id: visitorsGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/visitorsGroup
+              type: userGroup
+            - attributes:
+                name: demo group
+              id: demoGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/demoGroup
+              type: userGroup
+          links:
+            self: http://localhost:3000/api/v1/entities/users/test_update_user_temp?include=userGroups
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: DELETE
+      uri: http://localhost:3000/api/v1/entities/users/test_update_user_temp
+    response:
+      body:
+        string: ''
+      headers:
+        Content-Type:
+          - application/vnd.gooddata.api+json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 204
+        message: No Content
+version: 1

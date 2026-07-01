@@ -34,9 +34,9 @@ class ResourceQuotaSpec(object):
     """
     openapi_types = {
         'name': 'str',
-        'nominal_quota': 'int',
-        'lending_limit': 'int',
-        'borrowing_limit': 'int'
+        'nominal_quota': 'float',
+        'lending_limit': 'float',
+        'borrowing_limit': 'float'
     }
 
     attribute_map = {
@@ -94,7 +94,7 @@ class ResourceQuotaSpec(object):
 
 
         :return: The nominal_quota of this ResourceQuotaSpec.  # noqa: E501
-        :rtype: int
+        :rtype: float
         """
         return self._nominal_quota
 
@@ -104,13 +104,13 @@ class ResourceQuotaSpec(object):
 
 
         :param nominal_quota: The nominal_quota of this ResourceQuotaSpec.  # noqa: E501
-        :type: int
+        :type: float
         """
         if self.local_vars_configuration.client_side_validation and nominal_quota is None:  # noqa: E501
             raise ValueError("Invalid value for `nominal_quota`, must not be `None`")  # noqa: E501
         if (self.local_vars_configuration.client_side_validation and
-                nominal_quota is not None and nominal_quota < 0):  # noqa: E501
-            raise ValueError("Invalid value for `nominal_quota`, must be a value greater than or equal to `0`")  # noqa: E501
+                nominal_quota is not None and nominal_quota < 0.0):  # noqa: E501
+            raise ValueError("Invalid value for `nominal_quota`, must be a value greater than or equal to `0.0`")  # noqa: E501
 
         self._nominal_quota = nominal_quota
 
@@ -120,7 +120,7 @@ class ResourceQuotaSpec(object):
 
 
         :return: The lending_limit of this ResourceQuotaSpec.  # noqa: E501
-        :rtype: int
+        :rtype: float
         """
         return self._lending_limit
 
@@ -130,11 +130,11 @@ class ResourceQuotaSpec(object):
 
 
         :param lending_limit: The lending_limit of this ResourceQuotaSpec.  # noqa: E501
-        :type: int
+        :type: float
         """
         if (self.local_vars_configuration.client_side_validation and
-                lending_limit is not None and lending_limit < 0):  # noqa: E501
-            raise ValueError("Invalid value for `lending_limit`, must be a value greater than or equal to `0`")  # noqa: E501
+                lending_limit is not None and lending_limit < 0.0):  # noqa: E501
+            raise ValueError("Invalid value for `lending_limit`, must be a value greater than or equal to `0.0`")  # noqa: E501
 
         self._lending_limit = lending_limit
 
@@ -144,7 +144,7 @@ class ResourceQuotaSpec(object):
 
 
         :return: The borrowing_limit of this ResourceQuotaSpec.  # noqa: E501
-        :rtype: int
+        :rtype: float
         """
         return self._borrowing_limit
 
@@ -154,11 +154,11 @@ class ResourceQuotaSpec(object):
 
 
         :param borrowing_limit: The borrowing_limit of this ResourceQuotaSpec.  # noqa: E501
-        :type: int
+        :type: float
         """
         if (self.local_vars_configuration.client_side_validation and
-                borrowing_limit is not None and borrowing_limit < 0):  # noqa: E501
-            raise ValueError("Invalid value for `borrowing_limit`, must be a value greater than or equal to `0`")  # noqa: E501
+                borrowing_limit is not None and borrowing_limit < 0.0):  # noqa: E501
+            raise ValueError("Invalid value for `borrowing_limit`, must be a value greater than or equal to `0.0`")  # noqa: E501
 
         self._borrowing_limit = borrowing_limit
 

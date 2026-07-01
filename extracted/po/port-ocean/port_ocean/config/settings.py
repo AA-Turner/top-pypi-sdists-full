@@ -1,0 +1,367 @@
+import platform
+from typing import Any, Literal, Optional, Type
+from urllib.parse import urlparse
+
+from pydantic.v1 import AnyHttpUrl, Extra, Field, parse_obj_as, parse_raw_as
+from pydantic.v1.class_validators import root_validator, validator
+from pydantic.v1.env_settings import BaseSettings, EnvSettingsSource, InitSettingsSource
+from pydantic.v1.main import BaseModel
+
+from port_ocean.config.base import BaseOceanModel, BaseOceanSettings
+from port_ocean.core.event_listener import (
+    EventListenerSettingsType,
+    PollingEventListenerSettings,
+)
+from port_ocean.core.models import (
+    CachingStorageMode,
+    CreatePortResourcesOrigin,
+    EventListenerType,
+    LiveEventsConsumerType,
+    ProcessExecutionMode,
+    ProcessingMode,
+    Runtime,
+)
+from port_ocean.utils.misc import (
+    get_cgroup_cpu_limit,
+    get_integration_name,
+    get_spec_file,
+)
+
+LogLevelType = Literal["ERROR", "WARNING", "INFO", "DEBUG", "CRITICAL"]
+
+
+class SslX509Settings(BaseOceanModel):
+    """X.509 verification profile applied when ``verify`` is true."""
+
+    strict: bool = True
+
+
+class SslClientSettings(BaseOceanModel):
+    verify: bool = True
+    x509: SslX509Settings = Field(default_factory=SslX509Settings)
+
+
+class SslSettings(BaseOceanModel):
+    port: SslClientSettings = Field(default_factory=SslClientSettings)
+    third_party: SslClientSettings = Field(default_factory=SslClientSettings)
+
+
+class ApplicationSettings(BaseSettings):
+    log_level: LogLevelType = "INFO"
+    enable_http_logging: bool = True
+    port: int = 8000
+
+    class Config:
+        env_prefix = "APPLICATION__"
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
+        @classmethod
+        def customise_sources(  # type: ignore
+            cls,
+            init_settings: InitSettingsSource,
+            env_settings: EnvSettingsSource,
+            *_,
+            **__,
+        ):
+            return env_settings, init_settings
+
+
+class PortSettings(BaseOceanModel, extra=Extra.allow):
+    client_id: str = Field(..., sensitive=True)
+    client_secret: str = Field(..., sensitive=True)
+    base_url: AnyHttpUrl = parse_obj_as(AnyHttpUrl, "https://api.getport.io")
+    port_app_config_cache_ttl: int = 60
+    feature_flags_cache_ttl_seconds: float = 300.0  # 5 minutes
+
+
+class IntegrationSettings(BaseOceanModel, extra=Extra.allow):
+    identifier: str
+    type: str
+    config: Any = Field(default_factory=dict)
+
+    @root_validator(pre=True)
+    def root_validator(cls, values: dict[str, Any]) -> dict[str, Any]:
+        integ_type = values.get("type")
+
+        if not integ_type:
+            integ_type = get_integration_name()
+
+        values["type"] = integ_type.lower() if integ_type else None
+        if not values.get("identifier"):
+            values["identifier"] = f"my-{integ_type}-integration".lower()
+
+        return values
+
+
+class MetricsSettings(BaseOceanModel, extra=Extra.allow):
+    enabled: bool = Field(default=False)
+    webhook_url: str | None = Field(default=None)
+
+
+class StreamingSettings(BaseOceanModel, extra=Extra.allow):
+    enabled: bool = Field(default=False)
+    max_buffer_size_mb: int = Field(default=1024 * 1024 * 20)  # 20 mb
+    chunk_size: int = Field(default=1024 * 64)  # 64 kb
+    location: str = Field(default="/tmp/ocean/streaming")
+
+
+class ActionsProcessorSettings(BaseOceanModel, extra=Extra.allow):
+    enabled: bool = Field(default=False)
+    runs_buffer_high_watermark: int = Field(default=100)
+    visibility_timeout_ms: int = Field(default=30000)
+    poll_check_interval_seconds: int = Field(default=10)
+    workers_count: int = Field(default=1)
+
+
+class LiveEventsRedisSettings(BaseOceanModel, extra=Extra.allow):
+    url: str = Field(default="redis://localhost:6379")
+    username: str | None = None
+    password: str | None = Field(default=None, sensitive=True)
+    enable_tls: bool = False
+    ca: str | None = Field(
+        default=None,
+        description="Base64-encoded PEM CA certificate bundle for TLS verification.",
+    )
+    cert: str | None = Field(
+        default=None,
+        description="Base64-encoded PEM client certificate for mutual TLS.",
+    )
+    private_key: str | None = Field(
+        default=None,
+        sensitive=True,
+        description="Base64-encoded PEM private key for mutual TLS.",
+    )
+    block_ms: int = Field(default=1000, ge=1)
+    read_count: int = Field(
+        default=10,
+        ge=1,
+        description="Maximum number of stream entries to return per XREADGROUP call.",
+    )
+    # PEL requeue worker settings
+    pel_requeue_worker_enabled: bool = Field(
+        default=True,
+        description=(
+            "When true, starts a background worker that reclaims stuck PEL "
+            "entries and re-enqueues them for reprocessing."
+        ),
+    )
+    pel_stuck_timeout_seconds: int = Field(
+        default=600,
+        ge=1,
+        description="Seconds a PEL entry must be idle before the requeue worker reclaims it.",
+    )
+    pel_max_requeue_count: int = Field(
+        default=3,
+        ge=1,
+        description="Maximum number of times a message is requeued before being discarded.",
+    )
+    pel_scan_interval_seconds: float = Field(
+        default=30.0,
+        gt=0,
+        description="Seconds between successive PEL scans by the requeue worker.",
+    )
+    pel_xautoclaim_count: int = Field(
+        default=100,
+        ge=1,
+        description="Maximum number of PEL entries to claim per XAUTOCLAIM call.",
+    )
+    pel_lifecycle_error_backoff_seconds: float = Field(
+        default=5.0,
+        gt=0,
+        description=(
+            "Seconds to wait before retrying the PEL worker lifecycle loop "
+            "after an unexpected error."
+        ),
+    )
+
+    @property
+    def stuck_timeout_ms(self) -> int:
+        return self.pel_stuck_timeout_seconds * 1000
+
+    @root_validator
+    def validate_tls_settings(cls, values: dict[str, Any]) -> dict[str, Any]:
+        url = values.get("url", "redis://localhost:6379")
+        enable_tls = values.get("enable_tls", False)
+        cert = values.get("cert")
+        private_key = values.get("private_key")
+
+        scheme = urlparse(url).scheme.lower()
+        uses_tls_scheme = scheme == "rediss"
+
+        if enable_tls and not uses_tls_scheme:
+            raise ValueError(
+                "enable_tls is True but the Redis URL does not use the rediss:// "
+                "scheme. Use a rediss:// URL or set enable_tls to False."
+            )
+        if not enable_tls and uses_tls_scheme:
+            raise ValueError(
+                "The Redis URL uses rediss:// but enable_tls is False. "
+                "Set enable_tls to True or use a redis:// URL."
+            )
+
+        has_cert = bool(cert)
+        has_private_key = bool(private_key)
+        if has_cert != has_private_key:
+            raise ValueError(
+                "Redis mutual TLS requires both cert and private_key to be set."
+            )
+
+        return values
+
+
+class LiveEventsSettings(BaseOceanModel, extra=Extra.allow):
+    type: LiveEventsConsumerType = LiveEventsConsumerType.REDIS
+
+
+class RedisLiveEventsSettings(LiveEventsSettings):
+    type: Literal[LiveEventsConsumerType.REDIS] = LiveEventsConsumerType.REDIS
+    redis: LiveEventsRedisSettings = Field(
+        default_factory=lambda: LiveEventsRedisSettings()
+    )
+
+
+LiveEventsSettingsType = RedisLiveEventsSettings
+
+
+class IntegrationConfiguration(BaseOceanSettings, extra=Extra.allow):
+    _integration_config_model: BaseModel | None = None
+
+    allow_environment_variables_jq_access: bool = True
+    initialize_port_resources: bool = True
+    scheduled_resync_interval: int | None = None
+    status_heartbeat_interval_seconds: int = Field(
+        default=10,  # Interval in seconds for sending metrics heartbeat (liveness).
+        gt=0,
+    )
+    client_timeout: int = 60
+    create_port_resources_origin: CreatePortResourcesOrigin | None = None
+    send_raw_data_examples: bool = True
+    oauth_access_token_file_path: str | None = None
+    base_url: str | None = None
+    path_prefix: str | None = None
+    port: PortSettings
+    event_listener: EventListenerSettingsType = Field(
+        default_factory=lambda: PollingEventListenerSettings(
+            type=EventListenerType.POLLING
+        )
+    )
+    event_workers_count: int = 1
+    events_debug_logging: bool = False
+    # If an identifier or type is not provided, it will be generated based on the integration name
+    integration: IntegrationSettings = Field(
+        default_factory=lambda: IntegrationSettings(type="", identifier="")
+    )
+    runtime: Runtime = Runtime.OnPrem
+    resources_path: str = Field(default=".port/resources")
+    metrics: MetricsSettings = Field(
+        default_factory=lambda: MetricsSettings(enabled=False, webhook_url=None)
+    )
+    max_event_processing_seconds: float = 90.0
+    max_wait_seconds_before_shutdown: float = 5.0
+    caching_storage_mode: Optional[CachingStorageMode] = Field(
+        default=CachingStorageMode.disk
+    )
+    process_execution_mode: Optional[ProcessExecutionMode] = Field(
+        default=ProcessExecutionMode.multi_process
+    )
+
+    upsert_entities_batch_max_length: int = 20
+    upsert_entities_batch_max_size_in_bytes: int = 1024 * 1024
+    lakehouse_enabled: bool = False
+    lakehouse_buffer_interval_seconds: float = 10.0
+    lakehouse_buffer_max_count: int = 50
+    processing_mode: ProcessingMode = ProcessingMode.ocean_core
+    yield_items_to_parse_batch_size: int = 200
+    process_in_queue_timeout: int = 120
+    process_in_queue_max_workers: int = Field(
+        default_factory=lambda: get_cgroup_cpu_limit()
+    )
+    delete_entities_max_batch_size: int = 1000
+    streaming: StreamingSettings = Field(default_factory=lambda: StreamingSettings())
+    actions_processor: ActionsProcessorSettings = Field(
+        default_factory=lambda: ActionsProcessorSettings()
+    )
+    live_events: LiveEventsSettingsType = Field(
+        default_factory=lambda: RedisLiveEventsSettings()
+    )
+    ssl: SslSettings = Field(default_factory=SslSettings)
+
+    @validator("process_execution_mode")
+    def validate_process_execution_mode(
+        cls,
+        process_execution_mode: ProcessExecutionMode,
+        values: dict[str, Any],
+    ) -> ProcessExecutionMode:
+        # Check if the system is macos, if so, set the process execution mode to single process since multiprocessing behavior is different on macos and some asyncio error pop up
+        is_macos = platform.system() == "Darwin"
+        runtime = values.get("runtime", Runtime.OnPrem)
+        if is_macos or runtime == Runtime.Saas:
+            return ProcessExecutionMode.single_process
+        return process_execution_mode
+
+    @validator("metrics", pre=True)
+    def validate_metrics(cls, v: Any) -> MetricsSettings | dict[str, Any] | None:
+        if v is None:
+            return MetricsSettings(enabled=False, webhook_url=None)
+        if isinstance(v, dict):
+            return v
+        if isinstance(v, MetricsSettings):
+            return v
+        # Try to convert to dict for other types
+        try:
+            return dict(v)
+        except (TypeError, ValueError):
+            return MetricsSettings(enabled=False, webhook_url=None)
+
+    @root_validator()
+    def validate_integration_config(cls, values: dict[str, Any]) -> dict[str, Any]:
+        if not (config_model := values.get("_integration_config_model")):
+            return values
+
+        # Using the integration dynamic config model to parse the config
+        def parse_config(model: Type[BaseModel], config: Any) -> BaseModel:
+            # In some cases, the config is parsed as a string so we need to handle it
+            # Example: when the config is loaded from the environment variables and there is an object inside the config
+            if isinstance(config, str):
+                return parse_raw_as(model, config)
+            else:
+                return parse_obj_as(model, config)
+
+        integration_config = values["integration"]
+        integration_config.config = parse_config(
+            config_model, integration_config.config
+        )
+
+        return values
+
+    @validator("runtime")
+    def validate_runtime(cls, runtime: Runtime) -> Runtime:
+        if runtime.is_saas_runtime:
+            spec = get_spec_file()
+            if spec is None:
+                raise ValueError(
+                    "Could not determine whether it's safe to run "
+                    "the integration due to not found spec.yaml."
+                )
+
+            saas_config = spec.get("saas")
+            if saas_config and not saas_config["enabled"]:
+                raise ValueError("This integration can't be ran as Saas")
+
+        return runtime
+
+    @validator("actions_processor")
+    def validate_actions_processor(
+        cls, actions_processor: ActionsProcessorSettings
+    ) -> ActionsProcessorSettings:
+        if not actions_processor.enabled:
+            return actions_processor
+
+        spec = get_spec_file()
+        if not (spec and spec.get("actionsProcessingEnabled", False)):
+            raise ValueError(
+                "Serving as an actions processor is not currently supported for this integration."
+            )
+
+        return actions_processor

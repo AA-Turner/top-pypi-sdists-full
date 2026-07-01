@@ -1,1 +1,0 @@
-# standard workaround -- empty models.py so that django test runner will run the tests for this app

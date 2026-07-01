@@ -8,7 +8,7 @@ import pickle
 import re
 import types
 from datetime import datetime, timedelta
-from typing import Optional, List, Tuple, Any, Dict
+from typing import Optional, List, Tuple, Any, Dict, Union
 from urllib.parse import unquote
 
 import pandas as pd
@@ -24,16 +24,18 @@ from seeq.spy._status import Status
 
 @Status.top_level_spy_function(errors='raise')
 def schedule(
-    schedule_spec: str,
-    datalab_notebook_url: Optional[str] = None,
-    label: Optional[str] = None,
-    user: Optional[str] = None,
-    suspend: bool = False,
-    notify_on_skipped_execution: Optional[bool] = True,
-    notify_on_automatic_unschedule: Optional[bool] = True,
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None,
-    session: Optional[Session] = None
+        schedule_spec: str,
+        datalab_notebook_url: Optional[str] = None,
+        *,
+        label: Optional[str] = None,
+        user: Optional[str] = None,
+        suspend: bool = False,
+        notify_on_skipped_execution: Optional[bool] = True,
+        notify_on_automatic_unschedule: Optional[bool] = True,
+        additional_error_notification_recipients: Optional[Union[str, List[str]]] = None,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None
 ) -> pd.DataFrame:
     """
     Schedules the automatic execution of a Seeq Data Lab notebook.
@@ -111,6 +113,12 @@ def schedule(
         notified, making it possible to investigate the problem and reschedule
         the notebook if needed
 
+    additional_error_notification_recipients: Union of str and List[str], default None
+        This determines the additional recipients who will receive error notifications from
+        notify_on_automatic_unschedule and notify_on_skipped_execution. The original user
+        may not always have access to email or be able to resolve execution issues, so
+        adding other recipients provides greater flexibility.
+
     quiet : bool, default False
         If True, suppresses progress output. Note that when status is
         provided, the quiet setting of the Status object that is passed
@@ -138,7 +146,9 @@ def schedule(
         return schedule_df(session, pd.DataFrame([{'Schedule': schedule_spec}]) if schedule_spec else None,
                            datalab_notebook_url=datalab_notebook_url, label=label, user=user, suspend=suspend,
                            notify_on_skipped_execution=notify_on_skipped_execution,
-                           notify_on_automatic_unschedule=notify_on_automatic_unschedule, status=status)
+                           notify_on_automatic_unschedule=notify_on_automatic_unschedule,
+                           additional_error_notification_recipients=additional_error_notification_recipients,
+                           status=status)
     except SchedulePostingError:
         # See _push.push() for why we swallow this error in the executor
         if not _datalab.is_executor():
@@ -193,9 +203,11 @@ def unschedule(datalab_notebook_url: Optional[str] = None, label: Optional[str] 
 
 
 def schedule_df(session: Session, jobs_df: pd.DataFrame = None, spread: Optional[str] = None,
-                datalab_notebook_url: Optional[str] = None, label: Optional[str] = None,
+                datalab_notebook_url: Optional[str] = None, *, label: Optional[str] = None,
                 user: Optional[str] = None, suspend: bool = False, notify_on_skipped_execution: Optional[bool] = True,
-                notify_on_automatic_unschedule: Optional[bool] = True, status: Optional[Status] = None) -> pd.DataFrame:
+                notify_on_automatic_unschedule: Optional[bool] = True,
+                additional_error_notification_recipients: Optional[Union[str, List[str]]] = None,
+                status: Optional[Status] = None) -> pd.DataFrame:
     input_args = locals()
 
     if jobs_df is None:
@@ -227,8 +239,12 @@ def schedule_df(session: Session, jobs_df: pd.DataFrame = None, spread: Optional
         if len(indexed_cron_expressions) == 0:
             _call_unschedule_notebook_api(session, project_id, file_path, label)
         else:
+            if isinstance(additional_error_notification_recipients, str):
+                additional_error_notification_recipients = [additional_error_notification_recipients]
+
             _call_schedule_notebook_api(session, indexed_cron_expressions, project_id, file_path, label, user_identity,
-                                        notify_on_skipped_execution, notify_on_automatic_unschedule)
+                                        notify_on_skipped_execution, notify_on_automatic_unschedule,
+                                        additional_error_notification_recipients)
     except Exception as e:
         status.exception(e)
         raise SchedulePostingError(e)
@@ -412,7 +428,8 @@ def validate_and_get_next_trigger(session: Session, cron_expression_list) -> Dic
 
 def _call_schedule_notebook_api(session: Session, cron_expressions: List[Tuple[Any, str]], project_id: str, file_path,
                                 label: Optional[str], user_identity: Optional[UserOutputV1],
-                                notify_on_skipped_execution: bool, notify_on_automatic_unschedule: bool) -> None:
+                                notify_on_skipped_execution: bool, notify_on_automatic_unschedule: bool,
+                                additional_error_notification_recipients: Optional[List[str]] = None) -> None:
     projects_api = ProjectsApi(session.client)
     schedule_input = ScheduledNotebookInputV1()
     schedule_input.file_path = file_path
@@ -421,6 +438,7 @@ def _call_schedule_notebook_api(session: Session, cron_expressions: List[Tuple[A
     schedule_input.label = label
     schedule_input.notify_on_skipped_execution = notify_on_skipped_execution
     schedule_input.notify_on_automatic_unschedule = notify_on_automatic_unschedule
+    schedule_input.additional_error_notification_recipients = additional_error_notification_recipients
     if user_identity is not None:
         schedule_input.user_id = user_identity.id
 

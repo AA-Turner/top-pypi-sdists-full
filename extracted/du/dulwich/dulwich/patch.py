@@ -46,6 +46,7 @@ __all__ = [
     "unified_diff",
     "unified_diff_with_algorithm",
     "write_blob_diff",
+    "write_commit_diff",
     "write_commit_patch",
     "write_object_diff",
     "write_tree_diff",
@@ -653,6 +654,40 @@ def write_tree_diff(
         )
 
 
+def write_commit_diff(
+    f: IO[bytes],
+    store: "BaseObjectStore",
+    commit: "Commit",
+    diff_binary: bool = False,
+    diff_algorithm: str | None = None,
+) -> None:
+    """Write the diff a commit introduces against its first parent.
+
+    Args:
+      f: File-like object to write to.
+      store: Object store to read from.
+      commit: Commit whose changes to diff. Root commits (with no parents)
+        are diffed against the empty tree.
+      diff_binary: Whether to diff files even if they are considered binary
+        files by is_binary().
+      diff_algorithm: Algorithm to use for diffing ("myers" or "patience").
+    """
+    if commit.parents:
+        parent = store[commit.parents[0]]
+        assert isinstance(parent, Commit)
+        parent_tree: ObjectID | None = parent.tree
+    else:
+        parent_tree = None
+    write_tree_diff(
+        f,
+        store,
+        parent_tree,
+        commit.tree,
+        diff_binary=diff_binary,
+        diff_algorithm=diff_algorithm,
+    )
+
+
 def git_am_patch_split(
     f: TextIO | BinaryIO, encoding: str | None = None
 ) -> tuple["Commit", bytes, bytes | None]:
@@ -831,18 +866,8 @@ def commit_patch_id(
     commit = store[commit_id]
     assert isinstance(commit, Commit)
 
-    # Get the parent tree (or empty tree for root commit)
-    if commit.parents:
-        parent = store[commit.parents[0]]
-        assert isinstance(parent, Commit)
-        parent_tree = parent.tree
-    else:
-        # Root commit - compare against empty tree
-        parent_tree = None
-
-    # Generate diff
     diff_output = BytesIO()
-    write_tree_diff(diff_output, store, parent_tree, commit.tree)
+    write_commit_diff(diff_output, store, commit)
 
     return patch_id(diff_output.getvalue())
 
@@ -1445,7 +1470,7 @@ def _apply_rename_or_copy(
 
     if not cached and os.path.exists(dst_fs_path):
         st = os.stat(dst_fs_path)
-        entry = index_entry_from_stat(st, blob.id, 0)
+        entry = index_entry_from_stat(st, blob.id)
     else:
         entry = IndexEntry(
             ctime=(0, 0),
@@ -1609,7 +1634,7 @@ def apply_patches(
 
                 if not cached and os.path.exists(fs_path):
                     st = os.stat(fs_path)
-                    entry = index_entry_from_stat(st, blob.id, 0)
+                    entry = index_entry_from_stat(st, blob.id)
                 else:
                     entry = IndexEntry(
                         ctime=(0, 0),
@@ -1778,7 +1803,7 @@ def apply_patches(
             # Get file stat for index entry
             if not cached and os.path.exists(fs_path):
                 st = os.stat(fs_path)
-                entry = index_entry_from_stat(st, blob.id, 0)
+                entry = index_entry_from_stat(st, blob.id)
             else:
                 # Create a minimal index entry for cached-only changes
                 entry = IndexEntry(

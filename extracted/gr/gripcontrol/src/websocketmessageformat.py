@@ -1,0 +1,53 @@
+#    websocketmessageformat.py
+#    ~~~~~~~~~
+#    This module implements the WebSocketMessageFormat class.
+#    :authors: Justin Karneges, Konstantin Bokarius.
+#    :copyright: (c) 2015 by Fanout, Inc.
+#    :license: MIT, see LICENSE for more details.
+
+from base64 import b64encode
+from pubcontrol import Format
+from .gripcontrol import _is_unicode_instance
+
+
+# The WebSocketMessageFormat class is the format used to publish data to
+# WebSocket clients connected to GRIP proxies.
+class WebSocketMessageFormat(Format):
+
+    # Initialize with the message content and a flag indicating whether the
+    # message content should be sent as base64-encoded binary data, or an
+    # action to be performed.
+    def __init__(self, content=None, binary=False, action=None, code=None, reason=None):
+        self.content = content
+        self.binary = binary
+        self.action = action
+        self.code = code
+        self.reason = reason
+
+    # The name used when publishing this format.
+    def name(self):
+        return "ws-message"
+
+    # Exports the message in the required format depending on whether the
+    # message content is binary or not, and what kind of action should be
+    # performed.
+    def export(self):
+        out = dict()
+        if not self.action or self.action == "send":
+            val = self.content
+            if self.binary:
+                if _is_unicode_instance(val):
+                    val = val.encode("utf-8")
+                out["content-bin"] = b64encode(val)
+            else:
+                if not _is_unicode_instance(val):
+                    val = val.decode("utf-8")
+                out["content"] = val
+        else:
+            out["action"] = self.action
+            if self.action == "close":
+                if self.code is not None:
+                    out["code"] = self.code
+                if self.reason:
+                    out["reason"] = self.reason
+        return out

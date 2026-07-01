@@ -1,0 +1,73 @@
+name: Unit Tests for application-sdk
+
+description: |
+  Runs unit tests for Atlan Application SDK.
+
+  This action executes a comprehensive suite of unit tests for application-sdk, ensuring code quality and functionality.
+
+  It includes:
+  - Running pytest for all test files in the tests/ directory
+  - Generating code coverage reports in XML and HTML formats
+  - Enforcing a minimum coverage threshold of 60%
+  - Adding coverage report comments to pull requests
+
+inputs:
+  github-token:
+    required: true
+    description: The GitHub token to use for the action.
+  fail-under:
+    required: false
+    description: The minimum coverage threshold to enforce. Default is 60%.
+    default: "50"
+  python-version:
+    required: false
+    description: The Python version to use for the action.
+    default: "3.11"
+
+runs:
+  using: "composite"
+  steps:
+    - uses: "./.github/actions/setup-deps"
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Get branch name
+      shell: bash
+      run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
+      id: get_branch
+
+    - name: Run Unit and Integration Tests with Coverage
+      shell: bash
+      env:
+        ATLAN_ENABLE_OBSERVABILITY_DAPR_SINK: "false"
+      run: |
+        PYTHON_MINOR=$(echo "${{ inputs.python-version }}" | cut -d. -f2)
+        UV_RUN="uv run --frozen"
+        PYTEST_IGNORE=""
+        if [ "${PYTHON_MINOR}" -ge 14 ] 2>/dev/null; then
+          UV_RUN="uv run --frozen --no-group dev"
+          # Skip tests that require libcst (dev-only, no 3.14 support) or
+          # pyatlan pydantic-v1 compat (upstream fix: atlan-python PR #893)
+          PYTEST_IGNORE="--ignore=tests/unit/tools --ignore=tests/unit/clients/test_atlan_client.py --ignore=tests/unit/credentials/test_atlan_client.py"
+        fi
+        # pytest-socket: on Linux/macOS the event loop uses os.pipe()/AF_UNIX for its
+        # self-pipe, so --allow-unix-socket is sufficient. On Windows, ProactorEventLoop
+        # uses AF_INET socket pairs internally; --disable-socket would break asyncio
+        # entirely there, so we skip the guard on Windows. Linux CI still enforces it.
+        if [ "${RUNNER_OS}" != "Windows" ]; then
+          SOCKET_FLAGS="--disable-socket --allow-unix-socket"
+        else
+          SOCKET_FLAGS=""  # intentionally empty — see comment above
+        fi
+        $UV_RUN coverage run -m pytest --import-mode=importlib --capture=no --log-cli-level=INFO tests/ $PYTEST_IGNORE -v --full-trace --hypothesis-show-statistics ${SOCKET_FLAGS}
+        $UV_RUN coverage xml
+        $UV_RUN coverage html
+        $UV_RUN coverage report --fail-under=${{ inputs.fail-under }}
+
+    - name: Comment Coverage Report on PR
+      uses: orgoro/coverage@ca0c362dc1a4f100447309405e6dfea47e251495 # v3.3.1
+      continue-on-error: true
+      with:
+        coverageFile: coverage.xml
+        token: ${{ inputs.github-token }}
+

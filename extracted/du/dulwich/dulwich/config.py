@@ -200,6 +200,41 @@ V = TypeVar("V")  # Value type
 _T = TypeVar("_T")  # For get() default parameter
 
 
+class _UniqueKeysView(KeysView[K]):
+    """KeysView backed by an explicit list of keys (used to deduplicate)."""
+
+    def __init__(self, keys: list[K]) -> None:
+        self._keys = keys
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._keys
+
+    def __iter__(self) -> Iterator[K]:
+        return iter(self._keys)
+
+    def __len__(self) -> int:
+        return len(self._keys)
+
+
+class _OrderedItemsView(ItemsView[K, V]):
+    """Items view backed by the underlying ordered list of a multi-dict."""
+
+    def __init__(self, mapping: "CaseInsensitiveOrderedMultiDict[K, V]") -> None:
+        self._mapping = mapping
+
+    def __iter__(self) -> Iterator[tuple[K, V]]:
+        return iter(self._mapping._real)
+
+    def __len__(self) -> int:
+        return len(self._mapping._real)
+
+    def __contains__(self, item: object) -> bool:
+        if not isinstance(item, tuple) or len(item) != 2:
+            return False
+        key, value = item
+        return any(k == key and v == value for k, v in self._mapping._real)
+
+
 class CaseInsensitiveOrderedMultiDict(MutableMapping[K, V], Generic[K, V]):
     """A case-insensitive ordered dictionary that can store multiple values per key.
 
@@ -266,46 +301,11 @@ class CaseInsensitiveOrderedMultiDict(MutableMapping[K, V], Generic[K, V]):
             if lower not in seen:
                 seen.add(lower)
                 unique_keys.append(k)
-        from collections.abc import KeysView as ABCKeysView
-
-        class UniqueKeysView(ABCKeysView[K]):
-            def __init__(self, keys: list[K]):
-                self._keys = keys
-
-            def __contains__(self, key: object) -> bool:
-                return key in self._keys
-
-            def __iter__(self) -> Iterator[K]:
-                return iter(self._keys)
-
-            def __len__(self) -> int:
-                return len(self._keys)
-
-        return UniqueKeysView(unique_keys)
+        return _UniqueKeysView(unique_keys)
 
     def items(self) -> ItemsView[K, V]:
         """Return a view of the dictionary's (key, value) pairs in insertion order."""
-
-        # Return a view that iterates over the real list to preserve order
-        class OrderedItemsView(ItemsView[K, V]):
-            """Items view that preserves insertion order."""
-
-            def __init__(self, mapping: CaseInsensitiveOrderedMultiDict[K, V]):
-                self._mapping = mapping
-
-            def __iter__(self) -> Iterator[tuple[K, V]]:
-                return iter(self._mapping._real)
-
-            def __len__(self) -> int:
-                return len(self._mapping._real)
-
-            def __contains__(self, item: object) -> bool:
-                if not isinstance(item, tuple) or len(item) != 2:
-                    return False
-                key, value = item
-                return any(k == key and v == value for k, v in self._mapping._real)
-
-        return OrderedItemsView(self)
+        return _OrderedItemsView(self)
 
     def __iter__(self) -> Iterator[K]:
         """Iterate over the dictionary's keys."""
@@ -630,6 +630,7 @@ class ConfigDict(Config):
             Iterator of configuration values
         """
         section, name = self._check_section_and_name(section, name)
+        assert len(section) >= 1
 
         if len(section) > 1:
             try:
@@ -657,6 +658,7 @@ class ConfigDict(Config):
             KeyError: if the value is not set
         """
         section, name = self._check_section_and_name(section, name)
+        assert len(section) >= 1
 
         if len(section) > 1:
             try:
@@ -1001,6 +1003,7 @@ class ConfigFile(ConfigDict):
         max_include_depth: int = DEFAULT_MAX_INCLUDE_DEPTH,
         file_opener: FileOpener | None = None,
         condition_matchers: Mapping[str, ConditionMatcher] | None = None,
+        expand_includes: bool = True,
     ) -> "ConfigFile":
         """Read configuration from a file-like object.
 
@@ -1012,6 +1015,9 @@ class ConfigFile(ConfigDict):
             max_include_depth: Maximum allowed include depth
             file_opener: Optional callback to open included files
             condition_matchers: Optional dict of condition matchers for includeIf
+            expand_includes: Whether to honor include/includeIf directives. Set
+                to False when parsing untrusted config (e.g. .gitmodules) to
+                avoid following include.path to arbitrary files.
         """
         if include_depth > max_include_depth:
             # Prevent excessive recursion
@@ -1055,16 +1061,17 @@ class ConfigFile(ConfigDict):
                     ret._values[section][setting] = value
 
                     # Process include/includeIf directives
-                    ret._handle_include_directive(
-                        section,
-                        setting,
-                        value,
-                        config_dir=config_dir,
-                        include_depth=include_depth,
-                        max_include_depth=max_include_depth,
-                        file_opener=file_opener,
-                        condition_matchers=condition_matchers,
-                    )
+                    if expand_includes:
+                        ret._handle_include_directive(
+                            section,
+                            setting,
+                            value,
+                            config_dir=config_dir,
+                            include_depth=include_depth,
+                            max_include_depth=max_include_depth,
+                            file_opener=file_opener,
+                            condition_matchers=condition_matchers,
+                        )
 
                     setting = None
             else:  # continuation line
@@ -1081,16 +1088,17 @@ class ConfigFile(ConfigDict):
                     ret._values[section][setting] = value
 
                     # Process include/includeIf directives
-                    ret._handle_include_directive(
-                        section,
-                        setting,
-                        value,
-                        config_dir=config_dir,
-                        include_depth=include_depth,
-                        max_include_depth=max_include_depth,
-                        file_opener=file_opener,
-                        condition_matchers=condition_matchers,
-                    )
+                    if expand_includes:
+                        ret._handle_include_directive(
+                            section,
+                            setting,
+                            value,
+                            config_dir=config_dir,
+                            include_depth=include_depth,
+                            max_include_depth=max_include_depth,
+                            file_opener=file_opener,
+                            condition_matchers=condition_matchers,
+                        )
 
                     continuation = None
                     setting = None
@@ -1167,13 +1175,9 @@ class ConfigFile(ConfigDict):
         # Load and merge the included file
         try:
             # Use provided file opener or default to GitFile
-            opener: FileOpener
-            if file_opener is None:
-
-                def opener(path: str | os.PathLike[str]) -> IO[bytes]:
-                    return GitFile(path, "rb")
-            else:
-                opener = file_opener
+            opener: FileOpener = (
+                file_opener if file_opener is not None else lambda p: GitFile(p, "rb")
+            )
 
             f = opener(include_path)
         except (OSError, ValueError) as e:
@@ -1313,6 +1317,7 @@ class ConfigFile(ConfigDict):
         max_include_depth: int = DEFAULT_MAX_INCLUDE_DEPTH,
         file_opener: FileOpener | None = None,
         condition_matchers: Mapping[str, ConditionMatcher] | None = None,
+        expand_includes: bool = True,
     ) -> "ConfigFile":
         """Read configuration from a file on disk.
 
@@ -1321,18 +1326,17 @@ class ConfigFile(ConfigDict):
             max_include_depth: Maximum allowed include depth
             file_opener: Optional callback to open included files
             condition_matchers: Optional dict of condition matchers for includeIf
+            expand_includes: Whether to honor include/includeIf directives. Set
+                to False when parsing untrusted config (e.g. .gitmodules) to
+                avoid following include.path to arbitrary files.
         """
         abs_path = os.fspath(path)
         config_dir = os.path.dirname(abs_path)
 
         # Use provided file opener or default to GitFile
-        opener: FileOpener
-        if file_opener is None:
-
-            def opener(p: str | os.PathLike[str]) -> IO[bytes]:
-                return GitFile(p, "rb")
-        else:
-            opener = file_opener
+        opener: FileOpener = (
+            file_opener if file_opener is not None else lambda p: GitFile(p, "rb")
+        )
 
         with opener(abs_path) as f:
             ret = cls.from_file(
@@ -1341,6 +1345,7 @@ class ConfigFile(ConfigDict):
                 max_include_depth=max_include_depth,
                 file_opener=file_opener,
                 condition_matchers=condition_matchers,
+                expand_includes=expand_includes,
             )
             ret.path = abs_path
             return ret
@@ -1638,7 +1643,11 @@ def read_submodules(
     path: str | os.PathLike[str],
 ) -> Iterator[tuple[bytes, bytes, bytes]]:
     """Read a .gitmodules file."""
-    cfg = ConfigFile.from_path(path)
+    # .gitmodules is attacker-controlled in any cloned tree; do not expand
+    # include/includeIf directives so a hostile file cannot make us open and
+    # parse arbitrary paths on disk. This matches git, which parses submodule
+    # config with includes disabled.
+    cfg = ConfigFile.from_path(path, expand_includes=False)
     return parse_submodules(cfg)
 
 
@@ -1652,6 +1661,10 @@ def parse_submodules(config: ConfigFile) -> Iterator[tuple[bytes, bytes, bytes]]
         where name is quoted part of the section's name.
     """
     for section in config.sections():
+        if len(section) != 2:
+            # Sections without a subsection name (e.g. a stray [include])
+            # cannot be submodule entries; skip rather than crash.
+            continue
         section_kind, section_name = section
         if section_kind == b"submodule":
             try:

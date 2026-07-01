@@ -1,0 +1,1262 @@
+"""
+Basic classes for PDF document parsing.
+"""
+
+import io
+import itertools
+import logging
+import mmap
+import re
+from concurrent.futures import Executor
+from typing import (
+    Any,
+    BinaryIO,
+    Callable,
+    Dict,
+    ItemsView,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+    overload,
+)
+
+from playa.data_structures import NameTree, NumberTree
+from playa.exceptions import (
+    PDFEncryptionError,
+    PDFSyntaxError,
+)
+from playa.font import CIDFont, Font, TrueTypeFont, Type1Font, Type3Font
+from playa.outline import Destination, Tree as Outlines
+from playa.page import (
+    DeviceSpace,
+    Page,
+)
+from playa.parser import (
+    NOTKEYWORD,
+    LIT,
+    IndirectObject,
+    IndirectObjectParser,
+    Lexer,
+    ObjectParser,
+    ObjectStreamParser,
+    PDFObject,
+    PSLiteral,
+    Token,
+    literal_name,
+)
+from playa.pdftypes import (
+    ContentStream,
+    DecipherCallable,
+    InlineImage,
+    ObjRef,
+    dict_value,
+    int_value,
+    list_value,
+    resolve1,
+    str_value,
+    stream_value,
+)
+from playa.security import SECURITY_HANDLERS
+from playa.structure import Tree
+from playa.utils import (
+    decode_text,
+    format_int_alpha,
+    format_int_roman,
+)
+from playa.worker import (
+    PageRef,
+    _deref_document,
+    _deref_page,
+    _ref_document,
+    _set_document,
+    in_worker,
+)
+from playa.xref import (
+    XRef,
+    XRefFallback,
+    XRefStream,
+    XRefTable,
+    INDOBJR,
+    XREFR,
+)
+
+log = logging.getLogger(__name__)
+
+
+# Some predefined literals and keywords (these can be defined wherever
+# they are used as they are interned to the same objects)
+LITERAL_PDF = LIT("PDF")
+LITERAL_TEXT = LIT("Text")
+LITERAL_FONT = LIT("Font")
+LITERAL_TYPE1 = LIT("Type1")
+LITERAL_MMTYPE1 = LIT("MMType1")
+LITERAL_TYPE0 = LIT("Type0")
+LITERAL_TYPE3 = LIT("Type3")
+LITERAL_TRUETYPE = LIT("TrueType")
+LITERAL_OBJSTM = LIT("ObjStm")
+LITERAL_XREF = LIT("XRef")
+LITERAL_CATALOG = LIT("Catalog")
+LITERAL_PAGE = LIT("Page")
+LITERAL_PAGES = LIT("Pages")
+INHERITABLE_PAGE_ATTRS = {"Resources", "MediaBox", "CropBox", "Rotate"}
+
+
+def _find_header(buffer: Union[bytes, mmap.mmap]) -> Tuple[bytes, int]:
+    start = buffer.find(b"%PDF-")
+    if start == -1:
+        log.warning("Could not find b'%PDF-' header, is this a PDF?")
+        return b"", 0
+    return buffer[start : start + 8], start
+
+
+def _open_input(fp: Union[BinaryIO, bytes]) -> Tuple[str, int, Union[bytes, mmap.mmap]]:
+    if isinstance(fp, bytes):
+        buffer: Union[bytes, mmap.mmap] = fp
+    else:
+        try:
+            buffer = mmap.mmap(fp.fileno(), 0, access=mmap.ACCESS_READ)
+        except io.UnsupportedOperation:
+            log.warning("mmap not supported on %r, reading document into memory", fp)
+            buffer = fp.read()
+        except ValueError:
+            raise
+    hdr, offset = _find_header(buffer)
+    log.debug("Found header at %d: %r", offset, hdr)
+    try:
+        version = hdr[5:].decode("ascii")
+    except UnicodeDecodeError:
+        log.warning("Version number in header %r contains non-ASCII characters", hdr)
+        version = "1.0"
+    if not re.match(r"\d\.\d", version):
+        log.warning("Version number in header %r is invalid", hdr)
+        version = "1.0"
+    return version, offset, buffer
+
+
+class Document(Mapping[int, PDFObject]):
+    """Representation of a PDF document.
+
+    PDF documents, at a basic level, are collections of indirect
+    objects with numeric IDs.  Since these IDs are sparse, and do not
+    need to be ordered, this is best represented as a mapping of `int`
+    to `PDFObject`.  The specification also provides for "generation
+    numbers" which can be used to track successive revisions of the
+    same object.  In practice very few PDFs actually do this, so the
+    most recent generation of an object is accessible simply by its
+    object ID.  To find other objects, use the `objects` property.
+
+    Since PDF documents can be very large and complex, merely creating
+    a `Document` does very little aside from verifying that the
+    password is correct and getting a minimal amount of metadata.  In
+    general, PLAYA will try to open just about anything as a PDF, so
+    you should not expect the constructor to fail here if you give it
+    nonsense (something else may fail later on).
+
+    Some metadata, such as the structure tree and page tree, will be
+    loaded lazily and cached.  We do not handle modification of PDFs.
+
+    Args:
+      fp: File-like object in binary mode, or a buffer with binary data.
+          Files will be read using `mmap` if possible.  They do not need
+          to be seekable, as if `mmap` fails the entire file will simply
+          be read into memory (so a pipe or socket ought to work).
+      password: Password for decryption, if needed.
+      space: the device space to use for interpreting content ("screen"
+          or "page")
+
+    Raises:
+      TypeError: if `fp` is a file opened in text mode (don't do that!)
+      PDFEncryptionError: if the PDF has an unsupported encryption scheme
+      PDFPasswordIncorrect: if the password is incorrect
+
+    """
+
+    trailer: Dict[str, PDFObject]
+    info: Dict[str, PDFObject]
+    buffer: Union[bytes, mmap.mmap]  # FIXME: abstract type for this?
+    space: DeviceSpace
+    encryption: Union[Tuple[Tuple[bytes, bytes], Dict], None] = None
+    decipher: Union[DecipherCallable, None] = None
+
+    _fp: Union[BinaryIO, None] = None
+    _pages: Union["PageList", None] = None
+    _pool: Union[Executor, None] = None
+    _ncpus: int = 1
+    _batchsize: int = 4
+    _catalog: Union[Dict[str, PDFObject], None] = None
+    _outline: Union["Outlines", None] = None
+    _destinations: Union["Destinations", None] = None
+    _structure: Union["Tree", None] = None
+    _fontmap: Union[Mapping[str, Font], None] = None
+    _parser: Union[IndirectObjectParser, None] = None
+    _xrefs: Union[List[XRef], None] = None
+    _trailer_pos = -1
+    _startxref_pos = -1
+
+    def __enter__(self) -> "Document":
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.close()
+
+    def close(self) -> None:
+        # If we were opened from a file then close it
+        if self._fp:
+            self._fp.close()
+            self._fp = None
+        # Shutdown process pool
+        if self._pool:
+            self._pool.shutdown()
+            self._pool = None
+
+    def __init__(
+        self,
+        fp: Union[BinaryIO, bytes],
+        password: str = "",
+        space: DeviceSpace = "screen",
+        _boss_id: int = 0,
+    ) -> None:
+        # Get this out of the way, eh
+        if isinstance(fp, io.TextIOBase):
+            raise TypeError("fp is not a binary file")
+
+        if _boss_id:
+            # Set this **right away** because it is needed to get
+            # indirect object references right.
+            _set_document(self, _boss_id)
+            assert in_worker()
+
+        # Initialize mutable properties
+        self.space = space
+        self.info = {}
+        self._cached_objs: Dict[int, PDFObject] = {}
+        self._parsed_objs: Dict[int, Tuple[List[PDFObject], int]] = {}
+        self._cached_fonts: Dict[int, Font] = {}
+        self._cached_inline_images: Dict[
+            Tuple[int, int], Tuple[int, Union[InlineImage, None]]
+        ] = {}
+        self._pdf_version, self._offset, self.buffer = _open_input(fp)
+        # These are always True unless "encryption" (lol) is present
+        self.is_printable = self.is_modifiable = self.is_extractable = True
+        # We are Lazy, only find and read the trailer.
+        self.trailer = self._read_trailer()
+        # If there is encryption, then we need to read xref tables.
+        # Otherwise we will defer this to the first object lookup.
+        if "Encrypt" in self.trailer:
+            self._xrefs = self._read_xrefs()
+            try:
+                ids = list_value(self.trailer["ID"])
+                id_value = (bytes(ids[0]), bytes(ids[1]))
+            except (KeyError, TypeError):
+                # Some documents may not have a /ID, use two empty
+                # byte strings instead. Solves
+                # https://github.com/pdfminer/pdfminer.six/issues/594
+                id_value = (b"", b"")
+            encrypt = dict_value(self.trailer["Encrypt"])
+            self.encryption = (id_value, encrypt)
+            self._initialize_password(password)
+
+    def _read_trailer(self) -> Dict[str, Any]:
+        # To read the trailer, we must first find the trailer, which
+        # is supposed to be at the end of the file, immediately before
+        # the "startxref" keyword and after a "trailer" keyword.  This,
+        # like so many other things in the PDF standard, is a cruel
+        # lie, because:
+        #
+        # 1. If the file only contains cross-reference streams, there
+        #    is no "trailer" keyword, and the trailer is the stream
+        #    dictionary (which could be anywhere in the file)
+        # 2. If the file is a linearized PDF, there *is* a trailer at
+        #    the end of the file, but it's a bogus one that only
+        #    contains /Size. The real trailer is after the main xref
+        #    table (or stream) pointed to by the "startxref" value.
+        # 3. Of course nobody understood these rules and so you might
+        #    find the trailer in various other places.  Also, the
+        #    "startxref" value is probably wrong.
+        end = len(self.buffer)
+        indobj = -1
+        for pos in range(len(self.buffer) - 1, -2, -1):
+            if pos == -1 or self.buffer[pos] in NOTKEYWORD:
+                token = self.buffer[pos + 1 : end]
+                if token == b"startxref":
+                    try:
+                        _, val = next(ObjectParser(self.buffer, pos=end))
+                    except StopIteration:
+                        continue
+                    self._startxref_pos = int_value(val)
+                    self._startxref_pos += self._offset
+                    # If this is an xref stream, then its dictionary
+                    # is the trailer.
+                    if m := INDOBJR.match(self.buffer, self._startxref_pos):
+                        self._trailer_pos = m.end(0)
+                        break
+                    # If this is a normal xref table, then look for a
+                    # trailer after it, which will be the correct one
+                    # to use (because linearization)
+                    if m := XREFR.match(self.buffer, self._startxref_pos):
+                        self._trailer_pos = self.buffer.find(
+                            b"trailer", self._startxref_pos
+                        )
+                        if self._trailer_pos != -1:
+                            self._trailer_pos += 7
+                            break
+                if token == b"trailer":
+                    # We continued to scan backwards and found a trailer
+                    self._trailer_pos = end
+                if token == b"obj":
+                    # We continued to scan backwards and found an
+                    # indirect object, which may or may not be the
+                    # cross-reference stream.
+                    if self._trailer_pos == -1:
+                        self._trailer_pos = end
+                    indobj = 0
+                if token == b"xref":
+                    # We continued to scan backwards and found an xref table
+                    self._startxref_pos = pos + 1
+                    break
+                if indobj != -1 and ord("0") <= token[0] <= ord("9"):
+                    # We are in the abovementioned indirect object
+                    indobj += 1
+                    if indobj == 2:
+                        self._startxref_pos = pos + 1
+                        break
+                end = pos
+        self._trailer_pos, trailer = next(
+            ObjectParser(self.buffer, pos=self._trailer_pos, doc=self)
+        )
+        if not isinstance(trailer, dict):
+            raise PDFSyntaxError(f"Trailer is not a dict: {trailer!r}")
+        if indobj == 2 and trailer.get("Type") != LITERAL_XREF:
+            # Either it's just the trailer (no problem) and there's no
+            # xref table, or it's some other random indirect object.
+            self._startxref_pos = -1
+        return trailer
+
+    def _initialize_password(self, password: str = "") -> None:
+        """Initialize the decryption handler with a given password, if any.
+
+        Internal function, requires the Encrypt dictionary to have
+        been read from the trailer into self.encryption.
+        """
+        assert self.encryption is not None
+        (docid, param) = self.encryption
+        if literal_name(param.get("Filter")) != "Standard":
+            raise PDFEncryptionError("Unknown filter: param=%r" % param)
+        v = int_value(param.get("V", 0))
+        # 3 (PDF 1.4) An unpublished algorithm that permits encryption
+        # key lengths ranging from 40 to 128 bits. This value shall
+        # not appear in a conforming PDF file.
+        if v == 3:
+            raise PDFEncryptionError("Unpublished algorithm 3 not supported")
+        factory = SECURITY_HANDLERS.get(v)
+        # 0 An algorithm that is undocumented. This value shall not be used.
+        if factory is None:
+            raise PDFEncryptionError("Unknown algorithm: param=%r" % param)
+        handler = factory(docid, param, password)
+        self.decipher = handler.decrypt
+        self.is_printable = handler.is_printable
+        self.is_modifiable = handler.is_modifiable
+        self.is_extractable = handler.is_extractable
+        # Ensure that no extra data leaks into encrypted streams
+        self.parser.strict = True
+        self.parser.decipher = self.decipher
+
+    @property
+    def parser(self) -> IndirectObjectParser:
+        if self._parser is not None:
+            return self._parser
+        self._parser = IndirectObjectParser(self.buffer, doc=self)
+        self._parser.seek(self._offset)
+        return self._parser
+
+    @property
+    def xrefs(self) -> List[XRef]:
+        if self._xrefs is not None:
+            return self._xrefs
+        self._xrefs = self._read_xrefs()
+        size = sum(len(x) for x in self._xrefs)
+        self.trailer["Size"] = size
+        log.debug("Updated /Size in trailer to %d", size)
+        return self._xrefs
+
+    def _read_xrefs(self) -> List[XRef]:
+        if self._startxref_pos == -1:
+            log.warning("startxref was not found, falling back to object parser")
+            return [XRefFallback(self)]
+        self._xrefpos: Set[int] = set()
+        xrefs: List[XRef] = []
+        try:
+            self._read_xrefs_into(self._startxref_pos, xrefs)
+            return xrefs
+        except (ValueError, IndexError, StopIteration, PDFSyntaxError) as e:
+            log.warning("xref parsing failed, falling back to object parser: %s", e)
+            return [XRefFallback(self)]
+
+    def _read_xrefs_into(
+        self,
+        start: int,
+        xrefs: List[XRef],
+    ) -> None:
+        """Reads XRefs from the given location."""
+        if start in self._xrefpos:
+            log.warning("Detected circular xref chain at %d", start)
+            return
+        # Look for an XRefStream first, then an XRefTable
+        if INDOBJR.match(self.buffer, start):
+            log.debug("Reading xref stream at %d", start)
+            # XRefStream: PDF-1.5
+            xref: XRef = XRefStream(self, pos=start, offset=self._offset)
+        elif m := XREFR.match(self.buffer, start):
+            log.debug("Reading xref table at %d", m.start(1))
+            xref = XRefTable(self, pos=m.start(1), offset=self._offset)
+        else:
+            # Well, maybe it's an XRef table without "xref" (but
+            # probably not)
+            xref = XRefTable(self, pos=start, offset=self._offset)
+        self._xrefpos.add(start)
+        xrefs.append(xref)
+        trailer = xref.trailer
+        # For hybrid-reference files, an additional set of xrefs as a
+        # stream.
+        if "XRefStm" in trailer:
+            pos = int_value(trailer["XRefStm"])
+            self._read_xrefs_into(pos + self._offset, xrefs)
+        # Recurse into any previous xref tables or streams
+        if "Prev" in trailer:
+            # find previous xref
+            pos = int_value(trailer["Prev"])
+            self._read_xrefs_into(pos + self._offset, xrefs)
+
+    @property
+    def catalog(self) -> Dict[str, Any]:
+        if self._catalog is not None:
+            return self._catalog
+        self._catalog = {}
+        if "Root" in self.trailer:
+            # Every PDF file must have exactly one /Root dictionary.
+            try:
+                self._catalog = dict_value(self.trailer["Root"])
+            except TypeError:
+                log.warning("Root is a broken reference (incorrect xref table?)")
+        else:
+            log.warning("No /Root object! - Is this really a PDF?")
+        if "Type" in self._catalog and self._catalog["Type"] is not LITERAL_CATALOG:
+            log.warning(f"Catalog doesn't seem to be a catalog: {self._catalog!r}")
+        return self._catalog
+
+    @property
+    def is_tagged(self) -> bool:
+        markinfo = resolve1(self.catalog.get("MarkInfo"))
+        if isinstance(markinfo, dict):
+            return not not markinfo.get("Marked")
+        return False
+
+    @property
+    def pdf_version(self) -> str:
+        if "Version" in self.catalog:
+            log.debug(
+                "Using PDF version %r from catalog instead of %r from header",
+                self.catalog["Version"],
+                self._pdf_version,
+            )
+            return literal_name(self.catalog["Version"])
+        return self._pdf_version
+
+    def __len__(self) -> int:
+        """Return the number of indirect objects in this PDF.
+
+        Danger: This number is unreliable and ephemeral.
+            In a conforming PDF, the number of objects is declared by
+            the `/Size` key in the document trailer, but conforming
+            PDFs do not exist in the real world.  Upon opening a PDF,
+            the trailer value will be returned here, but once the
+            cross-reference tables have been loaded, a *different*
+            number will be returned, and in the case where the
+            cross-reference tables are invalid and must be
+            regenerated, this value will be updated yet again.  This
+            is the price of laziness (not to be confused with the
+            wages of sin).
+        """
+        size = self.trailer.get("Size", None)
+        if isinstance(size, int):
+            return size
+        size = sum(len(x) for x in self.xrefs)
+        self.trailer["Size"] = size
+        log.debug("Updated /Size in trailer to %d", size)
+        return size
+
+    def __iter__(self) -> Iterator[int]:
+        """Iterate over object IDs"""
+        return itertools.chain.from_iterable(self.xrefs)
+
+    @property
+    def objects(self) -> Iterator[IndirectObject]:
+        """Iterate over all indirect objects (including, then expanding object
+        streams)"""
+        for _, obj in IndirectObjectParser(
+            self.buffer, self, pos=self._offset, strict=self.parser.strict
+        ):
+            yield obj
+            if (
+                isinstance(obj.obj, ContentStream)
+                and obj.obj.get("Type") is LITERAL_OBJSTM
+            ):
+                parser = ObjectStreamParser(obj.obj, self)
+                for _, sobj in parser:
+                    yield sobj
+
+    @property
+    def tokens(self) -> Iterator[Token]:
+        """Iterate over tokens."""
+        return (tok for pos, tok in Lexer(self.buffer))
+
+    @property
+    def structure(self) -> Union[Tree, None]:
+        """Logical structure of this document, if any.
+
+        In the case where no logical structure tree exists, this will
+        be `None`.  Otherwise you may iterate over it, search it, etc.
+
+        We do this instead of simply returning an empty structure tree
+        because the vast majority of PDFs have no logical structure.
+        Also, because the structure is a lazy object (the type
+        signature here may change to `Iterable[Element]` at some
+        point) there is no way to know if it's empty without iterating
+        over it.
+
+        """
+        if self._structure is not None:
+            return self._structure
+        try:
+            self._structure = Tree(self)
+        except (TypeError, KeyError):
+            self._structure = None
+        return self._structure
+
+    def _getobj_objstm(
+        self, stream: ContentStream, index: int, objid: int
+    ) -> PDFObject:
+        if stream.objid in self._parsed_objs:
+            (objs, n) = self._parsed_objs[stream.objid]
+        else:
+            (objs, n) = self._get_objects(stream)
+            assert stream.objid is not None
+            self._parsed_objs[stream.objid] = (objs, n)
+        i = n * 2 + index
+        try:
+            obj = objs[i]
+        except IndexError as e:
+            raise PDFSyntaxError(
+                "index %d + %d too big for stream of %d objects"
+                % (n * 2, index, len(objs))
+            ) from e
+        return obj
+
+    def _get_objects(self, stream: ContentStream) -> Tuple[List[PDFObject], int]:
+        if stream.get("Type") is not LITERAL_OBJSTM:
+            log.warning("Content stream Type is not /ObjStm: %r" % stream)
+        try:
+            n = int_value(stream["N"])
+        except KeyError:
+            log.warning("N is not defined in content stream: %r" % stream)
+            n = 0
+        except TypeError:
+            log.warning("N is invalid in content stream: %r" % stream)
+            n = 0
+        parser = ObjectParser(stream.buffer, self)
+        objs: List[PDFObject] = [obj for _, obj in parser]
+        return (objs, n)
+
+    def _getobj_parse(self, pos: int, objid: int) -> PDFObject:
+        self.parser.seek(pos)
+        try:
+            m = INDOBJR.match(self.buffer, pos)
+            if m is None:
+                raise PDFSyntaxError(
+                    f"Not an indirect object at position {pos}: "
+                    f"{self.buffer[pos : pos + 8]!r}"
+                )
+            _, obj = next(self.parser)
+            if obj.objid != objid:
+                raise PDFSyntaxError(f"objid mismatch: {obj.objid!r}={objid!r}")
+        except (ValueError, IndexError, PDFSyntaxError) as e:
+            raise PDFSyntaxError(
+                "Indirect object %d not found at position %d"
+                % (
+                    objid,
+                    pos,
+                )
+            ) from e
+        if obj.objid != objid:
+            raise PDFSyntaxError(f"objid mismatch: {obj.objid!r}={objid!r}")
+        return obj.obj
+
+    def __getitem__(self, objid: int) -> PDFObject:
+        """Get an indirect object from the PDF.
+
+        Note that the behaviour in the case of a non-existent object
+        (raising `KeyError`), while Pythonic, is not PDFic, as PDF
+        1.7 sec 7.3.10 states:
+
+        > An indirect reference to an undefined object shall not be
+        considered an error by a conforming reader; it shall be
+        treated as a reference to the null object.
+
+        Raises:
+          ValueError: if Document cannot be initialized
+          KeyError: if objid does not exist in PDF
+
+        """
+        if objid == 0:
+            raise KeyError("PDF object id cannot be 0.")
+
+        if objid in self._cached_objs:
+            if self._cached_objs[objid] is None:
+                raise KeyError(f"Object with ID {objid} not found")
+            return self._cached_objs[objid]
+        obj = None
+
+        for xref in self.xrefs:
+            try:
+                (strmid, index, genno) = xref[objid]
+            except KeyError:
+                continue
+            try:
+                if strmid is not None:
+                    stream = stream_value(self[strmid])
+                    obj = self._getobj_objstm(stream, index, objid)
+                else:
+                    try:
+                        obj = self._getobj_parse(index, objid)
+                    except PDFSyntaxError as e:
+                        log.warning(
+                            "Indirect object %d not found at position %d: %r",
+                            objid,
+                            index,
+                            e,
+                        )
+                        # xref tables are clearly borked, so
+                        # rebuild them and try again
+                        log.warning("Rebuilding xref table from object parser")
+                        fallback = XRefFallback(self)
+                        self.trailer["Size"] = len(fallback)
+                        log.debug(
+                            "Updated /Size in trailer to %d", self.trailer["Size"]
+                        )
+                        self._xrefs = [fallback]
+                        try:
+                            (strmid, index, genno) = self._xrefs[0][objid]
+                            obj = self._getobj_parse(index, objid)
+                        except (KeyError, PDFSyntaxError) as e:
+                            log.warning(
+                                "Indirect object %d STILL not found at position %d: %r",
+                                objid,
+                                index,
+                                e,
+                            )
+                break
+            # FIXME: We might not actually want to catch these...
+            except StopIteration:
+                log.debug("EOF when searching for object %d", objid)
+                continue
+            except PDFSyntaxError as e:
+                log.debug("Syntax error when searching for object %d: %s", objid, e)
+                continue
+
+        # Store it anyway as None if we can't find it to avoid costly searching
+        self._cached_objs[objid] = obj
+        if obj is None:
+            raise KeyError(f"Object with ID {objid} not found")
+        return self._cached_objs[objid]
+
+    def get_font(
+        self, objid: int = 0, spec: Union[Dict[str, PDFObject], None] = None
+    ) -> Font:
+        if objid and objid in self._cached_fonts:
+            return self._cached_fonts[objid]
+        if spec is None:
+            return Font({}, {})
+        # Create a Font object, hopefully
+        font: Union[Font, None] = None
+        if spec.get("Type") is not LITERAL_FONT:
+            log.warning("Font Type is not /Font: %r", spec)
+        subtype = spec.get("Subtype")
+        if subtype in (LITERAL_TYPE1, LITERAL_MMTYPE1):
+            font = Type1Font(spec)
+        elif subtype is LITERAL_TRUETYPE:
+            font = TrueTypeFont(spec)
+        elif subtype == LITERAL_TYPE3:
+            font = Type3Font(spec)
+        elif subtype == LITERAL_TYPE0:
+            if "DescendantFonts" not in spec:
+                log.warning("Type0 font has no DescendantFonts: %r", spec)
+            else:
+                dfonts = list_value(spec["DescendantFonts"])
+                if len(dfonts) != 1:
+                    log.debug(
+                        "Type 0 font should have 1 descendant, has more: %r", dfonts
+                    )
+                subspec = resolve1(dfonts[0])
+                if not isinstance(subspec, dict):
+                    log.warning("Invalid descendant font: %r", subspec)
+                else:
+                    subspec = subspec.copy()
+                    # Merge the root and descendant font dictionaries
+                    for k in ("Encoding", "ToUnicode"):
+                        if k in spec:
+                            subspec[k] = resolve1(spec[k])
+                    font = CIDFont(subspec)
+        else:
+            log.warning("Unknown Subtype in font: %r" % spec)
+        if font is None:
+            # We need a dummy font object to be able to do *something*
+            # (even if it's the wrong thing) with text objects.
+            font = Font({}, {})
+        if objid:
+            self._cached_fonts[objid] = font
+        return font
+
+    @property
+    def fonts(self) -> Mapping[str, Font]:
+        """Get the mapping of font names to fonts for this document.
+
+        Note that this can be quite slow the first time it's accessed
+        as it must scan every single page in the document.
+
+        Note: Font names may collide.
+            Font names are generally understood to be globally unique
+            <del>in the neighbourhood</del> in the document, but there's no
+            guarantee that this is the case.  In keeping with the
+            "incremental update" philosophy dear to PDF, you get the
+            last font defined with a given name.
+        """
+        if self._fontmap is not None:
+            return self._fontmap
+        self._fontmap: Mapping[str, Font] = FontMapping(self)
+        return self._fontmap
+
+    @property
+    def outline(self) -> Union[Outlines, None]:
+        """Document outline, if any."""
+        if "Outlines" not in self.catalog:
+            return None
+        if self._outline is not None:
+            return self._outline
+        try:
+            self._outline = Outlines(self)
+        except TypeError:
+            log.warning(
+                "Invalid Outlines entry in catalog: %r", self.catalog["Outlines"]
+            )
+            return None
+        return self._outline
+
+    @property
+    def page_labels(self) -> Union[Iterator[str], None]:
+        """Iterate over page label strings for the PDF document.
+
+        If the document includes page labels, this generates strings,
+        one per page, otherwise it is None.
+
+        Warning: Unbounded iterator
+            This iterator is unbounded, because the page label tree
+            has no relation to the actual page tree, so it is
+            recommended to use `pages` instead.
+        """
+        if self.catalog is None:
+            return None
+        label_tree_obj = self.catalog.get("PageLabels")
+        if label_tree_obj is None:
+            return None
+        label_tree = NumberTree(label_tree_obj)
+        return _iter_labels(label_tree)
+
+    @property
+    def pages(self) -> "PageList":
+        """Pages of the document as an iterable/addressable `PageList` object."""
+        if self._pages is None:
+            self._pages = PageList(self)
+        return self._pages
+
+    @property
+    def names(self) -> Dict[str, Any]:
+        """PDF name dictionary (PDF 1.7 sec 7.7.4).
+
+        Raises:
+          KeyError: if nonexistent.
+        """
+        return dict_value(self.catalog["Names"])
+
+    @property
+    def destinations(self) -> "Destinations":
+        """Named destinations as an iterable/addressable `Destinations` object."""
+        if self._destinations is None:
+            self._destinations = Destinations(self)
+        return self._destinations
+
+
+class FontMapping(Mapping[str, Font]):
+    """Lazy mapping of font names to fonts in a Document."""
+
+    def __init__(self, doc: Document) -> None:
+        self._doc = doc
+        self._fontmap: Dict[str, Union[Font, None]] = {}
+
+    def __len__(self) -> int:
+        return sum(1 for _ in self)
+
+    def __iter__(self) -> Iterator[str]:
+        for name, _ in self._iteritems():
+            yield name
+
+    def _iteritems(self) -> Iterator[Tuple[str, Font]]:
+        unique_fontnames: Set[str] = set()
+        for page in reversed(self._doc.pages):
+            # Cache a whole page of fonts at a time
+            page_fonts: List[Font] = list(page.fonts.values())
+            fontnames: List[str] = []
+            for font in reversed(page_fonts):
+                if font.fontname not in self._fontmap:
+                    self._fontmap[font.fontname] = font
+                if font.fontname not in unique_fontnames:
+                    fontnames.append(font.fontname)
+                    unique_fontnames.add(font.fontname)
+            # Now iterate over the name and (uniquified) font
+            for name in fontnames:
+                # STFU, mypy
+                font_and_not_none = self._fontmap[name]
+                assert font_and_not_none is not None
+                yield name, font_and_not_none
+
+    def __getitem__(self, fontname: str) -> Font:
+        if fontname not in self._fontmap:
+            # Yes, this is (worst-case) quadratic, but it's also Lazy.
+            for name, font in self._iteritems():
+                if name == fontname:
+                    return font
+            # We did not find it, so store None to avoid future finding
+            self._fontmap[fontname] = None
+        font_or_none = self._fontmap[fontname]
+        if font_or_none is None:
+            raise KeyError(f"Font {fontname} not found in document!")
+        return font_or_none  # It cannot be None!!!
+
+
+def call_page(func: Callable[[Page], Any], pageref: PageRef) -> Any:
+    """Call a function on a page in a worker process."""
+    return func(_deref_page(pageref))
+
+
+class PageList(Sequence[Page]):
+    """List of pages indexable by 0-based index or string label.
+
+    Note that iteration over this object is lazy, but indexing is not.
+
+    Attributes:
+        have_labels: If pages have explicit labels in the PDF.
+    """
+
+    have_labels: bool
+    _pages: Union[List[Page], None] = None
+    _by_label: Union[Dict[str, Page], None] = None
+    _by_objid: Union[Dict[int, Page], None] = None
+
+    def __init__(
+        self,
+        doc: Union[Document, None] = None,
+        pages: Union[Iterable[Page], None] = None,
+    ) -> None:
+        if doc is not None:
+            self.docref = _ref_document(doc)
+            self.have_labels = doc.page_labels is not None
+        if pages is not None:
+            self._pages = list(pages)
+            self._by_label = {
+                page.label: page for page in pages if page.label is not None
+            }
+            self._by_objid = {page.pageid: page for page in pages}
+
+    def _eager_load(self) -> None:
+        # Not for public consumption
+        if self._pages is None:
+            self._pages, self._by_label, self._by_objid = self._init_pages()
+
+    def _init_pages(self) -> Tuple[List[Page], Dict[str, Page], Dict[int, Page]]:
+        pages: List[Page] = []
+        by_label: Dict[str, Page] = {}
+        by_objid: Dict[int, Page] = {}
+        doc = self.doc
+        for page_idx, ((objid, properties), label) in enumerate(
+            zip(self.page_objects, self.page_labels)
+        ):
+            page = Page(doc, objid, properties, label, page_idx, doc.space)
+            pages.append(page)
+            by_objid[objid] = page
+            if label is not None:
+                if label in by_label:
+                    log.info("Duplicate page label %s at index %d", label, page_idx)
+                else:
+                    by_label[label] = page
+        return pages, by_label, by_objid
+
+    @property
+    def page_labels(self) -> Iterator[str]:
+        """Generate page labels from document catalog or make them up."""
+        doc = self.doc
+        if doc.page_labels is not None:
+            yield from doc.page_labels
+        else:
+            yield from (str(idx) for idx in itertools.count(1))
+
+    @property
+    def page_objects(self) -> Iterator[Tuple[int, Dict[str, PDFObject]]]:
+        """Iterate over the page tree yielding (objid, dictionary) tuples."""
+        doc = self.doc
+        # In the case of no page tree then make shit up based on the objects
+        if "Pages" not in doc.catalog:
+            for object_id, obj in self.doc.items():
+                if isinstance(obj, dict) and obj.get("Type") is LITERAL_PAGE:
+                    yield object_id, obj
+            return
+        stack = [(doc.catalog["Pages"], doc.catalog)]
+        visited = set()
+        while stack:
+            (obj, parent) = stack.pop()
+            if isinstance(obj, ObjRef):
+                # The PDF specification *requires* both the Pages
+                # element of the catalog and the entries in Kids in
+                # the page tree to be indirect references.
+                object_id = int(obj.objid)
+            elif isinstance(obj, int):
+                # Should not happen in a valid PDF, but probably does?
+                log.warning("Page tree contains bare integer: %r in %r", obj, parent)
+                object_id = obj
+            elif obj is None:
+                log.warning("Page tree contains null")
+                object_id = -1
+            else:
+                log.warning("Page tree contains unknown object: %r", obj)
+                object_id = -1
+            try:
+                page_object = dict_value(doc[object_id])
+            except (KeyError, TypeError) as e:
+                if object_id != -1:
+                    log.warning("Missing or invalid page object %r: %s", object_id, e)
+                # Create an empty page to match what pdfium does
+                page_object = {
+                    "Type": LIT("Page"),
+                    "Resources": {},
+                    "MediaBox": [0, 0, 612, 792],
+                }
+
+            # Avoid recursion errors by keeping track of visited nodes
+            # (again, this should never actually happen in a valid PDF)
+            if object_id in visited:
+                log.warning("Circular reference %r in page tree", object_id)
+                continue
+            if object_id != -1:
+                visited.add(object_id)
+
+            # Propagate inheritable attributes
+            object_properties = page_object.copy()
+            for k, v in parent.items():
+                if k in INHERITABLE_PAGE_ATTRS and k not in object_properties:
+                    object_properties[k] = v
+
+            # Recurse, depth-first
+            object_type = object_properties.get("Type")
+            if object_type is None:
+                log.warning("Page has no Type, trying type: %r", object_properties)
+                object_type = object_properties.get("type")
+            if object_type is LITERAL_PAGES and "Kids" in object_properties:
+                for child in reversed(list_value(object_properties["Kids"])):
+                    stack.append((child, object_properties))
+            elif object_type is LITERAL_PAGE:
+                yield object_id, object_properties
+
+    @property
+    def doc(self) -> "Document":
+        """Get associated document if it exists."""
+        return _deref_document(self.docref)
+
+    def __len__(self) -> int:
+        if self._pages is not None:
+            return len(self._pages)
+        return sum(1 for _ in self.page_objects)
+
+    def __iter__(self) -> Iterator[Page]:
+        if self._pages is not None:
+            yield from self._pages
+            return
+        doc = self.doc
+        for page_idx, ((objid, properties), label) in enumerate(
+            zip(self.page_objects, self.page_labels)
+        ):
+            yield Page(doc, objid, properties, label, page_idx, doc.space)
+
+    @overload
+    def __getitem__(self, key: int) -> Page: ...
+
+    @overload
+    def __getitem__(self, key: str) -> Page: ...
+
+    @overload
+    def __getitem__(self, key: slice) -> "PageList": ...
+
+    @overload
+    def __getitem__(self, key: Iterable[int]) -> "PageList": ...
+
+    @overload
+    def __getitem__(self, key: Iterator[Union[int, str]]) -> "PageList": ...
+
+    def __getitem__(
+        self, key: Union[int, str, slice, Iterable[int], Iterator[Union[int, str]]]
+    ) -> Union[Page, "PageList"]:
+        if isinstance(key, int):
+            if self._pages is None:
+                self._pages, self._by_label, self._by_objid = self._init_pages()
+            return self._pages[key]
+        elif isinstance(key, str):
+            if self._by_label is None:
+                self._pages, self._by_label, self._by_objid = self._init_pages()
+            return self._by_label[key]
+        elif isinstance(key, slice):
+            if self._pages is None:
+                self._pages, self._by_label, self._by_objid = self._init_pages()
+            return PageList(_deref_document(self.docref), self._pages[key])
+        else:
+            return PageList(_deref_document(self.docref), (self[k] for k in key))
+
+    def by_id(self, objid: int) -> Page:
+        """Get a page by its indirect object ID.
+
+        Args:
+            objid: Indirect object ID for the page object.
+
+        Returns:
+            the page in question.
+        """
+        if self._by_objid is None:
+            self._pages, self._by_label, self._by_objid = self._init_pages()
+        return self._by_objid[objid]
+
+    def map(self, func: Callable[[Page], Any]) -> Iterator:
+        """Apply a function over each page, iterating over its results.
+
+        Args:
+            func: The function to apply to each page.
+
+        Note:
+            This possibly runs `func` in a separate process.  If its
+            return value is not serializable (by `pickle`) then you
+            will encounter errors.
+        """
+        doc = _deref_document(self.docref)
+        if doc._pool is not None and (
+            self._pages is None or len(self._pages) > doc._ncpus * doc._batchsize
+        ):
+            return doc._pool.map(
+                call_page,
+                itertools.repeat(func),
+                ((id(doc), page.page_idx) for page in self),
+            )
+        else:
+            return (func(page) for page in self)
+
+
+def _iter_labels(tree: NumberTree) -> Iterator[str]:
+    """Iterate over page label tree.
+
+    See Section 12.4.2 in the PDF 1.7 Reference.
+    """
+    itor = iter(tree.items())
+    try:
+        start, label_dict_unchecked = next(itor)
+        # The tree must begin with page index 0
+        if start != 0:
+            log.warning("Page label tree is missing index 0")
+            # Try to cope, by assuming empty labels for the initial pages
+            start = 0
+    except StopIteration:
+        log.warning("Page label tree is empty")
+        start = 0
+        label_dict_unchecked = {}
+
+    while True:  # forever!
+        label_dict = dict_value(label_dict_unchecked)
+        style = label_dict.get("S")
+        prefix = decode_text(str_value(label_dict.get("P", b"")))
+        first_value = int_value(label_dict.get("St", 1))
+
+        try:
+            next_start, label_dict_unchecked = next(itor)
+        except StopIteration:
+            # This is the last specified range. It continues until the end
+            # of the document.
+            values: Iterable[int] = itertools.count(first_value)
+        else:
+            range_length = next_start - start
+            values = range(first_value, first_value + range_length)
+            start = next_start
+
+        for value in values:
+            label = _format_page_label(value, style)
+            yield prefix + label
+
+
+def _format_page_label(value: int, style: Any) -> str:
+    """Format page label value in a specific style"""
+    if style is None:
+        label = ""
+    elif style is LIT("D"):  # Decimal arabic numerals
+        label = str(value)
+    elif style is LIT("R"):  # Uppercase roman numerals
+        label = format_int_roman(value).upper()
+    elif style is LIT("r"):  # Lowercase roman numerals
+        label = format_int_roman(value)
+    elif style is LIT("A"):  # Uppercase letters A-Z, AA-ZZ...
+        label = format_int_alpha(value).upper()
+    elif style is LIT("a"):  # Lowercase letters a-z, aa-zz...
+        label = format_int_alpha(value)
+    else:
+        log.warning("Unknown page label style: %r", style)
+        label = ""
+    return label
+
+
+class Destinations(Mapping[Union[str, bytes, PSLiteral], Destination]):
+    """Mapping of named destinations.
+
+    These either come as a NameTree or a dict, depending on the
+    version of the PDF standard, so this abstracts that away.
+    """
+
+    dests_dict: Union[Dict[str, PDFObject], None] = None
+    dests_tree: Union[NameTree, None] = None
+
+    def __init__(self, doc: Document) -> None:
+        self._docref = _ref_document(doc)
+        self.dests: Dict[str, Destination] = {}
+        if "Dests" in doc.catalog:
+            # PDF-1.1: dictionary
+            dests_dict = resolve1(doc.catalog["Dests"])
+            if isinstance(dests_dict, dict):
+                self.dests_dict = dests_dict
+            else:
+                log.warning(
+                    "Dests entry in catalog is not dictionary: %r", self.dests_dict
+                )
+                self.dests_dict = None
+        elif "Names" in doc.catalog:
+            names = resolve1(doc.catalog["Names"])
+            if not isinstance(names, dict):
+                log.warning("Names entry in catalog is not dictionary: %r", names)
+                return
+            if "Dests" in names:
+                dests = resolve1(names["Dests"])
+                if not isinstance(names, dict):
+                    log.warning("Dests entry in names is not dictionary: %r", dests)
+                    return
+                self.dests_tree = NameTree(dests)
+
+    def __len__(self) -> int:
+        if self.dests_dict is not None:
+            return len(self.dests_dict)
+        if self.dests_tree is not None:
+            return len(self.dests_tree)
+        return 0
+
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over names of destinations.
+
+        Danger: Beware of corrupted PDFs
+            This simply iterates over the names listed in the PDF, and
+            does not attempt to actually parse the destinations
+            (because that's pretty slow).  If the PDF is broken, you
+            may encounter exceptions when actually trying to access
+            them by name.
+        """
+        if self.dests_dict is not None:
+            yield from self.dests_dict
+        elif self.dests_tree is not None:
+            for kb in self.dests_tree:
+                ks = decode_text(kb)
+                yield ks
+
+    def items(self) -> "DestinationsItemsView":
+        """Iterate over named destinations."""
+        return DestinationsItemsView(self)
+
+    def __getitem__(self, name: Union[bytes, str, PSLiteral]) -> Destination:
+        """Get a named destination.
+
+        Args:
+            name: The name of the destination.
+
+        Raises:
+            KeyError: If no such destination exists.
+            TypeError: If the PDF is damaged and the destinations tree
+                contains something unexpected or missing.
+        """
+        if isinstance(name, bytes):
+            name = decode_text(name)
+        elif isinstance(name, PSLiteral):
+            name = literal_name(name)
+        if name in self.dests:
+            return self.dests[name]
+        elif self.dests_dict is not None:
+            # This will raise KeyError or TypeError if necessary, so
+            # we don't have to do it explicitly
+            dest = resolve1(self.dests_dict[name])
+            self.dests[name] = self._create_dest(dest, name)
+        elif self.dests_tree is not None:
+            # This is not at all efficient, but we need to decode
+            # the keys (and we cache the result...)
+            for k, v in self.dests_tree.items():
+                if decode_text(k) == name:
+                    dest = resolve1(v)
+                    self.dests[name] = self._create_dest(dest, name)
+                    break
+        # This will also raise KeyError if necessary
+        return self.dests[name]
+
+    def _create_dest(self, dest: PDFObject, name: str) -> Destination:
+        if isinstance(dest, list):
+            return Destination.from_list(self.doc, dest)
+        elif isinstance(dest, dict) and "D" in dest:
+            destlist = resolve1(dest["D"])
+            if not isinstance(destlist, list):
+                raise TypeError("Invalid destination for %s: %r", name, dest)
+            return Destination.from_list(self.doc, destlist)
+        else:
+            raise TypeError("Invalid destination for %s: %r", name, dest)
+
+    @property
+    def doc(self) -> "Document":
+        """Get associated document if it exists."""
+        return _deref_document(self._docref)
+
+
+class DestinationsItemsView(ItemsView[str, Destination]):
+    _mapping: Destinations
+
+    def __iter__(self) -> Iterator[Tuple[str, Destination]]:
+        dests = self._mapping
+        if dests.dests_dict is not None:
+            for name, dest in dests.dests_dict.items():
+                if name not in dests.dests:
+                    dest = resolve1(dests.dests_dict[name])
+                    dests.dests[name] = dests._create_dest(dest, name)
+                yield name, dests.dests[name]
+        elif dests.dests_tree is not None:
+            for k, v in dests.dests_tree.items():
+                name = decode_text(k)
+                if name not in dests.dests:
+                    dest = resolve1(v)
+                    dests.dests[name] = dests._create_dest(dest, name)
+                yield name, dests.dests[name]

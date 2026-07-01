@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "renderers"
+version = "0.1.7"
+description = "Chat template renderers — deterministic message-to-token conversion for LLM training"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "numpy",
+    "openai>=1.108.1",
+    "tiktoken",
+    "jinja2",
+    "transformers>=4.50.0",
+    # Used by GptOssRenderer to render and parse harmony tokens. Vendoring
+    # OpenAI's reference implementation keeps us byte-identical with vLLM
+    # (which also uses it) and saves us mirroring a 330-line Jinja template.
+    "openai-harmony>=0.0.8",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["renderers"]
+
+[dependency-groups]
+dev = [
+    "pillow>=12.2.0",
+    "pre-commit",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "ruff",
+    "torch>=2.11.0",
+    "torchvision>=0.26.0",
+    "ty>=0.0.1a29,<0.0.22",
+]
+
+[tool.uv]
+exclude-newer = "7 days"
+
+[tool.ty.environment]
+python-version = "3.13"
+
+[tool.ty.rules]
+# Pre-existing diagnostics in v0.1.5 source — downgrade to advisory so CI
+# surfaces them without blocking. Tighten back to error as we clean up.
+unknown-argument = "warn"
+redundant-cast = "ignore"
+unresolved-import = "warn"
+invalid-argument-type = "warn"
+unresolved-attribute = "warn"
+invalid-key = "warn"
+unsupported-operator = "warn"
+invalid-return-type = "warn"
+invalid-assignment = "warn"

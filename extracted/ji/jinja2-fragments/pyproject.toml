@@ -1,0 +1,75 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jinja2_fragments"
+version = "1.12.0"
+description = "Render Jinja2 template block as HTML page fragments on Python web frameworks."
+readme = {file = "README.md", content-type = "text/markdown"}
+authors = [
+    {name = "Sergi Pons Freixes", email = "sergi@cub3.net"}
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Text Processing :: Markup :: HTML",
+]
+license = "MIT"
+requires-python = ">=3.9"
+dependencies = [
+    "jinja2 >=3.1.0,<4.0.0"
+]
+
+[project.urls]
+Homepage = "https://jinja2-fragments.readthedocs.io/"
+"Source Code" = "https://github.com/sponsfreixes/jinja2-fragments"
+"Issue Tracker" = "https://github.com/sponsfreixes/jinja2-fragments/issues"
+"Changes" = "https://github.com/sponsfreixes/jinja2-fragments/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+dev = [
+    "pre-commit",
+]
+tests = [
+    "quart >=0.18.0",
+    "flask >=2.1.0",
+    "fastapi >= 0.108.0",
+    "sanic",
+    "sanic_ext",
+    "sanic_testing",
+    "starlette[full] >= 0.29.0",
+    "pytest",
+    "pytest_asyncio",
+    "litestar[standard]",
+]
+docs = [
+    "sphinx>=7.0.0",
+    "sphinx-rtd-theme>=2.0.0",
+    "sphinx-autodoc-typehints>=1.25.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = {find = {where = ["src"]}}
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.package-data]
+jinja2_fragments = ["py.typed"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E203"]
+
+
+[tool.pytest.ini_options]
+# Ensure pytest-asyncio uses function-scoped event loops to avoid deprecation warning
+asyncio_default_fixture_loop_scope = "function"

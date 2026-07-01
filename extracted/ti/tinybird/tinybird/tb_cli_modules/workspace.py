@@ -114,7 +114,6 @@ async def clear_workspace(ctx: Context, yes: bool, dry_run: bool) -> None:
         if config["id"] == workspace["id"]:
             if workspace.get("is_branch"):
                 raise CLIWorkspaceException(FeedbackManager.error_not_allowed_in_branch(cli="tb"))
-                return
             else:
                 click.echo(FeedbackManager.info_current_workspace())
                 table.append(

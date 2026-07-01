@@ -29,7 +29,9 @@ async def _created_livekit_kwargs(provider_type: str, model: str, **kwargs):
         patch("blaxel.livekit.model.AsyncOpenAI", return_value=openai_client),
         patch("blaxel.livekit.model.openai.LLM", return_value=llm) as llm_factory,
     ):
-        result = await get_livekit_model("https://example.com/models/test", provider_type, model, **kwargs)
+        result = await get_livekit_model(
+            "https://example.com/models/test", provider_type, model, **kwargs
+        )
 
     assert result is llm
     return llm_factory.call_args.kwargs

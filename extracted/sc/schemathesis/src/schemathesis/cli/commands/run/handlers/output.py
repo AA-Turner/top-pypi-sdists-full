@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING
 
 import click
 
-from schemathesis.cli.commands.run.events import LoadingFinished, LoadingStarted
 from schemathesis.cli.commands.run.handlers.base import BaseOutputHandler
 from schemathesis.cli.context import BaseExecutionContext
+from schemathesis.cli.events import LoadingFinished, LoadingStarted
 from schemathesis.cli.output import (
     BLOCK_PADDING,
     LoadingProgressManager,
@@ -29,6 +29,7 @@ from schemathesis.cli.output import (
     display_test_cases,
     format_duration,
     make_console,
+    make_progress_bar,
     print_lines,
 )
 from schemathesis.config import ProjectConfig, ReportFormat, SchemathesisWarning
@@ -37,6 +38,7 @@ from schemathesis.core.output import prepare_response_payload
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.result import Ok
 from schemathesis.core.statistic import ApiStatistic
+from schemathesis.core.timing import Instant
 from schemathesis.core.version import SCHEMATHESIS_VERSION
 from schemathesis.engine import Status, events
 from schemathesis.engine.recorder import Interaction, ScenarioRecorder
@@ -100,7 +102,7 @@ TRUNCATION_PLACEHOLDER = "[...]"
 @dataclass(slots=True)
 class ProbingProgressManager:
     console: Console
-    start_time: float
+    started_at: Instant
     progress: Progress
     progress_task_id: TaskID | None
     is_interrupted: bool
@@ -110,7 +112,7 @@ class ProbingProgressManager:
         from rich.text import Text
 
         self.console = console
-        self.start_time = time.monotonic()
+        self.started_at = Instant()
         self.progress = Progress(
             TextColumn(""),
             SpinnerColumn("clock"),
@@ -142,7 +144,7 @@ class ProbingProgressManager:
         from rich.style import Style
         from rich.text import Text
 
-        duration = format_duration(int((time.monotonic() - self.start_time) * 1000))
+        duration = format_duration(self.started_at.elapsed_ms)
         if self.is_interrupted:
             return Text.assemble(
                 ("⚡  ", Style(color="yellow")),
@@ -229,7 +231,7 @@ class UnitTestProgressManager:
     title: str
     current: int
     total: int
-    start_time: float
+    started_at: Instant
 
     # Progress components
     title_progress: Progress
@@ -255,7 +257,6 @@ class UnitTestProgressManager:
         total: int,
     ) -> None:
         from rich.progress import (
-            BarColumn,
             Progress,
             SpinnerColumn,
             TextColumn,
@@ -267,7 +268,7 @@ class UnitTestProgressManager:
         self.title = title
         self.current = 0
         self.total = total
-        self.start_time = time.monotonic()
+        self.started_at = Instant()
 
         # Initialize progress displays
         self.title_progress = Progress(
@@ -278,13 +279,7 @@ class UnitTestProgressManager:
         )
         self.title_task_id = None
 
-        self.progress_bar = Progress(
-            TextColumn("    "),
-            TimeElapsedColumn(),
-            BarColumn(bar_width=None),
-            TextColumn("{task.percentage:.0f}% ({task.completed}/{task.total})"),
-            console=self.console,
-        )
+        self.progress_bar = make_progress_bar(self.console, indent="    ", transient=False)
         self.progress_task_id = None
 
         self.operations_progress = Progress(
@@ -407,7 +402,7 @@ class UnitTestProgressManager:
 
     def get_completion_message(self, default_icon: str = "🕛") -> str:
         """Complete the phase and return status message."""
-        duration = format_duration(int((time.monotonic() - self.start_time) * 1000))
+        duration = format_duration(self.started_at.elapsed_ms)
         icon = self._get_status_icon(default_icon)
 
         message = self._get_stats_message() or "No tests were run"
@@ -428,7 +423,7 @@ class StatefulProgressManager:
     links_selected: int
     links_inferred: int
     links_total: int
-    start_time: float
+    started_at: Instant
 
     # Progress components
     title_progress: Progress
@@ -458,7 +453,7 @@ class StatefulProgressManager:
         self.links_selected = links_selected
         self.links_inferred = links_inferred
         self.links_total = links_total
-        self.start_time = time.monotonic()
+        self.started_at = Instant()
 
         self.title_progress = Progress(
             TextColumn(""),
@@ -574,7 +569,7 @@ class StatefulProgressManager:
 
     def get_completion_message(self, icon: str | None = None) -> tuple[str, str]:
         """Complete the phase and return status message."""
-        duration = format_duration(int((time.monotonic() - self.start_time) * 1000))
+        duration = format_duration(self.started_at.elapsed_ms)
         icon = icon or self._get_status_icon()
 
         message = self._get_stats_message() or "No tests were run"
@@ -1349,7 +1344,7 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
                     fg="red",
                 )
             )
-        display_failures(ctx.statistic, ctx.config.output)
+        display_failures(ctx.statistic, ctx.config.output, record_crashes=ctx.config.cache.enabled)
         if not self.warnings.is_empty:
             self.display_warnings()
         if ctx.statistic.extraction_failures:

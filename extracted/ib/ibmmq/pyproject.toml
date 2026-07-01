@@ -1,0 +1,5 @@
+# This is not really being used for now, except to define the build process.
+
+[build-system]
+requires = ["setuptools >= 75.0.0"]
+build-backend = "setuptools.build_meta"

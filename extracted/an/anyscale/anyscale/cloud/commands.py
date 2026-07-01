@@ -80,7 +80,7 @@ def add_collaborators(
     collaborators: List[CreateCloudCollaborator],
     *,
     _private_sdk: Optional[PrivateCloudSDK] = None,
-) -> str:
+) -> None:
     """
     Batch add collaborators to a cloud.
 

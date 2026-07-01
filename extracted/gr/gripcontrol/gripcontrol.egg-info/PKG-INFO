@@ -1,0 +1,22 @@
+Metadata-Version: 2.4
+Name: gripcontrol
+Version: 4.4.0
+Summary: GRIP library
+Home-page: https://github.com/fanout/pygripcontrol
+Author: Justin Karneges
+Author-email: justin@fanout.io
+License: MIT
+Classifier: Topic :: Utilities
+Classifier: License :: OSI Approved :: MIT License
+License-File: COPYING
+Requires-Dist: PyJWT<3,>=1.5
+Requires-Dist: pubcontrol<4,>=3.0
+Requires-Dist: six<2,>=1.10.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary

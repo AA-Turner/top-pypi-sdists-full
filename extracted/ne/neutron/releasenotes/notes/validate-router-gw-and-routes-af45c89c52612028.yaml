@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Reject any router route or gateway update if not all route nexthops have
-    connectivity with any gateway subnets CIDRs; in other words, all route
-    nexthops IP addresses should belong to one gateway subnet CIDR.

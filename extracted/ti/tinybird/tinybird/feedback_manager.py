@@ -879,6 +879,11 @@ class FeedbackManager:
     success_delete_rows_datasource = success_message(
         "** Data Source '{datasource}' rows deleted matching condition \"{delete_condition}\""
     )
+    success_lightweight_delete_rows_datasource = success_message(
+        "** Data Source '{datasource}' rows deleted matching condition \"{delete_condition}\""
+        "\n   Rows affected: {rows_affected}"
+        "\n   Partitions scanned: {partitions_scanned} (done: {partitions_done}, in progress: {partitions_in_progress})"
+    )
     success_dry_run_delete_rows_datasource = success_message(
         "** [DRY RUN] Data Source '{datasource}' rows '{rows}' matching condition \"{delete_condition}\" to be deleted"
     )

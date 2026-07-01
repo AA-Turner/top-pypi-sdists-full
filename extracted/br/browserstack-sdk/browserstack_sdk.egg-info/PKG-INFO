@@ -1,6 +1,6 @@
-Metadata-Version: 1.0
+Metadata-Version: 2.1
 Name: browserstack-sdk
-Version: 1.46.0
+Version: 1.51.2
 Summary: Python SDK for browserstack selenium-webdriver tests
 Home-page: UNKNOWN
 Author: BrowserStack
@@ -56,6 +56,34 @@ services and support services that you use, are the entire Agreement for the Lic
 support services.
 11. APPLICABLE LAW. The laws and courts of State of California applies to interpretation of and claims
 for breach of this Agreement.
-Description: Python SDK for browserstack selenium-webdriver tests
+Description: # browserstack-sdk
+        
+        > ⚠️ **DEPRECATED on PyPI**
+        >
+        > This package is **no longer published or maintained on PyPI**. The version available here is outdated and unsupported. The BrowserStack Python SDK has moved to BrowserStack's official distribution index.
+        >
+        > **Do not run `pip install browserstack-sdk`.** Install from the official index instead (see below).
+        
+        ## Installation
+        
+        Install the BrowserStack Python SDK from BrowserStack's official index. The `-latest` URL always resolves to the most recent published version:
+        
+        ```
+        pip install https://sdk-assets.browserstack.com/python/browserstack_sdk-latest.tar.gz
+        ```
+        
+        Verify the installed version:
+        
+        ```
+        browserstack-sdk --version
+        ```
+        
+        ## Documentation
+        
+        For complete setup and usage instructions, follow the official BrowserStack documentation:
+        
+        https://www.browserstack.com/docs/automate/selenium/getting-started/python/pytest/integrate-your-tests?fw-lang=python%2Fpytest
+        
 Keywords: browserstack,selenium,python
 Platform: UNKNOWN
+Description-Content-Type: text/markdown

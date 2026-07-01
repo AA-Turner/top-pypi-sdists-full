@@ -4,8 +4,44 @@ from django.conf import settings
 from django.contrib import admin
 from django.db.models import Count, Avg
 from django.http import HttpResponse
+from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from drf_api_logger.utils import database_log_enabled
+
+
+def _prettify_json_field(value):
+    """
+    Render a stored log field (headers / body / response) as a pretty-printed,
+    HTML-escaped JSON block for the admin change form.
+
+    The middleware already stores these as indented JSON, but plain/large or
+    non-JSON payloads (truncation markers, XML, streaming placeholders, ...) are
+    handled gracefully. The returned markup is wrapped in ``<pre class="apilogs-json">``
+    which the change-form template syntax-highlights on the client side. No size
+    limit is applied here so even large bodies are prettified in full.
+    """
+    if value is None or value == '':
+        return mark_safe('<div class="apilogs-empty">— empty —</div>')
+
+    text = value if isinstance(value, str) else str(value)
+    stripped = text.strip()
+
+    # Special placeholders emitted by the middleware, e.g.
+    # "** Response body truncated: 70000 bytes exceeds 65536 byte limit **".
+    is_marker = stripped.startswith('**') and stripped.endswith('**')
+
+    badge = ''
+    if is_marker and 'truncated' in stripped.lower():
+        badge = '<div class="apilogs-truncated">TRUNCATED</div>'
+
+    pretty = text
+    if not is_marker:
+        try:
+            pretty = json.dumps(json.loads(text), indent=2, ensure_ascii=False)
+        except (ValueError, TypeError):
+            pretty = text  # leave non-JSON payloads (XML, plain text, ...) as-is
+
+    return mark_safe('{}<pre class="apilogs-json">{}</pre>'.format(badge, escape(pretty)))
 
 
 def _get_profiling_diagnosis(profiling):
@@ -38,6 +74,12 @@ def _get_profiling_diagnosis(profiling):
             (middleware_total / total) * 100
         )
     return None
+
+
+def _normalized_filter_value(value):
+    if isinstance(value, (list, tuple)):
+        return value[-1] if value else None
+    return value
 
 
 # Ensure the API log model and related features are only used if enabled in settings
@@ -108,9 +150,10 @@ if database_log_enabled():
             Returns filtered queryset depending on whether 'slow' or 'fast'
             option is selected in the filter.
             """
-            if self.value() == 'slow':
+            value = _normalized_filter_value(self.value())
+            if value == 'slow':
                 return queryset.filter(execution_time__gte=self._DRF_API_LOGGER_SLOW_API_ABOVE)
-            if self.value() == 'fast':
+            if value == 'fast':
                 return queryset.filter(execution_time__lt=self._DRF_API_LOGGER_SLOW_API_ABOVE)
             return queryset
 
@@ -128,13 +171,14 @@ if database_log_enabled():
             )
 
         def queryset(self, request, queryset):
-            if self.value() == 'high':
+            value = _normalized_filter_value(self.value())
+            if value == 'high':
                 return queryset.filter(sql_query_count__gte=10)
-            if self.value() == 'moderate':
+            if value == 'moderate':
                 return queryset.filter(sql_query_count__gte=5, sql_query_count__lt=10)
-            if self.value() == 'low':
+            if value == 'low':
                 return queryset.filter(sql_query_count__lt=5, sql_query_count__isnull=False)
-            if self.value() == 'none':
+            if value == 'none':
                 return queryset.filter(sql_query_count__isnull=True)
             return queryset
 
@@ -174,10 +218,13 @@ if database_log_enabled():
                     self.list_filter += (HighQueryCountFilter,)
                     self.readonly_fields = (
                         'execution_time', 'client_ip_address', 'api',
-                        'headers', 'body', 'method', 'response', 'status_code',
-                        'added_on_time', 'profiling_breakdown',
+                        'headers_prettified', 'body_prettified', 'method', 'response_prettified',
+                        'status_code', 'added_on_time', 'profiling_breakdown',
                     )
-                    self.exclude = ('added_on', 'profiling_data', 'sql_query_count')
+                    self.exclude = (
+                        'added_on', 'profiling_data', 'sql_query_count',
+                        'headers', 'body', 'response',
+                    )
 
         def added_on_time(self, obj):
             """
@@ -311,6 +358,21 @@ if database_log_enabled():
 
         profiling_breakdown.short_description = 'Profiling Breakdown'
 
+        def headers_prettified(self, obj):
+            return _prettify_json_field(obj.headers)
+
+        headers_prettified.short_description = 'Headers'
+
+        def body_prettified(self, obj):
+            return _prettify_json_field(obj.body)
+
+        body_prettified.short_description = 'Body'
+
+        def response_prettified(self, obj):
+            return _prettify_json_field(obj.response)
+
+        response_prettified.short_description = 'Response'
+
         # Admin UI settings
         list_per_page = 20
         list_display = ('id', 'api', 'method', 'status_code', 'execution_time', 'added_on_time',)
@@ -318,9 +380,10 @@ if database_log_enabled():
         search_fields = ('body', 'response', 'headers', 'api',)
         readonly_fields = (
             'execution_time', 'client_ip_address', 'api',
-            'headers', 'body', 'method', 'response', 'status_code', 'added_on_time',
+            'headers_prettified', 'body_prettified', 'method', 'response_prettified',
+            'status_code', 'added_on_time',
         )
-        exclude = ('added_on',)
+        exclude = ('added_on', 'headers', 'body', 'response')
 
         # Custom admin templates
         change_list_template = 'charts_change_list.html'

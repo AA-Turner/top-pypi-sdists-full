@@ -14,9 +14,11 @@ these higher-level operations.
 This protocol is a structural subtype of ProtocolExternalService.
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+from omnibase_spi.protocols.types.protocol_service_types import (
+    ProtocolServiceHealthStatus,
+)
 
 if TYPE_CHECKING:
     from omnibase_spi.contracts.services.contract_database_service_types import (
@@ -25,9 +27,6 @@ if TYPE_CHECKING:
         ModelMigrationStatus,
         ModelQueryResult,
         ModelTableInfo,
-    )
-    from omnibase_spi.protocols.types.protocol_service_types import (
-        ProtocolServiceHealthStatus,
     )
 
 
@@ -99,7 +98,7 @@ class ProtocolDatabaseService(Protocol):
 
     async def query(
         self, sql: str, params: tuple[object, ...] | None = None
-    ) -> ModelQueryResult:
+    ) -> "ModelQueryResult":
         """Execute a read query and return results.
 
         Args:
@@ -113,7 +112,7 @@ class ProtocolDatabaseService(Protocol):
 
     async def execute(
         self, sql: str, params: tuple[object, ...] | None = None
-    ) -> ModelExecuteResult:
+    ) -> "ModelExecuteResult":
         """Execute a write statement (INSERT/UPDATE/DELETE).
 
         Args:
@@ -125,7 +124,7 @@ class ProtocolDatabaseService(Protocol):
         """
         ...
 
-    async def get_table_info(self, table_name: str) -> ModelTableInfo:
+    async def get_table_info(self, table_name: str) -> "ModelTableInfo":
         """Get metadata about a database table.
 
         Args:
@@ -139,7 +138,7 @@ class ProtocolDatabaseService(Protocol):
         """
         ...
 
-    async def check_health(self) -> ModelDatabaseHealth:
+    async def check_health(self) -> "ModelDatabaseHealth":
         """Check database-specific health metrics.
 
         Returns:
@@ -147,7 +146,7 @@ class ProtocolDatabaseService(Protocol):
         """
         ...
 
-    async def run_migration_status(self) -> ModelMigrationStatus:
+    async def run_migration_status(self) -> "ModelMigrationStatus":
         """Check the current migration state of the database.
 
         Returns:

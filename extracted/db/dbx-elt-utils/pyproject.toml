@@ -1,0 +1,27 @@
+[project]
+name = "dbx-elt-utils"
+version = "2.2.9"
+description = "Librería de utilidades comunes para pipelines ELT orientados a Databricks (DLT)."
+readme = "README.md"
+authors = [
+    { name = "DBX engineer", email = "luis.agurto.f@gmail.com" }
+]
+requires-python = ">=3.9"
+dependencies = [
+    # Dependencias estrictamente necesarias para la lógica interna
+    # IMPORTANTE: pyspark, dlt o databricks-connect NO van aquí
+    # para evitar sobreescribir los entornos de producción en Databricks.
+]
+
+[project.optional-dependencies]
+# Dependencias para desarrollar o probar localmente (ej: pip install dbx-elt-utils[local])
+local = [
+    "databricks-connect>=14.0.0", # Usa el sdk compatible con tu entorno
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dbx_elt_utils"]

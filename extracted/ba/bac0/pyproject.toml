@@ -1,0 +1,44 @@
+[project]
+name = "BAC0"
+version = "2025.09.15"
+description = "BACnet Scripting Framework for testing DDC Controls"
+authors = [{name = "Christian Tremblay", email = "christian.tremblay@servisys.com"}]
+readme = "README.md"
+keywords = ["bacnet", "building", "automation", "test"]
+dependencies=["BACpypes3", "colorama", "python-dotenv", "pytz", "aiosqlite"]
+license = { text = "LGPL-3.0" }
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://github.com/ChristianTremblay/BAC0"
+
+[project.optional-dependencies]
+extras = ["pandas", "influxdb_client[async]", "aiohttp", "rich", "pytest-asyncio", "coverage", "types-pytz"]
+
+[tool.setuptools.package-data]
+"BAC0.core.app" = ["device.json"]
+
+[tool.setuptools.packages.find]
+include = [
+    "BAC0", 
+    "BAC0.core", 
+    "BAC0.core.app",
+    "BAC0.core.app/device.json",
+    "BAC0.core.io", 
+    "BAC0.core.functions", 
+    "BAC0.core.devices", 
+    "BAC0.core.devices.local", 
+    "BAC0.core.devices.mixins",
+    "BAC0.core.proprietary_objects",
+    "BAC0.core.utils", 
+    "BAC0.db", 
+    "BAC0.scripts", 
+    "BAC0.tasks", 
+    "BAC0.tools"]
+namespaces = false
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "session"

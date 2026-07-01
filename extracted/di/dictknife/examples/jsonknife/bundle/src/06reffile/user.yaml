@@ -1,6 +1,0 @@
-type: object
-propreties:
-  name:
-    type: string
-  age:
-    type: integer

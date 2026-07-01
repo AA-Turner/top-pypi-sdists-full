@@ -1,7 +1,0 @@
-description: Majoration pour le régime général des Allocation de la mère au foyer (AMF)
-metadata:
-  short_label: Régime général
-  label_en: General scheme
-  order:
-  - base
-  - montant

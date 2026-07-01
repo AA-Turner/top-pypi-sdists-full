@@ -1,0 +1,21 @@
+[dependencies]
+comrak_lib = {package = "comrak", version = "0.49.0", features = ["shortcodes"]}
+pyo3 = {version = "0.27.2"}
+
+[lib]
+name = "comrak"
+crate-type = ["cdylib"]
+
+[package]
+name = "comrak"
+version = "0.1.0"
+edition = "2021"
+readme = "README.md"
+
+[profile.release]
+opt-level = 2
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+debug = false
+strip = "symbols"

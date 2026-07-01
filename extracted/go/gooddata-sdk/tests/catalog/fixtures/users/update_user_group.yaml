@@ -1,0 +1,243 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/userGroups/demoGroup?include=ALL
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              name: demo group
+            id: demoGroup
+            type: userGroup
+          links:
+            self: http://localhost:3000/api/v1/entities/userGroups/demoGroup?include=ALL
+      headers:
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/userGroups/demoGroup?include=ALL
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              name: demo group
+            id: demoGroup
+            type: userGroup
+          links:
+            self: http://localhost:3000/api/v1/entities/userGroups/demoGroup?include=ALL
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        data:
+          attributes:
+            name: test_update_user_group
+          id: demoGroup
+          relationships:
+            parents:
+              data: []
+          type: userGroup
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: PUT
+      uri: http://localhost:3000/api/v1/entities/userGroups/demoGroup
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              name: test_update_user_group
+            id: demoGroup
+            type: userGroup
+          links:
+            self: http://localhost:3000/api/v1/entities/userGroups/demoGroup
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/userGroups/demoGroup?include=ALL
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              name: test_update_user_group
+            id: demoGroup
+            type: userGroup
+          links:
+            self: http://localhost:3000/api/v1/entities/userGroups/demoGroup?include=ALL
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/userGroups/demoGroup?include=ALL
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              name: test_update_user_group
+            id: demoGroup
+            type: userGroup
+          links:
+            self: http://localhost:3000/api/v1/entities/userGroups/demoGroup?include=ALL
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        data:
+          attributes:
+            name: demo group
+          id: demoGroup
+          type: userGroup
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: PUT
+      uri: http://localhost:3000/api/v1/entities/userGroups/demoGroup
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              name: demo group
+            id: demoGroup
+            type: userGroup
+          links:
+            self: http://localhost:3000/api/v1/entities/userGroups/demoGroup
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+version: 1

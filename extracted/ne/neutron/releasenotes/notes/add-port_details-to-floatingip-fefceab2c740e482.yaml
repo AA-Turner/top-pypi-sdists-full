@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Add attribute ``port_details`` to floating IP. The value of this attribute
-    contains information of the associated port.
-

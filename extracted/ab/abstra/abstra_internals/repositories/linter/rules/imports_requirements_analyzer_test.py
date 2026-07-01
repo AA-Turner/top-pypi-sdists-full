@@ -1026,9 +1026,17 @@ class TestFixes(BaseTest):
                 "abstra_internals.services.requirements.check_package",
                 return_value="installed",
             ),
+            # replace the package distribution cache with a fixed value
             patch(
-                "abstra_internals.services.requirements.packages_distributions",
+                "abstra_internals.services.requirements."
+                "_PackagesDistributionsCache.get",
                 return_value={"dateutil": ["python-dateutil"]},
+            ),
+            # replace the transitive dependencies cache with an empty set
+            patch(
+                "abstra_internals.services.requirements."
+                "_TransitiveDependenciesCache.get_covered_packages",
+                return_value=set(),
             ),
             # Treat the package as already installed so the fix only edits
             # requirements.txt (no real pip install / editor restart).

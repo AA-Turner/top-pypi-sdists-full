@@ -1,0 +1,108 @@
+name: Tag release
+
+on:
+  # pull_request:
+  #   types:
+  #     - closed
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag version.'
+        type: string
+        default: NONE
+        required: true
+
+permissions: {}
+
+env:
+  FORCE_COLOR: "1"
+
+# https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
+jobs:
+  # Always build & lint package.
+  build-package:
+    name: Build & verify package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: hynek/build-and-inspect-python-package@v2
+
+  define-tag:
+    name: Define tag
+    # tag a release after a release PR was accepted
+    runs-on: ubuntu-latest
+    steps:
+      - if: github.event_name == 'workflow_dispatch'
+        name: from workflow_dispatch
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          echo "RELEASE_VERSION=${RELEASE_VERSION}" >> $GITHUB_ENV
+      - if: |
+          github.event_name == 'pull_request'
+          && github.event.action == 'closed'
+          && github.event.pull_request.merged == true
+          && github.event.pull_request.head.repo.full_name == github.repository
+          && contains(github.event.pull_request.labels.*.name, 'type/release')
+          && startsWith(github.head_ref, 'releases/')
+        name: from merged PR
+        run: |
+          echo "RELEASE_VERSION=${GITHUB_HEAD_REF#releases/}" >> $GITHUB_ENV
+      - name: set output
+        id: set-output
+        env:
+          RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
+        run: |
+          echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+    outputs:
+      tag: ${{ steps.set-output.outputs.RELEASE_VERSION }}
+
+  tag-and-release:
+    name: Tag and publish a release draft
+    needs: [define-tag, build-package]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+    if: ${{ needs.define-tag.outputs.tag != '' }}
+    env:
+      RELEASE_VERSION: ${{ needs.define-tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # keep credentials to create a tag
+          persist-credentials: true
+
+      - name: Tag the commit
+        id: create-tag
+        run: |
+          echo "Release version: $RELEASE_VERSION"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag --annotate --message="Release version $RELEASE_VERSION" $RELEASE_VERSION ${{ github.sha }}
+          git push origin $RELEASE_VERSION
+          echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+    outputs:
+      tag-name: ${{ steps.create-tag.outputs.RELEASE_VERSION }}
+
+
+  trigger-release:
+    # Tagging from an action does not trigger a push>tag event, therefore we use workflow_call
+    # Publish a release draft after pushing the release tag
+    needs: [tag-and-release]
+    uses: ./.github/workflows/publish-release.yaml
+    with:
+      tag-name: ${{ needs.tag-and-release.outputs.tag-name }}
+
+  trigger-docker-build:
+    # Tagging from an action does not trigger a push>tag event, therefore we use workflow_call
+    # Publish a docker image for the release tag
+    needs: [tag-and-release]
+    uses: ./.github/workflows/docker-build.yaml
+    with:
+      tag-name: ${{ needs.tag-and-release.outputs.tag-name }}

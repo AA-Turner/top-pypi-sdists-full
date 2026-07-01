@@ -23,6 +23,7 @@ from datamodel_code_generator import (
     InputFileType,
     OpenAPIScope,
     PythonVersionMin,
+    ReadOnlyWriteOnlyModelType,
     chdir,
     generate,
     get_version,
@@ -53,6 +54,7 @@ from tests.main.conftest import (
     MSGSPEC_LEGACY_BLACK_SKIP,
     OPEN_API_DATA_PATH,
     TIMESTAMP,
+    assert_generated_model_json_validation,
     run_generate_file_and_assert,
     run_main_and_assert,
     run_main_url_and_assert,
@@ -942,7 +944,8 @@ def test_pyproject(tmp_path: Path) -> None:
     output_file: Path = tmp_path / "output.py"
     pyproject_toml_path = Path(DATA_PATH) / "project" / "pyproject.toml"
     pyproject_toml = (
-        pyproject_toml_path.read_text()
+        pyproject_toml_path
+        .read_text()
         .replace("INPUT_PATH", get_path(OPEN_API_DATA_PATH / "api.yaml"))
         .replace("OUTPUT_PATH", get_path(output_file))
         .replace("ALIASES_PATH", get_path(OPEN_API_DATA_PATH / "empty_aliases.json"))
@@ -1906,6 +1909,27 @@ def test_main_openapi_nullable(output_file: Path) -> None:
         input_file_type="openapi",
         assert_func=assert_file_content,
         expected_file="nullable.py",
+    )
+
+
+def test_main_openapi_use_missing_sentinel_nullable_keyword(output_file: Path) -> None:
+    """Test --use-missing-sentinel preserves OpenAPI nullable keyword fields."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "missing_sentinel_nullable.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        expected_file="missing_sentinel_nullable.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--use-missing-sentinel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="missing_sentinel_nullable",
+        model_name="MissingSentinelNullable",
+        valid_json='{"requiredNullable": null, "nullableUnrequired": null}',
+        invalid_json='{"requiredNullable": {}}',
+        expected_error_type="int_type",
+        expected_attribute_path=("nullableUnrequired",),
     )
 
 
@@ -4805,6 +4829,52 @@ def test_main_openapi_read_only_write_only_ref(output_file: Path) -> None:
             "--read-only-write-only-model-type",
             "all",
         ],
+    )
+
+
+def test_main_openapi_read_only_write_only_allof_property_ref_runtime(output_file: Path) -> None:
+    """Validate allOf readOnly/writeOnly generation when object properties contain refs."""
+    generate(
+        input_={
+            "openapi": "3.0.0",
+            "info": {"title": "Read Only Write Only AllOf Ref Runtime API", "version": "1.0"},
+            "paths": {},
+            "components": {
+                "schemas": {
+                    "Base": {
+                        "type": "object",
+                        "properties": {"base": {"type": "string"}},
+                    },
+                    "Child": {
+                        "type": "object",
+                        "properties": {"value": {"type": "string"}},
+                    },
+                    "Parent": {
+                        "type": "object",
+                        "allOf": [{"$ref": "#/components/schemas/Base"}],
+                        "properties": {
+                            "child": {"$ref": "#/components/schemas/Child"},
+                            "extra": {"type": "string", "writeOnly": True},
+                        },
+                    },
+                }
+            },
+        },
+        input_file_type=InputFileType.OpenAPI,
+        output=output_file,
+        output_model_type=DataModelType.PydanticV2BaseModel,
+        read_only_write_only_model_type=ReadOnlyWriteOnlyModelType.All,
+        disable_timestamp=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="output_read_only_write_only_allof_property_ref_runtime",
+        model_name="Parent",
+        valid_json='{"base":"b","child":{"value":"x"},"extra":"secret"}',
+        invalid_json='{"base":"b","child":{"value":1}}',
+        expected_error_type="string_type",
+        expected_attribute_path=("child", "value"),
+        expected_attribute_value="x",
     )
 
 

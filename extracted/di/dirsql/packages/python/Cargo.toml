@@ -1,0 +1,22 @@
+[package]
+name = "dirsql-py-ext"
+# Explicit literal (not `version.workspace = true`) so putitoutthere's
+# pypi/maturin handler can rewrite it via `write-version` before
+# `maturin build`. `pyproject.toml` declares `dynamic = ["version"]`
+# and maturin reads this field. Mirrors `packages/rust/Cargo.toml`.
+version = "0.3.42"
+edition.workspace = true
+publish = false
+readme = "README.md"
+
+[lib]
+name = "dirsql_py_ext"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+dirsql.workspace = true
+pyo3 = { version = "0.28", features = ["extension-module", "generate-import-lib"], optional = true }
+
+[features]
+default = []
+extension-module = ["pyo3/extension-module"]

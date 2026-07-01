@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: payjp
+Version: 1.6.1
+Summary: PAY.JP python bindings
+Home-page: https://github.com/payjp/payjp-python
+Author: PAY.JP
+Author-email: support@pay.jp
+Requires-Python: >=3.0
+License-File: LICENSE
+Requires-Dist: requests>=2.7.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

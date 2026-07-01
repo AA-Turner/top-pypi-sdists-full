@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Added new API extension to QoS service plugin to support CRUD operations
-    for minimum packet rate rule in Neutron server.

@@ -296,17 +296,18 @@ def _render_selected_pin_detail() -> None:
                 with If(STATE.selected_pin.expires_at_display.__eq__("")):
                     Span("—", style={**_DETAIL_VALUE_STYLE, "color": "#6b7280"})
 
-        # Row 4: Description (full width)
+        # Row 4: Reason (full width) — uses description_display which
+        # contains synthesized labels for breaking change / rollout pins.
         with (
-            If(STATE.selected_pin.description),
+            If(STATE.selected_pin.description_display),
             Column(
                 gap=0,
                 css_class="mt-3",
             ),
         ):
-            Span("DESCRIPTION", style=_DETAIL_LABEL_STYLE)
+            Span("REASON", style=_DETAIL_LABEL_STYLE)
             Span(
-                content=STATE.selected_pin.description,
+                content=STATE.selected_pin.description_display,
                 style=_DETAIL_VALUE_STYLE,
             )
 
@@ -423,11 +424,31 @@ def _render_pin_action_buttons() -> None:
 
 
 def _render_remove_this_pin_button() -> None:
-    """Remove This Pin button with confirmation modal inside the detail panel."""
-    with Dialog(
-        title="Confirm Pin Removal",
-        description="This action cannot be undone.",
-        name="remove_pins_modal_open",
+    """Remove This Pin button with confirmation modal inside the detail panel.
+
+    Breaking change pins cannot be removed through this interface, so the button
+    is rendered as disabled with an explanatory tooltip when `origin_type` is
+    `"breaking_change"`.
+    """
+    # Disabled state for breaking change pins
+    with If(STATE.selected_pin.origin_type.__eq__("breaking_change")):
+        Button(
+            "Remove This Pin",
+            variant="destructive",
+            size="sm",
+            css_class=BUTTON_DESTRUCTIVE_CLASS + " mt-3",
+            disabled=True,
+            title="Pins for breaking changes cannot be removed through this interface.",
+        )
+
+    # Normal removable pin (includes connector rollout pins)
+    with (
+        If(STATE.selected_pin.origin_type.__ne__("breaking_change")),
+        Dialog(
+            title="Confirm Pin Removal",
+            description="This action cannot be undone.",
+            name="remove_pins_modal_open",
+        ),
     ):
         Button(
             "Remove This Pin",
@@ -471,6 +492,7 @@ def _render_remove_this_pin_button() -> None:
                                 "version_tag": STATE.selected_version_tag,
                                 "auth_bearer_token": STATE.auth_bearer_token,
                                 "user_email": STATE.oauth_user_email,
+                                "google_access_token": STATE.google_access_token,
                             },
                             on_success=_PIN_REMOVAL_SUCCESS,
                             on_error=fail_tool_call(ERROR),

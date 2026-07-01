@@ -24,6 +24,10 @@ def test_i18n() -> None:
     assert humanize.precisedelta(one_min_three_seconds) == "1 minute and 7 seconds"
 
     try:
+        humanize.i18n.activate("lv")
+        assert humanize.naturaltime(three_seconds) == "pirms 3 sekundēm"
+        assert humanize.ordinal(5) == "5."
+
         humanize.i18n.activate("ru_RU")
         assert humanize.naturaltime(three_seconds) == "3 секунды назад"
         assert humanize.ordinal(5) == "5ый"
@@ -99,10 +103,20 @@ def test_naturaldelta() -> None:
         # Spanish uses dot as decimal separator
         ("es_ES", 1_000_000, "1.0 millón"),
         ("es_ES", 3_500_000, "3.5 millones"),
-        ("es_ES", 1_000_000_000, "1.0 billón"),
-        ("es_ES", 1_200_000_000, "1.2 billones"),
-        ("es_ES", 1_000_000_000_000, "1.0 trillón"),
-        ("es_ES", 6_700_000_000_000, "6.7 trillones"),
+        ("es_ES", 1_000_000_000, "1.0 mil millones"),
+        ("es_ES", 1_200_000_000, "1.2 miles de millones"),
+        ("es_ES", 1_000_000_000_000, "1.0 billón"),
+        ("es_ES", 6_700_000_000_000, "6.7 billones"),
+        # Latvian uses comma as decimal separator
+        ("lv", 1_000, "1,0 tūkstotis"),
+        ("lv", 1_200, "1,2 tūkstoši"),
+        ("lv", 2_000, "2,0 tūkstoši"),
+        ("lv", 11_000, "11,0 tūkstoši"),
+        ("lv", 21_000, "21,0 tūkstotis"),
+        ("lv", 1_000_000, "1,0 miljons"),
+        ("lv", 2_000_000, "2,0 miljoni"),
+        ("lv", 11_000_000, "11,0 miljoni"),
+        ("lv", 21_000_000, "21,0 miljons"),
         ("fr_FR", "1_000", "1.0 mille"),
         ("fr_FR", "12_400", "12.4 milles"),
         ("fr_FR", "12_490", "12.5 milles"),
@@ -158,10 +172,43 @@ def test_intword_i18n(locale: str, number: int, expected_result: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "locale, value, expected_result",
+    [
+        ("fr_FR", 1, "1 octet"),
+        ("fr_FR", 42, "42 octets"),
+        ("fr_FR", 42_000, "42.0 Ko"),
+        ("fr_FR", 42_000_000, "42.0 Mo"),
+        ("fr_FR", 42_000_000_000, "42.0 Go"),
+        ("fr_FR", -42_000, "-42.0 Ko"),
+    ],
+)
+def test_naturalsize_i18n(locale: str, value: float, expected_result: str) -> None:
+    try:
+        humanize.i18n.activate(locale)
+    except FileNotFoundError:
+        pytest.skip("Generate .mo with scripts/generate-translation-binaries.sh")
+    else:
+        assert humanize.naturalsize(value) == expected_result
+    finally:
+        humanize.i18n.deactivate()
+
+
+def test_naturalsize_i18n_binary() -> None:
+    try:
+        humanize.i18n.activate("fr_FR")
+    except FileNotFoundError:
+        pytest.skip("Generate .mo with scripts/generate-translation-binaries.sh")
+    else:
+        assert humanize.naturalsize(3000, binary=True) == "2.9 Kio"
+    finally:
+        humanize.i18n.deactivate()
+
+
+@pytest.mark.parametrize(
     "locale, expected_result",
     [
-        ("ar", "5خامس"),
-        ("ar_SA", "5خامس"),
+        ("ar", "5 خامس"),
+        ("ar_SA", "5 خامس"),
         ("fr", "5e"),
         ("fr_FR", "5e"),
         ("pt", "5º"),

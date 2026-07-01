@@ -1,0 +1,56 @@
+[project]
+name = "dbt-state"
+dynamic = ["version", "dependencies"]
+description = "dbt plugin that skips redundant model executions by caching results from previous runs"
+readme = {text = "dbt plugin that skips redundant model executions by caching results from previous runs. Learn more at [state.dbt.com](https://state.dbt.com).", content-type = "text/markdown"}
+license = {file = "../../LICENSE"}
+requires-python = ">=3.9.0"
+
+[project.urls]
+Homepage = "https://state.dbt.com"
+
+[tool.hatch.metadata.hooks.custom]
+path = "../../tooling/versions.py"
+dependencies = [
+    "aenum",
+    "authlib",
+    "click>=8.0.0",
+    "dacite",
+    "dbt-core>=1.6.0",
+    "grpcio>=1.60.0",
+    "requests",
+    "humanize",
+    "protobuf>=4.0.0",
+    "pytimeparse2",
+    "query-cache-protobuf",
+    "query-cache-common",
+    "rich",
+    "pyyaml",
+    "sqlglot>=27.6.1",
+    "typing_extensions>=4.6.0",
+]
+
+[project.scripts]
+dbt-state = "dbt_state.cli.main:cli"
+
+[tool.hatch.build.hooks.custom]
+path = "../../tooling/versions.py"
+version_file = "src/dbt_state/_version.py"
+
+[tool.hatch.version]
+source = "code"
+path = "../../tooling/versions.py"
+expression = "VERSIONS['dbt-state']"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dbt_state"]
+include = [
+    "src/dbt_state/data/**/*",
+]
+
+[tool.uv.sources]
+query_cache_protobuf = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

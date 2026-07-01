@@ -1,0 +1,105 @@
+"""
+peakrdl-python is a tool to generate Python Register Access Layer (RAL) from SystemRDL
+Copyright (C) 2021 - 2025
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as 
+published by the Free Software Foundation, either version 3 of 
+the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+A module for determining the classes names to use
+"""
+from systemrdl.node import Node
+from systemrdl.node import FieldNode
+from systemrdl.node import RegNode
+from systemrdl.node import MemNode
+from .systemrdl_node_utility_functions import is_encoded_field
+
+def get_field_get_base_class_name(node: FieldNode, async_library_classes: bool) -> str:
+    """
+    Provide the library base class name (as a string) for a System RDL Field Node. This takes
+    into account whether it is:
+
+    - enumerated
+    - read only / write only / read write
+    """
+    if not isinstance(node, FieldNode):
+        raise TypeError(f'node should be FieldNode, got: {type(node)}')
+
+    name = 'Field'
+    if is_encoded_field(node):
+        name += 'Enum'
+    if async_library_classes:
+        name += 'Async'
+
+    if node.is_sw_readable and node.is_sw_writable:
+        name += 'ReadWrite'
+    elif node.is_sw_readable and not node.is_sw_writable:
+        name += 'ReadOnly'
+    elif not node.is_sw_readable and node.is_sw_writable:
+        name += 'WriteOnly'
+    else:
+        raise ValueError('Unhandled field access mode')
+
+    return name
+
+
+def __get_reg_get_base_class_name(node: RegNode, async_library_classes: bool) -> str:
+    if not isinstance(node, RegNode):
+        raise TypeError(f'node should be RegNode, got: {type(node)}')
+
+    name = 'Reg'
+    if async_library_classes:
+        name += 'Async'
+    if node.has_sw_readable and node.has_sw_writable:
+        name += 'ReadWrite'
+    elif node.has_sw_readable and not node.has_sw_writable:
+        name += 'ReadOnly'
+    elif not node.has_sw_readable and node.has_sw_writable:
+        name += 'WriteOnly'
+    else:
+        raise ValueError('Unhandled field access mode')
+
+    return name
+
+def __get_mem_get_base_class_name(node: MemNode, async_library_classes: bool) -> str:
+    if not isinstance(node, MemNode):
+        raise TypeError(f'node should be MemNode, got: {type(node)}')
+
+    name = 'Memory'
+    if async_library_classes:
+        name += 'Async'
+
+    if node.is_sw_readable and node.is_sw_writable:
+        name += 'ReadWrite'
+    elif node.is_sw_readable and not node.is_sw_writable:
+        name += 'ReadOnly'
+    elif not node.is_sw_readable and node.is_sw_writable:
+        name += 'WriteOnly'
+    else:
+        raise ValueError('Unhandled field access mode')
+
+    return name
+
+def get_base_class_name(node: Node, async_library_classes: bool) -> str:
+    """
+    Returns the base class from the library to use with the node instance
+    """
+    if isinstance(node, FieldNode):
+        return get_field_get_base_class_name(node, async_library_classes=async_library_classes)
+
+    if isinstance(node, RegNode):
+        return __get_reg_get_base_class_name(node, async_library_classes=async_library_classes)
+
+    if isinstance(node, MemNode):
+        return __get_mem_get_base_class_name(node, async_library_classes=async_library_classes)
+
+    raise TypeError(f'Unhandled node type: {type(node)}')

@@ -1,0 +1,39 @@
+name: spopt
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  - fast_hdbscan
+  - geopandas
+  - jupyterlab
+  - libpysal
+  - mapclassify
+  - networkx
+  - numba
+  - numpy
+  - pandas
+  - pointpats
+  - pip
+  - pulp
+  - scikit-learn
+  - scipy
+  - shapely
+  - tqdm
+
+  # notebook/binder specific
+  - folium
+  - glpk
+  - inequality
+  - matplotlib
+  - matplotlib-scalebar
+  - overpy
+  - seaborn
+  - spaghetti
+  - watermark
+
+  # bleeding edge spopt
+  - pip:
+    - git+https://github.com/pysal/spopt.git@main
+    # (notebook/binder specific) having trouble resolving routingpy via conda-forge
+    - routingpy
+    - pulp

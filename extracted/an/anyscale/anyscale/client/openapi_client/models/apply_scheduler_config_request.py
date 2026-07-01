@@ -33,49 +33,23 @@ class ApplySchedulerConfigRequest(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'cloud_id': 'str',
         'config': 'SchedulerConfig'
     }
 
     attribute_map = {
-        'cloud_id': 'cloud_id',
         'config': 'config'
     }
 
-    def __init__(self, cloud_id=None, config=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, config=None, local_vars_configuration=None):  # noqa: E501
         """ApplySchedulerConfigRequest - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._cloud_id = None
         self._config = None
         self.discriminator = None
 
-        if cloud_id is not None:
-            self.cloud_id = cloud_id
         self.config = config
-
-    @property
-    def cloud_id(self):
-        """Gets the cloud_id of this ApplySchedulerConfigRequest.  # noqa: E501
-
-
-        :return: The cloud_id of this ApplySchedulerConfigRequest.  # noqa: E501
-        :rtype: str
-        """
-        return self._cloud_id
-
-    @cloud_id.setter
-    def cloud_id(self, cloud_id):
-        """Sets the cloud_id of this ApplySchedulerConfigRequest.
-
-
-        :param cloud_id: The cloud_id of this ApplySchedulerConfigRequest.  # noqa: E501
-        :type: str
-        """
-
-        self._cloud_id = cloud_id
 
     @property
     def config(self):

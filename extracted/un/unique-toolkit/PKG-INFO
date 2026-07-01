@@ -1,0 +1,134 @@
+Metadata-Version: 2.3
+Name: unique-toolkit
+Version: 2026.26.0
+Summary: 
+Author: Cedric Klinkert, Martin Fadler, Sadique Sheik, Fabian Schläpfer, Pascal Hauri, Ejiroghene Oki-Peter, Rami Azouz, Ricardo Visini, Sanzio Monti
+Author-email: Cedric Klinkert <cedric.klinkert@unique.ch>, Martin Fadler <martin.fadler@unique.ch>, Sadique Sheik <sadique@unique.ch>, Fabian Schläpfer <fabian@unique.ch>, Pascal Hauri <pascal@unique.ch>, Ejiroghene Oki-Peter <oki-peter.ejiroghene@unique.ai>, Rami Azouz <rami.ext@unique.ch>, Ricardo Visini <ricardo.visini@unique.ch>, Sanzio Monti <sanzio.monti@unique.ai>
+License: Proprietary
+Requires-Dist: typing-extensions>=4.9.0,<5
+Requires-Dist: pydantic>=2.11.0,<3
+Requires-Dist: pyhumps>=3.8.0,<4
+Requires-Dist: numpy>=2.4.2,<3
+Requires-Dist: tiktoken>=0.12.0,<0.13
+Requires-Dist: tokenizers>=0.21.0,<0.23
+Requires-Dist: pydantic-settings>=2.10.1,<3
+Requires-Dist: sseclient>=0.0.27,<0.0.28
+Requires-Dist: openai>=1.105.0,<3
+Requires-Dist: platformdirs>=4.0.0,<5
+Requires-Dist: pillow>=12.1.1
+Requires-Dist: unique-sdk>=2026.26.0
+Requires-Dist: jambo>=0.1.2,<0.2
+Requires-Dist: jinja2>=3.1.6,<4
+Requires-Dist: docxtpl>=0.20.1,<0.21
+Requires-Dist: markdown-it-py>=4.0.0,<5
+Requires-Dist: python-docx>=1.1.0,<2
+Requires-Dist: requests>=2.32.0,<3
+Requires-Dist: httpx>=0.28.0,<0.29
+Requires-Dist: aiohttp>=3.12.0,<4
+Requires-Dist: pandas>=2.3.0,<3
+Requires-Dist: click>=8.1.0,<9
+Requires-Dist: deepdiff>=8.6.1,<9
+Requires-Dist: pypandoc>=1.16.2,<2
+Requires-Dist: tenacity>=9.1.4
+Requires-Dist: pydantic-core>=2.41.5
+Requires-Dist: cachetools>=5.0,<6
+Requires-Dist: fastapi>=0.121.0,<0.122 ; extra == 'fastapi'
+Requires-Dist: starlette>=0.49.1 ; extra == 'fastapi'
+Requires-Dist: uvicorn>=0.37.0,<0.38 ; extra == 'fastapi'
+Requires-Dist: openai>=1.105.0,<3 ; extra == 'langchain'
+Requires-Dist: langchain>=1.0.0,<2 ; extra == 'langchain'
+Requires-Dist: langchain-openai>=0.3.28 ; extra == 'langchain'
+Requires-Dist: langchain-core>=1.0.0,<2 ; extra == 'langchain'
+Requires-Dist: prometheus-client>=0.24.1,<1 ; extra == 'monitoring'
+Requires-Python: >=3.12
+Provides-Extra: fastapi
+Provides-Extra: langchain
+Provides-Extra: monitoring
+Description-Content-Type: text/markdown
+
+# Unique Toolkit
+
+This package provides high-level abstractions and methods on top of `unique_sdk` to ease application development for the Unique Platform.
+
+The Toolkit is structured along the following domains:
+- `unique_toolkit.chat`
+- `unique_toolkit.content`
+- `unique_toolkit.embedding`
+- `unique_toolkit.language_model`
+- `unique_toolkit.short_term_memory`
+
+Each domain comprises a set of schemas (in `schemas.py`) that are used in functions (in `functions.py`) which encapsulate the basic functionalities to interact with the platform.
+The above domains represent the internal structure of the Unique platform.
+
+For the `developers` we expose interfaces via `services` classes that correspond directly to a frontend or an entity the `user` interacts with.
+
+The following services are currently available:
+
+| Service | Responsibility |
+|--|--|
+| ChatService | All interactions with the chat interface |
+| KnowledgeBaseService | All interaction with the knowledgebase |
+
+The services can be directly imported as
+
+```python
+from unique_toolkit import ChatService, KnowledgeBaseService
+```
+
+In addition, the `unique_toolkit.app` module provides functions to initialize apps and dev utilities to interact with the Unique platform.
+
+## Changelog
+
+See the [CHANGELOG.md](https://github.com/Unique-AG/ai/blob/main/unique_toolkit/CHANGELOG.md) file for details on changes and version history.
+
+# Domains
+
+## App
+
+The `unique_toolkit.app` module encompasses functions for initializing and securing apps that will interact with the Unique platform.
+
+- `init_logging.py` can be used to initalize the logger either with unique dictConfig or an any other dictConfig.
+- `init_sdk.py` can be used to initialize the sdk using the correct env variables and retrieving the endpoint secret.
+- `schemas.py` contains the Event schema which can be used to parse and validate the unique.chat.external-module.chosen event.
+- `verification.py` can be used to verify the endpoint secret and construct the event.
+
+## Chat
+
+The `unique_toolkit.chat` module encompasses all chat related functionality.
+
+- `functions.py` comprises the functions to manage and load the chat history and interact with the chat ui, e.g., creating a new assistant message.
+- `schemas.py` comprises all relevant schemas, e.g., ChatMessage, used in the ChatService.
+- `utils.py` comprises utility functions to use and convert ChatMessage objects in assistants, e.g., convert_chat_history_to_injectable_string converts the chat history to a string that can be injected into a prompt. 
+
+## Content
+
+The `unique_toolkit.content` module encompasses all content related functionality. Content can be any type of textual data that is stored in the Knowledgebase on the Unique platform. During the ingestion of the content, the content is parsed, split in chunks, indexed, and stored in the database.
+
+- `functions.py` comprises the functions to manage and load the chat history and interact with the chat ui, e.g., creating a new assistant message.
+- `schemas.py` comprises all relevant schemas, e.g., Content and ContentChunk, used in the ContentService.
+- `utils.py` comprise utility functions to manipulate Content and ContentChunk objects, e.g., sort_content_chunks and merge_content_chunks.
+
+## Embedding (To be Deprecated)
+
+The `unique_toolkit.embedding` module encompasses all embedding related functionality. Embeddings are used to represent textual data in a high-dimensional space. The embeddings can be used to calculate the similarity between two texts, for instance.
+
+- `functions.py` comprises the functions to embed text and calculate the similarity between two texts.
+- `service.py` encompasses the EmbeddingService and provides an interface to interact with the embeddings, e.g., embed text and calculate the similarity between two texts.
+- `schemas.py` comprises all relevant schemas, e.g., Embeddings, used in the EmbeddingService.
+
+## Language Model 
+
+The `unique_toolkit.language_model` module encompasses all language model related functionality and information on the different language models deployed through the 
+Unique platform.
+
+- `infos.py` comprises the information on all language models deployed through the Unique platform. We recommend to use the LanguageModel class, initialized with the LanguageModelName, e.g., LanguageModel(LanguageModelName.AZURE_GPT_4o_2024_1120) to get the information on the specific language model like the name, version, token limits or retirement date.
+- `functions.py` comprises the functions to complete and stream complete to chat.
+- `schemas.py` comprises all relevant schemas, e.g., LanguageModelResponse, used in the LanguageModelService.
+- `utils.py` comprises utility functions to parse the output of the language model, e.g., convert_string_to_json finds and parses the last json object in a string.
+
+## Short Term Memory 
+
+The `unique_toolkit.short_term_memory` module encompasses all short term memory related functionality.
+
+- `functions.py` comprises the functions to manage and load the chat history and interact with the chat ui, e.g., creating a new assistant message.
+- `schemas.py` comprises all relevant schemas, e.g., ShortTermMemory, used in the ShortTermMemoryService.

@@ -12,7 +12,6 @@ import re
 import socket
 import subprocess
 import sys
-import time
 import uuid
 from contextlib import closing
 from copy import deepcopy
@@ -216,11 +215,6 @@ def _get_current_workspace_common(
     workspaces: List[Dict[str, Any]], current_workspace_id: str
 ) -> Optional[Dict[str, Any]]:
     return next((workspace for workspace in workspaces if workspace["id"] == current_workspace_id), None)
-
-
-def get_current_environment(client, config):
-    workspaces: List[Dict[str, Any]] = (client.user_workspaces_and_branches(version="v1")).get("workspaces", [])
-    return next((workspace for workspace in workspaces if workspace["id"] == config["id"]), None)
 
 
 class AliasedGroup(click.Group):
@@ -574,12 +568,6 @@ def format_host(host: str, subdomain: Optional[str] = None) -> str:
     elif not host.startswith("http"):
         host = f"https://{host}"
     return host.replace("app.tinybird.co", "cloud.tinybird.co")
-
-
-def region_from_host(region_name_or_host, regions):
-    """Returns the region that matches region_name_or_host"""
-
-    return next((r for r in regions if _compare_region_host(region_name_or_host, r)), None)
 
 
 def ask_for_user_token(action: str, ui_host: str) -> str:
@@ -1079,11 +1067,6 @@ def autocomplete_topics(ctx: Context, args, incomplete):
 def validate_datasource_name(name):
     if not isinstance(name, str) or name == "":
         raise CLIException(FeedbackManager.error_datasource_name())
-
-
-def validate_connection_id(connection_id):
-    if not isinstance(connection_id, str) or connection_id == "":
-        raise CLIException(FeedbackManager.error_datasource_connection_id())
 
 
 def validate_kafka_topic(topic):
@@ -1880,50 +1863,6 @@ def run_gcp_svc_account_connection_flow(
     input()
 
 
-def production_aws_iamrole_only(
-    prod_client: TinyB,
-    service: str,
-    region: str,
-    bucket_name: str,
-    environment: str,
-    connection_name: str,
-    policy: str,
-) -> Tuple[str, str, str]:
-    _, trust_policy, external_id = get_aws_iamrole_policies(
-        prod_client, service=service, policy=policy, bucket=bucket_name, external_id_seed=connection_name
-    )
-
-    trust_policy_copied = True
-    try:
-        pyperclip.copy(trust_policy)
-    except Exception:
-        trust_policy_copied = False
-
-    role_arn = click.prompt(
-        (
-            FeedbackManager.prompt_s3_iamrole_connection_role(
-                trust_policy=trust_policy,
-                aws_region=region,
-                bucket=bucket_name,
-                environment=environment.upper(),
-                step="4",
-            )
-            if trust_policy_copied
-            else FeedbackManager.prompt_s3_iamrole_connection_role_not_copied(
-                trust_policy=trust_policy,
-                aws_region=region,
-                bucket=bucket_name,
-                environment=environment.upper(),
-                step="4",
-            )
-        ),
-        show_default=False,
-    )
-    validate_string_connector_param("Role ARN", role_arn)
-
-    return role_arn, region, external_id
-
-
 def _merge_trust_policies(trust_policy_local: Dict[str, Any], trust_policy_cloud: Dict[str, Any]) -> Dict[str, Any]:
     """
     Merge two trust policies into a single policy with both account IDs.
@@ -2202,19 +2141,6 @@ requests_delete = requests.delete
 
 def format_data_to_ndjson(data: List[Dict[str, Any]]) -> str:
     return "\n".join([json.dumps(row) for row in data])
-
-
-def send_batch_events(client: TinyB, datasource_name: str, data: List[Dict[str, Any]], batch_size: int = 10) -> None:
-    rows = len(data)
-    time_start = time.time()
-    for i in range(0, rows, batch_size):
-        batch = data[i : i + batch_size]
-        ndjson_data = format_data_to_ndjson(batch)
-        client.datasource_events(datasource_name, ndjson_data)
-    time_end = time.time()
-    elapsed_time = time_end - time_start
-    cols = len(data[0].keys()) if len(data) > 0 else 0
-    click.echo(FeedbackManager.highlight(message=f"» {rows} rows x {cols} cols in {elapsed_time:.1f}s"))
 
 
 def get_organizations_by_user(config: CLIConfig, user_token: Optional[str] = None) -> List[Dict[str, str]]:

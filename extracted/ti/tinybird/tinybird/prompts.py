@@ -1,5 +1,4 @@
 from datetime import date
-from typing import Optional
 
 general_functions = [
     "BLAKE3",
@@ -400,64 +399,6 @@ Follow the instructions and generate the following response with no additional t
 """
 
 
-def create_prompt(existing_resources: str, feedback: str = "", history: str = "") -> str:
-    feedback_history = ""
-    if feedback and history:
-        feedback_history = f"""In case the <feedback> and <history> tags are present and not empty,
-it means there was a previous attempt to generate the resources and the user provided feedback and history about previous responses.
-Use the following feedback and history to regenerate the response:
-Feedback to improve the response:
-{feedback}
-History of previous results:
-{history}"""
-
-    return """
-You are a Tinybird expert. You will be given a prompt to generate new or update existing Tinybird resources: datasources and/or pipes.
-<existing_resources>{existing_resources}</existing_resources>
-{datasource_instructions}
-{pipe_instructions}
-{sql_instructions}
-{datasource_example}
-{pipe_example}
-{copy_pipe_instructions}
-{materialized_pipe_instructions}
-{sink_pipe_instructions}
-{connection_instructions}
-{kafka_connection_example}
-{gcs_connection_example}
-{gcs_hmac_connection_example}
-{s3_connection_example}
-
-{feedback_history}
-
-Use the following format to generate the response and do not wrap it in any other text, including the <response> tag.
-<response>
-    <resource>
-        <type>[datasource or pipe or connection]</type>
-        <name>[resource name here]</name>
-        <content>[resource content here]</content>
-    </resource>
-</response>
-
-""".format(
-        existing_resources=existing_resources,
-        datasource_instructions=datasource_instructions,
-        pipe_instructions=pipe_instructions,
-        sql_instructions=sql_instructions,
-        datasource_example=datasource_example,
-        pipe_example=pipe_example,
-        copy_pipe_instructions=copy_pipe_instructions,
-        materialized_pipe_instructions=materialized_pipe_instructions,
-        sink_pipe_instructions=sink_pipe_instructions,
-        connection_instructions=connection_instructions,
-        kafka_connection_example=kafka_connection_example,
-        gcs_connection_example=gcs_connection_example,
-        gcs_hmac_connection_example=gcs_hmac_connection_example,
-        s3_connection_example=s3_connection_example,
-        feedback_history=feedback_history,
-    )
-
-
 def mock_prompt(rows: int, feedback: str = "") -> str:
     today = date.today().isoformat()
 
@@ -824,7 +765,7 @@ Follow these instructions when creating or updating any type of .pipe file:
 </pipe_file_instructions>
 """
 
-sql_instructions = """
+sql_instructions = f"""
 <sql_instructions>
     - The SQL query must be a valid ClickHouse SQL query that mixes ClickHouse syntax and Tinybird templating syntax (Tornado templating language under the hood).
     - SQL queries with parameters must start with "%" character and a newline on top of every query to be able to use the parameters. Examples:
@@ -882,186 +823,7 @@ sql_instructions = """
     - Use the following syntax in the SQL section for the iceberg table function: iceberg('s3://bucket/path/to/table', {{{{tb_secret('aws_access_key_id')}}}}, {{{{tb_secret('aws_secret_access_key')}}}})
     - Use the following syntax in the SQL section for the postgres table function: postgresql('host:port', 'database', 'table', {{{{tb_secret('db_username')}}}}, {{{{tb_secret('db_password')}}}}), 'schema')
 </sql_instructions>
-""".format(
-    general_functions=general_functions,
-    general_functions_insensitive=general_functions_insensitive,
-    aggregate_functions=aggregate_functions,
-)
-
-
-def rules_prompt(source: Optional[str] = None) -> str:
-    base_command = source or "tb"
-    return """
-You are an expert in SQL and Tinybird. Follow these instructions when working with .datasource and .pipe files:
-
-<command_calling>
-You have commands at your disposal to develop a tinybird project:
-- {base_command} build: to build the project locally and check it works.
-- {base_command} deployment create --wait --auto: to create a deployment and promote it automatically
-- {base_command} test run: to run existing tests
-- {base_command} endpoint url <pipe_name>: to get the url of an endpoint, token included.
-- {base_command} endpoint data <pipe_name>: to get the data of an endpoint. You can pass parameters to the endpoint like this: {base_command} endpoint data <pipe_name> --param1 value1 --param2 value2
-- {base_command}  token ls: to list all the tokens
-There are other commands that you can use, but these are the most common ones. Run `{base_command} -h` to see all the commands if needed.
-When you need to work with resources or data in cloud, add always the --cloud flag before the command. Example: {base_command} --cloud datasource ls
-</command_calling>
-<development_instructions>
-- When asking to create a tinybird data project, if the needed folders are not already created, use the following structure:
-├── connections
-├── copies
-├── sinks
-├── datasources
-├── endpoints
-├── fixtures
-├── materializations
-├── pipes
-└── tests
-- The local development server will be available at http://localhost:7181. Even if some response uses another base url, use always http://localhost:7181.
-- After every change in your .datasource, .pipe or .ndjson files, run `{base_command} build` to build the project locally.
-- When you need to ingest data locally in a datasource, create a .ndjson file with the same name of the datasource and the data you want and run `{base_command} build` so the data is ingested.
-- The format of the generated api endpoint urls is: http://localhost:7181/v0/pipe/<pipe_name>.json?token=<token>
-- Before running the tests, remember to have the project built with `{base_command} build` with the latest changes.
-</development_instructions>
-When asking for ingesting data, adding data or appending data do the following depending on the environment you want to work with:
-<ingest_data_instructions>
-- When building locally, create a .ndjson file with the data you want to ingest and do `{base_command} build` to ingest the data in the build env.
-- We call `cloud` the production environment.
-- When appending data in cloud, use `{base_command} --cloud datasource append <datasource_name> <file_name>`
-- When you have a response that says “there are rows in quarantine”, do `{base_command} [--cloud] datasource data <datasource_name>_quarantine` to understand what is the problem.
-</ingest_data_instructions>
-<datasource_file_instructions>
-Follow these instructions when creating or updating .datasource files:
-{datasource_instructions}
-</datasource_file_instructions>
-
-<pipe_file_instructions>
-Follow these instructions when creating or updating .pipe files:
-{pipe_instructions}
-{sql_instructions}
-{datasource_example}
-{pipe_example}
-{copy_pipe_instructions}
-{materialized_pipe_instructions}
-{sink_pipe_instructions}
-{connection_instructions}
-{kafka_connection_example}
-{gcs_connection_example}
-{gcs_hmac_connection_example}
-{s3_connection_example}
-</pipe_file_instructions>
-<test_file_instructions>
-Follow these instructions when creating or updating .yaml files for tests:
-{test_instructions}
-</test_file_instructions>
-<deployment_instruction>
-Follow these instructions when evolving a datasource schema:
-{deployment_instructions}
-</deployment_instruction>
-""".format(
-        base_command=base_command,
-        datasource_instructions=datasource_instructions,
-        pipe_instructions=pipe_instructions,
-        sql_instructions=sql_instructions,
-        datasource_example=datasource_example,
-        pipe_example=pipe_example,
-        copy_pipe_instructions=copy_pipe_instructions,
-        materialized_pipe_instructions=materialized_pipe_instructions,
-        sink_pipe_instructions=sink_pipe_instructions,
-        test_instructions=test_instructions,
-        deployment_instructions=deployment_instructions,
-        connection_instructions=connection_instructions,
-        kafka_connection_example=kafka_connection_example,
-        gcs_connection_example=gcs_connection_example,
-        gcs_hmac_connection_example=gcs_hmac_connection_example,
-        s3_connection_example=s3_connection_example,
-    )
-
-
-def claude_rules_prompt(source: Optional[str] = None) -> str:
-    base_command = source or "tb"
-    return """
-# Tinybird CLI rules
-
-## Commands
-You have commands at your disposal to develop a tinybird project:
-- {base_command} build: to build the project locally and check it works.
-- {base_command} deployment create --wait --auto: to create a deployment and promote it automatically
-- {base_command} test run: to run existing tests
-- {base_command} endpoint url <pipe_name>: to get the url of an endpoint, token included.
-- {base_command} endpoint data <pipe_name>: to get the data of an endpoint. You can pass parameters to the endpoint like this: {base_command} endpoint data <pipe_name> --param1 value1 --param2 value2
-- {base_command}  token ls: to list all the tokens
-There are other commands that you can use, but these are the most common ones. Run `{base_command} -h` to see all the commands if needed.
-When you need to work with resources or data in cloud, add always the --cloud flag before the command. Example: {base_command} --cloud datasource ls
-
-## Development instructions
-- When asking to create a tinybird data project, if the needed folders are not already created, use the following structure:
-├── connections
-├── copies
-├── sinks
-├── datasources
-├── endpoints
-├── fixtures
-├── materializations
-├── pipes
-└── tests
-- The local development server will be available at http://localhost:7181. Even if some response uses another base url, use always http://localhost:7181.
-- After every change in your .datasource, .pipe or .ndjson files, run `{base_command} build` to build the project locally.
-- When you need to ingest data locally in a datasource, create a .ndjson file with the same name of the datasource and the data you want and run `{base_command} build` so the data is ingested.
-- The format of the generated api endpoint urls is: http://localhost:7181/v0/pipe/<pipe_name>.json?token=<token>
-- Before running the tests, remember to have the project built with `{base_command} build` with the latest changes.
-</development_instructions>
-When asking for ingesting data, adding data or appending data do the following depending on the environment you want to work with:
-
-## Ingestion instructions
-- When building locally, create a .ndjson file with the data you want to ingest and do `{base_command} build` to ingest the data in the build env.
-- We call `cloud` the production environment.
-- When appending data in cloud, use `{base_command} --cloud datasource append <datasource_name> <file_name>`
-- When you have a response that says “there are rows in quarantine”, do `{base_command} [--cloud] datasource data <datasource_name>_quarantine` to understand what is the problem.
-
-## .datasource file instructions
-Follow these instructions when creating or updating .datasource files:
-{datasource_instructions}
-
-## .pipe file instructions
-Follow these instructions when creating or updating .pipe files:
-{pipe_instructions}
-{sql_instructions}
-{datasource_example}
-{pipe_example}
-{copy_pipe_instructions}
-{materialized_pipe_instructions}
-{sink_pipe_instructions}
-{connection_instructions}
-{kafka_connection_example}
-{gcs_connection_example}
-{gcs_hmac_connection_example}
-{s3_connection_example}
-
-## .test file instructions
-Follow these instructions when creating or updating .yaml files for tests:
-{test_instructions}
-
-## Deployment instructions
-Follow these instructions when evolving a datasource schema:
-{deployment_instructions}
-""".format(
-        base_command=base_command,
-        datasource_instructions=datasource_instructions,
-        pipe_instructions=pipe_instructions,
-        sql_instructions=sql_instructions,
-        datasource_example=datasource_example,
-        pipe_example=pipe_example,
-        copy_pipe_instructions=copy_pipe_instructions,
-        materialized_pipe_instructions=materialized_pipe_instructions,
-        sink_pipe_instructions=sink_pipe_instructions,
-        test_instructions=test_instructions,
-        deployment_instructions=deployment_instructions,
-        connection_instructions=connection_instructions,
-        kafka_connection_example=kafka_connection_example,
-        gcs_connection_example=gcs_connection_example,
-        gcs_hmac_connection_example=gcs_hmac_connection_example,
-        s3_connection_example=s3_connection_example,
-    )
+"""
 
 
 test_instructions = """
@@ -1129,38 +891,6 @@ FORWARD_QUERY >
     select timestamp, toUUID(session_id) as session_id, action, version, payload
     </forward_query_example>
 </deployment_instruction>
-"""
-
-
-def readme_prompt(readme: str, host: str, token: str, resources_xml: str) -> str:
-    return f"""
-You are an expert in SQL and Tinybird. Follow these instructions to generate a new README.md file for a tinybird project:
-Current README.md file:
-<current_resources_xml>
-{resources_xml}
-</current_resources_xml>
-<readme>{readme}</readme>
-<readme_instructions>
-- If it is not present in the current readme, generate a new ## Tinybird section with the following content:
-    - ### Overview section:
-        - Explaining the purpose of the project.
-    - ### Data sources section:
-        - Explaining the purpose of each datasource.
-        - Add a snippet of how to ingest data into each datasource like the following (where the payload example matches the datasource schema respecting non-nullable types):
-        curl -X POST "{host}/v0/events?name=events" \
-    -H "Authorization: Bearer {token}" \
-    -d '{{"date":"2025-01-31","id":"123","user_id":"abc"}}'
-    - ### Endpoints section:
-        - Explaining the purpose of each endpoint.
-        - Add a snippet of how to use each endpoint like the following:
-        curl -X GET "{host}/v0/pipes/pipe_name.json?token={token}"
-        - DateTime parameters must be formatted as YYYY-MM-DD HH:MM:SS, or else will fail.
-- Do not include any other extra info related to Tinybird just maintain the existing one in the <readme> tag.
-- Make sure the API host is correct, {host}.
-- It is mandatory to return a <resource> tag with type "readme" in the response.
-- The response must follow the following format:
-<readme>[readme content here]</readme>
-</readme_instructions>
 """
 
 

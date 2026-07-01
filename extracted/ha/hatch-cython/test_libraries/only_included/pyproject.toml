@@ -1,0 +1,128 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling", "Cython", "setuptools"]
+
+[project]
+authors = [
+  {name = "joshua-auchincloss", email = "joshua.auchincloss@proton.me"}
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy"
+]
+dependencies = []
+description = ''
+dynamic = ["version"]
+keywords = []
+license = {file = "LICENSE.txt"}
+name = "example-only-included"
+requires-python = ">=3.8"
+
+[project.urls]
+Documentation = "https://github.com/unknown/only-included#readme"
+Issues = "https://github.com/unknown/only-included/issues"
+Source = "https://github.com/unknown/only-included"
+
+[tool.coverage.paths]
+example_only_included = [
+  "src/example_only_included",
+  "*/example-only-included/src/example_only_included"
+]
+tests = ["tests", "*/example-only-included/tests"]
+
+[tool.coverage.report]
+exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
+
+[tool.coverage.run]
+branch = true
+omit = ["src/example_only_included/__about__.py"]
+parallel = true
+source_pkgs = ["example_only_included", "tests"]
+
+[[tool.hatch.envs.all.matrix]]
+python = ["3.8", "3.9", "3.10", "3.11", "3.12"]
+
+[tool.hatch.envs.default]
+dependencies = ["coverage[toml]>=6.5", "pytest"]
+
+[tool.hatch.envs.default.scripts]
+cov = ["test-cov", "cov-report"]
+cov-report = ["- coverage combine", "coverage report"]
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+
+[tool.hatch.envs.types]
+dependencies = ["mypy>=1.0.0"]
+
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/example_only_included tests}"
+
+[tool.hatch.version]
+path = "src/example_only_included/__about__.py"
+
+[tool.ruff]
+line-length = 120
+target-version = "py37"
+
+[tool.ruff.lint]
+ignore = [
+  # Allow non-abstract empty methods in abstract base classes
+  "B027",
+  # Allow boolean positional values in function calls, like `dict.get(... True)`
+  "FBT003",
+  # Ignore checks for possible passwords
+  "S105",
+  "S106",
+  "S107",
+  # Ignore complexity
+  "C901",
+  "PLR0911",
+  "PLR0912",
+  "PLR0913",
+  "PLR0915"
+]
+select = [
+  "A",
+  "ARG",
+  "B",
+  "C",
+  "DTZ",
+  "E",
+  "EM",
+  "F",
+  "FBT",
+  "I",
+  "ICN",
+  "ISC",
+  "N",
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  "Q",
+  "RUF",
+  "S",
+  "T",
+  "TID",
+  "UP",
+  "W",
+  "YTT"
+]
+unfixable = []
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+known-first-party = ["example", "example_lib"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can use magic values, assertions, and relative imports
+"tests/**/*" = ["PLR2004", "S101", "TID252"]

@@ -1,0 +1,74 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  - repo: https://github.com/fsfe/reuse-tool
+    rev: v6.2.0
+    hooks:
+      - id: reuse
+  - repo: local
+    hooks:
+      - id: black
+        name: black
+        entry: black
+        language: system
+        types: [python]
+        require_serial: true
+      - id: isort
+        name: isort
+        entry: isort
+        language: system
+        types: [python]
+        require_serial: true
+      - id: mypy
+        name: mypy
+        entry: mypy
+        language: system
+        types: [python]
+        require_serial: true
+      - id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [python]
+        require_serial: true
+      - id: flake8
+        name: flake8
+        entry: flake8
+        language: system
+        types: [python]
+        require_serial: true
+      - id: yesqa
+        name: yesqa
+        entry: yesqa
+        language: system
+        types: [python]
+      - id: pyupgrade
+        name: pyupgrade
+        entry: pyupgrade
+        language: system
+        types: [python]
+        args: [--py310-plus]
+      - id: tomlsort
+        name: tomlsort
+        entry: toml-sort
+        language: system
+        types: [toml]
+        args: [--in-place]
+        exclude: ^uv.lock$
+      - id: uv-lock
+        name: uv-lock
+        entry: uv lock
+        args: [--check]
+        language: system
+        files: ^(uv\.lock|pyproject\.toml)$
+        pass_filenames: false
+        require_serial: true
+  - repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
+    rev: 0.2.3
+    hooks:
+      - id: yamlfmt
+        args: [--mapping, '2', --sequence, '4', --offset, '2', --implicit_start]

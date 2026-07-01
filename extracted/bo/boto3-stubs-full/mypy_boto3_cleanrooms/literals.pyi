@@ -36,10 +36,13 @@ __all__ = (
     "ApprovalStatusType",
     "AutoApprovedChangeTypeType",
     "AutoRefreshModeType",
+    "BaseTableDependencyTypeType",
+    "BaseTableParentTypeType",
     "ChangeRequestActionType",
     "ChangeRequestStatusType",
     "ChangeSpecificationTypeType",
     "ChangeTypeType",
+    "ChildResourceTypeType",
     "CleanRoomsServiceServiceName",
     "CollaborationJobLogStatusType",
     "CollaborationQueryLogStatusType",
@@ -51,6 +54,9 @@ __all__ = (
     "ErrorMessageTypeType",
     "FilterableMemberStatusType",
     "IdNamespaceTypeType",
+    "IntermediateTableAnalysisRuleTypeType",
+    "IntermediateTableStatusType",
+    "IntermediateTableVersionStatusType",
     "JobTypeType",
     "JoinOperatorType",
     "JoinRequiredOptionType",
@@ -67,6 +73,8 @@ __all__ = (
     "ListConfiguredTablesPaginatorName",
     "ListIdMappingTablesPaginatorName",
     "ListIdNamespaceAssociationsPaginatorName",
+    "ListIntermediateTableVersionsPaginatorName",
+    "ListIntermediateTablesPaginatorName",
     "ListMembersPaginatorName",
     "ListMembershipsPaginatorName",
     "ListPrivacyBudgetTemplatesPaginatorName",
@@ -81,6 +89,7 @@ __all__ = (
     "MembershipStatusType",
     "PaginatorName",
     "ParameterTypeType",
+    "PopulateIntermediateTableAnalysisTypeType",
     "PrivacyBudgetTemplateAutoRefreshType",
     "PrivacyBudgetTypeType",
     "ProtectedJobAnalysisTypeType",
@@ -91,6 +100,7 @@ __all__ = (
     "ProtectedQueryTypeType",
     "RegionName",
     "ResourceServiceName",
+    "ResourceStatusType",
     "ResultFormatType",
     "ScalarFunctionsType",
     "SchemaConfigurationType",
@@ -122,6 +132,8 @@ AutoApprovedChangeTypeType = Literal[
     "ADD_MEMBER", "GRANT_RECEIVE_RESULTS_ABILITY", "REVOKE_RECEIVE_RESULTS_ABILITY"
 ]
 AutoRefreshModeType = Literal["DISABLED", "ENABLED"]
+BaseTableDependencyTypeType = Literal["ID_MAPPING_TABLE", "INTERMEDIATE_TABLE", "TABLE"]
+BaseTableParentTypeType = Literal["DIRECT", "INDIRECT"]
 ChangeRequestActionType = Literal["APPROVE", "CANCEL", "COMMIT", "DENY"]
 ChangeRequestStatusType = Literal["APPROVED", "CANCELLED", "COMMITTED", "DENIED", "PENDING"]
 ChangeSpecificationTypeType = Literal["COLLABORATION", "MEMBER"]
@@ -137,6 +149,7 @@ ChangeTypeType = Literal[
     "REVOKE_CAN_RECEIVE_MODEL_OUTPUT",
     "REVOKE_RECEIVE_RESULTS_ABILITY",
 ]
+ChildResourceTypeType = Literal["INTERMEDIATE_TABLE"]
 CollaborationJobLogStatusType = Literal["DISABLED", "ENABLED"]
 CollaborationQueryLogStatusType = Literal["DISABLED", "ENABLED"]
 CommercialRegionType = Literal[
@@ -181,6 +194,19 @@ DifferentialPrivacyAggregationTypeType = Literal["AVG", "COUNT", "COUNT_DISTINCT
 ErrorMessageTypeType = Literal["DETAILED"]
 FilterableMemberStatusType = Literal["ACTIVE", "INVITED"]
 IdNamespaceTypeType = Literal["SOURCE", "TARGET"]
+IntermediateTableAnalysisRuleTypeType = Literal["CUSTOM"]
+IntermediateTableStatusType = Literal[
+    "BASE_TABLE_REMOVED",
+    "CREATED",
+    "DISALLOWED_BY_DATA_PROVIDER",
+    "POPULATE_FAILED",
+    "POPULATE_STARTED",
+    "POPULATE_SUCCESS",
+    "RETENTION_PERIOD_EXPIRED",
+]
+IntermediateTableVersionStatusType = Literal[
+    "POPULATE_FAILED", "POPULATE_STARTED", "POPULATE_SUCCESS", "RETENTION_PERIOD_EXPIRED"
+]
 JobTypeType = Literal["BATCH", "DELETE_ONLY", "INCREMENTAL"]
 JoinOperatorType = Literal["AND", "OR"]
 JoinRequiredOptionType = Literal["QUERY_RUNNER"]
@@ -205,6 +231,8 @@ ListConfiguredTableAssociationsPaginatorName = Literal["list_configured_table_as
 ListConfiguredTablesPaginatorName = Literal["list_configured_tables"]
 ListIdMappingTablesPaginatorName = Literal["list_id_mapping_tables"]
 ListIdNamespaceAssociationsPaginatorName = Literal["list_id_namespace_associations"]
+ListIntermediateTableVersionsPaginatorName = Literal["list_intermediate_table_versions"]
+ListIntermediateTablesPaginatorName = Literal["list_intermediate_tables"]
 ListMembersPaginatorName = Literal["list_members"]
 ListMembershipsPaginatorName = Literal["list_memberships"]
 ListPrivacyBudgetTemplatesPaginatorName = Literal["list_privacy_budget_templates"]
@@ -247,6 +275,7 @@ ParameterTypeType = Literal[
     "VARBYTE",
     "VARCHAR",
 ]
+PopulateIntermediateTableAnalysisTypeType = Literal["QUERY"]
 PrivacyBudgetTemplateAutoRefreshType = Literal["CALENDAR_MONTH", "NONE"]
 PrivacyBudgetTypeType = Literal["ACCESS_BUDGET", "DIFFERENTIAL_PRIVACY"]
 ProtectedJobAnalysisTypeType = Literal["DIRECT_ANALYSIS"]
@@ -259,6 +288,15 @@ ProtectedQueryStatusType = Literal[
     "CANCELLED", "CANCELLING", "FAILED", "STARTED", "SUBMITTED", "SUCCESS", "TIMED_OUT"
 ]
 ProtectedQueryTypeType = Literal["SQL"]
+ResourceStatusType = Literal[
+    "BASE_TABLE_REMOVED",
+    "CREATED",
+    "DISALLOWED_BY_DATA_PROVIDER",
+    "POPULATE_FAILED",
+    "POPULATE_STARTED",
+    "POPULATE_SUCCESS",
+    "RETENTION_PERIOD_EXPIRED",
+]
 ResultFormatType = Literal["CSV", "PARQUET"]
 ScalarFunctionsType = Literal[
     "ABS",
@@ -297,11 +335,17 @@ SchemaStatusReasonCodeType = Literal[
     "COLLABORATION_ANALYSIS_RULE_NOT_CONFIGURED",
     "DIFFERENTIAL_PRIVACY_POLICY_NOT_CONFIGURED",
     "ID_MAPPING_TABLE_NOT_POPULATED",
+    "INTERMEDIATE_TABLE_ANALYSIS_RULE_MISSING",
+    "INTERMEDIATE_TABLE_BASE_TABLE_REMOVED",
+    "INTERMEDIATE_TABLE_DISALLOWED_BY_DATA_PROVIDER",
+    "INTERMEDIATE_TABLE_INHERITED_CONSTRAINTS_VIOLATED",
+    "INTERMEDIATE_TABLE_NOT_POPULATED",
+    "INTERMEDIATE_TABLE_RETENTION_PERIOD_EXPIRED",
     "RESULT_RECEIVERS_NOT_ALLOWED",
     "RESULT_RECEIVERS_NOT_CONFIGURED",
 ]
 SchemaStatusType = Literal["NOT_READY", "READY"]
-SchemaTypeType = Literal["ID_MAPPING_TABLE", "TABLE"]
+SchemaTypeType = Literal["ID_MAPPING_TABLE", "INTERMEDIATE_TABLE", "TABLE"]
 SelectedAnalysisMethodType = Literal["DIRECT_JOB", "DIRECT_QUERY"]
 SupportedS3RegionType = Literal[
     "af-south-1",
@@ -536,8 +580,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -633,7 +675,6 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
@@ -719,7 +760,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -740,6 +780,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -789,6 +830,8 @@ PaginatorName = Literal[
     "list_configured_tables",
     "list_id_mapping_tables",
     "list_id_namespace_associations",
+    "list_intermediate_table_versions",
+    "list_intermediate_tables",
     "list_members",
     "list_memberships",
     "list_privacy_budget_templates",

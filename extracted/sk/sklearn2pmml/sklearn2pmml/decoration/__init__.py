@@ -1,4 +1,4 @@
-from pandas import CategoricalDtype, DataFrame, Series
+from pandas import CategoricalDtype, Series
 from pandas.api.types import is_object_dtype
 from sklearn.base import clone, BaseEstimator, TransformerMixin
 try:
@@ -11,8 +11,8 @@ try:
 	from sklearn.utils.validation import _check_feature_names, _check_n_features
 except ImportError:
 	pass
-from sklearn2pmml import _is_pandas_categorical, _is_proto_pandas_categorical, StatelessTransformerMixin
-from sklearn2pmml.util import cast, common_dtype, is_1d, to_numpy
+from sklearn2pmml import StatelessTransformerMixin
+from sklearn2pmml.util import _copy, _get_categories, _get_column, _get_columns, _is_categorical, _is_ordinal, _is_pandas_categorical, _is_pandas_proto_categorical, _to_numpy, _to_numpy_dtype, _set_column, _set_values, cast, common_dtype, is_1d
 
 import copy
 import itertools
@@ -86,10 +86,6 @@ def _check_cols(X, values):
 	else:
 		if X.shape[1] != len(values):
 			raise ValueError()
-
-def _set_values(X, where, values):
-	X[where] = values
-	return X
 
 def _count(missing_mask, valid_mask, invalid_mask):
 	missing_freq = sum(missing_mask)
@@ -201,7 +197,7 @@ class Domain(BaseEstimator, TransformerMixin, OneToOneFeatureMixin):
 		return X
 
 	def _compute_masks(self, X):
-		X = to_numpy(X)
+		X = _to_numpy(X)
 		missing_mask = self._missing_value_mask(X)
 		nonmissing_mask = ~missing_mask
 		valid_mask = self._valid_value_mask(X, nonmissing_mask)
@@ -219,7 +215,7 @@ class Domain(BaseEstimator, TransformerMixin, OneToOneFeatureMixin):
 			X = cast(X, self.dtype)
 		missing_mask, valid_mask, invalid_mask = self._compute_masks(X)
 		if self._should_make_copy(X, missing_mask, valid_mask, invalid_mask):
-			X = X.copy()
+			X = _copy(X)
 		X = self._transform_missing_values(X, missing_mask)
 		X = self._transform_valid_values(X, valid_mask)
 		X = self._transform_invalid_values(X, invalid_mask)
@@ -232,7 +228,8 @@ class DiscreteDomain(Domain):
 		if data_values:
 			if not with_data:
 				raise ValueError("Valid values require with_data attribute")
-			if isinstance(dtype, CategoricalDtype) and data_values != (dtype.categories).tolist():
+			categories = _get_categories(dtype)
+			if categories is not None and data_values != categories.tolist():
 				raise ValueError("Valid values are invalid")
 		self.data_values = data_values
 
@@ -242,10 +239,8 @@ class DiscreteDomain(Domain):
 	def _valid_value_mask(self, X, where):
 		if hasattr(self, "data_values_"):
 			data_values = self.data_values_
-		elif _is_pandas_categorical(self.dtype_):
-			data_values = self.dtype_.categories
 		else:
-			data_values = None
+			data_values = _get_categories(self.dtype_)
 		if data_values is not None:
 			def _isin_mask(x, values):
 				if hasattr(x, "isin"):
@@ -272,7 +267,7 @@ class DiscreteDomain(Domain):
 	def fit(self, X, y = None):
 		_check_input(self, X, reset = True)
 		if self.dtype is not None:
-			if _is_proto_pandas_categorical(self.dtype):
+			if _is_pandas_proto_categorical(self.dtype):
 				if self.data_values is not None:
 					dtype = CategoricalDtype(list(itertools.chain.from_iterable(self.data_values)), ordered = self._is_ordered())
 				else:
@@ -283,11 +278,11 @@ class DiscreteDomain(Domain):
 		self.dtype_ = common_dtype(X)
 		if self._empty_fit():
 			return self
-		X = to_numpy(X)
+		X = _to_numpy(X)
 
 		def _cast(x):
 			if self.dtype_ == "Int64":
-				x = to_numpy(Series(x, dtype = self.dtype_))
+				x = _to_numpy(Series(x, dtype = self.dtype_))
 			return x
 
 		if self.with_data:
@@ -298,16 +293,16 @@ class DiscreteDomain(Domain):
 				_check_cols(X, self.data_values)
 			if is_1d(X):
 				if self.data_values is None:
-					if _is_pandas_categorical(self.dtype_):
-						data_values = self.dtype_.categories
-					else:
+					data_values = _get_categories(self.dtype_)
+					if data_values is None:
 						data_values = numpy.unique(X[nonmissing_mask])
 				else:
 					data_values = numpy.asarray(self.data_values)
 				self.data_values_ = _cast(data_values)
 			else:
 				if self.data_values is None:
-					if _is_pandas_categorical(self.dtype_):
+					data_values = _get_categories(self.dtype_)
+					if data_values is not None:
 						raise ValueError()
 				self.data_values_ = []
 				for col in range(X.shape[1]):
@@ -338,7 +333,7 @@ class CategoricalDomain(DiscreteDomain):
 
 	def __init__(self, missing_values = None, missing_value_treatment = "as_is", missing_value_replacement = None, invalid_value_treatment = "return_invalid", invalid_value_replacement = None, with_data = True, with_statistics = False, dtype = None, display_name = None, data_values = None):
 		super(CategoricalDomain, self).__init__(missing_values = missing_values, missing_value_treatment = missing_value_treatment, missing_value_replacement = missing_value_replacement, invalid_value_treatment = invalid_value_treatment, invalid_value_replacement = invalid_value_replacement, with_data = with_data, with_statistics = with_statistics, dtype = dtype, display_name = display_name, data_values = data_values)
-		if isinstance(dtype, CategoricalDtype) and dtype.ordered:
+		if _is_ordinal(dtype):
 			raise ValueError()
 
 	def _is_ordered(self):
@@ -348,7 +343,7 @@ class OrdinalDomain(DiscreteDomain):
 
 	def __init__(self, missing_values = None, missing_value_treatment = "as_is", missing_value_replacement = None, invalid_value_treatment = "return_invalid", invalid_value_replacement = None, with_data = True, with_statistics = False, dtype = None, display_name = None, data_values = None):
 		super(OrdinalDomain, self).__init__(missing_values = missing_values, missing_value_treatment = missing_value_treatment, missing_value_replacement = missing_value_replacement, invalid_value_treatment = invalid_value_treatment, invalid_value_replacement = invalid_value_replacement, with_data = with_data, with_statistics = with_statistics, dtype = dtype, display_name = display_name, data_values = data_values)
-		if isinstance(dtype, CategoricalDtype) and not dtype.ordered:
+		if _is_categorical(dtype) and not _is_ordered(dtype):
 			raise ValueError()
 
 	def _is_ordered(self):
@@ -395,12 +390,9 @@ class ContinuousDomain(Domain):
 		self.dtype_ = common_dtype(X)
 		if self._empty_fit():
 			return self
-		X = to_numpy(X)
+		X = _to_numpy(X)
 		if self.with_data:
-			dtype = self.dtype_
-			# Unbox Pandas' extension data type to Numpy data type
-			if hasattr(dtype, "numpy_dtype"):
-				dtype = dtype.numpy_dtype
+			dtype = _to_numpy_dtype(self.dtype_)
 			if issubclass(dtype.type, numbers.Integral):
 				info = numpy.iinfo(dtype)
 			else:
@@ -505,29 +497,18 @@ class MultiDomain(BaseEstimator, TransformerMixin):
 		rows, columns = X.shape
 		if len(self.domains) != columns:
 			raise ValueError("The number of columns {0} is not equal to the number of domain objects {1}".format(columns, len(self.domains)))
-		if isinstance(X, DataFrame):
-			for domain, column in zip(self.domains, X.columns):
-				if domain is not None:
-					domain.fit(X[column])
-		else:
-			for domain, column in zip(self.domains, range(0, columns)):
-				if domain is not None:
-					domain.fit(X[:, column])
+		for domain, column in zip(self.domains, _get_columns(X)):
+			if domain is not None:
+				domain.fit(_get_column(X, column))
 		return self
 
 	def transform(self, X):
 		_check_input(self, X, reset = False)
-		rows, columns = X.shape
-		# XXX
-		X = X.copy()
-		if isinstance(X, DataFrame):
-			for domain, column in zip(self.domains, X.columns):
-				if domain is not None:
-					X[column] = domain.transform(X[column])
-		else:
-			for domain, column in zip(self.domains, range(0, columns)):
-				if domain is not None:
-					X[:, column] = domain.transform(X[:, column])
+		X = _copy(X)
+		for domain, column in zip(self.domains, _get_columns(X)):
+			if domain is not None:
+				x = domain.transform(_get_column(X, column))
+				X = _set_column(X, column, x)
 		return X
 
 class DomainEraser(BaseEstimator, StatelessTransformerMixin):

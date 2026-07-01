@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <shared_mutex>
 
 #include "common/types/types.h"
@@ -158,10 +159,21 @@ public:
         common::ValueVector* lowerBoundVector, uint64_t lowerBoundPos, bool lowerInclusive,
         common::ValueVector* upperBoundVector, uint64_t upperBoundPos, bool upperInclusive,
         common::idx_t maxResults, std::vector<common::offset_t>& results) const;
+    bool lookupIndexRange(const transaction::Transaction* transaction, const std::string& indexName,
+        common::ValueVector* lowerBoundVector, uint64_t lowerBoundPos, bool lowerInclusive,
+        common::ValueVector* upperBoundVector, uint64_t upperBoundPos, bool upperInclusive,
+        common::idx_t maxResults, std::vector<common::offset_t>& results) const;
+    bool lookupIndex(const transaction::Transaction* transaction, const std::string& indexName,
+        common::ValueVector* keyVector, uint64_t keyPos,
+        std::vector<common::offset_t>& results) const;
 
     void addIndex(std::unique_ptr<Index> index);
-    void buildIndexAndAdd(main::ClientContext* context, std::unique_ptr<Index> index);
+    void buildIndexAndAdd(main::ClientContext* context, std::unique_ptr<Index> index,
+        std::optional<uint64_t> queryID = std::nullopt);
     void dropIndex(const std::string& name);
+    // Reclaim the on-disk pages of indexes dropped since the last checkpoint. Called by the
+    // storage manager at checkpoint time, mirroring reclaimDroppedTables for dropped tables.
+    void reclaimDroppedIndexes(PageAllocator& pageAllocator);
 
     common::column_id_t getPKColumnID() const { return pkColumnID; }
     Index* tryGetPrimaryKeyIndex() const;
@@ -247,7 +259,8 @@ private:
     bool scanPKColumn(const transaction::Transaction* transaction, const common::Value& keyToLookup,
         std::vector<ColumnPredicateSet> columnPredicateSets, common::offset_t& result) const;
     void scanIndexColumns(main::ClientContext* context, IndexScanHelper& scanHelper,
-        const NodeGroupCollection& nodeGroups_) const;
+        const NodeGroupCollection& nodeGroups_,
+        std::optional<uint64_t> queryID = std::nullopt) const;
 
 private:
     // Protects the `columns` vector from concurrent access during checkpoint
@@ -258,6 +271,9 @@ private:
     std::unique_ptr<NodeGroupCollection> nodeGroups;
     common::column_id_t pkColumnID;
     std::vector<IndexHolder> indexes;
+    // Indexes dropped via DROP INDEX but not yet reclaimed at checkpoint. Their pages are
+    // freed by reclaimDroppedIndexes() during checkpoint (after the dropping tx is durable).
+    std::vector<IndexHolder> droppedIndexes;
     NodeTableVersionRecordHandler versionRecordHandler;
 };
 

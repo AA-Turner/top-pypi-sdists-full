@@ -1,0 +1,84 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ib_fundamental"
+dynamic = ["version"]
+authors = [{ name = "gnzsnz" }]
+description = "Interactive Brokers Fundamental data for humans"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE.txt" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Development Status :: 3 - Alpha",
+]
+dependencies = ["ib_async>=1.0.1", "pandas>=2.2.2", "defusedxml>=0.7.1"]
+
+[project.urls]
+"Homepage" = "https://github.com/quantbelt/ib_fundamental"
+"Bug Tracker" = "https://github.com/quantbelt/ib_fundamental/issues"
+
+[project.optional-dependencies] # Optional
+dev = [
+  "black>=24.4.2",
+  "pylint>=3.1.1",
+  "isort>=5.13.2",
+  "mypy>=1.10.0",
+  "pre-commit>=3.7.1",
+  "pandas-stubs>=2.2.1.240316",
+  "bandit[toml]>=1.7.8",
+  "flake8>=7.0.0",
+  "flake8-pytest-style>=2.0.0",
+  "pytest>=8.2.1",
+  "pytest-env>=1.1.3",
+  "pytest-cov>=4.1.0",
+  "pylint-pytest>=1.1.7",
+  "tox>=4.0.0",
+]
+#test = ["coverage"]
+
+[tool.isort]
+profile = "black"
+
+[tool.setuptools]
+packages = ["ib_fundamental"]
+
+[tool.setuptools.dynamic]
+version = {attr = "ib_fundamental.__version__"}
+
+[tool.pylint.main]
+load-plugins = ["pylint_pytest"]
+
+[tool.pylint.format]
+# black compatibility
+# https://black.readthedocs.io/en/stable/guides/using_black_with_other_tools.html#pylint
+max-line-length = "88"
+
+[tool.bandit]
+#exclude_dirs = ["tests"]
+skips = ["B101", "B405"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+log_cli = true
+#log_cli_level = "INFO"
+log_format = "%(asctime)s %(levelname)s %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S"
+log_disable = ["ib_async.ib", "ib_async.client", "ib_async.wrapper"]
+minversion = "6.0"
+filterwarnings = "ignore"
+norecursedirs = ["docs", "build"]
+
+# Specify a custom directory for pytest cache
+cache_dir = "tests/.pytest_cache"
+# environment
+env = [
+  "IBFUND_HOST=localhost",
+  "IBFUND_PORT=7497",
+  "IBFUND_CLI_ID=120",
+]

@@ -1,0 +1,93 @@
+[project]
+name = "kugelaudio"
+version = "1.6.0"
+description = "Official Python SDK for KugelAudio TTS API"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "KugelAudio", email = "hello@kugelaudio.com" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+]
+keywords = ["tts", "text-to-speech", "audio", "streaming", "websocket"]
+
+dependencies = [
+    "httpx>=0.24.0",
+    "websockets>=11.0",
+]
+
+[project.optional-dependencies]
+livekit = [
+    "livekit-agents>=1.0.0",
+    "aiohttp>=3.8.0",
+]
+pipecat = [
+    # The wrapper supports BOTH pipecat 0.x and 1.x at runtime (KUG-1123):
+    #   - legacy 0.x path: a fresh /ws/tts/multi context PER TURN, pre-created on
+    #     LLMFullResponseStartFrame and closed on LLMFullResponseEndFrame
+    #     (leak-safe; KUG-1123). _PipecatTTSSettings is None, run_tts(text).
+    #   - 1.x AudioContext path: closes each per-turn context via the
+    #     on_turn_context_created / on_audio_context_completed hooks (KUG-1087).
+    #     Those hooks are getattr-guarded, so they are inert no-ops on 0.x.
+    # Floor is 0.0.62 — the first release exposing pipecat.services.tts_service
+    # (TTSService moved there from pipecat.services.ai_services). tts.py imports
+    # that path, so anything < 0.0.62 fails at import; the old ">=0.0.60" floor
+    # was wrong (0.0.60/0.0.61 don't have the module). Keeping 1.x OUT of the
+    # floor means existing pipecat-0.x deployments (1.x only landed mid-April
+    # 2026) aren't force-upgraded; a fresh install still resolves to latest 1.x.
+    # Range verified by the python-sdk-pipecat-compat CI job: 0.0.62 (floor),
+    # 0.0.108 (latest 0.x), 1.3.0 (1.x).
+    "pipecat-ai>=0.0.62; python_version >= '3.11'",
+    "aiohttp>=3.8.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+]
+tools = [
+    "flask>=3.0.0",
+    "soundfile>=0.12.0",
+    "numpy>=1.26.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://kugelaudio.com"
+Documentation = "https://docs.kugelaudio.com"
+Repository = "https://github.com/Kugelaudio/KugelAudio"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["kugelaudio"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "kugelaudio/",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+

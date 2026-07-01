@@ -1,7 +1,0 @@
-name: "Ape CodeQL config"
-
-queries:
-  - uses: security-and-quality
-
-paths:
-  - src

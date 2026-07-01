@@ -1,0 +1,82 @@
+Metadata-Version: 2.4
+Name: phonors
+Version: 0.3.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Scientific/Engineering :: Physics
+License-File: LICENSE
+Summary: Rust kernels for phonopy and phono3py
+Home-Page: https://github.com/phonopy/phonors
+Author-email: Atsushi Togo <atztogo@gmail.com>
+License-Expression: BSD-3-Clause
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Project-URL: Changelog, https://github.com/phonopy/phonors/blob/main/CHANGELOG.md
+Project-URL: Homepage, https://github.com/phonopy/phonors
+Project-URL: Issues, https://github.com/phonopy/phonors/issues
+Project-URL: Repository, https://github.com/phonopy/phonors
+
+# phonors
+
+Rust kernels for phonopy and phono3py.
+
+`phonors` is a Rust extension module providing the heavy numerical
+kernels used by [phono3py](https://github.com/phonopy/phono3py)
+(via the `phono3py[rust]` extra) and intended to also back
+[phonopy](https://github.com/phonopy/phonopy) as its C kernels are
+ported.  It is built with [maturin](https://www.maturin.rs/) and
+[PyO3](https://pyo3.rs/), distributed as `abi3-py310` wheels
+(Python 3.10+).
+
+## Installation
+
+### From PyPI
+
+```bash
+pip install phonors
+```
+
+### From conda-forge
+
+```bash
+conda install -c conda-forge phonors
+```
+
+## Development
+
+For local development, build and install the extension in editable
+mode against the active Python environment:
+
+```bash
+maturin develop --release
+```
+
+`maturin develop` installs the `phonors` extension into the active
+environment; from then on, `import phonors` from anywhere hits the
+editable build.  Re-run after Rust changes.
+
+### Optional: native CPU tuning
+
+By default, `maturin develop --release` builds with the Rust baseline
+target (x86-64 v1 on x86_64, Armv8.0 on aarch64), so the resulting
+module runs on any CPU of that architecture.  For a local build that
+will only run on the current machine, enabling the host CPU's full
+instruction set can recover a few percent of wall-clock:
+
+```bash
+RUSTFLAGS='-C target-cpu=native' maturin develop --release
+```
+
+## License
+
+BSD-3-Clause.  See [LICENSE](LICENSE).
+

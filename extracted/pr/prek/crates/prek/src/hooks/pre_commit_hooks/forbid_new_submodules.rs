@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::fmt::Write;
 use std::path::Path;
 
-use prek_consts::env_vars::EnvVars;
+use prek_consts::env_vars::{EnvVars, EnvVarsRead};
 
 use crate::git;
 use crate::hook::Hook;
@@ -12,25 +12,25 @@ pub(crate) async fn forbid_new_submodules(
     filenames: &[&Path],
 ) -> Result<(i32, Vec<u8>), anyhow::Error> {
     let diff_arg = if let (Ok(from_ref), Ok(to_ref)) = (
-        EnvVars::var("PRE_COMMIT_FROM_REF"),
-        EnvVars::var("PRE_COMMIT_TO_REF"),
+        EnvVars.var("PRE_COMMIT_FROM_REF"),
+        EnvVars.var("PRE_COMMIT_TO_REF"),
     ) {
         Cow::Owned(format!("{from_ref}...{to_ref}"))
     } else {
         Cow::Borrowed("--staged")
     };
 
-    let stdout = git::git_cmd("git diff")?
+    let stdout = git::git_cmd()?
         .current_dir(hook.work_dir())
         .arg("diff")
         .arg("--relative")
         .arg("--diff-filter=A")
-        .arg("--no-ext-diff")
+        .hidden_args(["--no-ext-diff"])
         .arg("--raw")
         .arg("-z")
         .arg(diff_arg.as_ref())
         .arg("--")
-        .args(filenames)
+        .file_args(filenames)
         .check(true)
         .output()
         .await?

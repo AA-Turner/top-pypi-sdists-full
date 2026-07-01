@@ -121,6 +121,7 @@ def real_backend_server():
     
     os.environ["SAGE_API_BASE"] = f"http://127.0.0.1:{port}"
     os.environ["SAGE_TESTING"] = "1"
+    os.environ["SAGE_ENABLE_SMS_POLLER"] = "1"
     os.environ["SAGE_DEFAULT_MODEL"] = "cloud:qwen3-coder"
     
     # Start uvicorn

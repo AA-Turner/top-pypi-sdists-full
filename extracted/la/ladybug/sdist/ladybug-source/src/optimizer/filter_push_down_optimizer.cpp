@@ -3,12 +3,18 @@
 #include <algorithm>
 #include <array>
 #include <functional>
+#include <optional>
 #include <unordered_set>
 
 #include "binder/expression/literal_expression.h"
 #include "binder/expression/property_expression.h"
 #include "binder/expression/scalar_function_expression.h"
+#include "catalog/catalog.h"
+#include "catalog/catalog_entry/index_catalog_entry.h"
+#include "catalog/catalog_entry/table_catalog_entry.h"
+#include "common/string_utils.h"
 #include "main/client_context.h"
+#include "planner/join_order/cardinality_estimator.h"
 #include "planner/operator/extend/logical_extend.h"
 #include "planner/operator/logical_empty_result.h"
 #include "planner/operator/logical_filter.h"
@@ -23,6 +29,7 @@ using namespace lbug::binder;
 using namespace lbug::common;
 using namespace lbug::planner;
 using namespace lbug::storage;
+using namespace lbug::catalog;
 
 namespace lbug {
 namespace optimizer {
@@ -59,7 +66,7 @@ std::shared_ptr<LogicalOperator> FilterPushDownOptimizer::visitChildren(
     const std::shared_ptr<LogicalOperator>& op) {
     for (auto i = 0u; i < op->getNumChildren(); ++i) {
         // Start new push down for child.
-        auto optimizer = FilterPushDownOptimizer(context);
+        auto optimizer = FilterPushDownOptimizer(context, cardinalityEstimator);
         op->setChild(i, optimizer.visitOperator(op->getChild(i)));
     }
     op->computeFlatSchema();
@@ -101,10 +108,12 @@ std::shared_ptr<LogicalOperator> FilterPushDownOptimizer::visitCrossProductRepla
     }
     DASSERT(op->getNumChildren() == 2);
     // Push probe side
-    auto probeOptimizer = FilterPushDownOptimizer(context, std::move(probePSet));
+    auto probeOptimizer =
+        FilterPushDownOptimizer(context, cardinalityEstimator, std::move(probePSet));
     op->setChild(0, probeOptimizer.visitOperator(op->getChild(0)));
     // Push build side
-    auto buildOptimizer = FilterPushDownOptimizer(context, std::move(buildPSet));
+    auto buildOptimizer =
+        FilterPushDownOptimizer(context, cardinalityEstimator, std::move(buildPSet));
     op->setChild(1, buildOptimizer.visitOperator(op->getChild(1)));
 
     auto probeSchema = op->getChild(0)->getSchema();
@@ -134,13 +143,17 @@ std::shared_ptr<LogicalOperator> FilterPushDownOptimizer::visitCrossProductRepla
     // For non-id based joins, we disable side way information passing.
     hashJoin->getSIPInfoUnsafe().position = SemiMaskPosition::PROHIBIT;
     hashJoin->computeFlatSchema();
+    if (cardinalityEstimator != nullptr) {
+        hashJoin->setCardinality(cardinalityEstimator->estimateHashJoin(joinConditions,
+            *op->getChild(0), *op->getChild(1)));
+    }
     // Apply remaining predicates.
     predicates.insert(predicates.end(), remainingPSet.nonEqualityPredicates.begin(),
         remainingPSet.nonEqualityPredicates.end());
     if (predicates.empty()) {
         return hashJoin;
     }
-    return appendFilters(predicates, hashJoin);
+    return appendFiltersStatsAware(std::move(predicates), hashJoin);
 }
 
 static ColumnPredicateSet getPredicateSet(const Expression& column,
@@ -183,6 +196,53 @@ static bool isConstantExpression(const std::shared_ptr<Expression> expression) {
     default:
         return false;
     }
+}
+
+static bool isNodeProperty(const Expression& expression, const Expression& nodeID) {
+    if (expression.expressionType != ExpressionType::PROPERTY) {
+        return false;
+    }
+    auto& property = expression.constCast<PropertyExpression>();
+    return property.getVariableName() == nodeID.constCast<PropertyExpression>().getVariableName();
+}
+
+static std::optional<std::pair<std::shared_ptr<Expression>, std::string>>
+popSecondaryARTEqualityComparison(PredicateSet& predicateSet, const Expression& nodeID,
+    table_id_t tableID, main::ClientContext* context) {
+    auto catalog = Catalog::Get(*context);
+    auto transaction = transaction::Transaction::Get(*context);
+    auto tableEntry = catalog->getTableCatalogEntry(transaction, tableID);
+    auto* table = StorageManager::Get(*context)->getTable(tableID)->ptrCast<NodeTable>();
+    for (auto i = 0u; i < predicateSet.equalityPredicates.size(); ++i) {
+        auto predicate = predicateSet.equalityPredicates[i];
+        auto lhs = predicate->getChild(0);
+        auto rhs = predicate->getChild(1);
+        if (!isNodeProperty(*lhs, nodeID) && isNodeProperty(*rhs, nodeID)) {
+            std::swap(lhs, rhs);
+        }
+        if (!isNodeProperty(*lhs, nodeID) || !isConstantExpression(rhs)) {
+            continue;
+        }
+        auto& property = lhs->constCast<PropertyExpression>();
+        if (property.isPrimaryKey(tableID) || !property.hasProperty(tableID)) {
+            continue;
+        }
+        const auto propertyID = tableEntry->getPropertyID(property.getPropertyName());
+        for (auto* indexEntry : catalog->getIndexEntries(transaction, tableID)) {
+            if (!indexEntry->containsPropertyID(propertyID) ||
+                !StringUtils::caseInsensitiveEquals(indexEntry->getIndexType(),
+                    ArtPrimaryKeyIndex::getIndexType().typeName)) {
+                continue;
+            }
+            auto index = table->getIndex(indexEntry->getIndexName());
+            if (!index.has_value() || index.value()->isPrimary()) {
+                continue;
+            }
+            predicateSet.equalityPredicates.erase(predicateSet.equalityPredicates.begin() + i);
+            return std::make_pair(rhs, indexEntry->getIndexName());
+        }
+    }
+    return std::nullopt;
 }
 
 std::shared_ptr<LogicalOperator> FilterPushDownOptimizer::visitScanNodeTableReplace(
@@ -228,6 +288,16 @@ std::shared_ptr<LogicalOperator> FilterPushDownOptimizer::visitScanNodeTableRepl
                 scan.setExtraInfo(std::move(extraInfo));
                 scan.computeFlatSchema();
             }
+        }
+    }
+    if (scan.getScanType() == LogicalScanNodeTableType::SCAN && tableIDs.size() == 1) {
+        auto secondaryIndexComparison =
+            popSecondaryARTEqualityComparison(predicateSet, *nodeID, tableIDs[0], context);
+        if (secondaryIndexComparison.has_value()) {
+            scan.setScanType(LogicalScanNodeTableType::SECONDARY_INDEX_SCAN);
+            scan.setExtraInfo(std::make_unique<SecondaryIndexScanInfo>(
+                secondaryIndexComparison->second, secondaryIndexComparison->first));
+            scan.computeFlatSchema();
         }
     }
     return finishPushDown(op);
@@ -285,7 +355,7 @@ std::shared_ptr<LogicalOperator> FilterPushDownOptimizer::finishPushDown(
         return op;
     }
     auto predicates = predicateSet.getAllPredicates();
-    auto root = appendFilters(predicates, op);
+    auto root = appendFiltersStatsAware(std::move(predicates), op);
     predicateSet.clear();
     return root;
 }
@@ -311,6 +381,30 @@ std::shared_ptr<LogicalOperator> FilterPushDownOptimizer::appendFilters(
     auto root = child;
     for (auto& p : predicates) {
         root = appendFilter(p, root);
+    }
+    return root;
+}
+
+std::shared_ptr<LogicalOperator> FilterPushDownOptimizer::appendFiltersStatsAware(
+    expression_vector predicates, std::shared_ptr<LogicalOperator> child) {
+    if (predicates.empty() || cardinalityEstimator == nullptr) {
+        return appendFilters(predicates, std::move(child));
+    }
+    auto root = child;
+    while (!predicates.empty()) {
+        auto bestIdx = 0u;
+        auto bestCardinality = cardinalityEstimator->estimateFilter(*root, *predicates[bestIdx]);
+        for (auto i = 1u; i < predicates.size(); ++i) {
+            const auto cardinality = cardinalityEstimator->estimateFilter(*root, *predicates[i]);
+            if (cardinality < bestCardinality) {
+                bestCardinality = cardinality;
+                bestIdx = i;
+            }
+        }
+        auto predicate = predicates[bestIdx];
+        predicates.erase(predicates.begin() + bestIdx);
+        root = appendFilter(std::move(predicate), root);
+        root->setCardinality(bestCardinality);
     }
     return root;
 }

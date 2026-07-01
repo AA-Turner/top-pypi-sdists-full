@@ -29,8 +29,6 @@ Related:
     - ContractGitHookEvent: Return type.
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
@@ -67,7 +65,7 @@ class ProtocolGitHookEffect(Protocol):
         author: str,
         outcome: str,
         gates: list[str] | None = None,
-    ) -> ContractGitHookEvent:
+    ) -> "ContractGitHookEvent":
         """Emit a Git hook event.
 
         Args:

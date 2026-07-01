@@ -1,7 +1,0 @@
-description: Allocation de base d'assurance chômage - minimum
-metadata:
-  short_label: Minimum ARE
-  label_en: UI scheme - lump-sum and minimum
-  order:
-  - montant_minimum_hors_mayotte
-  - mayotte

@@ -1,5 +1,7 @@
 #include "processor/operator/ddl/create_index.h"
 
+#include <cstdlib>
+
 #include "catalog/catalog.h"
 #include "catalog/catalog_entry/index_catalog_entry.h"
 #include "common/exception/binder.h"
@@ -9,6 +11,7 @@
 #include "storage/index/hash_index.h"
 #include "storage/storage_manager.h"
 #include "storage/table/node_table.h"
+#include "storage/wal/local_wal.h"
 #include <format>
 
 using namespace lbug::catalog;
@@ -16,6 +19,21 @@ using namespace lbug::common;
 
 namespace lbug {
 namespace processor {
+
+static constexpr uint64_t DEFAULT_CREATE_INDEX_WAL_THRESHOLD = 256ull * 1024 * 1024;
+
+static uint64_t getCreateIndexWalThreshold() {
+    const auto* threshold = std::getenv("LBUG_CREATE_INDEX_WAL_THRESHOLD"); // NOLINT(*-mt-unsafe)
+    if (threshold == nullptr || threshold[0] == '\0') {
+        return DEFAULT_CREATE_INDEX_WAL_THRESHOLD;
+    }
+    char* end = nullptr;
+    const auto parsed = std::strtoull(threshold, &end, 10);
+    if (end == threshold || *end != '\0') {
+        return DEFAULT_CREATE_INDEX_WAL_THRESHOLD;
+    }
+    return parsed;
+}
 
 static std::string getExistingIndexName(Catalog* catalog, transaction::Transaction* transaction,
     common::table_id_t tableID, common::property_id_t propertyID) {
@@ -56,13 +74,14 @@ void CreateIndex::executeInternal(ExecutionContext* context) {
     auto* table = storageManager->getTable(info.tableID)->ptrCast<storage::NodeTable>();
     const auto storageIndexNameExists = table->getIndex(info.indexName).has_value();
     auto storagePKIndexExists = table->tryGetPrimaryKeyIndex() != nullptr;
-    const auto canCreatePhysicalIndex = !storagePKIndexExists && !storageIndexNameExists;
+    const auto canCreatePhysicalIndex =
+        !storageIndexNameExists && (!info.isPrimary || !storagePKIndexExists);
     auto indexTypeOptional = storageManager->getIndexType(info.indexType);
     if (!indexTypeOptional.has_value()) {
         throw BinderException(std::format("Index type {} does not exist.", info.indexType));
     }
     const auto& indexType = indexTypeOptional.value().get();
-    if (storagePKIndexExists &&
+    if (info.isPrimary && storagePKIndexExists &&
         table->tryGetPrimaryKeyIndex()->getIndexInfo().indexType != indexType.typeName) {
         throw BinderException(std::format(
             "Cannot create {} index because the table already has a {} primary-key index.",
@@ -70,8 +89,7 @@ void CreateIndex::executeInternal(ExecutionContext* context) {
     }
     if (canCreatePhysicalIndex) {
         storage::IndexInfo indexInfo{info.indexName, indexType.typeName, info.tableID,
-            {info.columnID}, {info.keyDataType},
-            indexType.constraintType == storage::IndexConstraintType::PRIMARY,
+            {info.columnID}, {info.keyDataType}, info.isPrimary,
             indexType.definitionType == storage::IndexDefinitionType::BUILTIN};
         std::unique_ptr<storage::Index> index;
         if (StringUtils::caseInsensitiveEquals(indexType.typeName,
@@ -86,14 +104,36 @@ void CreateIndex::executeInternal(ExecutionContext* context) {
             throw BinderException(
                 std::format("Index type {} is not supported by CREATE INDEX.", indexType.typeName));
         }
-        table->buildIndexAndAdd(clientContext, std::move(index));
-        storagePKIndexExists = true;
+        table->buildIndexAndAdd(clientContext, std::move(index), context->queryID);
+        storagePKIndexExists = storagePKIndexExists || info.isPrimary;
     }
-    if (storagePKIndexExists) {
+    if (!storageIndexNameExists) {
+        const auto isArtIndex = StringUtils::caseInsensitiveEquals(indexType.typeName,
+            storage::ArtPrimaryKeyIndex::getIndexType().typeName);
+        bool useCheckpointInsteadOfWAL = false;
+        if (transaction->shouldLogToWAL() && isArtIndex) {
+            auto physicalIndex = table->getIndex(info.indexName);
+            DASSERT(physicalIndex.has_value());
+            const auto treeSize =
+                physicalIndex.value()->cast<storage::ArtPrimaryKeyIndex>().getSerializedTreeSize();
+            useCheckpointInsteadOfWAL = treeSize > getCreateIndexWalThreshold();
+        }
         catalog->createIndex(transaction,
             std::make_unique<IndexCatalogEntry>(indexType.typeName, info.tableID, info.indexName,
                 std::vector<property_id_t>{info.propertyID},
-                std::make_unique<BuiltinIndexAuxInfo>()));
+                std::make_unique<BuiltinIndexAuxInfo>()),
+            transaction->shouldLogToWAL() && isArtIndex && !useCheckpointInsteadOfWAL);
+        if (useCheckpointInsteadOfWAL) {
+            transaction->setForceCheckpoint();
+        } else if (transaction->shouldLogToWAL() && isArtIndex) {
+            auto physicalIndex = table->getIndex(info.indexName);
+            DASSERT(physicalIndex.has_value());
+            auto treeBytes =
+                physicalIndex.value()->cast<storage::ArtPrimaryKeyIndex>().serializeTreeToBytes();
+            auto* indexEntry = catalog->getIndex(transaction, info.tableID, info.indexName);
+            transaction->getLocalWAL().logCreateIndexRecord(indexEntry,
+                physicalIndex.value()->getIndexInfo(), std::move(treeBytes));
+        }
         appendMessage(std::format("Index {} has been created.", info.indexName), memoryManager);
         return;
     }

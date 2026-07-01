@@ -1,0 +1,265 @@
+# (C) 2022 GoodData Corporation
+from __future__ import annotations
+
+import builtins
+from pathlib import Path
+from typing import Literal
+
+from attrs import define, field
+from gooddata_api_client.model.data_source_table_identifier import DataSourceTableIdentifier
+from gooddata_api_client.model.declarative_aggregated_fact import DeclarativeAggregatedFact
+from gooddata_api_client.model.declarative_attribute import DeclarativeAttribute
+from gooddata_api_client.model.declarative_dataset import DeclarativeDataset
+from gooddata_api_client.model.declarative_dataset_sql import DeclarativeDatasetSql
+from gooddata_api_client.model.declarative_fact import DeclarativeFact
+from gooddata_api_client.model.declarative_label import DeclarativeLabel
+from gooddata_api_client.model.declarative_label_translation import DeclarativeLabelTranslation
+from gooddata_api_client.model.declarative_reference import DeclarativeReference
+from gooddata_api_client.model.declarative_reference_source import DeclarativeReferenceSource
+from gooddata_api_client.model.declarative_source_reference import DeclarativeSourceReference
+from gooddata_api_client.model.declarative_workspace_data_filter_column import DeclarativeWorkspaceDataFilterColumn
+from gooddata_api_client.model.geo_area_config import GeoAreaConfig
+from gooddata_api_client.model.geo_collection_identifier import GeoCollectionIdentifier
+
+from gooddata_sdk.catalog.base import Base
+from gooddata_sdk.catalog.identifier import (
+    CatalogFactIdentifier,
+    CatalogGrainIdentifier,
+    CatalogLabelIdentifier,
+    CatalogReferenceIdentifier,
+)
+from gooddata_sdk.catalog.workspace.declarative_model.workspace.logical_model.data_filter_references import (
+    CatalogDeclarativeWorkspaceDataFilterReferences,
+)
+from gooddata_sdk.utils import read_layout_from_file, write_layout_to_file
+
+LAYOUT_DATASETS_DIR = "datasets"
+
+
+@define(kw_only=True)
+class CatalogDeclarativeDataset(Base):
+    # NOTE: this single class models both NORMAL and AUXILIARY datasets, mirroring
+    # the api-client schema where the two are distinguished only by the `type`
+    # discriminator. The platform validator enforces field exclusions per type
+    # (e.g. AUXILIARY must NOT have `aggregatedFacts`, `sql`, `dataSourceTableId`,
+    # `workspaceDataFilterReferences`, or `precedence`); they are not type-checked
+    # here. TODO: optionally add typed factory constructors
+    # `CatalogDeclarativeDataset.normal(...)` / `.auxiliary(...)` that set
+    # type-appropriate defaults and reject contradictory args, giving consumers
+    # safer construction without splitting into two classes (which would diverge
+    # from the api-client one-schema-with-discriminator design).
+    id: str
+    title: str
+    grain: list[CatalogGrainIdentifier]
+    references: list[CatalogDeclarativeReference]
+    description: str | None = None
+    attributes: list[CatalogDeclarativeAttribute] | None = None
+    facts: list[CatalogDeclarativeFact] | None = None
+    aggregated_facts: list[CatalogDeclarativeAggregatedFact] | None = field(factory=list)
+    precedence: int | None = None
+    data_source_table_id: CatalogDataSourceTableIdentifier | None = None
+    sql: CatalogDeclarativeDatasetSql | None = None
+    tags: list[str] | None = None
+    # Mirrors the api-client `DeclarativeDataset.allowed_values["type"]`. Kept as
+    # a Literal for IDE / mypy autocomplete; if the platform adds a new dataset
+    # type, regenerate the api-client and extend this Literal in lockstep.
+    type: Literal["NORMAL", "AUXILIARY"] | None = None
+    workspace_data_filter_columns: list[CatalogDeclarativeWorkspaceDataFilterColumn] | None = None
+    workspace_data_filter_references: list[CatalogDeclarativeWorkspaceDataFilterReferences] | None = None
+
+    @staticmethod
+    def client_class() -> builtins.type[DeclarativeDataset]:
+        # `builtins.type[...]` (not bare `type[...]`) because the class
+        # defines a `type: Literal[...]` field that shadows the builtin
+        # inside the class body, which trips ty.
+        return DeclarativeDataset
+
+    def store_to_disk(self, datasets_folder: Path, sort: bool = False) -> None:
+        dataset_file = datasets_folder / f"{self.id}.yaml"
+        write_layout_to_file(dataset_file, self.to_api().to_dict(camel_case=True), sort=sort)
+
+    @classmethod
+    def load_from_disk(cls, dataset_file: Path) -> CatalogDeclarativeDataset:
+        dataset_layout = read_layout_from_file(dataset_file)
+        return cls.from_dict(dataset_layout, camel_case=True)
+
+
+@define(kw_only=True)
+class CatalogDeclarativeAttribute(Base):
+    id: str
+    title: str
+    # `source_column` is optional in the OpenAPI spec and must be omitted on
+    # AUXILIARY datasets, where attributes are synthetic (no physical column).
+    source_column: str | None = None
+    labels: list[CatalogDeclarativeLabel] = field(factory=list)
+    source_column_data_type: str | None = None
+    default_view: CatalogLabelIdentifier | None = None
+    sort_column: str | None = None
+    sort_direction: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    is_hidden: bool | None = None
+    locale: str | None = None
+    is_nullable: bool | None = None
+    null_value: str | None = None
+
+    @staticmethod
+    def client_class() -> type[DeclarativeAttribute]:
+        return DeclarativeAttribute
+
+
+@define(kw_only=True)
+class CatalogDeclarativeFact(Base):
+    id: str
+    title: str
+    # Optional in the OpenAPI spec and omitted on AUXILIARY datasets, whose
+    # facts are synthetic (no physical column on the AUX itself).
+    source_column: str | None = None
+    source_column_data_type: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    is_hidden: bool | None = None
+    is_nullable: bool | None = None
+    null_value: str | None = None
+
+    @staticmethod
+    def client_class() -> type[DeclarativeFact]:
+        return DeclarativeFact
+
+
+@define(kw_only=True)
+class CatalogDeclarativeSourceFactReference(Base):
+    # Backed by DeclarativeSourceReference on the API side: the reference now
+    # accepts both FACT and ATTRIBUTE targets (the latter is required for HLL
+    # APPROXIMATE_COUNT, which aggregates over an attribute).
+    operation: str
+    reference: CatalogFactIdentifier
+
+    @staticmethod
+    def client_class() -> type[DeclarativeSourceReference]:
+        return DeclarativeSourceReference
+
+
+@define(kw_only=True)
+class CatalogDeclarativeAggregatedFact(Base):
+    id: str
+    source_column: str
+    source_fact_reference: CatalogDeclarativeSourceFactReference | None = None
+    source_column_data_type: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    is_nullable: bool | None = None
+    null_value: str | None = None
+
+    @staticmethod
+    def client_class() -> type[DeclarativeAggregatedFact]:
+        return DeclarativeAggregatedFact
+
+
+@define(kw_only=True)
+class CatalogDataSourceTableIdentifier(Base):
+    id: str
+    data_source_id: str
+    path: list[str] | None = None
+
+    @staticmethod
+    def client_class() -> type[DataSourceTableIdentifier]:
+        return DataSourceTableIdentifier
+
+
+@define(kw_only=True)
+class CatalogDeclarativeDatasetSql(Base):
+    statement: str
+    data_source_id: str
+
+    @staticmethod
+    def client_class() -> type[DeclarativeDatasetSql]:
+        return DeclarativeDatasetSql
+
+
+@define(kw_only=True)
+class CatalogDeclarativeLabelTranslation(Base):
+    locale: str
+    source_column: str
+
+    @staticmethod
+    def client_class() -> type[DeclarativeLabelTranslation]:
+        return DeclarativeLabelTranslation
+
+
+@define(kw_only=True)
+class CatalogDeclarativeLabel(Base):
+    id: str
+    title: str
+    # Optional in the OpenAPI spec; AUXILIARY datasets don't carry physical
+    # columns, so labels there must be representable without `source_column`.
+    source_column: str | None = None
+    source_column_data_type: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    value_type: str | None = None
+    is_hidden: bool | None = None
+    locale: str | None = None
+    translations: list[CatalogDeclarativeLabelTranslation] | None = None
+    geo_area_config: CatalogGeoAreaConfig | None = None
+    is_nullable: bool | None = None
+    null_value: str | None = None
+
+    @staticmethod
+    def client_class() -> type[DeclarativeLabel]:
+        return DeclarativeLabel
+
+
+@define(kw_only=True)
+class CatalogGeoAreaConfig(Base):
+    collection: CatalogGeoCollectionIdentifier
+
+    @staticmethod
+    def client_class() -> type[GeoAreaConfig]:
+        return GeoAreaConfig
+
+
+@define(kw_only=True)
+class CatalogGeoCollectionIdentifier(Base):
+    id: str
+    kind: str | None = None
+
+    @staticmethod
+    def client_class() -> type[GeoCollectionIdentifier]:
+        return GeoCollectionIdentifier
+
+
+@define(kw_only=True)
+class CatalogDeclarativeReference(Base):
+    identifier: CatalogReferenceIdentifier
+    multivalue: bool
+    source_columns: list[str] | None = None
+    source_column_data_types: list[str] | None = None
+    sources: list[CatalogDeclarativeReferenceSource] | None = None
+
+    @staticmethod
+    def client_class() -> type[DeclarativeReference]:
+        return DeclarativeReference
+
+
+@define(kw_only=True)
+class CatalogDeclarativeWorkspaceDataFilterColumn(Base):
+    name: str
+    data_type: str
+
+    @staticmethod
+    def client_class() -> type[DeclarativeWorkspaceDataFilterColumn]:
+        return DeclarativeWorkspaceDataFilterColumn
+
+
+@define(kw_only=True)
+class CatalogDeclarativeReferenceSource(Base):
+    column: str
+    target: CatalogGrainIdentifier
+    data_type: str | None = None
+    is_nullable: bool | None = None
+    null_value: str | None = None
+
+    @staticmethod
+    def client_class() -> type[DeclarativeReferenceSource]:
+        return DeclarativeReferenceSource

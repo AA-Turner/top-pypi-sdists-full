@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: google-re2-stubs
+Version: 0.1.1
+Summary: Typestubs for google-re2
+License: MIT
+Author: Donald Nguyen
+Requires-Python: >=3.8.0,<4.0.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: google-re2 (>=1.0)
+Description-Content-Type: text/markdown
+
+# google-re2-stubs [![CI](https://github.com/ddn0/google-re2-stubs/actions/workflows/ci.yaml/badge.svg)](https://github.com/ddn0/google-re2-stubs/actions/workflows/ci.yaml) [![PyPI version](https://badge.fury.io/py/google-re2-stubs.svg)](https://badge.fury.io/py/google-re2-stubs)
+
+Python stubs for [google-re2](https://github.com/google/re2) package.
+

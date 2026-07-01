@@ -12,7 +12,7 @@ classifiers = [
     "Topic :: Home Automation",
 ]
 dependencies = [
-    "esphome-device-builder-frontend==0.1.194",
+    "esphome-device-builder-frontend==0.1.198",
     "aiohttp>=3.9.0",
     "aiohttp-asyncmdnsresolver>=0.1.1",
     "colorlog>=6.8.0",
@@ -24,6 +24,7 @@ dependencies = [
     "pyyaml>=6.0",
     "ruamel.yaml>=0.18.0",
     "voluptuous>=0.13.1",
+    "zeroconf>=0.150.0",
 ]
 description = "ESPHome Device Builder"
 license = "Apache-2.0"
@@ -33,7 +34,7 @@ maintainers = [
 name = "esphome-device-builder"
 readme = "README.md"
 requires-python = ">=3.12"
-version = "1.0.22"
+version = "1.0.23"
 
 [project.optional-dependencies]
 esphome = [

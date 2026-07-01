@@ -1,7 +1,7 @@
 from allianceauth import hooks
 from allianceauth.services.hooks import UrlHook
 
-from . import urls
+from taskmonitor import urls
 
 
 @hooks.register("url_hook")

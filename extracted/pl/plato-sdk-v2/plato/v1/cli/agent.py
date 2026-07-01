@@ -119,8 +119,8 @@ def _extract_config_schema(pkg_path: Path, package_name: str) -> dict | None:
 def _extract_template_variables(build_config_schema: dict | None) -> dict[str, str] | None:
     """Extract template variables from BuildConfig schema.
 
-    All fields in BuildConfig are considered template variables for Harbor's
-    installation templates. These are stored separately for easy querying.
+    All fields in BuildConfig are considered build-time template variables.
+    These are stored separately for easy querying.
 
     Returns dict of field name -> default value (or empty string), or None if no fields.
     """
@@ -143,136 +143,7 @@ def _extract_template_variables(build_config_schema: dict | None) -> dict[str, s
     return template_vars if template_vars else None
 
 
-agent_app = typer.Typer(help="Manage, deploy, and run agents (uses Harbor)")
-
-# Harbor agent name to install script path (relative to harbor/agents/installed/)
-HARBOR_AGENTS = {
-    "claude-code": "install-claude-code.sh.j2",
-    "openhands": "install-openhands.sh.j2",
-    "codex": "install-codex.sh.j2",
-    "aider": "install-aider.sh.j2",
-    "gemini-cli": "install-gemini-cli.sh.j2",
-    "goose": "install-goose.sh.j2",
-    "swe-agent": "install-swe-agent.sh.j2",
-    "mini-swe-agent": "install-mini-swe-agent.sh.j2",
-    "cline-cli": "cline/install-cline.sh.j2",
-    "cursor-cli": "install-cursor-cli.sh.j2",
-    "opencode": "install-opencode.sh.j2",
-    "qwen-coder": "install-qwen-code.sh.j2",
-}
-
-# Base Dockerfile template for Harbor agents
-HARBOR_AGENT_DOCKERFILE_BASE = """FROM python:3.12-slim
-
-# Install common dependencies
-RUN apt-get update && apt-get install -y \\
-    curl \\
-    git \\
-    bash \\
-    build-essential \\
-    && rm -rf /var/lib/apt/lists/*
-"""
-
-HARBOR_AGENT_DOCKERFILE_INSTALL = """
-# Copy and run the install script
-COPY install.sh /tmp/install.sh
-RUN chmod +x /tmp/install.sh && /tmp/install.sh
-
-WORKDIR /app
-"""
-
-
-def _build_harbor_dockerfile(aux_files: list[str]) -> str:
-    """Build Dockerfile content, optionally including COPY for aux files."""
-    dockerfile = HARBOR_AGENT_DOCKERFILE_BASE
-
-    # Add COPY for each auxiliary file
-    for filename in aux_files:
-        dockerfile += f"\n# Copy auxiliary file\nCOPY {filename} /{filename}\n"
-
-    dockerfile += HARBOR_AGENT_DOCKERFILE_INSTALL
-    return dockerfile
-
-
-# Auxiliary files needed by certain agents (relative to harbor/agents/installed/)
-HARBOR_AGENT_AUX_FILES = {
-    "openhands": ["patch_litellm.py"],
-}
-
-
-def _get_harbor_version() -> str:
-    """Get Harbor package version."""
-    try:
-        import harbor
-
-        return getattr(harbor, "__version__", "0.0.0")
-    except ImportError:
-        return "0.0.0"
-
-
-def _get_harbor_install_script(agent_name: str, template_vars: dict[str, str] | None = None) -> str | None:
-    """Get the install script content from Harbor package.
-
-    Args:
-        agent_name: Name of the Harbor agent (e.g., 'claude-code', 'openhands')
-        template_vars: Template variables to render (e.g., {'version': '1.0.0'})
-                      If None, uses latest version.
-
-    Returns:
-        Rendered install script content, or None if agent not found.
-    """
-    try:
-        import harbor
-
-        harbor_path = Path(harbor.__file__).parent
-        script_file = HARBOR_AGENTS.get(agent_name)
-        if not script_file:
-            return None
-
-        script_path = harbor_path / "agents" / "installed" / script_file
-        if not script_path.exists():
-            return None
-
-        # Read and render the Jinja2 template
-        from jinja2 import Environment
-
-        env = Environment()
-        template = env.from_string(script_path.read_text())
-
-        # Use provided template vars or empty dict (which means latest)
-        render_vars = template_vars or {}
-        rendered = template.render(**render_vars)
-
-        # Strip trailing whitespace from each line to fix heredoc issues
-        # (some Harbor templates have trailing spaces after EOF delimiters)
-        lines = [line.rstrip() for line in rendered.splitlines()]
-        return "\n".join(lines) + "\n"
-    except ImportError:
-        return None
-    except Exception:
-        return None
-
-
-def _copy_harbor_aux_files(agent_name: str, dest_path: Path) -> None:
-    """Copy auxiliary files needed by an agent to the build directory."""
-    aux_files = HARBOR_AGENT_AUX_FILES.get(agent_name, [])
-    if not aux_files:
-        return
-
-    try:
-        import harbor
-
-        harbor_path = Path(harbor.__file__).parent
-        installed_path = harbor_path / "agents" / "installed"
-
-        for filename in aux_files:
-            src = installed_path / filename
-            if src.exists():
-                shutil.copy(src, dest_path / filename)
-    except ImportError:
-        pass
-    except Exception:
-        pass
+agent_app = typer.Typer(help="Manage and deploy agents")
 
 
 def _pull_ecr_cache(agent_name: str) -> str | None:
@@ -673,102 +544,10 @@ def _publish_package(path: str, repo: str, dry_run: bool = False):
         raise typer.Exit(1) from e
 
 
-@agent_app.command(name="run")
-def agent_run(
-    ctx: typer.Context,
-    agent: str = typer.Option(None, "--agent", "-a", help="Agent name (e.g., 'claude-code', 'openhands')"),
-    model: str = typer.Option(None, "--model", "-m", help="Model name (e.g., 'anthropic/claude-sonnet-4')"),
-    dataset: str = typer.Option(None, "--dataset", "-d", help="Dataset to run on"),
-):
-    """Run an agent using Harbor's runner infrastructure.
-
-    Wraps `harbor run` to execute agents on a dataset. Supports Harbor built-in agents
-    (claude-code, openhands, codex, aider, etc.) and Plato custom agents (computer-use).
-
-    Options:
-        -a, --agent: Agent name to run. See 'plato agent list' for available agents.
-        -m, --model: Model name for the agent (e.g., 'anthropic/claude-sonnet-4')
-        -d, --dataset: Dataset to run on (e.g., 'swe-bench-lite', 'terminal-bench')
-
-    Additional arguments can be passed to Harbor after '--' separator.
-    """
-    # Check if harbor is installed
-    if not shutil.which("harbor"):
-        console.print("[red]Error: harbor CLI not found[/red]")
-        console.print("\n[yellow]Install Harbor with:[/yellow]")
-        console.print("  pip install harbor")
-        console.print("  # or")
-        console.print("  uv tool install harbor")
-        raise typer.Exit(1)
-
-    # Build command
-    cmd = ["harbor", "run"]
-
-    if agent:
-        cmd.extend(["-a", agent])
-    if model:
-        cmd.extend(["-m", model])
-    if dataset:
-        cmd.extend(["-d", dataset])
-
-    # Add any extra arguments passed after --
-    if ctx.args:
-        cmd.extend(ctx.args)
-
-    # If no arguments provided, show help
-    if len(cmd) == 2:
-        console.print("[yellow]Usage: plato agent run -a <agent> -m <model> -d <dataset>[/yellow]")
-        console.print("\n[bold]Harbor agents:[/bold]")
-        console.print("  claude-code, openhands, codex, aider, gemini-cli,")
-        console.print("  goose, swe-agent, mini-swe-agent, cline-cli,")
-        console.print("  cursor-cli, opencode, qwen-coder")
-        console.print("\n[bold]Plato agents:[/bold]")
-        console.print("  computer-use (pip install plato-agent-computer-use)")
-        console.print("\n[bold]Example:[/bold]")
-        console.print("  plato agent run -a claude-code -m anthropic/claude-sonnet-4 -d swe-bench-lite")
-        raise typer.Exit(0)
-
-    console.print(f"[cyan]Running:[/cyan] {' '.join(cmd)}")
-
-    try:
-        result = subprocess.run(cmd)
-        raise typer.Exit(result.returncode)
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Interrupted by user[/yellow]")
-        raise typer.Exit(130) from None
-    except Exception as e:
-        console.print(f"[red]Error running harbor: {e}[/red]")
-        raise typer.Exit(1) from e
-
-
 @agent_app.command(name="list")
 def agent_list():
-    """List all available agents.
-
-    Shows Harbor built-in agents (claude-code, openhands, etc.) and Plato custom agents
-    (computer-use) that can be used with 'plato agent run' and 'plato agent publish'.
-    """
-    console.print("[bold]Harbor Agents:[/bold]\n")
-
-    harbor_agents = [
-        ("claude-code", "Claude Code - Anthropic's CLI coding agent"),
-        ("openhands", "OpenHands - All Hands AI coding agent"),
-        ("codex", "Codex - OpenAI CLI coding agent"),
-        ("aider", "Aider - AI pair programming tool"),
-        ("gemini-cli", "Gemini CLI - Google's CLI coding agent"),
-        ("goose", "Goose - Block's coding agent"),
-        ("swe-agent", "SWE-agent - Princeton's software engineering agent"),
-        ("mini-swe-agent", "Mini SWE-agent - Lightweight SWE-agent"),
-        ("cline-cli", "Cline CLI - VS Code extension CLI"),
-        ("cursor-cli", "Cursor CLI - Cursor editor CLI"),
-        ("opencode", "OpenCode - Open source coding agent"),
-        ("qwen-coder", "Qwen Coder - Alibaba's coding agent"),
-    ]
-
-    for name, description in harbor_agents:
-        console.print(f"  [cyan]{name:<15}[/cyan] {description}")
-
-    console.print("\n[bold]Plato Agents:[/bold]\n")
+    """List available Plato agents."""
+    console.print("[bold]Plato Agents:[/bold]\n")
 
     plato_agents = [
         (
@@ -781,16 +560,14 @@ def agent_list():
         console.print(f"  [cyan]{name:<15}[/cyan] {description}")
 
     console.print("\n[bold]Usage:[/bold]")
-    console.print("  plato agent run -a <agent> -m <model> -d <dataset>")
-    console.print("\n[bold]Example:[/bold]")
-    console.print("  plato agent run -a claude-code -m anthropic/claude-sonnet-4 -d swe-bench-lite")
+    console.print("  plato agent publish <path>")
 
 
 @agent_app.command(name="schema")
 def agent_schema(
     agent_name: str = typer.Argument(..., help="Agent name to get schema for"),
 ):
-    """Get the configuration schema for a Harbor agent.
+    """Get the configuration schema for an agent.
 
     Shows the JSON schema defining configuration options for the specified agent.
     The schema describes what fields are available when configuring the agent for runs.
@@ -820,19 +597,17 @@ def agent_schema(
 
 @agent_app.command(name="publish")
 def agent_publish(
-    target: str = typer.Argument(".", help="Path to agent directory OR Harbor agent name"),
+    target: str = typer.Argument(".", help="Path to agent directory"),
     all_agents: bool = typer.Option(False, "--all", "-a", help="Publish all agents in directory"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Build without pushing to ECR"),
 ):
     """Build and publish an agent Docker image to ECR.
 
     Builds a Docker image for the agent and pushes it to the Plato ECR registry.
-    Version is determined automatically from pyproject.toml (custom agents) or the
-    installed Harbor package version (Harbor agents).
+    Version is determined automatically from pyproject.toml.
 
     Arguments:
-        target: Path to custom agent directory with Dockerfile + pyproject.toml,
-            OR name of a Harbor built-in agent (e.g., 'claude-code')
+        target: Path to custom agent directory with Dockerfile + pyproject.toml
 
     Options:
         -a, --all: Publish all agents found in the target directory

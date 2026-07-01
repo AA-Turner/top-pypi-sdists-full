@@ -1,0 +1,145 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 The Newton Developers
+# SPDX-License-Identifier: Apache-2.0
+import math
+import pathlib
+
+from pxr import Sdf, Usd, UsdPhysics, UsdShade
+
+import mujoco_usd_converter
+from tests.util.ConverterTestCase import ConverterTestCase
+
+
+class TestPhysicsMaterials(ConverterTestCase):
+
+    def test_physics_materials(self):
+        model = pathlib.Path("./tests/data/physics_materials.xml")
+        asset: Sdf.AssetPath = mujoco_usd_converter.Converter().convert(model, self.tmpDir())
+        stage: Usd.Stage = Usd.Stage.Open(asset.path)
+        self.assertIsValidUsd(stage)
+
+        prim1 = stage.GetPrimAtPath("/physics_materials/Geometry/custom_friction_1")
+        prim2 = stage.GetPrimAtPath("/physics_materials/Geometry/custom_friction_2")
+        prim3 = stage.GetPrimAtPath("/physics_materials/Geometry/different_friction")
+        default_friction_prim = stage.GetPrimAtPath("/physics_materials/Geometry/default_friction")
+
+        # Get material bindings
+        binding_api_1 = UsdShade.MaterialBindingAPI(prim1)
+        binding_api_2 = UsdShade.MaterialBindingAPI(prim2)
+        binding_api_3 = UsdShade.MaterialBindingAPI(prim3)
+        binding_api_4 = UsdShade.MaterialBindingAPI(default_friction_prim)
+
+        # Check Physics Bindings
+        phys_binding_1 = binding_api_1.GetDirectBinding(materialPurpose="physics")
+        phys_binding_2 = binding_api_2.GetDirectBinding(materialPurpose="physics")
+        phys_binding_3 = binding_api_3.GetDirectBinding(materialPurpose="physics")
+        phys_binding_4 = binding_api_4.GetDirectBinding(materialPurpose="physics")
+
+        # Assert that geoms with same friction reuse the same material
+        self.assertEqual(phys_binding_1.GetMaterialPath(), phys_binding_2.GetMaterialPath())
+        self.assertNotEqual(phys_binding_1.GetMaterialPath(), phys_binding_3.GetMaterialPath())
+        self.assertTrue(stage.GetPrimAtPath(phys_binding_4.GetMaterialPath()).IsValid())
+
+        # Check Visual Bindings
+        vis_binding_1 = binding_api_1.GetDirectBinding()
+        vis_binding_2 = binding_api_2.GetDirectBinding()
+        vis_binding_3 = binding_api_3.GetDirectBinding()
+        vis_binding_4 = binding_api_4.GetDirectBinding()  # Should be empty
+
+        self.assertTrue(stage.GetPrimAtPath(vis_binding_1.GetMaterialPath()).IsValid())
+        self.assertEqual(vis_binding_1.GetMaterialPath(), vis_binding_2.GetMaterialPath())
+        self.assertNotEqual(vis_binding_1.GetMaterialPath(), vis_binding_3.GetMaterialPath())
+        self.assertFalse(stage.GetPrimAtPath(vis_binding_4.GetMaterialPath()).IsValid())
+
+        # Assert that the visual and physics materials are distinct
+        self.assertNotEqual(phys_binding_1.GetMaterialPath(), vis_binding_1.GetMaterialPath())
+
+        # Assert values on the first custom physics material
+        material_1_prim = stage.GetPrimAtPath(phys_binding_1.GetMaterialPath())
+        phys_mat_1 = UsdPhysics.MaterialAPI(material_1_prim)
+        self.assertEqual(
+            set(phys_mat_1.GetPrim().GetAuthoredPropertyNames()),
+            {
+                "physics:dynamicFriction",
+                "newton:rollingFriction",
+                "newton:torsionalFriction",
+                "newton:contactStiffness",
+                "newton:contactDamping",
+                "mjc:rollingfriction",
+                "mjc:torsionalfriction",
+            },
+        )
+        self.assertAlmostEqual(phys_mat_1.GetDynamicFrictionAttr().Get(), 0.8)
+        self.assertAlmostEqual(phys_mat_1.GetPrim().GetAttribute("newton:torsionalFriction").Get(), 0.1)
+        self.assertAlmostEqual(phys_mat_1.GetPrim().GetAttribute("newton:rollingFriction").Get(), 0.05)
+        self.assertAlmostEqual(phys_mat_1.GetPrim().GetAttribute("newton:contactStiffness").Get(), 2500.0)
+        self.assertAlmostEqual(phys_mat_1.GetPrim().GetAttribute("newton:contactDamping").Get(), 100.0)
+        self.assertAlmostEqual(phys_mat_1.GetPrim().GetAttribute("mjc:torsionalfriction").Get(), 0.1)
+        self.assertAlmostEqual(phys_mat_1.GetPrim().GetAttribute("mjc:rollingfriction").Get(), 0.05)
+
+        # Assert the default values for the physics material schema on the default_friction geom
+        default_friction_material_prim = stage.GetPrimAtPath(phys_binding_4.GetMaterialPath())
+        self.assertTrue(default_friction_material_prim.IsValid())
+        self.assertTrue(default_friction_material_prim.HasAPI("NewtonMaterialAPI"))
+        # Because NewtonMaterialAPI schema uses floats, the defaults are slightly different from the MuJoCo runtime defaults, so they will be authored
+        self.assertTrue(default_friction_material_prim.GetAttribute("newton:torsionalFriction").HasAuthoredValue())
+        self.assertTrue(default_friction_material_prim.GetAttribute("newton:rollingFriction").HasAuthoredValue())
+        self.assertAlmostEqual(default_friction_material_prim.GetAttribute("newton:torsionalFriction").Get(), 0.005)
+        self.assertAlmostEqual(default_friction_material_prim.GetAttribute("newton:rollingFriction").Get(), 0.0001)
+        self.assertTrue(default_friction_material_prim.GetAttribute("newton:contactStiffness").HasAuthoredValue())
+        self.assertTrue(default_friction_material_prim.GetAttribute("newton:contactDamping").HasAuthoredValue())
+        self.assertAlmostEqual(default_friction_material_prim.GetAttribute("newton:contactStiffness").Get(), 2500.0)
+        self.assertAlmostEqual(default_friction_material_prim.GetAttribute("newton:contactDamping").Get(), 100.0)
+
+        self.assertTrue(default_friction_material_prim.HasAPI("MjcMaterialAPI"))
+        self.assertFalse(default_friction_material_prim.GetAttribute("mjc:torsionalfriction").HasAuthoredValue())
+        self.assertFalse(default_friction_material_prim.GetAttribute("mjc:rollingfriction").HasAuthoredValue())
+        self.assertAlmostEqual(default_friction_material_prim.GetAttribute("mjc:torsionalfriction").Get(), 0.005)
+        self.assertAlmostEqual(default_friction_material_prim.GetAttribute("mjc:rollingfriction").Get(), 0.0001)
+
+        self.assertTrue(default_friction_material_prim.HasAPI("PhysicsMaterialAPI"))
+        self.assertFalse(default_friction_material_prim.GetAttribute("dynamicFriction").HasAuthoredValue())
+        self.assertAlmostEqual(default_friction_material_prim.GetAttribute("physics:dynamicFriction").Get(), 1.0)
+
+        # Assert direct-mode solref (both negative) produces correct ke/kd
+        direct_prim = stage.GetPrimAtPath("/physics_materials/Geometry/direct_solref")
+        binding_api_direct = UsdShade.MaterialBindingAPI(direct_prim)
+        phys_binding_direct = binding_api_direct.GetDirectBinding(materialPurpose="physics")
+        direct_material_prim = stage.GetPrimAtPath(phys_binding_direct.GetMaterialPath())
+        self.assertTrue(direct_material_prim.IsValid())
+        self.assertAlmostEqual(direct_material_prim.GetAttribute("newton:contactStiffness").Get(), 500.0)
+        self.assertAlmostEqual(direct_material_prim.GetAttribute("newton:contactDamping").Get(), 50.0)
+        # Same friction as default_friction but different solref → separate material
+        self.assertNotEqual(phys_binding_direct.GetMaterialPath(), phys_binding_4.GetMaterialPath())
+
+        # Assert invalid solref (timeconst = 0) falls back to engine defaults (-inf)
+        invalid_prim = stage.GetPrimAtPath("/physics_materials/Geometry/invalid_solref")
+        binding_api_invalid = UsdShade.MaterialBindingAPI(invalid_prim)
+        phys_binding_invalid = binding_api_invalid.GetDirectBinding(materialPurpose="physics")
+        invalid_material_prim = stage.GetPrimAtPath(phys_binding_invalid.GetMaterialPath())
+        self.assertTrue(invalid_material_prim.IsValid())
+        self.assertTrue(math.isinf(invalid_material_prim.GetAttribute("newton:contactStiffness").Get()))
+        self.assertTrue(math.isinf(invalid_material_prim.GetAttribute("newton:contactDamping").Get()))
+
+        # Matching invalid solref values should reuse the same physics material.
+        invalid_duplicate_prim = stage.GetPrimAtPath("/physics_materials/Geometry/invalid_solref_duplicate")
+        binding_api_invalid_duplicate = UsdShade.MaterialBindingAPI(invalid_duplicate_prim)
+        phys_binding_invalid_duplicate = binding_api_invalid_duplicate.GetDirectBinding(materialPurpose="physics")
+        self.assertEqual(phys_binding_invalid_duplicate.GetMaterialPath(), phys_binding_invalid.GetMaterialPath())
+
+        # Assert there are the correct number of materials in the dedicated scope
+        physics_scope = stage.GetPrimAtPath("/physics_materials/Physics")
+        self.assertEqual(len(physics_scope.GetChildren()), 5)
+
+        # Assert that the physics materials are in the physics layer & not mixed with the visual materials
+        physics_layer_path = pathlib.Path(self.tmpDir()) / "Payload" / "Physics.usda"
+        self.assertTrue(physics_layer_path.exists(), msg=f"Physics layer not found at {physics_layer_path}")
+        physics_stage: Usd.Stage = Usd.Stage.Open(physics_layer_path.as_posix())
+        physics_materials_scope = physics_stage.GetPrimAtPath("/physics_materials/Physics")
+        self.assertEqual(len(physics_materials_scope.GetChildren()), 5)
+
+        # Assert that the visual materials are in the materials layer & not mixed with the physics materials
+        materials_layer_path = pathlib.Path(self.tmpDir()) / "Payload" / "Materials.usda"
+        self.assertTrue(materials_layer_path.exists(), msg=f"Materials layer not found at {materials_layer_path}")
+        materials_stage: Usd.Stage = Usd.Stage.Open(materials_layer_path.as_posix())
+        visual_materials_scope = materials_stage.GetPrimAtPath("/physics_materials/Materials")
+        self.assertEqual(len(visual_materials_scope.GetChildren()), 2)

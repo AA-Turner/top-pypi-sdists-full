@@ -1,9 +1,0 @@
-# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
-# SPDX-License-Identifier: MIT
----
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
-node_name: "nested_node"
-config: !include subcontracts/level1.yaml

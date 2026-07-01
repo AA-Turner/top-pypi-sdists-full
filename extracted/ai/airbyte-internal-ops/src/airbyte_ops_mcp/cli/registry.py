@@ -36,7 +36,7 @@ __all__: list[str] = []
 
 import sys
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 import yaml
 from cyclopts import Parameter
@@ -59,6 +59,7 @@ from airbyte_ops_mcp.mcp.prerelease import (
 from airbyte_ops_mcp.registry import (
     resolve_registry_store,
 )
+from airbyte_ops_mcp.registry._constants import PROD_METADATA_SERVICE_BUCKET_NAME
 from airbyte_ops_mcp.registry._enums import (
     ConnectorLanguage,
     ConnectorType,
@@ -69,6 +70,7 @@ from airbyte_ops_mcp.registry.connector_stubs import (
     CONNECTOR_STUBS_FILE,
 )
 from airbyte_ops_mcp.registry.generate import generate_version_artifacts
+from airbyte_ops_mcp.registry.operations import _read_cloud_registry_index
 from airbyte_ops_mcp.registry.progressive_rollout_status import (
     get_connector_rollout_status,
 )
@@ -249,6 +251,37 @@ def compute_next_version(
     # Compute and output the prerelease tag
     tag = compute_prerelease_docker_image_tag(version, sha)
     print(tag)
+
+
+@progressive_rollout_app.command(name="list")
+def progressive_rollout_list() -> None:
+    """List all connectors with active release candidates in the compiled registry."""
+    try:
+        entries = _read_cloud_registry_index(
+            bucket_name=PROD_METADATA_SERVICE_BUCKET_NAME,
+        )
+    except FileNotFoundError as e:
+        exit_with_error(str(e))
+
+    rc_entries: list[dict[str, Any]] = []
+    for entry in entries:
+        releases = entry.get("releases", {})
+        candidates = releases.get("releaseCandidates")
+        if not candidates:
+            continue
+        docker_repo = entry.get("dockerRepository", "")
+        connector_name = (
+            docker_repo.split("/", 1)[1] if "/" in docker_repo else docker_repo
+        )
+        rc_entries.append(
+            {
+                "connector": connector_name,
+                "rc_versions": list(candidates.keys()),
+            }
+        )
+
+    rc_entries.sort(key=lambda x: x["connector"])
+    print_json(rc_entries)
 
 
 @progressive_rollout_app.command(name="status")

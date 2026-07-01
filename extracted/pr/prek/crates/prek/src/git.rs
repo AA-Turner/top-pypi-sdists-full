@@ -76,9 +76,9 @@ pub(crate) static GIT_ENV_TO_REMOVE: LazyLock<Vec<(String, String)>> = LazyLock:
         .collect()
 });
 
-pub(crate) fn git_cmd(summary: &str) -> Result<Cmd, Error> {
-    let mut cmd = Cmd::new(GIT.as_ref().map_err(|&e| Error::GitNotFound(e))?, summary);
-    cmd.arg("-c").arg("core.useBuiltinFSMonitor=false");
+pub(crate) fn git_cmd() -> Result<Cmd, Error> {
+    let mut cmd = Cmd::new(GIT.as_ref().map_err(|&e| Error::GitNotFound(e))?);
+    cmd.hidden_args(["-c", "core.useBuiltinFSMonitor=false"]);
 
     Ok(cmd)
 }
@@ -105,10 +105,9 @@ fn path_from_git_bytes(bytes: &[u8]) -> Result<PathBuf, Utf8Error> {
 }
 
 pub(crate) async fn intent_to_add_files(root: &Path) -> Result<Vec<PathBuf>, Error> {
-    let output = git_cmd("get intent to add files")?
+    let output = git_cmd()?
         .arg("diff")
-        .arg("--no-ext-diff")
-        .arg("--ignore-submodules")
+        .hidden_args(["--no-ext-diff", "--ignore-submodules"])
         .arg("--diff-filter=A")
         .arg("--name-only")
         .arg("-z")
@@ -121,7 +120,7 @@ pub(crate) async fn intent_to_add_files(root: &Path) -> Result<Vec<PathBuf>, Err
 }
 
 pub(crate) async fn get_added_files(root: &Path) -> Result<Vec<PathBuf>, Error> {
-    let output = git_cmd("get added files")?
+    let output = git_cmd()?
         .current_dir(root)
         .arg("diff")
         .arg("--staged")
@@ -144,11 +143,11 @@ pub(crate) async fn get_changed_files(
     root: &Path,
 ) -> Result<Vec<PathBuf>, Error> {
     let build_cmd = |range: String| -> Result<Cmd, Error> {
-        let mut cmd = git_cmd("get changed files")?;
+        let mut cmd = git_cmd()?;
         cmd.arg("diff")
             .arg("--name-only")
             .arg("--diff-filter=ACMRT")
-            .arg("--no-ext-diff") // Disable external diff drivers
+            .hidden_args(["--no-ext-diff"])
             .arg("-z") // Use NUL as line terminator
             .arg(range)
             .arg("--")
@@ -176,7 +175,7 @@ pub(crate) async fn get_changed_files(
 
 #[instrument(level = "trace")]
 pub(crate) async fn ls_files(cwd: &Path, path: &Path) -> Result<Vec<PathBuf>, Error> {
-    let output = git_cmd("git ls-files")?
+    let output = git_cmd()?
         .current_dir(cwd)
         .arg("ls-files")
         .arg("-z")
@@ -190,7 +189,7 @@ pub(crate) async fn ls_files(cwd: &Path, path: &Path) -> Result<Vec<PathBuf>, Er
 }
 
 pub(crate) async fn get_git_dir() -> Result<PathBuf, Error> {
-    let output = git_cmd("get git dir")?
+    let output = git_cmd()?
         .arg("rev-parse")
         .arg("--git-dir")
         .check(true)
@@ -202,7 +201,7 @@ pub(crate) async fn get_git_dir() -> Result<PathBuf, Error> {
 }
 
 pub(crate) async fn get_git_common_dir() -> Result<PathBuf, Error> {
-    let output = git_cmd("get git common dir")?
+    let output = git_cmd()?
         .arg("rev-parse")
         .arg("--git-common-dir")
         .check(true)
@@ -223,7 +222,7 @@ pub(crate) async fn get_git_hooks_dir() -> Result<PathBuf, Error> {
     // `core.hooksPath`, including local/worktree config, linked worktrees, bare
     // + worktree layouts, and repo-owned config loaded through `include.path`
     // / `includeIf`.
-    let output = git_cmd("get git hooks dir")?
+    let output = git_cmd()?
         .arg("rev-parse")
         .arg("--git-path")
         .arg("hooks")
@@ -250,13 +249,13 @@ pub(crate) async fn get_git_hooks_dir() -> Result<PathBuf, Error> {
 }
 
 pub(crate) async fn get_staged_files(root: &Path) -> Result<Vec<PathBuf>, Error> {
-    let output = git_cmd("get staged files")?
+    let output = git_cmd()?
         .current_dir(root)
         .arg("diff")
         .arg("--cached")
         .arg("--name-only")
         .arg("--diff-filter=ACMRTUXB") // Everything except for D
-        .arg("--no-ext-diff") // Disable external diff drivers
+        .hidden_args(["--no-ext-diff"])
         .arg("-z") // Use NUL as line terminator
         .check(true)
         .output()
@@ -265,13 +264,13 @@ pub(crate) async fn get_staged_files(root: &Path) -> Result<Vec<PathBuf>, Error>
 }
 
 pub(crate) async fn files_not_staged(files: &[&Path]) -> Result<Vec<PathBuf>> {
-    let output = git_cmd("git diff")?
+    let output = git_cmd()?
         .arg("diff")
         .arg("--exit-code")
         .arg("--name-only")
-        .arg("--no-ext-diff")
+        .hidden_args(["--no-ext-diff"])
         .arg("-z") // Use NUL as line terminator
-        .args(files)
+        .file_args(files)
         .check(false)
         .output()
         .await?;
@@ -284,7 +283,7 @@ pub(crate) async fn files_not_staged(files: &[&Path]) -> Result<Vec<PathBuf>> {
 }
 
 pub(crate) async fn has_unmerged_paths() -> Result<bool, Error> {
-    let output = git_cmd("check has unmerged paths")?
+    let output = git_cmd()?
         .arg("ls-files")
         .arg("--unmerged")
         .check(true)
@@ -294,7 +293,7 @@ pub(crate) async fn has_unmerged_paths() -> Result<bool, Error> {
 }
 
 pub(crate) async fn has_diff(rev: &str, path: &Path) -> Result<bool> {
-    let status = git_cmd("check diff")?
+    let status = git_cmd()?
         .arg("diff")
         .arg("--quiet")
         .arg(rev)
@@ -311,16 +310,12 @@ pub(crate) async fn is_in_merge_conflict() -> Result<bool, Error> {
 }
 
 pub(crate) async fn get_conflicted_files(root: &Path) -> Result<Vec<PathBuf>, Error> {
-    let tree = git_cmd("git write-tree")?
-        .arg("write-tree")
-        .check(true)
-        .output()
-        .await?;
+    let tree = git_cmd()?.arg("write-tree").check(true).output().await?;
 
-    let output = git_cmd("get conflicted files")?
+    let output = git_cmd()?
         .arg("diff")
         .arg("--name-only")
-        .arg("--no-ext-diff") // Disable external diff drivers
+        .hidden_args(["--no-ext-diff"])
         .arg("-z") // Use NUL as line terminator
         .arg("-m") // Show diffs for merge commits in the default format.
         .arg(String::from_utf8_lossy(&tree.stdout).trim_ascii())
@@ -357,13 +352,11 @@ async fn parse_merge_msg_for_conflicts() -> Result<Vec<PathBuf>, Error> {
 
 #[instrument(level = "trace")]
 pub(crate) async fn has_worktree_diff(path: &Path) -> Result<bool, Error> {
-    let mut cmd = git_cmd("check worktree diff")?;
+    let mut cmd = git_cmd()?;
     let status = cmd
         .arg("diff-files")
         .arg("--quiet")
-        .arg("--no-ext-diff")
-        .arg("--no-textconv")
-        .arg("--ignore-submodules")
+        .hidden_args(["--no-ext-diff", "--no-textconv", "--ignore-submodules"])
         .arg("--")
         .arg(path)
         .check(false)
@@ -383,11 +376,9 @@ pub(crate) async fn has_worktree_diff(path: &Path) -> Result<bool, Error> {
 
 #[instrument(level = "trace")]
 pub(crate) async fn get_diff(path: &Path) -> Result<Vec<u8>, Error> {
-    let output = git_cmd("git diff")?
+    let output = git_cmd()?
         .arg("diff")
-        .arg("--no-ext-diff") // Disable external diff drivers
-        .arg("--no-textconv")
-        .arg("--ignore-submodules")
+        .hidden_args(["--no-ext-diff", "--no-textconv", "--ignore-submodules"])
         .arg("--")
         .arg(path)
         // This diff is only used as a best-effort before/after snapshot of
@@ -414,11 +405,7 @@ pub(crate) async fn get_diff(path: &Path) -> Result<Vec<u8>, Error> {
 /// The name of the new tree object is printed to standard output.
 /// The index must be in a fully merged state.
 pub(crate) async fn write_tree() -> Result<String, Error> {
-    let output = git_cmd("git write-tree")?
-        .arg("write-tree")
-        .check(true)
-        .output()
-        .await?;
+    let output = git_cmd()?.arg("write-tree").check(true).output().await?;
     Ok(String::from_utf8_lossy(&output.stdout)
         .trim_ascii()
         .to_string())
@@ -434,7 +421,7 @@ pub(crate) fn get_root() -> Result<PathBuf, Error> {
         .output()?;
     if !output.status.success() {
         return Err(Error::Command(process::Error::Status {
-            summary: "get git root".to_string(),
+            command: format!("{} rev-parse --show-toplevel", git.to_string_lossy()),
             error: StatusError {
                 status: output.status,
                 output: Some(output),
@@ -442,9 +429,7 @@ pub(crate) fn get_root() -> Result<PathBuf, Error> {
         }));
     }
 
-    Ok(PathBuf::from(
-        String::from_utf8_lossy(&output.stdout).trim_ascii(),
-    ))
+    path_from_git_bytes(output.stdout.trim_ascii()).map_err(Error::from)
 }
 
 pub(crate) async fn init_repo(url: &str, path: &Path) -> Result<(), Error> {
@@ -460,7 +445,7 @@ pub(crate) async fn init_repo(url: &str, path: &Path) -> Result<(), Error> {
         Cow::Borrowed(url)
     };
 
-    git_cmd("init git repo")?
+    git_cmd()?
         // Unset `extensions.objectFormat` if set, just follow what hash the remote uses.
         .arg("-c")
         .arg("init.defaultObjectFormat=")
@@ -472,7 +457,7 @@ pub(crate) async fn init_repo(url: &str, path: &Path) -> Result<(), Error> {
         .output()
         .await?;
 
-    git_cmd("add git remote")?
+    git_cmd()?
         .current_dir(path)
         .arg("remote")
         .arg("add")
@@ -534,10 +519,9 @@ async fn shallow_clone(
     path: &Path,
     terminal_prompt: TerminalPrompt,
 ) -> Result<(), Error> {
-    git_cmd("git shallow clone")?
+    git_cmd()?
         .current_dir(path)
-        .arg("-c")
-        .arg("protocol.version=2")
+        .hidden_args(["-c", "protocol.version=2"])
         .arg("fetch")
         .arg("origin")
         .arg(rev)
@@ -549,7 +533,7 @@ async fn shallow_clone(
         .output()
         .await?;
 
-    git_cmd("git checkout")?
+    git_cmd()?
         .current_dir(path)
         .arg("checkout")
         .arg("FETCH_HEAD")
@@ -561,27 +545,13 @@ async fn shallow_clone(
         .output()
         .await?;
 
-    git_cmd("update git submodules")?
-        .current_dir(path)
-        .arg("-c")
-        .arg("protocol.version=2")
-        .arg("submodule")
-        .arg("update")
-        .arg("--init")
-        .arg("--recursive")
-        .arg("--depth=1")
-        .remove_git_envs()
-        .env(EnvVars::LC_ALL, "C")
-        .env(EnvVars::GIT_TERMINAL_PROMPT, terminal_prompt.env_value())
-        .check(true)
-        .output()
-        .await?;
+    update_submodules(path, terminal_prompt, true).await?;
 
     Ok(())
 }
 
 async fn full_clone(rev: &str, path: &Path, terminal_prompt: TerminalPrompt) -> Result<(), Error> {
-    git_cmd("git full clone")?
+    git_cmd()?
         .current_dir(path)
         .arg("fetch")
         .arg("origin")
@@ -593,7 +563,7 @@ async fn full_clone(rev: &str, path: &Path, terminal_prompt: TerminalPrompt) -> 
         .output()
         .await?;
 
-    git_cmd("git checkout")?
+    git_cmd()?
         .current_dir(path)
         .arg("checkout")
         .arg(rev)
@@ -605,13 +575,31 @@ async fn full_clone(rev: &str, path: &Path, terminal_prompt: TerminalPrompt) -> 
         .output()
         .await?;
 
-    git_cmd("update git submodules")?
-        .current_dir(path)
-        .arg("submodule")
+    update_submodules(path, terminal_prompt, false).await?;
+
+    Ok(())
+}
+
+async fn update_submodules(
+    path: &Path,
+    terminal_prompt: TerminalPrompt,
+    shallow: bool,
+) -> Result<(), Error> {
+    if !should_update_submodules(path).await? {
+        return Ok(());
+    }
+
+    let mut cmd = git_cmd()?;
+    cmd.current_dir(path)
+        .hidden_args(["-c", "protocol.version=2"]);
+    cmd.arg("submodule")
         .arg("update")
         .arg("--init")
-        .arg("--recursive")
-        .remove_git_envs()
+        .arg("--recursive");
+    if shallow {
+        cmd.arg("--depth=1");
+    }
+    cmd.remove_git_envs()
         .env(EnvVars::LC_ALL, "C")
         .env(EnvVars::GIT_TERMINAL_PROMPT, terminal_prompt.env_value())
         .check(true)
@@ -619,6 +607,28 @@ async fn full_clone(rev: &str, path: &Path, terminal_prompt: TerminalPrompt) -> 
         .await?;
 
     Ok(())
+}
+
+async fn should_update_submodules(path: &Path) -> Result<bool, Error> {
+    if path.join(".gitmodules").try_exists()? {
+        return Ok(true);
+    }
+
+    let output = git_cmd()?
+        .current_dir(path)
+        .arg("ls-files")
+        .arg("-z")
+        .arg("-s")
+        .remove_git_envs()
+        .env(EnvVars::LC_ALL, "C")
+        .check(true)
+        .output()
+        .await?;
+
+    Ok(output
+        .stdout
+        .split(|&byte| byte == b'\0')
+        .any(|entry| entry.starts_with(b"160000 ")))
 }
 
 async fn clone_repo_attempt(
@@ -651,7 +661,7 @@ pub(crate) async fn clone_repo(
 }
 
 async fn get_config_value(scope: Option<&str>, key: &str) -> Result<Option<Vec<u8>>, Error> {
-    let mut cmd = git_cmd("get git config value")?;
+    let mut cmd = git_cmd()?;
     cmd.arg("config").arg("--includes");
     if let Some(scope) = scope {
         cmd.arg(scope);
@@ -739,7 +749,7 @@ fn shared_repository_file_mode(value: &str, mode: u32) -> Option<u32> {
 
 /// Resolve the file mode implied by `core.sharedRepository` for a newly created file.
 pub(crate) async fn get_shared_repository_file_mode(mode: u32) -> Result<u32> {
-    let output = git_cmd("get shared repository config")?
+    let output = git_cmd()?
         .arg("config")
         .arg("--get")
         .arg("core.sharedRepository")
@@ -762,7 +772,7 @@ pub(crate) async fn get_lfs_files(
         return Ok(FxHashSet::default());
     }
 
-    let mut child = git_cmd("git check-attr")?
+    let mut child = git_cmd()?
         .current_dir(current_dir)
         .arg("check-attr")
         .arg("filter")
@@ -796,7 +806,7 @@ pub(crate) async fn get_lfs_files(
     let status = child.wait().await?;
     if !status.success() {
         return Err(Error::Command(process::Error::Status {
-            summary: "git check-attr".to_string(),
+            command: "git check-attr -z filter --stdin".to_string(),
             error: StatusError {
                 status,
                 output: None,
@@ -818,7 +828,7 @@ pub(crate) async fn get_lfs_files(
 
 /// Check if a git revision exists
 pub(crate) async fn rev_exists(rev: &str) -> Result<bool, Error> {
-    let output = git_cmd("git cat-file")?
+    let output = git_cmd()?
         .arg("cat-file")
         // Exit with zero status if <object> exists and is a valid object.
         .arg("-e")
@@ -831,7 +841,7 @@ pub(crate) async fn rev_exists(rev: &str) -> Result<bool, Error> {
 
 /// Check if `ancestor` is an ancestor of `commit`.
 pub(crate) async fn is_ancestor(ancestor: &str, commit: &str) -> Result<bool, Error> {
-    let mut cmd = git_cmd("check commit ancestry")?;
+    let mut cmd = git_cmd()?;
     let status = cmd
         .arg("merge-base")
         .arg("--is-ancestor")
@@ -857,7 +867,7 @@ pub(crate) async fn get_ancestors_not_in_remote(
     local_sha: &str,
     remote_name: &str,
 ) -> Result<Vec<String>, Error> {
-    let output = git_cmd("get ancestors not in remote")?
+    let output = git_cmd()?
         .arg("rev-list")
         .arg(local_sha)
         .arg("--topo-order")
@@ -876,7 +886,7 @@ pub(crate) async fn get_ancestors_not_in_remote(
 
 /// Get root commits (commits with no parents) for the given commit
 pub(crate) async fn get_root_commits(local_sha: &str) -> Result<FxHashSet<String>, Error> {
-    let output = git_cmd("get root commits")?
+    let output = git_cmd()?
         .arg("rev-list")
         .arg("--max-parents=0")
         .arg(local_sha)
@@ -892,7 +902,7 @@ pub(crate) async fn get_root_commits(local_sha: &str) -> Result<FxHashSet<String
 
 /// Get the parent commit of the given commit
 pub(crate) async fn get_parent_commit(commit: &str) -> Result<Option<String>, Error> {
-    let output = git_cmd("get parent commit")?
+    let output = git_cmd()?
         .arg("rev-parse")
         .arg(format!("{commit}^"))
         .check(false)
@@ -934,9 +944,103 @@ pub(crate) fn list_submodules(git_root: &Path) -> Result<Vec<PathBuf>, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::shared_repository_file_mode;
     #[cfg(unix)]
     use super::zsplit;
+    use super::{
+        Error, GIT, TerminalPrompt, full_clone, init_repo, shared_repository_file_mode,
+        should_update_submodules, update_submodules,
+    };
+    use assert_cmd::assert::OutputAssertExt;
+    use std::path::Path;
+    use std::process::Command;
+
+    fn run_git(path: &Path, args: &[&str]) {
+        let mut command = Command::new(GIT.as_ref().unwrap());
+        command.current_dir(path).args(args);
+
+        command.assert().success();
+    }
+
+    #[tokio::test]
+    async fn should_update_submodules_when_gitmodules_exists() {
+        let tmp = tempfile::tempdir().unwrap();
+        run_git(tmp.path(), &["init"]);
+        fs_err::write(tmp.path().join(".gitmodules"), "").unwrap();
+
+        assert!(should_update_submodules(tmp.path()).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn full_clone_skips_submodule_update_when_repo_has_no_submodules() {
+        let remote = tempfile::tempdir().unwrap();
+        run_git(remote.path(), &["init"]);
+        fs_err::write(remote.path().join("file.txt"), "content\n").unwrap();
+        run_git(remote.path(), &["add", "."]);
+        run_git(
+            remote.path(),
+            &[
+                "-c",
+                "user.name=prek",
+                "-c",
+                "user.email=prek@example.com",
+                "commit",
+                "-m",
+                "initial commit",
+            ],
+        );
+        let output = Command::new(GIT.as_ref().unwrap())
+            .current_dir(remote.path())
+            .arg("rev-parse")
+            .arg("HEAD")
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        let rev = String::from_utf8_lossy(&output.stdout);
+
+        let clone = tempfile::tempdir().unwrap();
+        init_repo(remote.path().to_str().unwrap(), clone.path())
+            .await
+            .unwrap();
+
+        full_clone(rev.trim(), clone.path(), TerminalPrompt::Disabled)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn update_submodules_runs_when_gitlinks_exist_without_gitmodules() {
+        let tmp = tempfile::tempdir().unwrap();
+        run_git(tmp.path(), &["init"]);
+        run_git(
+            tmp.path(),
+            &[
+                "update-index",
+                "--add",
+                "--cacheinfo",
+                "160000,1111111111111111111111111111111111111111,sub",
+            ],
+        );
+
+        assert!(should_update_submodules(tmp.path()).await.unwrap());
+
+        let err = update_submodules(tmp.path(), TerminalPrompt::Disabled, true)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, Error::Command(_)));
+        let message = err.to_string();
+        assert!(message.contains("submodule update --init --recursive"));
+        assert!(message.contains("--depth=1"));
+
+        let err = update_submodules(tmp.path(), TerminalPrompt::Disabled, false)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, Error::Command(_)));
+        let message = err.to_string();
+        assert!(message.contains("submodule update --init --recursive"));
+        assert!(!message.contains("--depth=1"));
+    }
 
     #[cfg(unix)]
     #[test]

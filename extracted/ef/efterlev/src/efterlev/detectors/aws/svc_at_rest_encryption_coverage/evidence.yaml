@@ -1,9 +1,0 @@
-detector_id: aws.svc_at_rest_encryption_coverage
-
-evidence_shape:
-  resource_type: string         # aws_dynamodb_table | aws_efs_file_system | aws_elasticache_cluster | aws_elasticache_replication_group | aws_rds_cluster | aws_neptune_cluster | aws_docdb_cluster
-  resource_name: string
-  encryption_state: enum        # configured | absent
-  pattern: enum                 # at_rest_encryption
-  detail: string?               # short detail (e.g. cmk=true)
-  gap: string?                  # present only when encryption_state=absent

@@ -1,6 +1,6 @@
 """Module for connecting to a Pathways server for interactive supercomputing."""
 
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 import contextlib
 import dataclasses
 import gc
@@ -48,14 +48,17 @@ class ProxyOptions:
     use_insecure_credentials: Whether to use insecure gRPC credentials for the
       proxy server.
     xla_flags: A list of XLA flags to pass to the proxy server.
+    sidecar: Whether to use the worker sidecar or not.
   """
   use_insecure_credentials: bool = False
   xla_flags: list[str] = dataclasses.field(default_factory=list)
+  sidecar: bool = False
 
   @classmethod
   def from_list(cls, options: Iterable[str] | None) -> "ProxyOptions":
     """Creates a ProxyOptions object from a list of 'key:value' strings."""
     use_insecure = False
+    use_sidecar = False
     xla_flags = []
     for option in options or []:
       if ":" in option:
@@ -63,6 +66,8 @@ class ProxyOptions:
         key_strip = key.strip().lower()
         if key_strip == "use_insecure_credentials":
           use_insecure = value.strip().lower() == "true"
+        elif key_strip == "sidecar":
+          use_sidecar = value.strip().lower() == "true"
         elif key_strip == "xla_flags":
           val_strip = value.strip()
           if (
@@ -78,7 +83,11 @@ class ProxyOptions:
     if xla_flags:
       validators.validate_xla_flags(xla_flags)
 
-    return cls(use_insecure_credentials=use_insecure, xla_flags=xla_flags)
+    return cls(
+        use_insecure_credentials=use_insecure,
+        xla_flags=xla_flags,
+        sidecar=use_sidecar,
+    )
 
 
 def _deploy_pathways_proxy_server(
@@ -133,6 +142,9 @@ def _deploy_pathways_proxy_server(
         f"        - {flag}" for flag in proxy_options.xla_flags
     )
     proxy_args_str = "\n" + proxy_args_str
+
+  if proxy_options.sidecar:
+    proxy_args_str += "\n        - --sidecar_name=external"
 
   template = string.Template(yaml_template)
   substituted_yaml = template.substitute(
@@ -266,14 +278,16 @@ class _ISCPathways:
     self.proxy_server_image = proxy_server_image
     self.proxy_options = proxy_options or ProxyOptions()
     self._old_jax_platforms = None
-    raw_collector = (
-        metrics_collector.MetricsCollector(self.project)
-        if collect_service_metrics
-        else None
-    )
-    self.metrics_collector = metrics_collector.SafeMetricsCollector(
-        raw_collector
-    )
+    if collect_service_metrics:
+      raw_collector = metrics_collector.MetricsCollector(
+          self.project, self.cluster, self._proxy_job_name
+      )
+      self.metrics_collector = metrics_collector.SafeMetricsCollector(
+          raw_collector
+      )
+    else:
+      self.metrics_collector = metrics_collector.SafeMetricsCollector(None)
+
     self.start_time = None
     self._old_jax_backend_target = None
     self._old_jax_platforms_config = None
@@ -421,7 +435,7 @@ def connect(
     expected_tpu_instances: Mapping[str, int],
     proxy_job_name: str | None = None,
     proxy_server_image: str = DEFAULT_PROXY_IMAGE,
-    proxy_options: ProxyOptions | None = None,
+    proxy_options: Sequence[str] | None = None,
     collect_service_metrics: bool = False,
 ) -> Iterator["_ISCPathways"]:
   """Connects to a Pathways server if the cluster exists. If not, creates it.
@@ -451,17 +465,24 @@ def connect(
   validators.validate_tpu_instances(expected_tpu_instances)
   validators.validate_proxy_server_image(proxy_server_image)
   validators.validate_proxy_options(proxy_options)
-  _logger.info("Validation complete.")
   gke_utils.fetch_cluster_credentials(
       cluster_name=cluster, project_id=project, location=region
   )
-  proxy_job_name = (
-      proxy_job_name or f"isc-proxy-{os.environ.get('USER', 'user')}-{''.join(
-          random.choices(string.ascii_lowercase + string.digits, k=5)
-      )}"
-  )
 
   proxy_options_obj = ProxyOptions.from_list(proxy_options)
+  if proxy_options_obj.sidecar:
+    sidecar_image = gke_utils.get_worker_sidecar_image(
+        pathways_service=pathways_service
+    )
+    if sidecar_image:
+      validators.validate_sidecar_image_versions(sidecar_image)
+  _logger.info("Validation complete.")
+
+  proxy_job_name = (
+      proxy_job_name
+      or f"isc-proxy-{os.environ.get('USER', 'user')}-"
+      f"{''.join(random.choices(string.ascii_lowercase + string.digits, k=5))}"
+  )
 
   _logger.info("Starting ISCPathways context.")
   with _ISCPathways(

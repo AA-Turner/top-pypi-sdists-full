@@ -1,0 +1,231 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools~=82.0", "setuptools-scm~=10.0"]
+
+[project]
+authors = [
+    {name = "Kai Harder", email = "kai.harder@sap.com"},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Plugins",
+    "Framework :: Sphinx :: Extension",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Documentation",
+    "Topic :: Documentation :: Sphinx",
+    "Typing :: Typed",
+]
+dependencies = [
+    "sphinx>=8.0,<10",
+    "jinja2~=3.0",
+    "docutils",
+    "pyyaml~=6.0",
+    "typing_extensions~=4.5",
+]
+description = "Sphinx plugin which renders a OpenAPI specification with Swagger"
+dynamic = ["version"]
+keywords = [
+    "sphinx",
+    "swagger",
+    "plugin",
+    "openapi",
+]
+license = "Apache-2.0"
+license-files = [
+    "LICENSE",
+]
+name = "swagger-plugin-for-sphinx"
+readme = "README.md"
+requires-python = ">=3.10,<4"
+
+[project.urls]
+Changelog = "https://github.com/SAP/swagger-plugin-for-sphinx/blob/main/CHANGELOG.md"
+"Issue Tracker" = "https://github.com/SAP/swagger-plugin-for-sphinx/issues"
+
+[dependency-groups]
+dev = [
+    "pre-commit==4.6.0",
+    "pylint==4.0.5",
+    "black==26.5.1",
+    "isort==8.0.1",
+    "flake8==7.3.0",
+    "flake8-tergeo==26.5.28.0",
+    "mypy==2.1.0",
+    "types-docutils==0.22.3.20260518",
+    "yesqa==1.5.0",
+    "types-PyYAML==6.0.12.20260518",
+    "pyupgrade==3.21.2",
+    "toml-sort==0.24.4",
+    "pylint-per-file-ignores==3.2.1",
+    "uv==0.11.17",
+    "towncrier==25.8.0",
+]
+test = [
+    "pytest==9.0.3",
+    "coverage==7.14.1",
+    "diff-cover==10.2.1",
+    "pytest-cov==7.1.0",
+    "selenium==4.44.0",
+    "pyyaml==6.0.3",
+    "pytest-randomly==4.1.0",
+]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_covered = true
+
+[tool.coverage.run]
+branch = true
+patch = ["subprocess"]
+
+[tool.diff_cover]
+fail_under = 90
+include_untracked = true
+
+[tool.isort]
+add_imports = [
+    "from __future__ import annotations",
+]
+profile = "black"
+
+[tool.mypy]
+enable_error_code = [
+    "explicit-override",
+    "possibly-undefined",
+    "ignore-without-code",
+    "deprecated",
+    "redundant-self",
+    "truthy-iterable",
+    "unused-awaitable",
+    "exhaustive-match",
+]
+pretty = true
+show_column_numbers = true
+show_error_codes = true
+show_traceback = true
+strict = true
+strict_concatenate = true
+strict_equality_for_none = true
+strict_optional = true
+warn_incomplete_stub = true
+warn_no_return = true
+warn_unreachable = true
+warn_unused_ignores = true
+
+[tool.pylint.basic]
+no-docstring-rgx = "^_"
+
+[tool.pylint.design]
+min-public-methods = 0
+
+[tool.pylint.master]
+load-plugins = [
+    "pylint_per_file_ignores",
+    "pylint.extensions.bad_builtin",
+    "pylint.extensions.check_elif",
+    "pylint.extensions.code_style",
+    "pylint.extensions.comparison_placement",
+    "pylint.extensions.confusing_elif",
+    "pylint.extensions.dict_init_mutate",
+    "pylint.extensions.docparams",
+    "pylint.extensions.docstyle",
+    "pylint.extensions.empty_comment",
+    "pylint.extensions.eq_without_hash",
+    "pylint.extensions.for_any_all",
+    "pylint.extensions.overlapping_exceptions",
+    "pylint.extensions.private_import",
+    "pylint.extensions.set_membership",
+    "pylint.extensions.typing",
+]
+max-line-length = 100
+py-version = [3, 10]
+
+[tool.pylint."messages control"]
+disable = [
+    "fixme",
+    "locally-disabled",
+    "suppressed-message",
+    "too-many-positional-arguments",
+    "too-many-locals",
+    "too-many-arguments",
+    "consider-using-assignment-expr",
+]
+enable = ["all"]
+per-file-ignores = "tests/**:missing-function-docstring,missing-class-docstring,redefined-outer-name,protected-access,unused-argument,import-private-name"
+
+[tool.pylint.reports]
+reports = false
+
+[tool.pylint.similarities]
+ignore-imports = true
+
+[tool.pytest]
+addopts = ["-p", "no:legacypath"]
+filterwarnings = [
+    "error",
+    "ignore:'sphinx.environment.BuildEnvironment.app' is deprecated.*:",
+]
+markers = [
+    "integration: integration tests",
+]
+strict = true
+
+[tool.setuptools.package-data]
+swagger_plugin_for_sphinx = [
+    "py.typed",
+    "*.j2",
+]
+
+[tool.setuptools.packages.find]
+include = [
+    "swagger_plugin_for_sphinx",
+]
+
+[tool.setuptools_scm]
+version_file = ""
+
+[tool.tomlsort]
+sort_first = ["build-system", "project", "project.urls", "dependency-groups"]
+sort_table_keys = true
+spaces_indent_inline_array = 4
+trailing_comma_inline_array = true
+
+[tool.towncrier]
+directory = "news"
+filename = "CHANGELOG.md"
+start_string = "<!-- towncrier release notes start -->\n"
+title_format = "## {version} ({project_date})"
+underlines = ["", "", ""]
+
+[[tool.towncrier.type]]
+directory = "removal"
+name = "Removals"
+
+[[tool.towncrier.type]]
+directory = "deprecation"
+name = "Deprecations"
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+
+[[tool.towncrier.type]]
+directory = "change"
+name = "Changes"
+
+[[tool.towncrier.type]]
+directory = "fix"
+name = "Fixes"
+
+[tool.uv]
+default-groups = []

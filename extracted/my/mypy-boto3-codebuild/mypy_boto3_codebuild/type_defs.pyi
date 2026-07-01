@@ -42,6 +42,7 @@ from .literals import (
     FleetProxyRuleTypeType,
     FleetSortByTypeType,
     FleetStatusCodeType,
+    HostKernelType,
     ImagePullCredentialsTypeType,
     LanguageTypeType,
     LogsConfigStatusTypeType,
@@ -1238,6 +1239,7 @@ ProjectEnvironmentOutputTypeDef = TypedDict(
         "registryCredential": NotRequired[RegistryCredentialTypeDef],
         "imagePullCredentialsType": NotRequired[ImagePullCredentialsTypeType],
         "dockerServer": NotRequired[DockerServerOutputTypeDef],
+        "hostKernel": NotRequired[HostKernelType],
     },
 )
 ProjectEnvironmentTypeDef = TypedDict(
@@ -1254,6 +1256,7 @@ ProjectEnvironmentTypeDef = TypedDict(
         "registryCredential": NotRequired[RegistryCredentialTypeDef],
         "imagePullCredentialsType": NotRequired[ImagePullCredentialsTypeType],
         "dockerServer": NotRequired[DockerServerTypeDef],
+        "hostKernel": NotRequired[HostKernelType],
     },
 )
 
@@ -1329,6 +1332,7 @@ class StartBuildInputTypeDef(TypedDict):
     debugSessionEnabled: NotRequired[bool]
     fleetOverride: NotRequired[ProjectFleetTypeDef]
     autoRetryLimitOverride: NotRequired[int]
+    hostKernelOverride: NotRequired[HostKernelType]
 
 class CreateWebhookOutputTypeDef(TypedDict):
     webhook: WebhookTypeDef

@@ -82,6 +82,7 @@ public:
         const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapAggregate(const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapAlter(const planner::LogicalOperator* logicalOperator);
+    std::unique_ptr<PhysicalOperator> mapAnalyze(const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapAttachDatabase(
         const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapCopyFrom(const planner::LogicalOperator* logicalOperator);
@@ -183,7 +184,8 @@ public:
         std::unique_ptr<PhysicalOperator> prevOperator);
     std::unique_ptr<PhysicalOperator> createArrowResultCollector(
         common::ArrowResultConfig arrowConfig, const binder::expression_vector& expressions,
-        planner::Schema* schema, std::unique_ptr<PhysicalOperator> prevOperator);
+        planner::Schema* schema, std::unique_ptr<PhysicalOperator> prevOperator,
+        OrderPreservationType orderPreservation);
 
     // Scan fTable
     std::unique_ptr<PhysicalOperator> createFTableScan(const binder::expression_vector& exprs,

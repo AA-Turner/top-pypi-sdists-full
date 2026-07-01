@@ -1039,6 +1039,50 @@ fn predict_multinomial_intervals_pyfunc<'py>(
     Ok(out.unbind())
 }
 
+/// Draw posterior-predictive replicate class assignments for a saved
+/// multinomial model on fresh rows (#1101). Each of `n_draws` replicates samples
+/// every row's class from `Categorical(softmax(X·β̂))` — the plug-in predictive
+/// (categorical observation noise around the fitted mean). Returns a dict with
+/// `draws` (an `(n_draws, N_new)` int64 array of class INDICES `0..K`) and
+/// `class_levels` (the label list those indices index). Deterministic in `seed`.
+#[pyfunction(signature = (model_bytes, headers, rows, n_draws, seed = 0))]
+fn posterior_predict_multinomial_pyfunc<'py>(
+    py: Python<'py>,
+    model_bytes: Vec<u8>,
+    headers: Vec<String>,
+    rows: Vec<Vec<String>>,
+    n_draws: usize,
+    seed: u64,
+) -> PyResult<Py<PyDict>> {
+    let (draws, class_levels) = detach_pyresult(py, "posterior_predict_multinomial", move || {
+        let envelope: MultinomialModelEnvelope =
+            serde_json::from_slice(&model_bytes).map_err(|err| {
+                py_value_error(format!("failed to deserialize multinomial model: {err}"))
+            })?;
+        if envelope.model_class != "multinomial" {
+            return Err(py_value_error(format!(
+                "posterior_predict_multinomial: model_class = {:?}, expected 'multinomial'",
+                envelope.model_class
+            )));
+        }
+        let dataset = dataset_with_inferred_schema(headers, rows).map_err(py_value_error)?;
+        let draws = gam::families::multinomial::posterior_predict_multinomial_formula(
+            &envelope.saved,
+            &dataset,
+            n_draws,
+            seed,
+        )
+        .map_err(estimation_error_to_pyerr)?;
+        // Map u32 class indices to i64 for a natural numpy integer dtype.
+        let draws_i64 = draws.mapv(|v| v as i64);
+        Ok((draws_i64, envelope.saved.class_levels.clone()))
+    })?;
+    let out = PyDict::new(py);
+    out.set_item("draws", draws.into_pyarray(py))?;
+    out.set_item("class_levels", class_levels)?;
+    Ok(out.unbind())
+}
+
 /// Wood rank-truncated Wald smooth-significance table for a saved multinomial
 /// model (#1101). Returns a list of dicts, one per `(active class, smooth term)`:
 /// `class`, `term`, `edf`, `ref_df`, `statistic`, `p_value`. Empty when the
@@ -1786,6 +1830,18 @@ fn sae_duchon_atom_m(dim: usize) -> usize {
 /// quadratic patch.)
 const SAE_EUCLIDEAN_PATCH_MAX_DEGREE: usize = 2;
 
+/// Upper bound for RECOVERING a EuclideanPatch atom's monomial degree from its
+/// trained decoder width (`sae_euclidean_degree_for_basis_size`). The seed patch
+/// is degree 2 ([`SAE_EUCLIDEAN_PATCH_MAX_DEGREE`]), but a structure-search BIRTH
+/// races a `d=1` line candidate at degree 3 (`gam::terms::sae::structure_harvest`
+/// `topology_candidates_for_dim`: `EuclideanPatchEvaluator::new(1, 3)`, width
+/// `M = 4`). The OOS rebuild and the inner-Newton basis refresh must recover that
+/// born degree from the trained width, so the recovery search reaches degree 3
+/// even though no SEED atom is built past degree 2. The per-`d` monomial widths
+/// are strictly increasing in the degree (`d=1`: 1,2,3,4; `d=2`: 1,3,6,10), so a
+/// width maps back to a unique degree with no collision.
+const SAE_EUCLIDEAN_PATCH_RECOVERY_MAX_DEGREE: usize = 3;
+
 /// Flat-line polynomial degree of a Cylinder `S¹ × ℝ` atom's line axis (axis 1).
 /// Mirrors the Euclidean-patch degree so the cylinder's flat factor matches the
 /// patch candidate it races against; `Ml = SAE_CYLINDER_LINE_DEGREE + 1`.
@@ -1965,9 +2021,17 @@ fn build_sae_basis_evaluators(
                 d,
                 sae_euclidean_degree_for_basis_size(d, m)?,
             )?),
-            SaeAtomBasisKind::EuclideanPatch | SaeAtomBasisKind::Poincare => Arc::new(
-                EuclideanPatchEvaluator::new(d, SAE_EUCLIDEAN_PATCH_MAX_DEGREE)?,
-            ),
+            SaeAtomBasisKind::EuclideanPatch | SaeAtomBasisKind::Poincare => {
+                // Recover the patch degree from the TRAINED width `m`, not the
+                // seed default 2: a structure-search-born `d=1` EuclideanPatch line
+                // is degree 3 (`m = 4`), so freezing degree 2 here would re-emit a
+                // 3-column Φ that disagrees with the trained 4-row decoder and break
+                // the inner-Newton latent refresh / OOS reconstruct on a born line.
+                Arc::new(EuclideanPatchEvaluator::new(
+                    d,
+                    sae_euclidean_degree_for_basis_size(d, m)?,
+                )?)
+            }
             SaeAtomBasisKind::Cylinder => {
                 return Err(format!(
                     "build_sae_basis_evaluators: Cylinder atom {k} requires latent_dim == 2; got dim={d}, m={m}"
@@ -3354,7 +3418,62 @@ fn sae_manifold_fit_inner<'py>(
                 entry.set_item("duchon_centers", centers.clone().into_pyarray(py))?;
             }
             None => {
-                entry.set_item("duchon_centers", py.None())?;
+                // #357 — a structure-search BIRTH races a heterogeneous topology
+                // (`race_birth_topology`): a circle seed can grow a EuclideanPatch
+                // (monomial-patch line) / Linear / Poincaré atom. When the SEED
+                // template carried no Duchon centers (periodic/sphere/torus seed),
+                // that born monomial atom would inherit `None` here and then the OOS
+                // round-trip (`sae_manifold_predict_oos`) would reject it with "atom
+                // N (Duchon-like) needs duchon_centers", breaking `converged_latents`,
+                // `project`, and `reconstruct` on any held-out matrix.
+                //
+                // A monomial-patch atom (EuclideanPatch / Linear / Poincaré) is
+                // CENTERLESS for the OOS rebuild: that path reads only
+                // `centers.ncols()` (the build dimension, equal to `latent_dim`) to
+                // recover the monomial degree from the trained decoder width — the
+                // center COORDINATES are never consulted (cf.
+                // `build_sae_basis_evaluators`, where only the genuine `Duchon` kernel
+                // reads center content). But the SAME `duchon_centers` field also
+                // feeds the python `_functional_basis_params` diagnostic, which builds
+                // a Duchon KERNEL design (`duchon_basis_with_jet`) that needs enough
+                // real center ROWS to leave a non-empty radial block — a 1-row
+                // placeholder degenerates it. So derive the centers from the atom's
+                // OWN converged on-atom coordinates (the honest analogue of the seed
+                // path, which subsamples the PCA-seeded coords): correct `ncols` for
+                // the OOS rebuild AND real rows for the kernel diagnostic. Births
+                // never produce a genuine Duchon kernel atom, so a Duchon-kind atom
+                // here keeps `None` and its missing-centers error still surfaces.
+                let needs_centerless_patch = matches!(
+                    kind,
+                    SaeAtomBasisKind::EuclideanPatch
+                        | SaeAtomBasisKind::Linear
+                        | SaeAtomBasisKind::Poincare
+                );
+                if needs_centerless_patch {
+                    let coords = term.assignment.coords[atom_idx].as_matrix();
+                    let n_rows = coords.nrows();
+                    let dim = latent_dim.max(1);
+                    // Mirror the seed-path center budget (`sae_build_atom_plans`):
+                    // a handful of rows is plenty for the monomial patch (ncols is
+                    // what the OOS rebuild reads) and gives the kernel diagnostic a
+                    // non-degenerate radial block. Deterministic subsample keyed by
+                    // the atom index so reloads are reproducible.
+                    let center_floor = (dim + 2).max(8);
+                    let n_centers = n_rows.min(center_floor.max(8)).max(dim + 1).min(n_rows);
+                    // No `random_state` in this entry point's scope (the precomputed-
+                    // basis fit takes its seed jitter elsewhere); key the deterministic
+                    // subsample purely on the atom index so a reload is reproducible.
+                    let idx = sae_pick_duchon_center_indices(n_rows, n_centers, atom_idx as u64);
+                    let mut centers = Array2::<f64>::zeros((idx.len().max(1), dim));
+                    for (out_row, src_row) in idx.iter().copied().enumerate() {
+                        for col in 0..dim.min(coords.ncols()) {
+                            centers[[out_row, col]] = coords[[src_row, col]];
+                        }
+                    }
+                    entry.set_item("duchon_centers", centers.into_pyarray(py))?;
+                } else {
+                    entry.set_item("duchon_centers", py.None())?;
+                }
             }
         }
         atom_plans_py.append(entry)?;
@@ -5232,13 +5351,18 @@ fn sae_build_duchon_atom(
 /// determines the random-state matching seam (issue #246), but it is not
 /// otherwise used: a polynomial atom has no center-based locality.
 fn sae_euclidean_degree_for_basis_size(dim: usize, basis_size: usize) -> Result<usize, String> {
-    for degree in 0..=SAE_EUCLIDEAN_PATCH_MAX_DEGREE {
+    // Recover up to the BORN ceiling (degree 3), not just the seed degree 2: a
+    // structure-search birth grows a `d=1` EuclideanPatch line at degree 3
+    // (`M = 4`), and its OOS rebuild / refresh must map that trained width back to
+    // its degree. Widths are strictly increasing in the degree per `dim`, so the
+    // recovery is unique.
+    for degree in 0..=SAE_EUCLIDEAN_PATCH_RECOVERY_MAX_DEGREE {
         if monomial_exponents(dim, degree).len() == basis_size {
             return Ok(degree);
         }
     }
     Err(format!(
-        "euclidean patch basis size {basis_size} is not a valid monomial width for latent_dim={dim} with max_degree<={SAE_EUCLIDEAN_PATCH_MAX_DEGREE}"
+        "euclidean patch basis size {basis_size} is not a valid monomial width for latent_dim={dim} with max_degree<={SAE_EUCLIDEAN_PATCH_RECOVERY_MAX_DEGREE}"
     ))
 }
 

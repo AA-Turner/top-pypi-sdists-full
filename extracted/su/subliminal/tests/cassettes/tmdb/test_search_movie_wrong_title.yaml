@@ -1,0 +1,63 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Accept-Language:
+      - en
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      User-Agent:
+      - Subliminal/2.2
+    method: GET
+    uri: https://api.themoviedb.org/3/search/movie?api_key=3dac925d5d494853ea6ef9161011fbb3&query=Meen+of+Stal&language=en-US&page=1
+  response:
+    body:
+      string: '{"page":1,"results":[],"total_pages":1,"total_results":0}'
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=86400
+      Cache-Control:
+      - public, max-age=25714
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json;charset=utf-8
+      Date:
+      - Thu, 13 Feb 2025 23:30:15 GMT
+      ETag:
+      - W/"0e23279b004381f72a34159d5c7dfd1f"
+      Server:
+      - openresty
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Accept-Encoding,accept-encoding
+      - Origin
+      Via:
+      - 1.1 5d25c31f47a198dbf50acf297a389a00.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - pFsgrNgwEgA4ifrwN6quvLFXcC6b0CR6u0eVlkuPiHSpAH6FvJiSzw==
+      X-Amz-Cf-Pop:
+      - LIS50-P1
+      X-Cache:
+      - Miss from cloudfront
+      content-length:
+      - '57'
+      x-memc:
+      - MISS, STORE
+      x-memc-age:
+      - '0'
+      x-memc-expires:
+      - '25714'
+      x-memc-key:
+      - 48dfe98b26252d07dc935cf15aba5cd0
+    status:
+      code: 200
+      message: OK
+version: 1

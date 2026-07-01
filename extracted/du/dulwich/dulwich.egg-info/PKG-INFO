@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dulwich
-Version: 1.2.6
+Version: 1.2.7
 Summary: Python Git Library
 Author-email: Jelmer Vernooij <jelmer@jelmer.uk>
 License-Expression: Apache-2.0 OR GPL-2.0-or-later
@@ -36,8 +36,8 @@ Requires-Dist: paramiko; extra == "paramiko"
 Provides-Extra: colordiff
 Requires-Dist: rich; extra == "colordiff"
 Provides-Extra: dev
-Requires-Dist: ruff==0.15.12; extra == "dev"
-Requires-Dist: mypy==1.20.2; extra == "dev"
+Requires-Dist: ruff==0.15.15; extra == "dev"
+Requires-Dist: mypy==2.1.0; extra == "dev"
 Requires-Dist: dissolve>=0.1.1; extra == "dev"
 Requires-Dist: codespell==2.4.2; extra == "dev"
 Provides-Extra: hypothesis
@@ -48,6 +48,8 @@ Provides-Extra: fuzzing
 Requires-Dist: atheris; extra == "fuzzing"
 Provides-Extra: patiencediff
 Requires-Dist: patiencediff; extra == "patiencediff"
+Provides-Extra: range-diff
+Requires-Dist: munkres; extra == "range-diff"
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == "aiohttp"
 Dynamic: license-file

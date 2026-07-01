@@ -250,7 +250,7 @@ class SandboxProcess(SandboxAction):
             )
         else:
             client = self.get_client()
-            response = await client.post("/process", json=process.to_dict())
+            response = await client.post("/process", json=process.to_dict(), timeout=None)
             try:
                 content_bytes = await response.aread()
                 self.handle_response_error(response)

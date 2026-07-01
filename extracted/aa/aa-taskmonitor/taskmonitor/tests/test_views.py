@@ -11,8 +11,7 @@ from app_utils.testdata_factories import UserFactory
 
 from taskmonitor import views
 from taskmonitor.models import TaskLog
-
-from .factories import TaskLogFactory
+from taskmonitor.tests.factories import TaskLogFactory
 
 MODULE_PATH = "taskmonitor.views"
 

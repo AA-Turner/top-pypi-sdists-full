@@ -1,7 +1,6 @@
 from dataclasses import asdict, is_dataclass
 from datetime import date
 from importlib.metadata import version, PackageNotFoundError
-from pandas import CategoricalDtype
 from pathlib import Path
 try:
 	from sklearn_pandas import DataFrameMapper
@@ -11,7 +10,7 @@ except ImportError:
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.exceptions import NotFittedError
-from sklearn.feature_selection import SelectFromModel, SelectorMixin
+from sklearn.feature_selection import SelectorMixin
 from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn2pmml.resources import _package_classpath
 from subprocess import PIPE, Popen
@@ -21,51 +20,13 @@ import dill
 import joblib
 import numpy
 import os
-import pandas
 import platform
 import re
-import sklearn
 import tempfile
 import warnings
 
 from .metadata import __copyright__, __license__, __version__
 from .pipeline import PMMLPipeline
-
-def _is_categorical(dtype):
-	if dtype == object or dtype == str or dtype == bool:
-		return True
-	elif _is_pandas_string(dtype):
-		return True
-	elif _is_pandas_categorical(dtype):
-		return True
-	return False
-
-def _is_pandas_string(dtype):
-	if hasattr(dtype, "name"):
-		return dtype.name in ["str", "string"]
-	return False
-
-def _is_pandas_categorical(dtype):
-	if hasattr(dtype, "name"):
-		return dtype.name == "category"
-	return False
-
-def _is_proto_pandas_categorical(dtype):
-	if isinstance(dtype, str) and dtype == "category":
-		return True
-	if isinstance(dtype, CategoricalDtype):
-		return dtype.categories is None
-	return False
-
-def _is_ordinal(dtype):
-	if _is_pandas_ordinal(dtype):
-		return True
-	return False
-
-def _is_pandas_ordinal(dtype):
-	if isinstance(dtype, CategoricalDtype):
-		return dtype.ordered
-	return False
 
 class StatelessTransformerMixin(TransformerMixin):
 
@@ -259,7 +220,7 @@ def _python_version():
 	return platform.python_version()
 
 def _package_versions():
-	pkgs = ["Boruta", "category_encoders", "CHAID", "dill", "h2o", "hyperopt", "imbalanced-learn", "interpret", "joblib", "lightgbm", "mlxtend", "numpy", "optbinning", "pandas", "pycaret", "scikit-learn", "scikit-lego", "sklearn2pmml", "statsmodels", "tpot", "treeple", "xgboost"]
+	pkgs = ["Boruta", "category_encoders", "CHAID", "dill", "h2o", "hyperopt", "imbalanced-learn", "interpret", "joblib", "lightgbm", "mlxtend", "numpy", "optbinning", "pandas", "polars", "pyarrow", "pycaret", "scikit-learn", "scikit-lego", "sklearn2pmml", "statsmodels", "tpot", "treeple", "xgboost"]
 
 	result = dict()
 	for pkg in pkgs:

@@ -1,7 +1,0 @@
-description: Cotisations maladie (sous plafond) de la fonction publique d'Etat
-metadata:
-  short_label: Sous plafond
-  label_en: Health insurance contributions
-  order:
-  - employeur
-  - salarie

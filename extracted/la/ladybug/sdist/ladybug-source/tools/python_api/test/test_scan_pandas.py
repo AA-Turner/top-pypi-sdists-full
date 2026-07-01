@@ -441,6 +441,24 @@ def test_copy_from_pandas_object(conn_db_empty: ConnDB) -> None:
     assert result.has_next() is False
 
 
+def test_copy_from_pandas_str_dtype(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
+    df = pd.DataFrame(
+        [
+            {"id": "a", "name": "x", "n": 1, "v": 1.5},
+            {"id": "b", "name": "y", "n": 2, "v": None},
+        ]
+    )
+    conn.execute(
+        "CREATE NODE TABLE T(id STRING PRIMARY KEY, name STRING, n INT64, v DOUBLE)"
+    )
+    conn.execute("COPY T FROM df")
+    result = conn.execute("MATCH (t:T) RETURN t.id, t.name, t.n, t.v ORDER BY t.id")
+    assert result.get_next() == ["a", "x", 1, 1.5]
+    assert result.get_next() == ["b", "y", 2, None]
+    assert result.has_next() is False
+
+
 def test_copy_from_pandas_object_skip(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
     df = pd.DataFrame(
@@ -748,3 +766,177 @@ def test_df_with_struct_cast(conn_db_readonly: ConnDB) -> None:
     assert tup[0] == "{'a': 1}"
     tup = res.get_next()
     assert tup[0] == "{'a': '2'}"
+
+
+def test_scan_pandas_datetime_nat(conn_db_empty: ConnDB) -> None:
+    """Test that NaT in datetime64 columns are scanned as NULL."""
+    conn, _ = conn_db_empty
+    valid_ts = np.datetime64("2024-01-15T10:30:00")
+    valid_ts2 = np.datetime64("2025-06-01T00:00:00")
+    df = pd.DataFrame(
+        {
+            "dt_s": np.array(
+                [
+                    valid_ts,
+                    np.datetime64("NaT", "s"),
+                    np.datetime64("NaT", "s"),
+                    valid_ts2,
+                ],
+                dtype="datetime64[s]",
+            ),
+            "dt_ms": np.array(
+                [
+                    valid_ts,
+                    np.datetime64("NaT", "ms"),
+                    np.datetime64("NaT", "ms"),
+                    valid_ts2,
+                ],
+                dtype="datetime64[ms]",
+            ),
+            "dt_us": np.array(
+                [
+                    valid_ts,
+                    np.datetime64("NaT", "us"),
+                    np.datetime64("NaT", "us"),
+                    valid_ts2,
+                ],
+                dtype="datetime64[us]",
+            ),
+            "dt_ns": np.array(
+                [
+                    valid_ts,
+                    np.datetime64("NaT", "ns"),
+                    np.datetime64("NaT", "ns"),
+                    valid_ts2,
+                ],
+                dtype="datetime64[ns]",
+            ),
+        }
+    )
+    res = conn.execute("LOAD FROM df RETURN *")
+    # Row 0: all valid timestamps
+    row0 = res.get_next()
+    assert all(r == datetime.datetime(2024, 1, 15, 10, 30) for r in row0)
+    # Row 1: NaT -> NULL
+    row1 = res.get_next()
+    assert not any(row1)
+    # Row 2: NaT -> NULL
+    row2 = res.get_next()
+    assert not any(row2)
+    # Row 3: valid timestamp
+    row3 = res.get_next()
+    assert all(r == datetime.datetime(2025, 6, 1, 0, 0) for r in row3)
+
+    assert not res.has_next()
+
+
+def test_scan_pandas_timedelta_nat(conn_db_empty: ConnDB) -> None:
+    """Test that NaT in timedelta64 columns are scanned as NULL."""
+    conn, _ = conn_db_empty
+    nat = np.timedelta64("NaT", "ns")
+    valid_td = np.timedelta64(1000000, "ns")  # 1 millisecond
+    valid_td2 = np.timedelta64(5000000000, "ns")  # 5 seconds
+    df = pd.DataFrame(
+        {
+            "td": np.array([valid_td, nat, nat, valid_td2], dtype="timedelta64[ns]"),
+        }
+    )
+    res = conn.execute("LOAD FROM df RETURN *")
+    row0 = res.get_next()
+    assert row0[0] == datetime.timedelta(microseconds=1000)
+    row1 = res.get_next()
+    assert row1[0] is None
+    row2 = res.get_next()
+    assert row2[0] is None
+    row3 = res.get_next()
+    assert row3[0] == datetime.timedelta(seconds=5)
+    assert not res.has_next()
+
+
+def test_copy_from_datetime_nat(conn_db_empty: ConnDB) -> None:
+    """Test that COPY FROM with NaT datetime stores NULL in the table."""
+    conn, _ = conn_db_empty
+    conn.execute("CREATE NODE TABLE Test (id INT64, ts TIMESTAMP, PRIMARY KEY (id))")
+    valid_ts = np.datetime64("2024-01-15T10:30:00")
+    nat = np.datetime64("NaT", "ns")
+    df = pd.DataFrame(
+        {
+            "id": np.array([1, 2], dtype=np.int64),
+            "ts": np.array([valid_ts, nat], dtype="datetime64[ns]"),
+        }
+    )
+    conn.execute(
+        "COPY Test FROM (LOAD FROM $df RETURN "
+        "CAST(`id` AS INT64) AS `id`, "
+        "CAST(`ts` AS TIMESTAMP) AS `ts`)",
+        {"df": df},
+    )
+    result = conn.execute("MATCH (t:Test) RETURN t.id, t.ts ORDER BY t.id")
+    row1 = result.get_next()
+    assert row1[0] == 1
+    assert row1[1] == datetime.datetime(2024, 1, 15, 10, 30)
+    row2 = result.get_next()
+    assert row2[0] == 2
+    assert row2[1] is None
+    assert not result.has_next()
+
+
+def test_copy_from_timedelta_nat(conn_db_empty: ConnDB) -> None:
+    """Test that COPY FROM with NaT timedelta stores NULL in the table."""
+    conn, _ = conn_db_empty
+    conn.execute("CREATE NODE TABLE Test (id INT64, dur INTERVAL, PRIMARY KEY (id))")
+    nat = np.timedelta64("NaT", "ns")
+    valid_td = np.timedelta64(3600000000000, "ns")  # 1 hour
+    df = pd.DataFrame(
+        {
+            "id": np.array([1, 2], dtype=np.int64),
+            "td": np.array([valid_td, nat], dtype="timedelta64[ns]"),
+        }
+    )
+    conn.execute(
+        "COPY Test FROM (LOAD FROM $df RETURN "
+        "CAST(`id` AS INT64) AS `id`, "
+        "CAST(`td` AS INTERVAL) AS `dur`)",
+        {"df": df},
+    )
+    result = conn.execute("MATCH (t:Test) RETURN t.id, t.dur ORDER BY t.id")
+    row1 = result.get_next()
+    assert row1[0] == 1
+    assert row1[1] == datetime.timedelta(hours=1)
+    row2 = result.get_next()
+    assert row2[0] == 2
+    assert row2[1] is None
+    assert not result.has_next()
+
+
+def test_copy_from_datetime_none(conn_db_empty: ConnDB) -> None:
+    """
+    Test that COPY FROM with None in a datetime column stores NULL.
+
+    Pandas auto-infers the column as datetime64[ns] and converts None to NaT
+    """
+    conn, _ = conn_db_empty
+    conn.execute("CREATE NODE TABLE Test (id INT64, ts TIMESTAMP, PRIMARY KEY (id))")
+    df = pd.DataFrame(
+        {
+            "id": [1, 2],
+            "ts": [datetime.datetime(2024, 1, 15, 10, 30), None],
+        }
+    )
+    # Sanity check: pandas should infer a nullable datetime64[ns] column
+    assert df["ts"].dtype == "datetime64[ns]"
+
+    conn.execute(
+        "COPY Test FROM (LOAD FROM $df RETURN "
+        "CAST(`id` AS INT64) AS `id`, "
+        "CAST(`ts` AS TIMESTAMP) AS `ts`)",
+        {"df": df},
+    )
+    result = conn.execute("MATCH (t:Test) RETURN t.id, t.ts ORDER BY t.id")
+    row1 = result.get_next()
+    assert row1[0] == 1
+    assert row1[1] == datetime.datetime(2024, 1, 15, 10, 30)
+    row2 = result.get_next()
+    assert row2[0] == 2
+    assert row2[1] is None
+    assert not result.has_next()

@@ -1,0 +1,60 @@
+[project]
+name = "fable-library"
+version = "5.5.0"
+description = "Fable library for Python"
+authors = [
+    { name = "Dag Brattli", email = "dag@brattli.net" }
+]
+requires-python = ">= 3.10, < 4.0"
+readme = "README.md"
+license = "MIT"
+dependencies = []
+
+[project.urls]
+Homepage = "https://fable.io"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2,<10",
+    "maturin>=1.12.6,<2",
+    "hypothesis>=6.131.9,<7",
+    "pytest-benchmark>=5.1.0,<6",
+    "pyright>=1.1.401,<2",
+    "pydantic>=2.12.5",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["./fable_library"]
+
+[tool.hatch.build.targets.wheel]
+include = ["./fable_library"]
+
+[tool.hatch.build.targets.wheel.sources]
+"./fable_library" = "fable_library"
+
+[tool.maturin]
+python-source = "."                        # Look at project root
+module-name = "fable_library.core._core"   # Full module path
+features = ["pyo3/extension-module"]
+
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.terminal]
+output-format = "concise"
+
+[tool.ty.rules]
+# Liskov Substitution Principle violations - common in our code design
+invalid-method-override = "warn"
+# Generic class issues with nested scopes - hard to fix in generated code
+invalid-generic-class = "warn"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+pythonpath = "."
+testpaths = ["tests", "tests-benchmark"]
+addopts = "--benchmark-columns=min,max,mean,stddev,iqr"
+
+[build-system]
+requires = ["hatchling", "maturin>=1.5,<2.0"]
+build-backend = "maturin"

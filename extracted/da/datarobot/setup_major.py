@@ -33,7 +33,7 @@ description = DESCRIPTION_TEMPLATE.format(
     docs_link="https://datarobot-public-api-client.readthedocs-hosted.com/en/latest-release/",
 )
 
-packages = find_packages(exclude=["tests*", "*_experimental*"])
+packages = find_packages(exclude=["tests*", "*_experimental*", "*_vendor*"])
 
 common_setup_kwargs.update(
     name="datarobot",

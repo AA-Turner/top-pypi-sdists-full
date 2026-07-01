@@ -1,0 +1,202 @@
+Metadata-Version: 2.4
+Name: powerlawrs
+Version: 0.0.15
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: numpy>=1.24.4
+Requires-Dist: matplotlib>=3.7.5
+Requires-Dist: jupyterlab>=4.3.8 ; extra == 'dev'
+Requires-Dist: numpy>=1.24.4 ; extra == 'dev'
+Requires-Dist: polars>=1.8.2 ; extra == 'dev'
+Provides-Extra: dev
+License-File: LICENSE-APACHE
+License-File: LICENSE-MIT
+Summary: A fast package for analyzing Power-Law distributions in empirical data written in Rust.
+Keywords: mathematics,finance,science,powerlaw,pareto
+Author: Adam Ulichny
+Author-email: aulichny@protonmail.com
+License-Expression: MIT OR Apache-2.0
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: repository, https://github.com/aulichny3/powerlawrs
+
+# powerlawrs
+
+[![PyPI version](https://img.shields.io/pypi/v/powerlawrs.svg)](https://pypi.org/project/powerlawrs/)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](./LICENSE-MIT)
+[![Docs](https://app.readthedocs.org/projects/powerlawrs/badge/?version=latest)](https://powerlawrs.readthedocs.io/en/latest/)
+
+`powerlawrs` is a Python package for analyzing power-law distributions in empirical data. It is built on a high-performance Rust crate [powerlaw](https://github.com/aulichny3/powerlaw), providing both speed and ease of use for Python users. The methodology is heavily based on the techniques and statistical framework described in the paper ['Power-Law Distributions in Empirical Data'](https://doi.org/10.1137/070710111) by Aaron Clauset, Cosma Rohilla Shalizi, and M. E. J. Newman.
+
+## Features
+
+-   **Parameter Estimation**: Estimates the parameters (`x_min`, `alpha`) of a power-law distribution from data.
+-   **Goodness-of-Fit**: Uses the Kolmogorov-Smirnov (KS) statistic to find the best-fitting parameters.
+-   **Data Visualization**: Includes a `plot()` method to visually inspect the data and the fitted model on a log-log scale.
+-   **Vuongs Closeness Test**: Model selection by comparing vectors of Log-Likelihoods from two distributions.
+-   **Additional Distributions**: Provides functionality for other distributions, such as the `exponential` distribution.
+-   **High Performance**: Computationally intensive tasks are parallelized in the Rust core for significant speedups.
+-   **Flexible API**: Offers both a simple functional API for quick analyses and a class-based API for more detailed work.
+
+## Installation
+
+### Prerequisites
+
+-   Python 3.8+
+-   Rust (the package is built from Rust source)
+-   `uv` (this project uses [uv](https://docs.astral.sh/uv/) for environment and package management)
+
+### Setup and Installation via pip
+1. **Create and activate a virtual environment:**
+    ```bash
+    # Create the environment
+    uv venv powerlaw
+
+    # Activate the environment
+    source powerlaw/bin/activate
+    ```
+2. **Install the package.**
+    ```bash
+    uv pip install powerlawrs
+    ```
+
+### Setup and Installation from Source
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/aulichny3/powerlawrs.git
+    cd powerlawrs
+    ```
+
+2.  **Create and activate a virtual environment:**
+    This project is configured to use the `powerlaw` virtual environment with `uv`.
+    ```bash
+    # Create the environment
+    uv venv -p powerlaw
+
+    # Activate the environment
+    source powerlaw/bin/activate
+    ```
+
+3.  **Install the package:**
+    To install the package in editable mode and include all development dependencies, run:
+    ```bash
+    # Install maturin
+    uv tool install maturin
+
+    # Install the package using maturin
+    uv tool run maturin develop --uv
+
+    # Install development dependencies
+    uv pip install -r requirements.txt
+    ```
+    This installs `powerlawrs` in editable mode, so any changes you make to the source code will be immediately available.
+
+## Dependencies
+
+-   `numpy`
+-   `matplotlib`
+
+Development dependencies (for running the example [notebooks](https://github.com/aulichny3/powerlawrs/blob/main/Notebooks/)) are listed in `[project.optional-dependencies].dev` in `pyproject.toml`.
+
+## Usage
+
+The `powerlawrs` package offers two primary ways to analyze your data: a simple functional API and a more detailed class-based API.
+
+### Functional API (Recommended)
+
+The `powerlawrs.fit()` function is the most straightforward way to fit a power-law distribution to your data. See the [Quickstart](https://github.com/aulichny3/powerlawrs/blob/main/Notebooks/01%20-%20Quickstart.ipynb) notebook for an example.
+
+![Python demo gif](.github/demo.gif)
+
+```python
+import powerlawrs
+import polars as pl
+
+# 1. Load your data into a list, Polars Series, or numpy array 
+# The data should be a 1-dimensional array of numbers.
+data = pl.read_csv("reference_data/blackouts.txt", has_header=True).to_series()
+
+# 2. Fit the data:
+p = powerlawrs.fit(data)
+
+# 3. Print the ParetoFit object results:
+print(p.ParetoFit)
+```
+
+### Visualizing the Fit
+
+After fitting the data, you can use the `plot()` method to visually inspect the fit.
+
+```python
+# Assuming 'data' is loaded and fitted as above
+p.plot()
+```
+
+This will generate two plots: one showing the CCDF of the full data with the scaled model, and another showing just the tail of the distribution.
+
+![plot demo png](.github/plot1.gif)
+
+### Working with Other Distributions
+
+`powerlawrs` also provides tools for other common distributions.
+
+```python
+import powerlawrs
+
+# Analyze a shifted exponential distribution
+data = [1.2, 1.5, 1.9, 2.3, 2.8, 3.1, 3.5]
+x_min = 1.0
+
+# Estimate the lambda parameter
+lambda_hat = powerlawrs.exponential.estimation.lambda_hat(data, x_min)
+print(f"Estimated Lambda: {lambda_hat}")
+
+# Create an exponential distribution object
+exp_dist = powerlawrs.exponential.Exponential(lambda_hat, x_min)
+print(f"PDF at x=2.0: {exp_dist.pdf(2.0)}")
+```
+
+### Class-based API
+
+#### Module Hierarchy
+
+The `powerlawrs` package is structured hierarchically to organize its functionality logically and provide a clean API. The main submodules, accessible directly from `import powerlawrs`, are:
+
+*   **`powerlawrs.dist`**: Contains implementations of various probability distributions (e.g., Pareto, Lognormal, Exponential) for fitting and analysis.
+*   **`powerlawrs.stats`**: Provides statistical functions, including descriptive statistics, random number generation tools, and goodness-of-fit tests like the Kolmogorov-Smirnov (KS) test.
+*   **`powerlawrs.util`**: Offers utility functions, such as data loading, parameter calculation for simulations, and synthetic data generation.
+
+This structure allows for clear separation of concerns and easier navigation of the library's features. For example, to access the KS test functions, you would typically import from `powerlawrs.stats.ks`.
+
+For more fine-grained control, you can see the API examples in [Notebooks/02 - API.ipynb](https://github.com/aulichny3/powerlawrs/blob/main/Notebooks/02%20-%20API.ipynb).
+
+### Jupyter Notebook Examples
+
+The `Notebooks folders provides a detailed walkthrough of the package's functionalities. After installing the development dependencies, you can run it with:
+
+```bash
+# Make sure your virtual environment is active
+source powerlaw/bin/activate
+
+# Start Jupyter Lab
+uv run --active jupyter lab
+```
+
+## Limitations
+
+1.  Only the continuous case of the Pareto Type I Distribution is considered for parameter estimation, goodness of fit, and hypothesis testing at this time. The example data in the documentation is discrete, thus the results are only an approximation.
+2.  Domain knowledge of the data generating process is critical given the methodology used by this package is based on that proposed by the referenced material. Specifically the 1-sample Kolmogorov-Smirnov test is used for goodness of fit testing which assumes i.i.d data. Many natural processes data are serially correlated, thus KS testing is not appropriate.
+3.  This is highly alpha code; backwards compatibility is not guaranteed and should not be expected.
+4.  Many more known and unknown.
+
+## License
+
+This project is licensed under either of:
+
+-   Apache License, Version 2.0, ([LICENSE-APACHE](./LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+-   MIT license ([LICENSE-MIT](./LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
+

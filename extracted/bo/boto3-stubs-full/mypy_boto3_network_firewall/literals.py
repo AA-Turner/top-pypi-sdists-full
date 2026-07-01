@@ -25,6 +25,8 @@ else:
 __all__ = (
     "AttachmentStatusType",
     "ConfigurationSyncStateType",
+    "ContainerAssociationStatusType",
+    "ContainerMonitoringTypeType",
     "EnabledAnalysisTypeType",
     "EncryptionTypeType",
     "FirewallStatusValueType",
@@ -35,6 +37,7 @@ __all__ = (
     "IPAddressTypeType",
     "IdentifiedTypeType",
     "ListAnalysisReportsPaginatorName",
+    "ListContainerAssociationsPaginatorName",
     "ListFirewallPoliciesPaginatorName",
     "ListFirewallsPaginatorName",
     "ListFlowOperationResultsPaginatorName",
@@ -81,6 +84,8 @@ __all__ = (
 
 AttachmentStatusType = Literal["CREATING", "DELETING", "ERROR", "FAILED", "READY", "SCALING"]
 ConfigurationSyncStateType = Literal["CAPACITY_CONSTRAINED", "IN_SYNC", "PENDING"]
+ContainerAssociationStatusType = Literal["ACTIVE", "CREATING", "DELETING"]
+ContainerMonitoringTypeType = Literal["ECS", "EKS"]
 EnabledAnalysisTypeType = Literal["HTTP_HOST", "TLS_SNI"]
 EncryptionTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"]
 FirewallStatusValueType = Literal["DELETING", "PROVISIONING", "READY"]
@@ -93,6 +98,7 @@ IdentifiedTypeType = Literal[
     "STATELESS_RULE_CONTAINS_TCP_FLAGS", "STATELESS_RULE_FORWARDING_ASYMMETRICALLY"
 ]
 ListAnalysisReportsPaginatorName = Literal["list_analysis_reports"]
+ListContainerAssociationsPaginatorName = Literal["list_container_associations"]
 ListFirewallPoliciesPaginatorName = Literal["list_firewall_policies"]
 ListFirewallsPaginatorName = Literal["list_firewalls"]
 ListFlowOperationResultsPaginatorName = Literal["list_flow_operation_results"]
@@ -364,8 +370,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -461,7 +465,6 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
@@ -547,7 +550,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -568,6 +570,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -606,6 +609,7 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "get_analysis_report_results",
     "list_analysis_reports",
+    "list_container_associations",
     "list_firewall_policies",
     "list_firewalls",
     "list_flow_operation_results",

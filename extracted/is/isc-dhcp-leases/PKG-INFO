@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: isc_dhcp_leases
+Version: 0.10.0
+Summary: Small python module for reading /var/lib/dhcp/dhcpd.leases from isc-dhcp-server
+Home-page: https://github.com/MartijnBraam/python-isc-dhcp-leases
+Author: Martijn Braam
+Author-email: martijn@brixit.nl
+License: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+License-File: LICENSE

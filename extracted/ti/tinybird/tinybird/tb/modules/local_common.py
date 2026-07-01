@@ -422,7 +422,6 @@ def start_tinybird_local(
                                     f"Please run `{get_cli_name()} local restart` to restart the container."
                                 )
                             )
-                            return
                         time.sleep(1)
                 if health == "unhealthy":
                     stop_requested.set()

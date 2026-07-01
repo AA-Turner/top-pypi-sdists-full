@@ -1,0 +1,32 @@
+[project]
+name = "pure-magic-rs"
+description = "Python bindings for pure-magic crate, a pure Rust re-implementation of libmagic"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "GPL-3.0 OR BSD-2-Clause"
+authors = [{ name = "Quentin JEROME", email = "quentin.jerome@circl.lu" }]
+maintainers = [{ name = "Quentin JEROME", email = "quentin.jerome@circl.lu" }]
+keywords = ["file", "identification", "libmagic", "magic", "mime"]
+classifiers = [
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Programming Language :: Rust",
+]
+dynamic = ["version"]
+
+[project.urls]
+Issues = "https://github.com/qjerome/magic-rs/issues"
+Repository = "https://github.com/qjerome/magic-rs"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3.5",
+]
+
+[build-system]
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+manifest-path = "python/Cargo.toml"

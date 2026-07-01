@@ -1,0 +1,390 @@
+import json
+import re
+from logging import Logger
+from typing import Annotated, Awaitable, Callable
+
+from pydantic import BaseModel, Field
+
+from unique_toolkit._common.feature_flags.schema import (
+    FeatureExtendedSourceSerialization,
+)
+from unique_toolkit._common.pydantic_helpers import DeactivatedNone
+from unique_toolkit._common.validators import LMI
+from unique_toolkit.agentic.history_manager.loop_token_reducer import LoopTokenReducer
+from unique_toolkit.agentic.history_manager.utils import (
+    serialize_tool_content_json,
+    transform_chunks_to_string,
+)
+from unique_toolkit.agentic.reference_manager.reference_manager import ReferenceManager
+from unique_toolkit.agentic.tools.config import get_configuration_dict
+from unique_toolkit.agentic.tools.schemas import ToolCallResponse
+from unique_toolkit.app.schemas import ChatEvent
+from unique_toolkit.chat.schemas import ChatMessageTool, ChatMessageToolResponse
+from unique_toolkit.content.schemas import ContentChunk
+from unique_toolkit.language_model.default_language_model import DEFAULT_GPT_4o
+from unique_toolkit.language_model.infos import LanguageModelInfo
+from unique_toolkit.language_model.schemas import (
+    LanguageModelAssistantMessage,
+    LanguageModelFunction,
+    LanguageModelMessage,
+    LanguageModelMessages,
+    LanguageModelToolMessage,
+)
+
+
+class UploadedContentConfig(BaseModel):
+    model_config = get_configuration_dict()
+
+    user_context_window_limit_warning: str = Field(
+        default="The uploaded content is too large to fit into the ai model. "
+        "Unique AI will search for relevant sections in the material and if needed combine the data with knowledge base content",
+        description="Message to show when using the Internal Search instead of upload and chat tool due to context window limit. Jinja template.",
+    )
+    percent_for_uploaded_content: float = Field(
+        default=0.6,
+        ge=0.0,
+        le=1.0,
+        description="The fraction of the max input tokens that will be reserved for the uploaded content.",
+    )
+
+
+class ExperimentalFeatures(FeatureExtendedSourceSerialization): ...
+
+
+class HistoryManagerConfig(BaseModel):
+    experimental_features: ExperimentalFeatures = Field(
+        default=ExperimentalFeatures(),
+        description="Experimental features for the history manager.",
+    )
+
+    percent_of_max_tokens_for_history: float = Field(
+        default=0.2,
+        ge=0.0,
+        lt=1.0,
+        description="The fraction of the max input tokens that will be reserved for the history.",
+    )
+
+    language_model: LMI = LanguageModelInfo.from_name(DEFAULT_GPT_4o)
+
+    @property
+    def max_history_tokens(self) -> int:
+        return int(
+            self.language_model.token_limits.token_limit_input
+            * self.percent_of_max_tokens_for_history,
+        )
+
+    enable_tool_call_persistence: bool = Field(
+        default=False,
+        description="When True, tool calls are persisted to the database and reconstructed from prior turns.",
+    )
+
+    uploaded_content_config: (
+        Annotated[
+            UploadedContentConfig,
+            Field(title="Active"),
+        ]
+        | DeactivatedNone
+    ) = UploadedContentConfig()
+
+
+class HistoryManager:
+    """
+    Manages the history of tool calls and conversation loops.
+
+    This class is responsible for:
+    - Storing and maintaining the history of tool call results and conversation messages.
+    - Merging uploaded content with the conversation history for a unified view.
+    - Limiting the history to fit within a configurable token window for efficient processing.
+    - Providing methods to retrieve, manipulate, and append to the conversation history.
+    - Handling post-processing steps to clean or modify the history as needed.
+
+    Key Features:
+    - Tool Call History: Tracks the results of tool calls and appends them to the conversation history.
+    - Loop History: Maintains a record of conversation loops, including assistant and user messages.
+    - History Merging: Combines uploaded files and chat messages into a cohesive history.
+    - Token Window Management: Ensures the history stays within a specified token limit for optimal performance.
+    - Post-Processing Support: Allows for custom transformations or cleanup of the conversation history.
+
+    The HistoryManager serves as the backbone for managing and retrieving conversation history in a structured and efficient manner.
+    """
+
+    def __init__(
+        self,
+        logger: Logger,
+        event: ChatEvent,
+        config: HistoryManagerConfig,
+        language_model: LMI,
+        reference_manager: ReferenceManager,
+    ):
+        self._config = config
+        self._logger = logger
+        self._language_model = language_model
+        self._token_reducer = LoopTokenReducer(
+            logger=self._logger,
+            event=event,
+            max_history_tokens=self._config.max_history_tokens,
+            has_uploaded_content_config=bool(self._config.uploaded_content_config),
+            language_model=self._language_model,
+            reference_manager=reference_manager,
+            enable_tool_call_persistence=self._config.enable_tool_call_persistence,
+        )
+        self._reference_manager = reference_manager
+        self._tool_call_result_history: list[ToolCallResponse] = []
+        self._tool_calls: list[LanguageModelFunction] = []
+        self._loop_history: list[LanguageModelMessage] = []
+        self._source_enumerator = 0
+        self._initial_source_offset = 0
+        self._db_source_map: dict[int, ContentChunk] = {}
+        self._source_offset_initialized = False
+        self._collected_tool_response_image_urls: list[tuple[str, str]] = []
+
+    def add_tool_call(self, tool_call: LanguageModelFunction) -> None:
+        self._tool_calls.append(tool_call)
+
+    def get_tool_calls(self) -> list[LanguageModelFunction]:
+        return self._tool_calls
+
+    def has_no_loop_messages(self) -> bool:
+        return len(self._loop_history) == 0
+
+    def add_tool_call_results(self, tool_call_results: list[ToolCallResponse]):
+        for tool_response in tool_call_results:
+            if tool_response.image_data_urls:
+                for url in tool_response.image_data_urls:
+                    self._collected_tool_response_image_urls.append(
+                        (url, tool_response.id)
+                    )
+            if not tool_response.successful:
+                self._loop_history.append(
+                    LanguageModelToolMessage(
+                        name=tool_response.name,
+                        tool_call_id=tool_response.id,
+                        content=f"Tool call {tool_response.name} failed with error: {tool_response.error_message}",
+                    )
+                )
+                continue
+            self._append_tool_call_result_to_history(tool_response)
+
+    def _append_tool_call_result_to_history(
+        self,
+        tool_response: ToolCallResponse,
+    ) -> None:
+        tool_call_result_for_history = self._get_tool_call_result_for_loop_history(
+            tool_response=tool_response
+        )
+        self._loop_history.append(tool_call_result_for_history)
+
+    def _get_tool_call_result_for_loop_history(
+        self,
+        tool_response: ToolCallResponse,
+    ) -> LanguageModelMessage:
+        self._logger.debug(
+            f"Appending tool call result to history: {tool_response.name}"
+        )
+
+        content = tool_response.content
+        if content == "":
+            content_chunks = (
+                tool_response.content_chunks or []
+            )  # it can be that the tool response does not have content chunks
+
+            stringified_sources, sources = transform_chunks_to_string(
+                content_chunks,
+                self._source_enumerator,
+            )
+            content = stringified_sources
+
+            self._source_enumerator += len(sources)
+
+        if tool_response.system_reminder:
+            content += f"\n\n{tool_response.system_reminder}"
+
+        # Append the result to the history
+        return LanguageModelToolMessage(
+            content=content,
+            tool_call_id=tool_response.id,  # type: ignore
+            name=tool_response.name,
+        )
+
+    def _append_tool_calls_to_history(
+        self, tool_calls: list[LanguageModelFunction]
+    ) -> None:
+        self._loop_history.append(
+            LanguageModelAssistantMessage.from_functions(tool_calls=tool_calls)
+        )
+
+    def add_assistant_message(self, message: LanguageModelAssistantMessage) -> None:
+        self._loop_history.append(message)
+
+    async def get_history_for_model_call(
+        self,
+        original_user_message: str,
+        rendered_user_message_string: str,
+        rendered_system_message_string: str,
+        remove_from_text: Callable[[str], Awaitable[str]],
+    ) -> LanguageModelMessages:
+        self._logger.info("Getting history for model call -> ")
+
+        image_data_from_tools = list(self._collected_tool_response_image_urls)
+        messages = await self._token_reducer.get_history_for_model_call(
+            original_user_message=original_user_message,
+            rendered_user_message_string=rendered_user_message_string,
+            rendered_system_message_string=rendered_system_message_string,
+            loop_history=self._loop_history,
+            remove_from_text=remove_from_text,
+            image_data_urls_from_tools=image_data_from_tools,
+        )
+        self._collected_tool_response_image_urls = []
+
+        if not self._source_offset_initialized:
+            offset = max(0, self._token_reducer.max_db_source_number + 1)
+            self._source_enumerator = offset
+            self._initial_source_offset = offset
+            self._db_source_map = self._token_reducer.db_source_map
+            self._source_offset_initialized = True
+
+        self._source_enumerator = self._initial_source_offset + len(
+            self._reference_manager.get_chunks()
+        )
+
+        return messages
+
+    async def get_user_visible_chat_history(
+        self,
+        assistant_message_text: str | None = None,
+        remove_from_text: Callable[[str], Awaitable[str]] | None = None,
+    ) -> LanguageModelMessages:
+        """Get the user visible chat history.
+
+        Args:
+            assistant_message_text (str | None): The latest assistant message to append to the history, as this is not extracted from the history.
+            If None, the history will be returned without the latest assistant message.
+            remove_from_text (Callable[[str], Awaitable[str]] | None): A function to remove text from the history before returning it.
+
+        Returns:
+            LanguageModelMessages: The user visible chat history.
+        """
+        history = await self._token_reducer.get_history_from_db(remove_from_text)
+        if assistant_message_text:
+            history.append(
+                LanguageModelAssistantMessage(content=assistant_message_text)
+            )
+        return LanguageModelMessages(history)
+
+    @staticmethod
+    def _placeholder_chunk() -> ContentChunk:
+        """An empty but backend-valid placeholder for gap positions."""
+        return ContentChunk(key="", chunk_id="")
+
+    def get_content_chunks_for_backend(self) -> list[ContentChunk]:
+        """Build a positional list where ``result[N]`` is the chunk for ``[sourceN]``.
+
+        Positions ``0..K-1`` are filled from ``_db_source_map`` (prior turns).
+        Gaps get placeholder ``ContentChunk`` instances with empty-string
+        ``key`` / ``chunk_id`` so the backend doesn't reject the payload.
+        Positions ``K..`` are the current turn's chunks from the reference
+        manager.
+        """
+        current_chunks = self._reference_manager.get_chunks()
+        total_size = self._initial_source_offset + len(current_chunks)
+        result: list[ContentChunk] = [
+            self._placeholder_chunk() for _ in range(total_size)
+        ]
+        for source_number, chunk in self._db_source_map.items():
+            if source_number < self._initial_source_offset:
+                result[source_number] = chunk
+        for i, chunk in enumerate(current_chunks):
+            result[self._initial_source_offset + i] = chunk
+        return result
+
+    def extract_message_tools(self) -> list[ChatMessageTool]:
+        """Convert the in-memory loop history into persistable ChatMessageTool records."""
+        # Build a map of tool_call_id -> response_content in O(T) time
+        tool_responses: dict[str, str | None] = {}
+        for msg in self._loop_history:
+            if isinstance(msg, LanguageModelToolMessage):
+                response_content = msg.content if isinstance(msg.content, str) else None
+                tool_responses[msg.tool_call_id] = response_content
+
+        records: list[ChatMessageTool] = []
+        round_index = 0
+        for msg in self._loop_history:
+            if isinstance(msg, LanguageModelAssistantMessage) and msg.tool_calls:
+                for seq_index, tc in enumerate(msg.tool_calls):
+                    response_content = tool_responses.get(tc.id) if tc.id else None
+                    response = (
+                        ChatMessageToolResponse(content=response_content)
+                        if response_content is not None
+                        else None
+                    )
+                    records.append(
+                        ChatMessageTool(
+                            external_tool_call_id=tc.id or "",
+                            function_name=tc.function.name,
+                            arguments=tc.function.arguments,
+                            round_index=round_index,
+                            sequence_index=seq_index,
+                            response=response,
+                        )
+                    )
+                round_index += 1
+        return records
+
+    @staticmethod
+    def compact_message_tools(
+        *,
+        records: list[ChatMessageTool],
+        assistant_text: str | None,
+    ) -> list[ChatMessageTool]:
+        """Strip uncited source items from tool response content before persistence."""
+        if not assistant_text:
+            return records
+
+        cited: set[int] = {
+            int(m)
+            for m in re.findall(r"\[source(\d+)\]", assistant_text, re.IGNORECASE)
+        }
+        if not cited:
+            return records
+
+        return [
+            record.model_copy(
+                update={
+                    "response": record.response.model_copy(
+                        update={
+                            "content": _strip_uncited_sources_from_content(
+                                record.response.content, cited
+                            )
+                        }
+                    )
+                }
+            )
+            if record.response and record.response.content
+            else record
+            for record in records
+        ]
+
+
+def _strip_uncited_sources_from_content(content: str, cited: set[int]) -> str:
+    """Filter a tool response content string to only keep cited source items.
+
+    The content is expected to be a JSON array of dicts containing at least
+    a "source_number" key.  Items whose "source_number" is not in *cited*
+    are removed.  If the content is not valid JSON or not in the expected
+    format it is returned unchanged.
+    """
+    try:
+        data = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return content
+
+    if not isinstance(data, list):
+        return content
+
+    if not data or not any(
+        isinstance(item, dict) and "source_number" in item for item in data
+    ):
+        return content
+
+    filtered = [item for item in data if item.get("source_number") in cited]
+    return serialize_tool_content_json(filtered)

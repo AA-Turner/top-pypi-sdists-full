@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68", "setuptools_scm>=6.2", "cffi>=1.15"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multimark"
+dynamic = ["version"]
+description = "Python bindings to cmark: CommonMark parsing and rendering (HTML, LaTeX, man, XML)"
+readme = "README.md"
+license = {text = "MIT AND BSD-2-Clause"}
+requires-python = ">=3.9"
+dependencies = ["cffi>=1.15", "click>=8.0"]
+authors = [{name = "Rich Iannone"}]
+keywords = ["markdown", "commonmark", "cmark-gfm", "html", "latex", "gfm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: C",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
+
+[project.scripts]
+multimark = "multimark._cli:main"
+
+[project.urls]
+Homepage = "https://github.com/posit-dev/multimark"
+Issues = "https://github.com/posit-dev/multimark/issues"
+
+[tool.setuptools]
+packages = ["multimark"]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+multimark = ["*.h"]
+
+[tool.setuptools_scm]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["multimark"]
+omit = ["src/multimark/_build_cmark.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise MemoryError",
+    "if .+ == ffi.NULL",
+    "PackageNotFoundError",
+]

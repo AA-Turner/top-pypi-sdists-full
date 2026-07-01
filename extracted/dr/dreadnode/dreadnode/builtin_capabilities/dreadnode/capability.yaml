@@ -1,0 +1,4 @@
+schema: 1
+name: dreadnode
+version: "1.0.0"
+description: "Bundled core Dreadnode capability and default runtime agent."

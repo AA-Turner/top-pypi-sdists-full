@@ -1,6 +1,7 @@
 #include "storage/wal/wal_record.h"
 
 #include "common/exception/runtime.h"
+#include "common/serializer/buffer_writer.h"
 #include "common/serializer/deserializer.h"
 #include "common/serializer/serializer.h"
 #include "main/client_context.h"
@@ -15,11 +16,24 @@ void WALRecord::serialize(Serializer& serializer) const {
     serializer.write(type);
 }
 
+void WALRecord::serializeWithLength(Serializer& serializer, const WALRecord& record) {
+    auto bufferWriter = std::make_shared<BufferWriter>();
+    Serializer bufferSerializer{bufferWriter};
+    record.serialize(bufferSerializer);
+
+    const auto recordLength = bufferWriter->getSize();
+    serializer.write(recordLength);
+    serializer.write(bufferWriter->getBlobData(), recordLength);
+}
+
 std::unique_ptr<WALRecord> WALRecord::deserialize(Deserializer& deserializer,
     const main::ClientContext& clientContext) {
     std::string key;
     auto type = WALRecordType::INVALID_RECORD;
     deserializer.getReader()->onObjectBegin();
+    uint64_t recordLength = 0;
+    deserializer.deserializeValue(recordLength);
+    deserializer.beginReadLimit(recordLength);
     deserializer.validateDebuggingInfo(key, "type");
     deserializer.deserializeValue(type);
     std::unique_ptr<WALRecord> walRecord;
@@ -32,6 +46,9 @@ std::unique_ptr<WALRecord> WALRecord::deserialize(Deserializer& deserializer,
     } break;
     case WALRecordType::CREATE_CATALOG_ENTRY_RECORD: {
         walRecord = CreateCatalogEntryRecord::deserialize(deserializer);
+    } break;
+    case WALRecordType::CREATE_INDEX_RECORD: {
+        walRecord = CreateIndexRecord::deserialize(deserializer);
     } break;
     case WALRecordType::DROP_CATALOG_ENTRY_RECORD: {
         walRecord = DropCatalogEntryRecord::deserialize(deserializer);
@@ -69,14 +86,12 @@ std::unique_ptr<WALRecord> WALRecord::deserialize(Deserializer& deserializer,
     case WALRecordType::LOAD_EXTENSION_RECORD: {
         walRecord = LoadExtensionRecord::deserialize(deserializer);
     } break;
-    case WALRecordType::INVALID_RECORD: {
-        throw RuntimeException("Corrupted wal file. Read out invalid WAL record type.");
-    }
     default: {
-        UNREACHABLE_CODE;
+        throw RuntimeException("Corrupted wal file. Read out invalid WAL record type.");
     }
     }
     walRecord->type = type;
+    deserializer.skipReadLimit();
     deserializer.getReader()->onObjectEnd();
     return walRecord;
 }

@@ -2271,7 +2271,7 @@ class AddTests(PorcelainTestCase):
         # path coming from an NFD-returning filesystem listing).
         nfd_path = os.path.join(self.repo.path, nfd_name)
         if os.path.exists(nfd_path):
-            # Filesystem collapses NFC/NFD — nothing meaningful to test.
+            # Filesystem collapses NFC/NFD, so nothing meaningful to test.
             return
         with open(nfd_path, "w") as f:
             f.write("nfd")
@@ -7970,7 +7970,7 @@ class StatusTests(PorcelainTestCase):
 
         # macOS git ships with core.precomposeunicode=true in the system
         # config. Override it at the repo level so open_index() below does
-        # not apply NFC normalization to lookups — that would mask the
+        # not apply NFC normalization to lookups; that would mask the
         # "NFD present, NFC in index" assertion we are exercising.
         config = self.repo.get_config()
         config.set((b"core",), b"precomposeunicode", False)
@@ -7998,7 +7998,7 @@ class StatusTests(PorcelainTestCase):
             try:
                 os.rename(fullpath, nfd_path)
             except OSError:
-                # Filesystem normalizes names (e.g., macOS) — skip rename test
+                # Filesystem normalizes names (e.g., macOS); skip rename test
                 return
 
             if not os.path.exists(nfd_path):
@@ -12488,6 +12488,11 @@ index 1234567..abcdefg 100644
             result = f.read()
         self.assertEqual(result, b"line 1\nline two\nline 3\n")
 
+        # The index entry must keep a valid file mode, otherwise native git
+        # aborts with "unsupported ce_mode: 0" (see issue #2218).
+        index = self.repo.open_index()
+        self.assertEqual(index[b"test.txt"].mode, 0o100644)
+
     def test_apply_new_file(self) -> None:
         """Test applying a patch that creates a new file."""
         # Create an initial commit with a dummy file
@@ -13152,3 +13157,241 @@ index 1234567..abcdefg 100644
         with porcelain.open_repo_closing(self.repo_path) as r:
             state_dir = os.path.join(r.controldir(), "rebase-apply")
             self.assertFalse(os.path.exists(state_dir))
+
+
+class RequestPullTests(PorcelainTestCase):
+    def _linear_history(self, count, branch=b"refs/heads/master"):
+        """Build a linear history of ``count`` commits and return them.
+
+        Each commit adds one new file, so the tree accumulates over time.
+        """
+        commits = []
+        tree = Tree()
+        for i in range(count):
+            blob = Blob.from_string(f"content {i}\n".encode())
+            tree = tree.copy()
+            tree.add(f"file{i}.txt".encode(), 0o100644, blob.id)
+            parents = [commits[-1].id] if commits else []
+            commit = make_commit(
+                tree=tree.id,
+                parents=parents,
+                message=f"Commit {i}".encode(),
+                author_time=1262304000 + i,
+                commit_time=1262304000 + i,
+            )
+            self.repo.object_store.add_objects(
+                [(blob, None), (tree, None), (commit, None)]
+            )
+            commits.append(commit)
+        self.repo.refs[branch] = commits[-1].id
+        self.repo.refs.set_symbolic_ref(b"HEAD", branch)
+        return commits
+
+    def test_basic(self) -> None:
+        commits = self._linear_history(4)
+        out = StringIO()
+        porcelain.request_pull(
+            self.repo.path,
+            commits[0].id,
+            "https://example.com/repo.git",
+            commits[-1].id,
+            outstream=out,
+        )
+        lines = out.getvalue().splitlines()
+        self.assertEqual(
+            "The following changes since commit " + commits[0].id.decode("ascii") + ":",
+            lines[0],
+        )
+        self.assertEqual("are available in the Git repository at:", lines[4])
+        self.assertEqual(
+            "  https://example.com/repo.git " + commits[-1].id.decode("ascii"),
+            lines[6],
+        )
+        self.assertEqual(
+            "for you to fetch changes up to " + commits[-1].id.decode("ascii") + ":",
+            lines[8],
+        )
+        # Shortlog section.
+        shortlog = out.getvalue().split("-" * 64 + "\n", 1)[1]
+        self.assertEqual(
+            "Test Author (3):\n      Commit 1\n      Commit 2\n      Commit 3\n",
+            shortlog.split("\n\n", 1)[0] + "\n",
+        )
+        self.assertIn("3 files changed", lines[-1])
+
+    def test_shortlog_order_oldest_first(self) -> None:
+        commits = self._linear_history(4)
+        out = StringIO()
+        porcelain.request_pull(
+            self.repo.path,
+            commits[0].id,
+            "https://example.com/repo.git",
+            outstream=out,
+        )
+        # The shortlog (after the separator line) keeps commits oldest first.
+        shortlog = out.getvalue().split("-" * 64 + "\n", 1)[1]
+        self.assertEqual(
+            [
+                "Test Author (3):",
+                "      Commit 1",
+                "      Commit 2",
+                "      Commit 3",
+            ],
+            shortlog.splitlines()[:4],
+        )
+
+    def test_defaults_to_head(self) -> None:
+        commits = self._linear_history(3)
+        out = StringIO()
+        porcelain.request_pull(
+            self.repo.path,
+            commits[0].id,
+            "https://example.com/repo.git",
+            outstream=out,
+        )
+        lines = out.getvalue().splitlines()
+        self.assertEqual(
+            "for you to fetch changes up to " + commits[-1].id.decode("ascii") + ":",
+            lines[8],
+        )
+        # The symbolic HEAD resolves to the branch name being advertised.
+        self.assertEqual("  https://example.com/repo.git master", lines[6])
+
+    def test_explicit_remote_ref(self) -> None:
+        commits = self._linear_history(3)
+        out = StringIO()
+        porcelain.request_pull(
+            self.repo.path,
+            commits[0].id,
+            "https://example.com/repo.git",
+            b"HEAD:for-upstream",
+            outstream=out,
+        )
+        self.assertEqual(
+            "  https://example.com/repo.git for-upstream",
+            out.getvalue().splitlines()[6],
+        )
+
+    def test_multiple_authors(self) -> None:
+        c0 = make_commit(tree=Tree().id, message=b"root")
+        self.repo.object_store.add_objects([(Tree(), None), (c0, None)])
+        blob = Blob.from_string(b"a\n")
+        tree = Tree()
+        tree.add(b"a.txt", 0o100644, blob.id)
+        c1 = make_commit(
+            tree=tree.id,
+            parents=[c0.id],
+            author=b"Alice <alice@example.com>",
+            committer=b"Alice <alice@example.com>",
+            message=b"Alice change",
+        )
+        blob2 = Blob.from_string(b"b\n")
+        tree2 = Tree()
+        tree2.add(b"a.txt", 0o100644, blob.id)
+        tree2.add(b"b.txt", 0o100644, blob2.id)
+        c2 = make_commit(
+            tree=tree2.id,
+            parents=[c1.id],
+            author=b"Bob <bob@example.com>",
+            committer=b"Bob <bob@example.com>",
+            message=b"Bob change",
+        )
+        self.repo.object_store.add_objects(
+            [
+                (blob, None),
+                (tree, None),
+                (c1, None),
+                (blob2, None),
+                (tree2, None),
+                (c2, None),
+            ]
+        )
+        self.repo.refs[b"refs/heads/master"] = c2.id
+        self.repo.refs.set_symbolic_ref(b"HEAD", b"refs/heads/master")
+        out = StringIO()
+        porcelain.request_pull(
+            self.repo.path,
+            c0.id,
+            "https://example.com/repo.git",
+            outstream=out,
+        )
+        # Authors are sorted case-insensitively by name, Alice before Bob.
+        shortlog = out.getvalue().split("-" * 64 + "\n", 1)[1]
+        self.assertEqual(
+            [
+                "Alice (1):",
+                "      Alice change",
+                "",
+                "Bob (1):",
+                "      Bob change",
+            ],
+            shortlog.splitlines()[:5],
+        )
+
+    def test_no_common_ancestor(self) -> None:
+        c1 = make_commit(tree=Tree().id, message=b"first root")
+        c2 = make_commit(tree=Tree().id, message=b"second root", commit_time=1262304100)
+        self.repo.object_store.add_objects([(Tree(), None), (c1, None), (c2, None)])
+        out = StringIO()
+        self.assertRaises(
+            porcelain.Error,
+            porcelain.request_pull,
+            self.repo.path,
+            c1.id,
+            "https://example.com/repo.git",
+            c2.id,
+            outstream=out,
+        )
+
+    def test_no_commits_in_range(self) -> None:
+        commits = self._linear_history(2)
+        out = StringIO()
+        self.assertRaises(
+            porcelain.Error,
+            porcelain.request_pull,
+            self.repo.path,
+            commits[-1].id,
+            "https://example.com/repo.git",
+            commits[-1].id,
+            outstream=out,
+        )
+
+    def test_patch_included(self) -> None:
+        commits = self._linear_history(2)
+        out = StringIO()
+        porcelain.request_pull(
+            self.repo.path,
+            commits[0].id,
+            "https://example.com/repo.git",
+            commits[-1].id,
+            patch=True,
+            outstream=out,
+        )
+        output = out.getvalue()
+        # The diffstat appears before the patch body.
+        self.assertIn("file1.txt", output)
+        self.assertLess(output.index("files changed"), output.index("diff --git"))
+        self.assertIn("+content 1", output)
+
+    def test_annotated_tag_message(self) -> None:
+        commits = self._linear_history(2)
+        tag = Tag()
+        tag.name = b"v1.0"
+        tag.object = (Commit, commits[-1].id)
+        tag.tagger = b"Test Author <test@nodomain.com>"
+        tag.tag_time = 1262304000
+        tag.tag_timezone = 0
+        tag.message = b"Release version 1.0\n"
+        self.repo.object_store.add_object(tag)
+        self.repo.refs[b"refs/tags/v1.0"] = tag.id
+        out = StringIO()
+        porcelain.request_pull(
+            self.repo.path,
+            commits[0].id,
+            "https://example.com/repo.git",
+            b"v1.0",
+            outstream=out,
+        )
+        # The tag message appears between the first and second separators.
+        body = out.getvalue().split("-" * 64 + "\n")
+        self.assertEqual("Release version 1.0\n", body[1])

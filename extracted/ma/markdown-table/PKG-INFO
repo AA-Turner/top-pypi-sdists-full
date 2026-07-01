@@ -1,0 +1,28 @@
+Metadata-Version: 2.1
+Name: markdown-table
+Version: 2020.12.3
+Summary: markown table generator
+Home-page: https://github.com/andrewp-as-is/markdown-table.py
+License: Unlicense
+Description: <!--
+        https://readme42.com
+        -->
+        
+        
+        [![](https://img.shields.io/pypi/v/markdown-table.svg?maxAge=3600)](https://pypi.org/project/markdown-table/)
+        [![](https://img.shields.io/badge/License-Unlicense-blue.svg?longCache=True)](https://unlicense.org/)
+        
+        ### Installation
+        ```bash
+        $ [sudo] pip install markdown-table
+        ```
+        
+        <p align="center">
+            <a href="https://readme42.com/">readme42.com</a>
+        </p>
+Keywords: markown table
+Platform: UNKNOWN
+Classifier: License :: Public Domain
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Description-Content-Type: text/markdown

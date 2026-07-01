@@ -14,11 +14,18 @@
 
 from __future__ import annotations
 
+import pytest
+
+from astrapy import Database
+
+from ...empty_database_guard import ensure_empty_target_database
 from ..conftest import (
     ADMIN_ENV_LIST,
     ADMIN_ENV_VARIABLE_MAP,
     CQL_AVAILABLE,
-    HEADER_EMBEDDING_API_KEY_OPENAI,
+    EMBEDDING_PROVIDER_API_KEY,
+    EMBEDDING_PROVIDER_DIMENSION,
+    EMBEDDING_PROVIDER_SHARED_SECRET_KEY_NAME,
     IS_ASTRA_DB,
     RUN_SHARED_SECRET_VECTORIZE_TESTS,
     SECONDARY_KEYSPACE,
@@ -56,13 +63,34 @@ from ..table_udt_assets import (
     _player_serializer,
 )
 
+
+@pytest.fixture(scope="session", autouse=True)
+def require_empty_target_database(sync_database: Database) -> None:
+    """
+    Refuse to run the integration suite against a populated database.
+
+    The base integration tests freely create and drop collections, tables and
+    keyspaces on the target database. Starting from a non-empty database can
+    make the suite fail much later with avoidable object-limit or conflict
+    errors, so all non-system keyspaces must be free of collections, tables and
+    user-defined types.
+    """
+    ensure_empty_target_database(
+        sync_database,
+        is_astra_db=IS_ASTRA_DB,
+        test_suite_name="base integration tests",
+    )
+
+
 __all__ = [
     "DataAPICredentials",
     "DataAPICredentialsInfo",
     "async_fail_if_not_removed",
     "clean_nulls_from_dict",
     "sync_fail_if_not_removed",
-    "HEADER_EMBEDDING_API_KEY_OPENAI",
+    "EMBEDDING_PROVIDER_API_KEY",
+    "EMBEDDING_PROVIDER_DIMENSION",
+    "EMBEDDING_PROVIDER_SHARED_SECRET_KEY_NAME",
     "IS_ASTRA_DB",
     "ADMIN_ENV_LIST",
     "ADMIN_ENV_VARIABLE_MAP",

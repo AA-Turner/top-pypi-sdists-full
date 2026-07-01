@@ -1,0 +1,70 @@
+Metadata-Version: 2.4
+Name: textual-fspicker
+Version: 1.0.1
+Summary: A simple Textual filesystem picker dialog library.
+Keywords: terminal,library,file system,filesystem,dialog
+Author: Dave Pearson
+Author-email: Dave Pearson <davep@davep.org>
+License-Expression: MIT
+Classifier: Environment :: Console
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Terminals
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Typing :: Typed
+Requires-Dist: textual>=1.0.0
+Requires-Python: >=3.10
+Project-URL: Homepage, https://textual-fspicker.davep.dev/
+Project-URL: Repository, https://github.com/davep/textual-fspicker
+Project-URL: Documentation, https://textual-fspicker.davep.dev/
+Project-URL: Source, https://github.com/davep/textual-fspicker
+Project-URL: Issues, https://github.com/davep/textual-fspicker/issues
+Project-URL: Discussions, https://github.com/davep/textual-fspicker/discussions
+Description-Content-Type: text/markdown
+
+# textual-fspicker
+
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/davep/textual-fspicker/style-and-lint.yaml)](https://github.com/davep/textual-fspicker/actions)
+[![GitHub commits since latest release](https://img.shields.io/github/commits-since/davep/textual-fspicker/latest)](https://github.com/davep/textual-fspicker/commits/main/)
+[![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/davep/textual-fspicker)](https://github.com/davep/textual-fspicker/issues)
+[![GitHub Release Date](https://img.shields.io/github/release-date/davep/textual-fspicker)](https://github.com/davep/textual-fspicker/releases)
+[![PyPI - License](https://img.shields.io/pypi/l/textual-fspicker)](https://github.com/davep/textual-fspicker/blob/main/LICENSE)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/textual-fspicker)](https://github.com/davep/textual-fspicker/blob/main/pyproject.toml)
+[![PyPI - Version](https://img.shields.io/pypi/v/textual-fspicker)](https://pypi.org/project/textual-fspicker/)
+
+## Introduction
+
+This library provides a simple set of filesystem navigation and picking
+dialogs. The aim is to provide "ready to go" dialogs that should also be
+fairly easy to tailor to your own applications.
+
+![Opening a file](https://raw.githubusercontent.com/davep/textual-fspicker/main/.images/file-open.png)
+![Saving a file](https://raw.githubusercontent.com/davep/textual-fspicker/main/.images/file-save.png)
+
+## Installing
+
+The package can be installed with `pip` or related tools, for example:
+
+```sh
+$ pip install textual-fspicker
+```
+
+## Using the library
+
+Please see [the main documentation for the
+library](https://textual-fspicker.davep.dev/) for details on how to use it.
+
+## TODO
+
+See [the TODO tag in
+issues](https://github.com/davep/textual-fspicker/issues?q=is%3Aissue+is%3Aopen+label%3ATODO)
+to see what I'm planning.
+
+
+[//]: # (README.md ends here)

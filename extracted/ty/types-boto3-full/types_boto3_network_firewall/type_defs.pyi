@@ -24,6 +24,8 @@ from typing import Union
 from .literals import (
     AttachmentStatusType,
     ConfigurationSyncStateType,
+    ContainerAssociationStatusType,
+    ContainerMonitoringTypeType,
     EnabledAnalysisTypeType,
     EncryptionTypeType,
     FirewallStatusValueType,
@@ -87,6 +89,13 @@ __all__ = (
     "CIDRSummaryTypeDef",
     "CapacityUsageSummaryTypeDef",
     "CheckCertificateRevocationStatusActionsTypeDef",
+    "ContainerAssociationSummaryTypeDef",
+    "ContainerAttributeTypeDef",
+    "ContainerMonitoringConfigurationOutputTypeDef",
+    "ContainerMonitoringConfigurationTypeDef",
+    "ContainerMonitoringConfigurationUnionTypeDef",
+    "CreateContainerAssociationRequestTypeDef",
+    "CreateContainerAssociationResponseTypeDef",
     "CreateFirewallPolicyRequestTypeDef",
     "CreateFirewallPolicyResponseTypeDef",
     "CreateFirewallRequestTypeDef",
@@ -109,6 +118,8 @@ __all__ = (
     "CreateVpcEndpointAssociationResponseTypeDef",
     "CustomActionOutputTypeDef",
     "CustomActionTypeDef",
+    "DeleteContainerAssociationRequestTypeDef",
+    "DeleteContainerAssociationResponseTypeDef",
     "DeleteFirewallPolicyRequestTypeDef",
     "DeleteFirewallPolicyResponseTypeDef",
     "DeleteFirewallRequestTypeDef",
@@ -130,6 +141,8 @@ __all__ = (
     "DeleteTLSInspectionConfigurationResponseTypeDef",
     "DeleteVpcEndpointAssociationRequestTypeDef",
     "DeleteVpcEndpointAssociationResponseTypeDef",
+    "DescribeContainerAssociationRequestTypeDef",
+    "DescribeContainerAssociationResponseTypeDef",
     "DescribeFirewallMetadataRequestTypeDef",
     "DescribeFirewallMetadataResponseTypeDef",
     "DescribeFirewallPolicyRequestTypeDef",
@@ -196,6 +209,9 @@ __all__ = (
     "ListAnalysisReportsRequestPaginateTypeDef",
     "ListAnalysisReportsRequestTypeDef",
     "ListAnalysisReportsResponseTypeDef",
+    "ListContainerAssociationsRequestPaginateTypeDef",
+    "ListContainerAssociationsRequestTypeDef",
+    "ListContainerAssociationsResponseTypeDef",
     "ListFirewallPoliciesRequestPaginateTypeDef",
     "ListFirewallPoliciesRequestTypeDef",
     "ListFirewallPoliciesResponseTypeDef",
@@ -335,6 +351,8 @@ __all__ = (
     "UntagResourceRequestTypeDef",
     "UpdateAvailabilityZoneChangeProtectionRequestTypeDef",
     "UpdateAvailabilityZoneChangeProtectionResponseTypeDef",
+    "UpdateContainerAssociationRequestTypeDef",
+    "UpdateContainerAssociationResponseTypeDef",
     "UpdateFirewallAnalysisSettingsRequestTypeDef",
     "UpdateFirewallAnalysisSettingsResponseTypeDef",
     "UpdateFirewallDeleteProtectionRequestTypeDef",
@@ -433,6 +451,18 @@ class CheckCertificateRevocationStatusActionsTypeDef(TypedDict):
     RevokedStatusAction: NotRequired[RevocationCheckActionType]
     UnknownStatusAction: NotRequired[RevocationCheckActionType]
 
+class ContainerAssociationSummaryTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    Name: NotRequired[str]
+
+class ContainerAttributeTypeDef(TypedDict):
+    Key: str
+    Value: str
+
+class TagTypeDef(TypedDict):
+    Key: str
+    Value: str
+
 EncryptionConfigurationTypeDef = TypedDict(
     "EncryptionConfigurationTypeDef",
     {
@@ -440,10 +470,6 @@ EncryptionConfigurationTypeDef = TypedDict(
         "KeyId": NotRequired[str],
     },
 )
-
-class TagTypeDef(TypedDict):
-    Key: str
-    Value: str
 
 class ProxyConfigDefaultRulePhaseActionsRequestTypeDef(TypedDict):
     PreDNS: NotRequired[ProxyRulePhaseActionType]
@@ -465,6 +491,10 @@ class TlsInterceptPropertiesRequestTypeDef(TypedDict):
 class SourceMetadataTypeDef(TypedDict):
     SourceArn: NotRequired[str]
     SourceUpdateToken: NotRequired[str]
+
+class DeleteContainerAssociationRequestTypeDef(TypedDict):
+    ContainerAssociationName: NotRequired[str]
+    ContainerAssociationArn: NotRequired[str]
 
 class DeleteFirewallPolicyRequestTypeDef(TypedDict):
     FirewallPolicyName: NotRequired[str]
@@ -513,6 +543,10 @@ class DeleteTLSInspectionConfigurationRequestTypeDef(TypedDict):
 
 class DeleteVpcEndpointAssociationRequestTypeDef(TypedDict):
     VpcEndpointAssociationArn: str
+
+class DescribeContainerAssociationRequestTypeDef(TypedDict):
+    ContainerAssociationName: NotRequired[str]
+    ContainerAssociationArn: NotRequired[str]
 
 class DescribeFirewallMetadataRequestTypeDef(TypedDict):
     FirewallArn: NotRequired[str]
@@ -686,6 +720,10 @@ class ListAnalysisReportsRequestTypeDef(TypedDict):
     FirewallArn: NotRequired[str]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+class ListContainerAssociationsRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 class ListFirewallPoliciesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
@@ -948,6 +986,12 @@ class AssociateFirewallPolicyResponseTypeDef(TypedDict):
     UpdateToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DeleteContainerAssociationResponseTypeDef(TypedDict):
+    ContainerAssociationName: str
+    ContainerAssociationArn: str
+    Status: ContainerAssociationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DeleteNetworkFirewallTransitGatewayAttachmentResponseTypeDef(TypedDict):
     TransitGatewayAttachmentId: str
     TransitGatewayAttachmentStatus: TransitGatewayAttachmentStatusType
@@ -1147,18 +1191,43 @@ class CIDRSummaryTypeDef(TypedDict):
     UtilizedCIDRCount: NotRequired[int]
     IPSetReferences: NotRequired[dict[str, IPSetMetadataTypeDef]]
 
-class UpdateFirewallEncryptionConfigurationRequestTypeDef(TypedDict):
-    UpdateToken: NotRequired[str]
-    FirewallArn: NotRequired[str]
-    FirewallName: NotRequired[str]
-    EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
-
-class UpdateFirewallEncryptionConfigurationResponseTypeDef(TypedDict):
-    FirewallArn: str
-    FirewallName: str
-    UpdateToken: str
-    EncryptionConfiguration: EncryptionConfigurationTypeDef
+class ListContainerAssociationsResponseTypeDef(TypedDict):
+    ContainerAssociations: list[ContainerAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ContainerMonitoringConfigurationOutputTypeDef(TypedDict):
+    ClusterArn: str
+    AttributeFilters: NotRequired[list[ContainerAttributeTypeDef]]
+
+class ContainerMonitoringConfigurationTypeDef(TypedDict):
+    ClusterArn: str
+    AttributeFilters: NotRequired[Sequence[ContainerAttributeTypeDef]]
+
+class CreateVpcEndpointAssociationRequestTypeDef(TypedDict):
+    FirewallArn: str
+    VpcId: str
+    SubnetMapping: SubnetMappingTypeDef
+    Description: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+class ListTagsForResourceResponseTypeDef(TypedDict):
+    Tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class TagResourceRequestTypeDef(TypedDict):
+    ResourceArn: str
+    Tags: Sequence[TagTypeDef]
+
+class VpcEndpointAssociationTypeDef(TypedDict):
+    VpcEndpointAssociationArn: str
+    FirewallArn: str
+    VpcId: str
+    SubnetMapping: SubnetMappingTypeDef
+    VpcEndpointAssociationId: NotRequired[str]
+    Description: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
 
 class CreateFirewallRequestTypeDef(TypedDict):
     FirewallName: str
@@ -1175,13 +1244,6 @@ class CreateFirewallRequestTypeDef(TypedDict):
     TransitGatewayId: NotRequired[str]
     AvailabilityZoneMappings: NotRequired[Sequence[AvailabilityZoneMappingTypeDef]]
     AvailabilityZoneChangeProtection: NotRequired[bool]
-
-class CreateVpcEndpointAssociationRequestTypeDef(TypedDict):
-    FirewallArn: str
-    VpcId: str
-    SubnetMapping: SubnetMappingTypeDef
-    Description: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
 
 class FirewallPolicyResponseTypeDef(TypedDict):
     FirewallPolicyName: str
@@ -1217,23 +1279,18 @@ class FirewallTypeDef(TypedDict):
     AvailabilityZoneMappings: NotRequired[list[AvailabilityZoneMappingTypeDef]]
     AvailabilityZoneChangeProtection: NotRequired[bool]
 
-class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: list[TagTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+class UpdateFirewallEncryptionConfigurationRequestTypeDef(TypedDict):
+    UpdateToken: NotRequired[str]
+    FirewallArn: NotRequired[str]
+    FirewallName: NotRequired[str]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
 
-class TagResourceRequestTypeDef(TypedDict):
-    ResourceArn: str
-    Tags: Sequence[TagTypeDef]
-
-class VpcEndpointAssociationTypeDef(TypedDict):
-    VpcEndpointAssociationArn: str
+class UpdateFirewallEncryptionConfigurationResponseTypeDef(TypedDict):
     FirewallArn: str
-    VpcId: str
-    SubnetMapping: SubnetMappingTypeDef
-    VpcEndpointAssociationId: NotRequired[str]
-    Description: NotRequired[str]
-    Tags: NotRequired[list[TagTypeDef]]
+    FirewallName: str
+    UpdateToken: str
+    EncryptionConfiguration: EncryptionConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateProxyConfigurationRequestTypeDef(TypedDict):
     ProxyConfigurationName: str
@@ -1355,6 +1412,9 @@ class GetAnalysisReportResultsRequestPaginateTypeDef(TypedDict):
 class ListAnalysisReportsRequestPaginateTypeDef(TypedDict):
     FirewallName: NotRequired[str]
     FirewallArn: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListContainerAssociationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListFirewallPoliciesRequestPaginateTypeDef(TypedDict):
@@ -1645,6 +1705,54 @@ class GetAnalysisReportResultsResponseTypeDef(TypedDict):
 class CapacityUsageSummaryTypeDef(TypedDict):
     CIDRs: NotRequired[CIDRSummaryTypeDef]
 
+CreateContainerAssociationResponseTypeDef = TypedDict(
+    "CreateContainerAssociationResponseTypeDef",
+    {
+        "ContainerAssociationName": str,
+        "ContainerAssociationArn": str,
+        "Description": str,
+        "Type": ContainerMonitoringTypeType,
+        "ContainerMonitoringConfigurations": list[ContainerMonitoringConfigurationOutputTypeDef],
+        "Status": ContainerAssociationStatusType,
+        "Tags": list[TagTypeDef],
+        "UpdateToken": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+DescribeContainerAssociationResponseTypeDef = TypedDict(
+    "DescribeContainerAssociationResponseTypeDef",
+    {
+        "ContainerAssociationName": str,
+        "ContainerAssociationArn": str,
+        "Description": str,
+        "Type": ContainerMonitoringTypeType,
+        "ContainerMonitoringConfigurations": list[ContainerMonitoringConfigurationOutputTypeDef],
+        "Status": ContainerAssociationStatusType,
+        "ResolvedCidrCount": int,
+        "LastUpdatedTime": datetime,
+        "Tags": list[TagTypeDef],
+        "UpdateToken": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+UpdateContainerAssociationResponseTypeDef = TypedDict(
+    "UpdateContainerAssociationResponseTypeDef",
+    {
+        "ContainerAssociationName": str,
+        "ContainerAssociationArn": str,
+        "Description": str,
+        "Type": ContainerMonitoringTypeType,
+        "ContainerMonitoringConfigurations": list[ContainerMonitoringConfigurationOutputTypeDef],
+        "Status": ContainerAssociationStatusType,
+        "Tags": list[TagTypeDef],
+        "UpdateToken": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+ContainerMonitoringConfigurationUnionTypeDef = Union[
+    ContainerMonitoringConfigurationTypeDef, ContainerMonitoringConfigurationOutputTypeDef
+]
+
 class CreateFirewallPolicyResponseTypeDef(TypedDict):
     UpdateToken: str
     FirewallPolicyResponse: FirewallPolicyResponseTypeDef
@@ -1864,6 +1972,29 @@ class FirewallStatusTypeDef(TypedDict):
     SyncStates: NotRequired[dict[str, SyncStateTypeDef]]
     CapacityUsageSummary: NotRequired[CapacityUsageSummaryTypeDef]
     TransitGatewayAttachmentSyncState: NotRequired[TransitGatewayAttachmentSyncStateTypeDef]
+
+CreateContainerAssociationRequestTypeDef = TypedDict(
+    "CreateContainerAssociationRequestTypeDef",
+    {
+        "ContainerAssociationName": str,
+        "Type": ContainerMonitoringTypeType,
+        "ContainerMonitoringConfigurations": Sequence[ContainerMonitoringConfigurationUnionTypeDef],
+        "Description": NotRequired[str],
+        "Tags": NotRequired[Sequence[TagTypeDef]],
+    },
+)
+UpdateContainerAssociationRequestTypeDef = TypedDict(
+    "UpdateContainerAssociationRequestTypeDef",
+    {
+        "Type": ContainerMonitoringTypeType,
+        "ContainerMonitoringConfigurations": Sequence[ContainerMonitoringConfigurationUnionTypeDef],
+        "UpdateToken": str,
+        "ContainerAssociationName": NotRequired[str],
+        "ContainerAssociationArn": NotRequired[str],
+        "Description": NotRequired[str],
+        "Tags": NotRequired[Sequence[TagTypeDef]],
+    },
+)
 
 class CustomActionOutputTypeDef(TypedDict):
     ActionName: str

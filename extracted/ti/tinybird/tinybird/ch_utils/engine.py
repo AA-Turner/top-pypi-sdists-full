@@ -354,31 +354,6 @@ def sorting_key_is_valid(columns: List[Dict[str, Any]], value: Optional[str]) ->
     return value
 
 
-def case_insensitive_check(valid_values: List[str]) -> Callable[[List[Dict[str, Any]], str], Optional[str]]:
-    """
-    >>> valid_values = ['ANY', 'ALL']
-    >>> checker = case_insensitive_check(valid_values)
-    >>> checker([],'ALL')
-
-    >>> valid_values = ['ANY', 'ALL']
-    >>> checker = case_insensitive_check(valid_values)
-    >>> checker([],'any')
-
-    >>> valid_values = ['ANY', 'ALL']
-    >>> checker = case_insensitive_check(valid_values)
-    >>> checker([],'foo')
-    Traceback (most recent call last):
-    ...
-    ValueError: valid values are ANY, ALL
-    """
-
-    def checker(columns: List[Dict[str, Any]], value: str):
-        if value.upper() not in valid_values:
-            raise ValueError(f"valid values are {', '.join(valid_values)}")
-
-    return checker
-
-
 # [PARTITION BY expr]
 # [ORDER BY expr]
 # [PRIMARY KEY expr]

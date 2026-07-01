@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xtgeoviz
-Version: 0.3.1
+Version: 0.3.2
 Summary: Plotting library for xtgeo objects
 Author-email: Equinor <fg_fmu-atlas@equinor.com>
 License:                    GNU LESSER GENERAL PUBLIC LICENSE
@@ -201,7 +201,6 @@ Requires-Dist: xtgeo>=4.19.0
 Provides-Extra: tests
 Requires-Dist: coverage>=4.1; extra == "tests"
 Requires-Dist: mypy; extra == "tests"
-Requires-Dist: pylint; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
 Requires-Dist: pytest-mock; extra == "tests"

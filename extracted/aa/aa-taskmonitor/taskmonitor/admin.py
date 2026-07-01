@@ -15,13 +15,13 @@ from django.utils.translation import gettext_lazy as _
 
 from app_utils.admin import FieldFilterCountsDb, FieldFilterCountsMemory
 
-from .app_settings import (
+from taskmonitor.app_settings import (
     TASKMONITOR_DATA_MAX_AGE,
     TASKMONITOR_QUEUED_TASKS_ADMIN_LIMIT,
     TASKMONITOR_QUEUED_TASKS_CACHE_TIMEOUT,
 )
-from .core import cached_reports, celery_queues
-from .models import QueuedTask, TaskLog, TaskReport, TaskStatistic
+from taskmonitor.core import cached_reports, celery_queues
+from taskmonitor.models import QueuedTask, TaskLog, TaskReport, TaskStatistic
 
 
 class QueuedTaskAppsListFilter(FieldFilterCountsMemory):

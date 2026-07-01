@@ -85,13 +85,22 @@ class CMakeBuild(build_ext):
         # Build the native extension.
         full_cmd = ['make', 'python', 'NUM_THREADS=%d' % num_cores]
         precompiled_lib_path = os.environ.get('LBUG_API_PRECOMPILED_LIB_PATH', '').strip()
+        extra_cmake_flags = os.environ.get('EXTRA_CMAKE_FLAGS', '').strip()
+        if not extra_cmake_flags:
+            flags_file = '/tmp/lbug_openssl_cmake_flags'
+            if os.path.exists(flags_file):
+                with open(flags_file) as f:
+                    extra_cmake_flags = f.read().strip()
         if precompiled_lib_path:
             self.announce("Using precompiled liblbug from %s." % precompiled_lib_path)
-            full_cmd.append(
+            flags = (
                 'EXTRA_CMAKE_FLAGS=-DBUILD_LBUG=FALSE -DBUILD_SHELL=FALSE '
                 '-DLBUG_API_USE_PRECOMPILED_LIB=TRUE '
                 '-DLBUG_API_PRECOMPILED_LIB_PATH=%s' % precompiled_lib_path
             )
+            if extra_cmake_flags:
+                flags += ' ' + extra_cmake_flags
+            full_cmd.append(flags)
         subprocess.run(full_cmd, cwd=build_dir, check=True, env=env_vars)
         self.announce("Done building native extension.")
         self.announce("Copying native extension...")

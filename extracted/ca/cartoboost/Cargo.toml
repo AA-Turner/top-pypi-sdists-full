@@ -1,0 +1,35 @@
+[workspace]
+members = ["crates/cartoboost-core", "crates/cartoboost-geo-core", "crates/cartoboost-geo-causal", "crates/cartoboost-geostats", "crates/cartoboost-prob", "crates/cartoboost-geo-st", "crates/cartoboost-spatial-econ", "crates/cartoboost-neural", "crates/cartoboost-py"]
+resolver = "2"
+
+[workspace.package]
+version = "0.2.36"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+repository = "https://github.com/theculliganman/cartoboost"
+homepage = "https://github.com/theculliganman/cartoboost"
+description = "Rust-backed spatial boosting for tabular modeling and forecasting."
+readme = "README.md"
+authors = ["Ryan Culligan"]
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+unused_lifetimes = "deny"
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unwrap_used = "warn"
+
+[workspace.dependencies]
+anyhow = "1"
+thiserror = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+pyo3 = "0.23"
+clap = { version = "4", features = ["derive"] }
+toml = "0.8"
+criterion = "0.5"

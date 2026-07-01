@@ -397,13 +397,17 @@ def get_org_tiers(organization_ids: list[str]) -> list[OrgTierResult]:
 # =============================================================================
 
 
-def resolve_workspace(workspace_id: str) -> WorkspaceResolution:
+def resolve_workspace(
+    workspace_id: str,
+    *,
+    credentials: google.auth.credentials.Credentials | None = None,
+) -> WorkspaceResolution:
     """Resolve a workspace to its organization, tier, and region.
 
     Uses the workspace cache (lazy-populated from Prod DB) and tier cache.
     """
     ws_cache = _load_workspace_cache()
-    tier_cache = _load_tier_cache()
+    tier_cache = _load_tier_cache(credentials=credentials)
 
     ws_entry = ws_cache.get(workspace_id)
     if ws_entry is None:

@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: jcodemunch-mcp
-Version: 1.108.85
+Version: 1.108.90
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Bug Tracker, https://github.com/jgravelle/jcodemunch-mcp/issues
 Author-email: "J. Gravelle" <j@gravelle.us>
 License: jCodeMunch-MCP — Dual-Use License
+        Version 1.1 — effective 2026-06-30
         
         Copyright (c) 2024-2026 J. Gravelle (https://github.com/jgravelle)
         All rights reserved.
@@ -17,16 +18,57 @@ License: jCodeMunch-MCP — Dual-Use License
         
         Permission is hereby granted, free of charge, to any individual or
         organization using this software solely for personal, academic,
-        research, or other non-commercial purposes, to use, copy, modify,
-        and distribute this software, subject to the following conditions:
+        research, or other non-commercial purposes, to use, copy, and modify
+        this software, subject to the conditions below.
+        
+        REDISTRIBUTION (limited)
+        
+        You may share verbatim copies of this software for non-commercial
+        purposes only, and only if ALL of the following hold:
+        
+          (a) You retain this license and every copyright, authorship, and
+              attribution notice, unaltered, in all copies or substantial
+              portions of the software.
+        
+          (b) You do not rename, rebrand, or otherwise change the identity of
+              the software, and you do not distribute it under any name other
+              than its original name ("jCodeMunch-MCP").
+        
+          (c) You do NOT publish or upload the software or any derivative or
+              portion of it — modified or unmodified — to any public package
+              registry, index, marketplace, or app store (including but not
+              limited to PyPI, npm, crates.io, Maven Central, NuGet, and any
+              similar service).
+        
+        Any redistribution outside the narrow allowance above — including
+        publishing modified, renamed, repackaged, or derivative versions, or
+        distribution to any public registry — requires the author's prior
+        written permission.
+        
+        CONDITIONS (all uses)
         
         1. The above copyright notice and this permission notice shall be
            included in all copies or substantial portions of the software.
         
-        2. The software may not be used, directly or indirectly, in any
+        2. You may not remove, obscure, or alter any author, copyright, or
+           attribution notice. You may not list any person or entity other
+           than the original author as the author of this software, and you
+           may not represent the original author as the author, publisher,
+           maintainer, sponsor, or endorser of any modified, renamed, or
+           redistributed version.
+        
+        3. The software may not be used, directly or indirectly, in any
            product, service, or workflow that generates revenue, is offered
            commercially, or is used within a for-profit organization to
            support revenue-generating activities.
+        
+        NO USE OF NAME OR MARKS
+        
+        This license grants no right to use the names "jCodeMunch",
+        "jCodeMunch-MCP", "Munch", "jMunch", the author's name, or any related
+        names or marks, except as strictly required to retain the notices
+        above. You may not name any derivative or redistribution in a way that
+        incorporates these names or marks or is confusingly similar to them.
         
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         
@@ -417,7 +459,7 @@ The point: jCodeMunch is structured retrieval *with* an orchestration layer over
 
 ### Structural queries native tools can't answer
 
-`find_importers` tells you what imports a file. `get_blast_radius` tells you what breaks if you change a symbol, with depth-weighted risk scores and optional source snippets. `get_class_hierarchy` traverses inheritance chains. `get_call_hierarchy` traces callers and callees N levels deep using AST-derived call graphs, with optional LSP-enriched dispatch resolution for interface/trait method calls. `find_dead_code` finds symbols and files unreachable from any entry point. `get_untested_symbols` finds functions with no evidence of test-file reachability — the intersection of import-graph analysis and test-file detection. `get_changed_symbols` maps a git diff to the exact symbols that were added, modified, or removed. `get_symbol_importance` ranks your codebase by architectural centrality using PageRank on the import graph. `get_hotspots` surfaces the riskiest code by combining complexity with git churn. `get_dependency_cycles` detects circular imports. `get_coupling_metrics` measures module coupling and instability. `get_tectonic_map` discovers the logical module topology by fusing three coupling signals (imports, shared references, git co-churn) — revealing hidden module boundaries, misplaced files, and god-module risk without any configuration. `get_signal_chains` traces how external signals (HTTP requests, CLI commands, scheduled tasks, events) propagate through the codebase via the call graph — discovery mode maps all entry-point-to-leaf pathways and reports orphan symbols, lookup mode tells you which user-facing chains a specific symbol participates in (e.g. "validate_email sits on POST /api/users and cli:import-users"). These are not "faster grep" — they are questions grep cannot answer at all.
+`find_importers` tells you what imports a file. `get_blast_radius` tells you what breaks if you change a symbol, with depth-weighted risk scores and optional source snippets. `get_class_hierarchy` traverses inheritance chains. `get_call_hierarchy` traces callers and callees N levels deep using AST-derived call graphs, with optional LSP-enriched dispatch resolution for interface/trait method calls. `find_dead_code` finds symbols and files unreachable from any entry point. `get_untested_symbols` finds functions with no evidence of test-file reachability — the intersection of import-graph analysis and test-file detection. `get_changed_symbols` maps a git diff to the exact symbols that were added, modified, or removed. `get_symbol_importance` ranks your codebase by architectural centrality using PageRank on the import graph. `get_hotspots` surfaces the riskiest code by combining complexity with git churn. `get_dependency_cycles` detects circular imports. `get_coupling_metrics` measures module coupling and instability. `get_tectonic_map` discovers the logical module topology by fusing three coupling signals (imports, shared references, git co-churn) — revealing hidden module boundaries, misplaced files, and god-module risk without any configuration. `get_signal_chains` traces how external signals (HTTP requests, CLI commands, scheduled tasks, events) propagate through the codebase via the call graph — discovery mode maps all entry-point-to-leaf pathways and reports orphan symbols, lookup mode tells you which user-facing chains a specific symbol participates in (e.g. "validate_email sits on POST /api/users and cli:import-users"). `get_endpoint_impact` answers the endpoint-shaped version of "what breaks if I change X": give it an HTTP endpoint (`GET /users`) or a handler symbol and it resolves the route to its handler — across string-dispatch (Django/Express/Flask/Rails) and decorator routes (Flask/FastAPI/Spring) — then fuses the blast radius (importing files + callers) with the templates that handler renders, in one read-only call mapping a URL to everything a change to it would touch. These are not "faster grep" — they are questions grep cannot answer at all.
 
 ### Agent config hygiene
 
@@ -1000,6 +1042,7 @@ Tested configurations:
 |----------|--------|
 | **Claude Code / Claude Desktop** | `jcodemunch-mcp init` (auto-detects and patches config) |
 | **Cursor / Windsurf / Continue** | `jcodemunch-mcp init` or manual `mcp.json` |
+| **Antigravity (Google)** | Add a `jcodemunch` entry to `~/.gemini/config/mcp_config.json` (shared by Antigravity 2.0 / IDE / CLI). See below. |
 | **OpenAI Codex CLI** | Add `[mcp_servers.jcodemunch]` block to `~/.codex/config.toml` (see below) |
 | **Cline / Roo Code** | Add via the MCP marketplace UI or paste `command: uvx`, `args: ["jcodemunch-mcp"]` |
 | **Zed** | Add to `settings.json` under `context_servers` |
@@ -1055,6 +1098,32 @@ not recommended for Codex):
 command = "uvx"
 args = ["jcodemunch-mcp"]
 ```
+</details>
+
+<details>
+<summary>Antigravity (Google) config</summary>
+
+Antigravity (2.0, IDE, and CLI) loads MCP servers from a single shared file at
+`~/.gemini/config/mcp_config.json` (HOME-level only — project-local
+`.antigravitycli/mcp_config.json` is read but not loaded). Add:
+
+```json
+// ~/.gemini/config/mcp_config.json
+{
+  "mcpServers": {
+    "jcodemunch": {
+      "command": "uvx",
+      "args": ["jcodemunch-mcp"]
+    }
+  }
+}
+```
+
+Restart Antigravity so it re-reads the config; tools appear under
+`mcp(jcodemunch/*)`. To grant the jcodemunch agent skill to all Antigravity
+tools, drop the bundle from `jcodemunch-mcp install claude-code --skills`
+(at `~/.claude/skills/jcodemunch/SKILL.md`) into the shared skills dir
+`~/.gemini/skills/jcodemunch/` (or the CLI-only `~/.gemini/antigravity-cli/skills/`).
 </details>
 
 <details>

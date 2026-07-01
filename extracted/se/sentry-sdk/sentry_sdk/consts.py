@@ -518,6 +518,12 @@ class SPANDATA:
     Example: postgresql
     """
 
+    DB_QUERY_TEXT = "db.query.text"
+    """
+    The database query being executed.
+    Example: "SELECT * FROM users WHERE id = $1"
+    """
+
     DB_SYSTEM_NAME = "db.system.name"
     """
     An identifier for the database management system (DBMS) product being used. See OpenTelemetry's list of well-known DBMS identifiers.
@@ -1014,6 +1020,12 @@ class SPANDATA:
     Example: "details"
     """
 
+    URL_PATH = "url.path"
+    """
+    The URI path component.
+    Example: "/foo"
+    """
+
     URL_QUERY = "url.query"
     """
     The query string present in the URL. Note that this does not contain the leading ? character, while the `http.query` attribute does.
@@ -1180,6 +1192,8 @@ class OP:
     COHERE_CHAT_COMPLETIONS_CREATE = "ai.chat_completions.create.cohere"
     COHERE_EMBEDDINGS_CREATE = "ai.embeddings.create.cohere"
     DB = "db"
+    DB_CURSOR_ITERATOR = "db.cursor.iter"
+    DB_CURSOR_FETCH = "db.cursor.fetch"
     DB_REDIS = "db.redis"
     EVENT_DJANGO = "event.django"
     FUNCTION = "function"
@@ -1320,7 +1334,7 @@ class ClientConstructor:
         before_send_metric: "Optional[Callable[[Metric, Hint], Optional[Metric]]]" = None,
         org_id: "Optional[str]" = None,
         strict_trace_continuation: bool = False,
-        stream_gen_ai_spans: bool = False,
+        stream_gen_ai_spans: bool = True,
     ) -> None:
         """Initialize the Sentry SDK with the given parameters. All parameters described here can be used in a call to `sentry_sdk.init()`.
 
@@ -1765,4 +1779,4 @@ DEFAULT_OPTIONS = _get_default_options()
 del _get_default_options
 
 
-VERSION = "2.63.0"
+VERSION = "2.64.0"

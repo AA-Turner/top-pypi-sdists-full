@@ -27,6 +27,7 @@ enum class WALRecordType : uint8_t {
 
     COPY_TABLE_RECORD = 13,
     CREATE_CATALOG_ENTRY_RECORD = 14,
+    CREATE_INDEX_RECORD = 15,
     DROP_CATALOG_ENTRY_RECORD = 16,
     ALTER_TABLE_ENTRY_RECORD = 17,
     UPDATE_SEQUENCE_RECORD = 18,
@@ -56,6 +57,7 @@ struct WALRecord {
     DELETE_COPY_DEFAULT_MOVE(WALRecord);
 
     virtual void serialize(common::Serializer& serializer) const;
+    static void serializeWithLength(common::Serializer& serializer, const WALRecord& record);
     static std::unique_ptr<WALRecord> deserialize(common::Deserializer& deserializer,
         const main::ClientContext& clientContext);
 

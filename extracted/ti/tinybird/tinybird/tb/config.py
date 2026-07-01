@@ -91,12 +91,6 @@ def get_config(
     return config
 
 
-def write_config(config: Dict[str, Any], dest_file: str = ".tinyb") -> None:
-    config_file = Path(getcwd()) / dest_file
-    with open(config_file, "w") as file:
-        file.write(json.dumps(config, indent=4, sort_keys=True))
-
-
 def get_display_cloud_host(api_host: str) -> str:
     is_local = "localhost" in api_host
     if is_local:

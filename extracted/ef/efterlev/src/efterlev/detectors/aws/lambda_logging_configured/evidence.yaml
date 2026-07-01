@@ -1,9 +1,0 @@
-detector_id: aws.lambda_logging_configured
-
-evidence_shape:
-  resource_type: string        # always "aws_lambda_function"
-  resource_name: string        # the Terraform logical name
-  logging_state: enum          # "configured" | "absent" | "unverifiable"
-  pattern: enum                # "log_group_per_function"
-  detail: string?              # short human-readable description (configured / unverifiable)
-  gap: string?                 # present only on absent evidence

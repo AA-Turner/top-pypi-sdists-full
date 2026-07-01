@@ -36,9 +36,7 @@ def restore_provider_loggers():
         logger.propagate = state["propagate"]
 
 
-def test_suppresses_high_risk_provider_loggers_by_default(
-    monkeypatch, restore_provider_loggers
-):
+def test_suppresses_high_risk_provider_loggers_by_default(monkeypatch, restore_provider_loggers):
     monkeypatch.delenv("BL_ALLOW_PROVIDER_DEBUG_LOGS", raising=False)
 
     for logger_name in PROVIDER_DEBUG_LOGGER_NAMES:
@@ -78,9 +76,7 @@ def test_provider_debug_payload_patterns_do_not_emit_by_default(
     assert stream.getvalue() == ""
 
 
-def test_provider_debug_opt_in_preserves_debug_behavior(
-    monkeypatch, restore_provider_loggers
-):
+def test_provider_debug_opt_in_preserves_debug_behavior(monkeypatch, restore_provider_loggers):
     monkeypatch.setenv("BL_ALLOW_PROVIDER_DEBUG_LOGS", "true")
     stream = io.StringIO()
     handler = logging.StreamHandler(stream)

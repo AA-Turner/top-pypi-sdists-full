@@ -239,24 +239,52 @@ def test_object_propagation(runner):
         assert result.output == "Debug is off\n"
 
 
-def test_other_command_invoke_with_defaults(runner):
+@pytest.mark.parametrize(
+    ("opt_params", "expected"),
+    (
+        # Original tests.
+        ({"type": click.INT, "default": 42}, 42),
+        ({"type": click.INT, "default": "15"}, 15),
+        ({"multiple": True}, ()),
+        # SENTINEL value tests.
+        ({"default": None}, None),
+        ({"type": click.STRING}, None),  # No default specified, should be None.
+        ({"type": click.BOOL, "default": False}, False),
+        ({"type": click.BOOL, "default": True}, True),
+        ({"type": click.FLOAT, "default": 3.14}, 3.14),
+        # Multiple with default.
+        ({"multiple": True, "default": [1, 2, 3]}, (1, 2, 3)),
+        ({"multiple": True, "default": ()}, ()),
+        # Required option without value should use SENTINEL behavior.
+        ({"required": False}, None),
+        # Choice type with default.
+        ({"type": click.Choice(["a", "b", "c"]), "default": "b"}, "b"),
+        # Path type with default.
+        ({"type": click.Path(), "default": "/tmp"}, "/tmp"),
+        # Flag options.
+        ({"is_flag": True, "default": False}, False),
+        ({"is_flag": True, "default": True}, True),
+        # Count option.
+        ({"count": True}, 0),
+        # Hidden option.
+        ({"hidden": True, "default": "secret"}, "secret"),
+    ),
+)
+def test_other_command_invoke_with_defaults(runner, opt_params, expected):
     @click.command()
     @click.pass_context
     def cli(ctx):
         return ctx.invoke(other_cmd)
 
     @click.command()
-    @click.option("-a", type=click.INT, default=42)
-    @click.option("-b", type=click.INT, default="15")
-    @click.option("-c", multiple=True)
+    @click.option("-a", **opt_params)
     @click.pass_context
-    def other_cmd(ctx, a, b, c):
-        return ctx.info_name, a, b, c
+    def other_cmd(ctx, a):
+        return ctx.info_name, a
 
     result = runner.invoke(cli, standalone_mode=False)
-    # invoke should type cast default values, str becomes int, empty
-    # multiple should be empty tuple instead of None
-    assert result.return_value == ("other", 42, 15, ())
+
+    assert result.return_value == ("other", expected)
 
 
 def test_invoked_subcommand(runner):
@@ -282,6 +310,33 @@ def test_invoked_subcommand(runner):
     if result.exception:
         raise result.exception
     assert result.output == "no subcommand, use default\nin subcommand\n"
+
+
+@pytest.mark.parametrize(
+    ("chain", "invoke_without_command", "metavar"),
+    [
+        (False, False, "COMMAND [ARGS]..."),
+        (False, True, "[COMMAND] [ARGS]..."),
+        (True, False, "COMMAND1 [ARGS]... [COMMAND2 [ARGS]...]..."),
+        (True, True, "[COMMAND1] [ARGS]... [COMMAND2 [ARGS]...]..."),
+    ],
+)
+def test_subcommand_metavar_marks_optional(
+    runner, chain, invoke_without_command, metavar
+):
+    """The leading subcommand token is bracketed only when it is optional."""
+
+    @click.group(chain=chain, invoke_without_command=invoke_without_command)
+    def cli():
+        pass
+
+    @cli.command()
+    def sub():
+        pass
+
+    result = runner.invoke(cli, ["--help"])
+    assert result.exit_code == 0
+    assert result.output.splitlines()[0] == f"Usage: cli [OPTIONS] {metavar}"
 
 
 def test_aliased_command_canonical_name(runner):
@@ -479,6 +534,22 @@ def test_deprecated_in_help_messages(runner, doc, deprecated):
 
 
 @pytest.mark.parametrize("deprecated", [True, "USE OTHER COMMAND INSTEAD"])
+@pytest.mark.parametrize("doc", ["", None])
+def test_deprecated_empty_help_no_leading_space(runner, doc, deprecated):
+    """A command with empty or missing help text must render the deprecation
+    label at the normal indentation, without a stray leading space.
+    """
+
+    @click.command(deprecated=deprecated, help=doc)
+    def cli():
+        pass
+
+    out = runner.invoke(cli, ["--help"]).output
+    assert "\n  (DEPRECATED" in out
+    assert "\n   (DEPRECATED" not in out
+
+
+@pytest.mark.parametrize("deprecated", [True, "USE OTHER COMMAND INSTEAD"])
 def test_deprecated_in_invocation(runner, deprecated):
     @click.command(deprecated=deprecated)
     def deprecated_cmd():
@@ -562,3 +633,35 @@ def test_abort_exceptions_with_disabled_standalone_mode(runner, exc):
     assert rv.exit_code == 1
     assert isinstance(rv.exception.__cause__, exc)
     assert rv.exception.__cause__.args == ("catch me!",)
+
+
+def test_unknown_command(runner):
+    result = runner.invoke(click.Group(), "unknown")
+    assert result.exception
+    assert "No such command 'unknown'." in result.output
+
+
+@pytest.mark.parametrize(
+    ("value", "expect"),
+    [
+        ("pause", "Did you mean 'push'?"),
+        ("decline", "(Did you mean one of: 'declare', 'refine'?)"),
+    ],
+)
+def test_suggest_possible_commands(runner, value, expect):
+    cli = click.Group()
+
+    @cli.command()
+    def push():
+        pass
+
+    @cli.command()
+    def declare():
+        pass
+
+    @cli.command()
+    def refine():
+        pass
+
+    result = runner.invoke(cli, [value])
+    assert expect in result.output

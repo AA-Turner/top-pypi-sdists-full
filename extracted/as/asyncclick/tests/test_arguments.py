@@ -315,6 +315,32 @@ async def test_deprecated_usage(arunner):
     assert "[F!]" in result.output
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [
+        ({}, "FOO"),
+        ({"required": True}, "FOO"),
+        ({"required": False}, "[FOO]"),
+        ({"default": "x"}, "[FOO]"),
+        ({"nargs": -1}, "[FOO]..."),
+        ({"nargs": -1, "required": True}, "FOO..."),
+        ({"nargs": 2}, "FOO..."),
+        ({"nargs": 2, "required": False}, "[FOO]..."),
+    ],
+)
+def test_argument_metavar_marks_optional(runner, kwargs, expected):
+    """An argument is bracketed in the usage line only when it is optional."""
+
+    @click.command()
+    @click.argument("foo", **kwargs)
+    def cli(foo):
+        pass
+
+    result = runner.invoke(cli, ["--help"])
+    assert result.exit_code == 0
+    assert result.output.splitlines()[0] == f"Usage: cli [OPTIONS] {expected}"
+
+
 @pytest.mark.parametrize("deprecated", [True, "USE B INSTEAD"])
 def test_deprecated_warning(runner, deprecated):
     @click.command()
@@ -413,6 +439,17 @@ def test_nargs_specified_plus_star_ordering(runner):
     ],
 )
 def test_good_defaults_for_nargs(runner, argument_params, args, expected):
+    """Comprehensive check of default-value processing for arguments with
+    ``nargs``.
+
+    .. hint::
+        An option-specific equivalent is available in
+        ``test_options.py::test_good_defaults_for_multiple``.
+
+        A smoke test covering a single basic case is in
+        ``test_defaults.py::test_nargs_plus_multiple``.
+    """
+
     @click.command()
     @click.argument("a", type=int, **argument_params)
     def cmd(a):
@@ -594,3 +631,41 @@ def test_duplicate_names_warning(runner, args_one, args_two):
 
     with pytest.warns(UserWarning):
         runner.invoke(cli, [])
+
+
+@pytest.mark.parametrize(
+    ("argument_kwargs", "pass_argv"),
+    (
+        # there is a large potential parameter space to explore here
+        # this is just a very small sample of it
+        ({}, ["myvalue"]),
+        ({"nargs": -1}, []),
+        ({"nargs": -1}, ["myvalue"]),
+        ({"default": None}, ["myvalue"]),
+        ({"required": False}, []),
+        ({"required": False}, ["myvalue"]),
+    ),
+)
+def test_argument_custom_class_can_override_type_cast_value_and_never_sees_unset(
+    runner, argument_kwargs, pass_argv
+):
+    """
+    Test that overriding type_cast_value is supported
+
+    In particular, the argument is never passed an UNSET sentinel value.
+    """
+
+    class CustomArgument(click.Argument):
+        def type_cast_value(self, ctx, value):
+            assert value is not UNSET
+            return value
+
+    @click.command()
+    @click.argument("myarg", **argument_kwargs, cls=CustomArgument)
+    def cmd(myarg):
+        click.echo("ok")
+
+    result = runner.invoke(cmd, pass_argv)
+    if result.exception:
+        raise result.exception
+    assert result.exit_code == 0

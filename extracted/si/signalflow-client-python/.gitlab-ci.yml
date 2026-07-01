@@ -1,0 +1,43 @@
+default:
+  image: 'cimg/python:3.11'
+
+include:
+  - project: 'ci-cd/templates'
+    ref: master
+    file: '/prodsec/.oss-scan.yml'
+
+stages:
+  - build
+  - verify
+  - deploy
+
+build-job:
+  stage: build
+  script:
+    - pip install hatch
+    - hatch build
+    - shasum -a 256 dist/* > dist/checksums.txt
+  artifacts:
+      paths:
+        - dist/
+  only:
+    - /^v[0-9]+\.[0-9]+\.[0-9]+.*/
+  except:
+    - branches
+
+oss-scan:
+  stage: verify
+  extends: .oss-scan
+  when: manual
+
+deploy-job:
+  stage: deploy
+  script:
+    - pip install hatch keyrings.alt
+    - hatch --no-interactive publish
+  needs:
+    - build-job
+  only:
+    - /^v[0-9]+\.[0-9]+\.[0-9]+.*/
+  except:
+    - branches

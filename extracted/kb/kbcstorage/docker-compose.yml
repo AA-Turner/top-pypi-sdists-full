@@ -1,0 +1,17 @@
+version: '3'
+services:
+  ci: &ci
+    build: .
+    image: sapi-python-client
+    environment:
+      - KBC_TEST_TOKEN
+      - KBC_TEST_API_URL
+      - SKIP_ABS_TESTS
+
+  dev:
+    <<: *ci
+    tty: true
+    stdin_open: true
+    entrypoint: bash
+    volumes:
+      - .:/code

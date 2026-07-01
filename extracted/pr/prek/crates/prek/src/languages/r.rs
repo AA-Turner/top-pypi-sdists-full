@@ -5,7 +5,7 @@ use std::str;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use prek_consts::env_vars::EnvVars;
+use prek_consts::env_vars::{EnvVars, EnvVarsRead};
 use rustc_hash::FxHashSet;
 use tracing::debug;
 
@@ -53,7 +53,6 @@ impl LanguageImpl for R {
             // renv and choose the project library instead of overriding .libPaths.
             run_r_code(
                 &rscript,
-                "install R hook environment",
                 &renv_project_install_code(repo_path),
                 &hook.additional_dependencies,
                 &info.env_path,
@@ -83,7 +82,6 @@ impl LanguageImpl for R {
 
             run_r_code(
                 &rscript,
-                "install R additional dependencies",
                 &additional_dependency_install_code(&info.env_path),
                 &hook.additional_dependencies,
                 hook.work_dir(),
@@ -140,7 +138,7 @@ impl LanguageImpl for R {
         let entry = r_hook_entry(hook)?;
 
         let run = async |batch: &[&Path]| {
-            let mut cmd = Cmd::new(&entry[0], "run R hook");
+            let mut cmd = Cmd::new(&entry[0]);
             cmd.current_dir(hook.work_dir())
                 .args(&entry[1..])
                 .env_remove(EnvVars::RENV_PROJECT)
@@ -149,7 +147,7 @@ impl LanguageImpl for R {
 
             cmd.envs(&hook.env)
                 .args(&hook.args)
-                .args(batch)
+                .file_args(batch)
                 .check(false);
 
             let mut output = cmd
@@ -181,7 +179,6 @@ impl LanguageImpl for R {
 
 async fn run_r_code(
     rscript: &Path,
-    summary: &str,
     code: &str,
     args: &FxHashSet<String>,
     cwd: &Path,
@@ -200,7 +197,7 @@ async fn run_r_code(
     )
     .await?;
 
-    Cmd::new(rscript, summary)
+    Cmd::new(rscript)
         .current_dir(cwd)
         .arg("--vanilla")
         .arg(script_path)
@@ -213,7 +210,7 @@ async fn run_r_code(
 }
 
 async fn query_r_version(rscript: &Path) -> Result<semver::Version> {
-    let output = Cmd::new(rscript, "get R version")
+    let output = Cmd::new(rscript)
         .arg("--vanilla")
         .arg("-e")
         .arg("cat(as.character(getRversion()))")
@@ -324,7 +321,7 @@ fn validate_r_entry(entry: &[String]) -> Result<()> {
 }
 
 fn rscript_executable() -> PathBuf {
-    if let Some(r_home) = EnvVars::var_os(EnvVars::R_HOME) {
+    if let Some(r_home) = EnvVars.var_os(EnvVars::R_HOME) {
         PathBuf::from(r_home)
             .join("bin/Rscript")
             .with_extension(EXE_EXTENSION)

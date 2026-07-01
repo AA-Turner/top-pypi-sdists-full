@@ -620,8 +620,12 @@ Provide:
             logger.debug(f"    User prompt length: {len(user_prompt)} chars")
             logger.debug(f"    Number of policies in prompt: {len(policies_with_nl_triggers)}")
 
-            # Use structured output for reliable JSON parsing
-            structured_llm = self.llm.with_structured_output(PolicyConflictResolution)
+            # Use structured output for reliable JSON parsing.
+            # method="json_schema" (matching OutputFormatter in enactment.py) is enforced
+            # server-side by IBM Watsonx. The default (function_calling) returns None on
+            # gpt-oss-120b when it emits no tool call, which raised AttributeError below and
+            # silently dropped the policy match.
+            structured_llm = self.llm.with_structured_output(PolicyConflictResolution, method="json_schema")
             result: PolicyConflictResolution = await structured_llm.ainvoke(messages)
 
             logger.debug("  - Received structured LLM response:")
@@ -1009,11 +1013,16 @@ Provide:
                 logger.info(f"Policy matched: '{best_match.name}' (confidence: {best_confidence:.2f})")
                 action = await self._create_policy_action(best_match, best_confidence, best_reasoning)
 
+                # Clamp confidence to PolicyMatch's [0.0, 1.0] bound. When both
+                # keyword and NL triggers fire on the same policy, the combined
+                # score can land at 1.0000000000000002 (float rounding); without
+                # the clamp PolicyMatch validation raises and the whole match
+                # is silently lost inside the `except` below.
                 return PolicyMatch(
                     matched=True,
                     policy=best_match,
                     action=action,
-                    confidence=best_confidence,
+                    confidence=min(1.0, max(0.0, best_confidence)),
                     reasoning=best_reasoning,
                     trigger_details=best_trigger_details,
                 )

@@ -108,10 +108,6 @@ def is_type_date(type_to_check: str) -> bool:
     return date_type_pattern.match(type_to_check) is not None
 
 
-def string_test(x: str) -> bool:
-    return True
-
-
 def date_test(x: str) -> bool:
     return date_pattern.match(x) is not None
 

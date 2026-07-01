@@ -39,6 +39,7 @@ from .literals import (
     ChangeSourceType,
     ConcurrencyModeType,
     DeletionModeType,
+    DeploymentConfigModeType,
     DeprecatedStatusType,
     DetailedStatusType,
     DifferenceTypeType,
@@ -149,6 +150,7 @@ __all__ = (
     "DeleteStackInstancesInputTypeDef",
     "DeleteStackInstancesOutputTypeDef",
     "DeleteStackSetInputTypeDef",
+    "DeploymentConfigTypeDef",
     "DeploymentTargetsOutputTypeDef",
     "DeploymentTargetsTypeDef",
     "DeploymentTargetsUnionTypeDef",
@@ -498,6 +500,10 @@ class ContinueUpdateRollbackInputTypeDef(TypedDict):
     ResourcesToSkip: NotRequired[Sequence[str]]
     ClientRequestToken: NotRequired[str]
 
+class DeploymentConfigTypeDef(TypedDict):
+    Mode: NotRequired[DeploymentConfigModeType]
+    DisableRollback: NotRequired[bool]
+
 class ParameterTypeDef(TypedDict):
     ParameterKey: NotRequired[str]
     ParameterValue: NotRequired[str]
@@ -545,19 +551,6 @@ class DeleteChangeSetInputTypeDef(TypedDict):
 
 class DeleteGeneratedTemplateInputTypeDef(TypedDict):
     GeneratedTemplateName: str
-
-class DeleteStackInputStackDeleteTypeDef(TypedDict):
-    RetainResources: NotRequired[Sequence[str]]
-    RoleARN: NotRequired[str]
-    ClientRequestToken: NotRequired[str]
-    DeletionMode: NotRequired[DeletionModeType]
-
-class DeleteStackInputTypeDef(TypedDict):
-    StackName: str
-    RetainResources: NotRequired[Sequence[str]]
-    RoleARN: NotRequired[str]
-    ClientRequestToken: NotRequired[str]
-    DeletionMode: NotRequired[DeletionModeType]
 
 class DeleteStackSetInputTypeDef(TypedDict):
     StackSetName: str
@@ -1079,12 +1072,6 @@ RollbackTriggerTypeDef = TypedDict(
     },
 )
 
-class RollbackStackInputTypeDef(TypedDict):
-    StackName: str
-    RoleARN: NotRequired[str]
-    ClientRequestToken: NotRequired[str]
-    RetainExceptOnCreate: NotRequired[bool]
-
 class ScanFilterTypeDef(TypedDict):
     Types: NotRequired[Sequence[str]]
 
@@ -1431,6 +1418,28 @@ class ListChangeSetsOutputTypeDef(TypedDict):
     Summaries: list[ChangeSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class DeleteStackInputStackDeleteTypeDef(TypedDict):
+    RetainResources: NotRequired[Sequence[str]]
+    RoleARN: NotRequired[str]
+    ClientRequestToken: NotRequired[str]
+    DeletionMode: NotRequired[DeletionModeType]
+    DeploymentConfig: NotRequired[DeploymentConfigTypeDef]
+
+class DeleteStackInputTypeDef(TypedDict):
+    StackName: str
+    RetainResources: NotRequired[Sequence[str]]
+    RoleARN: NotRequired[str]
+    ClientRequestToken: NotRequired[str]
+    DeletionMode: NotRequired[DeletionModeType]
+    DeploymentConfig: NotRequired[DeploymentConfigTypeDef]
+
+class RollbackStackInputTypeDef(TypedDict):
+    StackName: str
+    RoleARN: NotRequired[str]
+    ClientRequestToken: NotRequired[str]
+    RetainExceptOnCreate: NotRequired[bool]
+    DeploymentConfig: NotRequired[DeploymentConfigTypeDef]
 
 class EstimateTemplateCostInputTypeDef(TypedDict):
     TemplateBody: NotRequired[str]
@@ -2102,6 +2111,7 @@ class StackTypeDef(TypedDict):
     RollbackConfiguration: NotRequired[RollbackConfigurationOutputTypeDef]
     StackStatusReason: NotRequired[str]
     DisableRollback: NotRequired[bool]
+    DeploymentConfig: NotRequired[DeploymentConfigTypeDef]
     NotificationARNs: NotRequired[list[str]]
     TimeoutInMinutes: NotRequired[int]
     Capabilities: NotRequired[list[CapabilityType]]
@@ -2297,6 +2307,8 @@ class CreateChangeSetInputTypeDef(TypedDict):
     OnStackFailure: NotRequired[OnStackFailureType]
     ImportExistingResources: NotRequired[bool]
     DeploymentMode: NotRequired[Literal["REVERT_DRIFT"]]
+    DeploymentConfig: NotRequired[DeploymentConfigTypeDef]
+    DisableValidation: NotRequired[bool]
 
 class CreateStackInputServiceResourceCreateStackTypeDef(TypedDict):
     StackName: str
@@ -2317,6 +2329,8 @@ class CreateStackInputServiceResourceCreateStackTypeDef(TypedDict):
     ClientRequestToken: NotRequired[str]
     EnableTerminationProtection: NotRequired[bool]
     RetainExceptOnCreate: NotRequired[bool]
+    DeploymentConfig: NotRequired[DeploymentConfigTypeDef]
+    DisableValidation: NotRequired[bool]
 
 class CreateStackInputTypeDef(TypedDict):
     StackName: str
@@ -2337,6 +2351,8 @@ class CreateStackInputTypeDef(TypedDict):
     ClientRequestToken: NotRequired[str]
     EnableTerminationProtection: NotRequired[bool]
     RetainExceptOnCreate: NotRequired[bool]
+    DeploymentConfig: NotRequired[DeploymentConfigTypeDef]
+    DisableValidation: NotRequired[bool]
 
 class UpdateStackInputStackUpdateTypeDef(TypedDict):
     TemplateBody: NotRequired[str]
@@ -2356,6 +2372,8 @@ class UpdateStackInputStackUpdateTypeDef(TypedDict):
     DisableRollback: NotRequired[bool]
     ClientRequestToken: NotRequired[str]
     RetainExceptOnCreate: NotRequired[bool]
+    DeploymentConfig: NotRequired[DeploymentConfigTypeDef]
+    DisableValidation: NotRequired[bool]
 
 class UpdateStackInputTypeDef(TypedDict):
     StackName: str
@@ -2376,6 +2394,8 @@ class UpdateStackInputTypeDef(TypedDict):
     DisableRollback: NotRequired[bool]
     ClientRequestToken: NotRequired[str]
     RetainExceptOnCreate: NotRequired[bool]
+    DeploymentConfig: NotRequired[DeploymentConfigTypeDef]
+    DisableValidation: NotRequired[bool]
 
 class DescribeGeneratedTemplateOutputTypeDef(TypedDict):
     GeneratedTemplateId: str
@@ -2423,5 +2443,6 @@ class DescribeChangeSetOutputTypeDef(TypedDict):
     OnStackFailure: OnStackFailureType
     ImportExistingResources: bool
     DeploymentMode: Literal["REVERT_DRIFT"]
+    DeploymentConfig: DeploymentConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

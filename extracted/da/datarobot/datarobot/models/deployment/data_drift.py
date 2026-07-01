@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import dateutil
 import trafaret as t
@@ -98,16 +98,16 @@ class TargetDrift(APIObject, MonitoringDataQueryBuilderMixin):
 
     def __init__(
         self,
-        period=None,
-        metric=None,
-        model_id=None,
-        target_name=None,
-        drift_score=None,
-        sample_size=None,
-        baseline_sample_size=None,
-        segment_attribute=None,
-        segment_value=None,
-    ):
+        period: Optional[Period] = None,
+        metric: Optional[DATA_DRIFT_METRIC] = None,
+        model_id: Optional[str] = None,
+        target_name: Optional[str] = None,
+        drift_score: Optional[float] = None,
+        sample_size: Optional[int] = None,
+        baseline_sample_size: Optional[int] = None,
+        segment_attribute: Optional[str] = None,
+        segment_value: Optional[str] = None,
+    ) -> None:
         self.period = period or {}
         self.metric = metric
         self.model_id = model_id
@@ -234,17 +234,17 @@ class FeatureDrift(APIObject, MonitoringDataQueryBuilderMixin):
 
     def __init__(
         self,
-        period=None,
-        metric=None,
-        model_id=None,
-        name=None,
-        drift_score=None,
-        feature_impact=None,
-        sample_size=None,
-        baseline_sample_size=None,
-        segment_attribute=None,
-        segment_value=None,
-    ):
+        period: Optional[Period] = None,
+        metric: Optional[DATA_DRIFT_METRIC] = None,
+        model_id: Optional[str] = None,
+        name: Optional[str] = None,
+        drift_score: Optional[float] = None,
+        feature_impact: Optional[float] = None,
+        sample_size: Optional[int] = None,
+        baseline_sample_size: Optional[int] = None,
+        segment_attribute: Optional[str] = None,
+        segment_value: Optional[str] = None,
+    ) -> None:
         self.period = period or {}
         self.metric = metric
         self.model_id = model_id
@@ -330,11 +330,13 @@ class FeatureDrift(APIObject, MonitoringDataQueryBuilderMixin):
         response_json = cls._client.get(url, params=params).json()
         response_json = from_api(response_json, keep_null_keys=True)
 
+        assert isinstance(response_json, dict), "Response JSON must be a dict."
+
         period = response_json.get("period", {})
         metric = response_json.get("metric")
         model_id = response_json.get("model_id")
 
-        def _from_data_item(item):
+        def _from_data_item(item: Dict[str, Any]) -> FeatureDrift:
             item["period"] = period
             item["metric"] = metric
             item["model_id"] = model_id
@@ -346,6 +348,7 @@ class FeatureDrift(APIObject, MonitoringDataQueryBuilderMixin):
         while response_json["next"] is not None:
             response_json = cls._client.get(response_json["next"]).json()
             response_json = from_api(response_json, keep_null_keys=True)
+            assert isinstance(response_json, dict), "Response JSON must be a dict."
             for item in response_json["data"]:
                 data.append(_from_data_item(item))
 
@@ -377,7 +380,7 @@ class PredictionsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         self,
         baselines: Optional[List[PredictionsOverTimeBucket]] = None,
         buckets: Optional[List[PredictionsOverTimeBucket]] = None,
-    ):
+    ) -> None:
         self.baselines = baselines or []
         self.buckets = buckets or []
 

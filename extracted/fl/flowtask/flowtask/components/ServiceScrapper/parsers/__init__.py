@@ -1,1 +1,0 @@
-from .costco import CostcoScrapper

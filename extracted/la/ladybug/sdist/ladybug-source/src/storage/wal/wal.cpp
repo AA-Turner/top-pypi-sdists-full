@@ -1,5 +1,6 @@
 #include "storage/wal/wal.h"
 
+#include "common/exception/runtime.h"
 #include "common/file_system/file_info.h"
 #include "common/file_system/virtual_file_system.h"
 #include "common/serializer/buffered_file.h"
@@ -26,19 +27,24 @@ WAL::WAL(const std::string& dbPath, bool readOnly, bool enableChecksums, Virtual
 
 WAL::~WAL() {}
 
-void WAL::logCommittedWAL(LocalWAL& localWAL, main::ClientContext* context) {
+void WAL::logCommittedWAL(LocalWAL& localWAL, main::ClientContext* context,
+    uint64_t& commitSequence) {
     DASSERT(!readOnly);
+    commitSequence = 0;
     if (inMemory || localWAL.getSize() == 0) {
         return; // No need to log empty WAL.
     }
     std::unique_lock lck{mtx};
+    throwIfPoisonedNoLock();
     initWriter(context);
     localWAL.inMemWriter->flush(*serializer->getWriter());
-    flushAndSyncNoLock();
+    commitSequence = ++appendedCommitSequence;
+    waitForDurabilityNoLock(commitSequence, lck);
 }
 
 void WAL::logAndFlushCheckpoint(main::ClientContext* context) {
     std::unique_lock lck{mtx};
+    throwIfPoisonedNoLock();
     initWriter(context);
     CheckpointRecord walRecord;
     addNewWALRecordNoLock(walRecord);
@@ -47,6 +53,7 @@ void WAL::logAndFlushCheckpoint(main::ClientContext* context) {
 
 bool WAL::rotateForCheckpoint(main::ClientContext* /*context*/) {
     std::unique_lock lck{mtx};
+    throwIfPoisonedNoLock();
     if (inMemory) {
         return false;
     }
@@ -55,6 +62,8 @@ bool WAL::rotateForCheckpoint(main::ClientContext* /*context*/) {
     }
     if (serializer) {
         flushAndSyncNoLock();
+        durableCommitSequence = appendedCommitSequence;
+        groupCommitCV.notify_all();
         fileInfo.reset();
         serializer.reset();
     }
@@ -63,6 +72,10 @@ bool WAL::rotateForCheckpoint(main::ClientContext* /*context*/) {
 }
 
 void WAL::logAndFlushCheckpointToFrozen(main::ClientContext* context) {
+    {
+        std::unique_lock lck{mtx};
+        throwIfPoisonedNoLock();
+    }
     auto frozenFileInfo = vfs->openFile(checkpointWalPath,
         FileOpenFlags(FileFlags::READ_ONLY | FileFlags::WRITE), context);
 
@@ -76,10 +89,25 @@ void WAL::logAndFlushCheckpointToFrozen(main::ClientContext* context) {
 
     CheckpointRecord walRecord;
     frozenSerializer->getWriter()->onObjectBegin();
-    walRecord.serialize(*frozenSerializer);
+    WALRecord::serializeWithLength(*frozenSerializer, walRecord);
     frozenSerializer->getWriter()->onObjectEnd();
-    frozenSerializer->getWriter()->flush();
-    frozenSerializer->getWriter()->sync();
+    try {
+        frozenSerializer->getWriter()->flush();
+        frozenSerializer->getWriter()->sync();
+    } catch (const std::exception& e) {
+        std::unique_lock lck{mtx};
+        poisonNoLock(e.what());
+        throw RuntimeException(
+            "WAL sync failed; database is in a panic state and refuses further writes until "
+            "restart. Original error: " +
+            std::string{e.what()});
+    } catch (...) {
+        std::unique_lock lck{mtx};
+        poisonNoLock("unknown exception");
+        throw RuntimeException(
+            "WAL sync failed; database is in a panic state and refuses further writes until "
+            "restart. Original error: unknown exception");
+    }
 }
 
 void WAL::clearFrozenWAL() {
@@ -89,20 +117,78 @@ void WAL::clearFrozenWAL() {
 // NOLINTNEXTLINE(readability-make-member-function-const): semantically non-const function.
 void WAL::clear() {
     std::unique_lock lck{mtx};
+    throwIfPoisonedNoLock();
     serializer->getWriter()->clear();
+    durableCommitSequence = appendedCommitSequence;
+    syncInProgress = false;
+    groupCommitCV.notify_all();
 }
 
 void WAL::reset() {
     std::unique_lock lck{mtx};
+    durableCommitSequence = appendedCommitSequence;
+    syncInProgress = false;
+    groupCommitCV.notify_all();
     fileInfo.reset();
     serializer.reset();
     vfs->removeFileIfExists(walPath);
 }
 
+void WAL::waitForDurabilityNoLock(uint64_t commitSequence, std::unique_lock<std::mutex>& lck) {
+    while (durableCommitSequence < commitSequence) {
+        throwIfPoisonedNoLock();
+        if (syncInProgress) {
+            groupCommitCV.wait(lck);
+            continue;
+        }
+        syncInProgress = true;
+        while (durableCommitSequence < appendedCommitSequence) {
+            const auto targetSequence = appendedCommitSequence;
+            serializer->getWriter()->flush();
+            auto* fileToSync = fileInfo.get();
+            lck.unlock();
+            try {
+                fileToSync->syncFile();
+            } catch (const std::exception& e) {
+                lck.lock();
+                poisonNoLock(e.what());
+                throw RuntimeException(
+                    "WAL sync failed; database is in a panic state and refuses further writes "
+                    "until restart. Original error: " +
+                    std::string{e.what()});
+            } catch (...) {
+                lck.lock();
+                poisonNoLock("unknown exception");
+                throw RuntimeException(
+                    "WAL sync failed; database is in a panic state and refuses further writes "
+                    "until restart. Original error: unknown exception");
+            }
+            lck.lock();
+            durableCommitSequence = targetSequence;
+            groupCommitCV.notify_all();
+        }
+        syncInProgress = false;
+        groupCommitCV.notify_all();
+    }
+}
+
 // NOLINTNEXTLINE(readability-make-member-function-const): semantically non-const function.
 void WAL::flushAndSyncNoLock() {
     serializer->getWriter()->flush();
-    serializer->getWriter()->sync();
+    try {
+        serializer->getWriter()->sync();
+    } catch (const std::exception& e) {
+        poisonNoLock(e.what());
+        throw RuntimeException(
+            "WAL sync failed; database is in a panic state and refuses further writes until "
+            "restart. Original error: " +
+            std::string{e.what()});
+    } catch (...) {
+        poisonNoLock("unknown exception");
+        throw RuntimeException(
+            "WAL sync failed; database is in a panic state and refuses further writes until "
+            "restart. Original error: unknown exception");
+    }
 }
 
 uint64_t WAL::getFileSize() {
@@ -114,6 +200,27 @@ uint64_t WAL::getFileSize() {
         return vfs->openFile(walPath, FileOpenFlags(FileFlags::READ_ONLY))->getFileSize();
     }
     return serializer->getWriter()->getSize();
+}
+
+void WAL::throwIfPoisoned() {
+    std::unique_lock lck{mtx};
+    throwIfPoisonedNoLock();
+}
+
+void WAL::throwIfPoisonedNoLock() const {
+    if (!poisoned) {
+        return;
+    }
+    throw RuntimeException("WAL sync failed; database is in a panic state and refuses further "
+                           "writes until restart. Original error: " +
+                           poisonReason);
+}
+
+void WAL::poisonNoLock(const std::string& reason) {
+    poisoned = true;
+    poisonReason = reason;
+    syncInProgress = false;
+    groupCommitCV.notify_all();
 }
 
 void WAL::writeHeader(main::ClientContext& context) {
@@ -157,7 +264,7 @@ void WAL::addNewWALRecordNoLock(const WALRecord& walRecord) {
     DASSERT(!inMemory);
     DASSERT(serializer != nullptr);
     serializer->getWriter()->onObjectBegin();
-    walRecord.serialize(*serializer);
+    WALRecord::serializeWithLength(*serializer, walRecord);
     serializer->getWriter()->onObjectEnd();
 }
 

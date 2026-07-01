@@ -29,6 +29,7 @@ from faker.providers.ssn.fr_FR import calculate_checksum as fr_calculate_checksu
 from faker.providers.ssn.hr_HR import checksum as hr_checksum
 from faker.providers.ssn.it_IT import checksum as it_checksum
 from faker.providers.ssn.lv_LV import Provider as lv_Provider
+from faker.providers.ssn.mk_MK import Provider as MkMKSsnProvider
 from faker.providers.ssn.no_NO import Provider as no_Provider
 from faker.providers.ssn.no_NO import checksum as no_checksum
 from faker.providers.ssn.pl_PL import calculate_month as pl_calculate_mouth
@@ -36,6 +37,7 @@ from faker.providers.ssn.pl_PL import checksum as pl_checksum
 from faker.providers.ssn.pt_BR import checksum as pt_checksum
 from faker.providers.ssn.ro_RO import ssn_checksum as ro_ssn_checksum
 from faker.providers.ssn.ro_RO import vat_checksum as ro_vat_checksum
+from faker.providers.ssn.sr_BA import calculate_checksum as sr_ba_calculate_checksum
 from faker.providers.ssn.uk_UA import Provider as uk_Provider
 from faker.providers.ssn.zh_TW import checksum as tw_checksum
 from faker.utils.checksums import luhn_checksum
@@ -936,7 +938,11 @@ class TestFrFR(unittest.TestCase):
         assert fr_calculate_checksum("100012B033001") == 41
 
     def test_ssn_can_generate_corsican_department_codes(self) -> None:
-        with mock.patch.object(fr_Provider, "random_element", return_value=("2A", "004", "Corse-du-Sud", "Ajaccio")):
+        with mock.patch.object(
+            fr_Provider,
+            "random_element",
+            return_value=("2A", "004", "Corse-du-Sud", "Ajaccio"),
+        ):
             with mock.patch.object(fr_Provider, "random_int", side_effect=[1, 0, 1, 1]):
                 assert self.fake.ssn() == "100012A00400111"
 
@@ -1265,6 +1271,27 @@ class TestSkSK(unittest.TestCase):
             assert int(birth_number.replace("/", "")) % 11 == 0
 
 
+class TestSrBA(unittest.TestCase):
+    def setUp(self):
+        self.fake = Faker("sr_BA")
+        Faker.seed(0)
+
+    def test_ssn(self):
+        for _ in range(200):
+            ssn = self.fake.ssn()
+            assert re.search(r"^\d{13}$", ssn)
+
+            day = int(ssn[0:2])
+            month = int(ssn[2:4])
+            registration_area = int(ssn[7:9])
+            checksum = int(ssn[-1])
+
+            assert 1 <= day <= 31
+            assert 1 <= month <= 12
+            assert 10 <= registration_area <= 19
+            assert sr_ba_calculate_checksum(ssn[:-1]) == checksum
+
+
 class TestSvSE(unittest.TestCase):
     def setUp(self):
         self.fake = Faker("sv_SE")
@@ -1524,3 +1551,23 @@ class TestZhTW(unittest.TestCase):
     def test_checksum(self):
         for sample in self.samples:
             assert tw_checksum(sample) % 10 == 0
+
+
+class TestMkMk(unittest.TestCase):
+    """Tests SSN (EMBG) in the mk_MK locale"""
+
+    def setUp(self):
+        self.fake = Faker("mk_MK")
+        Faker.seed(0)
+
+    def test_ssn_format(self):
+        for _ in range(100):
+            ssn = self.fake.ssn()
+            assert re.match(r"^\d{13}$", ssn), f"EMBG {ssn!r} is not 13 digits"
+
+    def test_ssn_checksum(self):
+        for _ in range(100):
+            ssn = self.fake.ssn()
+            digits = [int(c) for c in ssn[:12]]
+            expected_check = MkMKSsnProvider._checksum(digits)
+            assert int(ssn[12]) == expected_check, f"Bad checksum in {ssn}"

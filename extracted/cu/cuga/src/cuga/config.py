@@ -12,6 +12,10 @@ from dotenv import find_dotenv, load_dotenv
 from dynaconf import Dynaconf, Validator
 from loguru import logger
 
+# Default HTTP timeout for OpenAI/Azure/OpenRouter LLM clients (seconds).
+# One second above common 60s gateway limits so the client fails cleanly first.
+DEFAULT_LLM_HTTP_TIMEOUT = 61
+
 # ---------------------------------------------------------------------------
 # Package root & path helper (must be defined BEFORE first use)
 # ---------------------------------------------------------------------------
@@ -135,6 +139,7 @@ validators = [
     Validator("advanced_features.enable_web_search", default=False),
     Validator("advanced_features.execution_output_max_length", default=35000),
     Validator("advanced_features.enable_shell_tool", default=False),
+    Validator("advanced_features.enable_filesystem_tools", default=False),
     Validator("advanced_features.sandbox_mode", default="opensandbox"),
     Validator("advanced_features.cuga_lite_nl_auto_continue", default=True),
     Validator("features.chat", default=True),
@@ -179,8 +184,17 @@ validators = [
     Validator("auth.iam_proxy_ca_bundle", default=""),
     Validator("auth.role_token_source", default="auto"),
     Validator("skills.enabled", default=False),
+    Validator("skills.root", default="cuga", is_in=["cuga", "agents", "global_agents", "global_cuga"]),
+    # Phase 6: explicit execution axes — override advanced_features when set.
+    # None (default) means "read from advanced_features" (full backward-compat).
+    Validator("execution.python_backend", default=None),
+    Validator("execution.shell_backend", default=None),
+    Validator("execution.filesystem_backend", default=None),
+    Validator("execution.workspace_root", default=None),
     Validator("advanced_features.builtin_tools", default=["knowledge"]),
     Validator("advanced_features.cuga_lite_bind_tools_tool_names", default=[]),
+    Validator("advanced_features.cuga_lite_bind_tools_max_count", default=128),
+    Validator("advanced_features.cuga_lite_bind_tools_pad_to_cap", default=False),
     # Evolve integration
     Validator("evolve.enabled", default=False),
     Validator("evolve.url", default="http://127.0.0.1:8201/sse"),
@@ -191,6 +205,13 @@ validators = [
     Validator("evolve.save_on_failure", default=True),
     Validator("evolve.async_save", default=True),
     Validator("evolve.timeout", default=30.0),
+    Validator("connections.llm_http_timeout", default=DEFAULT_LLM_HTTP_TIMEOUT),
+    Validator(
+        "advanced_features.sandbox_execution_timeout",
+        default=30,
+        is_type_of=int,
+        gt=0,
+    ),
 ]
 
 EVAL_CONFIG_TOML_PATH = _find_config_file("eval_config.toml", "EVAL_CONFIG_TOML_PATH")

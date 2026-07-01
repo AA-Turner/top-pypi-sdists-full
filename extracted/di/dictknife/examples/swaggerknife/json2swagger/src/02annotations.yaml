@@ -1,8 +1,0 @@
-"#/Top/a":
-  name: X
-"#/Top/a/b":
-  name: Y
-"#/Top/a/b/c[]":
-  name: Zs
-"#/Top/a/b/c":
-  enum: [1,2,3,4,5]

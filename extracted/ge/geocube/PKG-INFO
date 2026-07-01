@@ -1,0 +1,105 @@
+Metadata-Version: 2.2
+Name: geocube
+Version: 0.7.1
+Summary: Tool to convert geopandas vector data into rasterized xarray data.
+Maintainer: geocube Contributors
+License: BSD-3-Clause
+Project-URL: homepage, https://corteva.github.io/geocube/
+Project-URL: documentation, https://corteva.github.io/geocube/
+Project-URL: repository, https://github.com/corteva/geocube
+Project-URL: changelog, https://corteva.github.io/geocube/stable/history.html
+Keywords: GDAL,rasterize,vector
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Scientific/Engineering :: GIS
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+License-File: AUTHORS.rst
+Requires-Dist: appdirs
+Requires-Dist: click>=6.0
+Requires-Dist: geopandas>=1
+Requires-Dist: odc_geo
+Requires-Dist: rasterio>=1.3
+Requires-Dist: rioxarray>=0.4
+Requires-Dist: scipy
+Requires-Dist: xarray>=0.17
+Requires-Dist: pyproj>=2
+Requires-Dist: numpy>=1.20
+
+==============
+geocube README
+==============
+
+Tool to convert geopandas vector data into rasterized xarray data.
+
+.. image:: https://badges.gitter.im/corteva--geocube/community.svg
+   :alt: Join the chat at https://gitter.im/corteva--geocube/community
+   :target: https://gitter.im/corteva--geocube/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge
+
+.. image:: https://img.shields.io/badge/all_contributors-14-orange.svg?style=flat-square
+    :alt: All Contributors
+    :target: https://github.com/corteva/geocube/blob/master/AUTHORS.rst
+
+.. image:: https://img.shields.io/badge/license-BSD%203--Clause-yellow.svg
+    :target: https://github.com/corteva/geocube/blob/master/LICENSE
+
+.. image:: https://img.shields.io/pypi/v/geocube.svg
+    :target: https://pypi.python.org/pypi/geocube
+
+.. image:: https://pepy.tech/badge/geocube
+    :target: https://pepy.tech/project/geocube
+
+.. image:: https://img.shields.io/conda/vn/conda-forge/geocube.svg
+    :target: https://anaconda.org/conda-forge/geocube
+
+.. image:: https://github.com/corteva/geocube/workflows/Tests/badge.svg
+    :target: https://github.com/corteva/geocube/actions?query=workflow%3ATests
+
+.. image:: https://ci.appveyor.com/api/projects/status/bjxhlbt5tjsonwo8/branch/master?svg=true
+    :target: https://ci.appveyor.com/project/snowman2/geocube
+
+.. image:: https://codecov.io/gh/corteva/geocube/branch/master/graph/badge.svg
+    :target: https://codecov.io/gh/corteva/geocube
+
+.. image:: https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white
+    :target: https://github.com/pre-commit/pre-commit
+
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :target: https://github.com/python/black
+
+
+.. image:: https://zenodo.org/badge/179524523.svg
+    :target: https://zenodo.org/badge/latestdoi/179524523
+
+
+Documentation
+-------------
+
+- Stable: https://corteva.github.io/geocube/stable/
+- Latest: https://corteva.github.io/geocube/latest/
+
+Bugs/Questions
+--------------
+
+- Report bugs/feature requests: https://github.com/corteva/geocube/issues
+- Ask questions: https://github.com/corteva/geocube/discussions
+- Ask developer questions: https://gitter.im/corteva--geocube/community
+- Ask questions from the GIS community: https://gis.stackexchange.com/questions/tagged/geocube
+
+Credits
+-------
+
+This package was originally templated with with Cookiecutter_.
+
+.. _Cookiecutter: https://github.com/audreyr/cookiecutter

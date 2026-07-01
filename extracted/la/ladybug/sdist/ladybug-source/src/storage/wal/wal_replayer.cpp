@@ -117,6 +117,7 @@ void WALReplayer::replayFrozenWAL(Checkpointer& checkpointer, bool throwOnWalRep
         if (isLastRecordCheckpoint) {
             ShadowFile::replayShadowPageRecords(clientContext);
             removeFileIfExists(checkpointWalPath);
+            removeFileIfExists(walPath);
             removeFileIfExists(shadowFilePath);
             checkpointer.readCheckpoint();
         } else {
@@ -243,6 +244,9 @@ void WALReplayer::replayWALRecord(WALRecord& walRecord) const {
     } break;
     case WALRecordType::CREATE_CATALOG_ENTRY_RECORD: {
         replayCreateCatalogEntryRecord(walRecord);
+    } break;
+    case WALRecordType::CREATE_INDEX_RECORD: {
+        replayCreateIndexRecord(walRecord);
     } break;
     case WALRecordType::DROP_CATALOG_ENTRY_RECORD: {
         replayDropCatalogEntryRecord(walRecord);

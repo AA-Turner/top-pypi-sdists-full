@@ -24,6 +24,10 @@ struct NoIndexPKValidator {
     virtual ~NoIndexPKValidator() = default;
     virtual void validate(const storage::ColumnChunkData& pkChunk, common::offset_t startOffset,
         common::length_t numValues) = 0;
+    // Called once after all chunks have been validated. Implementations that defer cross-chunk
+    // duplicate detection (e.g. by spilling sorted runs to disk and merging) must report any
+    // duplicate primary key here by throwing.
+    virtual void finalize() {}
 };
 
 struct NodeBatchInsertPrintInfo final : OPPrintInfo {
@@ -45,16 +49,18 @@ private:
 struct NodeBatchInsertInfo final : BatchInsertInfo {
     evaluator::evaluator_vector_t columnEvaluators;
     std::vector<common::ColumnEvaluateType> evaluateTypes;
+    bool skipDuplicatePK;
 
     NodeBatchInsertInfo(std::string tableName, std::vector<common::LogicalType> warningColumnTypes,
         std::vector<std::unique_ptr<evaluator::ExpressionEvaluator>> columnEvaluators,
-        std::vector<common::ColumnEvaluateType> evaluateTypes)
+        std::vector<common::ColumnEvaluateType> evaluateTypes, bool skipDuplicatePK)
         : BatchInsertInfo{std::move(tableName), std::move(warningColumnTypes)},
-          columnEvaluators{std::move(columnEvaluators)}, evaluateTypes{std::move(evaluateTypes)} {}
+          columnEvaluators{std::move(columnEvaluators)}, evaluateTypes{std::move(evaluateTypes)},
+          skipDuplicatePK{skipDuplicatePK} {}
 
     NodeBatchInsertInfo(const NodeBatchInsertInfo& other)
         : BatchInsertInfo{other}, columnEvaluators{copyVector(other.columnEvaluators)},
-          evaluateTypes{other.evaluateTypes} {}
+          evaluateTypes{other.evaluateTypes}, skipDuplicatePK{other.skipDuplicatePK} {}
 
     std::unique_ptr<BatchInsertInfo> copy() const override {
         return std::make_unique<NodeBatchInsertInfo>(*this);
@@ -68,6 +74,7 @@ struct NodeBatchInsertSharedState final : BatchInsertSharedState {
     std::optional<IndexBuilder> globalIndexBuilder;
     std::unique_ptr<NoIndexPKValidator> noIndexPKValidator;
     bool usePrimaryKeyIndexCommitInsert;
+    bool skipDuplicatePK;
 
     function::TableFuncSharedState* tableFuncSharedState;
 
@@ -76,12 +83,14 @@ struct NodeBatchInsertSharedState final : BatchInsertSharedState {
     // The sharedNodeGroup is to accumulate left data within local node groups in NodeBatchInsert
     // ops.
     std::unique_ptr<storage::InMemChunkedNodeGroup> sharedNodeGroup;
+    std::shared_ptr<DuplicatePKSkipResult> duplicatePKSkipResult;
 
     explicit NodeBatchInsertSharedState(std::shared_ptr<FactorizedTable> fTable)
         : BatchInsertSharedState{std::move(fTable)}, pkColumnID{0},
           globalIndexBuilder(std::nullopt), noIndexPKValidator{nullptr},
-          usePrimaryKeyIndexCommitInsert{false}, tableFuncSharedState{nullptr},
-          sharedNodeGroup{nullptr} {}
+          usePrimaryKeyIndexCommitInsert{false}, skipDuplicatePK{false},
+          tableFuncSharedState{nullptr}, sharedNodeGroup{nullptr},
+          duplicatePKSkipResult{std::make_shared<DuplicatePKSkipResult>()} {}
 
     void initPKIndex(const ExecutionContext* context);
 };
@@ -90,6 +99,7 @@ struct NodeBatchInsertLocalState final : BatchInsertLocalState {
     std::optional<NodeBatchInsertErrorHandler> errorHandler;
 
     std::optional<IndexBuilder> localIndexBuilder;
+    DuplicatePKSkipResult duplicatePKSkipResult;
 
     std::shared_ptr<common::DataChunkState> columnState;
     std::vector<common::ValueVector*> columnVectors;

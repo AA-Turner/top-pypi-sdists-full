@@ -1912,6 +1912,14 @@ class SystemDatabase(ABC):
         executor_id: Optional[List[str]] = None,
         queue_name: Optional[List[str]] = None,
         workflow_id_prefix: Optional[List[str]] = None,
+        workflow_ids: Optional[List[str]] = None,
+        forked_from: Optional[List[str]] = None,
+        parent_workflow_id: Optional[List[str]] = None,
+        user: Optional[List[str]] = None,
+        schedule_name: Optional[List[str]] = None,
+        was_forked_from: Optional[bool] = None,
+        has_parent: Optional[bool] = None,
+        attributes: Optional[Dict[str, Any]] = None,
     ) -> List[WorkflowAggregateRow]:
         if time_bucket_size_ms is not None and time_bucket_size_ms <= 0:
             raise ValueError("time_bucket_size_ms must be > 0")
@@ -2054,6 +2062,43 @@ class SystemDatabase(ABC):
                     ]
                 )
             )
+        if workflow_ids:
+            query = query.where(
+                SystemSchema.workflow_status.c.workflow_uuid.in_(workflow_ids)
+            )
+        if forked_from:
+            query = query.where(
+                SystemSchema.workflow_status.c.forked_from.in_(forked_from)
+            )
+        if parent_workflow_id:
+            query = query.where(
+                SystemSchema.workflow_status.c.parent_workflow_id.in_(
+                    parent_workflow_id
+                )
+            )
+        if user:
+            query = query.where(
+                SystemSchema.workflow_status.c.authenticated_user.in_(user)
+            )
+        if schedule_name:
+            query = query.where(
+                SystemSchema.workflow_status.c.schedule_name.in_(schedule_name)
+            )
+        if was_forked_from is not None:
+            query = query.where(
+                SystemSchema.workflow_status.c.was_forked_from == was_forked_from
+            )
+        if has_parent is not None:
+            if has_parent:
+                query = query.where(
+                    SystemSchema.workflow_status.c.parent_workflow_id.isnot(None)
+                )
+            else:
+                query = query.where(
+                    SystemSchema.workflow_status.c.parent_workflow_id.is_(None)
+                )
+        if attributes:
+            query = query.where(self._attributes_contains_clause(attributes))
 
         query = query.group_by(*group_columns)
 
@@ -2320,7 +2365,6 @@ class SystemDatabase(ABC):
 
         record_operation_result_retry()
 
-    @db_retry()
     def record_get_result(
         self,
         result_workflow_id: str,
@@ -2335,23 +2379,31 @@ class SystemDatabase(ABC):
             if ctx is None or not ctx.is_workflow():
                 return
             ctx.function_id += 1  # Record the get_result as a step
-        # Because there's no corresponding check, we do nothing on conflict
-        # and do not raise a DBOSWorkflowConflictIDError
-        sql = (
-            self.dialect.insert(SystemSchema.operation_outputs)
-            .values(
-                workflow_uuid=ctx.workflow_id,
-                function_id=ctx.function_id,
-                function_name="DBOS.getResult",
-                output=output,
-                error=error,
-                child_workflow_id=result_workflow_id,
-                serialization=serialization,
+        # Capture ids outside the retry: db_retry may re-run its body, but function_id must increment only once.
+        workflow_id = ctx.workflow_id
+        function_id = ctx.function_id
+
+        @db_retry()
+        def record() -> None:
+            # Because there's no corresponding check, we do nothing on conflict
+            # and do not raise a DBOSWorkflowConflictIDError
+            sql = (
+                self.dialect.insert(SystemSchema.operation_outputs)
+                .values(
+                    workflow_uuid=workflow_id,
+                    function_id=function_id,
+                    function_name="DBOS.getResult",
+                    output=output,
+                    error=error,
+                    child_workflow_id=result_workflow_id,
+                    serialization=serialization,
+                )
+                .on_conflict_do_nothing()
             )
-            .on_conflict_do_nothing()
-        )
-        with self.engine.begin() as c:
-            c.execute(sql)
+            with self.engine.begin() as c:
+                c.execute(sql)
+
+        record()
 
     @db_retry()
     def record_child_workflow(
@@ -2361,6 +2413,12 @@ class SystemDatabase(ABC):
         functionID: int,
         functionName: str,
     ) -> None:
+        # An empty child id is never valid; fail loudly instead of silently wedging the parent on recovery.
+        if not childUUID:
+            raise DBOSException(
+                f"Attempted to record an empty child workflow ID for parent "
+                f"{parentUUID} (function {functionID}, {functionName})."
+            )
         sql = sa.insert(SystemSchema.operation_outputs).values(
             workflow_uuid=parentUUID,
             function_id=functionID,
@@ -2372,6 +2430,19 @@ class SystemDatabase(ABC):
                 c.execute(sql)
         except DBAPIError as dbapi_error:
             if self._is_unique_constraint_violation(dbapi_error):
+                # Same child means an idempotent db_retry; a different child means nondeterminism (a real conflict).
+                with self.engine.begin() as c:
+                    existing = c.execute(
+                        sa.select(
+                            SystemSchema.operation_outputs.c.child_workflow_id
+                        ).where(
+                            SystemSchema.operation_outputs.c.workflow_uuid
+                            == parentUUID,
+                            SystemSchema.operation_outputs.c.function_id == functionID,
+                        )
+                    ).fetchone()
+                if existing is not None and existing[0] == childUUID:
+                    return
                 raise DBOSWorkflowConflictIDError(parentUUID)
             raise
 
@@ -2773,6 +2844,21 @@ class SystemDatabase(ABC):
         topic = topic if topic is not None else _dbos_null_topic
 
         with self.engine.begin() as c:
+            # Idempotency: if a prior db_retry attempt already committed, return the recorded message, not a new one.
+            recorded = c.execute(
+                sa.select(
+                    SystemSchema.operation_outputs.c.output,
+                    SystemSchema.operation_outputs.c.serialization,
+                ).where(
+                    SystemSchema.operation_outputs.c.workflow_uuid == workflow_uuid,
+                    SystemSchema.operation_outputs.c.function_id == function_id,
+                )
+            ).fetchall()
+            if len(recorded) > 0:
+                return deserialize_value(
+                    recorded[0][0], recorded[0][1], self.serializer
+                )
+
             consume_stmt = (
                 sa.update(SystemSchema.notifications)
                 .where(
@@ -3761,10 +3847,10 @@ class SystemDatabase(ABC):
             return ret_ids
 
     @db_retry()
-    def clear_queue_assignment(self, workflow_id: str) -> bool:
+    def clear_queue_assignment(self, workflow_id: str) -> None:
         with self.engine.begin() as c:
-            # Reset the status of the task to "ENQUEUED"
-            res = c.execute(
+            # Reset the task to "ENQUEUED" so the queue re-dispatches it; a no-op if the row is no longer PENDING-queued.
+            c.execute(
                 sa.update(SystemSchema.workflow_status)
                 .where(SystemSchema.workflow_status.c.workflow_uuid == workflow_id)
                 .where(SystemSchema.workflow_status.c.queue_name.isnot(None))
@@ -3776,8 +3862,6 @@ class SystemDatabase(ABC):
                     status=WorkflowStatusString.ENQUEUED.value, started_at_epoch_ms=None
                 )
             )
-            # If no rows were affected, the workflow is not anymore in the queue or was already completed
-            return res.rowcount > 0
 
     T = TypeVar("T")
 
@@ -4705,6 +4789,46 @@ class SystemDatabase(ABC):
                 raise DBOSException(
                     f"Schedule '{schedule['schedule_name']}' already exists"
                 )
+
+        if conn is not None:
+            _do(conn)
+        else:
+            with self.engine.begin() as c:
+                _do(c)
+
+    def upsert_schedule(
+        self, schedule: WorkflowSchedule, conn: Optional[sa.Connection] = None
+    ) -> None:
+        # Idempotent upsert by schedule_name; preserves schedule_id, status, and last_fired_at on conflict. The scheduler loop detects the changed definition and restarts the thread.
+        def _do(c: sa.Connection) -> None:
+            c.execute(
+                self.dialect.insert(SystemSchema.workflow_schedules)
+                .values(
+                    schedule_id=schedule["schedule_id"],
+                    schedule_name=schedule["schedule_name"],
+                    workflow_name=schedule["workflow_name"],
+                    workflow_class_name=schedule["workflow_class_name"],
+                    schedule=schedule["schedule"],
+                    status=schedule["status"],
+                    context=schedule["context"],
+                    last_fired_at=schedule.get("last_fired_at"),
+                    automatic_backfill=schedule.get("automatic_backfill", False),
+                    cron_timezone=schedule.get("cron_timezone"),
+                    queue_name=schedule.get("queue_name"),
+                )
+                .on_conflict_do_update(
+                    index_elements=["schedule_name"],
+                    set_={
+                        "workflow_name": schedule["workflow_name"],
+                        "workflow_class_name": schedule["workflow_class_name"],
+                        "schedule": schedule["schedule"],
+                        "context": schedule["context"],
+                        "automatic_backfill": schedule.get("automatic_backfill", False),
+                        "cron_timezone": schedule.get("cron_timezone"),
+                        "queue_name": schedule.get("queue_name"),
+                    },
+                )
+            )
 
         if conn is not None:
             _do(conn)

@@ -608,8 +608,10 @@ class TestSqlutils(unittest.TestCase):
         """sql_stream_with_display materialises results into IPython namespace"""
 
         mock_spark = Mock()
-        df0 = DataFrame({"a": [1]})
-        df1 = DataFrame({"b": [2]})
+        df0 = Mock(wraps=DataFrame({"a": [1]}))
+        df0.schema = Mock()
+        df1 = Mock(wraps=DataFrame({"b": [2]}))
+        df1.schema = Mock()
         mock_spark.sql.side_effect = [df0, df1]
         mock_ensure_spark.return_value = mock_spark
 
@@ -630,7 +632,8 @@ class TestSqlutils(unittest.TestCase):
     def test_sql_stream_with_display_single_result(self, mock_ensure_spark):
         """sql_stream_with_display with single result assigns directly (no indexed vars)"""
         mock_spark = Mock()
-        df0 = DataFrame({"a": [1]})
+        df0 = Mock(wraps=DataFrame({"a": [1]}))
+        df0.schema = Mock()
         mock_spark.sql.return_value = df0
         mock_ensure_spark.return_value = mock_spark
 
@@ -1847,3 +1850,177 @@ class TestCredentialRefresh(unittest.TestCase):
         # Verify credential_provider was passed
         call_args = mock_sql_helper.to_sql_config.call_args
         self.assertIn("credential_provider", call_args[1])
+
+
+class TestStreamAndCaptureMetadata(unittest.TestCase):
+    """Tests for _stream_and_capture_metadata generator wrapper."""
+
+    def setUp(self):
+        sqlutils._last_sql_execution_metadata = None
+
+    def test_captures_metadata_incrementally(self):
+        """Metadata is available even before generator is fully consumed."""
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        results = [
+            ExecutionResult(
+                statement_index=0,
+                statement="SELECT 1",
+                statement_type="SELECT",
+                result=DataFrame({"a": [1]}),
+                status="success",
+                execution_metadata={"statement_id": "s1"},
+            ),
+            ExecutionResult(
+                statement_index=1,
+                statement="SELECT 2",
+                statement_type="SELECT",
+                result=DataFrame({"b": [2]}),
+                status="success",
+                execution_metadata={"statement_id": "s2"},
+            ),
+        ]
+
+        gen = sqlutils._stream_and_capture_metadata(iter(results))
+
+        # After first yield, metadata has one entry
+        first = next(gen)
+        self.assertEqual(first.statement, "SELECT 1")
+        self.assertEqual(len(sqlutils._last_sql_execution_metadata), 1)
+
+        # After second yield, metadata has two entries
+        second = next(gen)
+        self.assertEqual(second.statement, "SELECT 2")
+        self.assertEqual(len(sqlutils._last_sql_execution_metadata), 2)
+
+        # Verify content
+        self.assertEqual(sqlutils._last_sql_execution_metadata[0]["statement_index"], 0)
+        self.assertEqual(
+            sqlutils._last_sql_execution_metadata[0]["execution_metadata"]["statement_id"], "s1"
+        )
+        self.assertEqual(sqlutils._last_sql_execution_metadata[1]["statement_index"], 1)
+
+    def test_captures_error_status(self):
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        results = [
+            ExecutionResult(
+                statement_index=0,
+                statement="BAD SQL",
+                statement_type="SELECT",
+                error="syntax error",
+                status="error",
+            ),
+        ]
+
+        gen = sqlutils._stream_and_capture_metadata(iter(results))
+        next(gen)
+
+        self.assertEqual(len(sqlutils._last_sql_execution_metadata), 1)
+        self.assertEqual(sqlutils._last_sql_execution_metadata[0]["status"], "error")
+        self.assertEqual(sqlutils._last_sql_execution_metadata[0]["error"], "syntax error")
+
+    def test_empty_stream_produces_empty_list(self):
+        gen = sqlutils._stream_and_capture_metadata(iter([]))
+        collected = list(gen)
+
+        self.assertEqual(collected, [])
+        self.assertEqual(sqlutils._last_sql_execution_metadata, [])
+
+    def test_metadata_available_after_partial_consumption(self):
+        """If consumer stops mid-stream (e.g., error raised), metadata is still populated."""
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        results = [
+            ExecutionResult(
+                statement_index=0,
+                statement="SELECT 1",
+                statement_type="SELECT",
+                result=DataFrame(),
+                status="success",
+                execution_metadata=None,
+            ),
+            ExecutionResult(
+                statement_index=1,
+                statement="SELECT 2",
+                statement_type="SELECT",
+                result=DataFrame(),
+                status="success",
+                execution_metadata=None,
+            ),
+        ]
+
+        gen = sqlutils._stream_and_capture_metadata(iter(results))
+        next(gen)  # consume only first
+
+        # Metadata has one entry even though generator isn't exhausted
+        self.assertEqual(len(sqlutils._last_sql_execution_metadata), 1)
+
+    def test_yields_results_unchanged(self):
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        original = ExecutionResult(
+            statement_index=0,
+            statement="SELECT 1",
+            statement_type="SELECT",
+            result="my_result",
+            status="success",
+        )
+
+        gen = sqlutils._stream_and_capture_metadata(iter([original]))
+        yielded = next(gen)
+
+        self.assertIs(yielded, original)
+
+    def test_includes_connection_id_and_type(self):
+        """connection_id and connection_type are added to each entry when provided."""
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        results = [
+            ExecutionResult(
+                statement_index=0,
+                statement="SELECT 1",
+                statement_type="SELECT",
+                result=DataFrame({"a": [1]}),
+                status="success",
+            ),
+            ExecutionResult(
+                statement_index=1,
+                statement="SELECT 2",
+                statement_type="SELECT",
+                result=DataFrame({"b": [2]}),
+                status="success",
+            ),
+        ]
+
+        gen = sqlutils._stream_and_capture_metadata(
+            iter(results), connection_id="conn-abc", connection_type="REDSHIFT"
+        )
+        list(gen)  # exhaust
+
+        self.assertEqual(len(sqlutils._last_sql_execution_metadata), 2)
+        self.assertEqual(sqlutils._last_sql_execution_metadata[0]["connection_id"], "conn-abc")
+        self.assertEqual(sqlutils._last_sql_execution_metadata[0]["connection_type"], "REDSHIFT")
+        self.assertEqual(sqlutils._last_sql_execution_metadata[1]["connection_id"], "conn-abc")
+        self.assertEqual(sqlutils._last_sql_execution_metadata[1]["connection_type"], "REDSHIFT")
+
+    def test_omits_connection_fields_when_none(self):
+        """When connection_id/connection_type are None, they are not in the entry."""
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        results = [
+            ExecutionResult(
+                statement_index=0,
+                statement="SELECT 1",
+                statement_type="SELECT",
+                result=DataFrame(),
+                status="success",
+            ),
+        ]
+
+        gen = sqlutils._stream_and_capture_metadata(iter(results))
+        list(gen)
+
+        entry = sqlutils._last_sql_execution_metadata[0]
+        self.assertNotIn("connection_id", entry)
+        self.assertNotIn("connection_type", entry)

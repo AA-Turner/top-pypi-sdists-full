@@ -1,0 +1,90 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools-scm>=8", "setuptools>=64"]
+
+[project]
+authors = [{ name = "The PyVista developers", email = "info@pyvista.org" }]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = ["pyvista>=0.45.0", "tqdm>=4.0.0", "zstandard>=0.24.0"]
+description = "VTK zstandard compression library."
+dynamic = ["version"]
+license = "MIT"
+license-files = ["LICENSE"]
+name = "pyvista-zstd"
+readme = "README.rst"
+requires-python = ">=3.10"
+
+[project.entry-points."pyvista.readers"]
+".pv" = "pyvista_zstd:read"
+".zvtk" = "pyvista_zstd:read"
+
+[project.entry-points."pyvista.writers"]
+".pv" = "pyvista_zstd:write"
+".zvtk" = "pyvista_zstd:write"
+
+[project.urls]
+Home = "https://github.com/pyvista/pyvista-zstd"
+
+
+[project.optional-dependencies]
+docs = [
+  "numpydoc==1.10.0",
+  "sphinx-book-theme==1.2.0",
+  "sphinx-copybutton==0.5.2",
+  "sphinx-gallery==0.21.0",
+  "sphinx-notfound-page==1.1.0",
+  "sphinx==9.1.0",
+]
+tests = ["pytest-cov==7.1.0", "pytest>=6.2.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools_scm]
+fallback_version = "0.0.0.dev0"
+git_describe_command = "git describe --dirty --tags --long --match v*"
+tag_regex = "^v(?P<version>[0-9]+\\.[0-9]+\\.[0-9]+(?:[abrc][0-9]+)?(?:\\.post[0-9]+)?(?:\\.dev[0-9]+)?)$"
+version_file = "src/pyvista_zstd/_version.py"
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.ruff]
+exclude = ['.git', 'build', 'dist', 'doc/_build', 'doc/examples', 'pycache__']
+indent-width = 4
+line-length = 120
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+ignore = ["COM812", "D203", "D212", "ISC001"]
+select = ["ALL"]
+
+[tool.ruff.lint.isort]
+# Sort by name, don't cluster "from" vs "import"
+force-sort-within-sections = true
+# Combines "as" imports on the same line
+combine-as-imports = true
+force-single-line = true
+required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.per-file-ignores]
+"doc/**" = ["INP001"]
+"tests/**" = ["ANN001", "INP001", "S101"]
+
+[tool.ruff.lint.pyupgrade]
+# Preserve types, even if a file imports `from __future__ import annotations`.
+keep-runtime-typing = true
+
+[tool.pytest.ini_options]
+addopts = "--cov=pyvista_zstd --cov-fail-under=90"
+testpaths = 'tests'

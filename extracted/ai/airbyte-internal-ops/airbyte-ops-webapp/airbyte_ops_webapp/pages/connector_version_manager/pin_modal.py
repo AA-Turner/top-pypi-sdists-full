@@ -21,12 +21,14 @@ from prefab_ui.components.control_flow import Else, If
 from prefab_ui.rx import ERROR, RESULT, STATE
 
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
+    EMPTY_PIN_STATE,
     fail_tool_call,
     finish_tool_call,
     start_tool_call,
 )
 from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
     apply_override,
+    load_version_pins,
     resolve_scope_guid,
 )
 from airbyte_ops_webapp.theme import (
@@ -182,12 +184,53 @@ def _render_apply_section() -> None:
                         "auth_bearer_token": STATE.auth_bearer_token,
                         "customer_tier_filter": STATE.customer_tier_filter,
                         "force": False,
+                        "google_access_token": STATE.google_access_token,
                     },
                     on_success=[
                         *finish_tool_call(),
                         SetState("apply_result_json", RESULT.apply_result_json),
                         SetState("apply_message", RESULT.apply_message),
                         SetState("apply_success", RESULT.apply_success),
+                        *start_tool_call("Refreshing pins\u2026"),
+                        CallTool(
+                            load_version_pins,
+                            arguments={
+                                "version_id": STATE.selected_version_id,
+                                "version_tag": STATE.selected_version_tag,
+                                "auth_bearer_token": STATE.auth_bearer_token,
+                                "offset": 0,
+                            },
+                            on_success=[
+                                *finish_tool_call(),
+                                SetState("version_pins", RESULT.version_pins),
+                                SetState(
+                                    "version_pins_total",
+                                    RESULT.version_pins_total,
+                                ),
+                                SetState(
+                                    "version_pins_offset",
+                                    RESULT.version_pins_offset,
+                                ),
+                                SetState(
+                                    "show_load_more_pins",
+                                    RESULT.show_load_more_pins,
+                                ),
+                                SetState(
+                                    "all_pins_loaded",
+                                    RESULT.all_pins_loaded,
+                                ),
+                                SetState("selected_pin_index", -1),
+                                SetState("selected_pin_checks", []),
+                                SetState("selected_pin", EMPTY_PIN_STATE),
+                                SetState("resolved_pin_scope_name", ""),
+                                SetState("resolved_pin_scope_url", ""),
+                                SetState("resolved_pin_workspace_name", ""),
+                                SetState("resolved_pin_workspace_url", ""),
+                                SetState("resolved_pin_org_name", ""),
+                                SetState("resolved_pin_org_url", ""),
+                            ],
+                            on_error=fail_tool_call("Pin list refresh failed."),
+                        ),
                     ],
                     on_error=fail_tool_call(ERROR),
                 ),

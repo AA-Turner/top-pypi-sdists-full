@@ -53,9 +53,6 @@ def _safe_get_renderer(fig):
 def _descent_from_layout(layout):
     """Extract a scalar typographic descent (in display units) from ``Text._get_layout``.
 
-    mpl < 3.11 returned ``(bbox, lines, descent)`` with ``descent`` a scalar
-    measuring the descent below the baseline, independent of the text's ``va``.
-
     mpl >= 3.11 returns ``(bbox, lines, (xy_corner, size))`` where ``xy_corner``
     is relative to the text *anchor* (which shifts with ``va``), so it must not
     be used directly.  Instead, the per-line ``wad = (width, ascent, descent)``
@@ -63,14 +60,17 @@ def _descent_from_layout(layout):
     ``va``.
     """
     third = layout[2]
-    if isinstance(third, tuple) and isinstance(third[0], tuple):
-        # mpl >= 3.11: use per-line wad for va-independent typographic descent
-        lines_data = layout[1]
-        if lines_data:
-            wad = lines_data[0][1]  # (width, ascent, descent) for first line
-            return float(wad[2])
-        return 0.0
-    return float(third)  # mpl < 3.11: direct scalar descent
+    if not (isinstance(third, tuple) and isinstance(third[0], tuple)):
+        msg = (
+            f"Unexpected Text._get_layout format: layout[2]={third!r}. "
+            "The private matplotlib API may have changed."
+        )
+        raise TypeError(msg)
+    lines_data = layout[1]
+    if lines_data:
+        wad = lines_data[0][1]  # (width, ascent, descent) for first line
+        return float(wad[2])
+    return 0.0
 
 
 class ExpLabel(mtext.Text):
@@ -313,6 +313,27 @@ def _parse_loc_to_xy(loc):
     raise ValueError(error_msg)
 
 
+def _apply_latex_font_commands(text: str, **kwargs: Any) -> str:
+    """Wrap text in LaTeX font commands based on fontweight/fontstyle kwargs.
+
+    Only applies when ``rcParams["text.usetex"]`` is True and text is non-empty.
+    The order is ``\\textbf{\\textit{...}}`` when both bold and italic are requested.
+    """
+    if not (rcParams.get("text.usetex", False) and text):
+        return text
+    fontweight = kwargs.get("fontweight", "normal")
+    fontstyle = kwargs.get("fontstyle", "normal")
+    is_bold = fontweight in ("bold", 700, "heavy")
+    is_italic = fontstyle in ("italic", "oblique")
+    if is_bold and is_italic:
+        return rf"\textbf{{\textit{{{text}}}}}"
+    if is_bold:
+        return rf"\textbf{{{text}}}"
+    if is_italic:
+        return rf"\textit{{{text}}}"
+    return text
+
+
 def add_text(
     text: str,
     loc: str | None = None,
@@ -464,21 +485,7 @@ def add_text(
         raise TypeError(msg)
 
     # When using LaTeX, wrap text in appropriate commands based on fontweight and fontstyle
-    _text = text
-    if rcParams.get("text.usetex", False) and text:
-        fontweight = kwargs.get("fontweight", "normal")
-        fontstyle = kwargs.get("fontstyle", "normal")
-
-        # Apply both bold and italic if needed (order matters: textbf outside textit)
-        is_bold = fontweight in ("bold", 700, "heavy")
-        is_italic = fontstyle in ("italic", "oblique")
-
-        if is_bold and is_italic:
-            _text = rf"\textbf{{\textit{{{_text}}}}}"
-        elif is_bold:
-            _text = rf"\textbf{{{_text}}}"
-        elif is_italic:
-            _text = rf"\textit{{{_text}}}"
+    _text = _apply_latex_font_commands(text, **kwargs)
 
     t = text_class(
         float(x), float(y), _text, fontsize=_font_size, transform=transform, **kwargs
@@ -631,21 +638,7 @@ def append_text(
         _x = _debug_x_override
 
     # When using LaTeX, wrap text in appropriate commands based on fontweight and fontstyle
-    _s = s
-    if rcParams.get("text.usetex", False) and s:
-        fontweight = kwargs.get("fontweight", "normal")
-        fontstyle = kwargs.get("fontstyle", "normal")
-
-        # Apply both bold and italic if needed (order matters: textbf outside textit)
-        is_bold = fontweight in ("bold", 700, "heavy")
-        is_italic = fontstyle in ("italic", "oblique")
-
-        if is_bold and is_italic:
-            _s = rf"\textbf{{\textit{{{_s}}}}}"
-        elif is_bold:
-            _s = rf"\textbf{{{_s}}}"
-        elif is_italic:
-            _s = rf"\textit{{{_s}}}"
+    _s = _apply_latex_font_commands(s, **kwargs)
 
     txt_artist = text_class(_x, _y, _s, va=va, ha=ha, transform=ax.transAxes, **kwargs)
     ax._add_text(txt_artist)  # type: ignore[attr-defined]
@@ -869,7 +862,6 @@ def exp_text(
     reason='Use `fontweight=("bold", "normal", "normal", "normal")` instead.',
     removed=True,
 )
-@deprecate_parameter("pub", reason='Use `supp="..."` instead.')
 def exp_label(
     *,
     exp: str = "",
@@ -971,7 +963,7 @@ def exp_label(
     >>> # Custom positioning and formatting
     >>> mh.exp_label(exp="ATLAS", loc=4, lumi=139, lumi_format="{0:.0f}")
     """
-    if label is not None and text is None:
+    if label is not None and not text:
         text = label
     if rlabel is None:
         lumi_func = _lumi_line_atlas if loc == 4 else _lumi_line
@@ -1080,27 +1072,27 @@ def savelabels(
 
     _sim = "Simulation" if "Simulation" in label_base.get_text() else ""
 
+    def _construct_filename(base_fname: str, suffix: str) -> str:
+        """Construct output filename from base name and suffix."""
+        if "." in suffix:  # suffix is absolute path
+            return suffix
+
+        # Add underscore prefix to non-empty suffixes
+        if suffix:
+            suffix = f"_{suffix}"
+
+        # Handle extension
+        if "." in base_fname:
+            name_parts = base_fname.rsplit(
+                ".", 1
+            )  # Split from right to handle multiple dots
+            return f"{name_parts[0]}{suffix}.{name_parts[1]}"
+        return f"{base_fname}{suffix}"
+
     # At this point, labels is guaranteed to be list[tuple[str, str]]
     tuple_labels: list[tuple[str, str]] = labels  # type: ignore[assignment]
     for label_text, suffix in tuple_labels:
         label_base.set_text(f"{_sim} {label_text}".lstrip())
-
-        def _construct_filename(base_fname: str, suffix: str) -> str:
-            """Construct output filename from base name and suffix."""
-            if "." in suffix:  # suffix is absolute path
-                return suffix
-
-            # Add underscore prefix to non-empty suffixes
-            if suffix:
-                suffix = f"_{suffix}"
-
-            # Handle extension
-            if "." in base_fname:
-                name_parts = base_fname.rsplit(
-                    ".", 1
-                )  # Split from right to handle multiple dots
-                return f"{name_parts[0]}{suffix}.{name_parts[1]}"
-            return f"{base_fname}{suffix}"
 
         save_name = _construct_filename(fname, suffix)
 
@@ -1132,11 +1124,9 @@ def save_variations(
     if text_list is None:
         text_list = ["Preliminary", ""]
 
-    from mplhep.label import ExpText  # noqa: PLC0415
-
     for text in text_list:
         for ax in fig.get_axes():
-            exp_labels = [t for t in ax.get_children() if isinstance(t, ExpText)]
+            exp_labels = [t for t in ax.get_children() if isinstance(t, ExpLabel)]
             suffixes = [t for t in ax.get_children() if isinstance(t, ExpText)]
             for exp_label, suffix_text in zip(exp_labels, suffixes, strict=True):
                 if exp is not None:

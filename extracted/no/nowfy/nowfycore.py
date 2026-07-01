@@ -1,1 +1,0 @@
-from nowfy.core import *

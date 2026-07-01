@@ -1,0 +1,408 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: "3"
+silent: true
+env:
+  PROJECT:
+    sh: 'echo "$(basename $(pwd))"'
+  LOCAL_BIN_PATH:
+    sh: 'echo "{{.ROOT_DIR}}/.venv/bin"'
+  BUILD_DATE:
+    sh: "date '+%Y-%m-%d-%H:%M:%S'"
+  BUILD_DATE_SHORT:
+    sh: "date '+%Y-%m-%d-%H%M%S'"
+  GIT_LATEST_TAG:
+    sh: 'git tag -l 2>/dev/null | sort -r -V | head -n 1 2>/dev/null || echo "not a git repo"'
+  TERM: screen-256color
+  DOCS_PATH: "{{.ROOT_DIR}}/docs"
+  PYTHON_VENV_PATH: "{{.ROOT_DIR}}/.venv"
+  SCRIPT_PATH: "{{.ROOT_DIR}}/scripts"
+  VERSION: '{{default "unknown" .GIT_LATEST_TAG}}'
+  COMPOSE_BAKE: true
+
+dotenv:
+  - ".env"
+  - ".SECRETS.env"
+
+includes:
+  docker:
+    taskfile: ./tasks/Taskfile.docker.yml
+    optional: true
+  github:
+    taskfile: ./tasks/Taskfile.github.yml
+    optional: true
+  python:
+    taskfile: ./tasks/Taskfile.python.yml
+    optional: true
+  mcp:
+    taskfile: ./tasks/Taskfile.mcp.yml
+    optional: true
+
+tasks:
+  default:
+    cmds:
+      - |
+        task -l
+
+  show:
+    desc: Show task variables
+    cmds:
+      - |
+        echo "ROOT_PATH: {{.ROOT_DIR}}"
+        echo "PROJECT: {{.PROJECT}}"
+        echo "VERSION: {{.VERSION}}"
+        echo "OS: {{OS}}"
+        echo "ARCH: {{ARCH}}"
+        echo "LOCAL_BIN_PATH: {{.LOCAL_BIN_PATH}}"
+        echo "PYTHON_VENV_PATH: {{.PYTHON_VENV_PATH}}"
+        echo "SCRIPT_PATH: {{.SCRIPT_PATH}}"
+        echo "BUILD_DATE: {{.BUILD_DATE}}"
+        echo "GIT_LATEST_TAG: {{.GIT_LATEST_TAG}}"
+
+  show:all:
+    desc: Show all variables for task namespaces
+    cmds:
+      - |
+        echo "## Show ##";
+        task show
+        echo ""
+        for taskitem in $(task -l | cut -d " " -f2 | grep show | sed 's/.$//'); do
+          if [[ "$taskitem" != "show:all" ]]; then
+            echo "## Show - ${taskitem} ##";
+            task $taskitem;
+            echo "";
+          fi
+        done
+
+  list:
+    desc: List tasks by namespace (task list -- <namespace>)
+    cmds:
+      - |
+        if [[ "{{.CLI_ARGS}}" != "" ]]; then
+          task -l | grep {{default "" .CLI_ARGS}}
+        else
+          task -l
+        fi
+
+  toc:
+    desc: Update the table of contents in README.md
+    cmds:
+      - uv pip install -e ".[docs]"
+      - uv run mdtoc README.md
+
+  secrets:
+    desc: Create template .SECRETS file if one does not already exist.
+    cmds:
+      - cp ./config/.SECRETS.example.env ./.SECRETS.env
+    status:
+      - "test -f .SECRETS.env"
+
+  autocomplete:
+    desc: Setup task autocomplete (zsh)
+    cmds:
+      - sudo curl https://raw.githubusercontent.com/go-task/task/main/completion/zsh/_task \
+        -o /usr/local/share/zsh/site-functions/_task
+    status:
+      - "test -f /usr/local/share/zsh/site-functions/_task"
+
+  install:
+    desc: Install everything required to run most scripts.
+    cmds:
+      - |
+        uv sync
+
+  run:
+    desc: Run the app
+    cmds:
+      - |
+        uv run -m metagit_detect.example
+
+  lint:
+    desc: Run python linting
+    cmds:
+      - |
+        uv run ruff check .
+        uv run ruff format --check .
+
+  lint:fix:
+    desc: Run python linting and fix issues
+    cmds:
+      - |
+        uv run ruff check --fix .
+
+  format:
+    desc: Run python formatting
+    cmds:
+      - |
+        uv run ruff format .
+  
+  start:mcp:
+    desc: Start MCP servers
+    cmds:
+      - |
+        docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN} -e GITHUB_READ_ONLY=1 -e GITHUB_DYNAMIC_TOOLSETS=1 ghcr.io/github/github-mcp-server
+  
+  fake:workspace:
+    desc: Create a test workspace folder structure with 10 projects
+    cmds:
+      - |
+        for i in {1..10}; do
+          echo "Creating workspace $i"
+          mkdir -p "./.metagit/default/project-$i"
+        done
+
+  docs:
+    desc: Build the docs
+    cmds:
+      - task: generate:schema
+      - uv run python scripts/sync_docs_changelog.py
+      - |
+        uv pip install -e ".[docs]"
+        #gemini -y -p 'You are an expert devops and software engineer. Explore this project for its use of secrets and variables paying special attention to only those affecting the runtime behavior of the code and the cicd workflows used to release the projects artifacts. Create a report in ./docs/secrets.analysis.md on each of the secrets found and were they are sourced from. Using this data create a yaml file at ./docs/secrets.definitions.yml that represents the secrets, their provenance, and where they should be placed.'
+        #gemini -y -p 'Perform a comprehensive analysis of the files in this project. Update the yaml file named .metagit.example.yml in the root of this project in a manner that adheres to the jsonschema file located at ./schemas/metagit_config.schema.json. Ensure you skip files matching the patterns in .gitignore. Do your best to update even optional elements of this schema. Pay special attention to dependencies found in Dockerfiles, CICD files, and mcp definitions. When complete also create ./docs/app.logic.md with additional documentation on the project components that includes a mermaid diagram of how they interact.'
+        uv run mkdocs build --strict
+
+  docs:links:
+    desc: Validate links in README.md and docs/**/*.md
+    cmds:
+      - zsh ./scripts/check-doc-links.zsh
+
+  test:
+    desc: Run the tests
+    cmds:
+      - |
+        uv pip install -e ".[test]"
+        uv run pytest --maxfail=1 --disable-warnings -v tests
+
+  validate:manifests:
+    desc: Validate curated .metagit.yml manifest fixtures
+    cmds:
+      - uv run python scripts/validate-manifest-fixtures.py
+
+  qa:prepush:
+    desc: Token-optimized local pre-push quality gate
+    cmds:
+      - |
+        zsh ./scripts/prepush-gate.zsh
+
+  qa:prepush:loop:
+    desc: Repeat local pre-push gate (use -- rounds=N)
+    cmds:
+      - |
+        zsh ./scripts/prepush-gate.zsh --loop --rounds={{default "3" .CLI_ARGS}}
+
+  skills:sync:
+    desc: Sync local skills into .cursor/skills mirrors
+    cmds:
+      - |
+        uv run python - <<'PY'
+        from pathlib import Path
+        import shutil
+
+        src_root = Path("skills")
+        dst_root = Path(".cursor/skills")
+        dst_root.mkdir(parents=True, exist_ok=True)
+
+        source_skill_dirs = [p for p in src_root.iterdir() if p.is_dir()]
+        for src_dir in source_skill_dirs:
+            dst_dir = dst_root / src_dir.name
+            if dst_dir.exists():
+                shutil.rmtree(dst_dir)
+            shutil.copytree(src_dir, dst_dir)
+            print(f"synced {src_dir} -> {dst_dir}")
+        PY
+      - uv run python scripts/tag_internal_skills.py
+
+  skills:tag-internal:
+    desc: Ensure non-skills/ SKILL.md copies carry metadata.internal true
+    cmds:
+      - uv run python scripts/tag_internal_skills.py
+
+  skills:validate-internal:
+    desc: Validate internal SKILL.md metadata (excluding skills/)
+    cmds:
+      - uv run python scripts/tag_internal_skills.py --check
+
+  typecheck:
+    desc: Run the type checker
+    cmds:
+      - |
+        uv run mypy metagit/core
+
+  secret:search:
+    desc: Find secrets in the codebase and in git history
+    cmds:
+      - |
+        gitleaks detect --source ./ -f json -r secret_results.json
+
+  tags:cleanup:preview:
+    desc: Preview legacy non-v tags below safety floor (default keep >= 0.8.0)
+    cmds:
+      - |
+        python3 scripts/delete_legacy_tags.py
+
+  tags:cleanup:apply:
+    desc: Delete legacy non-v tags below safety floor locally and on origin (requires confirmation)
+    cmds:
+      - |
+        python3 scripts/delete_legacy_tags.py --apply
+
+  tags:cleanup:prefixed:preview:
+    desc: Preview v-prefixed tags that would be deleted
+    cmds:
+      - |
+        python3 scripts/delete_legacy_tags.py --target-v-prefix
+
+  tags:cleanup:prefixed:apply:
+    desc: Delete v-prefixed tags locally and on origin (requires confirmation)
+    cmds:
+      - |
+        python3 scripts/delete_legacy_tags.py --target-v-prefix --no-safety-floor --apply
+
+  release:next:
+    desc: Compute next release version from git history using workflow rules
+    cmds:
+      - |
+        python3 scripts/release_next_version.py
+  
+  build:
+    desc: Build the project
+    cmds:
+      - |
+        uv build
+
+  clean:
+    desc: Clean the project
+    cmds:
+      - |
+        find . -type d -name "__pycache__" -exec rm -rf {} +
+        find . -type d -name "*.egg-info" -exec rm -rf {} +
+        find . -type f -name ".DS_Store" -delete
+        find . -type f -name "*.pyc" -delete
+        find . -type f -name "*.pyo" -delete
+        rm -rf .mypy_cache
+        rm -rf .pytest_cache
+        rm -rf .ruff_cache
+        rm -rf dist
+        rm -rf .coverage
+        rm -rf .coverage.*
+        rm -rf .coverage.xml
+        rm -rf .DS_Store
+        rm -rf .pytest_cache
+        rm -rf .venv
+        rm -rf src/metagit/_version.py
+
+
+  deep:clean:
+    desc: Clean the project deeply. Includes uv cache removal.
+    cmds:
+      - uv cache clean
+      - task: clean
+
+  generate:schema:
+    desc: Generate the schema for the config and appconfig files
+    cmds:
+      - |
+        uv pip install -e .
+        uv run metagit config schema --output-path ./schemas/metagit_config.schema.json
+        uv run metagit appconfig schema --output-path ./schemas/metagit_appconfig.schema.json
+        uv run metagit agent schema --output-path ./schemas/agent_template.schema.json
+        mkdir -p docs/reference/schemas
+        cp ./schemas/metagit_config.schema.json docs/reference/schemas/metagit_config.schema.json
+        cp ./schemas/metagit_appconfig.schema.json docs/reference/schemas/metagit_appconfig.schema.json
+        cp ./schemas/agent_template.schema.json docs/reference/schemas/agent_template.schema.json
+        uv run metagit config example --output docs/reference/metagit-config.full-example.yml
+
+  repomix:
+    desc: Run the repo mixin
+    cmds:
+      - |
+        repomix --style=markdown --output=docs/llm.txt --compress
+        repomix --style=markdown --output=docs/llm-detailed.txt
+
+  repomix:profile:
+    desc: Run repomix with a token-budgeted context profile (PROFILE=bugfix-local)
+    vars:
+      PROFILE: '{{.PROFILE | default "bugfix-local"}}'
+      PROJECT: '{{.PROJECT | default ""}}'
+      REPO: '{{.REPO | default ""}}'
+      OUTPUT: '{{.OUTPUT | default ""}}'
+    cmds:
+      - |
+        if [[ -z "{{.PROJECT}}" || -z "{{.REPO}}" ]]; then
+          echo "Usage: task repomix:profile PROFILE=bugfix-local PROJECT=myproj REPO=myrepo [OUTPUT=/tmp/out.md]"
+          exit 1
+        fi
+        ARGS=(context repomix --profile "{{.PROFILE}}" --project "{{.PROJECT}}" --repo "{{.REPO}}")
+        if [[ -n "{{.OUTPUT}}" ]]; then
+          ARGS+=(--output "{{.OUTPUT}}")
+        fi
+        uv run metagit "${ARGS[@]}"
+
+  update:github:actions:
+    desc: Update GitHub Actions in workflows
+    cmds:
+      - npx actions-up -y
+
+  skills:validate:
+    desc: Validate every SKILL.md under skills/ (frontmatter, naming, required fields)
+    cmds:
+      - |
+        uv pip install -e ".[dev]"
+        uv run python scripts/validate_skills.py
+
+  web:install:
+    desc: Install web UI dependencies
+    dir: web
+    cmds:
+      - npm ci || npm install
+
+  web:assets:
+    desc: Generate optimized web assets (header logo from docs/inc)
+    cmds:
+      - uv run python scripts/generate_web_logo.py
+
+  web:build:
+    desc: Build web UI into package data (not part of qa:prepush — run explicitly when changing web/)
+    deps: [web:install, web:assets]
+    dir: web
+    cmds:
+      - npm run build
+
+  web:dev:
+    desc: Run Vite dev server
+    dir: web
+    cmds:
+      - npm run dev
+
+  security:deps:
+    desc: Frozen sync all extras and audit dependencies (pip-audit)
+    cmds:
+      - |
+        uv sync --frozen --all-extras
+        uv run pip-audit
+
+  security:bandit:
+    desc: Bandit SAST on src/
+    cmds:
+      - |
+        uv run bandit -r src -ll
+
+  security:gate:
+    desc: Fast security gate without lockfile sync (pip-audit + bandit)
+    cmds:
+      - |
+        uv run pip-audit
+        uv run bandit -r src -ll
+
+  security:scan:
+    desc: Full Python security scans (sync + pip-audit + bandit)
+    cmds:
+      - task: security:deps
+      - task: security:bandit
+  
+  gitnexus:analyze:
+    desc: Run gitnexus analyze
+    cmds:
+      - npx gitnexus analyze --skip-agents-md
+      - uv run python scripts/tag_internal_skills.py

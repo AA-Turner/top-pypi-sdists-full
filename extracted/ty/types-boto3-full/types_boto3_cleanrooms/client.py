@@ -40,6 +40,8 @@ from .paginator import (
     ListConfiguredTablesPaginator,
     ListIdMappingTablesPaginator,
     ListIdNamespaceAssociationsPaginator,
+    ListIntermediateTablesPaginator,
+    ListIntermediateTableVersionsPaginator,
     ListMembershipsPaginator,
     ListMembersPaginator,
     ListPrivacyBudgetsPaginator,
@@ -75,6 +77,10 @@ from .type_defs import (
     CreateIdMappingTableOutputTypeDef,
     CreateIdNamespaceAssociationInputTypeDef,
     CreateIdNamespaceAssociationOutputTypeDef,
+    CreateIntermediateTableAnalysisRuleInputTypeDef,
+    CreateIntermediateTableAnalysisRuleOutputTypeDef,
+    CreateIntermediateTableInputTypeDef,
+    CreateIntermediateTableOutputTypeDef,
     CreateMembershipInputTypeDef,
     CreateMembershipOutputTypeDef,
     CreatePrivacyBudgetTemplateInputTypeDef,
@@ -88,9 +94,12 @@ from .type_defs import (
     DeleteConfiguredTableInputTypeDef,
     DeleteIdMappingTableInputTypeDef,
     DeleteIdNamespaceAssociationInputTypeDef,
+    DeleteIntermediateTableAnalysisRuleInputTypeDef,
+    DeleteIntermediateTableInputTypeDef,
     DeleteMemberInputTypeDef,
     DeleteMembershipInputTypeDef,
     DeletePrivacyBudgetTemplateInputTypeDef,
+    DisallowIntermediateTableInputTypeDef,
     GetAnalysisTemplateInputTypeDef,
     GetAnalysisTemplateOutputTypeDef,
     GetCollaborationAnalysisTemplateInputTypeDef,
@@ -119,6 +128,10 @@ from .type_defs import (
     GetIdMappingTableOutputTypeDef,
     GetIdNamespaceAssociationInputTypeDef,
     GetIdNamespaceAssociationOutputTypeDef,
+    GetIntermediateTableAnalysisRuleInputTypeDef,
+    GetIntermediateTableAnalysisRuleOutputTypeDef,
+    GetIntermediateTableInputTypeDef,
+    GetIntermediateTableOutputTypeDef,
     GetMembershipInputTypeDef,
     GetMembershipOutputTypeDef,
     GetPrivacyBudgetTemplateInputTypeDef,
@@ -157,6 +170,10 @@ from .type_defs import (
     ListIdMappingTablesOutputTypeDef,
     ListIdNamespaceAssociationsInputTypeDef,
     ListIdNamespaceAssociationsOutputTypeDef,
+    ListIntermediateTablesInputTypeDef,
+    ListIntermediateTablesOutputTypeDef,
+    ListIntermediateTableVersionsInputTypeDef,
+    ListIntermediateTableVersionsOutputTypeDef,
     ListMembershipsInputTypeDef,
     ListMembershipsOutputTypeDef,
     ListMembersInputTypeDef,
@@ -175,6 +192,8 @@ from .type_defs import (
     ListTagsForResourceOutputTypeDef,
     PopulateIdMappingTableInputTypeDef,
     PopulateIdMappingTableOutputTypeDef,
+    PopulateIntermediateTableInputTypeDef,
+    PopulateIntermediateTableOutputTypeDef,
     PreviewPrivacyImpactInputTypeDef,
     PreviewPrivacyImpactOutputTypeDef,
     StartProtectedJobInputTypeDef,
@@ -203,6 +222,10 @@ from .type_defs import (
     UpdateIdMappingTableOutputTypeDef,
     UpdateIdNamespaceAssociationInputTypeDef,
     UpdateIdNamespaceAssociationOutputTypeDef,
+    UpdateIntermediateTableAnalysisRuleInputTypeDef,
+    UpdateIntermediateTableAnalysisRuleOutputTypeDef,
+    UpdateIntermediateTableInputTypeDef,
+    UpdateIntermediateTableOutputTypeDef,
     UpdateMembershipInputTypeDef,
     UpdateMembershipOutputTypeDef,
     UpdatePrivacyBudgetTemplateInputTypeDef,
@@ -400,6 +423,26 @@ class CleanRoomsServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#create_id_namespace_association)
         """
 
+    def create_intermediate_table(
+        self, **kwargs: Unpack[CreateIntermediateTableInputTypeDef]
+    ) -> CreateIntermediateTableOutputTypeDef:
+        """
+        Creates an intermediate table in a membership.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/create_intermediate_table.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#create_intermediate_table)
+        """
+
+    def create_intermediate_table_analysis_rule(
+        self, **kwargs: Unpack[CreateIntermediateTableAnalysisRuleInputTypeDef]
+    ) -> CreateIntermediateTableAnalysisRuleOutputTypeDef:
+        """
+        Creates an analysis rule for an intermediate table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/create_intermediate_table_analysis_rule.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#create_intermediate_table_analysis_rule)
+        """
+
     def create_membership(
         self, **kwargs: Unpack[CreateMembershipInputTypeDef]
     ) -> CreateMembershipOutputTypeDef:
@@ -512,6 +555,26 @@ class CleanRoomsServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#delete_id_namespace_association)
         """
 
+    def delete_intermediate_table(
+        self, **kwargs: Unpack[DeleteIntermediateTableInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes an intermediate table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/delete_intermediate_table.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#delete_intermediate_table)
+        """
+
+    def delete_intermediate_table_analysis_rule(
+        self, **kwargs: Unpack[DeleteIntermediateTableAnalysisRuleInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes an analysis rule from an intermediate table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/delete_intermediate_table_analysis_rule.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#delete_intermediate_table_analysis_rule)
+        """
+
     def delete_member(self, **kwargs: Unpack[DeleteMemberInputTypeDef]) -> dict[str, Any]:
         """
         Removes the specified member from a collaboration.
@@ -536,6 +599,17 @@ class CleanRoomsServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/delete_privacy_budget_template.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#delete_privacy_budget_template)
+        """
+
+    def disallow_intermediate_table(
+        self, **kwargs: Unpack[DisallowIntermediateTableInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Invalidates a specific intermediate table that references the caller's base
+        table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/disallow_intermediate_table.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#disallow_intermediate_table)
         """
 
     def get_analysis_template(
@@ -676,6 +750,26 @@ class CleanRoomsServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/get_id_namespace_association.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#get_id_namespace_association)
+        """
+
+    def get_intermediate_table(
+        self, **kwargs: Unpack[GetIntermediateTableInputTypeDef]
+    ) -> GetIntermediateTableOutputTypeDef:
+        """
+        Retrieves an intermediate table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/get_intermediate_table.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#get_intermediate_table)
+        """
+
+    def get_intermediate_table_analysis_rule(
+        self, **kwargs: Unpack[GetIntermediateTableAnalysisRuleInputTypeDef]
+    ) -> GetIntermediateTableAnalysisRuleOutputTypeDef:
+        """
+        Retrieves the analysis rule for an intermediate table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/get_intermediate_table_analysis_rule.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#get_intermediate_table_analysis_rule)
         """
 
     def get_membership(
@@ -868,6 +962,26 @@ class CleanRoomsServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#list_id_namespace_associations)
         """
 
+    def list_intermediate_table_versions(
+        self, **kwargs: Unpack[ListIntermediateTableVersionsInputTypeDef]
+    ) -> ListIntermediateTableVersionsOutputTypeDef:
+        """
+        Lists the version history of an intermediate table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/list_intermediate_table_versions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#list_intermediate_table_versions)
+        """
+
+    def list_intermediate_tables(
+        self, **kwargs: Unpack[ListIntermediateTablesInputTypeDef]
+    ) -> ListIntermediateTablesOutputTypeDef:
+        """
+        Lists intermediate tables owned by the caller in a membership.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/list_intermediate_tables.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#list_intermediate_tables)
+        """
+
     def list_members(self, **kwargs: Unpack[ListMembersInputTypeDef]) -> ListMembersOutputTypeDef:
         """
         Lists all members within a collaboration.
@@ -954,6 +1068,17 @@ class CleanRoomsServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/populate_id_mapping_table.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#populate_id_mapping_table)
+        """
+
+    def populate_intermediate_table(
+        self, **kwargs: Unpack[PopulateIntermediateTableInputTypeDef]
+    ) -> PopulateIntermediateTableOutputTypeDef:
+        """
+        Executes the stored query of an intermediate table to materialize data into
+        managed storage.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/populate_intermediate_table.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#populate_intermediate_table)
         """
 
     def preview_privacy_impact(
@@ -1103,6 +1228,26 @@ class CleanRoomsServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/update_id_namespace_association.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#update_id_namespace_association)
+        """
+
+    def update_intermediate_table(
+        self, **kwargs: Unpack[UpdateIntermediateTableInputTypeDef]
+    ) -> UpdateIntermediateTableOutputTypeDef:
+        """
+        Updates an intermediate table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/update_intermediate_table.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#update_intermediate_table)
+        """
+
+    def update_intermediate_table_analysis_rule(
+        self, **kwargs: Unpack[UpdateIntermediateTableAnalysisRuleInputTypeDef]
+    ) -> UpdateIntermediateTableAnalysisRuleOutputTypeDef:
+        """
+        Updates the analysis rule policy for an intermediate table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/update_intermediate_table_analysis_rule.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#update_intermediate_table_analysis_rule)
         """
 
     def update_membership(
@@ -1281,6 +1426,28 @@ class CleanRoomsServiceClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_id_namespace_associations"]
     ) -> ListIdNamespaceAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_intermediate_table_versions"]
+    ) -> ListIntermediateTableVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_intermediate_tables"]
+    ) -> ListIntermediateTablesPaginator:
         """
         Create a paginator for an operation.
 

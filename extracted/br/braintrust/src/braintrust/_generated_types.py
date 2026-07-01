@@ -1699,7 +1699,39 @@ class ProjectAutomationConfig1Credentials1(TypedDict):
     """
 
 
-class ProjectAutomationConfig3Action(TypedDict):
+class ProjectAutomationConfig2(TypedDict):
+    event_type: Literal['async_query']
+    """
+    The type of automation.
+    """
+    status: NotRequired[AutomationStatus | None]
+    created_by_user_id: str
+    """
+    The user who submitted the async query
+    """
+    object_type: Literal['project_logs', 'experiment', 'dataset', 'playground_logs']
+    """
+    The source object type for the async query
+    """
+    object_id: str
+    """
+    The source object ID for the async query
+    """
+    query: str
+    """
+    The SQL query to execute asynchronously
+    """
+    format: Literal['jsonl']
+    """
+    The materialized result format
+    """
+    batch_size: NotRequired[int | None]
+    """
+    The maximum number of result rows to write per async query batch
+    """
+
+
+class ProjectAutomationConfig4Action(TypedDict):
     type: Literal['webhook']
     """
     The type of action to take
@@ -1710,7 +1742,7 @@ class ProjectAutomationConfig3Action(TypedDict):
     """
 
 
-class ProjectAutomationConfig3Action1(TypedDict):
+class ProjectAutomationConfig4Action1(TypedDict):
     type: Literal['slack']
     """
     The type of action to take
@@ -1729,7 +1761,7 @@ class ProjectAutomationConfig3Action1(TypedDict):
     """
 
 
-class ProjectAutomationConfig3(TypedDict):
+class ProjectAutomationConfig4(TypedDict):
     event_type: Literal['environment_update']
     """
     The type of automation.
@@ -1738,7 +1770,7 @@ class ProjectAutomationConfig3(TypedDict):
     """
     Optional list of environment slugs to filter by
     """
-    action: ProjectAutomationConfig3Action | ProjectAutomationConfig3Action1
+    action: ProjectAutomationConfig4Action | ProjectAutomationConfig4Action1
     """
     The action to take when the automation rule is triggered
     """
@@ -1810,6 +1842,17 @@ class ProjectScoreCategory(TypedDict):
     """
     Numerical value of the category. Must be between 0 and 1, inclusive
     """
+
+
+class ProjectScoreConditionWhen(TypedDict):
+    clauses: NotRequired[Sequence[str] | None]
+    subspan_clauses: NotRequired[Sequence[str] | None]
+    trace_clauses: NotRequired[Sequence[str] | None]
+
+
+class ProjectScoreCondition(TypedDict):
+    when: ProjectScoreConditionWhen
+    behavior: NotRequired[Literal['hidden'] | None]
 
 
 class ProjectScoreConfigVisibility(TypedDict):
@@ -2485,6 +2528,49 @@ TopicAutomationFacetModel: TypeAlias = Literal[
 """
 Optional facet model override for topic automation
 """
+
+
+class TopicDigestAutomationConfigAction(TypedDict):
+    type: Literal['slack']
+    """
+    The type of action to take
+    """
+    workspace_id: str
+    """
+    The Slack workspace ID to post to
+    """
+    channel: str
+    """
+    The Slack channel ID to post to
+    """
+    message_template: NotRequired[str | None]
+    """
+    Custom message template for the alert
+    """
+
+
+class TopicDigestAutomationConfig(TypedDict):
+    event_type: Literal['topic_digest']
+    """
+    The type of automation.
+    """
+    status: NotRequired[AutomationStatus | None]
+    window_seconds: NotRequired[int | None]
+    """
+    How much recent history to include in each digest
+    """
+    scheduled_time_minutes_utc: int
+    """
+    Minutes after midnight UTC when the digest should be sent
+    """
+    action: TopicDigestAutomationConfigAction
+    """
+    The Slack action to take when the digest is sent
+    """
+    topic_map_function_ids: NotRequired[Sequence[str] | None]
+    """
+    Optional topic map function IDs to include in the digest
+    """
 
 
 class Function1Function1(TypedDict):
@@ -3231,7 +3317,7 @@ class OnlineScoreConfig(TypedDict):
     """
     scope: NotRequired[SpanScope | TraceScope | GroupScope | None]
     """
-    The scope at which to run the functions. Defaults to span-level execution. Trace/group scope requires all functions to be facets.
+    The scope at which to run the functions. Defaults to span-level execution.
     """
 
 
@@ -3306,7 +3392,7 @@ class ProjectAutomationConfig1(TypedDict):
     """
 
 
-class ProjectAutomationConfig2(TypedDict):
+class ProjectAutomationConfig3(TypedDict):
     event_type: Literal['retention']
     """
     The type of automation.
@@ -3328,6 +3414,10 @@ class ProjectScoreConfig(TypedDict):
     destination: NotRequired[str | None]
     visibility: NotRequired[ProjectScoreConfigVisibility | None]
     online: NotRequired[OnlineScoreConfig | None]
+    condition: NotRequired[ProjectScoreCondition | None]
+    object_types: NotRequired[
+        Sequence[Literal['project_logs', 'dataset', 'experiment']]
+    ]
 
 
 class PromptBlockDataPromptBlockData(TypedDict):
@@ -3654,7 +3744,9 @@ class ProjectAutomation(TypedDict):
         | ProjectAutomationConfig1
         | ProjectAutomationConfig2
         | ProjectAutomationConfig3
+        | ProjectAutomationConfig4
         | TopicAutomationConfig
+        | TopicDigestAutomationConfig
     )
     """
     The configuration for the automation rule

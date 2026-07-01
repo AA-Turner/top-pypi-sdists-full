@@ -1,0 +1,57 @@
+# This file is generated from pyproject.toml using .github/update-environment.py
+name: pipefunc-sphinx
+
+channels:
+- conda-forge
+
+dependencies:
+  - python
+  - pip
+  # from pyproject.toml
+  - cloudpickle
+  - networkx
+  - numpy
+  # optional-dependencies: adaptive
+  - adaptive
+  - adaptive-scheduler>=2.14.0
+  # optional-dependencies: autodoc
+  - griffe
+  - rich
+  # optional-dependencies: cli
+  - pydantic
+  - rich-argparse
+  # optional-dependencies: mcp
+  - fastmcp>=2.12.0
+  # optional-dependencies: pandas
+  - pandas
+  - xarray
+  # optional-dependencies: plotting
+  - bokeh
+  - python-graphviz
+  - holoviews>=1.14.0
+  - matplotlib
+  # optional-dependencies: profiling
+  - psutil
+  # optional-dependencies: widgets
+  - graphviz-anywidget>=0.7.0
+  - ipywidgets
+  # optional-dependencies: zarr
+  - zarr>=3
+  - numcodecs
+  # optional-dependencies: docs
+  - emoji
+  - jupytext
+  - myst-nb
+  - myst-parser
+  - sphinx-autodoc-typehints
+  - sphinx-book-theme
+  - sphinx-copybutton
+  - sphinx-llms-txt
+  - sphinx-notfound-page
+  - sphinx-togglebutton
+  - sphinx
+  - sphinxcontrib-mermaid
+  - versioningit
+  - nltk
+  - scikit-image
+  - seaborn

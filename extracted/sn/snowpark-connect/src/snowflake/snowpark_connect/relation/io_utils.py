@@ -1,0 +1,444 @@
+#
+# Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
+#
+
+from __future__ import annotations
+
+import os
+import re
+from os.path import splitext
+from typing import TYPE_CHECKING
+from urllib.parse import urlparse
+
+from pyspark.errors.exceptions.base import AnalysisException
+
+if TYPE_CHECKING:
+    from snowflake import snowpark
+
+from snowflake.snowpark.exceptions import SnowparkSQLException
+from snowflake.snowpark_connect.error.error_codes import ErrorCodes
+from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
+
+CLOUD_PREFIX_TO_CLOUD = {
+    "abfss": "azure",
+    "wasbs": "azure",
+    "gcs": "gcp",
+    "gs": "gcp",
+}
+
+SUPPORTED_COMPRESSION_PER_FORMAT = {
+    "csv": {
+        "AUTO",
+        "GZIP",
+        "BZ2",
+        "BROTLI",
+        "ZSTD",
+        "DEFLATE",
+        "RAW_DEFLATE",
+        "NONE",
+        "UNCOMPRESSED",
+    },
+    "json": {
+        "AUTO",
+        "GZIP",
+        "BZ2",
+        "BROTLI",
+        "ZSTD",
+        "DEFLATE",
+        "RAW_DEFLATE",
+        "NONE",
+        "UNCOMPRESSED",
+    },
+    "parquet": {"AUTO", "LZO", "SNAPPY", "NONE", "UNCOMPRESSED"},
+    "text": {
+        "AUTO",
+        "GZIP",
+        "BZ2",
+        "BROTLI",
+        "ZSTD",
+        "DEFLATE",
+        "RAW_DEFLATE",
+        "NONE",
+        "UNCOMPRESSED",
+    },
+}
+
+
+def supported_compressions_for_format(format: str) -> set[str]:
+    return SUPPORTED_COMPRESSION_PER_FORMAT.get(format, set())
+
+
+def is_supported_compression(format: str, compression: str | None) -> bool:
+    if compression is None:
+        return True
+    return compression in supported_compressions_for_format(format)
+
+
+FILE_EXTENSION_TO_COMPRESSION = {
+    ".gz": "GZIP",
+    ".bz2": "BZ2",
+    ".deflate": "DEFLATE",
+    ".snappy": "SNAPPY",
+    ".lz4": "LZ4",
+}
+
+
+def _get_last_extension(file_path: str) -> str:
+    """Extract the last file extension from a path, handling stage paths and URLs."""
+    cleaned = file_path.strip("'\"")
+    _, ext = splitext(cleaned)
+    return ext.lower()
+
+
+def infer_compression_from_file_extension(
+    file_paths: list[str], read_format: str
+) -> str:
+    """Infer compression from file extensions for CSV/JSON/text reads.
+
+    Returns the compression type if all files share the same one, "AUTO"
+    for mixed/unrecognized extensions, or raises if unsupported.
+    """
+    match read_format:
+        case "json" | "csv" | "text":
+            if not file_paths:
+                return "AUTO"
+            inferred: set[str] = set()
+            for path in file_paths:
+                ext = _get_last_extension(path)
+                compression = FILE_EXTENSION_TO_COMPRESSION.get(ext, "NONE")
+                if not is_supported_compression(read_format, compression):
+                    supported = supported_compressions_for_format(read_format)
+                    exception = AnalysisException(
+                        f"Compression {compression} is not supported for {read_format} format. "
+                        f"Supported compressions: {sorted(supported)}"
+                    )
+                    attach_custom_error_code(
+                        exception, ErrorCodes.UNSUPPORTED_OPERATION
+                    )
+                    raise exception
+                inferred.add(compression)
+            if len(inferred) == 1:
+                result = next(iter(inferred))
+                return result if result != "NONE" else "AUTO"
+            return "AUTO"
+        case _:
+            return "AUTO"
+
+
+def get_compression_for_source_and_options(
+    source: str, options: dict[str, str], from_read: bool = False
+) -> str | None:
+    """
+    Determines the compression type to use for a given data source and options.
+    Args:
+        source (str): The data source format (e.g., "csv", "json", "parquet", "text").
+        options (dict[str, str]): A dictionary of options that may include a "compression" key.
+    Returns:
+        str: The compression type to use (e.g., "GZIP", "SNAPPY", "NONE").
+    Raises:
+        AnalysisException: If the specified compression is not supported for the given source format.
+    """
+    # From read, we don't have a default compression
+    if from_read and "compression" not in options:
+        return None
+
+    # Get compression from options for proper filename generation
+    default_compression = "NONE" if source != "parquet" else "snappy"
+    compression = options.get("compression", default_compression).upper()
+    if compression == "UNCOMPRESSED":
+        compression = "NONE"
+    elif compression == "BZIP2" and source in ["json", "csv", "text"]:
+        compression = "BZ2"
+
+    if not is_supported_compression(source, compression):
+        supported_compressions = supported_compressions_for_format(source)
+        exception = AnalysisException(
+            f"Compression {compression} is not supported for {source} format. "
+            + (
+                f"Supported compressions: {sorted(supported_compressions)}"
+                if supported_compressions
+                else "None compression supported for this format."
+            )
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception
+
+    return compression
+
+
+def get_cloud_from_url(
+    url: str,
+):
+    """
+    Google Cloud Storage : 'gcs://<bucket>[/<path>/]'
+    Microsoft Azure : 'azure://<account>.blob.core.windows.net/<container>[/<path>/]'
+    """
+    url_parts = url.split("://")
+    if len(url_parts) < 2:
+        return None
+
+    cloud_domain = url_parts[0].lower()
+    return CLOUD_PREFIX_TO_CLOUD.get(cloud_domain, cloud_domain)
+
+
+def split_url_paths(url):
+    return url.split("://")[1].split("/")
+
+
+def parse_gcp_url(url: str):
+    """
+
+    Args:
+        url: 'gcs://<bucket>[/<path>/]'
+
+    """
+    path_parts = split_url_paths(url)
+    bucket_name = path_parts[0]
+    path = "/".join(path_parts[1:])
+    return bucket_name, path
+
+
+def parse_azure_url(url: str):
+    """
+    Args:
+        url: 'azure://<account>.blob.core.windows.net/<container>[/<path_to_data>/]'
+        url: 'abfss://<container-name>@<storage-account-name>.dfs.core.windows.net/<path_to_data>'
+        url: 'wasbs://<container name>@<storage account name>.blob.core.windows.net/<path_to_data>'
+    """
+    path_parts = split_url_paths(url)
+
+    # Check if it's azure:// scheme (different format)
+    if url.startswith("azure://"):
+        # For azure://, format is: azure://<account>.blob.core.windows.net/<container>/<path>
+        if len(path_parts) < 2:
+            exception = AnalysisException(
+                f"Malformed Azure URL: expected format 'azure://<account>.blob.core.windows.net/<container>[/<path>]', got '{url}'."
+            )
+            attach_custom_error_code(
+                exception,
+                ErrorCodes.INVALID_INPUT,
+            )
+            raise exception
+        account = path_parts[0].split(".")[0]
+        container = path_parts[1]
+        path = "/".join(path_parts[2:])
+    else:
+        # For abfss:// and wasbs://, format is: scheme://<container>@<account>.domain/<path>
+        prefix = path_parts[0].split(".")[0].split("@")
+        account = prefix[1]
+        container = prefix[0]
+        path = "/".join(path_parts[1:])
+
+    return account, container, path
+
+
+def is_external_cloud_url(path: str) -> bool:
+    return (
+        path.startswith("s3://")
+        or path.startswith("s3a://")  # AWS S3
+        or path.startswith("azure://")
+        or path.startswith("abfss://")
+        or path.startswith("wasbs://")  # Azure
+        or path.startswith("gcs://")
+        or path.startswith("gs://")  # GCP
+    )
+
+
+def is_cloud_path(path: str) -> bool:
+    return path.startswith("@") or is_external_cloud_url(path)
+
+
+def convert_file_prefix_path(path: str) -> str:
+    if path.startswith("file:/"):
+        return urlparse(path).path
+    return path
+
+
+def _single_path_uri_prefix(path: str) -> str | None:
+    """URI prefix to prepend to a stage-relative ``METADATA$FILENAME`` so that
+    ``input_file_name()`` returns Spark's full source URI (GAP-014).
+
+    Returns ``None`` when the prefix cannot be reconstructed (stage paths, GCP,
+    parse failures); callers then leave the stage-relative value untouched.
+    """
+    from snowflake.snowpark_connect.relation.read.path_anchoring import (
+        _local_path_stage_relative_suffix,
+    )
+
+    cleaned = path.strip("'\"")
+    # Stage paths (@db.schema.stage/...) have no external URI to reconstruct.
+    if cleaned.startswith("@"):
+        return None
+
+    cloud = get_cloud_from_url(cleaned)
+    try:
+        if cloud in ("s3", "s3a"):
+            # Stages are created at the bucket root (URL='s3://<bucket>'), so
+            # METADATA$FILENAME is the key relative to the bucket. Preserve the
+            # scheme the user supplied (s3 vs s3a), which Spark echoes back.
+            scheme, rest = cleaned.split("://", 1)
+            bucket = rest.split("/", 1)[0]
+            if not bucket:
+                return None
+            return f"{scheme}://{bucket}/"
+        if cloud == "azure":
+            # Best effort: METADATA$FILENAME is relative to the container.
+            account, container, _ = parse_azure_url(cleaned)
+            scheme = cleaned.split("://", 1)[0].lower()
+            if scheme == "abfss":
+                return f"abfss://{container}@{account}.dfs.core.windows.net/"
+            if scheme == "wasbs":
+                return f"wasbs://{container}@{account}.blob.core.windows.net/"
+            if scheme == "azure":
+                return f"azure://{account}.blob.core.windows.net/{container}/"
+            return None
+        if cloud == "gcp":
+            # GCS direct reads are rejected upstream; nothing to reconstruct.
+            return None
+        # Local filesystem. The local stage suffix is the last-two path
+        # components (see path_anchoring._local_path_stage_relative_suffix), so
+        # METADATA$FILENAME starts with that suffix. Derive suffix from the raw
+        # cleaned path (same as staging does), then strip from the absolute path.
+        suffix = _local_path_stage_relative_suffix(cleaned)
+        abs_path = os.path.abspath(convert_file_prefix_path(cleaned)).replace(
+            os.sep, "/"
+        )
+        base = abs_path[: len(abs_path) - len(suffix)] if suffix else abs_path
+        return f"file://{base.rstrip('/')}/"
+    except Exception:
+        logger.debug("input_file_name() URI prefix reconstruction failed for %s", path)
+        return None
+
+
+def build_input_file_name_uri_prefix(clean_source_paths: list[str]) -> str | None:
+    """Return the common URI prefix for ``input_file_name()`` across all source
+    paths, or ``None`` when it cannot be determined unambiguously.
+
+    Snowflake's ``METADATA$FILENAME`` is stage-relative; Spark's
+    ``input_file_name()`` returns the full source URI. When every source path
+    resolves to the same ``scheme://bucket/`` (or ``file://base/``) prefix we can
+    prepend it. Mixed buckets/schemes return ``None`` (Spark itself rejects
+    ``input_file_name()`` across multiple sources), so we fall back to the
+    stage-relative value rather than emit a wrong prefix.
+    """
+    if not clean_source_paths:
+        return None
+    prefixes = {_single_path_uri_prefix(p) for p in clean_source_paths}
+    if len(prefixes) != 1:
+        return None
+    return next(iter(prefixes))
+
+
+def get_stage_url_prefix(stage_name: str, session: snowpark.Session) -> str | None:
+    """Return the URL property from DESCRIBE STAGE via RESULT_SCAN."""
+    try:
+        describe_job = session.sql(f"DESCRIBE STAGE {stage_name}").collect_nowait()
+        describe_query_id = describe_job.query_id
+        describe_job.result()
+    except SnowparkSQLException:
+        logger.debug("DESCRIBE STAGE failed for %s, stage may not exist", stage_name)
+        return None
+
+    if not describe_query_id:
+        return None
+
+    scan_sql = (
+        "SELECT COALESCE("
+        "PARSE_JSON(REGEXP_REPLACE(\"property_value\", '/$', ''))[0]::string, "
+        "PARSE_JSON(REGEXP_REPLACE(\"property_value\", '/$', ''))::string, "
+        "REGEXP_REPLACE(\"property_value\", '/$', '')::string"
+        ") AS url "
+        f"FROM TABLE(RESULT_SCAN('{describe_query_id}')) "
+        "WHERE \"property\" = 'URL'"
+    )
+    try:
+        rows = session.sql(scan_sql).collect()
+    except SnowparkSQLException:
+        logger.warning("RESULT_SCAN failed for DESCRIBE STAGE %s", stage_name)
+        return None
+    except Exception:
+        logger.error(
+            "Unexpected error during RESULT_SCAN for stage %s",
+            stage_name,
+            exc_info=True,
+        )
+        return None
+
+    if not rows:
+        return None
+    url = rows[0][0]
+    if url is None:
+        return None
+    return str(url).strip().strip('"').strip("'").rstrip("/")
+
+
+def collapse_redundant_slashes(path: str) -> str:
+    """Collapse repeated path separators to a single slash.
+
+    Mirrors Spark/Hadoop path normalization for cloud and stage URLs.
+    Preserves a trailing slash when the input had one (directory marker
+    for SNOW-3428536). Regression fix for SNOW-3585393: cloud paths no
+    longer skip slash normalization after stage-path anchoring (#3806).
+    """
+    if "://" in path:
+        scheme, rest = path.split("://", 1)
+        collapsed = f"{scheme}://{re.sub(r'/+', '/', rest)}"
+    else:
+        collapsed = re.sub(r"/+", "/", path)
+    return preserve_trailing_slash(path, collapsed)
+
+
+def preserve_trailing_slash(original: str, normalized: str) -> str:
+    """Re-append a trailing ``/`` if ``original`` had one but ``normalized`` doesn't.
+
+    ``Path(...)`` and similar normalizers strip trailing slashes. We need
+    that signal preserved downstream so consumers can distinguish a
+    directory read (``/foo/bar/``) from a file read (``/foo/bar``) --
+    Snowflake stage operations use prefix matching, so the trailing
+    slash is the only safe way to bound a directory scan on cloud paths
+    where ``os.path.isdir`` cannot probe (SNOW-3428536).
+
+    Examples:
+        >>> preserve_trailing_slash("/foo/bar/", "/foo/bar")
+        '/foo/bar/'
+        >>> preserve_trailing_slash("/foo/bar", "/foo/bar")
+        '/foo/bar'
+    """
+    if original.endswith("/") and not normalized.endswith("/"):
+        return normalized + "/"
+    return normalized
+
+
+def unescape_glob_metacharacters(path: str | None) -> str | None:
+    """
+    Unescape glob metacharacters in a file path.
+
+    Spark allows users to escape glob metacharacters with backslashes to match
+    literal characters. For example, to read from a directory named "[abc]",
+    the user would specify the path as "\\[abc\\]".
+
+    This function converts escaped metacharacters back to their literal form:
+    - \\[ -> [
+    - \\] -> ]
+    - \\{ -> {
+    - \\} -> }
+    - \\* -> *
+    - \\? -> ?
+
+    Args:
+        path: A file path that may contain escaped glob metacharacters, or None.
+
+    Returns:
+        The path with glob metacharacters unescaped, or None if path is None.
+
+    Example:
+        >>> unescape_glob_metacharacters("/path/to/\\[abc\\]")
+        '/path/to/[abc]'
+    """
+    if path is None:
+        return None
+
+    import re
+
+    return re.sub(r"\\([\[\]\{\}\*\?])", r"\1", path)

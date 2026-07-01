@@ -1,0 +1,344 @@
+Metadata-Version: 2.4
+Name: peakrdl-python
+Version: 3.1.2
+Summary: Generate Python Register Access Layer (RAL) from SystemRDL
+Author: Keith Brady
+License:              GNU LESSER GENERAL PUBLIC LICENSE
+                               Version 3, 29 June 2007
+        
+         Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+         Everyone is permitted to copy and distribute verbatim copies
+         of this license document, but changing it is not allowed.
+        
+        
+          This version of the GNU Lesser General Public License incorporates
+        the terms and conditions of version 3 of the GNU General Public
+        License, supplemented by the additional permissions listed below.
+        
+          0. Additional Definitions.
+        
+          As used herein, "this License" refers to version 3 of the GNU Lesser
+        General Public License, and the "GNU GPL" refers to version 3 of the GNU
+        General Public License.
+        
+          "The Library" refers to a covered work governed by this License,
+        other than an Application or a Combined Work as defined below.
+        
+          An "Application" is any work that makes use of an interface provided
+        by the Library, but which is not otherwise based on the Library.
+        Defining a subclass of a class defined by the Library is deemed a mode
+        of using an interface provided by the Library.
+        
+          A "Combined Work" is a work produced by combining or linking an
+        Application with the Library.  The particular version of the Library
+        with which the Combined Work was made is also called the "Linked
+        Version".
+        
+          The "Minimal Corresponding Source" for a Combined Work means the
+        Corresponding Source for the Combined Work, excluding any source code
+        for portions of the Combined Work that, considered in isolation, are
+        based on the Application, and not on the Linked Version.
+        
+          The "Corresponding Application Code" for a Combined Work means the
+        object code and/or source code for the Application, including any data
+        and utility programs needed for reproducing the Combined Work from the
+        Application, but excluding the System Libraries of the Combined Work.
+        
+          1. Exception to Section 3 of the GNU GPL.
+        
+          You may convey a covered work under sections 3 and 4 of this License
+        without being bound by section 3 of the GNU GPL.
+        
+          2. Conveying Modified Versions.
+        
+          If you modify a copy of the Library, and, in your modifications, a
+        facility refers to a function or data to be supplied by an Application
+        that uses the facility (other than as an argument passed when the
+        facility is invoked), then you may convey a copy of the modified
+        version:
+        
+           a) under this License, provided that you make a good faith effort to
+           ensure that, in the event an Application does not supply the
+           function or data, the facility still operates, and performs
+           whatever part of its purpose remains meaningful, or
+        
+           b) under the GNU GPL, with none of the additional permissions of
+           this License applicable to that copy.
+        
+          3. Object Code Incorporating Material from Library Header Files.
+        
+          The object code form of an Application may incorporate material from
+        a header file that is part of the Library.  You may convey such object
+        code under terms of your choice, provided that, if the incorporated
+        material is not limited to numerical parameters, data structure
+        layouts and accessors, or small macros, inline functions and templates
+        (ten or fewer lines in length), you do both of the following:
+        
+           a) Give prominent notice with each copy of the object code that the
+           Library is used in it and that the Library and its use are
+           covered by this License.
+        
+           b) Accompany the object code with a copy of the GNU GPL and this license
+           document.
+        
+          4. Combined Works.
+        
+          You may convey a Combined Work under terms of your choice that,
+        taken together, effectively do not restrict modification of the
+        portions of the Library contained in the Combined Work and reverse
+        engineering for debugging such modifications, if you also do each of
+        the following:
+        
+           a) Give prominent notice with each copy of the Combined Work that
+           the Library is used in it and that the Library and its use are
+           covered by this License.
+        
+           b) Accompany the Combined Work with a copy of the GNU GPL and this license
+           document.
+        
+           c) For a Combined Work that displays copyright notices during
+           execution, include the copyright notice for the Library among
+           these notices, as well as a reference directing the user to the
+           copies of the GNU GPL and this license document.
+        
+           d) Do one of the following:
+        
+               0) Convey the Minimal Corresponding Source under the terms of this
+               License, and the Corresponding Application Code in a form
+               suitable for, and under terms that permit, the user to
+               recombine or relink the Application with a modified version of
+               the Linked Version to produce a modified Combined Work, in the
+               manner specified by section 6 of the GNU GPL for conveying
+               Corresponding Source.
+        
+               1) Use a suitable shared library mechanism for linking with the
+               Library.  A suitable mechanism is one that (a) uses at run time
+               a copy of the Library already present on the user's computer
+               system, and (b) will operate properly with a modified version
+               of the Library that is interface-compatible with the Linked
+               Version.
+        
+           e) Provide Installation Information, but only if you would otherwise
+           be required to provide such information under section 6 of the
+           GNU GPL, and only to the extent that such information is
+           necessary to install and execute a modified version of the
+           Combined Work produced by recombining or relinking the
+           Application with a modified version of the Linked Version. (If
+           you use option 4d0, the Installation Information must accompany
+           the Minimal Corresponding Source and Corresponding Application
+           Code. If you use option 4d1, you must provide the Installation
+           Information in the manner specified by section 6 of the GNU GPL
+           for conveying Corresponding Source.)
+        
+          5. Combined Libraries.
+        
+          You may place library facilities that are a work based on the
+        Library side by side in a single library together with other library
+        facilities that are not Applications and are not covered by this
+        License, and convey such a combined library under terms of your
+        choice, if you do both of the following:
+        
+           a) Accompany the combined library with a copy of the same work based
+           on the Library, uncombined with any other library facilities,
+           conveyed under the terms of this License.
+        
+           b) Give prominent notice with the combined library that part of it
+           is a work based on the Library, and explaining where to find the
+           accompanying uncombined form of the same work.
+        
+          6. Revised Versions of the GNU Lesser General Public License.
+        
+          The Free Software Foundation may publish revised and/or new versions
+        of the GNU Lesser General Public License from time to time. Such new
+        versions will be similar in spirit to the present version, but may
+        differ in detail to address new problems or concerns.
+        
+          Each version is given a distinguishing version number. If the
+        Library as you received it specifies that a certain numbered version
+        of the GNU Lesser General Public License "or any later version"
+        applies to it, you have the option of following the terms and
+        conditions either of that published version or of any later version
+        published by the Free Software Foundation. If the Library as you
+        received it does not specify a version number of the GNU Lesser
+        General Public License, you may choose any version of the GNU Lesser
+        General Public License ever published by the Free Software Foundation.
+        
+          If the Library as you received it specifies that a proxy can decide
+        whether future versions of the GNU Lesser General Public License shall
+        apply, that proxy's public statement of acceptance of any version is
+        permanent authorization for you to choose that version for the
+        Library.
+Project-URL: Source, https://github.com/krcb197/PeakRDL-python
+Project-URL: Tracker, https://github.com/krcb197/PeakRDL-python/issues
+Project-URL: Documentation, https://peakrdl-python.readthedocs.io/
+Project-URL: Changelog, https://github.com/krcb197/PeakRDL-python/releases
+Keywords: SystemRDL,PeakRDL,CSR,compiler,tool,registers,generator,Python
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)
+Classifier: Typing :: Typed
+Requires-Python: >=3.9.2
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: systemrdl-compiler>=1.31.0
+Requires-Dist: jinja2
+Requires-Dist: typing-extensions; python_version < "3.11"
+Requires-Dist: more_itertools; python_version < "3.13"
+Provides-Extra: dev
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pylint; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: peakrdl; extra == "dev"
+Requires-Dist: sphinx-book-theme; extra == "dev"
+Requires-Dist: pygments-systemrdl; extra == "dev"
+Provides-Extra: peakrdl
+Requires-Dist: peakrdl; extra == "peakrdl"
+Provides-Extra: unit-test
+Requires-Dist: peakrdl; extra == "unit-test"
+Requires-Dist: tomli; python_version < "3.11" and extra == "unit-test"
+Dynamic: license-file
+
+![CI](https://github.com/krcb197/PeakRDL-python/actions/workflows/action.yaml/badge.svg)
+[![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/pylint-dev/pylint)
+[![Checked with mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/peakrdl-python.svg)](https://pypi.org/project/peakrdl-python)
+[![Documentation Status](https://readthedocs.org/projects/peakrdl-python/badge/?version=latest)](https://peakrdl-python.readthedocs.io/en/latest/?badge=latest)
+[![Downloads](https://static.pepy.tech/badge/peakrdl-python)](https://pepy.tech/project/peakrdl-python)
+
+# Introduction
+PeakRDL Python is used to generate a python based Register Access Layer (RAL) from SystemRDL.
+
+## Documentation
+See the [peakrdl-python Documentation](https://peakrdl-python.readthedocs.io/) for more details
+
+## Getting Started
+
+### Installation
+
+1. Install a recent version of Python 3
+2. Install `peakrdl-python`
+   ```console
+   python3 -m pip install peakrdl-python
+   ```
+3. (Optional) Install `peakrdl`, this is needed if you want to use peakrdl python from the command
+   line
+   ```console
+   python3 -m pip install peakrdl
+   ```
+   
+### Demo
+
+This demonstration relies on downloading the systemRDL example from Accelera, available here: [accelera-generic_example.rdl](https://github.com/SystemRDL/systemrdl-compiler/blob/main/examples/accelera-generic_example.rdl). This demonstration also 
+assumes that peakrdl has been installed.
+
+1. Build the Register Access Layer (RAL) from the systemRDL code
+   ```console
+   peakrdl python accelera-generic_example.rdl -o .
+   ```
+   This will create a python package called `some_register_map` containing the python RAL
+2. In addition to the RAL, peakrdl-python also generates a simulator that can be used to exercise 
+   the RAL without connecting to real hardware. Enter the following code into a file:
+   ```python
+   """
+   A demonstration of using peakrdl-python using the accelera generic example
+   """
+   # import the top level RAL class
+   from some_register_map.reg_model import RegModel
+   # import the simulator class
+   from some_register_map.sim import Simulator
+   
+   from some_register_map.lib import NormalCallbackSet
+   
+   if __name__ == '__main__':
+       # create an instance of the RAL with the callbacks directed at the hardware simulator
+       hw_sim = Simulator(0)
+       ral = RegModel(callbacks=NormalCallbackSet(read_callback=hw_sim.read,
+                                                  write_callback=hw_sim.write))
+   
+       # read chip ID
+       chip_id_part_number = ral.chip_id_reg.part_num.read()
+       chip_id_revision_number = ral.chip_id_reg.part_num.read()
+       print(f'Chip ID:{chip_id_part_number}.{chip_id_revision_number}')
+   ```
+   save it as `some_register_map_demo.py`
+3. Run the example
+   ```commandline
+   python3 -m some_register_map_demo
+   ```
+   This will generate the following output on the console:
+   ```commandline
+   Chip ID:0.0
+   ```
+   
+# Usage
+
+To make use of the RAL with real hardware or a different simulation, the callbacks will need to be 
+connected to the appropriate access function in order to perform an address space reads and writes 
+
+# Some important changes
+
+## 0.9.0
+
+In order to address a major limitation of peakrdl-python that prevented it from implementing the
+full systemRDL specification, a breaking API change was needed for handling blocks:
+* registers (in register array)
+* memory entries in a memory
+
+Users are encouraged to upgrade in order to avoid this limitation. However, there is a legacy mode
+to support users with existing designs, see: _Legacy Block Callback and Block Access_ in the 
+documentation
+
+## 1.2.0
+
+Version 1.2 introduced a new way to define the enumerations for the field encoding. This allows 
+metadata from the systemRDL to propagate through to the generated code. This may break advanced 
+usage of the python enumerations. User are encouraged to use the new feature, however, if there 
+are problems with the old enumeration types (based on `IntEnum`) can be used, see 
+_Legacy Enumeration Types_ in the documentation
+
+## 2.0.0
+
+Version 2.0.0 introduced a significant change to the process for building the register model python
+code. This change was intended to reduce the size of the generated code by only generating 
+python classes for systemRDL components that required unique classes. The previous versions were 
+more conservative and tended to generate a lot of duplicate classes.
+
+Version 2.1.0 has improved this to ensure field encoding enumerations were correctly deduplicated. 
+
+The implementation requires a hash to be generated of each node in order to determine whether it is
+unique or not. This hash was incorperated within the class names which resulted in the code 
+changing each time it was regenerated, version 2.1.0 introduces a option to either:
+* The builtin python `hash` function, this is fast but is a salted hash so changes hashes export to 
+  export
+* Use the `SHA256` hash from the python `hashlib` standard library, this may slow down the export 
+  of large register models but will be consistent, therefore is useful if the resultant code is being
+  checked into a version control system (such as GIT) and the differences are being reviewed
+
+## 3.0.0
+
+Version 3.0.0 has included a significant refactoring of the generated test cases, moving functions out
+of the templates (generated code) in favour of an enhanced test library. On some cases, this 
+reduced the size of the test case generated code by 90%, significantly improved the time to generate
+the code and also improved the time to run the tests by a 30% reduction.
+
+In preparation for the removal of some legacy features from the early versions in release 4.0.0, 
+the following options were changed:
+- Version 1.2 introduced a new custom enumeration type (rather than using `IntEnum`) in order to allow
+  the content to `name` and `desc` systemRDL properties in be accessible. Until version 3.0.0 the new
+  type was not the default, it now is. The old enumeration types can still be used by setting `legacy_enum_type`.
+- The first versions of PeakRDL Python used the built-in `Array` type for accessing blocks of data efficiently.
+  This had some restrictions, so the a new methodology based on the `list` type was introduced in version 0.9.
+  The old array based behaviour is no longer the default but can be turned on using the `legacy_block_access`
+
+

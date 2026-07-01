@@ -1,0 +1,93 @@
+name: publish
+
+# Build the package once, then publish it via PyPI Trusted Publishing (OIDC):
+#   * Manual run ("Run workflow" button) -> publishes to TestPyPI.
+#   * Pushing a v* tag                    -> publishes to the real PyPI.
+# No API tokens/secrets are used: the workflow's OIDC identity is the credential,
+# matched against the trusted publisher configured on (Test)PyPI.
+
+on:
+  workflow_dispatch:        # manual button in the Actions tab -> TestPyPI
+  push:
+    tags:
+      - "v*"                # pushing a v* tag -> real PyPI
+
+# Run JavaScript actions on Node.js 24 (GitHub forces this from 2026-06-16
+# anyway). Silences the "Node.js 20 actions are deprecated" warnings without
+# pinning exact action versions.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+      - name: Upload the built distributions
+        uses: actions/upload-artifact@v5
+        with:
+          name: dist
+          path: dist/
+
+  publish-testpypi:
+    # Only manual runs publish to TestPyPI (for testing a release).
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi          # must match the TestPyPI trusted-publisher env
+    permissions:
+      id-token: write              # required to mint the OIDC token
+    steps:
+      - name: Download the built distributions
+        uses: actions/download-artifact@v5
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish-pypi:
+    # Only v* tags publish to the real PyPI (the actual release).
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi              # must match the PyPI trusted-publisher env
+    permissions:
+      id-token: write
+    steps:
+      - name: Download the built distributions
+        uses: actions/download-artifact@v5
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    # On a v* tag: create a GitHub Release with auto-generated notes and attach
+    # the built wheel + sdist. Uses the GitHub CLI (gh), which is preinstalled on
+    # the runner, with the workflow's built-in token (no extra secret).
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write             # required to create a Release
+    steps:
+      - name: Download the built distributions
+        uses: actions/download-artifact@v5
+        with:
+          name: dist
+          path: dist/
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --generate-notes -R "$GITHUB_REPOSITORY"

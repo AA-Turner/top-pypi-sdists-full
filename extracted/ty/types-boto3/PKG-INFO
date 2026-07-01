@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-boto3
-Version: 1.43.37
-Summary: Type annotations for boto3 1.43.37 generated with mypy-boto3-builder 8.12.0
+Version: 1.43.38
+Summary: Type annotations for boto3 1.43.38 generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -34,7 +34,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: types-boto3-full<1.44.0,>=1.43.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.43.37; extra == "boto3"
+Requires-Dist: boto3==1.43.38; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: types-boto3-accessanalyzer<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-account<1.44.0,>=1.43.0; extra == "all"
@@ -228,8 +228,6 @@ Requires-Dist: types-boto3-iot-data<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-iot-jobs-data<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-iot-managed-integrations<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-iotdeviceadvisor<1.44.0,>=1.43.0; extra == "all"
-Requires-Dist: types-boto3-iotevents<1.44.0,>=1.43.0; extra == "all"
-Requires-Dist: types-boto3-iotevents-data<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-iotfleetwise<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-iotsecuretunneling<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-iotsitewise<1.44.0,>=1.43.0; extra == "all"
@@ -325,7 +323,6 @@ Requires-Dist: types-boto3-opensearchserverless<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-organizations<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-osis<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-outposts<1.44.0,>=1.43.0; extra == "all"
-Requires-Dist: types-boto3-panorama<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-partnercentral-account<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-partnercentral-benefits<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-partnercentral-channel<1.44.0,>=1.43.0; extra == "all"
@@ -411,7 +408,6 @@ Requires-Dist: types-boto3-signer<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-signer-data<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-signin<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-simpledbv2<1.44.0,>=1.43.0; extra == "all"
-Requires-Dist: types-boto3-simspaceweaver<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-snow-device-management<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-snowball<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-sns<1.44.0,>=1.43.0; extra == "all"
@@ -432,6 +428,7 @@ Requires-Dist: types-boto3-sts<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-supplychain<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-support<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-support-app<1.44.0,>=1.43.0; extra == "all"
+Requires-Dist: types-boto3-supportauthz<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-sustainability<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-swf<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: types-boto3-synthetics<1.44.0,>=1.43.0; extra == "all"
@@ -855,10 +852,6 @@ Provides-Extra: iot-managed-integrations
 Requires-Dist: types-boto3-iot-managed-integrations<1.44.0,>=1.43.0; extra == "iot-managed-integrations"
 Provides-Extra: iotdeviceadvisor
 Requires-Dist: types-boto3-iotdeviceadvisor<1.44.0,>=1.43.0; extra == "iotdeviceadvisor"
-Provides-Extra: iotevents
-Requires-Dist: types-boto3-iotevents<1.44.0,>=1.43.0; extra == "iotevents"
-Provides-Extra: iotevents-data
-Requires-Dist: types-boto3-iotevents-data<1.44.0,>=1.43.0; extra == "iotevents-data"
 Provides-Extra: iotfleetwise
 Requires-Dist: types-boto3-iotfleetwise<1.44.0,>=1.43.0; extra == "iotfleetwise"
 Provides-Extra: iotsecuretunneling
@@ -1049,8 +1042,6 @@ Provides-Extra: osis
 Requires-Dist: types-boto3-osis<1.44.0,>=1.43.0; extra == "osis"
 Provides-Extra: outposts
 Requires-Dist: types-boto3-outposts<1.44.0,>=1.43.0; extra == "outposts"
-Provides-Extra: panorama
-Requires-Dist: types-boto3-panorama<1.44.0,>=1.43.0; extra == "panorama"
 Provides-Extra: partnercentral-account
 Requires-Dist: types-boto3-partnercentral-account<1.44.0,>=1.43.0; extra == "partnercentral-account"
 Provides-Extra: partnercentral-benefits
@@ -1221,8 +1212,6 @@ Provides-Extra: signin
 Requires-Dist: types-boto3-signin<1.44.0,>=1.43.0; extra == "signin"
 Provides-Extra: simpledbv2
 Requires-Dist: types-boto3-simpledbv2<1.44.0,>=1.43.0; extra == "simpledbv2"
-Provides-Extra: simspaceweaver
-Requires-Dist: types-boto3-simspaceweaver<1.44.0,>=1.43.0; extra == "simspaceweaver"
 Provides-Extra: snow-device-management
 Requires-Dist: types-boto3-snow-device-management<1.44.0,>=1.43.0; extra == "snow-device-management"
 Provides-Extra: snowball
@@ -1263,6 +1252,8 @@ Provides-Extra: support
 Requires-Dist: types-boto3-support<1.44.0,>=1.43.0; extra == "support"
 Provides-Extra: support-app
 Requires-Dist: types-boto3-support-app<1.44.0,>=1.43.0; extra == "support-app"
+Provides-Extra: supportauthz
+Requires-Dist: types-boto3-supportauthz<1.44.0,>=1.43.0; extra == "supportauthz"
 Provides-Extra: sustainability
 Requires-Dist: types-boto3-sustainability<1.44.0,>=1.43.0; extra == "sustainability"
 Provides-Extra: swf
@@ -1338,7 +1329,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.43.37](https://pypi.org/project/boto3/)
+Type annotations for [boto3 1.43.38](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1396,7 +1387,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.37' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.38' mypy-boto3-builder`
 2. Select `boto3` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1724,9 +1715,9 @@ repository.
 
 ## Submodules
 
-- `types-boto3[full]` - Type annotations for all 427 services in one package
+- `types-boto3[full]` - Type annotations for all 424 services in one package
   (recommended).
-- `types-boto3[all]` - Type annotations for all 427 services in separate
+- `types-boto3[all]` - Type annotations for all 424 services in separate
   packages.
 - `types-boto3[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudformation/),
@@ -2294,12 +2285,6 @@ repository.
 - `types-boto3[iotdeviceadvisor]` - Type annotations for
   [IoTDeviceAdvisor](https://youtype.github.io/types_boto3_docs/types_boto3_iotdeviceadvisor/)
   service.
-- `types-boto3[iotevents]` - Type annotations for
-  [IoTEvents](https://youtype.github.io/types_boto3_docs/types_boto3_iotevents/)
-  service.
-- `types-boto3[iotevents-data]` - Type annotations for
-  [IoTEventsData](https://youtype.github.io/types_boto3_docs/types_boto3_iotevents_data/)
-  service.
 - `types-boto3[iotfleetwise]` - Type annotations for
   [IoTFleetWise](https://youtype.github.io/types_boto3_docs/types_boto3_iotfleetwise/)
   service.
@@ -2579,9 +2564,6 @@ repository.
 - `types-boto3[outposts]` - Type annotations for
   [Outposts](https://youtype.github.io/types_boto3_docs/types_boto3_outposts/)
   service.
-- `types-boto3[panorama]` - Type annotations for
-  [Panorama](https://youtype.github.io/types_boto3_docs/types_boto3_panorama/)
-  service.
 - `types-boto3[partnercentral-account]` - Type annotations for
   [PartnerCentralAccountAPI](https://youtype.github.io/types_boto3_docs/types_boto3_partnercentral_account/)
   service.
@@ -2832,9 +2814,6 @@ repository.
 - `types-boto3[simpledbv2]` - Type annotations for
   [SimpleDBv2](https://youtype.github.io/types_boto3_docs/types_boto3_simpledbv2/)
   service.
-- `types-boto3[simspaceweaver]` - Type annotations for
-  [SimSpaceWeaver](https://youtype.github.io/types_boto3_docs/types_boto3_simspaceweaver/)
-  service.
 - `types-boto3[snow-device-management]` - Type annotations for
   [SnowDeviceManagement](https://youtype.github.io/types_boto3_docs/types_boto3_snow_device_management/)
   service.
@@ -2889,6 +2868,9 @@ repository.
   service.
 - `types-boto3[support-app]` - Type annotations for
   [SupportApp](https://youtype.github.io/types_boto3_docs/types_boto3_support_app/)
+  service.
+- `types-boto3[supportauthz]` - Type annotations for
+  [SupportAuthZ](https://youtype.github.io/types_boto3_docs/types_boto3_supportauthz/)
   service.
 - `types-boto3[sustainability]` - Type annotations for
   [Sustainability](https://youtype.github.io/types_boto3_docs/types_boto3_sustainability/)

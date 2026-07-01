@@ -48,15 +48,19 @@ class SHCDevice:
 
     @property
     def root_device_id(self) -> str:
-        return str(self._raw_device["rootDeviceId"])
+        return str(self._raw_device.get("rootDeviceId", ""))
 
     @property
     def id(self) -> str:
+        # Deliberately still a direct index: id is used as the dict key
+        # throughout device_helper.py/session.py — if the SHC omits it the
+        # device can't be indexed/used at all, so failing loudly here is
+        # more useful than limping on with an empty id.
         return str(self._raw_device["id"])
 
     @property
     def manufacturer(self) -> str:
-        return str(self._raw_device["manufacturer"])
+        return str(self._raw_device.get("manufacturer", ""))
 
     @property
     def room_id(self) -> str | None:
@@ -64,7 +68,7 @@ class SHCDevice:
 
     @property
     def device_model(self) -> str:
-        return str(self._raw_device["deviceModel"])
+        return str(self._raw_device.get("deviceModel", ""))
 
     @property
     def serial(self) -> str | None:
@@ -80,13 +84,48 @@ class SHCDevice:
     def supported_profiles(self) -> list[Any]:
         return list(self._raw_device.get("supportedProfiles", []))
 
+    def _profile_put_body(self, profile: str) -> dict[str, Any]:
+        """Validate ``profile`` and build the full Device body to PUT.
+
+        The installation profile is a device-level field (not a service). The
+        SHC requires the complete Device resource on PUT, so we fetch the
+        current body and swap only ``profile``. Raises SHCException when the
+        device advertises supportedProfiles and ``profile`` is not among them.
+        """
+        supported = self.supported_profiles
+        if supported and profile not in supported:
+            raise SHCException(
+                f"Profile '{profile}' not in supportedProfiles {supported} "
+                f"for device {self.id}"
+            )
+        return {**self._raw_device, "profile": profile}
+
+    def set_profile(self, profile: str) -> None:
+        """Set the installation profile (sync; e.g. GENERIC / OUTDOOR)."""
+        body = self._profile_put_body(profile)
+        response = self._api.put_device(self.id, body)
+        # Prefer the server's canonical object (it may normalize fields); fall
+        # back to our request body when the SHC answers with an empty 2xx.
+        self.update_raw_information(response if response else body)
+
+    async def async_set_profile(self, profile: str) -> None:
+        """Set the installation profile (async; e.g. GENERIC / OUTDOOR)."""
+        body = self._profile_put_body(profile)
+        response = await self._api.put_device(self.id, body)
+        # Prefer the server's canonical object (it may normalize fields); fall
+        # back to our request body when the SHC answers with an empty 2xx.
+        self.update_raw_information(response if response else body)
+
     @property
     def name(self) -> str:
-        return str(self._raw_device["name"])
+        # Not in the OpenAPI "required" list for Device — .get() to match the
+        # existing roomId/serial/profile pattern above rather than crash on a
+        # display-only field.
+        return str(self._raw_device.get("name", ""))
 
     @property
     def status(self) -> str:
-        return str(self._raw_device["status"])
+        return str(self._raw_device.get("status", ""))
 
     @property
     def deleted(self) -> bool:

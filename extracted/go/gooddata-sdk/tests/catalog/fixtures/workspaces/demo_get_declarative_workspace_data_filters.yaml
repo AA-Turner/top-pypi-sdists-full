@@ -1,0 +1,122 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/layout/workspaceDataFilters
+    response:
+      body:
+        string:
+          workspaceDataFilters:
+            - columnName: wdf__region
+              id: wdf__region
+              title: Customer region
+              workspace:
+                id: demo
+                type: workspace
+              workspaceDataFilterSettings:
+                - filterValues:
+                    - West
+                  id: region_west
+                  title: Region West
+                  workspace:
+                    id: demo_west
+                    type: workspace
+            - columnName: wdf__state
+              id: wdf__state
+              title: Customer state
+              workspace:
+                id: demo_west
+                type: workspace
+              workspaceDataFilterSettings:
+                - filterValues:
+                    - California
+                  id: region_west_california
+                  title: Region West California
+                  workspace:
+                    id: demo_west_california
+                    type: workspace
+      headers:
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/layout/workspaceDataFilters
+    response:
+      body:
+        string:
+          workspaceDataFilters:
+            - columnName: wdf__region
+              id: wdf__region
+              title: Customer region
+              workspace:
+                id: demo
+                type: workspace
+              workspaceDataFilterSettings:
+                - filterValues:
+                    - West
+                  id: region_west
+                  title: Region West
+                  workspace:
+                    id: demo_west
+                    type: workspace
+            - columnName: wdf__state
+              id: wdf__state
+              title: Customer state
+              workspace:
+                id: demo_west
+                type: workspace
+              workspaceDataFilterSettings:
+                - filterValues:
+                    - California
+                  id: region_west_california
+                  title: Region West California
+                  workspace:
+                    id: demo_west_california
+                    type: workspace
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+version: 1

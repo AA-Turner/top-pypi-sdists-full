@@ -1,0 +1,48 @@
+[tool.poetry]
+name = "soup2dict"
+version = "2.1.0"
+description = "Turns your beautifulsoup4 soup into python dictionary or json"
+authors = ["Thomas Borgen <thomas@borgenit.no>"]
+
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/thomasborgen/soup2dict"
+homepage = "https://github.com/thomasborgen/soup2dict"
+
+keywords = [
+  "beautifulsoup to dict",
+  "beautifulsoup to json",
+  "beautifulsoup4",
+  "data transformation",
+  "html to dict",
+  "xml to dict",
+  "dict",
+  "json"
+]
+
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Utilities"
+]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+classes = "^0.4.0"
+beautifulsoup4 = "^4.9.3"
+
+[tool.poetry.dev-dependencies]
+wemake-python-styleguide = "^0.16.0"
+mypy = "0.910"
+
+safety = "^1.9.0"
+
+pytest = "^6.1.2"
+pytest-cov = "^2.10.1"
+simplejson = "^3.17.2"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

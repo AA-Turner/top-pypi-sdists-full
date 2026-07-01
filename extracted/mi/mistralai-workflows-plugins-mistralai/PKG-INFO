@@ -1,0 +1,99 @@
+Metadata-Version: 2.4
+Name: mistralai-workflows-plugins-mistralai
+Version: 3.9.0
+Summary: Mistral AI plugin for Mistral Workflows - Provides native Mistral AI integration
+Project-URL: Homepage, https://mistral.ai
+Project-URL: Documentation, https://docs.mistral.ai/workflows/getting-started/introduction
+Author-email: Mistral AI <support@mistral.ai>
+License: Apache-2.0
+License-File: LICENSE
+Keywords: ai,llm,mistral,plugin,workflows
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: <3.15,>=3.12
+Requires-Dist: aiocache>=0.12.3
+Requires-Dist: authlib>=1.7.2
+Requires-Dist: mcp>=1.12.4
+Requires-Dist: mistralai-workflows<4.0.0,>=3.0.0a1
+Requires-Dist: mistralai[agents]<3.0.0,>=2.0.0
+Requires-Dist: starlette>=1.0.1
+Requires-Dist: structlog<26,>=24
+Description-Content-Type: text/markdown
+
+# Mistral Workflows - Mistral AI Plugin
+
+Native Mistral AI integration for Mistral Workflows.
+
+## Overview
+
+This plugin provides Mistral AI-specific activities and models for building AI workflows with the Mistral AI API.
+
+## Features
+
+- **Mistral AI Activities**: Pre-built activities for chat completions, embeddings, and more
+- **Streaming Support**: Native streaming for chat responses
+- **Model Definitions**: Type-safe model configurations
+- **Agent Runtime**: Build and run autonomous AI agents
+- **Session Management**: Stateful agent sessions with context persistence
+- **MCP Support**: Model Context Protocol integration for tool use
+- **Tool Execution**: Built-in tool calling and execution framework
+- **Le Chat UI**: Conversational UI components for Le Chat (canvas, assistant messages, UI components)
+
+## Installation
+
+```bash
+pip install mistralai-workflows[mistralai]
+```
+
+Or install directly:
+
+```bash
+pip install mistralai-workflows-plugins-mistralai
+```
+
+## Quick Start
+
+```python
+import mistralai.workflows as workflows
+import mistralai.workflows.plugins.mistralai as workflows_mistralai
+
+
+@workflows.workflow.define(name="chat-workflow")
+class ChatWorkflow:
+    @workflows.workflow.entrypoint
+    async def run(self, prompt: str) -> str:
+        response = await workflows_mistralai.mistralai_chat_stream(
+            workflows_mistralai.ChatCompletionRequest(
+                model="mistral-medium-latest",
+                messages=[workflows_mistralai.UserMessage(content=prompt)],
+            )
+        )
+        return response.content
+```
+
+## Documentation
+
+For full documentation, visit [docs.mistral.ai/workflows/getting-started/introduction](https://docs.mistral.ai/workflows/getting-started/introduction)
+
+## Examples
+
+Run examples with:
+
+```bash
+python -m mistralai_workflow_tests.examples.assist.workflow_multi_turn_chat
+python -m mistralai_workflow_tests.examples.assist.workflow_insurance_claims
+python -m mistralai_workflow_tests.examples.assist.workflow_local_session_streaming
+python -m mistralai_workflow_tests.examples.assist.workflow_travel_agent_streaming
+python -m mistralai_workflow_tests.examples.assist.workflow_with_agent
+python -m mistralai_workflow_tests.examples.assist.workflow_extract_markdown
+python -m mistralai_workflow_tests.examples.assist.workflow_embeddings
+```
+
+## License
+
+Apache License 2.0 - see [LICENSE](LICENSE) for details.

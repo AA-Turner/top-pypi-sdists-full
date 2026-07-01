@@ -1,0 +1,52 @@
+[tool.poetry]
+name = "doc2docx"
+version = "0.2.4"
+description = "Convert doc to docx on Windows or macOS directly using Microsoft Word (must be installed)."
+authors = ["Cosmo <cosmo@cosmo.red>"]
+readme = "README.md"
+packages = [{include = "doc2docx"}]
+license = "MIT"
+homepage = "https://github.com/cosmojg/doc2docx"
+repository = "https://github.com/cosmojg/doc2docx"
+classifiers = [
+	"Operating System :: MacOS",
+	"Environment :: MacOS X",
+	"Environment :: Win32 (MS Windows)",
+	"Operating System :: Microsoft :: Windows",
+	"Topic :: Office/Business :: Office Suites",
+	"Topic :: Software Development :: Libraries"
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+tqdm = "^4.65.0"
+appscript = {version = "^1.2.2", platform = "darwin"}
+pywin32 = {version = "^305", platform = "win32"}
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.2.2"
+
+[tool.poetry.scripts]
+doc2docx = "doc2docx:cli"
+
+[tool.black]
+target-version = ["py311"]
+preview = true
+
+[tool.ruff]
+target-version = "py311"
+fix = true
+select = ["ALL"]
+unfixable = ["T20", "ERA"]
+
+[tool.ruff.pydocstyle]
+convention = "google"
+
+[tool.ruff.flake8-import-conventions]
+[tool.ruff.flake8-import-conventions.extend-aliases]
+matplotlib = "mpl"
+polars = "pl"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

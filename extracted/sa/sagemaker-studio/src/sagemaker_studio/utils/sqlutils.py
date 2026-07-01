@@ -1,7 +1,7 @@
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, TypedDict, Union
+from typing import Any, Dict, Generator, List, Optional, TypedDict, Union
 from uuid import uuid4
 
 import sagemaker_studio.utils.sql_handler as sql_handler
@@ -29,6 +29,10 @@ _project = None
 _duckdb = None
 _sql_executor = None
 
+# Module-level state for query history metadata.
+# Stores lightweight metadata from the last SQL execution so the kernel
+# can include it in the execute_reply. Cleared at the start of each execution.
+_last_sql_execution_metadata = None
 
 # Module-level singleton instance (persists in kernel namespace)
 _connection_cache = ConnectionCache()
@@ -209,10 +213,23 @@ def sql_stream(
 
         spark = _ensure_spark()
         statements = SparkTransformer.split_query(query)
-        return SqlExecutor.execute_statements(
-            statements,
-            lambda stmt: spark.sql(stmt),
-            error_strategy,
+
+        # Force schema resolution to catch errors eagerly (e.g., TABLE_OR_VIEW_NOT_FOUND).
+        # Without this, spark.sql() is lazy and returns successfully even for invalid tables
+        # the error only surfaces later in IPython's display formatter where it's swallowed,
+        # causing execute_reply to return OK while an error message appears on iopub.
+        def _spark_executor(stmt):
+            df = spark.sql(stmt)
+            df.schema
+            return df
+
+        return _stream_and_capture_metadata(
+            SqlExecutor.execute_statements(
+                statements,
+                _spark_executor,
+                error_strategy,
+            ),
+            connection_type="SPARK",
         )
 
     resolved_dz_conn = _resolve_connection(connection_id, connection_name)
@@ -240,22 +257,30 @@ def sql_stream(
     )
 
     if cached:
-        return _ensure_sql_executor().execute(
-            cached.engine,
-            query,
-            connection=cached.connection,  # May be None for non-persisted
-            parameters=parameters,
-            error_strategy=error_strategy,
+        conn_type = cached.engine.get_execution_options().get("connection_type", "")
+        return _stream_and_capture_metadata(
+            _ensure_sql_executor().execute(
+                cached.engine,
+                query,
+                connection=cached.connection,  # May be None for non-persisted
+                parameters=parameters,
+                error_strategy=error_strategy,
+            ),
+            connection_id=connection_id,
+            connection_type=conn_type,
         )
     else:
         from sagemaker_studio.sql_engine.duckdb_transformer import DuckDBTransformer
         from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
 
         statements = DuckDBTransformer.split_query(query)
-        return SqlExecutor.execute_statements(
-            statements,
-            lambda stmt: (lambda x: x.df() if x else None)(_ensure_duckdb().sql(stmt)),
-            error_strategy,
+        return _stream_and_capture_metadata(
+            SqlExecutor.execute_statements(
+                statements,
+                lambda stmt: (lambda x: x.df() if x else None)(_ensure_duckdb().sql(stmt)),
+                error_strategy,
+            ),
+            connection_type="DUCKDB",
         )
 
 
@@ -603,6 +628,44 @@ def _materialise_stream(stream, dataframe_name: str):
     # Save main variable
     final = results[0].result if len(results) == 1 else [r.result for r in results]
     ip.user_ns[dataframe_name] = final
+
+
+def _stream_and_capture_metadata(
+    stream: Generator,
+    connection_id: Optional[str] = None,
+    connection_type: Optional[str] = None,
+) -> Generator:
+    """Wrap a result stream to capture per-statement execution metadata.
+
+    Yields results unchanged while storing lightweight metadata (statement text,
+    status, engine-specific info) on the module for downstream consumers.
+    Writes incrementally so metadata is available even if iteration is interrupted.
+
+    Note: state reset happens eagerly at call time. The actual iteration is
+    delegated to an inner generator so callers don't see stale metadata between
+    invocation and the first next() call.
+    """
+    global _last_sql_execution_metadata
+    _last_sql_execution_metadata = []  # Eagerly reset on call
+
+    def _inner():
+        for result in stream:
+            entry = {
+                "statement_index": getattr(result, "statement_index", 0),
+                "statement": getattr(result, "statement", ""),
+                "status": getattr(result, "status", "success"),
+                "execution_metadata": getattr(result, "execution_metadata", None),
+            }
+            if getattr(result, "error", None):
+                entry["error"] = result.error
+            if connection_id:
+                entry["connection_id"] = connection_id
+            if connection_type:
+                entry["connection_type"] = connection_type
+            _last_sql_execution_metadata.append(entry)
+            yield result
+
+    return _inner()
 
 
 logger.info("Finished importing sqlutils")

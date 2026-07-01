@@ -295,6 +295,8 @@ _PROMPT_SENTENCE_BOUNDARY_PATTERN = re.compile(r"[!?;]|[.](?=\s|$)")
 _GUARD_SYNC_USER_AGENT = f"hol-guard/{__version__}"
 _SYNC_HTTP_TIMEOUT_SECONDS = 20
 _SYNC_HTTP_RETRY_TIMEOUT_SECONDS = 120
+_SYNC_RETRYABLE_GATEWAY_STATUS_CODES = frozenset({502, 503, 504, 522, 524})
+_SYNC_RETRYABLE_GATEWAY_MAX_ATTEMPTS = 2
 _RUNTIME_SYNC_TIMEOUT_SECONDS = 10
 _RUNTIME_SYNC_RETRY_TIMEOUT_SECONDS = 90
 _RECEIPT_SYNC_BATCH_SIZE = 50
@@ -1055,6 +1057,46 @@ def _policy_bundle_rule_matcher_families(rule: dict[str, object]) -> list[str]:
     return list(dict.fromkeys(family for family in derived if family in POLICY_BUNDLE_RULE_MATCHER_FAMILIES))
 
 
+def _policy_bundle_rule_saved_decision_families(rule: dict[str, object]) -> list[str]:
+    """Return rule families that can be represented without broadening scope.
+
+    Package-request bundle rules with no package-related scope cannot be
+    represented as local family decisions without becoming "all package
+    installs." Scoped package bundle rules retain the existing runtime
+    family-row behavior.
+    """
+    families = _policy_bundle_rule_matcher_families(rule)
+    if "package-request" not in families:
+        return families
+    if _policy_bundle_rule_has_package_scope(rule):
+        return families
+    return [family for family in families if family != "package-request"]
+
+
+def _policy_bundle_rule_has_package_scope(rule: dict[str, object]) -> bool:
+    artifact_type = non_empty_string(rule.get("artifactType"))
+    if artifact_type == "package_request":
+        return True
+    scope = rule.get("scope")
+    if not isinstance(scope, dict):
+        return False
+    package_scope_keys = (
+        "ecosystems",
+        "packages",
+        "packageNames",
+        "packageManagers",
+        "registries",
+        "sourceUrls",
+    )
+    for key in package_scope_keys:
+        value = scope.get(key)
+        if isinstance(value, list) and value:
+            return True
+        if non_empty_string(value) is not None:
+            return True
+    return False
+
+
 def _policy_bundle_rule_matches_local_scope(
     rule: dict[str, object],
     *,
@@ -1137,7 +1179,7 @@ def _build_policy_bundle_decisions(
             continue
         if _policy_bundle_rule_has_browser_scope(item):
             continue
-        matcher_families = _policy_bundle_rule_matcher_families(item)
+        matcher_families = _policy_bundle_rule_saved_decision_families(item)
         if not matcher_families:
             continue
         rule_id = non_empty_string(item.get("ruleId")) or "bundle-rule"
@@ -2035,6 +2077,18 @@ def _parse_retry_after_header(error: urllib.error.HTTPError) -> int:
         return max(1, int(delta))
     except (ValueError, TypeError):
         return 60
+
+
+def _retryable_gateway_http_error(error: urllib.error.HTTPError) -> bool:
+    return error.code in _SYNC_RETRYABLE_GATEWAY_STATUS_CODES
+
+
+def _retry_after_sleep_seconds(error: urllib.error.HTTPError, retry_timeout_seconds: int) -> int:
+    return min(_parse_retry_after_header(error), retry_timeout_seconds)
+
+
+def _request_for_gateway_retry(request: urllib.request.Request) -> urllib.request.Request:
+    return _refresh_guard_sync_request(request) or request
 
 
 def _record_guard_events_sync_failure(
@@ -3255,6 +3309,7 @@ def _urlopen_json_with_timeout_retry(
     retried_timeout = False
     nonce_retry_count = 0
     rate_limit_retry_count = 0
+    gateway_retry_count = 0
     while True:
         try:
             with urllib.request.urlopen(current_request, timeout=current_timeout_seconds) as response:
@@ -3268,6 +3323,14 @@ def _urlopen_json_with_timeout_retry(
                 if refreshed_request is None:
                     raise
                 current_request = refreshed_request
+                current_timeout_seconds = timeout_seconds
+                retried_timeout = False
+                continue
+            if _retryable_gateway_http_error(error) and gateway_retry_count < _SYNC_RETRYABLE_GATEWAY_MAX_ATTEMPTS:
+                retry_after = _retry_after_sleep_seconds(error, retry_timeout_seconds)
+                time.sleep(retry_after)
+                gateway_retry_count += 1
+                current_request = _request_for_gateway_retry(current_request)
                 current_timeout_seconds = timeout_seconds
                 retried_timeout = False
                 continue
@@ -3311,6 +3374,7 @@ def _urlopen_with_timeout_retry(
     retried_timeout = False
     nonce_retry_count = 0
     rate_limit_retry_count = 0
+    gateway_retry_count = 0
     while True:
         try:
             with urllib.request.urlopen(current_request, timeout=current_timeout_seconds):
@@ -3324,6 +3388,14 @@ def _urlopen_with_timeout_retry(
                 if refreshed_request is None:
                     raise
                 current_request = refreshed_request
+                current_timeout_seconds = timeout_seconds
+                retried_timeout = False
+                continue
+            if _retryable_gateway_http_error(error) and gateway_retry_count < _SYNC_RETRYABLE_GATEWAY_MAX_ATTEMPTS:
+                retry_after = _retry_after_sleep_seconds(error, retry_timeout_seconds)
+                time.sleep(retry_after)
+                gateway_retry_count += 1
+                current_request = _request_for_gateway_retry(current_request)
                 current_timeout_seconds = timeout_seconds
                 retried_timeout = False
                 continue
@@ -3881,6 +3953,32 @@ def _resolve_cloud_receipt_redaction_level(store: GuardStore) -> str:
     return "full"
 
 
+def _cloud_sync_command_display_part(value: str) -> str:
+    return " ".join(_cloud_sync_sanitize_text(value, fallback="").split())
+
+
+def _cloud_sync_receipt_action_command(envelope: dict[str, object], *, redaction_level: str) -> str | None:
+    tool_name = _optional_string(envelope.get("tool_name"))
+    sanitized_tool_name = _cloud_sync_command_display_part(tool_name) if tool_name is not None else ""
+    command = _optional_string(envelope.get("command"))
+    if command is not None and command not in {"guard_commands_module"}:
+        if redaction_level == "full":
+            return sanitized_tool_name or None
+        return _cloud_sync_command_display_part(command)
+    target_paths = envelope.get("target_paths")
+    if sanitized_tool_name and isinstance(target_paths, list):
+        raw_targets = [target for target in target_paths[:3] if isinstance(target, str) and target.strip()]
+        if raw_targets and redaction_level == "full":
+            target_placeholder = "[targets withheld]" if len(raw_targets) > 1 else "[target withheld]"
+            return " ".join([sanitized_tool_name, target_placeholder])
+        targets = [_cloud_sync_command_display_part(target) for target in raw_targets]
+        targets = [target for target in targets if target]
+        if targets:
+            return " ".join([sanitized_tool_name, *targets])
+        return sanitized_tool_name
+    return None
+
+
 def _cloud_sync_receipt_payload(
     receipt: dict[str, object],
     *,
@@ -3938,28 +4036,23 @@ def _cloud_sync_receipt_payload(
         payload["publisher"] = publisher
     redacted_envelope = receipt.get("envelope_redacted_json")
     if isinstance(redacted_envelope, dict) and redacted_envelope:
-        # When redaction level is not "full", enrich the envelope with command text
-        # from the full envelope (already secret-scrubbed at source via redact_text)
-        if redaction_level != "full":
-            full_envelope = receipt.get("action_envelope_json")
-            if isinstance(full_envelope, dict):
-                enriched = dict(redacted_envelope)
-                command = full_envelope.get("command")
-                if isinstance(command, str) and command:
-                    enriched["command"] = command
-                if redaction_level == "none":
-                    target_paths = full_envelope.get("target_paths")
-                    if isinstance(target_paths, list):
-                        enriched["target_paths"] = target_paths
-                    network_hosts = full_envelope.get("network_hosts")
-                    if isinstance(network_hosts, list):
-                        enriched["network_hosts"] = network_hosts
-                    package_name = full_envelope.get("package_name")
-                    if isinstance(package_name, str) and package_name:
-                        enriched["package_name"] = package_name
-                payload["envelopeRedacted"] = enriched
-            else:
-                payload["envelopeRedacted"] = redacted_envelope
+        full_envelope = receipt.get("action_envelope_json")
+        if isinstance(full_envelope, dict):
+            enriched = dict(redacted_envelope)
+            command = _cloud_sync_receipt_action_command(full_envelope, redaction_level=redaction_level)
+            if command is not None:
+                enriched["command"] = command
+            if redaction_level == "none":
+                target_paths = full_envelope.get("target_paths")
+                if isinstance(target_paths, list):
+                    enriched["target_paths"] = target_paths
+                network_hosts = full_envelope.get("network_hosts")
+                if isinstance(network_hosts, list):
+                    enriched["network_hosts"] = network_hosts
+                package_name = full_envelope.get("package_name")
+                if isinstance(package_name, str) and package_name:
+                    enriched["package_name"] = package_name
+            payload["envelopeRedacted"] = enriched
         else:
             payload["envelopeRedacted"] = redacted_envelope
     return payload

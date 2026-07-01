@@ -1,0 +1,329 @@
+"""Provider status panel widgets."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from textual.app import ComposeResult
+from textual.containers import Horizontal, Vertical
+from textual.widgets import Static
+
+from trinity.display_labels import compact_source_value, display_profile_value
+from trinity.textual_app.widgets.status_label import (
+    COMPACT_STATUS_LABELS,
+    compact_status_group,
+)
+
+
+@dataclass(frozen=True)
+class ProviderPanelState:
+    """Display state for a provider panel."""
+
+    name: str
+    provider: str
+    enabled: bool
+    status: str
+    summary: str = ""
+    details: str = ""
+    response_status: str = ""
+    configured_model: str = ""
+    actual_model: str = ""
+    model_label: str = ""
+    context_window: int = 0
+    budget_source: str = ""
+    session_id: str = ""
+    output_contract: str = ""
+    quality_signal_count: int = 0
+    quality_success_count: int = 0
+    quality_score: float = 0.0
+
+
+ACTIVITY_FRAMES = ("|", "/", "-", "\\")
+
+
+def provider_panel_state_group(state: ProviderPanelState) -> str:
+    if not state.enabled:
+        return "off"
+    response_status = state.response_status.strip().lower()
+    if response_status and response_status != "ok":
+        return "issue"
+    if _looks_like_error_output(state.details or state.summary):
+        return "issue"
+    return compact_status_group(state.status)
+
+
+def _looks_like_error_output(text: str) -> bool:
+    normalized = " ".join(text.strip().split()).lower()
+    if not normalized:
+        return False
+    return (
+        normalized.startswith("[error:")
+        or normalized.startswith("error:")
+        or normalized.startswith("traceback ")
+        or "exit code " in normalized
+    )
+
+
+def provider_panel_classes(state: ProviderPanelState) -> str:
+    classes = ["provider-panel", f"provider-{state.name.lower()}"]
+    state_group = provider_panel_state_group(state)
+    classes.append(f"provider-state-{state_group}")
+    if state_group == "running":
+        classes.append("provider-running")
+    if state_group == "off":
+        classes.append("provider-disabled")
+    return " ".join(classes)
+
+
+def provider_panel_state_label(state: str, *, lang: str = "en") -> str:
+    ko = {
+        "done": "완료",
+        "idle": "휴식",
+        "issue": "문제",
+        "off": "끔",
+        "running": "실행",
+        "unknown": "?",
+        "waiting": "대기",
+    }
+    en = {
+        "off": "OFF",
+        **COMPACT_STATUS_LABELS,
+    }
+    labels = ko if lang == "ko" else en
+    return labels.get(state, state.upper())
+
+
+def provider_panel_status_label(
+    state: ProviderPanelState,
+    *,
+    activity_frame: int = 0,
+    lang: str = "en",
+) -> str:
+    state_group = provider_panel_state_group(state)
+    prefix = ""
+    if state_group == "running":
+        prefix = f"{ACTIVITY_FRAMES[activity_frame % len(ACTIVITY_FRAMES)]} "
+    return f"{prefix}{provider_panel_state_label(state_group, lang=lang)}"
+
+
+def provider_panel_summary_line(state: ProviderPanelState, *, lang: str = "en") -> str:
+    text = state.details or state.summary or _provider_panel_empty_summary(lang=lang)
+    return _compact_provider_panel_line(text)
+
+
+def _compact_provider_panel_line(text: str, limit: int = 72) -> str:
+    normalized = " ".join(text.split())
+    if len(normalized) <= limit:
+        return normalized
+    return normalized[: limit - 1].rstrip() + "…"
+
+
+def _provider_panel_empty_summary(*, lang: str = "en") -> str:
+    return "응답 없음" if lang == "ko" else "No response yet"
+
+
+def provider_panel_provider_line(state: ProviderPanelState, *, lang: str = "en") -> str:
+    parts = [state.provider]
+    model = _provider_panel_model_label(state)
+    if model and model.lower() not in state.provider.lower():
+        parts.append(model)
+    context = _provider_panel_context_label(state, lang=lang)
+    if context:
+        parts.append(context)
+    session = state.session_id.strip()
+    if session:
+        parts.append(f"{_provider_panel_meta_label('session', lang=lang)} {session[:8]}")
+    output_contract = state.output_contract.strip()
+    if output_contract:
+        parts.append(
+            f"{_provider_panel_meta_label('output', lang=lang)} "
+            f"{display_profile_value(output_contract, lang=lang)}"
+        )
+    quality = _provider_panel_quality_label(state, lang=lang)
+    if quality:
+        parts.append(quality)
+    return _compact_provider_panel_line(" · ".join(part for part in parts if part))
+
+
+def _provider_panel_model_label(state: ProviderPanelState) -> str:
+    return (
+        state.actual_model
+        or state.model_label
+        or state.configured_model
+    ).strip()
+
+
+def _provider_panel_context_label(
+    state: ProviderPanelState,
+    *,
+    lang: str = "en",
+) -> str:
+    if state.context_window <= 0:
+        return ""
+    label = (
+        f"{_provider_panel_meta_label('context', lang=lang)} "
+        f"{_format_provider_panel_context_window(state.context_window)}"
+    )
+    source = compact_source_value(state.budget_source, lang=lang)
+    if source:
+        label = f"{label}/{source}"
+    return label
+
+
+def _provider_panel_quality_label(
+    state: ProviderPanelState,
+    *,
+    lang: str = "en",
+) -> str:
+    if state.quality_signal_count <= 0:
+        return ""
+    label = _provider_panel_meta_label("quality", lang=lang)
+    score = _format_provider_panel_score(state.quality_score)
+    return (
+        f"{label} {score} "
+        f"{state.quality_success_count}/{state.quality_signal_count}"
+    )
+
+
+def _provider_panel_meta_label(key: str, *, lang: str = "en") -> str:
+    labels = {
+        "ko": {
+            "context": "컨텍스트",
+            "output": "출력",
+            "quality": "품질",
+            "session": "세션",
+        },
+        "en": {
+            "context": "ctx",
+            "output": "out",
+            "quality": "q",
+            "session": "sid",
+        },
+    }
+    return labels.get(lang, labels["en"]).get(key, key)
+
+
+def _format_provider_panel_context_window(context_window: int) -> str:
+    if context_window >= 1_000_000:
+        value = context_window / 1_000_000
+        return f"{value:g}M"
+    if context_window >= 1_000:
+        value = context_window / 1_000
+        return f"{value:g}K"
+    return str(context_window)
+
+
+def _format_provider_panel_score(score: float) -> str:
+    text = f"{score:.3f}".rstrip("0").rstrip(".")
+    if text == "-0":
+        return "0"
+    return text or "0"
+
+
+class ProviderPanel(Vertical):
+    """Compact status surface for a provider."""
+
+    def __init__(
+        self,
+        state: ProviderPanelState,
+        *,
+        id: str | None = None,
+        lang: str = "en",
+    ) -> None:
+        super().__init__(id=id, classes=provider_panel_classes(state))
+        self.state = state
+        self.lang = lang
+        self._activity_frame = 0
+        self._static_cache: dict[str, Static] = {}
+
+    def compose(self) -> ComposeResult:
+        with Horizontal(classes="provider-heading"):
+            name = Static(self.state.name.title(), classes="provider-name")
+            status = Static(
+                provider_panel_status_label(
+                    self.state,
+                    activity_frame=self._activity_frame,
+                    lang=self.lang,
+                ),
+                classes="provider-status",
+            )
+            self._static_cache[".provider-name"] = name
+            self._static_cache[".provider-status"] = status
+            yield name
+            yield status
+        meta = Static(
+            provider_panel_provider_line(self.state, lang=self.lang),
+            classes="provider-meta",
+        )
+        summary = Static(
+            provider_panel_summary_line(self.state, lang=self.lang),
+            classes="provider-summary",
+        )
+        self._static_cache[".provider-meta"] = meta
+        self._static_cache[".provider-summary"] = summary
+        yield meta
+        yield summary
+
+    def update_state(self, state: ProviderPanelState) -> None:
+        if state == self.state:
+            return
+        previous_name = self.state.name.title()
+        previous_provider_line = provider_panel_provider_line(
+            self.state,
+            lang=self.lang,
+        )
+        previous_status_label = provider_panel_status_label(
+            self.state,
+            activity_frame=self._activity_frame,
+            lang=self.lang,
+        )
+        previous_summary_line = provider_panel_summary_line(
+            self.state,
+            lang=self.lang,
+        )
+        previous_classes = provider_panel_classes(self.state)
+        self.state = state
+        classes = provider_panel_classes(state)
+        if classes != previous_classes:
+            self.set_classes(classes)
+        name = state.name.title()
+        provider_line = provider_panel_provider_line(self.state, lang=self.lang)
+        status_label = provider_panel_status_label(
+            self.state,
+            activity_frame=self._activity_frame,
+            lang=self.lang,
+        )
+        summary_line = provider_panel_summary_line(self.state, lang=self.lang)
+        if name != previous_name:
+            self._static_for(".provider-name").update(name)
+        if provider_line != previous_provider_line:
+            self._static_for(".provider-meta").update(provider_line)
+        if status_label != previous_status_label:
+            self._static_for(".provider-status").update(status_label)
+        if summary_line != previous_summary_line:
+            self._static_for(".provider-summary").update(summary_line)
+
+    def set_activity_frame(self, frame: int) -> None:
+        next_frame = frame % len(ACTIVITY_FRAMES)
+        if next_frame == self._activity_frame:
+            return
+        self._activity_frame = next_frame
+        if self.is_mounted and provider_panel_state_group(self.state) == "running":
+            self._static_for(".provider-status").update(
+                provider_panel_status_label(
+                    self.state,
+                    activity_frame=self._activity_frame,
+                    lang=self.lang,
+                )
+            )
+
+    def has_running_activity(self) -> bool:
+        return provider_panel_state_group(self.state) == "running"
+
+    def _static_for(self, selector: str) -> Static:
+        widget = self._static_cache.get(selector)
+        if widget is not None:
+            return widget
+        widget = self.query_one(selector, Static)
+        self._static_cache[selector] = widget
+        return widget

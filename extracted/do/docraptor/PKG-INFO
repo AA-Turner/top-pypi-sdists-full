@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: docraptor
+Version: 3.1.0
+Summary: DocRaptor
+Home-page: 
+Author: OpenAPI Generator community
+Author-email: team@openapitools.org
+License: MIT
+Keywords: OpenAPI,OpenAPI-Generator,DocRaptor
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: urllib3>=1.25.3
+Requires-Dist: six>=1.10
+Requires-Dist: python-dateutil
+
+    A native client library for the DocRaptor HTML to PDF/XLS service.  # noqa: E501
+    

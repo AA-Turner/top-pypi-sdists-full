@@ -1,2 +1,0 @@
-packages:
-  - "<< npm_workspace_glob >>"

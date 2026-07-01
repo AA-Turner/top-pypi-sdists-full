@@ -1,7 +1,0 @@
-Metadata-Version: 2.4
-Name: blasthttp
-Version: 0.9.0
-License-File: LICENSE
-Summary: Offensive-first HTTP library
-License-Expression: GPL-3.0
-Requires-Python: >=3.10

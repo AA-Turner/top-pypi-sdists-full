@@ -117,12 +117,12 @@ def _create_session_manager(
             raise RuntimeError(
                 "Could not identify the Spark backend from the connection properties. "
                 "Ensure the connection has valid athenaProperties, sparkEmrProperties, "
-                "or sparkGlueProperties. Supported backends: Athena, EMR Serverless, Glue."
+                "or sparkGlueProperties. Supported backends: Athena, EMR Serverless, EMR on EC2, Glue."
             )
-        if service in ("EMR_EKS", "EMR_EC2"):
+        if service == "EMR_EKS":
             raise RuntimeError(
                 f"Spark Connect is not yet supported for {service} connections. "
-                "Supported backends: Athena, EMR Serverless, Glue."
+                "Supported backends: Athena, EMR Serverless, EMR on EC2, Glue."
             )
         # SPARK type is only valid for Glue (DZ creates Glue connections with type=SPARK).
         if conn_type == "SPARK" and service != "GLUE":
@@ -146,6 +146,18 @@ def _create_session_manager(
 
         if service == "EMR_SERVERLESS":
             return EMRServerlessSparkSessionManager(
+                connection=connection,
+                connection_name=connection_name,
+                config=config,
+                spark_conf=spark_conf,
+            )
+
+        if service == "EMR_EC2":
+            from sagemaker_studio.utils.spark.session.emr_ec2.emr_ec2_spark_session_manager import (
+                EmrEc2SparkSessionManager,
+            )
+
+            return EmrEc2SparkSessionManager(
                 connection=connection,
                 connection_name=connection_name,
                 config=config,

@@ -26,6 +26,7 @@ __all__ = [
     "DumbRemoteHTTPRepo",
 ]
 
+import logging
 import os
 import tempfile
 import zlib
@@ -54,6 +55,8 @@ from .objects import (
 from .pack import Pack, PackData, PackIndex, UnpackedObject, load_pack_index_file
 from .protocol import split_peeled_refs
 from .refs import Ref, read_info_refs
+
+logger = logging.getLogger(__name__)
 
 
 class DumbHTTPObjectStore(BaseObjectStore):
@@ -185,9 +188,15 @@ class DumbHTTPObjectStore(BaseObjectStore):
         for line in packs_data.strip().split(b"\n"):
             if line.startswith(b"P "):
                 pack_name = line[2:].decode("utf-8")
-                # Extract just the pack name without path
-                if "/" in pack_name:
-                    pack_name = pack_name.split("/")[-1]
+                # The name is interpolated into request URLs and temporary file
+                # paths, so reject any path separators that could traverse
+                # directories (backslash matters on Windows).
+                if "/" in pack_name or "\\" in pack_name:
+                    logger.warning(
+                        "Ignoring pack with suspicious name %r from remote",
+                        pack_name,
+                    )
+                    continue
                 if pack_name.endswith(".pack"):
                     pack_name = pack_name[:-5]  # Remove .pack extension
                 self._packs.append((pack_name, None))
@@ -269,29 +278,29 @@ class DumbHTTPObjectStore(BaseObjectStore):
 
         raise KeyError(sha)
 
-    def get_raw(self, sha: RawObjectID | ObjectID) -> tuple[int, bytes]:
+    def get_raw(self, name: RawObjectID | ObjectID) -> tuple[int, bytes]:
         """Obtain the raw text for an object.
 
         Args:
-          sha: SHA1 of the object
+          name: SHA1 of the object
         Returns:
           Tuple with numeric type and object contents
         """
         # Check cache first
-        if sha in self._cached_objects:
-            return self._cached_objects[sha]
+        if name in self._cached_objects:
+            return self._cached_objects[name]
 
         # Try packs first
         try:
-            result = self._fetch_from_pack(sha)
-            self._cached_objects[sha] = result
+            result = self._fetch_from_pack(name)
+            self._cached_objects[name] = result
             return result
         except KeyError:
             pass
 
         # Try loose object
-        result = self._fetch_loose_object(sha)
-        self._cached_objects[sha] = result
+        result = self._fetch_loose_object(name)
+        self._cached_objects[name] = result
         return result
 
     def contains_loose(self, sha: RawObjectID | ObjectID) -> bool:

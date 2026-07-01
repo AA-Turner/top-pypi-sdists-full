@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xvfbwrapper
-Version: 0.2.23
+Version: 0.2.25
 Summary: Manage headless displays with Xvfb (X virtual framebuffer)
 Author: Corey Goldberg
 Maintainer: Corey Goldberg
@@ -43,6 +43,11 @@ Dynamic: license-file
 - Development: [GitHub][github-repo]
 - Releases: [PyPI][pypi-home]
 - License: [MIT][mit-license]
+
+The package provides the `xvfvwrapper.Xvfb` class that is used to interact with
+an Xvfb server.
+
+See the [module API documentation][api-docs] for more information.
 
 ----
 
@@ -253,14 +258,11 @@ import unittest
 from selenium import webdriver
 from xvfbwrapper import Xvfb
 
-# force X11 in case we are running on a Wayland system
-os.environ["XDG_SESSION_TYPE"] = "x11"
-
 
 class TestPage(unittest.TestCase):
 
     def setUp(self):
-        xvfb = Xvfb()
+        xvfb = Xvfb(set_xdg_session_type=True)
         xvfb.start()
         self.driver = webdriver.Chrome()
         self.addCleanup(xvfb.stop)
@@ -282,26 +284,11 @@ if __name__ == "__main__":
 
 ----
 
-## xvfbwrapper Issues
+## Development
 
-To report a bug or request a new feature, please open an issue on [GitHub][github-issues].
+- Git: [github.com/cgoldberg/xvfbwrapper.git][github-repo]
 
-----
-
-## xvfbwrapper Development
-
-1. Fork the project repo on [GitHub][github-repo]
-
-2. Clone the repo:
-
-    ```
-    git clone https://github.com/<USERNAME>/xvfbwrapper.git
-    cd xvfbwrapper
-    ```
-
-3. Make changes and run the tests:
-
-    Create a virtual env and install required testing packages:
+- Create a virtual env and install required testing packages:
 
     ```
     python -m venv venv
@@ -309,27 +296,21 @@ To report a bug or request a new feature, please open an issue on [GitHub][githu
     pip install --editable --group dev --group test .
     ```
 
-    Run all tests in the default Python environment:
+- Run all tests in the default Python environment:
 
     ```
     pytest
     ```
 
-    Run all tests, linting, and type checking across all supported/installed
-    Python environments:
+- Run all tests, linting, and type checking across all supported/installed
+  Python environments:
 
     ```
     tox
     ```
 
-4. Commit and push your changes
-
-5. Submit a [Pull Request][github-prs]
-
-
 [github-profile]: https://github.com/cgoldberg
 [github-repo]: https://github.com/cgoldberg/xvfbwrapper
-[github-issues]: https://github.com/cgoldberg/xvfbwrapper/issues
-[github-prs]: https://github.com/cgoldberg/xvfbwrapper/pulls
 [pypi-home]: https://pypi.org/project/xvfbwrapper
 [mit-license]: https://raw.githubusercontent.com/cgoldberg/xvfbwrapper/refs/heads/master/LICENSE
+[api-docs]: https://coreygoldberg.com/xvfbwrapper

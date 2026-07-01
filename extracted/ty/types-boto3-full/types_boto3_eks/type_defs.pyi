@@ -28,6 +28,7 @@ from .literals import (
     AMITypesType,
     ArgoCdRoleType,
     AuthenticationModeType,
+    CancellationStatusType,
     CapabilityIssueCodeType,
     CapabilityStatusType,
     CapabilityTypeType,
@@ -104,6 +105,9 @@ __all__ = (
     "AssociatedAccessPolicyTypeDef",
     "AutoScalingGroupTypeDef",
     "BlockStorageTypeDef",
+    "CancelUpdateRequestTypeDef",
+    "CancelUpdateResponseTypeDef",
+    "CancellationTypeDef",
     "CapabilityConfigurationRequestTypeDef",
     "CapabilityConfigurationResponseTypeDef",
     "CapabilityHealthTypeDef",
@@ -310,6 +314,7 @@ __all__ = (
     "RemotePodNetworkTypeDef",
     "RemotePodNetworkUnionTypeDef",
     "ResponseMetadataTypeDef",
+    "RollbackConfigTypeDef",
     "SsoIdentityTypeDef",
     "StartInsightsRefreshRequestTypeDef",
     "StartInsightsRefreshResponseTypeDef",
@@ -469,6 +474,15 @@ class AutoScalingGroupTypeDef(TypedDict):
 
 class BlockStorageTypeDef(TypedDict):
     enabled: NotRequired[bool]
+
+class CancelUpdateRequestTypeDef(TypedDict):
+    name: str
+    updateId: str
+    clientRequestToken: NotRequired[str]
+
+class CancellationTypeDef(TypedDict):
+    status: NotRequired[CancellationStatusType]
+    reason: NotRequired[str]
 
 class CapabilityIssueTypeDef(TypedDict):
     code: NotRequired[CapabilityIssueCodeType]
@@ -978,6 +992,9 @@ class RemoteNodeNetworkTypeDef(TypedDict):
 class RemotePodNetworkTypeDef(TypedDict):
     cidrs: NotRequired[Sequence[str]]
 
+class RollbackConfigTypeDef(TypedDict):
+    timeoutMinutes: NotRequired[int]
+
 class StartInsightsRefreshRequestTypeDef(TypedDict):
     clusterName: str
 
@@ -998,12 +1015,6 @@ class UpdateAccessEntryRequestTypeDef(TypedDict):
     kubernetesGroups: NotRequired[Sequence[str]]
     clientRequestToken: NotRequired[str]
     username: NotRequired[str]
-
-class UpdateClusterVersionRequestTypeDef(TypedDict):
-    name: str
-    version: str
-    clientRequestToken: NotRequired[str]
-    force: NotRequired[bool]
 
 UpdateEksAnywhereSubscriptionRequestTypeDef = TypedDict(
     "UpdateEksAnywhereSubscriptionRequestTypeDef",
@@ -1503,6 +1514,14 @@ class RemoteNetworkConfigResponseTypeDef(TypedDict):
 
 RemoteNodeNetworkUnionTypeDef = Union[RemoteNodeNetworkTypeDef, RemoteNodeNetworkOutputTypeDef]
 RemotePodNetworkUnionTypeDef = Union[RemotePodNetworkTypeDef, RemotePodNetworkOutputTypeDef]
+
+class UpdateClusterVersionRequestTypeDef(TypedDict):
+    name: str
+    version: str
+    clientRequestToken: NotRequired[str]
+    force: NotRequired[bool]
+    rollbackConfig: NotRequired[RollbackConfigTypeDef]
+
 UpdateTypeDef = TypedDict(
     "UpdateTypeDef",
     {
@@ -1512,6 +1531,7 @@ UpdateTypeDef = TypedDict(
         "params": NotRequired[list[UpdateParamTypeDef]],
         "createdAt": NotRequired[datetime],
         "errors": NotRequired[list[ErrorDetailTypeDef]],
+        "cancellation": NotRequired[CancellationTypeDef],
     },
 )
 
@@ -1706,6 +1726,10 @@ class AssociateEncryptionConfigResponseTypeDef(TypedDict):
 class AssociateIdentityProviderConfigResponseTypeDef(TypedDict):
     update: UpdateTypeDef
     tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CancelUpdateResponseTypeDef(TypedDict):
+    update: UpdateTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeUpdateResponseTypeDef(TypedDict):

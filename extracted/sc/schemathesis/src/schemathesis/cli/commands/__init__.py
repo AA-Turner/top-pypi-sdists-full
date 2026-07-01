@@ -6,8 +6,8 @@ from typing import Any
 
 import click
 
-from schemathesis.cli.commands.data import Data
 from schemathesis.cli.commands.fuzz import fuzz as fuzz_command
+from schemathesis.cli.commands.replay import replay as replay_command
 from schemathesis.cli.commands.run import run as run_command
 from schemathesis.cli.constants import EXTENSIONS_DOCUMENTATION_URL
 from schemathesis.cli.core import get_terminal_width
@@ -123,7 +123,7 @@ def schemathesis(ctx: click.Context, config_file: str | None) -> None:
             click.secho(f"\n{message}", fg="red")
         click.echo(f"\nFor more information on how to work with hooks, visit {EXTENSIONS_DOCUMENTATION_URL}")
         ctx.exit(1)
-    ctx.obj = Data(config=config)
+    ctx.obj = config
 
 
 @dataclass(slots=True)
@@ -146,3 +146,5 @@ fuzz = schemathesis.command(
     cls=CommandWithGroupedOptions,
     context_settings={"terminal_width": get_terminal_width(), **CONTEXT_SETTINGS},
 )(fuzz_command)
+
+schemathesis.add_command(replay_command)

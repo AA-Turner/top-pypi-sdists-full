@@ -1,5 +1,0 @@
-- hosts: all
-  roles:
-    - prepare_functional_tests_logs
-    - fetch-tox-output
-    - fetch-subunit-output

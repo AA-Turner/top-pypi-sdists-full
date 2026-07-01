@@ -497,7 +497,9 @@ __all__ = (
     "PaginatorName",
     "PartitionLoadFrequencyType",
     "PasswordDataAvailableWaiterName",
+    "PayerResponsibilityScopeType",
     "PayerResponsibilityType",
+    "PayerResponsibilityTypeType",
     "PaymentOptionType",
     "PeriodTypeType",
     "PermissionGroupType",
@@ -2958,7 +2960,9 @@ OperationTypeType = Literal["add", "remove"]
 OutputFormatType = Literal["csv", "parquet"]
 PartitionLoadFrequencyType = Literal["daily", "monthly", "none", "weekly"]
 PasswordDataAvailableWaiterName = Literal["password_data_available"]
+PayerResponsibilityScopeType = Literal["vpc-endpoint-charges"]
 PayerResponsibilityType = Literal["ServiceOwner"]
+PayerResponsibilityTypeType = Literal["vpc-endpoint-account", "vpc-endpoint-service-account"]
 PaymentOptionType = Literal["AllUpfront", "NoUpfront", "PartialUpfront"]
 PeriodTypeType = Literal[
     "fifteen-minutes", "five-minutes", "one-day", "one-hour", "one-week", "three-hours"
@@ -3676,8 +3680,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -3773,7 +3775,6 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
@@ -3859,7 +3860,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -3880,6 +3880,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

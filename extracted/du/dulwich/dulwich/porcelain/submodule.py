@@ -61,7 +61,7 @@ def submodule_add(
         # TODO(jelmer): Move this logic to dulwich.submodule
         gitmodules_path = os.path.join(r.path, ".gitmodules")
         try:
-            config = ConfigFile.from_path(gitmodules_path)
+            config = ConfigFile.from_path(gitmodules_path, expand_includes=False)
         except FileNotFoundError:
             config = ConfigFile()
             config.path = gitmodules_path
@@ -246,7 +246,7 @@ def submodule_update(
 
                     # Build the index and checkout files
                     tree = sub_repo[target_sha]
-                    if hasattr(tree, "tree"):  # If it's a commit, get the tree
+                    if isinstance(tree, Commit):  # If it's a commit, get the tree
                         tree_id = tree.tree
                     else:
                         tree_id = target_sha

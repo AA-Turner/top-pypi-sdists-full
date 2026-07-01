@@ -112,12 +112,6 @@ async def get_config(
     return config
 
 
-async def write_config(config: Dict[str, Any], dest_file: str = ".tinyb"):
-    config_file = Path(getcwd()) / dest_file
-    async with aiofiles.open(config_file, "w") as file:
-        await file.write(json.dumps(config, indent=4, sort_keys=True))
-
-
 def get_display_host(ui_host: str):
     return LEGACY_HOSTS.get(ui_host, ui_host)
 

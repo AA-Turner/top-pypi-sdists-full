@@ -1,0 +1,517 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body:
+        dependsOn:
+          - complementFilter: false
+            label: order_status
+            values:
+              - Canceled
+              - Delivered
+        label: order_status
+        validateBy: []
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/collectLabelElements
+    response:
+      body:
+        string:
+          cacheId: NORMALIZED_CACHE_ID_000000000000
+          elements:
+            - primaryTitle: Canceled
+              title: Canceled
+            - primaryTitle: Delivered
+              title: Delivered
+          paging:
+            count: 2
+            next: null
+            offset: 0
+            total: 2
+          primaryLabel:
+            id: order_status
+            type: label
+      headers:
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        dependsOn: []
+        label: order_status
+        validateBy:
+          - id: revenue_top_10_percent
+            type: metric
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/collectLabelElements
+    response:
+      body:
+        string:
+          cacheId: NORMALIZED_CACHE_ID_000000000000
+          elements:
+            - primaryTitle: Delivered
+              title: Delivered
+          paging:
+            count: 1
+            next: null
+            offset: 0
+            total: 1
+          primaryLabel:
+            id: order_status
+            type: label
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        dependsOn: []
+        label: order_status
+        validateBy: []
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/collectLabelElements
+    response:
+      body:
+        string:
+          cacheId: NORMALIZED_CACHE_ID_000000000000
+          elements:
+            - primaryTitle: Canceled
+              title: Canceled
+            - primaryTitle: Delivered
+              title: Delivered
+            - primaryTitle: Returned
+              title: Returned
+          paging:
+            count: 3
+            next: null
+            offset: 0
+            total: 3
+          primaryLabel:
+            id: order_status
+            type: label
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        dependsOn:
+          - dateFilter:
+              absoluteDateFilter:
+                dataset:
+                  identifier:
+                    id: date
+                    type: dataset
+                from: '2150-07-01'
+                to: '2150-07-16'
+        label: order_status
+        validateBy: []
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/collectLabelElements
+    response:
+      body:
+        string:
+          cacheId: NORMALIZED_CACHE_ID_000000000000
+          elements: []
+          paging:
+            count: 0
+            next: null
+            offset: 0
+            total: 0
+          primaryLabel:
+            id: order_status
+            type: label
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        dependsOn:
+          - dateFilter:
+              relativeDateFilter:
+                dataset:
+                  identifier:
+                    id: date
+                    type: dataset
+                from: 3600
+                granularity: DAY
+                to: 3700
+        label: order_status
+        validateBy: []
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/collectLabelElements
+    response:
+      body:
+        string:
+          cacheId: NORMALIZED_CACHE_ID_000000000000
+          elements: []
+          paging:
+            count: 0
+            next: null
+            offset: 0
+            total: 0
+          primaryLabel:
+            id: order_status
+            type: label
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        dependsOn:
+          - complementFilter: false
+            label: order_status
+            values:
+              - Canceled
+              - Delivered
+        label: order_status
+        validateBy: []
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/collectLabelElements
+    response:
+      body:
+        string:
+          cacheId: NORMALIZED_CACHE_ID_000000000000
+          elements:
+            - primaryTitle: Canceled
+              title: Canceled
+            - primaryTitle: Delivered
+              title: Delivered
+          paging:
+            count: 2
+            next: null
+            offset: 0
+            total: 2
+          primaryLabel:
+            id: order_status
+            type: label
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        dependsOn: []
+        label: order_status
+        patternFilter: Deli
+        validateBy: []
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/collectLabelElements
+    response:
+      body:
+        string:
+          cacheId: NORMALIZED_CACHE_ID_000000000000
+          elements:
+            - primaryTitle: Delivered
+              title: Delivered
+          paging:
+            count: 1
+            next: null
+            offset: 0
+            total: 1
+          primaryLabel:
+            id: order_status
+            type: label
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        complementFilter: true
+        dependsOn: []
+        label: order_status
+        patternFilter: Deli
+        validateBy: []
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/collectLabelElements
+    response:
+      body:
+        string:
+          cacheId: NORMALIZED_CACHE_ID_000000000000
+          elements:
+            - primaryTitle: Canceled
+              title: Canceled
+            - primaryTitle: Returned
+              title: Returned
+          paging:
+            count: 2
+            next: null
+            offset: 0
+            total: 2
+          primaryLabel:
+            id: order_status
+            type: label
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        dependsOn: []
+        label: order_status
+        sortOrder: DESC
+        validateBy: []
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/collectLabelElements
+    response:
+      body:
+        string:
+          cacheId: NORMALIZED_CACHE_ID_000000000000
+          elements:
+            - primaryTitle: Returned
+              title: Returned
+            - primaryTitle: Delivered
+              title: Delivered
+            - primaryTitle: Canceled
+              title: Canceled
+          paging:
+            count: 3
+            next: null
+            offset: 0
+            total: 3
+          primaryLabel:
+            id: order_status
+            type: label
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        dependsOn: []
+        label: order_status
+        validateBy: []
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/collectLabelElements?offset=1&limit=1
+    response:
+      body:
+        string:
+          cacheId: NORMALIZED_CACHE_ID_000000000000
+          elements:
+            - primaryTitle: Delivered
+              title: Delivered
+          paging:
+            count: 1
+            next: http://localhost:3000/api/v1/actions/workspaces/demo/execution/collectLabelElements?limit=1&offset=2
+            offset: 1
+            total: 3
+          primaryLabel:
+            id: order_status
+            type: label
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+version: 1

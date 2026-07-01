@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/metagit-ai/metagit-cli/refs/heads/main/schemas/metagit_config.schema.json
+name: metagit-cli
+description: |-
+  Metagit is situational awareness for developers and agents. It can make
+  a sprawling multi-repo project feel more like a monorepo or be used as a standalone
+  tool to provide concise information on the project's used languages/frameworks,
+  artifacts, upstream dependencies, and more.
+documentation:
+  # Strings are allowed and will be treated as a markdown file in the root of the project
+  - README.md
+  - AGENTS.md
+  - docs/terminology.md
+  # URLs are allowed and will be treated as a web page.
+  - https://metagit-ai.github.io/metagit-cli/
+  # All of these are duplicates of the strings above, but they are here to demonstrate 
+  # the different types of documentation that can be used.
+  - kind: confluence
+    url: https://confluence.example.com/display/METAGIT/Metagit+Documentation
+    tags:
+      - playbook
+      - tutorial
+  - kind: sharepoint
+    url: https://sharepoint.example.com/display/METAGIT/Metagit+DevOps
+    tags:
+      - devops
+  - kind: web
+    url: https://hub.docker.com/_/python
+    tags:
+      - docker
+      - python
+license:
+  kind: MIT
+  file: docs/LICENSE.md
+maintainers:
+  - name: Zachary Loeber
+    email: zloeber@gmail.com
+    role: Contributor
+branch_strategy: trunk
+taskers:
+  - kind: Taskfile
+artifacts:
+  - type: python_package
+    definition: pyproject.toml
+    location: .
+    version_strategy: semver
+  - type: docker
+    definition: Dockerfile
+    location: .
+    version_strategy: semver
+
+cicd:
+  platform: GitHub
+  pipelines:
+    - name: Lint and Test
+      ref: .github/workflows/lint-and-test.yaml
+    - name: Docs
+      ref: .github/workflows/docs.yaml
+    - name: PR and Push
+      ref: .github/workflows/pr-and-push.yaml
+    - name: Publish CLI
+      ref: .github/workflows/publish-cli.yaml
+  # dashboards:
+  #   - name: OpenSearch Dashboards
+  #     tool: OpenSearch
+  #     url: http://localhost:5601/
+  # logging_provider: elk
+  # monitoring_providers:
+  #   - grafana
+paths:
+  - name: metagit
+    description: The main project path
+    path: ./src/metagit
+    language: python
+    language_version: '3.13'
+    package_manager: uv
+    frameworks:
+      - CrewAI
+      - Click
+dependencies:
+  - name: ubuntu_latest
+    description: |-
+      Ubuntu is a Linux distribution based on Debian and composed mostly of free and
+      open-source software.
+    ref: ./.github/workflows/lint-and-test.yaml
+    kind: docker_image
+  - name: python:3.12-slim
+    ref: ./Dockerfile
+    url: https://hub.docker.com/_/python
+    kind: docker_image
+
+workspace:
+  projects:
+    - name: self
+      repos:
+        - name: metagit-cli
+          path: .

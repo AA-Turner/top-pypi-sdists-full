@@ -1,0 +1,49 @@
+Metadata-Version: 2.4
+Name: manygo
+Version: 0.2.0
+Summary: Python library with helpers for packaging golang source code
+Project-URL: Repository, https://github.com/jmelahman/manygo
+Author-email: Jamison Lahman <jamison@lahman.dev>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: golang,packaging,platform-tags
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# manygo
+
+[![Deploy Status](https://github.com/jmelahman/manygo/actions/workflows/release.yml/badge.svg)](https://github.com/jmelahman/manygo/actions)
+[![PyPI](https://img.shields.io/pypi/v/manygo.svg)](https://pypi.org/project/manygo/)
+
+A Python library for generating platform-specific tags for Golang packages and binaries.
+
+## Features
+
+- Convert Golang platform identifiers (GOOS and GOARCH) to Python platform tags
+
+## Installation
+
+```bash
+pip install manygo
+```
+
+## Usage
+
+```python
+>>> import manygo
+>>> manygo.get_platform_tag('linux', 'amd64')
+'manylinux_2_17_x86_64'
+
+>>> manygo.get_platform_tag('darwin', 'arm64')
+'macosx_11_0_arm64'
+```

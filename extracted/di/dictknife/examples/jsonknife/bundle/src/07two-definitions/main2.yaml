@@ -1,7 +1,0 @@
-definitions:
-  people:
-    $ref: "people.yaml#/definitions/people"
-
-propeties:
-  people:
-    $ref: "#/definitions/people"

@@ -1,0 +1,161 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[project]
+authors = [
+  {name = "joshua-auchincloss", email = "joshua.auchincloss@proton.me"}
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Software Development :: Build Tools",
+  "Topic :: Software Development :: Code Generators",
+  "Topic :: Software Development :: Compilers"
+]
+dependencies = [
+  "Cython",
+  "hatchling",
+  "setuptools",
+  "typing_extensions; python_version < '3.10'"
+]
+description = 'Cython build hooks for hatch'
+dynamic = ["version"]
+keywords = []
+license = "MIT"
+name = "hatch-cython"
+readme = "README.md"
+requires-python = ">=3.8"
+
+[project.entry-points.hatch]
+cython = "hatch_cython.hooks"
+
+[project.optional-dependencies]
+test = ["coverage[toml]", "pytest", "pytest-cov", "toml", "numpy"]
+
+[project.urls]
+Documentation = "https://github.com/joshua-auchincloss/hatch-cython#readme"
+Issues = "https://github.com/joshua-auchincloss/hatch-cython/issues"
+Source = "https://github.com/joshua-auchincloss/hatch-cython"
+
+[tool.black]
+line-length = 120
+skip-string-normalization = true
+target-version = ["py310"]
+
+[tool.coverage.paths]
+hatch_cython = ["src/hatch_cython", "*/hatch-cython/src/hatch_cython"]
+tests = ["tests", "*/hatch-cython/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:"
+]
+skip_empty = true
+
+[tool.coverage.run]
+branch = true
+omit = ["src/hatch_cython/__about__.py", "src/hatch_cython/types.py"]
+parallel = true
+source_pkgs = ["hatch_cython"]
+
+[[tool.hatch.envs.all.matrix]]
+python = ["3.11", "3.12", "3.13"]
+
+[tool.hatch.envs.default]
+dependencies = ["coverage[toml]>=6.5", "pytest", "toml", "numpy", "Cython"]
+
+[tool.hatch.envs.default.scripts]
+cov = ["test-cov", "cov-report"]
+cov-report = [
+  "- coverage combine",
+  "coverage report --format=markdown > COVERAGE.md",
+  "coverage html",
+  "coverage report"
+]
+test = "pytest --junitxml=junit.xml -o junit_family=legacy {args:tests} -v"
+test-cov = "coverage run -m pytest --junitxml=junit.xml -o junit_family=legacy -vv {args:tests}"
+
+[tool.hatch.envs.lint]
+dependencies = ["black", "mypy", "ruff"]
+detached = true
+
+[tool.hatch.envs.lint.scripts]
+all = ["style", "typing"]
+fmt = ["black {args:.}", "ruff --fix {args:.}", "style"]
+style = ["ruff {args:.}", "black --check --diff {args:.}"]
+typing = "mypy --install-types --non-interactive {args:src/hatch_cython tests}"
+
+[tool.hatch.version]
+path = "src/hatch_cython/__about__.py"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+ignore = [
+  "B027",
+  "FBT001",
+  "FBT002",
+  "FBT003",
+  "S105",
+  "S106",
+  "S107",
+  "C901",
+  "PLR0911",
+  "PLR0912",
+  "PLR0913",
+  "PLR0915"
+]
+select = [
+  "A",
+  "ARG",
+  "B",
+  "C",
+  "DTZ",
+  "E",
+  "EM",
+  "F",
+  "FBT",
+  "I",
+  "ICN",
+  "ISC",
+  "N",
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  "Q",
+  "RUF",
+  "S",
+  "T",
+  "TID",
+  "UP",
+  "W",
+  "YTT"
+]
+unfixable = []
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+known-first-party = ["hatch_cython"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
+# Tests can use magic values, assertions, and relative imports
+"tests/**/*" = ["PLR2004", "S101", "TID252"]

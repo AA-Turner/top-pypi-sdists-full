@@ -1,0 +1,143 @@
+# (C) 2022 GoodData Corporation
+from __future__ import annotations
+
+import builtins
+
+from attrs import define, field
+from gooddata_api_client.model.assignee_identifier import AssigneeIdentifier
+from gooddata_api_client.model.dataset_workspace_data_filter_identifier import DatasetWorkspaceDataFilterIdentifier
+from gooddata_api_client.model.declarative_analytical_dashboard_identifier import (
+    DeclarativeAnalyticalDashboardIdentifier,
+)
+from gooddata_api_client.model.declarative_export_definition_identifier import DeclarativeExportDefinitionIdentifier
+from gooddata_api_client.model.declarative_notification_channel_identifier import (
+    DeclarativeNotificationChannelIdentifier,
+)
+from gooddata_api_client.model.declarative_user_group_identifier import DeclarativeUserGroupIdentifier
+from gooddata_api_client.model.declarative_user_identifier import DeclarativeUserIdentifier
+from gooddata_api_client.model.grain_identifier import GrainIdentifier
+from gooddata_api_client.model.label_identifier import LabelIdentifier
+from gooddata_api_client.model.reference_identifier import ReferenceIdentifier
+from gooddata_api_client.model.source_reference_identifier import SourceReferenceIdentifier
+from gooddata_api_client.model.workspace_identifier import WorkspaceIdentifier
+
+from gooddata_sdk.catalog.base import Base, value_in_allowed
+
+
+@define(kw_only=True)
+class CatalogWorkspaceIdentifier(Base):
+    id: str
+
+    @staticmethod
+    def client_class() -> builtins.type[WorkspaceIdentifier]:
+        return WorkspaceIdentifier
+
+
+@define(kw_only=True)
+class CatalogReferenceIdentifier(Base):
+    id: str
+
+    @staticmethod
+    def client_class() -> builtins.type[ReferenceIdentifier]:
+        return ReferenceIdentifier
+
+
+@define(kw_only=True)
+class CatalogGrainIdentifier(Base):
+    id: str
+    type: str = field(validator=value_in_allowed)
+
+    @staticmethod
+    def client_class() -> builtins.type[GrainIdentifier]:
+        return GrainIdentifier
+
+
+@define(kw_only=True)
+class CatalogAssigneeIdentifier(Base):
+    id: str
+    type: str = field(validator=value_in_allowed)
+
+    @staticmethod
+    def client_class() -> builtins.type[AssigneeIdentifier]:
+        return AssigneeIdentifier
+
+
+@define(kw_only=True)
+class CatalogDeclarativeUserGroupIdentifier(Base):
+    id: str
+    type: str = field(validator=value_in_allowed)
+
+    @staticmethod
+    def client_class() -> builtins.type[DeclarativeUserGroupIdentifier]:
+        return DeclarativeUserGroupIdentifier
+
+
+@define(kw_only=True)
+class CatalogUserIdentifier(Base):
+    id: str
+    type: str = field(validator=value_in_allowed)
+
+    @staticmethod
+    def client_class() -> builtins.type[DeclarativeUserIdentifier]:
+        return DeclarativeUserIdentifier
+
+
+@define(kw_only=True)
+class CatalogFactIdentifier(Base):
+    # Backed by SourceReferenceIdentifier on the API side: the backend
+    # consolidated FactIdentifier into a polymorphic identifier whose `type`
+    # is FACT or ATTRIBUTE, so a single reference shape now covers both
+    # plain facts and HLL APPROXIMATE_COUNT targets (which point at attributes).
+    id: str
+    type: str = field(validator=value_in_allowed)
+
+    @staticmethod
+    def client_class() -> builtins.type[SourceReferenceIdentifier]:
+        return SourceReferenceIdentifier
+
+
+@define(kw_only=True)
+class CatalogLabelIdentifier(Base):
+    id: str
+    type: str = field(validator=value_in_allowed)
+
+    @staticmethod
+    def client_class() -> builtins.type[LabelIdentifier]:
+        return LabelIdentifier
+
+
+@define(kw_only=True)
+class CatalogDatasetWorkspaceDataFilterIdentifier(Base):
+    id: str
+
+    @staticmethod
+    def client_class() -> builtins.type[DatasetWorkspaceDataFilterIdentifier]:
+        return DatasetWorkspaceDataFilterIdentifier
+
+
+@define(kw_only=True)
+class CatalogExportDefinitionIdentifier(Base):
+    id: str
+
+    @staticmethod
+    def client_class() -> builtins.type[DeclarativeExportDefinitionIdentifier]:
+        return DeclarativeExportDefinitionIdentifier
+
+
+@define(kw_only=True)
+class CatalogNotificationChannelIdentifier(Base):
+    id: str
+
+    @staticmethod
+    def client_class() -> builtins.type[DeclarativeNotificationChannelIdentifier]:
+        return DeclarativeNotificationChannelIdentifier
+
+
+@define(kw_only=True)
+class CatalogDeclarativeAnalyticalDashboardIdentifier(Base):
+    id: str
+    type: str = field(validator=value_in_allowed)
+
+    @staticmethod
+    def client_class() -> builtins.type[DeclarativeAnalyticalDashboardIdentifier]:
+        return DeclarativeAnalyticalDashboardIdentifier

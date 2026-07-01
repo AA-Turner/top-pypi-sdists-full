@@ -16,7 +16,7 @@ from schemathesis.core.failures import AcceptedNegativeData, Failure
 from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS, get_type, make_validator, maybe_resolve_bundled
 from schemathesis.core.mutations import OperatorKind
 from schemathesis.core.parameters import ParameterLocation, plain_str_values
-from schemathesis.core.transport import Response
+from schemathesis.core.transport import Response, expand_status_code
 from schemathesis.generation.case import Case
 from schemathesis.generation.meta import CoveragePhaseData, CoverageScenario, FuzzingPhaseData
 from schemathesis.openapi.checks import (
@@ -39,8 +39,9 @@ from schemathesis.specs.openapi._auth_retry import (
     remove_auth,
     set_auth_for_case,
 )
-from schemathesis.specs.openapi.utils import expand_status_code, expand_status_codes
+from schemathesis.specs.openapi.utils import expand_status_codes
 from schemathesis.transport.prepare import prepare_path
+from schemathesis.transport.serialization import contains_binary
 
 if TYPE_CHECKING:
     from schemathesis.engine.recorder import ScenarioRecorder
@@ -707,6 +708,9 @@ def _additional_properties_hint(case: Case) -> str | None:
             return None
 
         stripped = {k: v for k, v in case.body.items() if k not in extra}
+        # `format: binary` fields hold raw bytes the JSON Schema validator cannot accept.
+        if contains_binary(stripped):
+            return None
         if not validator_cls(alternative.optimized_schema, pattern_options=FANCY_REGEX_OPTIONS).is_valid(stripped):
             return None
 

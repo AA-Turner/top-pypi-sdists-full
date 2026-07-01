@@ -44,7 +44,11 @@ from ..conftest import (
     ADMIN_ENV_LIST,
     ADMIN_ENV_VARIABLE_MAP,
     CQL_AVAILABLE,
-    HEADER_EMBEDDING_API_KEY_OPENAI,
+    EMBEDDING_PROVIDER_API_KEY,
+    EMBEDDING_PROVIDER_DIMENSION,
+    EMBEDDING_PROVIDER_MODEL_NAME,
+    EMBEDDING_PROVIDER_NAME,
+    EMBEDDING_PROVIDER_SHARED_SECRET_KEY_NAME,
     HEADER_RERANKING_API_KEY_NVIDIA,
     IS_ASTRA_DB,
     RUN_SHARED_SECRET_VECTORIZE_TESTS,
@@ -227,10 +231,10 @@ def async_empty_collection(
 @pytest.fixture(scope="session")
 def service_collection_parameters() -> Iterable[dict[str, Any]]:
     yield {
-        "dimension": 1536,
-        "provider": "openai",
-        "modelName": "text-embedding-ada-002",
-        "api_key": HEADER_EMBEDDING_API_KEY_OPENAI,
+        "dimension": EMBEDDING_PROVIDER_DIMENSION,
+        "provider": EMBEDDING_PROVIDER_NAME,
+        "modelName": EMBEDDING_PROVIDER_MODEL_NAME,
+        "api_key": EMBEDDING_PROVIDER_API_KEY,
         "reranking_api_key": HEADER_RERANKING_API_KEY_NVIDIA,
     }
 
@@ -249,8 +253,8 @@ def sync_service_collection(
         TEST_SERVICE_COLLECTION_NAME,
         definition=(
             CollectionDefinition.builder()
-            .set_vector_metric(VectorMetric.DOT_PRODUCT)
-            .set_vector_service(
+            .with_vector_metric(VectorMetric.DOT_PRODUCT)
+            .with_vector_service(
                 provider=params["provider"],
                 model_name=params["modelName"],
             )
@@ -314,13 +318,13 @@ def sync_farr_vectorize_collection(
         TEST_FARR_VECTORIZE_COLLECTION_NAME,
         definition=(
             CollectionDefinition.builder()
-            .set_vector_metric(VectorMetric.DOT_PRODUCT)
-            .set_vector_service(
+            .with_vector_metric(VectorMetric.DOT_PRODUCT)
+            .with_vector_service(
                 provider=params["provider"],
                 model_name=params["modelName"],
             )
-            .set_rerank(rerankservice_collection_parameters)
-            .set_lexical(lexical_collection_parameters)
+            .with_rerank(rerankservice_collection_parameters)
+            .with_lexical(lexical_collection_parameters)
             .build()
         ),
         embedding_api_key=params["api_key"],
@@ -367,10 +371,10 @@ def sync_farr_vector_collection(
         TEST_FARR_VECTOR_COLLECTION_NAME,
         definition=(
             CollectionDefinition.builder()
-            .set_vector_metric(VectorMetric.DOT_PRODUCT)
-            .set_vector_dimension(2)
-            .set_rerank(rerankservice_collection_parameters)
-            .set_lexical(lexical_collection_parameters)
+            .with_vector_metric(VectorMetric.DOT_PRODUCT)
+            .with_vector_dimension(2)
+            .with_rerank(rerankservice_collection_parameters)
+            .with_lexical(lexical_collection_parameters)
             .build()
         ),
         reranking_api_key=params["reranking_api_key"]
@@ -996,7 +1000,11 @@ __all__ = [
     "clean_nulls_from_dict",
     "is_future_version",
     "sync_fail_if_not_removed",
-    "HEADER_EMBEDDING_API_KEY_OPENAI",
+    "EMBEDDING_PROVIDER_NAME",
+    "EMBEDDING_PROVIDER_MODEL_NAME",
+    "EMBEDDING_PROVIDER_API_KEY",
+    "EMBEDDING_PROVIDER_DIMENSION",
+    "EMBEDDING_PROVIDER_SHARED_SECRET_KEY_NAME",
     "IS_ASTRA_DB",
     "ADMIN_ENV_LIST",
     "ADMIN_ENV_VARIABLE_MAP",

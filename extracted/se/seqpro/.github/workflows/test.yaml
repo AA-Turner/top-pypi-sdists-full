@@ -1,0 +1,29 @@
+name: Test
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: "Run test across all Python versions"
+    strategy:
+      matrix:
+        environment: [py310, py311, py312, py313]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.9.5
+        with:
+          pixi-version: v0.70.1
+          cache: true
+          environments: ${{ matrix.environment }}
+          locked: true
+      - name: Test
+        run: pixi run -e ${{ matrix.environment }} test

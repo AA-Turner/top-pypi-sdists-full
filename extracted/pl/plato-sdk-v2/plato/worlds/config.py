@@ -43,6 +43,14 @@ class LLMConfig(BaseModel):
             Per-call kwargs override these defaults.
         emit_input_span: When true, attach the full structured input messages
             payload to emitted ATIF spans.
+        aws_access_key_id / aws_secret_access_key / aws_session_token / aws_region_name:
+            AWS credentials for Bedrock models (model starts with "bedrock/"),
+            e.g. "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0". Forwarded to
+            litellm only for Bedrock models. When left blank, litellm falls back to
+            the standard AWS resolution chain (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+            / AWS_SESSION_TOKEN env vars, then ~/.aws, then instance profile), so
+            env-var auth works without setting these fields. Region resolves from
+            aws_region_name, else AWS_REGION_NAME / AWS_REGION / AWS_DEFAULT_REGION.
     """
 
     model: str
@@ -53,6 +61,10 @@ class LLMConfig(BaseModel):
     concurrency: int = 0
     litellm_kwargs: dict[str, JsonValue] = Field(default_factory=dict)
     emit_input_span: bool = False
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_session_token: str = ""
+    aws_region_name: str = ""
 
 
 class DevConfig(BaseModel):

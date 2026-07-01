@@ -1,0 +1,30 @@
+[package]
+name = "cartoboost-py"
+version = "0.2.36"
+edition.workspace = true
+license.workspace = true
+description = "PyO3 bindings for the CartoBoost Python package"
+readme = "README.md"
+
+[lib]
+name = "_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+cartoboost-core = { path = "../cartoboost-core" }
+cartoboost-geo-causal = { path = "../cartoboost-geo-causal" }
+cartoboost-geo-core = { path = "../cartoboost-geo-core" }
+cartoboost-geostats = { path = "../cartoboost-geostats" }
+cartoboost-geo-st = { path = "../cartoboost-geo-st", features = ["cuda", "rocm"] }
+cartoboost-neural = { path = "../cartoboost-neural", features = ["cuda", "rocm"] }
+cartoboost-prob = { path = "../cartoboost-prob" }
+cartoboost-spatial-econ = { path = "../cartoboost-spatial-econ" }
+chrono.workspace = true
+numpy = "0.23"
+pyo3.workspace = true
+rayon = "1.11"
+serde_json.workspace = true
+
+[target.'cfg(any(target_os = "macos", target_os = "ios", target_os = "tvos", target_os = "visionos"))'.dependencies]
+cartoboost-geo-st = { path = "../cartoboost-geo-st", features = ["metal"] }
+cartoboost-neural = { path = "../cartoboost-neural", features = ["metal"] }

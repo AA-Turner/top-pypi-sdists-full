@@ -16,9 +16,6 @@ Headers: TypeAlias = dict[str, list[str]]
 
 # Wire-form HTTP method (uppercase). `Case.method` and user-facing API surfaces use this.
 HttpMethod: TypeAlias = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "TRACE", "QUERY"]
-_HTTP_METHODS: frozenset[str] = frozenset(
-    {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "TRACE", "QUERY"}
-)
 
 # Schema-form HTTP method (lowercase). OpenAPI declares operations under lowercase verb keys,
 # so `APIOperation.method` carries this form; the wire `HttpMethod` is its uppercase counterpart.
@@ -139,16 +136,25 @@ class Response:
     def from_any(cls, response: httpx.Response | requests.Response | TestResponse) -> Response: ...
     @classmethod
     def from_any(cls, response: Response | httpx.Response | requests.Response | TestResponse) -> Response:
-        import httpx
+        # Fast path for already-converted responses; avoids importing the optional transports.
+        if isinstance(response, Response):
+            return response
+
         import requests
         from werkzeug.test import TestResponse
 
         if isinstance(response, requests.Response):
             return Response.from_requests(response, verify=True)
-        elif isinstance(response, httpx.Response):
-            return Response.from_httpx(response, verify=True)
-        elif isinstance(response, TestResponse):
+        if isinstance(response, TestResponse):
             return Response.from_wsgi(response)
+        # `httpx` is optional; it is only needed to recognize its own response type.
+        try:
+            import httpx
+        except ImportError:
+            pass
+        else:
+            if isinstance(response, httpx.Response):
+                return Response.from_httpx(response, verify=True)
         return response
 
     @classmethod
@@ -233,6 +239,13 @@ class Response:
     def text(self) -> str:
         """Decode response content as text using the detected or default encoding."""
         return self.content.decode(self.encoding or "utf-8")
+
+    def text_lossy(self) -> str:
+        """Decode like `text` but never raise: replace undecodable bytes, fall back to UTF-8 on an unknown charset."""
+        try:
+            return self.content.decode(self.encoding or "utf-8", errors="replace")
+        except LookupError:
+            return self.content.decode("utf-8", errors="replace")
 
     def json(self) -> Any:
         """Parse response content as JSON.

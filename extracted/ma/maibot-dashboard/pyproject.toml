@@ -1,0 +1,21 @@
+[project]
+name = "maibot-dashboard"
+version = "1.5.1"
+description = "MaiBot WebUI static assets"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[build-system]
+requires = ["setuptools>=80.9.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["maibot_dashboard"]
+exclude = ["maibot_dashboard.dist*"]
+
+[tool.setuptools.package-data]
+maibot_dashboard = ["dist/**"]

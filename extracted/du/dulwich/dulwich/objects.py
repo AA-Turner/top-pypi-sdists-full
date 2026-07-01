@@ -557,12 +557,16 @@ class ShaFile:
         return self.as_raw_string().decode("utf-8", "replace")
 
     def set_raw_string(
-        self, text: bytes, sha: ObjectID | RawObjectID | None = None
+        self,
+        text: bytes,
+        sha: ObjectID | RawObjectID | None = None,
+        *,
+        verify_sha: ObjectID | RawObjectID | None = None,
     ) -> None:
         """Set the contents of this object from a serialized string."""
         if not isinstance(text, bytes):
             raise TypeError(f"Expected bytes for text, got {text!r}")
-        self.set_raw_chunks([text], sha)
+        self.set_raw_chunks([text], sha, verify_sha=verify_sha)
 
     def set_raw_chunks(
         self,
@@ -570,8 +574,21 @@ class ShaFile:
         sha: ObjectID | RawObjectID | None = None,
         *,
         object_format: ObjectFormat | None = None,
+        verify_sha: ObjectID | RawObjectID | None = None,
     ) -> None:
-        """Set the contents of this object from a list of chunks."""
+        """Set the contents of this object from a list of chunks.
+
+        Args:
+          chunks: The raw uncompressed contents.
+          sha: Optional known, trusted sha for the object. Cached without
+            being checked against the contents.
+          object_format: Optional hash algorithm for the object.
+          verify_sha: Optional sha that the contents are checked against;
+            raises ChecksumMismatch if the object does not hash to it. On
+            success it is cached like ``sha``. Mutually exclusive with ``sha``.
+        """
+        if sha is not None and verify_sha is not None:
+            raise ValueError("sha and verify_sha are mutually exclusive")
         self._chunked_text = chunks
         # Set hash algorithm if provided
         if object_format is not None:
@@ -583,6 +600,11 @@ class ShaFile:
             self._sha = FixedSha(sha)
         self._deserialize(chunks)
         self._needs_serialization = False
+        if verify_sha is not None:
+            got = self.get_id(self.object_format)
+            if got != verify_sha:
+                raise ChecksumMismatch(verify_sha, got)
+            self._sha = FixedSha(verify_sha)
 
     @staticmethod
     def _parse_object_header(
@@ -690,14 +712,17 @@ class ShaFile:
         sha: ObjectID | RawObjectID | None = None,
         *,
         object_format: ObjectFormat | None = None,
+        verify_sha: ObjectID | RawObjectID | None = None,
     ) -> "ShaFile":
         """Creates an object of the indicated type from the raw string given.
 
         Args:
           type_num: The numeric type of the object.
           string: The raw uncompressed contents.
-          sha: Optional known sha for the object
+          sha: Optional known, trusted sha for the object.
           object_format: Optional hash algorithm for the object
+          verify_sha: Optional sha to check the contents against; raises
+            ChecksumMismatch on mismatch. Mutually exclusive with ``sha``.
         """
         cls = object_class(type_num)
         if cls is None:
@@ -705,7 +730,7 @@ class ShaFile:
         obj = cls()
         if object_format is not None:
             obj.object_format = object_format
-        obj.set_raw_string(string, sha)
+        obj.set_raw_string(string, sha, verify_sha=verify_sha)
         return obj
 
     @staticmethod
@@ -874,8 +899,6 @@ class Blob(ShaFile):
     type_name = b"blob"
     type_num = 3
 
-    _chunked_text: list[bytes]
-
     def __init__(self) -> None:
         """Initialize a new Blob object."""
         super().__init__()
@@ -894,6 +917,7 @@ class Blob(ShaFile):
     @property
     def chunked(self) -> list[bytes]:
         """The text in the blob object, as chunks (not necessarily lines)."""
+        assert self._chunked_text is not None
         return self._chunked_text
 
     @chunked.setter
@@ -901,6 +925,7 @@ class Blob(ShaFile):
         self._chunked_text = chunks
 
     def _serialize(self) -> list[bytes]:
+        assert self._chunked_text is not None
         return self._chunked_text
 
     def _deserialize(self, chunks: list[bytes]) -> None:
@@ -1078,7 +1103,7 @@ class Tag(ShaFile):
     @classmethod
     def from_path(
         cls,
-        filename: str | bytes,
+        path: str | bytes,
         sha: ObjectID | None = None,
         *,
         object_format: ObjectFormat | None = None,
@@ -1086,7 +1111,7 @@ class Tag(ShaFile):
         """Read a tag from a file on disk.
 
         Args:
-          filename: Path to the tag file
+          path: Path to the tag file
           sha: Optional known SHA for the object
           object_format: Optional object format to use
 
@@ -1096,9 +1121,9 @@ class Tag(ShaFile):
         Raises:
           NotTagError: If the file is not a tag
         """
-        tag = ShaFile.from_path(filename, sha, object_format=object_format)
+        tag = ShaFile.from_path(path, sha, object_format=object_format)
         if not isinstance(tag, cls):
-            raise NotTagError(_path_to_bytes(filename))
+            raise NotTagError(_path_to_bytes(path))
         return tag
 
     def check(self) -> None:
@@ -1463,7 +1488,7 @@ class Tree(ShaFile):
     @classmethod
     def from_path(
         cls,
-        filename: str | bytes,
+        path: str | bytes,
         sha: ObjectID | None = None,
         *,
         object_format: ObjectFormat | None = None,
@@ -1471,7 +1496,7 @@ class Tree(ShaFile):
         """Read a tree from a file on disk.
 
         Args:
-          filename: Path to the tree file
+          path: Path to the tree file
           sha: Optional known SHA for the object
           object_format: Optional object format to use
 
@@ -1481,9 +1506,9 @@ class Tree(ShaFile):
         Raises:
           NotTreeError: If the file is not a tree
         """
-        tree = ShaFile.from_path(filename, sha, object_format=object_format)
+        tree = ShaFile.from_path(path, sha, object_format=object_format)
         if not isinstance(tree, cls):
-            raise NotTreeError(_path_to_bytes(filename))
+            raise NotTreeError(_path_to_bytes(path))
         return tree
 
     def __contains__(self, name: bytes) -> bool:

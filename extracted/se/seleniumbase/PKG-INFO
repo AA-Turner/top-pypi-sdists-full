@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.50.3
+Version: 4.50.4
 Summary: SeleniumBase is a framework for web crawling, scraping, and testing. Supports pytest. CDP Mode adds stealth. Includes many tools.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -167,7 +167,7 @@ Requires-Dist: proxy.py==2.4.3; extra == "proxy"
 Provides-Extra: playwright
 Requires-Dist: playwright>=1.60.0; extra == "playwright"
 Requires-Dist: greenlet>=3.2.5; python_version < "3.10" and extra == "playwright"
-Requires-Dist: greenlet>=3.5.1; python_version >= "3.10" and extra == "playwright"
+Requires-Dist: greenlet>=3.5.3; python_version >= "3.10" and extra == "playwright"
 Provides-Extra: pyautogui
 Requires-Dist: PyAutoGUI>=0.9.54; platform_system != "Linux" and extra == "pyautogui"
 Dynamic: author
@@ -949,6 +949,7 @@ pytest test_coffee_cart.py --trace
 --brave  # (Shortcut for "--browser=brave".)
 --comet  # (Shortcut for "--browser=comet".)
 --atlas  # (Shortcut for "--browser=atlas".)
+--chromium  # (Shortcut for using base `Chromium`)
 --settings-file=FILE  # (Override default SeleniumBase settings.)
 --env=ENV  # (Set the test env. Access with "self.env" in tests.)
 --account=STR  # (Set account. Access with "self.account" in tests.)

@@ -87,7 +87,7 @@ from .errors import (
     GitProtocolError,
     NotGitRepository,
 )
-from .index import Index
+from .index import Index, InvalidPathError
 from .log_utils import _configure_logging_from_trace
 from .objects import Commit, ObjectID, RawObjectID, sha_to_hex, valid_hexsha
 from .objectspec import parse_commit_range
@@ -1026,10 +1026,8 @@ class _StreamContextAdapter:
     def __init__(self, stream: TextIO | BinaryIO) -> None:
         self.stream = stream
         # Expose buffer if it exists
-        if hasattr(stream, "buffer"):
-            self.buffer = stream.buffer
-        else:
-            self.buffer = stream
+        buffer = getattr(stream, "buffer", None)
+        self.buffer = buffer if buffer is not None else stream
 
     def __enter__(self) -> TextIO:
         # We only use this with sys.stdout which is TextIO
@@ -1146,7 +1144,7 @@ def enable_pager() -> None:
 class Command:
     """A Dulwich subcommand."""
 
-    def run(self, args: Sequence[str]) -> int | None:
+    def run(self, args: Sequence[str], /) -> int | None:
         """Run the command."""
         raise NotImplementedError(self.run)
 
@@ -1686,13 +1684,15 @@ class cmd_diff(Command):
             config = repo.get_config_stack()
             with get_pager(config=config, cmd_name="diff") as outstream:
                 # For --stat mode, capture the diff in a BytesIO buffer
+                import io
+
+                from .diffstat import diffstat
+
+                diff_buffer: io.BytesIO | None = None
+                output_stream: BinaryIO
                 if parsed_args.stat:
-                    import io
-
-                    from .diffstat import diffstat
-
-                    diff_buffer: BinaryIO = io.BytesIO()
-                    output_stream: BinaryIO = diff_buffer
+                    diff_buffer = io.BytesIO()
+                    output_stream = diff_buffer
                 else:
                     output_stream = _create_output_stream(outstream)
 
@@ -1736,9 +1736,8 @@ class cmd_diff(Command):
                     sys.stderr.write(f"fatal: {e}\n")
                     sys.exit(1)
 
-                if parsed_args.stat:
+                if diff_buffer is not None:
                     # Generate and output diffstat from captured diff
-                    assert isinstance(diff_buffer, io.BytesIO)
                     diff_data = diff_buffer.getvalue()
                     lines = diff_data.split(b"\n")
                     stat_output = diffstat(lines)
@@ -2073,7 +2072,7 @@ class cmd_init(Command):
 class cmd_clone(Command):
     """Clone a repository into a new directory."""
 
-    def run(self, args: Sequence[str]) -> None:
+    def run(self, args: Sequence[str]) -> int | None:
         """Execute the clone command.
 
         Args:
@@ -2133,6 +2132,11 @@ class cmd_clone(Command):
             )
         except GitProtocolError as e:
             logger.exception(e)
+        except InvalidPathError as e:
+            # The clone is kept; only the checkout failed, matching git.
+            logger.exception("unable to checkout working tree: %s", e)
+            return 1
+        return None
 
 
 def _get_commit_message_with_template(
@@ -3323,7 +3327,7 @@ class cmd_reflog(Command):
 class cmd_reset(Command):
     """Reset current HEAD to the specified state."""
 
-    def run(self, args: Sequence[str]) -> None:
+    def run(self, args: Sequence[str]) -> int | None:
         """Execute the reset command.
 
         Args:
@@ -3352,13 +3356,18 @@ class cmd_reset(Command):
             mode = "mixed"
 
         # Use the porcelain.reset function for all modes
-        porcelain.reset(".", mode=mode, treeish=parsed_args.treeish)
+        try:
+            porcelain.reset(".", mode=mode, treeish=parsed_args.treeish)
+        except InvalidPathError as e:
+            logger.exception("unable to checkout working tree: %s", e)
+            return 1
+        return None
 
 
 class cmd_revert(Command):
     """Revert some existing commits."""
 
-    def run(self, args: Sequence[str]) -> None:
+    def run(self, args: Sequence[str]) -> int | None:
         """Execute the revert command.
 
         Args:
@@ -3375,15 +3384,20 @@ class cmd_revert(Command):
         parser.add_argument("commits", nargs="+", help="Commits to revert")
         parsed_args = parser.parse_args(args)
 
-        result = porcelain.revert(
-            ".",
-            commits=parsed_args.commits,
-            no_commit=parsed_args.no_commit,
-            message=parsed_args.message,
-        )
+        try:
+            result = porcelain.revert(
+                ".",
+                commits=parsed_args.commits,
+                no_commit=parsed_args.no_commit,
+                message=parsed_args.message,
+            )
+        except InvalidPathError as e:
+            logger.exception("unable to checkout working tree: %s", e)
+            return 1
 
         if result and not parsed_args.no_commit:
             logger.info("[%s] Revert completed", result.decode("ascii")[:7])
+        return None
 
 
 class cmd_daemon(Command):
@@ -3784,7 +3798,7 @@ class cmd_prune(Command):
 class cmd_pull(Command):
     """Fetch from and integrate with another repository or a local branch."""
 
-    def run(self, args: Sequence[str]) -> None:
+    def run(self, args: Sequence[str]) -> int | None:
         """Execute the pull command.
 
         Args:
@@ -3796,14 +3810,19 @@ class cmd_pull(Command):
         parser.add_argument("--filter", type=str, nargs=1)
         parser.add_argument("--protocol", type=int)
         parsed_args = parser.parse_args(args)
-        porcelain.pull(
-            ".",
-            remote_location=parsed_args.from_location or None,
-            refspecs=parsed_args.refspec or None,
-            filter_spec=parsed_args.filter,
-            protocol_version=parsed_args.protocol or _protocol_version_from_env(),
-            ssh_command=_ssh_command_from_env(),
-        )
+        try:
+            porcelain.pull(
+                ".",
+                remote_location=parsed_args.from_location or None,
+                refspecs=parsed_args.refspec or None,
+                filter_spec=parsed_args.filter,
+                protocol_version=parsed_args.protocol or _protocol_version_from_env(),
+                ssh_command=_ssh_command_from_env(),
+            )
+        except InvalidPathError as e:
+            logger.exception("unable to checkout working tree: %s", e)
+            return 1
+        return None
 
 
 class cmd_push(Command):
@@ -4552,6 +4571,9 @@ class cmd_checkout(Command):
         except porcelain.CheckoutError as e:
             sys.stderr.write(f"{e}\n")
             return 1
+        except InvalidPathError as e:
+            logger.exception("unable to checkout working tree: %s", e)
+            return 1
         return 0
 
 
@@ -4746,7 +4768,7 @@ class cmd_stash_push(Command):
 class cmd_stash_pop(Command):
     """Apply a stash and remove it from the stash list."""
 
-    def run(self, args: Sequence[str]) -> None:
+    def run(self, args: Sequence[str]) -> int | None:
         """Execute the stash-pop command.
 
         Args:
@@ -4754,8 +4776,13 @@ class cmd_stash_pop(Command):
         """
         parser = argparse.ArgumentParser()
         parser.parse_args(args)
-        porcelain.stash_pop(".")
+        try:
+            porcelain.stash_pop(".")
+        except InvalidPathError as e:
+            logger.exception("unable to checkout working tree: %s", e)
+            return 1
         logger.info("Restored working directory and index state")
+        return None
 
 
 class cmd_bisect(SuperCommand):
@@ -5197,6 +5224,9 @@ class cmd_merge(Command):
                         merge_commit_id.decode(),
                     )
             return 0
+        except InvalidPathError as e:
+            logger.exception("unable to checkout working tree: %s", e)
+            return 1
         except porcelain.Error as e:
             logger.error("%s", e)
             return 1
@@ -5266,6 +5296,52 @@ class cmd_merge_base(Command):
         except (ValueError, KeyError) as e:
             logger.error("%s", e)
             return 1
+
+
+class cmd_request_pull(Command):
+    """Generate a summary of pending changes."""
+
+    def run(self, args: Sequence[str]) -> int | None:
+        """Execute the request-pull command.
+
+        Args:
+            args: Command line arguments
+        """
+        parser = argparse.ArgumentParser(
+            description="Generate a request to pull changes into a repository",
+            prog="dulwich request-pull",
+        )
+        parser.add_argument(
+            "-p",
+            "--patch",
+            action="store_true",
+            help="Include patch text in the output",
+        )
+        parser.add_argument(
+            "start", help="Commit the upstream already has (e.g. a tag or branch)"
+        )
+        parser.add_argument("url", help="Repository URL the changes can be pulled from")
+        parser.add_argument(
+            "end",
+            nargs="?",
+            help="Commit to end at (defaults to HEAD). "
+            "Use <local>:<remote> to advertise a different remote ref name.",
+        )
+        parsed_args = parser.parse_args(args)
+
+        try:
+            porcelain.request_pull(
+                ".",
+                parsed_args.start,
+                parsed_args.url,
+                parsed_args.end,
+                patch=parsed_args.patch,
+                outstream=sys.stdout,
+            )
+        except porcelain.Error as e:
+            logger.error("%s", e)
+            return 1
+        return 0
 
 
 class cmd_notes_add(Command):
@@ -5517,6 +5593,72 @@ class cmd_cherry(Command):
         return 0
 
 
+class cmd_range_diff(Command):
+    """Compare two commit ranges."""
+
+    def run(self, args: Sequence[str]) -> int | None:
+        """Execute the range-diff command.
+
+        Args:
+            args: Command line arguments
+
+        Returns:
+            Exit code (0 for success, 1 for error)
+        """
+        parser = argparse.ArgumentParser(description="Compare two commit ranges")
+        parser.add_argument(
+            "--creation-factor",
+            type=int,
+            default=None,
+            metavar="N",
+            help="Percentage by which creation is weighted (default: 60)",
+        )
+        parser.add_argument(
+            "--diff-algorithm",
+            choices=["myers", "patience"],
+            default=None,
+            help="Choose a diff algorithm",
+        )
+        parser.add_argument(
+            "revs",
+            nargs="+",
+            help=("<range1> <range2>, or <rev1>...<rev2>, or <base> <rev1> <rev2>"),
+        )
+        parsed_args = parser.parse_args(args)
+
+        revs = parsed_args.revs
+        if len(revs) == 1:
+            range1: str = revs[0]
+            range2 = None
+            base = None
+        elif len(revs) == 2:
+            range1, range2 = revs
+            base = None
+        elif len(revs) == 3:
+            base, range1, range2 = revs
+        else:
+            parser.error("Too many arguments")
+
+        with Repo(".") as repo:
+            config = repo.get_config_stack()
+            with get_pager(config=config, cmd_name="range-diff") as outstream:
+                try:
+                    porcelain.range_diff(
+                        repo,
+                        range1,
+                        range2,
+                        base=base,
+                        creation_factor=parsed_args.creation_factor,
+                        diff_algorithm=parsed_args.diff_algorithm,
+                        outstream=outstream.buffer,
+                    )
+                except porcelain.Error as e:
+                    logger.error(f"Error: {e}")
+                    return 1
+
+        return 0
+
+
 class cmd_cherry_pick(Command):
     """Apply the changes introduced by some existing commits."""
 
@@ -5587,6 +5729,9 @@ class cmd_cherry_pick(Command):
                 logger.info("Cherry-pick successful: %s", result.decode())
 
             return None
+        except InvalidPathError as e:
+            logger.exception("unable to checkout working tree: %s", e)
+            return 1
         except porcelain.Error as e:
             logger.error("%s", e)
             return 1
@@ -6195,127 +6340,133 @@ class cmd_filter_branch(Command):
             return result.stdout
 
         # Create filter functions based on arguments
-        filter_message = None
-        if parsed_args.msg_filter:
+        def _msg_filter_impl(message: bytes) -> bytes:
+            result = run_filter(parsed_args.msg_filter, input_data=message)
+            return result if result is not None else message
 
-            def filter_message(message: bytes) -> bytes:
-                result = run_filter(parsed_args.msg_filter, input_data=message)
-                return result if result is not None else message
+        filter_message: Callable[[bytes], bytes] | None = (
+            _msg_filter_impl if parsed_args.msg_filter else None
+        )
 
-        tree_filter = None
-        if parsed_args.tree_filter:
+        def _tree_filter_impl(tree_sha: ObjectID, tmpdir: str) -> ObjectID:
+            from dulwich.objects import Blob, Tree
 
-            def tree_filter(tree_sha: ObjectID, tmpdir: str) -> ObjectID:
-                from dulwich.objects import Blob, Tree
+            # Export tree to tmpdir
+            with Repo(".") as r:
+                tree = r.object_store[tree_sha]
+                assert isinstance(tree, Tree)
+                for entry in tree.iteritems():
+                    assert entry.path is not None
+                    assert entry.sha is not None
+                    path = Path(tmpdir) / entry.path.decode()
+                    obj = r.object_store[entry.sha]
+                    if isinstance(obj, Tree):
+                        path.mkdir(exist_ok=True)
+                    else:
+                        assert isinstance(obj, Blob)
+                        path.write_bytes(obj.data)
 
-                # Export tree to tmpdir
-                with Repo(".") as r:
-                    tree = r.object_store[tree_sha]
-                    assert isinstance(tree, Tree)
-                    for entry in tree.iteritems():
-                        assert entry.path is not None
-                        assert entry.sha is not None
-                        path = Path(tmpdir) / entry.path.decode()
-                        obj = r.object_store[entry.sha]
-                        if isinstance(obj, Tree):
-                            path.mkdir(exist_ok=True)
+                # Run the filter command in the temp directory
+                run_filter(parsed_args.tree_filter, cwd=tmpdir)
+
+                # Rebuild tree from modified temp directory
+                def build_tree_from_dir(dir_path: str) -> ObjectID:
+                    tree = Tree()
+                    for name in sorted(os.listdir(dir_path)):
+                        if name.startswith("."):
+                            continue
+                        path = os.path.join(dir_path, name)
+                        if os.path.isdir(path):
+                            subtree_sha = build_tree_from_dir(path)
+                            tree.add(name.encode(), 0o040000, subtree_sha)
                         else:
-                            assert isinstance(obj, Blob)
-                            path.write_bytes(obj.data)
-
-                    # Run the filter command in the temp directory
-                    run_filter(parsed_args.tree_filter, cwd=tmpdir)
-
-                    # Rebuild tree from modified temp directory
-                    def build_tree_from_dir(dir_path: str) -> ObjectID:
-                        tree = Tree()
-                        for name in sorted(os.listdir(dir_path)):
-                            if name.startswith("."):
-                                continue
-                            path = os.path.join(dir_path, name)
-                            if os.path.isdir(path):
-                                subtree_sha = build_tree_from_dir(path)
-                                tree.add(name.encode(), 0o040000, subtree_sha)
+                            with open(path, "rb") as f:
+                                data = f.read()
+                            blob = Blob.from_string(data)
+                            r.object_store.add_object(blob)
+                            # Use appropriate file mode
+                            mode = os.stat(path).st_mode
+                            if mode & 0o100:
+                                file_mode = 0o100755
                             else:
-                                with open(path, "rb") as f:
-                                    data = f.read()
-                                blob = Blob.from_string(data)
-                                r.object_store.add_object(blob)
-                                # Use appropriate file mode
-                                mode = os.stat(path).st_mode
-                                if mode & 0o100:
-                                    file_mode = 0o100755
-                                else:
-                                    file_mode = 0o100644
-                                tree.add(name.encode(), file_mode, blob.id)
-                        r.object_store.add_object(tree)
-                        return tree.id
+                                file_mode = 0o100644
+                            tree.add(name.encode(), file_mode, blob.id)
+                    r.object_store.add_object(tree)
+                    return tree.id
 
-                    return build_tree_from_dir(tmpdir)
+                return build_tree_from_dir(tmpdir)
 
-        index_filter = None
-        if parsed_args.index_filter:
+        tree_filter: Callable[[ObjectID, str], ObjectID] | None = (
+            _tree_filter_impl if parsed_args.tree_filter else None
+        )
 
-            def index_filter(tree_sha: ObjectID, index_path: str) -> ObjectID | None:
-                run_filter(
-                    parsed_args.index_filter, extra_env={"GIT_INDEX_FILE": index_path}
-                )
-                return None  # Read back from index
+        def _index_filter_impl(tree_sha: ObjectID, index_path: str) -> ObjectID | None:
+            run_filter(
+                parsed_args.index_filter, extra_env={"GIT_INDEX_FILE": index_path}
+            )
+            return None  # Read back from index
 
-        parent_filter = None
-        if parsed_args.parent_filter:
+        index_filter: Callable[[ObjectID, str], ObjectID | None] | None = (
+            _index_filter_impl if parsed_args.index_filter else None
+        )
 
-            def parent_filter(parents: Sequence[ObjectID]) -> list[ObjectID]:
-                parent_str = " ".join(p.hex() for p in parents)
-                result = run_filter(
-                    parsed_args.parent_filter, input_data=parent_str.encode()
-                )
-                if result is None:
-                    return list(parents)
+        def _parent_filter_impl(parents: Sequence[ObjectID]) -> list[ObjectID]:
+            parent_str = " ".join(p.hex() for p in parents)
+            result = run_filter(
+                parsed_args.parent_filter, input_data=parent_str.encode()
+            )
+            if result is None:
+                return list(parents)
 
-                output = result.decode().strip()
-                if not output:
-                    return []
-                new_parents = []
-                for sha in output.split():
-                    sha_bytes = sha.encode()
-                    if valid_hexsha(sha_bytes):
-                        new_parents.append(ObjectID(sha_bytes))
-                return new_parents
+            output = result.decode().strip()
+            if not output:
+                return []
+            new_parents = []
+            for sha in output.split():
+                sha_bytes = sha.encode()
+                if valid_hexsha(sha_bytes):
+                    new_parents.append(ObjectID(sha_bytes))
+            return new_parents
 
-        commit_filter = None
-        if parsed_args.commit_filter:
+        parent_filter: Callable[[Sequence[ObjectID]], list[ObjectID]] | None = (
+            _parent_filter_impl if parsed_args.parent_filter else None
+        )
 
-            def commit_filter(
-                commit_obj: Commit, tree_sha: ObjectID
-            ) -> ObjectID | None:
-                # The filter receives: tree parent1 parent2...
-                cmd_input = tree_sha.hex()
-                for parent in commit_obj.parents:
-                    cmd_input += " " + parent.hex()
+        def _commit_filter_impl(
+            commit_obj: Commit, tree_sha: ObjectID
+        ) -> ObjectID | None:
+            # The filter receives: tree parent1 parent2...
+            cmd_input = tree_sha.hex()
+            for parent in commit_obj.parents:
+                cmd_input += " " + parent.hex()
 
-                result = run_filter(
-                    parsed_args.commit_filter,
-                    input_data=cmd_input.encode(),
-                    extra_env={"GIT_COMMIT": commit_obj.id.hex()},
-                )
-                if result is None:
-                    return None
-
-                output = result.decode().strip()
-                if not output:
-                    return None  # Skip commit
-
-                if valid_hexsha(output):
-                    return ObjectID(output.encode())
+            result = run_filter(
+                parsed_args.commit_filter,
+                input_data=cmd_input.encode(),
+                extra_env={"GIT_COMMIT": commit_obj.id.hex()},
+            )
+            if result is None:
                 return None
 
-        tag_name_filter = None
-        if parsed_args.tag_name_filter:
+            output = result.decode().strip()
+            if not output:
+                return None  # Skip commit
 
-            def tag_name_filter(tag_name: bytes) -> bytes:
-                result = run_filter(parsed_args.tag_name_filter, input_data=tag_name)
-                return result if result is not None else tag_name
+            if valid_hexsha(output):
+                return ObjectID(output.encode())
+            return None
+
+        commit_filter: Callable[[Commit, ObjectID], ObjectID | None] | None = (
+            _commit_filter_impl if parsed_args.commit_filter else None
+        )
+
+        def _tag_name_filter_impl(tag_name: bytes) -> bytes:
+            result = run_filter(parsed_args.tag_name_filter, input_data=tag_name)
+            return result if result is not None else tag_name
+
+        tag_name_filter: Callable[[bytes], bytes] | None = (
+            _tag_name_filter_impl if parsed_args.tag_name_filter else None
+        )
 
         # Open repo once
         with Repo(".") as r:
@@ -6874,21 +7025,22 @@ class cmd_bundle(Command):
 
         repo = Repo(".")
 
-        progress = None
-        if parsed_args.progress and not parsed_args.quiet:
+        def _progress_impl(*args: str | int) -> None:
+            # Handle both progress(msg) and progress(count, msg) signatures
+            if len(args) == 1:
+                msg = args[0]
+            elif len(args) == 2:
+                _count, msg = args
+            else:
+                msg = str(args)
+            # Convert bytes to string if needed
+            if isinstance(msg, bytes):
+                msg = msg.decode("utf-8", "replace")
+            logger.error("%s", msg)
 
-            def progress(*args: str | int) -> None:
-                # Handle both progress(msg) and progress(count, msg) signatures
-                if len(args) == 1:
-                    msg = args[0]
-                elif len(args) == 2:
-                    _count, msg = args
-                else:
-                    msg = str(args)
-                # Convert bytes to string if needed
-                if isinstance(msg, bytes):
-                    msg = msg.decode("utf-8", "replace")
-                logger.error("%s", msg)
+        progress: Callable[..., None] | None = (
+            _progress_impl if parsed_args.progress and not parsed_args.quiet else None
+        )
 
         refs_to_include: list[Ref] = []
         prerequisites = []
@@ -7020,23 +7172,24 @@ class cmd_bundle(Command):
 
         repo = Repo(".")
 
-        progress = None
-        if parsed_args.progress:
+        def _unbundle_progress_impl(*args: str | int | bytes) -> None:
+            # Handle both progress(msg) and progress(count, msg) signatures
+            if len(args) == 1:
+                msg = args[0]
+            elif len(args) == 2:
+                _count, msg = args
+            else:
+                msg = str(args)
+            # Convert bytes to string if needed
+            if isinstance(msg, bytes):
+                msg = msg.decode("utf-8", "replace")
+            elif not isinstance(msg, str):
+                msg = str(msg)
+            logger.error("%s", msg)
 
-            def progress(*args: str | int | bytes) -> None:
-                # Handle both progress(msg) and progress(count, msg) signatures
-                if len(args) == 1:
-                    msg = args[0]
-                elif len(args) == 2:
-                    _count, msg = args
-                else:
-                    msg = str(args)
-                # Convert bytes to string if needed
-                if isinstance(msg, bytes):
-                    msg = msg.decode("utf-8", "replace")
-                elif not isinstance(msg, str):
-                    msg = str(msg)
-                logger.error("%s", msg)
+        progress: Callable[..., None] | None = (
+            _unbundle_progress_impl if parsed_args.progress else None
+        )
 
         if parsed_args.file == "-":
             bundle = read_bundle(sys.stdin.buffer)
@@ -7693,6 +7846,7 @@ commands = {
     "prune": cmd_prune,
     "pull": cmd_pull,
     "push": cmd_push,
+    "range-diff": cmd_range_diff,
     "rebase": cmd_rebase,
     "receive-pack": cmd_receive_pack,
     "reflog": cmd_reflog,
@@ -7700,6 +7854,7 @@ commands = {
     "remote": cmd_remote,
     "repack": cmd_repack,
     "replace": cmd_replace,
+    "request-pull": cmd_request_pull,
     "reset": cmd_reset,
     "restore": cmd_restore,
     "revert": cmd_revert,

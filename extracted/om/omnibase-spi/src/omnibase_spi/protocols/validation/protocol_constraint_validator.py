@@ -29,17 +29,14 @@ See Also:
     - ModelExecutionConstraints: Pydantic model for constraints
 """
 
-from __future__ import annotations
+from typing import Protocol, runtime_checkable
 
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
-
-if TYPE_CHECKING:
-    from omnibase_core.models.common import ModelValidationResult
-    from omnibase_core.models.contracts import ModelExecutionProfile
-    from omnibase_core.models.contracts.model_execution_constraints import (
-        ModelExecutionConstraints,
-    )
-    from omnibase_core.models.execution import ModelExecutionConflict
+from omnibase_core.models.common import ModelValidationResult
+from omnibase_core.models.contracts import ModelExecutionProfile
+from omnibase_core.models.contracts.model_execution_constraints import (
+    ModelExecutionConstraints,
+)
+from omnibase_core.models.execution import ModelExecutionConflict
 
 __all__ = ["ProtocolConstraintValidator"]
 

@@ -1,7 +1,0 @@
-description: Forfait logement du revenu minimum d'insertion (RMI)
-metadata:
-  documentation_start: true
-  short_label: Forfait logement
-  label_en: "Minimum insertion income (RMI): Accomodation allowance"
-  order:
-  - forfait_logement

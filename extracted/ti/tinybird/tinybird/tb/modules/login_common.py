@@ -37,8 +37,9 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", "text/html")
         self.end_headers()
+        auth_host = self.server.auth_host  # type: ignore[attr-defined]
         self.wfile.write(
-            """
+            f"""
         <html>
         <head>
             <style>
@@ -68,7 +69,7 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
             </script>
         </body>
         </html>
-        """.format(auth_host=self.server.auth_host).encode()  # type: ignore
+        """.encode()
         )
 
     def do_POST(self):

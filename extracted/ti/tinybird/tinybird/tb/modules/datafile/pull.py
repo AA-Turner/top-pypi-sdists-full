@@ -65,7 +65,13 @@ def folder_pull(
         def write_resource(k: dict[str, Any]) -> Optional[Path]:
             name = f"{k['name']}.{extension}"
             try:
-                resource = getattr(client, get_resource_function)(k["name"])
+                warnings: list[str] = []
+                if extension == "connection":
+                    pulled_resource = client.connection_file(k["name"])
+                    resource = pulled_resource.content
+                    warnings = [warning.message for warning in pulled_resource.warnings]
+                else:
+                    resource = getattr(client, get_resource_function)(k["name"])
                 resource_to_write = resource
 
                 if fmt:
@@ -92,6 +98,8 @@ def folder_pull(
 
                 if verbose:
                     click.echo(FeedbackManager.info_writing_resource(resource=f))
+                for warning in warnings:
+                    click.echo(FeedbackManager.warning(message=warning))
                 if not f.exists() or force or existing_file is not None:
                     with open(f, "w") as fd:
                         if resource_to_write:

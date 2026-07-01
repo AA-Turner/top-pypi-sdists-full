@@ -117,6 +117,17 @@ class TestSHCDeviceProperties:
         dev = _make_device(_raw_device(status="AVAILABLE"))
         assert dev.status == "AVAILABLE"
 
+    def test_name_manufacturer_devicemodel_status_missing_do_not_raise(self):
+        """Regression: none of these are in the OpenAPI "required" list for
+        Device — missing must return "" rather than KeyError."""
+        raw = {"id": "dev-x", "deviceServiceIds": []}
+        dev = _make_device(raw)
+        assert dev.name == ""
+        assert dev.manufacturer == ""
+        assert dev.device_model == ""
+        assert dev.status == ""
+        assert dev.root_device_id == ""
+
     def test_room_id_present(self):
         raw = _raw_device()
         raw["roomId"] = "room-42"
@@ -182,6 +193,107 @@ class TestSHCDeviceProperties:
     def test_parent_device_id_missing(self):
         dev = _make_device(_raw_device())
         assert dev.parent_device_id is None
+
+
+# ---------------------------------------------------------------------------
+# SHCDevice — installation profile write (set_profile / async_set_profile)
+# ---------------------------------------------------------------------------
+
+class TestSHCDeviceSetProfile:
+    def test_set_profile_puts_full_body_and_updates_raw(self):
+        raw = _raw_device(profile="GENERIC", supportedProfiles=["GENERIC", "OUTDOOR"])
+        api = _fake_api()
+        api.put_device.return_value = {}  # SHC answers empty 2xx → fall back to body
+        dev = _make_device(raw, api=api)
+
+        dev.set_profile("OUTDOOR")
+
+        # PUT called with the full device body, profile swapped.
+        api.put_device.assert_called_once()
+        called_id, called_body = api.put_device.call_args[0]
+        assert called_id == "dev-1"
+        assert called_body["profile"] == "OUTDOOR"
+        # supportedProfiles (and other fields) preserved in the body.
+        assert called_body["supportedProfiles"] == ["GENERIC", "OUTDOOR"]
+        # Local raw refreshed.
+        assert dev.profile == "OUTDOOR"
+
+    def test_set_profile_uses_server_response_when_returned(self):
+        # When the SHC returns the canonical object, local state mirrors it.
+        raw = _raw_device(profile="GENERIC", supportedProfiles=["GENERIC", "OUTDOOR"])
+        api = _fake_api()
+        server_body = _raw_device(
+            profile="OUTDOOR", supportedProfiles=["GENERIC", "OUTDOOR"], name="Renamed"
+        )
+        api.put_device.return_value = server_body
+        dev = _make_device(raw, api=api)
+
+        dev.set_profile("OUTDOOR")
+        assert dev.profile == "OUTDOOR"
+        # Server normalization (here: a renamed device) is reflected locally.
+        assert dev.name == "Renamed"
+
+    def test_set_profile_rejects_unsupported(self):
+        raw = _raw_device(profile="GENERIC", supportedProfiles=["GENERIC", "OUTDOOR"])
+        api = _fake_api()
+        dev = _make_device(raw, api=api)
+
+        with pytest.raises(SHCException):
+            dev.set_profile("LIGHT")
+        api.put_device.assert_not_called()
+        assert dev.profile == "GENERIC"
+
+    def test_set_profile_allows_any_when_no_supported_list(self):
+        # No supportedProfiles advertised → no validation, write proceeds.
+        raw = _raw_device(profile="GENERIC")
+        api = _fake_api()
+        api.put_device.return_value = {}
+        dev = _make_device(raw, api=api)
+
+        dev.set_profile("OUTDOOR")
+        api.put_device.assert_called_once()
+        assert dev.profile == "OUTDOOR"
+
+    def test_set_profile_fires_callbacks(self):
+        raw = _raw_device(profile="GENERIC", supportedProfiles=["GENERIC", "OUTDOOR"])
+        api = _fake_api()
+        api.put_device.return_value = {}
+        dev = _make_device(raw, api=api)
+        cb = MagicMock()
+        dev.subscribe_callback("ent", cb)
+
+        dev.set_profile("OUTDOOR")
+        cb.assert_called_once()
+
+    def test_async_set_profile_awaits_put_and_updates_raw(self):
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        raw = _raw_device(profile="GENERIC", supportedProfiles=["GENERIC", "OUTDOOR"])
+        api = _fake_api()
+        api.put_device = AsyncMock(return_value={})
+        dev = _make_device(raw, api=api)
+
+        asyncio.run(dev.async_set_profile("OUTDOOR"))
+
+        api.put_device.assert_awaited_once()
+        called_id, called_body = api.put_device.call_args[0]
+        assert called_id == "dev-1"
+        assert called_body["profile"] == "OUTDOOR"
+        assert dev.profile == "OUTDOOR"
+
+    def test_async_set_profile_rejects_unsupported(self):
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        raw = _raw_device(profile="GENERIC", supportedProfiles=["GENERIC", "OUTDOOR"])
+        api = _fake_api()
+        api.put_device = AsyncMock()
+        dev = _make_device(raw, api=api)
+
+        with pytest.raises(SHCException):
+            asyncio.run(dev.async_set_profile("LIGHT"))
+        api.put_device.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------

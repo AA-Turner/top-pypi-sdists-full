@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-ssl-checker"
+version = "1.1.0"
+description = "Python script that collects SSL/TLS information from hosts"
+readme = "README.md"
+authors = [{ name = "Narbeh Arakil", email = "narbeh@protonmail.com" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3"
+]
+keywords = ["ssl", "tls", "certificate", "checker"]
+dependencies = [
+    "pyopenssl",
+    "json2html"
+]
+requires-python = ">=3.6"

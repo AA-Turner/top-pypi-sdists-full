@@ -15,6 +15,17 @@ from ..configuration.resolver import resolve_config
 app = typer.Typer(help="Run agents")
 
 
+def _framework_help() -> str:
+    try:
+        from ...framework_adapters.registry import framework_option_help
+        return framework_option_help()
+    except ImportError:
+        return "Framework: praisonai, crewai, autogen"
+
+
+_FRAMEWORK_HELP = _framework_help()
+
+
 def _parse_permissions(allow: Optional[List[str]], deny: Optional[List[str]], permissions_file: Optional[str], default: Optional[str]) -> Optional[dict]:
     """Parse permission flags into a config dict.
     
@@ -303,6 +314,23 @@ def _checkpoints_auto_enabled() -> bool:
     return True
 
 
+def _checkpoints_storage_dir() -> Optional[str]:
+    """Return a configured ``checkpoints.storage_dir`` (or ``None``).
+
+    Keeps ``praisonai run`` auto-checkpoints and restores reading from the same
+    store the rest of the CLI (``code --checkpoints``, ``praisonai checkpoint``)
+    uses when ``checkpoints.storage_dir`` is configured.
+    """
+    try:
+        config = resolve_config()
+    except (ValueError, OSError):
+        return None
+    checkpoints = (getattr(config, "extra", None) or {}).get("checkpoints")
+    if isinstance(checkpoints, dict):
+        return checkpoints.get("storage_dir")
+    return None
+
+
 def _auto_checkpoint(label: str, *, no_checkpoint: bool, workspace_dir: Optional[str] = None) -> None:
     """Create an automatic checkpoint of the workspace before a run.
 
@@ -325,7 +353,10 @@ def _auto_checkpoint(label: str, *, no_checkpoint: bool, workspace_dir: Optional
     try:
         from ..features.checkpoints import CheckpointsHandler
 
-        handler = CheckpointsHandler(workspace_dir=workspace_dir or os.getcwd())
+        handler = CheckpointsHandler(
+            workspace_dir=workspace_dir or os.getcwd(),
+            storage_dir=_checkpoints_storage_dir(),
+        )
         asyncio.run(handler.save(label, allow_empty=False, quiet=True))
     except Exception as e:  # pragma: no cover - defensive, never block the run
         if getattr(output, "is_verbose", False):
@@ -339,7 +370,10 @@ def _restore_checkpoint(ref: str, workspace_dir: Optional[str] = None) -> None:
 
     from ..features.checkpoints import CheckpointsHandler
 
-    handler = CheckpointsHandler(workspace_dir=workspace_dir or os.getcwd())
+    handler = CheckpointsHandler(
+        workspace_dir=workspace_dir or os.getcwd(),
+        storage_dir=_checkpoints_storage_dir(),
+    )
 
     async def _run() -> bool:
         service = await handler._get_service()
@@ -425,7 +459,7 @@ def run_main(
     ctx: typer.Context,
     target: Optional[str] = typer.Argument(None, help="Agent file or prompt"),
     model: Optional[str] = typer.Option(None, "--model", "-m", help="LLM model to use"),
-    framework: Optional[str] = typer.Option(None, "--framework", "-f", help="Framework: praisonai, crewai, autogen"),
+    framework: Optional[str] = typer.Option(None, "--framework", "-f", help=_FRAMEWORK_HELP),
     interactive: bool = typer.Option(False, "--interactive", "-i", help="Interactive mode"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
     stream: bool = typer.Option(False, "--stream/--no-stream", help="Stream output (default: off for production use)"),
@@ -454,6 +488,8 @@ def run_main(
     # Custom definitions
     agent: Optional[str] = typer.Option(None, "--agent", "-a", help="Use a named custom agent"),
     command: Optional[str] = typer.Option(None, "--command", help="Execute a named custom command"),
+    # Reasoning effort
+    thinking: Optional[str] = typer.Option(None, "--thinking", help="Reasoning effort (off, minimal, low, medium, high)"),
     # Checkpoint / rewind
     no_checkpoint: bool = typer.Option(False, "--no-checkpoint", help="Disable automatic file checkpoint before the run"),
     restore: Optional[str] = typer.Option(None, "--restore", help="Restore the workspace to a checkpoint id (or 'last') and exit"),
@@ -479,6 +515,16 @@ def run_main(
     if restore:
         _restore_checkpoint(restore)
         return
+
+    # Validate --thinking and resolve it to the core thinking_budget up front so
+    # an unknown value fails closed before any execution (consistent with the
+    # `code` command and MODE_RULES validation on custom agents).
+    from ..features.thinking import thinking_to_budget
+    try:
+        thinking_budget = thinking_to_budget(thinking)
+    except ValueError as exc:
+        output.print_error(str(exc))
+        raise typer.Exit(1)
 
     # Early credential check before any processing
     if target:  # Only check if we actually have something to run
@@ -586,6 +632,7 @@ def run_main(
             session=session,
             fork=fork,
             no_save=no_save,
+            thinking_budget=thinking_budget,
         )
         return
     
@@ -631,6 +678,7 @@ def run_main(
             session=session,
             fork=fork,
             no_save=no_save,
+            thinking_budget=thinking_budget,
         )
         return
     
@@ -647,7 +695,7 @@ def run_main(
             "  praisonai run --command summarize \"Long text here\"\n\n"
             "Options:\n"
             "  --model, -m       LLM model to use\n"
-            "  --framework, -f   Framework (praisonai, crewai, autogen)\n"
+            f"  --framework, -f   {_FRAMEWORK_HELP}\n"
             "  --interactive, -i Interactive mode\n"
             "  --verbose, -v     Verbose output\n"
             "  --trace           Enable tracing\n"
@@ -779,6 +827,7 @@ def run_main(
             fork=fork,
             no_save=no_save,
             attach_session=attach,
+            thinking_budget=thinking_budget,
         )
 
 
@@ -872,6 +921,7 @@ def _run_from_file(
         # Run
         result = praison.run()
         
+        _record_session_usage(session_id or auto_save_name, model, output)
         output.emit_result(
             message="Run completed",
             data={"result": str(result) if result else None}
@@ -911,6 +961,7 @@ def _run_prompt(
     fork: bool = False,
     no_save: bool = False,
     attach_session: Optional[str] = None,
+    thinking_budget: Optional[int] = None,
 ):
     """Run a direct prompt."""
     output = get_output_controller()
@@ -975,7 +1026,11 @@ def _run_prompt(
         # not carry session state, so any explicit session flag stays local.
         # Default auto-save also stays in-process until the warm path can persist
         # sessions the same way as the normal run path.
-        runtime_eligible = no_save and not any([
+        # An explicit --thinking budget is a per-invocation override (like tools/
+        # approval/memory), so it stays in-process: the warm runtime reuses a
+        # cached agent and does not carry a per-call thinking budget, so attaching
+        # would silently drop the requested setting.
+        runtime_eligible = no_save and thinking_budget is None and not any([
             mcp, mcp_servers, tools, toolset, approval, approve_all_tools,
             memory, permissions_config, continue_session, session, fork,
         ])
@@ -1024,6 +1079,10 @@ def _run_prompt(
                     agent_config["tools"] = list(agent_config.get("tools", [])) + mcp_tools
 
             agent = Agent(**agent_config)
+            # Reasoning effort applied via the property setter (not a
+            # constructor kwarg) so defaults are unchanged when omitted.
+            if thinking_budget is not None:
+                agent.thinking_budget = thinking_budget
             if session_id or auto_save_name:
                 apply_cli_session_continuity(agent, session_id or auto_save_name, auto_save=auto_save_name)
 
@@ -1041,6 +1100,7 @@ def _run_prompt(
 
             if bridge is not None:
                 bridge.emit_run_result(result, ok=True)
+            _record_session_usage(session_id or auto_save_name, model, output)
             output.emit_result(
                 message="Prompt completed",
                 data={"result": str(result) if result else None}
@@ -1101,11 +1161,13 @@ def _run_prompt(
         args.expand_tools = None
         args.no_tools = False
         args.approval = approval
+        args.thinking_budget = thinking_budget
         
         praison.args = args
         
         result = praison.handle_direct_prompt(prompt)
         
+        _record_session_usage(session_id or auto_save_name, model, output)
         output.emit_result(
             message="Prompt completed",
             data={"result": str(result) if result else None}
@@ -1122,6 +1184,39 @@ def _run_prompt(
         output.emit_error(message=str(e))
         output.print_error(str(e))
         raise typer.Exit(1)
+
+
+def _record_session_usage(session_id, model, output) -> None:
+    """Accumulate this run's token/cost usage into the active session and show
+    a compact running total footer (Issue #2421).
+
+    Best-effort: never let usage accounting break a completed run. Stays quiet
+    in JSON mode so machine-readable output is unaffected.
+    """
+    if not session_id:
+        return
+    try:
+        from ..state.project_sessions import (
+            accumulate_session_usage,
+            format_usage_footer,
+        )
+
+        usage = accumulate_session_usage(session_id, model=model)
+    except Exception:
+        return
+
+    if not usage or not usage.get("total_tokens"):
+        return
+    if output is not None and getattr(output, "is_json_mode", False):
+        return
+    try:
+        footer = format_usage_footer(usage)
+        if output is not None:
+            output.print_info(footer)
+        else:
+            typer.echo(footer)
+    except Exception:
+        pass
 
 
 def _run_from_file_profiled(
@@ -1214,6 +1309,8 @@ def _run_from_file_profiled(
     result = praison.run()
     profiler.mark_exec_end()
     
+    _record_session_usage(session_id or auto_save_name, model, None)
+    
     profiler.stop()
     
     # Print result
@@ -1244,6 +1341,7 @@ def _run_custom_agent(
     session: Optional[str] = None,
     fork: bool = False,
     no_save: bool = False,
+    thinking_budget: Optional[int] = None,
 ):
     """Run a custom agent definition."""
     output = get_output_controller()
@@ -1336,6 +1434,10 @@ def _run_custom_agent(
         
         # Create and run agent
         agent = Agent(**agent_config)
+        # Reasoning effort applied via the property setter (not a constructor
+        # kwarg) so defaults are unchanged when --thinking is omitted.
+        if thinking_budget is not None:
+            agent.thinking_budget = thinking_budget
 
         # Bridge per-step agent events into the structured output stream.
         from ..output.event_bridge import attach_bridge, detach_bridge
@@ -1349,6 +1451,7 @@ def _run_custom_agent(
 
         if bridge is not None:
             bridge.emit_run_result(result, ok=True)
+        _record_session_usage(session_id or auto_save_name, model, output)
         output.emit_result(
             message="Agent completed",
             data={"result": str(result) if result else None}
@@ -1457,6 +1560,8 @@ def _run_prompt_profiled(
     profiler.mark_exec_start()
     response = agent.start(prompt)
     profiler.mark_exec_end()
+    
+    _record_session_usage(session_id or auto_save_name, model, None)
     
     profiler.stop()
     

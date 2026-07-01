@@ -204,7 +204,7 @@ class SyncSandboxProcess(SyncSandboxAction):
             )
         else:
             with self.get_client() as client_instance:
-                response = client_instance.post("/process", json=process.to_dict())
+                response = client_instance.post("/process", json=process.to_dict(), timeout=None)
                 response_data = None
                 if response.content:
                     try:

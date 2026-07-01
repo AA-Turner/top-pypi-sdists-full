@@ -27,27 +27,21 @@ impl gam_problem::OuterHessianOperator for TestOuterHessianOperator {
 }
 
 impl CustomFamily for BatchedOuterHessianTestFamily {
-    fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
-        let _ = block_states;
+    fn evaluate(&self, _: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
         Ok(FamilyEvaluation {
             log_likelihood: 0.0,
             blockworking_sets: vec![],
         })
     }
 
-    fn outer_hyper_hessian_hvp_available(&self, block_specs: &[ParameterBlockSpec]) -> bool {
-        let _unused_block_specs = block_specs;
-        let _ = block_specs;
+    fn outer_hyper_hessian_hvp_available(&self, _: &[ParameterBlockSpec]) -> bool {
         true
     }
 
     fn outer_hyper_hessian_operator(
         &self,
-        block_specs: &[ParameterBlockSpec],
+        _: &[ParameterBlockSpec],
     ) -> Option<Arc<dyn gam_problem::OuterHessianOperator>> {
-        let _unused_block_specs = block_specs;
-        let _ = block_specs;
         Some(Arc::new(TestOuterHessianOperator {
             matrix: self.matrix.clone(),
         }))
@@ -95,6 +89,7 @@ pub(crate) fn blockwise_fit_from_parts_accepts_stacked_solver_eta_with_canonical
                 working_response: Array1::zeros(2),
             }),
             precomputed_edf: Some((1.0, Vec::new(), vec![1.0], Vec::new())),
+            joint_log_lambdas: None,
         },
         &[spec],
     )
@@ -1956,10 +1951,8 @@ pub(crate) fn psi_drift_deriv_workspace_preserves_block_local_operator() {
     impl CustomFamily for ZeroFamily {
         fn evaluate(
             &self,
-            block_states: &[ParameterBlockState],
+            _: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-            let _unused_block_states = block_states;
-            let _ = block_states;
             Ok(FamilyEvaluation {
                 log_likelihood: 0.0,
                 blockworking_sets: vec![],
@@ -2212,7 +2205,6 @@ pub(crate) fn custom_family_outer_derivatives_respects_missing_second_order_capa
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-            let _unused_block_states = block_states;
             let n = block_states[0].eta.len();
             Ok(FamilyEvaluation {
                 log_likelihood: 0.0,
@@ -2225,12 +2217,9 @@ pub(crate) fn custom_family_outer_derivatives_respects_missing_second_order_capa
 
         fn exact_outer_derivative_order(
             &self,
-            block_specs: &[ParameterBlockSpec],
-            options: &BlockwiseFitOptions,
+            _: &[ParameterBlockSpec],
+            _: &BlockwiseFitOptions,
         ) -> ExactOuterDerivativeOrder {
-            let _unused_block_specs = block_specs;
-            let _ = block_specs;
-            let _ = options;
             ExactOuterDerivativeOrder::First
         }
     }
@@ -2262,7 +2251,6 @@ pub(crate) struct DefaultDiagonalExactHookFamily;
 
 impl CustomFamily for DefaultDiagonalExactHookFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let eta = block_states[0].eta.clone();
         let weights = eta.mapv(|value| 2.0 + value * value);
         Ok(FamilyEvaluation {
@@ -2284,7 +2272,6 @@ impl CustomFamily for DefaultDiagonalExactHookFamily {
         _: usize,
         d_eta: &Array1<f64>,
     ) -> Result<Option<Array1<f64>>, String> {
-        let _unused_block_states = block_states;
         // Default implementation ignores this parameter.
         Ok(Some((&block_states[0].eta * d_eta) * 2.0))
     }
@@ -2295,7 +2282,6 @@ impl CustomFamily for DefaultDiagonalExactHookFamily {
         u: &Array1<f64>,
         v: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         let spec = default_diagonal_exact_hook_spec();
         let u_eta = spec.design.apply(u);
         let v_eta = spec.design.apply(v);
@@ -2486,7 +2472,6 @@ pub(crate) fn custom_family_outer_derivatives_exposes_surrogate_second_order_geo
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-            let _unused_block_states = block_states;
             let n = block_states[0].eta.len();
             Ok(FamilyEvaluation {
                 log_likelihood: 0.0,
@@ -2531,7 +2516,6 @@ pub(crate) fn custom_family_outer_derivatives_keeps_strict_second_order_geometry
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-            let _unused_block_states = block_states;
             let n = block_states[0].eta.len();
             Ok(FamilyEvaluation {
                 log_likelihood: 0.0,
@@ -2587,7 +2571,6 @@ impl CustomFamily for OneBlockQuarticExactFamily {
     }
 
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let beta = block_states[0].beta[0];
         let log_likelihood =
             self.linear * beta - 0.5 * beta * beta - self.curvature * beta.powi(4) / 12.0;
@@ -2608,7 +2591,6 @@ impl CustomFamily for OneBlockQuarticExactFamily {
         block_idx: usize,
         direction: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert_eq!(block_idx, 0);
         let beta = block_states[0].beta[0];
         Ok(Some(array![[2.0 * self.curvature * beta * direction[0]]]))
@@ -2616,12 +2598,11 @@ impl CustomFamily for OneBlockQuarticExactFamily {
 
     fn exact_newton_hessian_second_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         block_idx: usize,
         u: &Array1<f64>,
         v: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert_eq!(block_idx, 0);
         let value = 2.0 * self.curvature * self.second_scale * u[0] * v[0];
         Ok(Some(array![[value]]))
@@ -2736,7 +2717,6 @@ pub(crate) struct ObservedJeffreysSeamFamily;
 
 impl CustomFamily for ObservedJeffreysSeamFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let n = block_states
             .first()
             .ok_or_else(|| "missing block 0".to_string())?
@@ -2756,7 +2736,6 @@ impl CustomFamily for ObservedJeffreysSeamFamily {
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert_eq!(block_states.len(), specs.len());
         let beta = &block_states[0].beta;
         Ok(Some(array![
@@ -2771,7 +2750,6 @@ impl CustomFamily for ObservedJeffreysSeamFamily {
         specs: &[ParameterBlockSpec],
         d_beta_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert_eq!(block_states.len(), specs.len());
         let beta = &block_states[0].beta;
         Ok(Some(array![
@@ -2787,7 +2765,6 @@ impl CustomFamily for ObservedJeffreysSeamFamily {
         d_beta_u_flat: &Array1<f64>,
         d_betav_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert_eq!(block_states.len(), specs.len());
         Ok(Some(array![
             [2.0 * d_beta_u_flat[0] * d_betav_flat[0], 0.0],
@@ -2871,7 +2848,6 @@ pub(crate) struct ContractedJeffreysSeamFamily;
 
 impl CustomFamily for ContractedJeffreysSeamFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let n = block_states
             .first()
             .ok_or_else(|| "missing block 0".to_string())?
@@ -2893,7 +2869,6 @@ impl CustomFamily for ContractedJeffreysSeamFamily {
         d_beta_u_flat: &Array1<f64>,
         d_betav_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert_eq!(block_states.len(), specs.len());
         let scale = 1.0e6 * d_beta_u_flat.dot(d_betav_flat);
         Ok(Some(scale * Array2::<f64>::eye(2)))
@@ -2905,7 +2880,6 @@ impl CustomFamily for ContractedJeffreysSeamFamily {
         specs: &[ParameterBlockSpec],
         weight: &Array2<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert_eq!(block_states.len(), specs.len());
         assert_eq!(weight.dim(), (2, 2));
         Ok(Some(7.0 * Array2::<f64>::eye(2)))
@@ -2954,7 +2928,6 @@ pub(crate) struct PairwiseJeffreysSeamFamily;
 
 impl CustomFamily for PairwiseJeffreysSeamFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let n = block_states
             .first()
             .ok_or_else(|| "missing block 0".to_string())?
@@ -2976,7 +2949,6 @@ impl CustomFamily for PairwiseJeffreysSeamFamily {
         d_beta_u_flat: &Array1<f64>,
         d_betav_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert_eq!(block_states.len(), specs.len());
         let scale = d_beta_u_flat.dot(d_betav_flat);
         Ok(Some(scale * array![[2.0, 1.0], [1.0, 3.0]]))
@@ -3046,7 +3018,6 @@ pub(crate) fn custom_family_outer_derivatives_keeps_second_order_for_large_inner
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-            let _unused_block_states = block_states;
             let n = block_states[0].eta.len();
             Ok(FamilyEvaluation {
                 log_likelihood: 0.0,
@@ -3090,7 +3061,6 @@ pub(crate) fn custom_family_outer_derivatives_keeps_second_order_for_large_inner
 
 impl CustomFamily for OneBlockIdentityFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let n = block_states[0].eta.len();
         Ok(FamilyEvaluation {
             log_likelihood: 0.0,
@@ -3140,7 +3110,6 @@ pub(crate) struct OneBlockGaussianFamily {
 
 impl CustomFamily for OneBlockGaussianFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let eta = &block_states[0].eta;
         let resid = eta - &self.y;
         let ll = -0.5 * resid.dot(&resid);
@@ -3155,23 +3124,21 @@ impl CustomFamily for OneBlockGaussianFamily {
 
     fn diagonalworking_weights_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         _: usize,
         d_eta: &Array1<f64>,
     ) -> Result<Option<Array1<f64>>, String> {
-        let _unused_block_states = block_states;
         // Default implementation ignores this parameter.
         Ok(Some(Array1::zeros(d_eta.len())))
     }
 
     fn diagonalworking_weights_second_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         _: usize,
         d_eta_u: &Array1<f64>,
         arr: &Array1<f64>,
     ) -> Result<Option<Array1<f64>>, String> {
-        let _unused_block_states = block_states;
         // Default implementation ignores this parameter.
         assert!(arr.iter().all(|v| !v.is_nan()));
         Ok(Some(Array1::zeros(d_eta_u.len())))
@@ -3186,7 +3153,6 @@ pub(crate) struct OneBlockConstrainedExactFamily {
 
 impl CustomFamily for OneBlockConstrainedExactFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let beta = block_states
             .first()
             .ok_or_else(|| "missing block 0".to_string())?
@@ -3207,11 +3173,10 @@ impl CustomFamily for OneBlockConstrainedExactFamily {
 
     fn block_linear_constraints(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         block_idx: usize,
         block_spec: &ParameterBlockSpec,
     ) -> Result<Option<LinearInequalityConstraints>, String> {
-        let _unused_block_states = block_states;
         assert!(!block_spec.name.is_empty());
         if block_idx != 0 {
             return Ok(None);
@@ -3227,8 +3192,7 @@ impl CustomFamily for OneBlockConstrainedExactFamily {
 pub(crate) struct OneBlockConstrainedNaNHessianFamily;
 
 impl CustomFamily for OneBlockConstrainedNaNHessianFamily {
-    fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+    fn evaluate(&self, _: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
         Ok(FamilyEvaluation {
             log_likelihood: 0.0,
             blockworking_sets: vec![BlockWorkingSet::ExactNewton {
@@ -3240,11 +3204,10 @@ impl CustomFamily for OneBlockConstrainedNaNHessianFamily {
 
     fn block_linear_constraints(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         block_idx: usize,
         block_spec: &ParameterBlockSpec,
     ) -> Result<Option<LinearInequalityConstraints>, String> {
-        let _unused_block_states = block_states;
         assert!(!block_spec.name.is_empty());
         if block_idx != 0 {
             return Ok(None);
@@ -3260,8 +3223,7 @@ impl CustomFamily for OneBlockConstrainedNaNHessianFamily {
 pub(crate) struct OneBlockConstrainedIndefiniteHessianFamily;
 
 impl CustomFamily for OneBlockConstrainedIndefiniteHessianFamily {
-    fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+    fn evaluate(&self, _: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
         Ok(FamilyEvaluation {
             log_likelihood: 0.0,
             blockworking_sets: vec![BlockWorkingSet::ExactNewton {
@@ -3273,11 +3235,10 @@ impl CustomFamily for OneBlockConstrainedIndefiniteHessianFamily {
 
     fn block_linear_constraints(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         block_idx: usize,
         block_spec: &ParameterBlockSpec,
     ) -> Result<Option<LinearInequalityConstraints>, String> {
-        let _unused_block_states = block_states;
         assert!(!block_spec.name.is_empty());
         if block_idx != 0 {
             return Ok(None);
@@ -3296,7 +3257,6 @@ pub(crate) struct OneBlockLinearLikelihoodExactFamily {
 
 impl CustomFamily for OneBlockLinearLikelihoodExactFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let beta = block_states
             .first()
             .ok_or_else(|| "missing block 0".to_string())?
@@ -3318,8 +3278,7 @@ impl CustomFamily for OneBlockLinearLikelihoodExactFamily {
 pub(crate) struct PreferJointExactFamily;
 
 impl CustomFamily for PreferJointExactFamily {
-    fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+    fn evaluate(&self, _: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
         Ok(FamilyEvaluation {
             log_likelihood: 0.0,
             blockworking_sets: vec![BlockWorkingSet::ExactNewton {
@@ -3331,11 +3290,10 @@ impl CustomFamily for PreferJointExactFamily {
 
     fn exact_newton_hessian_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         _: usize,
         arr: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         // Default implementation ignores this parameter.
         assert!(arr.iter().all(|v| !v.is_nan()));
         Err(
@@ -3346,18 +3304,16 @@ impl CustomFamily for PreferJointExactFamily {
 
     fn exact_newton_joint_hessian(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         Ok(Some(array![[2.0]]))
     }
 
     fn exact_newton_joint_hessian_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         arr: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert!(arr.iter().all(|v| !v.is_nan()));
         Ok(Some(array![[0.0]]))
     }
@@ -3370,7 +3326,6 @@ pub(crate) struct TwoBlockJointConstrainedFamily {
 
 impl CustomFamily for TwoBlockJointConstrainedFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let beta0 = block_states[0].beta[0];
         let beta1 = block_states[1].beta[0];
         let g0 = 1.0 - beta0 - self.coupling * beta1;
@@ -3395,29 +3350,26 @@ impl CustomFamily for TwoBlockJointConstrainedFamily {
 
     fn exact_newton_joint_hessian(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         Ok(Some(array![[1.0, self.coupling], [self.coupling, 1.0]]))
     }
 
     fn exact_newton_joint_hessian_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         arr: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert!(arr.iter().all(|v| !v.is_nan()));
         Ok(Some(Array2::zeros((2, 2))))
     }
 
     fn block_linear_constraints(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         block_idx: usize,
         block_spec: &ParameterBlockSpec,
     ) -> Result<Option<LinearInequalityConstraints>, String> {
-        let _unused_block_states = block_states;
         assert!(!block_spec.name.is_empty());
         if block_idx >= 2 {
             return Ok(None);
@@ -3434,7 +3386,6 @@ pub(crate) struct TwoBlockPersistentGradientFamily;
 
 impl CustomFamily for TwoBlockPersistentGradientFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let beta0 = block_states[0].beta[0];
         let beta1 = block_states[1].beta[0];
         Ok(FamilyEvaluation {
@@ -3454,18 +3405,16 @@ impl CustomFamily for TwoBlockPersistentGradientFamily {
 
     fn exact_newton_joint_hessian(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         Ok(Some(array![[1.0, 0.25], [0.25, 1.0]]))
     }
 
     fn exact_newton_joint_hessian_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         arr: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert!(arr.iter().all(|v| !v.is_nan()));
         Ok(Some(Array2::zeros((2, 2))))
     }
@@ -3488,7 +3437,6 @@ pub(crate) struct TwoBlockNonFiniteCurvatureFamily;
 
 impl CustomFamily for TwoBlockNonFiniteCurvatureFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let beta0 = block_states[0].beta[0];
         let beta1 = block_states[1].beta[0];
         Ok(FamilyEvaluation {
@@ -3508,9 +3456,8 @@ impl CustomFamily for TwoBlockNonFiniteCurvatureFamily {
 
     fn exact_newton_joint_hessian(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         // A finite, symmetric, otherwise-PD curvature with a single NaN
         // diagonal entry: exactly the degenerate `H_pen` spectrum the guard
         // exists to catch (a real collapsed-weight curvature defect).
@@ -3519,10 +3466,9 @@ impl CustomFamily for TwoBlockNonFiniteCurvatureFamily {
 
     fn exact_newton_joint_hessian_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         arr: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert!(arr.iter().all(|v| !v.is_nan()));
         Ok(Some(Array2::zeros((2, 2))))
     }
@@ -3537,7 +3483,6 @@ pub(crate) struct TwoBlockJointSurrogateFamily;
 
 impl CustomFamily for TwoBlockJointSurrogateFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let n0 = block_states
             .first()
             .ok_or_else(|| "missing block 0".to_string())?
@@ -3565,21 +3510,19 @@ impl CustomFamily for TwoBlockJointSurrogateFamily {
 
     fn exact_newton_joint_hessian_with_specs(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         let p: usize = specs.iter().map(|spec| spec.design.ncols()).sum();
         Ok(Some(Array2::eye(p)))
     }
 
     fn exact_newton_joint_hessian_directional_derivative_with_specs(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
         arr: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert!(arr.iter().all(|v| !v.is_nan()));
         let p: usize = specs.iter().map(|spec| spec.design.ncols()).sum();
         Ok(Some(Array2::zeros((p, p))))
@@ -3587,12 +3530,11 @@ impl CustomFamily for TwoBlockJointSurrogateFamily {
 
     fn exact_newton_joint_hessian_second_directional_derivative_with_specs(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
         arr: &Array1<f64>,
         arr2: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert!(arr.iter().all(|v| !v.is_nan()));
         assert!(arr2.iter().all(|v| !v.is_nan()));
         let p: usize = specs.iter().map(|spec| spec.design.ncols()).sum();
@@ -3607,7 +3549,6 @@ pub(crate) struct OneBlockPseudoLaplaceExactFamily {
 
 impl CustomFamily for OneBlockPseudoLaplaceExactFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let beta = block_states
             .first()
             .ok_or_else(|| "missing block 0".to_string())?
@@ -3631,19 +3572,17 @@ impl CustomFamily for OneBlockPseudoLaplaceExactFamily {
 
     fn exact_newton_joint_hessian(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         Ok(Some(array![[2.0]]))
     }
 
     fn exact_newton_hessian_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         _: usize,
         arr: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         // Default implementation ignores this parameter.
         assert!(arr.iter().all(|v| !v.is_nan()));
         Ok(Some(array![[0.0]]))
@@ -3651,10 +3590,9 @@ impl CustomFamily for OneBlockPseudoLaplaceExactFamily {
 
     fn exact_newton_joint_hessian_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         arr: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert!(arr.iter().all(|v| !v.is_nan()));
         Ok(Some(array![[0.0]]))
     }
@@ -3664,8 +3602,7 @@ impl CustomFamily for OneBlockPseudoLaplaceExactFamily {
 pub(crate) struct OneBlockExactPsiHookFamily;
 
 impl CustomFamily for OneBlockExactPsiHookFamily {
-    fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+    fn evaluate(&self, _: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
         Ok(FamilyEvaluation {
             log_likelihood: 0.0,
             blockworking_sets: vec![BlockWorkingSet::ExactNewton {
@@ -3681,19 +3618,17 @@ impl CustomFamily for OneBlockExactPsiHookFamily {
 
     fn exact_newton_joint_hessian(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         Ok(Some(array![[1.0]]))
     }
 
     fn exact_newton_hessian_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         _: usize,
         arr: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         // Default implementation ignores this parameter.
         assert!(arr.iter().all(|v| !v.is_nan()));
         Ok(Some(array![[0.0]]))
@@ -3701,25 +3636,20 @@ impl CustomFamily for OneBlockExactPsiHookFamily {
 
     fn exact_newton_joint_hessian_directional_derivative(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
         arr: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         assert!(arr.iter().all(|v| !v.is_nan()));
         Ok(Some(array![[0.0]]))
     }
 
     fn exact_newton_joint_psi_terms(
         &self,
-        block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+        _: &[ParameterBlockState],
+        _: &[ParameterBlockSpec],
+        _: &[Vec<CustomFamilyBlockPsiDerivative>],
         _: usize,
     ) -> Result<Option<ExactNewtonJointPsiTerms>, String> {
-        let _unused_derivative_blocks = derivative_blocks;
-        let _unused_block_specs = block_specs;
-        let _unused_block_states = block_states;
-        let _ = (block_states, block_specs, derivative_blocks);
         // Default implementation ignores this parameter.
         Ok(Some(ExactNewtonJointPsiTerms {
             objective_psi: 3.5,
@@ -3734,8 +3664,7 @@ impl CustomFamily for OneBlockExactPsiHookFamily {
 pub(crate) struct OneBlockIndefinitePseudoLaplaceFamily;
 
 impl CustomFamily for OneBlockIndefinitePseudoLaplaceFamily {
-    fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+    fn evaluate(&self, _: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
         Ok(FamilyEvaluation {
             log_likelihood: 0.0,
             blockworking_sets: vec![BlockWorkingSet::ExactNewton {
@@ -3751,9 +3680,8 @@ impl CustomFamily for OneBlockIndefinitePseudoLaplaceFamily {
 
     fn exact_newton_joint_hessian(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         Ok(Some(array![[-1.0]]))
     }
 }
@@ -3763,7 +3691,6 @@ pub(crate) struct OneBlockNearlySymmetricPseudoLaplaceFamily;
 
 impl CustomFamily for OneBlockNearlySymmetricPseudoLaplaceFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let beta = block_states
             .first()
             .ok_or_else(|| "missing block 0".to_string())?
@@ -3786,9 +3713,8 @@ impl CustomFamily for OneBlockNearlySymmetricPseudoLaplaceFamily {
 
     fn exact_newton_joint_hessian(
         &self,
-        block_states: &[ParameterBlockState],
+        _: &[ParameterBlockState],
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_states = block_states;
         Ok(Some(array![[2.0, 0.1], [3.0, 2.0]]))
     }
 }
@@ -3797,8 +3723,7 @@ impl CustomFamily for OneBlockNearlySymmetricPseudoLaplaceFamily {
 pub(crate) struct OneBlockAlwaysErrorFamily;
 
 impl CustomFamily for OneBlockAlwaysErrorFamily {
-    fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
+    fn evaluate(&self, _: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
         Err("synthetic outer objective failure: block[0] evaluate()".to_string())
     }
 }
@@ -3808,7 +3733,6 @@ pub(crate) struct OneBlockCovarianceErrorFamily;
 
 impl CustomFamily for OneBlockCovarianceErrorFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let n = block_states[0].eta.len();
         Ok(FamilyEvaluation {
             log_likelihood: 0.0,
@@ -3821,11 +3745,9 @@ impl CustomFamily for OneBlockCovarianceErrorFamily {
 
     fn exact_newton_joint_hessian_with_specs(
         &self,
-        block_states: &[ParameterBlockState],
-        block_specs: &[ParameterBlockSpec],
+        _: &[ParameterBlockState],
+        _: &[ParameterBlockSpec],
     ) -> Result<Option<Array2<f64>>, String> {
-        let _unused_block_specs = block_specs;
-        let _unused_block_states = block_states;
         Err("synthetic covariance assembly failure".to_string())
     }
 }
@@ -4644,7 +4566,6 @@ pub(crate) fn joint_feasibility_alpha_gate_discriminates_healthy_from_crush() {
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-            let _unused_block_states = block_states;
             // Single-block fixture: the engine always passes exactly one block.
             assert_eq!(block_states.len(), 1);
             Ok(FamilyEvaluation {
@@ -4661,7 +4582,6 @@ pub(crate) fn joint_feasibility_alpha_gate_discriminates_healthy_from_crush() {
             idx: usize,
             arr: &Array1<f64>,
         ) -> Result<Option<f64>, String> {
-            let _unused_block_states = block_states;
             // The configured α is returned regardless of the proposed step;
             // assert the engine hands us a well-formed single-block query.
             assert!(idx < block_states.len());
@@ -6215,7 +6135,6 @@ pub(crate) struct TwoBlockNaNHessianFamily;
 
 impl CustomFamily for TwoBlockNaNHessianFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let n0 = block_states[0].eta.len();
         let p1 = block_states[1].beta.len();
         // Block 0 (mu): well-behaved diagonal working set.
@@ -6245,7 +6164,6 @@ pub(crate) struct TwoBlockFiniteHessianFamily;
 
 impl CustomFamily for TwoBlockFiniteHessianFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let n0 = block_states[0].eta.len();
         let p1 = block_states[1].beta.len();
         let beta1 = &block_states[1].beta;
@@ -6274,7 +6192,6 @@ pub(crate) struct TwoBlockNaNHessianPseudoLaplaceFamily;
 
 impl CustomFamily for TwoBlockNaNHessianPseudoLaplaceFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         TwoBlockNaNHessianFamily.evaluate(block_states)
     }
 
@@ -6396,7 +6313,6 @@ pub(crate) fn exact_newton_dh_closure_rejects_non_finite_directional_derivative(
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-            let _unused_block_states = block_states;
             let beta = block_states
                 .first()
                 .ok_or_else(|| "missing block 0".to_string())?
@@ -6413,18 +6329,16 @@ pub(crate) fn exact_newton_dh_closure_rejects_non_finite_directional_derivative(
 
         fn exact_newton_joint_hessian(
             &self,
-            block_states: &[ParameterBlockState],
+            _: &[ParameterBlockState],
         ) -> Result<Option<Array2<f64>>, String> {
-            let _unused_block_states = block_states;
             Ok(Some(array![[1.0]]))
         }
 
         fn exact_newton_joint_hessian_directional_derivative(
             &self,
-            block_states: &[ParameterBlockState],
+            _: &[ParameterBlockState],
             arr: &Array1<f64>,
         ) -> Result<Option<Array2<f64>>, String> {
-            let _unused_block_states = block_states;
             assert!(arr.iter().all(|v| !v.is_nan()));
             Ok(Some(array![[f64::NAN]]))
         }
@@ -6653,7 +6567,6 @@ pub(crate) struct HeterogeneousEtaLengthFamily {
 
 impl CustomFamily for HeterogeneousEtaLengthFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        let _unused_block_states = block_states;
         let n = self.n;
         let eta0 = &block_states[0].eta;
         let eta1 = &block_states[1].eta;
@@ -6735,7 +6648,6 @@ pub(crate) fn uniform_eta_lengths_do_not_panic() {
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-            let _unused_block_states = block_states;
             let p0 = block_states[0].beta.len();
             let p1 = block_states[1].beta.len();
             let eta0 = &block_states[0].eta;
@@ -6862,7 +6774,6 @@ pub(crate) fn heterogeneous_eta_no_panic_when_all_blocks_converged() {
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-            let _unused_block_states = block_states;
             let n = self.n;
             let eta0 = &block_states[0].eta;
             let eta1 = &block_states[1].eta;
@@ -6921,7 +6832,6 @@ pub(crate) fn heterogeneous_eta_completes_when_only_small_block_steps() {
             &self,
             block_states: &[ParameterBlockState],
         ) -> Result<FamilyEvaluation, String> {
-            let _unused_block_states = block_states;
             let n = self.n;
             let eta0 = &block_states[0].eta;
             let eta1 = &block_states[1].eta;

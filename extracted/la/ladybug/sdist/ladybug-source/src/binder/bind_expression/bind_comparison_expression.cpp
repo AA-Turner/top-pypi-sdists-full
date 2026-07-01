@@ -5,6 +5,7 @@
 #include "catalog/catalog.h"
 #include "common/exception/binder.h"
 #include "function/built_in_function_utils.h"
+#include "function/struct/vector_struct_functions.h"
 #include "transaction/transaction.h"
 #include <format>
 
@@ -26,7 +27,14 @@ std::shared_ptr<Expression> ExpressionBinder::bindComparisonExpression(
     return bindComparisonExpression(parsedExpression.getExpressionType(), children);
 }
 
-static bool isNodeOrRel(const Expression& expression) {
+// A node or rel *pattern* expression (e.g. from a MATCH) has an internal ID property and can
+// be rewritten to an internal-ID comparison. A plain variable holding a NODE/REL value (e.g. a
+// lambda variable bound from `relationships(p)`) is a VariableExpression with a NODE/REL logical
+// type but no internal ID, so it must go through the regular value comparison path.
+static bool isNodeOrRelPattern(const Expression& expression) {
+    if (expression.expressionType != ExpressionType::PATTERN) {
+        return false;
+    }
     switch (expression.getDataType().getLogicalTypeID()) {
     case LogicalTypeID::NODE:
     case LogicalTypeID::REL:
@@ -40,10 +48,12 @@ std::shared_ptr<Expression> ExpressionBinder::bindComparisonExpression(
     ExpressionType expressionType, const expression_vector& children) {
     // Rewrite node or rel comparison
     DASSERT(children.size() == 2);
-    if (isNodeOrRel(*children[0]) && isNodeOrRel(*children[1])) {
+    if (isNodeOrRelPattern(*children[0]) && isNodeOrRelPattern(*children[1])) {
         expression_vector newChildren;
-        newChildren.push_back(children[0]->constCast<NodeOrRelExpression>().getInternalID());
-        newChildren.push_back(children[1]->constCast<NodeOrRelExpression>().getInternalID());
+        newChildren.reserve(children.size());
+        for (const auto& child : children) {
+            newChildren.push_back(child->constCast<NodeOrRelExpression>().getInternalID());
+        }
         return bindComparisonExpression(expressionType, newChildren);
     }
 

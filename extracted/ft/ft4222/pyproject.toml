@@ -1,0 +1,53 @@
+[build-system]
+requires = [
+    "setuptools >= 69.0.0",
+    "wheel",
+    "cython ~= 3.1"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ft4222"
+dynamic = ["version"]
+description = "Python wrapper around libFT4222."
+readme = "README.md"
+license = "MIT AND LicenseRef-FTDI"
+requires-python = ">=3.9.0"
+authors = [
+  {name = "Bearsh", email = "me@bearsh.org"},
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Operating System :: Microsoft",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS :: MacOS X",
+  "Typing :: Typed",
+  "Programming Language :: Cython",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Communications",
+]
+keywords = ["ftdi", "ft4222"]
+
+[project.urls]
+Homepage = "https://gitlab.com/msrelectronics/python-ft4222"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.dynamic]
+version = {attr = "ft4222.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["ft4222*"]
+namespaces = false
+
+[tool.cibuildwheel.linux]
+skip = "*musllinux*"
+archs = ["x86_64", "i686", "aarch64", "armv7l"]

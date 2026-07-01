@@ -4,8 +4,7 @@ from app_utils.testing import NoSocketsTestCase
 
 from taskmonitor import admin
 from taskmonitor.models import TaskLog
-
-from .factories import TaskLogFactory
+from taskmonitor.tests.factories import TaskLogFactory
 
 
 class TestTaskLogAdmin(NoSocketsTestCase):

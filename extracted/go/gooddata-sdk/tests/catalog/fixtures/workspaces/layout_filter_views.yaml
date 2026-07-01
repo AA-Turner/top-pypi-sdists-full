@@ -1,0 +1,184 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/layout/workspaces/demo/filterViews
+    response:
+      body:
+        string: []
+      headers:
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        - analyticalDashboard:
+            id: campaign
+            type: analyticalDashboard
+          content:
+            filters:
+              - dateFilter:
+                  from: '0'
+                  granularity: GDC.time.month
+                  to: '0'
+                  type: relative
+              - attributeFilter:
+                  attributeElements:
+                    uris: []
+                  displayForm:
+                    identifier:
+                      id: demo:campaign_name
+                      type: label
+                  filterElementsBy: []
+                  localIdentifier: 14b0807447ef4bc28f43e4fc5c337d1d
+                  negativeSelection: true
+                  selectionMode: multi
+            version: '2'
+          description: Filter View
+          id: filter_view
+          isDefault: true
+          tags:
+            - tag1
+            - tag2
+          title: Filter View
+          user:
+            id: demo
+            type: user
+      headers:
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: PUT
+      uri: http://localhost:3000/api/v1/layout/workspaces/demo/filterViews
+    response:
+      body:
+        string: ''
+      headers:
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 204
+        message: No Content
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/layout/workspaces/demo/filterViews
+    response:
+      body:
+        string:
+          - analyticalDashboard:
+              id: campaign
+              type: analyticalDashboard
+            content:
+              filters:
+                - dateFilter:
+                    from: '0'
+                    granularity: GDC.time.month
+                    to: '0'
+                    type: relative
+                - attributeFilter:
+                    attributeElements:
+                      uris: []
+                    displayForm:
+                      identifier:
+                        id: demo:campaign_name
+                        type: label
+                    filterElementsBy: []
+                    localIdentifier: 14b0807447ef4bc28f43e4fc5c337d1d
+                    negativeSelection: true
+                    selectionMode: multi
+              version: '2'
+            description: Filter View
+            id: filter_view
+            isDefault: true
+            tags:
+              - tag1
+              - tag2
+            title: Filter View
+            user:
+              id: demo
+              type: user
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: []
+      headers:
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: PUT
+      uri: http://localhost:3000/api/v1/layout/workspaces/demo/filterViews
+    response:
+      body:
+        string: ''
+      headers:
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 204
+        message: No Content
+version: 1

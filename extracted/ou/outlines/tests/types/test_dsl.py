@@ -656,6 +656,17 @@ def test_dsl_handle_literal():
     assert result.terms[1] == Regex(r"1")
 
 
+def test_dsl_literal_bool():
+    # Literal[True] and Literal[False] previously raised TypeError; ensure they resolve.
+    result_true = python_types_to_terms(Literal[True])
+    assert isinstance(result_true, Alternatives)
+    assert result_true.terms == [Regex("True")]
+    result_false = python_types_to_terms(Literal[False])
+    assert result_false.terms == [Regex("False")]
+    result_both = python_types_to_terms(Literal[True, False])
+    assert result_both == Alternatives([Regex("True"), Regex("False")])
+
+
 def test_dsl_handle_union():
     # test simple Union
     simple_union = Union[int, str]
@@ -671,7 +682,7 @@ def test_dsl_handle_union():
     assert isinstance(result, Alternatives)
     assert len(result.terms) == 2
     assert result.terms[0] == types.integer
-    assert result.terms[1] == String("None")
+    assert result.terms[1] == Regex("None")
 
     # test with more complex types
     class TestModel(BaseModel):
@@ -699,7 +710,9 @@ def test_dsl_handle_list():
     with pytest.raises(TypeError):
         _handle_list((), recursion_depth=0)
 
-    with pytest.raises(TypeError):
+    # The error message should interpolate the offending args, not show a
+    # literal "{args}" placeholder.
+    with pytest.raises(TypeError, match=r"got \(<class 'int'>, <class 'str'>\)"):
         _handle_list((int, str), recursion_depth=0)
 
     # simple type
@@ -1070,6 +1083,34 @@ def test_e2e_dict_literal_key_and_enum_value():
     assert not _re.fullmatch(pattern, "{switch:on}")
 
 
+def test_e2e_optional_none_not_quoted_in_containers():
+    """The ``None`` from ``Optional``/``Union`` must stay a bare keyword inside
+    containers, exactly as it is standalone, and must not be JSON-quoted like a
+    string literal."""
+    # Standalone Optional already matches the bare ``None`` keyword.
+    standalone = to_regex(python_types_to_terms(PyOptional[int]))
+    assert _re.fullmatch(standalone, "None")
+    assert not _re.fullmatch(standalone, '"None"')
+
+    list_pattern = to_regex(python_types_to_terms(list[PyOptional[int]]))
+    assert _re.fullmatch(list_pattern, "[None]")
+    assert _re.fullmatch(list_pattern, "[1, None]")
+    assert not _re.fullmatch(list_pattern, '["None"]')
+
+    dict_pattern = to_regex(python_types_to_terms(dict[str, PyOptional[int]]))
+    assert _re.fullmatch(dict_pattern, '{"a":None}')
+    assert not _re.fullmatch(dict_pattern, '{"a":"None"}')
+
+    tuple_pattern = to_regex(python_types_to_terms(Tuple[PyOptional[int], int]))
+    assert _re.fullmatch(tuple_pattern, "(None, 5)")
+    assert not _re.fullmatch(tuple_pattern, '("None", 5)')
+
+    # A genuine ``Literal["None"]`` string is still quoted inside containers.
+    literal_pattern = to_regex(python_types_to_terms(list[Literal["None"]]))
+    assert _re.fullmatch(literal_pattern, '["None"]')
+    assert not _re.fullmatch(literal_pattern, "[None]")
+
+
 def test_to_regex():
     string_term = String("hello")
     assert to_regex(string_term) == r"hello"
@@ -1105,7 +1146,7 @@ def test_to_regex():
     assert to_regex(min_term) == r"(a){2,}"
 
     max_term = QuantifyMaximum(String("a"), 5)
-    assert to_regex(max_term) == r"(a){,5}"
+    assert to_regex(max_term) == r"(a){0,5}"
 
     between_term = QuantifyBetween(String("a"), 1, 3)
     assert to_regex(between_term) == r"(a){1,3}"

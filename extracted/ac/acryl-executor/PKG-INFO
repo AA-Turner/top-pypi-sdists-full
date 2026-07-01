@@ -1,12 +1,14 @@
 Metadata-Version: 2.4
 Name: acryl-executor
-Version: 0.3.16
-Summary: An library used within Acryl Agents to execute tasks
+Version: 0.3.17
+Summary: Run DataHub metadata ingestion tasks remotely via subprocess isolation with S3 log storage
 Home-page: https://datahubproject.io/
 License: Apache License 2.0
 Project-URL: Documentation, https://datahubproject.io/docs/
-Project-URL: Source, https://github.com/linkedin/datahub
-Project-URL: Changelog, https://github.com/linkedin/datahub/releases
+Project-URL: Source, https://github.com/acryldata/acryl-executor
+Project-URL: Changelog, https://github.com/acryldata/acryl-executor/releases
+Project-URL: Releases, https://github.com/acryldata/acryl-executor/releases
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -26,40 +28,40 @@ Classifier: Topic :: Software Development
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mypy_extensions>=0.4.3
 Requires-Dist: pydantic<3.0,>=2.4.0
-Requires-Dist: typing_extensions>=3.7.4; python_version < "3.11"
-Requires-Dist: acryl-datahub[datahub-rest]>=1.5.0.15
-Requires-Dist: loguru>=0.5.0
-Requires-Dist: botocore!=1.23.0
 Requires-Dist: urllib3<3,>=1.26.0
-Requires-Dist: boto3
 Requires-Dist: sqlalchemy-stubs>=0.4
 Requires-Dist: anyio>=3.0.0
+Requires-Dist: acryl-datahub[datahub-rest]>=1.5.0.15
+Requires-Dist: botocore!=1.23.0
+Requires-Dist: boto3
+Requires-Dist: mypy_extensions>=0.4.3
+Requires-Dist: loguru>=0.5.0
+Requires-Dist: typing_extensions>=3.7.4; python_version < "3.11"
 Provides-Extra: dev
-Requires-Dist: types-requests; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: requests-mock; extra == "dev"
-Requires-Dist: pydantic<3.0,>=2.4.0; extra == "dev"
-Requires-Dist: freezegun; extra == "dev"
-Requires-Dist: typing_extensions>=3.7.4; python_version < "3.11" and extra == "dev"
-Requires-Dist: ruff>=0.8.0; extra == "dev"
-Requires-Dist: acryl-datahub[datahub-rest]>=1.5.0.15; extra == "dev"
-Requires-Dist: loguru>=0.5.0; extra == "dev"
-Requires-Dist: types-dataclasses; extra == "dev"
-Requires-Dist: types-PyYAML; extra == "dev"
-Requires-Dist: pytest>=6.2.2; extra == "dev"
-Requires-Dist: sqlalchemy-stubs>=0.4; extra == "dev"
-Requires-Dist: mypy_extensions>=0.4.3; extra == "dev"
-Requires-Dist: botocore!=1.23.0; extra == "dev"
-Requires-Dist: pytest-asyncio; extra == "dev"
-Requires-Dist: mypy>=1.16.0; extra == "dev"
-Requires-Dist: types-freezegun; extra == "dev"
-Requires-Dist: boto3; extra == "dev"
 Requires-Dist: anyio>=3.0.0; extra == "dev"
-Requires-Dist: types-toml; extra == "dev"
-Requires-Dist: urllib3<3,>=1.26.0; extra == "dev"
+Requires-Dist: botocore!=1.23.0; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"
+Requires-Dist: types-freezegun; extra == "dev"
+Requires-Dist: requests-mock; extra == "dev"
+Requires-Dist: sqlalchemy-stubs>=0.4; extra == "dev"
+Requires-Dist: acryl-datahub[datahub-rest]>=1.5.0.15; extra == "dev"
+Requires-Dist: boto3; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: types-python-dateutil; extra == "dev"
+Requires-Dist: urllib3<3,>=1.26.0; extra == "dev"
+Requires-Dist: ruff>=0.8.0; extra == "dev"
+Requires-Dist: mypy>=1.16.0; extra == "dev"
+Requires-Dist: freezegun; extra == "dev"
+Requires-Dist: types-toml; extra == "dev"
+Requires-Dist: pytest>=6.2.2; extra == "dev"
+Requires-Dist: loguru>=0.5.0; extra == "dev"
+Requires-Dist: typing_extensions>=3.7.4; python_version < "3.11" and extra == "dev"
+Requires-Dist: pydantic<3.0,>=2.4.0; extra == "dev"
+Requires-Dist: types-dataclasses; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: mypy_extensions>=0.4.3; extra == "dev"
 Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
@@ -72,52 +74,77 @@ Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
+<!-- PyPI long description. Keep concise, feature-discovery-first. -->
+
 # Acryl Executor
 
-Remote execution agent used for running DataHub tasks, such as ingestion powered through the UI. 
+Remote execution agent for running [DataHub](https://datahubproject.io/) metadata ingestion tasks via subprocess isolation — with S3 log storage, plugin-based extensibility, and first-class support for the DataHub UI-triggered ingestion workflow.
 
+## Features
+
+- **Subprocess isolation** — each ingestion run executes in a dedicated subprocess and virtual environment, preventing dependency conflicts between connectors
+- **UI-triggered ingestion** — integrates directly with the DataHub UI to execute `RUN_INGEST` tasks on demand
+- **Connection testing** — validate source/destination connectivity before running full ingestion via `TEST_CONNECTION` tasks
+- **S3 log storage** — automatically compress and upload execution logs and artifacts to S3; optionally clean up local files after a successful upload
+- **Plugin architecture** — register custom task implementations via Python entry points
+- **AWS Secrets Manager & GCP Secret Manager** — built-in secret store plugins for retrieving credentials from AWS SM or GCP SM
+
+## Installation
 
 ```bash
-python3 -m venv --upgrade-deps venv
-source venv/bin/activate
-pip3 install .
+pip install acryl-executor
 ```
 
-## Notes
+## Quick Start
 
-By default, this library comes with a set of default task implementations: 
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install acryl-executor
+```
 
-### RUN_INGEST Task
+## Task Types
 
-- **SubprocessProcessIngestionTask** - Executes a metadata ingestion run by spinning off a subprocess. Supports ingesting from a particular version, and with a specific plugin (based on the platform type requested) 
+| Task | Description |
+|------|-------------|
+| `RUN_INGEST` (`SubProcessIngestionTask`) | Runs metadata ingestion in a subprocess; supports per-run DataHub versions and connector plugins |
+| `TEST_CONNECTION` | Validates connectivity to a data source before ingestion |
 
-- **InMemoryIngestionTask** - Executes a metadata ingestion run using the datahub library in the same process. Not great for production where we can see strange dependency conflicts when certain packages are executed together. Use this for testing, as it has no ability to check out a specific DataHub Metadata Ingestion plugin. 
+## Cloud Logging (S3)
 
-### Cloud Logging (S3)
+Set these environment variables to enable S3 log uploads:
 
-There is one implementation of a cloud logging client that writes logs to S3. This is used by the Acryl Executor to write logs to S3.
-To enable it you should set the following environment variables:
-`ENV DATAHUB_CLOUD_LOG_BUCKET` - The S3 bucket to write logs to
-`ENV DATAHUB_CLOUD_LOG_PATH` - The S3 path to write logs to
+| Variable | Description |
+|----------|-------------|
+| `DATAHUB_CLOUD_LOG_BUCKET` | S3 bucket to write logs to |
+| `DATAHUB_CLOUD_LOG_PATH` | S3 path prefix for logs |
+| `DATAHUB_CLOUD_LOG_CLEANUP` | Set `true` to remove local files after a successful upload (default: `false`) |
 
-The logs are compressed with tar and gzipped before being uploaded to S3 to the following path:
-`s3://CLOUD_LOG_BUCKET/CLOUD_LOG_PATH/<pipeline_id>/year=/month=/day=/<run_id>/`
+Logs are tar-gzipped and stored at:
+```
+s3://<BUCKET>/<PATH>/<pipeline_id>/year=<Y>/month=<M>/day=<D>/<run_id>/
+```
 
-#### Local file cleanup after upload
+When cleanup is enabled, a `.s3` sentinel file replaces each uploaded file, recording the S3 URI, upload timestamp, and original file size.
 
-When S3 upload is enabled, local log and artifact files can optionally be removed after a
-successful upload and replaced by a `<filename>.s3` sentinel file containing:
+## Plugin Registration
 
-```json
-{
-  "s3_uri": "s3://bucket/path/executor-logs/executor-logs.tgz",
-  "uploaded_at": "2024-01-15T10:30:00.000000+00:00",
-  "original_size_bytes": 1234567
+Custom tasks register via the `datahub.executor.task.plugins` entry point:
+
+```python
+entry_points = {
+    "datahub.executor.task.plugins": [
+        "my_task = my_package.tasks:MyTask"
+    ]
 }
 ```
 
-To enable cleanup, set `DATAHUB_CLOUD_LOG_CLEANUP=true`. Cleanup only takes effect when
-`DATAHUB_CLOUD_LOG_BUCKET` is set (no bucket → no upload → no cleanup) and only after
-each individual archive upload succeeds. A failed upload leaves the original file untouched.
+## Links
 
-> **Note:** `DATAHUB_CLOUD_LOG_CLEANUP` requires `DATAHUB_CLOUD_LOG_BUCKET` to be set.
+- [DataHub documentation](https://datahubproject.io/docs/)
+- [Source code](https://github.com/acryldata/acryl-executor)
+- [Changelog](https://github.com/acryldata/acryl-executor/releases)
+
+## License
+
+Apache License 2.0

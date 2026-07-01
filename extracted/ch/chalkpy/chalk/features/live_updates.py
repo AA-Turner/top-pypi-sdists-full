@@ -33,6 +33,7 @@ def _build_overlay_graph() -> graph_pb2.OverlayGraph | None:
         named_query_registry={},
         model_reference_registry={},
         online_store_config_registry={},
+        materialized_feature_view_registry={},
     )
     # Grab newly-defined feature fields for feature classes that already exist in the customer source.
     overlay_namespaces = {x.name for x in graph.feature_sets}

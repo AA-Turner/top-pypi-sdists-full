@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: django-socio-grpc
+Version: 0.25.0
+Summary: Fork of django-grpc-framework with more feature maintained by the socio team. Make GRPC with django easy.
+License-Expression: Apache-2.0
+License-File: LICENSE
+Author: Adrien Montagu 
+Author-email: adrienmontagu@gmail.com
+Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: django (>=4.2)
+Requires-Dist: djangorestframework
+Requires-Dist: grpcio-health-checking
+Requires-Dist: grpcio-tools (>=1.50.0,<2.0.0)
+Requires-Dist: lark (>=1.0.0,<2.0.0)

@@ -1,0 +1,90 @@
+name: Python package CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+env:
+  UV_VERSION: "0.6.6"
+
+jobs:
+
+  check:
+    name: Check
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python-version: ['3.12']
+        action: ['lint', 'type', 'format']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: '0'
+
+      - name: Set up uv & venv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+          cache-dependency-glob: uv.lock
+
+      - name: Typecheck with mypy
+        run: |
+          uv run mypy qnexus/ tests/ integration/
+        if: ${{ matrix.action == 'type' }}
+
+      - name: Check formatting with ruff
+        run: uv run ruff format --check
+        if: ${{ matrix.action == 'format' }}
+
+      - name: Lint with ruff
+        run: uv run ruff check
+        if: ${{ matrix.action == 'lint' }}
+
+      - name: Generate dependency report
+        run: uv run python scripts/write_dependencies.py
+      - name: Check for changes
+        run: |
+          if ! git diff --exit-code DEPENDENCIES.md; then
+            echo "::error file=DEPENDENCIES.md::DEPENDENCIES.md is out of date. Please run 'uv run python scripts/write_dependencies.py' and commit the changes."
+            exit 1
+          fi
+
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python-version: ['3.10','3.11','3.12']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: '0'
+
+      - name: Set up uv & venv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+          cache-dependency-glob: uv.lock
+
+      - name: Test with pytest
+        run: |
+          uv run scripts/run_unit_tests.sh
+          uv run coverage report
+          uv run coverage html
+
+      - name: Upload pytest test results
+        uses: actions/upload-artifact@master
+        with:
+          name: pytest-results-${{ matrix.python-version }}
+          path: htmlcov/
+

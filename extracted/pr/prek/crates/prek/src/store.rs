@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use etcetera::BaseStrategy;
-use futures::StreamExt;
-use prek_consts::env_vars::EnvVars;
+use futures_util::StreamExt;
+use prek_consts::env_vars::{EnvVars, EnvVarsRead};
 use rustc_hash::{FxHashMap, FxHashSet};
 use seahash::SeaHasher;
 use thiserror::Error;
@@ -14,7 +14,7 @@ use tracing::{debug, warn};
 use crate::config::{RemoteRepo, RemoteRepoKey};
 use crate::fs::{LockedFile, expand_tilde};
 use crate::git::{self, TerminalPrompt};
-use crate::run::CONCURRENCY;
+use crate::run::INTERNAL_CONCURRENCY;
 use crate::warn_user;
 use crate::workspace::{HookInitReporter, WorkspaceCache};
 
@@ -66,7 +66,7 @@ impl Store {
 
     /// Create a store from environment variables or default paths.
     pub(crate) fn from_settings() -> Result<Self, Error> {
-        let path = if let Some(path) = EnvVars::var_os(EnvVars::PREK_HOME) {
+        let path = if let Some(path) = EnvVars.var_os(EnvVars::PREK_HOME) {
             Some(expand_tilde(PathBuf::from(path)))
         } else {
             etcetera::choose_base_strategy()
@@ -161,7 +161,7 @@ impl Store {
         }
 
         let mut auth_failed = Vec::new();
-        let mut tasks = futures::stream::iter(pending)
+        let mut tasks = futures_util::stream::iter(pending)
             .map(async |pending| {
                 let progress =
                     reporter.map(|reporter| reporter.on_clone_start(&format!("{}", pending.repo)));
@@ -192,7 +192,7 @@ impl Store {
                     }),
                 }
             })
-            .buffer_unordered(*CONCURRENCY);
+            .buffer_unordered(*INTERNAL_CONCURRENCY);
 
         while let Some(result) = tasks.next().await {
             match result? {
@@ -372,8 +372,13 @@ impl Store {
         config_paths: impl Iterator<Item = &'a Path>,
     ) -> Result<(), Error> {
         let mut tracked = self.tracked_configs()?;
+        let mut changed = false;
         for config_path in config_paths {
-            tracked.insert(config_path.to_path_buf());
+            changed |= tracked.insert(config_path.to_path_buf());
+        }
+
+        if !changed {
+            return Ok(());
         }
 
         let tracking_file = self.config_tracking_file();

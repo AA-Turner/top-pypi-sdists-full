@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clarifai-grpc
-Version: 12.5.0
+Version: 12.5.1
 Summary: Clarifai gRPC API Client
 Home-page: https://github.com/Clarifai/clarifai-python-grpc
 Author: Clarifai

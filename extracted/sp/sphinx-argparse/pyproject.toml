@@ -1,5 +1,5 @@
 [build-system]
-requires = ["flit_core>=3.7"]
+requires = ["flit_core >= 3.10, <4"]
 build-backend = "flit_core.buildapi"
 
 # project metadata
@@ -12,14 +12,14 @@ urls.Code = "https://github.com/sphinx-doc/sphinx-argparse/"
 urls.Download = "https://pypi.org/project/sphinx-argparse/"
 urls.Homepage = "https://sphinx-argparse.readthedocs.io/"
 urls."Issue tracker" = "https://github.com/sphinx-doc/sphinx-argparse/issues"
-license.text = "MIT"
+license = "MIT"
+license-files = ["LICENSE.rst"]
 requires-python = ">=3.10"
 
 # Classifiers list: https://pypi.org/classifiers/
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -41,7 +41,6 @@ dependencies = [
 ]
 dynamic = ["version"]
 
-
 [project.optional-dependencies]
 markdown = [
     "CommonMark>=0.5.6"
@@ -54,7 +53,7 @@ lint = [
 ]
 test = [
     "pytest>=8.0",
-    "coverage>=6.5",
+    "pytest-cov",
     "lxml>=4.9",
     "setuptools>=70.0",  # for Cython compilation
     "typing_extensions>=4.9",  # for typing_extensions.Unpack
@@ -73,7 +72,7 @@ name = "sphinxarg"
 
 [tool.flit.sdist]
 include = [
-    "LICENCE.rst",
+    "LICENSE.rst",
     # Documentation
     "docs/",
     # Tests
@@ -97,7 +96,8 @@ multi_line_output = 3
 
 [tool.mypy]
 files = ["sphinxarg", "test"]
-python_version = "3.10"
+python_version = "3.13"
+exclude = '''(?x)( ^test/roots | ^docs )'''
 
 [[tool.mypy.overrides]]
 module = [

@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
-from . import __title__, __version__
+from taskmonitor import __title__, __version__
 
 
 class TaskMonitorConfig(AppConfig):

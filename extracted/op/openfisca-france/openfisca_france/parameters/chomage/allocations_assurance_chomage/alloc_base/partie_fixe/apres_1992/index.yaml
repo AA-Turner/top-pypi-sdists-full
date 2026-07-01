@@ -1,6 +1,0 @@
-description: Partie fixe de l'allocation de base d'assurance chômage
-metadata:
-  short_label: Partie fixe
-  label_en: UI scheme - lump-sum and minimum
-  order:
-  - partie_fixe

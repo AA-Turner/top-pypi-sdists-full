@@ -81,6 +81,7 @@ from chalk.parsed._proto.utils import (
     value_to_proto,
 )
 from chalk.parsed.expressions import is_valid_operation
+from chalk.queries.materialized_feature_view import MaterializedFeatureView
 from chalk.queries.named_query import NamedQuery
 from chalk.sql._internal.sql_settings import SQLResolverSettings
 from chalk.sql._internal.sql_source import BaseSQLSource
@@ -1576,6 +1577,7 @@ class ToProtoConverter:
                 else None
             ),
             customer_metrics_tags=list(r.customer_metrics_tags),
+            excluded_aggregation_fqns=list(r.excluded_aggregation_fqns),
         )
 
     @staticmethod
@@ -1658,6 +1660,47 @@ class ToProtoConverter:
             raise ValueError(f"Error converting resolver '{r.fqn}'") from e
 
     @staticmethod
+    def _convert_materialized_feature_view(view: MaterializedFeatureView) -> pb.MaterializedFeatureView:
+        from datetime import timedelta as _timedelta
+
+        from chalk.utils.duration import timedelta_to_duration
+
+        if isinstance(view.time_resolution, _timedelta):
+            time_resolution_proto = timedelta_to_proto_duration(view.time_resolution)
+        else:
+            time_resolution_proto = timedelta_to_proto_duration(parse_chalk_duration(view.time_resolution))  # type: ignore[arg-type]
+
+        update_cadence_str = (
+            timedelta_to_duration(view.update_cadence)
+            if isinstance(view.update_cadence, _timedelta)
+            else str(view.update_cadence)
+        )
+
+        kwargs: dict = dict(
+            namespaces=[view.namespace],
+            time_resolution=time_resolution_proto,
+            update_cadence=update_cadence_str,
+        )
+        if view.lower_bound is not None:
+            kwargs["lower_bound"] = datetime_to_proto_timestamp(view.lower_bound)
+        if view.lookback_retention_period is not None:
+            if isinstance(view.lookback_retention_period, _timedelta):
+                kwargs["lookback_retention_period"] = timedelta_to_proto_duration(view.lookback_retention_period)
+            else:
+                td = parse_chalk_duration(view.lookback_retention_period)  # type: ignore[arg-type]
+                kwargs["lookback_retention_period"] = timedelta_to_proto_duration(td)
+        if view.filename and view.source_line_start is not None and view.source_line_end is not None:
+            kwargs["source_file_reference"] = pb.SourceFileReference(
+                code=view.code,
+                file_name=view.filename,
+                range=Range(
+                    start=Position(line=view.source_line_start - 1, character=0),
+                    end=Position(line=view.source_line_end, character=0),
+                ),
+            )
+        return pb.MaterializedFeatureView(**kwargs)
+
+    @staticmethod
     def convert_graph(
         features_registry: dict[str, type[Features]],
         resolver_registry: Collection[Resolver],
@@ -1667,6 +1710,7 @@ class ToProtoConverter:
         named_query_registry: dict[tuple[str, Optional[str]], NamedQuery],
         model_reference_registry: dict[tuple[str, str], ModelReference],
         online_store_config_registry: dict[str, OnlineStoreConfig],
+        materialized_feature_view_registry: "dict[str, MaterializedFeatureView]",
     ) -> pb.Graph:
         feature_sets = []
         for feature_set in features_registry.values():
@@ -1718,6 +1762,10 @@ class ToProtoConverter:
         for online_store_config in online_store_config_registry.values():
             online_store_configs.append(ToProtoConverter._convert_online_store_config(online_store_config))
 
+        materialized_feature_views: list[pb.MaterializedFeatureView] = []
+        for view in materialized_feature_view_registry.values():
+            materialized_feature_views.append(ToProtoConverter._convert_materialized_feature_view(view))
+
         return pb.Graph(
             feature_sets=feature_sets,
             resolvers=resolvers,
@@ -1730,6 +1778,7 @@ class ToProtoConverter:
             model_references=model_references,
             online_store_configs=online_store_configs,
             captured_global_values=captured_global_deduper.to_proto(),
+            materialized_feature_views=materialized_feature_views,
         )
 
     @classmethod

@@ -49,20 +49,30 @@ class ToyhouseExtractor(Extractor):
 
     def _parse_post(self, post, needle='<a href="'):
         extr = text.extract_from(post)
-        return {
+        data = {
             "url": extr(needle, '"'),
-            "date": (v := extr('class="image-credit', "</div")) and
+            "detail": "\n".join(text.split_html(extr(
+                'class="image-detail', 'class="image-credit'))[2:-2]),
+            "date": (v := extr('', "</div")) and
             self.parse_datetime(
                 v[v.find('mb-1">')+6:], "%d %b %Y, %I:%M:%S %p"),
             "artists": text.split_html(extr(
                 '<div class="artist-credit',
                 '<div class="image-character'))[1:],
-            "characters": [
-                text.unescape(text.remove_html(v))
-                for v in extr('', '<div class="image-comment').split(
-                    '<div class="mb-1">')[1:]
-            ],
+            "characters": text.split_html(
+                extr('', 'class="image-') or
+                extr('', 'id="footer"'))[2:-1],
         }
+
+        url = data["url"]
+        if "/watermarks/" in url:
+            data["status"] = "watermark"
+        elif "/thumbnails/" in url:
+            data["status"] = "thumbnail"
+        else:
+            data["status"] = "original"
+
+        return data
 
     def _pagination(self, path):
         url = self.root + path
@@ -117,7 +127,7 @@ class ToyhouseImageExtractor(ToyhouseExtractor):
     subcategory = "image"
     pattern = (r"(?:https?://)?(?:"
                r"(?:www\.)?toyhou\.se/~images|"
-               r"f\d+\.toyhou\.se/file/[^/?#]+/(?:image|watermark)s"
+               r"f\d+\.toyhou\.se/file/[^/?#]+/(?:image|watermark|thumbnail)s"
                r")/(\d+)")
     example = "https://toyhou.se/~images/12345"
 

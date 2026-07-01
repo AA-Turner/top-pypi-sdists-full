@@ -1,0 +1,23 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatch-vcs", "hatchling"]
+
+[project]
+name = "prefect-coiled"
+maintainers = [{ name = "Coiled", email = "info@coiled.io" }]
+description = "Prefect integrations for interacting with Coiled."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache License 2.0" }
+keywords = ["prefect", "coiled"]
+dependencies = [
+  "prefect>=3.1.1",
+  "coiled>=1.71.1",
+]
+dynamic = ["version"]
+
+[tool.hatch.version]
+path = "prefect_coiled/__init__.py"
+
+[project.entry-points."prefect.collections"]
+prefect_coiled = "prefect_coiled"

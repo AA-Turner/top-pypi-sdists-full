@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-
+# Copyright (c) 2012-2026 Corey Goldberg
+# SPDX-License-Identifier: MIT
 
 """Tests for xvfbwrapper."""
 
@@ -7,6 +8,7 @@ import os
 import sys
 import tempfile
 import unittest
+from contextlib import suppress
 from unittest.mock import patch
 
 import psutil
@@ -52,10 +54,8 @@ class XvfbCleanTestCase(unittest.TestCase):
                 continue
         _, alive = psutil.wait_procs(procs, timeout=3)
         for proc in alive:
-            try:
+            with suppress(psutil.NoSuchProcess, psutil.AccessDenied):
                 proc.kill()
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
 
     # ---------- Class-level ----------
 
@@ -375,11 +375,13 @@ class TestXvfb(XvfbCleanTestCase):
             "bar",
         ]
         # Force the display socket to never appear
-        with patch.object(xvfb, "_local_display_exists", return_value=False):
-            with self.assertRaisesRegex(
+        with (
+            patch.object(xvfb, "_local_display_exists", return_value=False),
+            self.assertRaisesRegex(
                 RuntimeError, f"Xvfb display did not open: {expected_cmd_args}"
-            ):
-                xvfb.start()
+            ),
+        ):
+            xvfb.start()
         # After failure, calling stop() again must not raise an exception
         xvfb.stop()
         # We never injected DISPLAY into our custom env

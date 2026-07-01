@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "seltz"
+version = "1.5.0"
+description = "Seltz Python SDK for AI-powered search"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    {name = "Seltz", email = "support@seltz.ai"}
+]
+keywords = [
+    "seltz",
+    "search",
+    "ai",
+    "sdk",
+    "api",
+    "web-search",
+    "news-search",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet :: WWW/HTTP :: Indexing/Search"
+]
+dependencies = [
+    "grpcio>=1.76.0",
+    "protobuf<6.0",
+]
+
+[project.urls]
+Homepage = "https://seltz.ai"
+Documentation = "https://docs.seltz.ai"
+Repository = "https://github.com/seltz-ai/seltz-python-sdk"
+"Bug Tracker" = "https://github.com/seltz-ai/seltz-python-sdk/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["seltz", "seltz.*", "seltz_public_api", "seltz_public_api.*"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+"seltz_public_api" = "src/seltz_public_api"
+
+[dependency-groups]
+dev = [
+    "build>=1.3.0",
+    "codespell>=2.4.2",
+    "dotenv>=0.9.9",
+    "ipython>=8.18.1",
+    "jupyter>=1.1.1",
+    "mypy>=1.19.1",
+    "notebook>=7.5.5",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.14.7",
+    "twine>=6.2.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+    "integration: tests that hit the live Seltz API (require SELTZ_API_KEY)",
+]
+
+[tool.ruff.lint.isort]
+force-single-line = false
+split-on-trailing-comma = true
+
+[tool.ruff]
+exclude = ["src/seltz_public_api"]
+
+[tool.mypy]
+files = ["src/seltz"]
+ignore_missing_imports = true
+exclude = "src/seltz_public_api/"

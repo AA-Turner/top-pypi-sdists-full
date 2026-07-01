@@ -24,14 +24,14 @@ from astrapy.exceptions import CollectionInsertManyException, DataAPIResponseExc
 from astrapy.info import CollectionDefinition
 
 from ..conftest import (
-    HEADER_EMBEDDING_API_KEY_OPENAI,
+    EMBEDDING_PROVIDER_API_KEY,
     DefaultCollection,
 )
 
 
 @pytest.mark.skipif(
-    HEADER_EMBEDDING_API_KEY_OPENAI is None,
-    reason="No HEADER_EMBEDDING_API_KEY_OPENAI credential",
+    EMBEDDING_PROVIDER_API_KEY is None,
+    reason="No embedding API Key credential",
 )
 class TestCollectionVectorizeMethodsSync:
     @pytest.mark.describe("test of vectorize in collection methods, sync")
@@ -261,10 +261,10 @@ class TestCollectionVectorizeMethodsSync:
                 "collection_name",
                 definition=(
                     CollectionDefinition.builder()
-                    .set_vector_dimension(
+                    .with_vector_dimension(
                         service_collection_parameters["dimension"] + 10
                     )
-                    .set_vector_service(
+                    .with_vector_service(
                         provider=service_collection_parameters["provider"],
                         model_name=service_collection_parameters["modelName"],
                     )

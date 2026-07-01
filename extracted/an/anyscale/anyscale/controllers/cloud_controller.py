@@ -112,6 +112,7 @@ from anyscale.utils.cloud_update_utils import (
     update_iam_role,
 )
 from anyscale.utils.cloud_utils import (
+    _resolve_cloud_provider,
     _unroll_resources_for_aws_list_call,
     CloudEventProducer,
     CloudSetupError,
@@ -3351,7 +3352,8 @@ class CloudController(BaseController):
         boto3_session: Optional[boto3.Session] = None,
     ) -> bool:
         if cloud_deployment.compute_stack == ComputeStack.VM:
-            if cloud_deployment.provider == CloudProviders.AWS:
+            effective_provider = _resolve_cloud_provider(cloud_deployment)
+            if effective_provider == CloudProviders.AWS:
                 return self.verify_aws_cloud_resources_for_cloud_deployment(
                     cloud_id=cloud_id,
                     cloud_deployment=cloud_deployment,
@@ -3359,7 +3361,7 @@ class CloudController(BaseController):
                     _use_strict_iam_permissions=_use_strict_iam_permissions,
                     boto3_session=boto3_session,
                 )
-            elif cloud_deployment.provider == CloudProviders.GCP:
+            elif effective_provider == CloudProviders.GCP:
                 return self.verify_gcp_cloud_resources_from_cloud_deployment(
                     cloud_id=cloud_id, cloud_deployment=cloud_deployment, strict=strict,
                 )

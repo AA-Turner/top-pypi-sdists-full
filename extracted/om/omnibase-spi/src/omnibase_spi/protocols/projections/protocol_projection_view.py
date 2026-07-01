@@ -47,8 +47,6 @@ Related:
     - ContractProjectionResult: The return contract.
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
@@ -156,8 +154,8 @@ class ProtocolProjectionView(Protocol):
 
     def project_intent(
         self,
-        intent: ModelProjectionIntent,
-    ) -> ContractProjectionResult:
+        intent: "ModelProjectionIntent",
+    ) -> "ContractProjectionResult":
         """Project a ``ModelProjectionIntent`` to the persistence layer.
 
         Synchronously processes the intent and materializes the described

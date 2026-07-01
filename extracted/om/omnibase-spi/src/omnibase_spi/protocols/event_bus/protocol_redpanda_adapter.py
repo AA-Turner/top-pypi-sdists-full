@@ -429,7 +429,7 @@ class ProtocolRedpandaAdapter(Protocol):
         topic: str,
         key: bytes | None,
         value: bytes,
-        headers: "EventBusHeaders",
+        headers: EventBusHeaders,
     ) -> None:
         """Publish event to Redpanda topic.
 
@@ -462,8 +462,8 @@ class ProtocolRedpandaAdapter(Protocol):
         self,
         topic: str,
         group_id: str,
-        on_message: Callable[["ProtocolEventMessage"], Awaitable[None]],
-    ) -> Callable[[], Awaitable[None]]:
+        on_message: "Callable[[ProtocolEventMessage], Awaitable[None]]",
+    ) -> "Callable[[], Awaitable[None]]":
         """Subscribe to Redpanda topic with message handler.
 
         Creates subscription to topic with consumer group coordination and

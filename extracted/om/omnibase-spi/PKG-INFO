@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omnibase_spi
-Version: 0.22.0
+Version: 0.23.0
 Summary: ONEX Service Provider Interface - Protocol definitions
 Project-URL: Homepage, https://github.com/OmniNode-ai/omnibase_spi
 Project-URL: Repository, https://github.com/OmniNode-ai/omnibase_spi
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.12
-Requires-Dist: omnibase-core>=0.41.0
+Requires-Dist: omnibase-core<0.47.0,>=0.46.1
 Requires-Dist: pydantic>=2.11.7
 Requires-Dist: typing-extensions>=4.5.0
 Description-Content-Type: text/markdown
@@ -40,7 +40,7 @@ such as `omnibase_infra`.
 
 ## Current Role
 
-- Defines 248 `protocol_*.py` files across 37 protocol domains.
+- Defines 231 `protocol_*.py` files across 39 protocol domains.
 - Provides runtime-checkable Python `Protocol` contracts for service boundaries.
 - Provides frozen, data-only contracts in `src/omnibase_spi/contracts/` for
   selected cross-boundary wire formats.

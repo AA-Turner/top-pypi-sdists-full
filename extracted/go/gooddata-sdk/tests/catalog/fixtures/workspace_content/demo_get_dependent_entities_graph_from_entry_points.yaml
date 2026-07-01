@@ -1,0 +1,59 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body:
+        identifiers:
+          - id: campaign_channel_id
+            type: attribute
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/dependentEntitiesGraph
+    response:
+      body:
+        string:
+          graph:
+            edges:
+              - - id: campaign_channel_id
+                  type: attribute
+                - id: campaign_channels
+                  type: dataset
+              - - id: campaign_channels
+                  type: dataset
+                - id: campaign_channels_per_category
+                  type: dataset
+            nodes:
+              - id: campaign_channel_id
+                title: Campaign channel id
+                type: attribute
+              - id: campaign_channels
+                title: Campaign channels
+                type: dataset
+              - id: campaign_channels_per_category
+                title: Campaign channels per category
+                type: dataset
+      headers:
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+version: 1

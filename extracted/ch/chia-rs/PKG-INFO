@@ -1,5 +1,5 @@
 Metadata-Version: 2.4
 Name: chia_rs
-Version: 0.45.0
+Version: 0.45.1
 Requires-Dist: typing-extensions
 Home-Page: https://github.com/Chia-Network/chia_rs

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acryl-datahub
-Version: 1.6.0.8
+Version: 1.6.0.9
 Summary: A CLI to work with DataHub metadata
 Home-page: https://docs.datahub.com/
 License-Expression: Apache-2.0
@@ -110,6 +110,8 @@ Requires-Dist: botocore!=1.23.0,<2.0.0; extra == "aws-secret-manager"
 Requires-Dist: cachetools<6.0.0; extra == "aws-secret-manager"
 Requires-Dist: urllib3<3.0,>=1.26; extra == "aws-secret-manager"
 Provides-Extra: azure-ad
+Provides-Extra: azure-auth
+Requires-Dist: azure-identity<2.0.0,>=1.21.0; extra == "azure-auth"
 Provides-Extra: azure-data-factory
 Requires-Dist: azure-identity<2.0.0,>=1.21.0; extra == "azure-data-factory"
 Requires-Dist: azure-mgmt-datafactory<10.0.0,>=9.0.0; extra == "azure-data-factory"
@@ -583,6 +585,13 @@ Requires-Dist: schwifty<2026.0.0; extra == "kafka-connect"
 Requires-Dist: sqlalchemy<2,>=1.4.39; extra == "kafka-connect"
 Requires-Dist: sqlglot[c]==30.8.0; extra == "kafka-connect"
 Requires-Dist: sqlparse<0.6.0; extra == "kafka-connect"
+Provides-Extra: kinesis
+Requires-Dist: boto3<2.0.0,>=1.35.0; extra == "kinesis"
+Requires-Dist: botocore!=1.23.0,<2.0.0; extra == "kinesis"
+Requires-Dist: grpcio-tools<2.0.0,>=1.44.0; extra == "kinesis"
+Requires-Dist: grpcio<2.0.0,>=1.44.0; extra == "kinesis"
+Requires-Dist: networkx<4.0.0,>=2.6.2; extra == "kinesis"
+Requires-Dist: urllib3<3.0,>=1.26; extra == "kinesis"
 Provides-Extra: ldap
 Requires-Dist: python-ldap<4.0.0,>=2.4; extra == "ldap"
 Provides-Extra: looker
@@ -1247,7 +1256,7 @@ Requires-Dist: azure-core<2.0.0,>=1.38.0; extra == "dev"
 Requires-Dist: azure-identity<2.0.0,>=1.21.0; extra == "dev"
 Requires-Dist: azure-storage-blob<13.0.0,>=12.19.0; extra == "dev"
 Requires-Dist: azure-storage-file-datalake<13.0.0,>=12.14.0; extra == "dev"
-Requires-Dist: boto3-stubs[dynamodb,glue,lakeformation,s3,sagemaker,sts]==1.40.0; extra == "dev"
+Requires-Dist: boto3-stubs[dynamodb,firehose,glue,kinesis,lakeformation,s3,sagemaker,sts]==1.40.0; extra == "dev"
 Requires-Dist: boto3<2.0.0,>=1.35.0; extra == "dev"
 Requires-Dist: botocore!=1.23.0,<2.0.0; extra == "dev"
 Requires-Dist: build<2.0.0; extra == "dev"
@@ -1437,7 +1446,7 @@ Requires-Dist: azure-core<2.0.0,>=1.38.0; extra == "docs"
 Requires-Dist: azure-identity<2.0.0,>=1.21.0; extra == "docs"
 Requires-Dist: azure-storage-blob<13.0.0,>=12.19.0; extra == "docs"
 Requires-Dist: azure-storage-file-datalake<13.0.0,>=12.14.0; extra == "docs"
-Requires-Dist: boto3-stubs[dynamodb,glue,lakeformation,s3,sagemaker,sts]==1.40.0; extra == "docs"
+Requires-Dist: boto3-stubs[dynamodb,firehose,glue,kinesis,lakeformation,s3,sagemaker,sts]==1.40.0; extra == "docs"
 Requires-Dist: boto3<2.0.0,>=1.35.0; extra == "docs"
 Requires-Dist: botocore!=1.23.0,<2.0.0; extra == "docs"
 Requires-Dist: build<2.0.0; extra == "docs"

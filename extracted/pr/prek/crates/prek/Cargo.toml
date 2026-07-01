@@ -43,8 +43,9 @@ ctrlc = { workspace = true }
 dunce = { workspace = true }
 etcetera = { workspace = true }
 fancy-regex = { workspace = true }
+fastrand = { workspace = true }
 fs-err = { workspace = true }
-futures = { workspace = true }
+futures-util = { workspace = true }
 hex = { workspace = true }
 http = { workspace = true }
 ignore = { workspace = true }
@@ -60,9 +61,9 @@ mea = { workspace = true }
 memchr = { workspace = true }
 owo-colors = { workspace = true }
 quick-xml = { workspace = true }
-rand = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
+aws-lc-rs = { workspace = true }
 rustc-hash = { workspace = true }
 same-file = { workspace = true }
 schemars = { workspace = true, optional = true }
@@ -107,6 +108,7 @@ etcetera = { workspace = true }
 insta = { workspace = true }
 insta-cmd = { workspace = true }
 markdown = { workspace = true }
+prek-consts = { workspace = true, features = ["test-utils"] }
 predicates = { workspace = true }
 pretty_assertions = { workspace = true }
 tempfile = { workspace = true }

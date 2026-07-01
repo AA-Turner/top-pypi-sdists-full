@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "md-click-2"
+version = "0.0.1"
+description = "A fork. A command line tool for automatically generating .md files from click's CLI command."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Rivery" }
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Topic :: Documentation",
+  "License :: OSI Approved :: BSD License",
+  "Topic :: Software Development :: Documentation",
+  "Topic :: Software Development :: Build Tools",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Text Processing :: Markup :: Markdown"
+]
+dependencies = [
+    "click>=7.0",
+    "build (>=1.2.2.post1,<2.0.0)",
+]
+
+[project.scripts]
+mdclick = "md_click.main:cli"
+
+[tool.setuptools]
+packages = ["md_click"]
+py-modules = ["md-click-2"]

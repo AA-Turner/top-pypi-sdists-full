@@ -1,0 +1,36 @@
+Metadata-Version: 2.4
+Name: createsend
+Version: 9.1.4
+Summary: A library which implements the complete functionality of the Campaign Monitor API.
+Home-page: https://campaignmonitor.github.io/createsend-python/
+Author: Campaign Monitor
+Author-email: support@campaignmonitor.com
+License: MIT
+Keywords: createsend campaign monitor email
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Communications
+Classifier: Topic :: Communications :: Email
+Classifier: Topic :: Communications :: Email :: Mailing List Servers
+Classifier: Topic :: Internet
+Classifier: Topic :: Software Development :: Libraries
+Classifier: License :: OSI Approved :: MIT License
+Classifier: License :: DFSG approved
+Classifier: License :: OSI Approved
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary

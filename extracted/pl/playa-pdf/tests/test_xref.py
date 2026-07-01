@@ -1,0 +1,252 @@
+"""
+Test the varieties of cross-reference table as implemented in playa.xref
+"""
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import cast
+
+import playa
+import pytest
+from playa.document import Document
+from playa.exceptions import PDFSyntaxError
+from playa.parser import ObjectParser
+from playa.pdftypes import LIT
+from playa.xref import XRefFallback, XRefStream, XRefTable
+
+from .data import CONTRIB, TESTDIR
+
+THISDIR = Path(__file__).parent
+
+
+def test_read_xref():
+    """Verify we can read the xref table if there is junk before the header."""
+    with playa.open(TESTDIR / "junk_before_header.pdf") as pdf:
+        # Not a fallback, we got the right one
+        assert isinstance(pdf.xrefs[0], XRefTable)
+
+        # Verify that the positions are the file positions
+        assert pdf.xrefs[0][1].pos == 9 + pdf._offset
+        assert pdf.xrefs[0][6].pos == 954 + pdf._offset
+
+        # Verify that we can get data
+        assert pdf[2] == {"Type": LIT("Outlines"), "Count": 0}
+
+        # Verify that free objects are free
+        with pytest.raises(KeyError):
+            pdf[42]
+
+
+@pytest.mark.skipif(not CONTRIB.exists(), reason="contrib samples not present")
+def test_root_damage() -> None:
+    """Fail gracefully if the document root is damaged (issue #154)"""
+    with playa.open(CONTRIB / "issue-154.pdf") as doc:
+        assert isinstance(doc[827], playa.ContentStream)
+
+
+def test_multi_xrefs(caplog) -> None:
+    """Verify that we correctly read multi-segment xref tables."""
+    with playa.open(TESTDIR / "multi-xrefs.pdf"):
+        assert not caplog.records
+
+
+# OMGFU GIT AND YOUR CRLF TRANSLATION
+GOOD_XREF1 = (
+    b"0 3\n"
+    b"0000000000 65535 f \n"
+    b"0000000010 00000 n \n"
+    b"0000000020 00000 n \n"
+    b"5 2\n"
+    b"0000000030 00000 n \n"
+    b"0000000040 00000 n \n"
+    b"trailer\n"
+    b"<</Size 7 /Root 1 0 R>>\n"
+    b"startxref\n"
+    b"0\n"
+    b"%%EOF\n"
+)
+
+
+@dataclass
+class MockDoc:
+    buffer: bytes
+
+    def decipher(self, _objid, _genno, data, *args, **kwargs):
+        return data
+
+
+def mock_doc(buffer: bytes) -> Document:
+    return cast(Document, MockDoc(buffer=buffer))
+
+
+def test_xref_tables() -> None:
+    """Verify that we can read valid xref tables."""
+    x = XRefTable(mock_doc(GOOD_XREF1))
+    assert repr(x)
+    assert [1, 2, 5, 6] == list(x)
+    crlf = GOOD_XREF1.replace(b" \n", b"\r\n")
+    x = XRefTable(mock_doc(crlf))
+    assert [1, 2, 5, 6] == list(x)
+    cr = GOOD_XREF1.replace(b" \n", b" \r")
+    x = XRefTable(mock_doc(cr))
+    assert [1, 2, 5, 6] == list(x)
+
+
+# EOF before trailer (no trailer = fallback)
+BAD_XREF1 = (
+    b"0 3\n"
+    b"0000000000 65535 f \n"
+    b"0000000010 00000 n \n"
+    b"0000000020 00000 n \n"
+    b"5 2\n"
+    b"0000000030 00000 n \n"
+    b"0000000040 00000 n \n"
+)
+
+
+# EOF in table
+BAD_XREF2 = b"0 5\n0000000000 65535 f \n0000000010 00000 n \n0000000020 00000 n \n"
+
+
+# Junk in table
+BAD_XREF3 = (
+    b"0 5\n0000000000 65535 f FOOBIE\n0000000010 00000 n BLETCH\n0000000020 00000 n \n"
+)
+
+
+# Missing "trailer"
+BAD_XREF4 = (
+    b"0 3\n"
+    b"0000000000 65535 f \n"
+    b"0000000010 00000 n \n"
+    b"0000000020 00000 n \n"
+    b"5 2\n"
+    b"0000000030 00000 n \n"
+    b"0000000040 00000 n \n"
+    b"not_a_trailer\n"
+    b"<</Size 7 /Root 1 0 R>>\n"
+    b"startxref\n"
+    b"0\n"
+    b"%%EOF\n"
+)
+
+
+def test_bad_xref_tables() -> None:
+    """Verify that we fail on fatally flawed xref tables."""
+    with pytest.raises(StopIteration):
+        XRefTable(mock_doc(BAD_XREF1))
+    with pytest.raises(PDFSyntaxError):
+        XRefTable(mock_doc(BAD_XREF2))
+    with pytest.raises(PDFSyntaxError):
+        XRefTable(mock_doc(BAD_XREF3))
+    with pytest.raises(PDFSyntaxError):
+        XRefTable(mock_doc(BAD_XREF4))
+    with pytest.raises(PDFSyntaxError):
+        x = XRefTable(mock_doc(GOOD_XREF1))
+        x._load_trailer(ObjectParser(b"not_a_trailer"))
+
+
+# F***ed up whitespace but still readable
+UGLY_XREF1 = (
+    b"0 3 0000000000 65535 f\n"
+    b"\n"
+    b"0000000010 00000 n\n"
+    b"\n"
+    b"0000000020 00000 n\n"
+    b"\n"
+    b"5 2 0000000030 00000 n\n"
+    b"0000000040 00000 n\n"
+    b"trailer\n"
+    b"<</Size 7 /Root 1 0 R>>\n"
+    b"startxref\n"
+    b"0\n"
+    b"%%EOF\n"
+)
+# FIXME: Don't yet handle the case of 20-byte records with no newlines
+
+# Object count is greater than number of records
+UGLY_XREF2 = (
+    b"0 5\n"
+    b"0000000000 65535 f \n"
+    b"0000000010 00000 n \n"
+    b"0000000020 00000 n \n"
+    b"trailer\n"
+    b"<</Size 3 /Root 1 0 R>>\n"
+    b"startxref\n"
+    b"0\n"
+    b"%%EOF\n"
+)
+# FIXME: Don't yet handle the case of too small nobjs
+
+
+XREF_STREAM1 = b"""1 0 obj
+<</Type/XRef/Size 5/W[1 3 2]/Filter[/ASCIIHexDecode]/Length 75>>
+stream
+00 ffffff 0000
+01 000010 0000
+01 000020 0000
+01 000030 0000
+01 000040 0000
+endstream
+endobj
+"""
+
+
+def test_xref_streams() -> None:
+    """Verify that we can read xref streams."""
+    s = XRefStream(mock_doc(XREF_STREAM1))
+    assert repr(s)
+    assert list(s) == [1, 2, 3, 4]
+    assert s[2].pos == 32
+    with pytest.raises(KeyError):
+        s[0]
+
+
+BAD_XREF_STREAM1 = b"""1 0 obj
+<</Type/Other/Size 5/W[1 3 2]/Filter[/ASCIIHexDecode]/Length 75>>
+stream
+00 ffffff 0000
+01 000010 0000
+01 000020 0000
+01 000030 0000
+01 000040 0000
+endstream
+endobj
+"""
+
+
+BAD_XREF_STREAM2 = b"""1 0 obj
+<</Type/XRef/Size 5/Index[0 5 3]/W[1 3 2]/Filter[/ASCIIHexDecode]/Length 75>>
+stream
+00 ffffff 0000
+01 000010 0000
+01 000020 0000
+01 000030 0000
+01 000040 0000
+endstream
+endobj
+"""
+
+
+def test_bad_xref_streams() -> None:
+    """Verify that we reject bad xref streams."""
+    with pytest.raises(ValueError):
+        XRefStream(mock_doc(BAD_XREF_STREAM1))
+    with pytest.raises(PDFSyntaxError):
+        XRefStream(mock_doc(BAD_XREF_STREAM2))
+
+
+def test_xref_fallback() -> None:
+    """Reconstruct xref table from a test document."""
+
+    data = (THISDIR / "fallback-xref.pdf").read_bytes()
+    f = XRefFallback(mock_doc(data))
+    assert repr(f)
+    pos2 = f[2]
+    assert pos2.genno == 1
+    assert data[pos2.pos :].startswith(b"2 1 obj")
+    assert list(f) == [1, 2, 3, 4, 7, 6, 5]
+    pos7 = f[7]
+    assert pos7.streamid == 3
+    assert f.trailer == {"Root": 1, "Size": 7}
+    f = XRefFallback(mock_doc(data))

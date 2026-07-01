@@ -1,0 +1,316 @@
+from __future__ import annotations
+
+import pytest
+from textual.app import App, ComposeResult
+from textual.widgets import Button, Static
+
+from trinity.textual_app.snapshot import QuestionSnapshot
+from trinity.textual_app.widgets.question_panel import QuestionPanel
+
+
+class QuestionPanelHarness(App[None]):
+    def __init__(self, panel: QuestionPanel) -> None:
+        super().__init__()
+        self.panel = panel
+
+    def compose(self) -> ComposeResult:
+        yield self.panel
+
+
+@pytest.mark.asyncio
+async def test_question_panel_reuses_composed_fixed_widgets() -> None:
+    panel = QuestionPanel()
+    question = QuestionSnapshot(
+        id="q-1",
+        question="Choose a direction?",
+        options=["fast", "safe"],
+    )
+    app = QuestionPanelHarness(panel)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        await pilot.pause()
+        query_calls: list[str] = []
+        original_query_one = panel.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector in {"#question-panel-title", "#question-panel-body"}:
+                query_calls.append(selector)
+            return original_query_one(selector, *args, **kwargs)
+
+        panel.query_one = counted_query_one
+
+        panel.apply_questions([question])
+        await pilot.pause()
+        panel.apply_questions(
+            [
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Choose a direction?",
+                    options=["fast", "safe"],
+                    answer="fast",
+                )
+            ]
+        )
+        await pilot.pause()
+
+        assert query_calls == []
+
+
+@pytest.mark.asyncio
+async def test_question_panel_title_skips_unchanged_update() -> None:
+    panel = QuestionPanel()
+    question = QuestionSnapshot(
+        id="q-1",
+        question="Choose a direction?",
+        options=["fast", "safe"],
+    )
+    app = QuestionPanelHarness(panel)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        panel.apply_questions([question])
+        await pilot.pause()
+        title = panel.query_one("#question-panel-title", Static)
+        updates: list[str] = []
+        original_update = title.update
+
+        def counted_update(content) -> None:
+            updates.append(str(content))
+            original_update(content)
+
+        title.update = counted_update
+
+        panel.apply_questions([question])
+        await pilot.pause()
+        assert updates == []
+
+        panel.apply_questions(
+            [
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Choose a direction?",
+                    options=["fast", "safe"],
+                    answer="fast",
+                )
+            ]
+        )
+        await pilot.pause()
+
+        assert updates == ["Answered Questions"]
+
+
+@pytest.mark.asyncio
+async def test_question_panel_skips_unchanged_question_render() -> None:
+    panel = QuestionPanel()
+    question = QuestionSnapshot(
+        id="q-1",
+        question="Choose a direction?",
+        options=["fast", "safe"],
+    )
+    app = QuestionPanelHarness(panel)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        panel.apply_questions([question])
+        await pilot.pause()
+
+        renders: list[int] = []
+        original_render = panel._render_questions
+
+        def counted_render(questions) -> None:
+            renders.append(len(questions))
+            original_render(questions)
+
+        panel._render_questions = counted_render
+
+        panel.apply_questions([question])
+        await pilot.pause()
+        assert renders == []
+
+        panel.apply_questions(
+            [
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Choose a direction?",
+                    options=["fast", "safe"],
+                    answer="fast",
+                )
+            ]
+        )
+        await pilot.pause()
+
+        assert renders == [1]
+
+
+@pytest.mark.asyncio
+async def test_question_panel_skips_equivalent_status_question_render() -> None:
+    panel = QuestionPanel()
+    app = QuestionPanelHarness(panel)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        panel.apply_questions(
+            [
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Choose a direction?",
+                    options=["fast", "safe"],
+                    status="",
+                )
+            ]
+        )
+        await pilot.pause()
+
+        renders: list[int] = []
+        original_render = panel._render_questions
+
+        def counted_render(questions) -> None:
+            renders.append(len(questions))
+            original_render(questions)
+
+        panel._render_questions = counted_render
+
+        panel.apply_questions(
+            [
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Choose a direction?",
+                    options=["fast", "safe"],
+                    status="open",
+                )
+            ]
+        )
+        await pilot.pause()
+        assert renders == []
+
+        panel.apply_questions(
+            [
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Choose a direction?",
+                    options=["fast", "safe"],
+                    status="waiting",
+                )
+            ]
+        )
+        await pilot.pause()
+        assert renders == [1]
+
+
+@pytest.mark.asyncio
+async def test_question_panel_skips_unchanged_empty_class_sync() -> None:
+    panel = QuestionPanel()
+    app = QuestionPanelHarness(panel)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        await pilot.pause()
+        panel.apply_questions(
+            [
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Choose a direction?",
+                    options=["fast", "safe"],
+                )
+            ]
+        )
+        await pilot.pause()
+
+        class_calls: list[bool] = []
+        original_set_class = panel.set_class
+
+        def counted_set_class(add: bool, class_name: str) -> None:
+            if class_name == "question-panel-empty":
+                class_calls.append(add)
+            original_set_class(add, class_name)
+
+        panel.set_class = counted_set_class
+
+        panel.apply_questions(
+            [
+                QuestionSnapshot(
+                    id="q-2",
+                    question="Pick a review depth?",
+                    options=["quick", "deep"],
+                )
+            ]
+        )
+        await pilot.pause()
+        assert class_calls == []
+
+        panel.apply_questions([])
+        await pilot.pause()
+        assert class_calls == [True]
+
+
+@pytest.mark.asyncio
+async def test_question_panel_renders_initial_empty_state() -> None:
+    panel = QuestionPanel()
+    app = QuestionPanelHarness(panel)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        panel.apply_questions([])
+        await pilot.pause()
+
+        empty = panel.query_one(".question-empty", Static)
+        assert str(empty.content) == "No questions waiting for an answer."
+
+
+@pytest.mark.asyncio
+async def test_question_panel_recompose_resets_render_identity_caches() -> None:
+    panel = QuestionPanel()
+    question = QuestionSnapshot(
+        id="q-1",
+        question="Choose a direction?",
+        options=["fast", "safe"],
+        recommended_option="safe",
+    )
+    app = QuestionPanelHarness(panel)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        await pilot.pause()
+        panel.apply_questions([question])
+        await pilot.pause()
+
+        first_title = panel._title_widget
+        first_body = panel._body_container
+        assert panel._questions_key is not None
+        assert panel._empty_state_key is False
+        assert panel._title_key == "Question for You"
+        assert panel._button_answers
+
+        panel.refresh(recompose=True)
+        await pilot.pause()
+
+        assert panel._title_widget is not first_title
+        assert panel._body_container is not first_body
+        assert panel._questions_key is None
+        assert panel._empty_state_key is None
+        assert panel._title_key == ""
+        assert panel._button_answers == {}
+
+        query_calls: list[str] = []
+        original_query_one = panel.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector in {"#question-panel-title", "#question-panel-body"}:
+                query_calls.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        panel.query_one = counted_query_one
+
+        panel.apply_questions([question])
+        await pilot.pause()
+
+        assert query_calls == []
+        assert str(panel._title_widget.content) == "Question for You"
+        assert panel._questions_key is not None
+        assert panel._empty_state_key is False
+        assert panel._button_answers["answer-q-1-1"].answer == "fast"
+        assert panel._button_answers["answer-q-1-2"].answer == "safe"
+        buttons = [
+            child
+            for row in panel._body_container.children
+            for child in getattr(row, "children", ())
+            if isinstance(child, Button)
+        ]
+        assert [str(button.label) for button in buttons] == [
+            "fast",
+            "safe (recommended)",
+        ]

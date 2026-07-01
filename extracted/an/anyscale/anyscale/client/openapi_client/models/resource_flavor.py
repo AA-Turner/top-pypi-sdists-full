@@ -34,30 +34,30 @@ class ResourceFlavor(object):
     """
     openapi_types = {
         'name': 'str',
-        'requirements': 'list[MatchExpression]',
+        'selector': 'list[MatchExpression]',
         'advanced_instance_config': 'object'
     }
 
     attribute_map = {
         'name': 'name',
-        'requirements': 'requirements',
+        'selector': 'selector',
         'advanced_instance_config': 'advanced_instance_config'
     }
 
-    def __init__(self, name=None, requirements=None, advanced_instance_config=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, selector=None, advanced_instance_config=None, local_vars_configuration=None):  # noqa: E501
         """ResourceFlavor - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._name = None
-        self._requirements = None
+        self._selector = None
         self._advanced_instance_config = None
         self.discriminator = None
 
         self.name = name
-        if requirements is not None:
-            self.requirements = requirements
+        if selector is not None:
+            self.selector = selector
         if advanced_instance_config is not None:
             self.advanced_instance_config = advanced_instance_config
 
@@ -85,25 +85,25 @@ class ResourceFlavor(object):
         self._name = name
 
     @property
-    def requirements(self):
-        """Gets the requirements of this ResourceFlavor.  # noqa: E501
+    def selector(self):
+        """Gets the selector of this ResourceFlavor.  # noqa: E501
 
 
-        :return: The requirements of this ResourceFlavor.  # noqa: E501
+        :return: The selector of this ResourceFlavor.  # noqa: E501
         :rtype: list[MatchExpression]
         """
-        return self._requirements
+        return self._selector
 
-    @requirements.setter
-    def requirements(self, requirements):
-        """Sets the requirements of this ResourceFlavor.
+    @selector.setter
+    def selector(self, selector):
+        """Sets the selector of this ResourceFlavor.
 
 
-        :param requirements: The requirements of this ResourceFlavor.  # noqa: E501
+        :param selector: The selector of this ResourceFlavor.  # noqa: E501
         :type: list[MatchExpression]
         """
 
-        self._requirements = requirements
+        self._selector = selector
 
     @property
     def advanced_instance_config(self):

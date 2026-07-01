@@ -195,3 +195,13 @@ class TestSplitQuery(unittest.TestCase):
         stmts = DuckDBTransformer.split_query(query)
         self.assertEqual(len(stmts), 1)
         self.assertIn('"my-db"', stmts[0].statement)
+
+
+class TestGetExecutionMetadata(unittest.TestCase):
+    """Base class get_execution_metadata returns None."""
+
+    def test_returns_none_by_default(self):
+        from unittest.mock import MagicMock
+
+        result = DatabaseTransformer.get_execution_metadata(MagicMock())
+        self.assertIsNone(result)

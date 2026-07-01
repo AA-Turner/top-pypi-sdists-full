@@ -1,4 +1,5 @@
 import typing
+from dataclasses import dataclass
 
 if typing.TYPE_CHECKING:
     from .visitor import CxxVisitor  # pragma: nocover
@@ -8,32 +9,48 @@ from .lexer import LexToken, Location
 from .types import ClassDecl, NamespaceDecl, Value
 
 
-class ParsedTypeModifiers(typing.NamedTuple):
-    vars: typing.Dict[str, LexToken]  # only found on variables
-    both: typing.Dict[str, LexToken]  # found on either variables or functions
-    meths: typing.Dict[str, LexToken]  # only found on methods
+@dataclass
+class ParsedTypeModifiers:
+    #: Modifiers allowed on variables and functions.
+    constexpr: typing.Optional[LexToken] = None
+    extern: typing.Optional[LexToken] = None
+    inline: typing.Optional[LexToken] = None
+    static: typing.Optional[LexToken] = None
+
+    #: Modifiers only allowed on variables/fields.
+    mutable: typing.Optional[LexToken] = None
+
+    #: Modifiers only allowed on methods.
+    explicit: typing.Optional[LexToken] = None
+    virtual: typing.Optional[LexToken] = None
+
     #: For C++20 ``explicit(<expr>)``: the constant expression inside the
     #: parens (omitting the parens themselves). ``None`` if absent or if
     #: ``explicit`` was used as a bare keyword.
     explicit_value: typing.Optional[Value] = None
     #: ``friend`` if encountered while parsing declaration specifiers.
     friend: typing.Optional[LexToken] = None
+    #: Linkage from an ``extern "..."`` declaration specifier, if present.
+    extern_linkage: typing.Optional[str] = None
 
     def validate(
         self, *, var_ok: bool, meth_ok: bool, msg: str, friend_ok: bool = False
     ) -> None:
         # Almost there! Do any checks the caller asked for
-        if not var_ok and self.vars:
-            for tok in self.vars.values():
-                raise CxxParseError(f"{msg}: unexpected '{tok.value}'")
+        if not var_ok:
+            for tok in (self.mutable,):
+                if tok is not None:
+                    raise CxxParseError(f"{msg}: unexpected '{tok.value}'")
 
-        if not meth_ok and self.meths:
-            for tok in self.meths.values():
-                raise CxxParseError(f"{msg}: unexpected '{tok.value}'")
+        if not meth_ok:
+            for tok in (self.explicit, self.virtual):
+                if tok is not None:
+                    raise CxxParseError(f"{msg}: unexpected '{tok.value}'")
 
-        if not meth_ok and not var_ok and self.both:
-            for tok in self.both.values():
-                raise CxxParseError(f"{msg}: unexpected '{tok.value}'")
+        if not meth_ok and not var_ok:
+            for tok in (self.constexpr, self.extern, self.inline, self.static):
+                if tok is not None:
+                    raise CxxParseError(f"{msg}: unexpected '{tok.value}'")
 
         if not friend_ok and self.friend is not None:
             raise CxxParseError(f"{msg}: unexpected '{self.friend.value}'")
@@ -57,12 +74,16 @@ class BaseState(typing.Generic[T, PT]):
     #: Approximate location that the parsed element was found at
     location: Location
 
+    #: Effective extern linkage for this state, if any
+    extern_linkage: typing.Optional[str]
+
     #: internal detail used by parser
     _prior_visitor: "CxxVisitor"
 
     def __init__(self, parent: typing.Optional["State"], location: Location) -> None:
         self.parent = parent
         self.location = location
+        self.extern_linkage = parent.extern_linkage if parent else None
 
     def _finish(self, visitor: "CxxVisitor") -> None:
         pass
@@ -79,6 +100,7 @@ class ExternBlockState(BaseState[T, PT]):
     ) -> None:
         super().__init__(parent, location)
         self.linkage = linkage
+        self.extern_linkage = linkage
 
     def _finish(self, visitor: "CxxVisitor") -> None:
         visitor.on_extern_block_end(self)

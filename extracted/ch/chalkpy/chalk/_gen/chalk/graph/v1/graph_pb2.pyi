@@ -142,6 +142,7 @@ class Graph(_message.Message):
         "online_store_configs",
         "captured_global_values",
         "symbolic_value_explicits",
+        "materialized_feature_views",
     )
     FEATURE_SETS_FIELD_NUMBER: _ClassVar[int]
     RESOLVERS_FIELD_NUMBER: _ClassVar[int]
@@ -157,6 +158,7 @@ class Graph(_message.Message):
     ONLINE_STORE_CONFIGS_FIELD_NUMBER: _ClassVar[int]
     CAPTURED_GLOBAL_VALUES_FIELD_NUMBER: _ClassVar[int]
     SYMBOLIC_VALUE_EXPLICITS_FIELD_NUMBER: _ClassVar[int]
+    MATERIALIZED_FEATURE_VIEWS_FIELD_NUMBER: _ClassVar[int]
     feature_sets: _containers.RepeatedCompositeFieldContainer[FeatureSet]
     resolvers: _containers.RepeatedCompositeFieldContainer[Resolver]
     stream_resolvers: _containers.RepeatedCompositeFieldContainer[StreamResolver]
@@ -171,6 +173,7 @@ class Graph(_message.Message):
     online_store_configs: _containers.RepeatedCompositeFieldContainer[OnlineStoreConfig]
     captured_global_values: _containers.RepeatedCompositeFieldContainer[CapturedGlobalValue]
     symbolic_value_explicits: _containers.RepeatedCompositeFieldContainer[_symbolic_value_pb2.SymbolicValue]
+    materialized_feature_views: _containers.RepeatedCompositeFieldContainer[MaterializedFeatureView]
     def __init__(
         self,
         feature_sets: _Optional[_Iterable[_Union[FeatureSet, _Mapping]]] = ...,
@@ -187,6 +190,38 @@ class Graph(_message.Message):
         online_store_configs: _Optional[_Iterable[_Union[OnlineStoreConfig, _Mapping]]] = ...,
         captured_global_values: _Optional[_Iterable[_Union[CapturedGlobalValue, _Mapping]]] = ...,
         symbolic_value_explicits: _Optional[_Iterable[_Union[_symbolic_value_pb2.SymbolicValue, _Mapping]]] = ...,
+        materialized_feature_views: _Optional[_Iterable[_Union[MaterializedFeatureView, _Mapping]]] = ...,
+    ) -> None: ...
+
+class MaterializedFeatureView(_message.Message):
+    __slots__ = (
+        "namespaces",
+        "time_resolution",
+        "update_cadence",
+        "lower_bound",
+        "lookback_retention_period",
+        "source_file_reference",
+    )
+    NAMESPACES_FIELD_NUMBER: _ClassVar[int]
+    TIME_RESOLUTION_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_CADENCE_FIELD_NUMBER: _ClassVar[int]
+    LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    LOOKBACK_RETENTION_PERIOD_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FILE_REFERENCE_FIELD_NUMBER: _ClassVar[int]
+    namespaces: _containers.RepeatedScalarFieldContainer[str]
+    time_resolution: _duration_pb2.Duration
+    update_cadence: str
+    lower_bound: _timestamp_pb2.Timestamp
+    lookback_retention_period: _duration_pb2.Duration
+    source_file_reference: SourceFileReference
+    def __init__(
+        self,
+        namespaces: _Optional[_Iterable[str]] = ...,
+        time_resolution: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        update_cadence: _Optional[str] = ...,
+        lower_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        lookback_retention_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        source_file_reference: _Optional[_Union[SourceFileReference, _Mapping]] = ...,
     ) -> None: ...
 
 class OverlayGraph(_message.Message):
@@ -1305,6 +1340,7 @@ class StreamResolver(_message.Message):
         "resource_group",
         "deduplication_strategy",
         "customer_metrics_tags",
+        "excluded_aggregation_fqns",
     )
     class FeatureExpressionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1343,6 +1379,7 @@ class StreamResolver(_message.Message):
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     DEDUPLICATION_STRATEGY_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_METRICS_TAGS_FIELD_NUMBER: _ClassVar[int]
+    EXCLUDED_AGGREGATION_FQNS_FIELD_NUMBER: _ClassVar[int]
     fqn: str
     params: _containers.RepeatedCompositeFieldContainer[StreamResolverParam]
     outputs: _containers.RepeatedCompositeFieldContainer[ResolverOutput]
@@ -1370,6 +1407,7 @@ class StreamResolver(_message.Message):
     resource_group: str
     deduplication_strategy: DeduplicationStrategy
     customer_metrics_tags: _containers.RepeatedScalarFieldContainer[str]
+    excluded_aggregation_fqns: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         fqn: _Optional[str] = ...,
@@ -1399,6 +1437,7 @@ class StreamResolver(_message.Message):
         resource_group: _Optional[str] = ...,
         deduplication_strategy: _Optional[_Union[DeduplicationStrategy, _Mapping]] = ...,
         customer_metrics_tags: _Optional[_Iterable[str]] = ...,
+        excluded_aggregation_fqns: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class StreamMessageHeaderEqualityCheck(_message.Message):

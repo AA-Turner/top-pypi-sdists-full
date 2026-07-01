@@ -13,11 +13,28 @@ from threading import Thread
 from unittest import mock
 from urllib.parse import parse_qs, urlparse
 
-import brotli
-import jsonschema
+try:
+    import brotli
+except ImportError:
+    brotli = None
+
+try:
+    import jsonschema
+except ImportError:
+    jsonschema = None
+
 import pytest
-from pytest_localserver.http import WSGIServer
-from werkzeug.wrappers import Request, Response
+
+try:
+    from pytest_localserver.http import WSGIServer
+except ImportError:
+    WSGIServer = None
+
+try:
+    from werkzeug.wrappers import Request, Response
+except ImportError:
+    Request = None
+    Response = None
 
 try:
     from starlette.testclient import TestClient
@@ -47,7 +64,7 @@ from sentry_sdk.integrations import (  # noqa: F401
 from sentry_sdk.profiler import teardown_profiler
 from sentry_sdk.profiler.continuous_profiler import teardown_continuous_profiler
 from sentry_sdk.transport import Transport
-from sentry_sdk.utils import reraise
+from sentry_sdk.utils import package_version, reraise
 
 try:
     import openai
@@ -103,6 +120,9 @@ try:
         JSONRPCNotification,
         JSONRPCRequest,
     )
+
+    _MCP_VERSION = package_version("mcp")
+    _IS_MCP_V2 = _MCP_VERSION is not None and _MCP_VERSION >= (2, 0, 0)
 except ImportError:
     create_memory_object_stream = None
     create_task_group = None
@@ -112,6 +132,7 @@ except ImportError:
     JSONRPCNotification = None
     JSONRPCRequest = None
     SessionMessage = None
+    _IS_MCP_V2 = False
 
 
 SENTRY_EVENT_SCHEMA = "./checkouts/data-schemas/relay/event.schema.json"
@@ -215,12 +236,20 @@ def _capture_internal_warnings():
         if "dns.hash" in str(warning.message) or "dns/namedict" in warning.filename:
             continue
 
+        # On Python < 3.8 we fall back to importing `pkg_resources` to
+        # enumerate installed modules, which emits a DeprecationWarning.
+        if "pkg_resources is deprecated as an API" in str(
+            warning.message
+        ) and warning.filename.endswith("sentry_sdk/utils.py"):
+            continue
+
         raise AssertionError(warning)
 
 
 @pytest.fixture
 def validate_event_schema(tmpdir):
     def inner(event):
+        assert jsonschema is not None
         if SENTRY_EVENT_SCHEMA:
             jsonschema.validate(instance=event, schema=SENTRY_EVENT_SCHEMA)
 
@@ -760,21 +789,27 @@ def suppress_deprecation_warnings():
         yield
 
 
+def _make_session_message(jsonrpc_msg):
+    """Construct a SessionMessage compatible with both MCP v1 and v2."""
+    if _IS_MCP_V2:
+        return SessionMessage(message=jsonrpc_msg)  # type: ignore
+    else:
+        return SessionMessage(message=JSONRPCMessage(root=jsonrpc_msg))  # type: ignore
+
+
 @pytest.fixture
 def get_initialization_payload():
     def inner(request_id: str):
-        return SessionMessage(  # type: ignore
-            message=JSONRPCMessage(  # type: ignore
-                root=JSONRPCRequest(  # type: ignore
-                    jsonrpc="2.0",
-                    id=request_id,
-                    method="initialize",
-                    params={
-                        "protocolVersion": "2025-11-25",
-                        "capabilities": {},
-                        "clientInfo": {"name": "test-client", "version": "1.0.0"},
-                    },
-                )
+        return _make_session_message(
+            JSONRPCRequest(  # type: ignore
+                jsonrpc="2.0",
+                id=request_id,
+                method="initialize",
+                params={
+                    "protocolVersion": "2025-11-25",
+                    "capabilities": {},
+                    "clientInfo": {"name": "test-client", "version": "1.0.0"},
+                },
             )
         )
 
@@ -784,12 +819,10 @@ def get_initialization_payload():
 @pytest.fixture
 def get_initialized_notification_payload():
     def inner():
-        return SessionMessage(  # type: ignore
-            message=JSONRPCMessage(  # type: ignore
-                root=JSONRPCNotification(  # type: ignore
-                    jsonrpc="2.0",
-                    method="notifications/initialized",
-                )
+        return _make_session_message(
+            JSONRPCNotification(  # type: ignore
+                jsonrpc="2.0",
+                method="notifications/initialized",
             )
         )
 
@@ -799,14 +832,12 @@ def get_initialized_notification_payload():
 @pytest.fixture
 def get_mcp_command_payload():
     def inner(method: str, params, request_id: str):
-        return SessionMessage(  # type: ignore
-            message=JSONRPCMessage(  # type: ignore
-                root=JSONRPCRequest(  # type: ignore
-                    jsonrpc="2.0",
-                    id=request_id,
-                    method=method,
-                    params=params,
-                )
+        return _make_session_message(
+            JSONRPCRequest(  # type: ignore
+                jsonrpc="2.0",
+                id=request_id,
+                method=method,
+                params=params,
             )
         )
 
@@ -1602,52 +1633,61 @@ class ApproxDict(dict):
 CapturedData = namedtuple("CapturedData", ["path", "event", "envelope", "compressed"])
 
 
-class CapturingServer(WSGIServer):
-    def __init__(self, host="127.0.0.1", port=0, ssl_context=None):
-        WSGIServer.__init__(self, host, port, self, ssl_context=ssl_context)
-        self.code = 204
-        self.headers = {}
-        self.captured = []
+@pytest.fixture(scope="module")
+def wsgi_capturing_server():
+    assert WSGIServer is not None
 
-    def respond_with(self, code=200, headers=None):
-        self.code = code
-        if headers:
-            self.headers = headers
+    class CapturingServer(WSGIServer):
+        def __init__(self, host="127.0.0.1", port=0, ssl_context=None):
+            WSGIServer.__init__(self, host, port, self, ssl_context=ssl_context)
+            self.code = 204
+            self.headers = {}
+            self.captured = []
 
-    def clear_captured(self):
-        del self.captured[:]
+        def respond_with(self, code=200, headers=None):
+            self.code = code
+            if headers:
+                self.headers = headers
 
-    def __call__(self, environ, start_response):
-        """
-        This is the WSGI application.
-        """
-        request = Request(environ)
-        event = envelope = None
-        content_encoding = request.headers.get("content-encoding")
-        if content_encoding == "gzip":
-            rdr = gzip.GzipFile(fileobj=io.BytesIO(request.data))
-            compressed = True
-        elif content_encoding == "br":
-            rdr = io.BytesIO(brotli.decompress(request.data))
-            compressed = True
-        else:
-            rdr = io.BytesIO(request.data)
-            compressed = False
+        def clear_captured(self):
+            del self.captured[:]
 
-        if request.mimetype == "application/json":
-            event = parse_json(rdr.read())
-        else:
-            envelope = Envelope.deserialize_from(rdr)
+        def __call__(self, environ, start_response):
+            """
+            This is the WSGI application.
+            """
+            assert Request is not None
+            assert Response is not None
 
-        self.captured.append(
-            CapturedData(
-                path=request.path,
-                event=event,
-                envelope=envelope,
-                compressed=compressed,
+            request = Request(environ)
+            event = envelope = None
+            content_encoding = request.headers.get("content-encoding")
+            if content_encoding == "gzip":
+                rdr = gzip.GzipFile(fileobj=io.BytesIO(request.data))
+                compressed = True
+            elif content_encoding == "br":
+                rdr = io.BytesIO(brotli.decompress(request.data))
+                compressed = True
+            else:
+                rdr = io.BytesIO(request.data)
+                compressed = False
+
+            if request.mimetype == "application/json":
+                event = parse_json(rdr.read())
+            else:
+                envelope = Envelope.deserialize_from(rdr)
+
+            self.captured.append(
+                CapturedData(
+                    path=request.path,
+                    event=event,
+                    envelope=envelope,
+                    compressed=compressed,
+                )
             )
-        )
 
-        response = Response(status=self.code)
-        response.headers.extend(self.headers)
-        return response(environ, start_response)
+            response = Response(status=self.code)
+            response.headers.extend(self.headers)
+            return response(environ, start_response)
+
+    return CapturingServer()

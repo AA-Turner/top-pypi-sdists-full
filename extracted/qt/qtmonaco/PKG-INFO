@@ -1,0 +1,29 @@
+Metadata-Version: 2.4
+Name: qtmonaco
+Version: 0.10.0
+Summary: Qt Monaco is a Python library for working with the Monaco Editor in Qt applications.
+Project-URL: Bug Tracker, https://github.com/bec-project/qtmonaco/issues
+Project-URL: Homepage, https://github.com/bec-project/qtmonaco
+License-File: LICENSE
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.10
+Requires-Dist: python-lsp-server[autopep8,flake8,mccabe,pycodestyle,pydocstyle,pyflakes,rope,websockets,yapf]~=1.12
+Requires-Dist: qtpy~=2.4
+Provides-Extra: all
+Requires-Dist: python-lsp-server[all,websockets]~=1.12; extra == 'all'
+Provides-Extra: dev
+Requires-Dist: coverage~=7.0; extra == 'dev'
+Requires-Dist: isort>=5.13.2,~=5.13; extra == 'dev'
+Requires-Dist: pytest-cov~=6.1.1; extra == 'dev'
+Requires-Dist: pytest-qt~=4.4; extra == 'dev'
+Requires-Dist: pytest-random-order~=1.1; extra == 'dev'
+Requires-Dist: pytest-timeout~=2.2; extra == 'dev'
+Requires-Dist: pytest-xvfb~=3.0; extra == 'dev'
+Requires-Dist: pytest~=8.0; extra == 'dev'
+Provides-Extra: pyqt6
+Requires-Dist: pyqt6; extra == 'pyqt6'
+Requires-Dist: pyqt6-webengine; extra == 'pyqt6'
+Provides-Extra: pyside6
+Requires-Dist: pyside6>=6.8; extra == 'pyside6'

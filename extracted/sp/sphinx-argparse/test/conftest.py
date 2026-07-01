@@ -1,6 +1,5 @@
 """Test HTML output the same way that Sphinx does in test_build_html.py."""
 
-from itertools import chain, cycle
 from pathlib import Path
 
 import pytest
@@ -8,9 +7,23 @@ from docutils import nodes
 from lxml import etree as lxmltree
 from sphinx.testing.util import SphinxTestApp
 
+from sphinxarg.ext import ArgParseDirective
+
 pytest_plugins = 'sphinx.testing.fixtures'
 
 etree_cache: dict[str, str] = {}
+
+
+@pytest.fixture(autouse=True)
+def mock_argparse_src_dir(monkeypatch):
+    """Fixture to mock the source root dir in `ArgParseDirective`.
+
+    Auto-used, i.e. applied to all tests by default.
+    Without this, the source .py files will be searched inside the pytest temp
+    directory, where our .py files won't be copied into.
+    """
+    tests_dir = Path(__file__).parent.absolute()
+    monkeypatch.setattr(ArgParseDirective, '_srcdir', str(tests_dir))
 
 
 @pytest.fixture(scope='session')
@@ -67,7 +80,3 @@ def cached_etree_parse():
 
     yield parse
     etree_cache.clear()
-
-
-def flat_dict(d):
-    return chain.from_iterable([zip(cycle([fname]), values) for fname, values in d.items()])

@@ -3,7 +3,7 @@
 members = ["crates/*", "wheel"]
 
 [workspace.package]
-version = "0.45.0"
+version = "0.45.1"
 
 [workspace.lints.rust]
 rust_2018_idioms = { level = "deny", priority = -1 }

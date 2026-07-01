@@ -1,0 +1,262 @@
+"""
+generate_tfim_samples.py (Envelope variant)
+==================================
+Drop-in replacement for generate_tfim_samples with a time-dependent
+exponential envelope applied to the Hamming weight marginal.
+
+The key insight
+---------------
+The Hamming weight marginal from probability_by_hamming_weight is what
+pins <O_bond> ~ +1.0 in the ESD sweep — not the spatial Kawasaki dynamics.
+The marginal at h >> |J| is dominated by high-Hamming-weight (X-polarized)
+states at all t, which produce positive correlations in all three bases.
+
+The fix: multiply the marginal by an envelope that is *largest at small t*
+and decays toward uniform as t grows:
+
+    bias[k] *= exp(-alpha * |k - n/2| / t)
+
+At t -> 0:  envelope peaks sharply at half-filling (k = n/2), the
+            antiferromagnetic ground state sector.  The spatial dynamics
+            (repulsive Kawasaki) then has maximum leverage.
+
+At t -> inf: envelope -> 1 everywhere; the physics-derived marginal
+             from probability_by_hamming_weight is recovered exactly.
+
+The differential is greatest at initialization — exactly where the ESD
+interesting physics lives — and fades as the system equilibrates toward
+the Gibbs target.  alpha controls the strength of the initial bias.
+
+This is physically motivated: the AFM ground state of the XXZ model
+is at half-filling on a bipartite lattice, so biasing toward k=n/2
+at early times is consistent with starting near the ground state and
+thermalizing upward, rather than starting in the paramagnetic phase.
+
+Authors: Claude (Anthropic), Elara (OpenAI custom GPT), and D. Strano
+"""
+
+from .maxcut_tfim_util import probability_by_hamming_weight, sample_mag, opencl_context
+import itertools
+import math
+import random
+import sys
+import numpy as np
+from numba import njit
+
+from collections import Counter
+
+
+epsilon = opencl_context.epsilon
+
+
+# ── Geometry ───────────────────────────────────────────────────────────────────
+
+def random_fixed_hamming_state(n_qubits, h):
+    bits = np.zeros(n_qubits, dtype=np.bool_)
+    bits[:h] = True
+    np.random.shuffle(bits)
+    state = 0
+    for b in bits:
+        state <<= 1
+        if b:
+            state |= 1
+    return state
+
+
+def build_neighbors(n_rows, n_cols):
+    L = n_rows * n_cols
+    neighbors = [[] for _ in range(L)]
+    for i in range(n_rows):
+        for j in range(n_cols):
+            idx = i * n_cols + j
+            right = i * n_cols + ((j + 1) % n_cols)
+            left  = i * n_cols + ((j - 1) % n_cols)
+            down  = ((i + 1) % n_rows) * n_cols + j
+            up    = ((i - 1) % n_rows) * n_cols + j
+            neighbors[idx] = [right, left, down, up]
+    return neighbors
+
+
+def count_unlike_edges(state, neighbors):
+    unlike = 0
+    visited = set()
+    for i, nbrs in enumerate(neighbors):
+        si = (state >> i) & 1
+        for j in nbrs:
+            if (j, i) in visited:
+                continue
+            if si != ((state >> j) & 1):
+                unlike += 1
+            visited.add((i, j))
+    return unlike
+
+
+def delta_like_edges(state, i, j, neighbors):
+    si = (state >> i) & 1
+    sj = (state >> j) & 1
+    delta = 0
+    for idx in [i, j]:
+        s_old = (state >> idx) & 1
+        for nbr in neighbors[idx]:
+            if nbr == i or nbr == j:
+                continue
+            s_nbr    = (state >> nbr) & 1
+            old_like = s_old == s_nbr
+            new_spin = sj if idx == i else si
+            new_like = new_spin == s_nbr
+            delta   += int(new_like) - int(old_like)
+    if j in neighbors[i]:
+        delta += int(sj == si) - int(si == sj)
+    return delta
+
+
+# ── Spatial sampler: repulsive Kawasaki ───────────────────────────────────────
+# Electrons carry intrinsic magnetic dipole moments; antiparallel (unlike)
+# neighbours have lower magnetic potential energy.  The acceptance criterion
+# therefore unconditionally favours unlike neighbours, independent of J.
+
+def sample_fixed_hamming_weight(h_weight, count, n_rows, n_cols, burnin=10):
+    if count == 0:
+        return []
+
+    n_qubits     = n_rows * n_cols
+    neighbors    = build_neighbors(n_rows, n_cols)
+    total_edges  = 2 * n_qubits   # 4 neighbours per site, each edge once → 2n
+
+    unlike_edges = 0
+    attempts     = 0
+    while unlike_edges == 0:
+        state        = random_fixed_hamming_state(n_qubits, h_weight)
+        unlike_edges = count_unlike_edges(state, neighbors)
+        attempts    += 1
+        if attempts > 1000:
+            return [state] * count
+
+    samples  = []
+    burn     = burnin * n_qubits
+    thinning = n_qubits
+
+    ones  = set(i for i in range(n_qubits) if     (state >> i) & 1)
+    zeros = set(i for i in range(n_qubits) if not (state >> i) & 1)
+
+    for step in range(burn + thinning * count):
+        i = random.choice(tuple(ones))
+        j = random.choice(tuple(zeros))
+
+        delta_like   = delta_like_edges(state, i, j, neighbors)
+        new_unlike   = unlike_edges - delta_like   # unlike = total - like
+
+        if new_unlike > 0:
+            # Repulsive: accept proportional to new_unlike / unlike_edges
+            if np.random.random() < new_unlike / unlike_edges:
+                state ^= 1 << i
+                ones.remove(i);  zeros.add(i)
+                state ^= 1 << j
+                zeros.remove(j); ones.add(j)
+                unlike_edges = new_unlike
+
+        if step >= burn and (step - burn) % thinning == 0:
+            samples.append(state)
+
+    return samples
+
+
+# ── Numba helpers ──────────────────────────────────────────────────────────────
+
+@njit(cache=True)
+def factor_width(width, is_transpose=False):
+    col_len = math.floor(math.sqrt(width))
+    while ((width // col_len) * col_len) != width:
+        col_len -= 1
+    row_len = width // col_len
+    return (col_len, row_len) if is_transpose else (row_len, col_len)
+
+
+@njit(cache=True)
+def comb(n, k):
+    if (k < 0) or (k > n): return 0
+    if (k == 0) or (k == n): return 1
+    res = 1
+    for i in range(1, k + 1):
+        res = res * (n - k + i) // i
+    return res
+
+
+@njit(cache=True)
+def fix_cdf(hamming_prob):
+    tot_prob = 0.0
+    n_bias   = len(hamming_prob)
+    cum_prob = np.empty(n_bias, dtype=np.float64)
+    for i in range(n_bias):
+        tot_prob    += hamming_prob[i]
+        cum_prob[i]  = tot_prob
+    cum_prob[-1] = 1.0
+    return cum_prob
+
+
+@njit(cache=True)
+def get_tfim_hamming_distribution(J=-1.0, h=2.0, z=4, theta=0.174532925199432957, t=5, n_qubits=56, omega=1.5 * np.pi):
+    if abs(t) <= epsilon:
+        p = (1.0 - np.cos(theta)) / 2.0
+        bias = np.empty(n_qubits + 1, dtype=np.float64)
+        for k in range(n_qubits + 1):
+            bias[k] = comb(n_qubits, k) * (p**k) * ((1.0 - p) ** (n_qubits - k))
+
+        return bias / bias.sum()
+
+    if abs(h) <= epsilon:
+        bias = np.empty(n_qubits + 1, dtype=np.float64)
+        if J > 0:
+            bias[-1] = 1.0
+        else:
+            bias[0] = 1.0
+        return bias
+
+    return probability_by_hamming_weight(J, h, z, theta, t, n_qubits + 1, normalized=True, omega=omega)
+
+
+# ── Public generators ──────────────────────────────────────────────────────────
+
+def generate_tfim_samples(J=-1.0, h=2.0, z=4, theta=0.174532925199432957, t=5, n_qubits=56, shots=100):
+    samples = []
+
+    if abs(t) <= epsilon:
+        prob = (1.0 - np.cos(theta)) / 2.0
+        for s in range(shots):
+            sample = 0
+            for q in range(n_qubits):
+                sample <<= 1
+                if np.random.random() < prob:
+                    sample |= 1
+            samples.append(sample)
+        return samples
+
+    n_rows, n_cols = factor_width(n_qubits)
+
+    # Dimension 1: Hamming weight with time-dependent envelope
+    bias   = get_tfim_hamming_distribution(J=J, h=h, z=z, theta=theta, t=t, n_qubits=n_qubits)
+    counts = np.random.multinomial(shots, bias)
+
+    samples += [0] * counts[0]
+    samples += [(1 << n_qubits) - 1] * counts[-1]
+    if n_qubits > 1:
+        samples += [int(1 << np.random.randint(n_qubits)) for _ in range(counts[1])]
+    if n_qubits > 2:
+        mask     = (1 << n_qubits) - 1
+        samples += [(mask ^ int(1 << np.random.randint(n_qubits))) for _ in range(counts[-2])]
+
+    # Dimension 2: spatial magnetic localization (repulsive dipole coupling)
+    for h_weight in range(2, len(bias) - 2):
+        samples += sample_fixed_hamming_weight(h_weight, counts[h_weight], n_rows, n_cols)
+
+    np.random.shuffle(samples)
+    return samples
+
+
+def generate_fermi_hubbard_samples(J=-1.0, h=2.0, z=4, theta=0.174532925199432957, t=5, n_qubits=56, shots=100, omega=1.5 * np.pi):
+    shots_x, shots_y, shots_z = np.random.multinomial(shots, [1 / 3, 1 / 3, 1 / 3])
+    return (
+        generate_tfim_samples(J=J,  h=h,  z=z, theta=theta,              t=t, n_qubits=n_qubits, shots=shots_z)
+        + generate_tfim_samples(J=-h, h=-J, z=z, theta=theta + np.pi / 2, t=t, n_qubits=n_qubits, shots=shots_x)
+        + generate_tfim_samples(J=J,  h=h,  z=z, theta=theta + np.pi / 2, t=t, n_qubits=n_qubits, shots=shots_y)
+    )

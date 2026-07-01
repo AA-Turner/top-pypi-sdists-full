@@ -29,7 +29,6 @@ classifiers = [
 ]
 
 dependencies = [
-    "gliner",
     "peft",
     "pydantic>=2.0.0",
     "requests>=2.28",
@@ -37,6 +36,13 @@ dependencies = [
 ]
 
 dynamic = ["version"]
+
+[project.optional-dependencies]
+local = [
+    "torch",
+    "transformers",
+    "peft",
+]
 
 [project.urls]
 Homepage = "https://github.com/fastino-ai/GLiNER2"

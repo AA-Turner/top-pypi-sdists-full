@@ -1,0 +1,12 @@
+Metadata-Version: 1.1
+Name: pyds9
+Version: 1.8.1
+Summary: Python/DS9 connection via XPA (with numpy and pyfits support)
+Home-page: https://github.com/TESScience/pyds9/
+Author: Bill Joye and Eric Mandel
+Author-email: saord@cfa.harvard.edu
+License: UNKNOWN
+Download-URL: https://github.com/TESScience/pyds9/tarball/1.8.1
+Description: UNKNOWN
+Keywords: astronomy,science,ds9
+Platform: UNKNOWN

@@ -1,0 +1,104 @@
+[package]
+name = "dirsql"
+description = "Ephemeral SQL index over a local directory"
+# Explicit literal (not `version.workspace = true`) so putitoutthere's
+# crates handler can update it via `replaceCargoVersion`. The workspace
+# version stays for the binding crates (publish = false). The literal
+# intentionally lags the published version: putitoutthere rewrites it to
+# the planned release version at build time and never commits it back.
+version = "0.2.7"
+edition.workspace = true
+# Literal `license` (not `license.workspace = true`) because
+# putitoutthere's preflight check reads `[package].license` directly
+# from the crate's Cargo.toml and does not resolve workspace
+# inheritance, surfacing PIOT_CRATES_MISSING_METADATA otherwise.
+license = "MIT"
+repository.workspace = true
+# `docs/` is a symlink to the workspace `docs/` so the markdown ships with the
+# crate; everything below is the VitePress build tooling we don't want to ship.
+# `tests/` is the integration suite -- excluded so test files never ship in the
+# published `.crate` (enforced by the `packaging` gate in CI). Inline unit tests
+# stay (they are `#[cfg(test)]` modules inside `src/`, not separate files).
+exclude = [
+    "tests/",
+    "docs/.vitepress",
+    "docs/.claude",
+    "docs/tests",
+    "docs/AGENTS.md",
+    "docs/package.json",
+    "docs/pnpm-lock.yaml",
+    "docs/pnpm-workspace.yaml",
+    "docs/playwright.config.ts",
+    "docs/vitest.config.ts",
+]
+readme = "README.md"
+
+[features]
+default = []
+# Opt-in CLI. Library consumers (`cargo add dirsql`) pull zero CLI deps.
+# CLI install: `cargo install dirsql --features cli`.
+cli = [
+    "dep:axum",
+    "dep:clap",
+    "dep:futures",
+    "dep:tokio-stream",
+    "tokio/rt-multi-thread",
+    "tokio/macros",
+    "tokio/signal",
+    "tokio/net",
+]
+
+[dependencies]
+axum = { version = "0.8", optional = true }
+blake3 = "1"
+clap = { version = "4", features = ["derive"], optional = true }
+futures = { version = "0.3", optional = true }
+futures-channel.workspace = true
+globset = "0.4"
+notify = "7"
+regex.workspace = true
+rusqlite = { version = "0.34", features = ["bundled", "load_extension"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-stream = { version = "0.1", features = ["sync"], optional = true }
+toml = "0.8"
+walkdir = "2"
+
+[[bin]]
+name = "dirsql"
+path = "src/bin/dirsql.rs"
+required-features = ["cli"]
+
+[package.metadata.docs.rs]
+no-default-features = true
+
+[dev-dependencies]
+assert_cmd = "2"
+criterion = { version = "0.5", features = ["html_reports"] }
+eventsource-client = "0.13"
+futures-executor = "0.3"
+futures-util = "0.3"
+libc = "0.2"
+predicates = "3"
+reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "stream"] }
+serde_json.workspace = true
+tempfile = "3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "signal", "process"] }
+
+[[bench]]
+name = "db_bench"
+harness = false
+
+[[bench]]
+name = "scanner_bench"
+harness = false
+
+[[bench]]
+name = "differ_bench"
+harness = false
+
+[[bench]]
+name = "matcher_bench"
+harness = false

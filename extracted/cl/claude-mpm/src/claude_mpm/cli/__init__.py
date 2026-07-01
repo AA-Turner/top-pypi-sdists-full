@@ -1,0 +1,300 @@
+"""
+Claude MPM Command-Line Interface.
+
+Main entry point for CLI. Implementation details extracted to:
+- cli/helpers.py: Configuration checks and prompts
+- cli/startup.py: Initialization (registry, MCP, updates)
+- cli/executor.py: Command execution routing
+
+Refactored from 803 lines to <130 lines (TSK-0053).
+"""
+
+import os
+import sys
+from pathlib import Path
+
+from ..constants import CLICommands
+from ..utils.progress import StartupProgressBar
+from .command_config import needs_project_workspace
+from .executor import ensure_run_attributes, execute_command
+
+# handle_missing_configuration, has_configuration_file, should_skip_config_check
+# removed - startup config prompt disabled, users can run `/mpm-configure` manually
+from .parser import create_parser, preprocess_args
+from .startup import (
+    run_background_services,
+    setup_configure_command_environment,
+    setup_early_environment,
+    setup_mcp_server_logging,
+    should_skip_background_services,
+)
+from .startup_display import display_startup_banner, should_show_banner
+from .utils import ensure_directories
+
+# Version resolution
+# CRITICAL: Don't import 'paths' here - it triggers UnifiedPathManager initialization
+# before setup_early_environment() can set CLAUDE_MPM_USER_PWD
+package_version_file = Path(__file__).parent.parent / "VERSION"
+if package_version_file.exists():
+    __version__ = package_version_file.read_text().strip()
+else:
+    try:
+        from .. import __version__
+    except ImportError:
+        __version__ = "0.0.0"
+
+
+def _apply_project_dir_override(args) -> None:
+    """Override CLAUDE_MPM_USER_PWD if --project-dir was specified.
+
+    WHY: CLAUDE_MPM_USER_PWD is captured from shell PWD in setup_early_environment()
+    during module import, BEFORE argparse runs. So args.project_dir is available
+    too late — run sessions use the wrong working directory. This centralized
+    post-parse override fixes it for ALL commands.
+
+    Args:
+        args: Parsed arguments from argparse
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    project_dir = getattr(args, "project_dir", None)
+    if not project_dir:
+        return
+
+    resolved = Path(project_dir).resolve()
+    if not resolved.is_dir():
+        from rich.console import Console
+
+        console = Console(stderr=True)
+        console.print(
+            f"\n[red]Error:[/red] --project-dir path does not exist: {resolved}\n",
+            style="bold",
+        )
+        sys.exit(1)
+
+    os.environ["CLAUDE_MPM_USER_PWD"] = str(resolved)
+    os.chdir(resolved)
+    logger.debug("--project-dir override: CLAUDE_MPM_USER_PWD=%s", resolved)
+
+
+def main(argv: list | None = None):
+    """Main CLI entry point orchestrating argument parsing and command execution."""
+    argv = setup_early_environment(argv)
+
+    parser = create_parser(version=__version__)
+    processed_argv = preprocess_args(argv)
+    args = parser.parse_args(processed_argv)
+
+    # CRITICAL: Override CLAUDE_MPM_USER_PWD if --project-dir was specified.
+    # Must happen AFTER argparse but BEFORE any command handler or service init.
+    _apply_project_dir_override(args)
+
+    # Configuration prompt removed - users can run `/mpm-configure` manually
+    # See: handle_missing_configuration() in helpers.py if re-enabling
+
+    setup_configure_command_environment(args)
+
+    # CRITICAL: Setup logging BEFORE any initialization that creates loggers
+    # This ensures that ensure_directories() and run_background_services()
+    # respect the user's logging preference (default: OFF)
+    logger = setup_mcp_server_logging(args)
+
+    ensure_directories(project=needs_project_workspace(args))
+
+    # Run migrations BEFORE banner (so we can show results in banner)
+    # Migrations are quick and non-blocking, safe to run early
+    applied_migrations: list[str] = []
+    if not should_skip_background_services(args, processed_argv):
+        from .startup_migrations import run_migrations
+
+        applied_migrations = run_migrations()
+
+    # Display startup banner (unless help/version/utility commands)
+    # Pass migration results so they appear in banner only when applicable
+    if should_show_banner(args):
+        display_startup_banner(__version__, applied_migrations)
+
+        # Show runtime mode if explicitly selected via --sdk or --cli
+        use_sdk = getattr(args, "sdk", False)
+        use_cli = getattr(args, "cli", False)
+        if use_sdk:
+            logger.info("Runtime: sdk")
+        elif use_cli:
+            logger.info("Runtime: cli")
+        else:
+            # Auto-detection notice: log when SDK is available but not explicitly
+            # enabled, so users know they can opt in. We deliberately do NOT
+            # auto-switch to SDK (backward compat — see bug #486 / cli/__init__.py
+            # comment block below): exec mode remains the default. This single
+            # informational log lets users discover the --sdk flag without
+            # surprising them with a runtime change.
+            try:
+                from ..services.agents.runtime_config import get_runtime_type
+
+                if get_runtime_type() == "sdk":
+                    logger.debug(
+                        "Runtime: cli (default); SDK available — opt in with --sdk"
+                    )
+            except Exception:
+                # Never let runtime detection failures block startup.
+                pass
+
+    # Check for --inject-port flag to start injection endpoint
+    # (outside background services block — always start if requested)
+    inject_port = getattr(args, "inject_port", None)
+    if inject_port is not None:
+        os.environ["CLAUDE_MPM_INJECT_PORT"] = str(inject_port)
+        import threading
+
+        from ..services.agents.message_endpoint import MessageEndpoint
+
+        endpoint = MessageEndpoint(port=inject_port)
+        thread = threading.Thread(target=endpoint.run, daemon=True)
+        thread.start()
+
+        # Register shutdown handler for clean port release
+        import atexit
+
+        atexit.register(endpoint.shutdown)
+        logger.info(f"Message injection endpoint started on port {inject_port}")
+
+    # Set runtime mode BEFORE the background services guard so the env var is always
+    # present even when should_skip_background_services() returns True (e.g. --prompt).
+    use_sdk = getattr(args, "sdk", False)
+    if use_sdk:
+        os.environ["CLAUDE_MPM_RUNTIME"] = "sdk"
+
+    use_cli = getattr(args, "cli", False)
+    if use_cli:
+        os.environ["CLAUDE_MPM_RUNTIME"] = "cli"
+
+    if not should_skip_background_services(args, processed_argv):
+        # Check for --force-sync flag or environment variable
+        force_sync = getattr(args, "force_sync", False) or os.environ.get(
+            "CLAUDE_MPM_FORCE_SYNC", "0"
+        ) in ("1", "true", "True", "yes")
+
+        # Check for --no-sync flag or environment variable
+        no_sync = getattr(args, "no_sync", False) or os.environ.get(
+            "CLAUDE_MPM_NO_SYNC", "0"
+        ) in ("1", "true", "True", "yes")
+
+        # Check for --skip-compat-check flag or environment variable
+        skip_compat_check = getattr(args, "skip_compat_check", False) or os.environ.get(
+            "CLAUDE_MPM_SKIP_COMPAT_CHECK", "0"
+        ) in ("1", "true", "True", "yes")
+
+        # Propagate CLI flag to env var so it reaches _check_manifest_compatibility
+        # (which checks the env var directly, avoiding the need to thread the flag
+        # through all intermediate startup functions)
+        if skip_compat_check:
+            os.environ["CLAUDE_MPM_SKIP_COMPAT_CHECK"] = "1"
+
+        # Propagate --ztk / --no-ztk / --debug-ztk CLI flags to the environment so the
+        # ztk_hook.py subprocess (which reads env vars directly) picks them up.
+        # ztk=True  → explicitly enable (unset CLAUDE_MPM_DISABLE_ZTK even if set externally)
+        # ztk=False → disable (set CLAUDE_MPM_DISABLE_ZTK=1)
+        # ztk=None  → leave env as-is (default: neither flag passed)
+        ztk_flag = getattr(args, "ztk", None)
+        if ztk_flag is False:
+            os.environ["CLAUDE_MPM_DISABLE_ZTK"] = "1"
+        elif ztk_flag is True:
+            os.environ.pop("CLAUDE_MPM_DISABLE_ZTK", None)
+        if getattr(args, "debug_ztk", False):
+            os.environ["CLAUDE_MPM_ZTK_DEBUG"] = "1"
+
+        # Bridge --model CLI flag to environment variable so it reaches the SDK session.
+        pm_model_arg = getattr(args, "model", None)
+        if pm_model_arg:
+            os.environ["CLAUDE_MPM_PM_MODEL"] = pm_model_arg
+
+        # Check if running in headless mode
+        is_headless = getattr(args, "headless", False)
+
+        # Detect if SDK mode will be used.
+        # WHY: SDK mode must be opt-in via the explicit --sdk flag (which sets
+        # CLAUDE_MPM_RUNTIME=sdk above). Previously this block auto-detected SDK
+        # availability and set _will_use_sdk=True for ALL invocations whenever
+        # claude_agent_sdk happened to be importable. That caused the SDK banner
+        # to print and the SDK code path to run even for plain `claude-mpm`
+        # interactive sessions and oneshot --prompt invocations, which then
+        # never reached run_sdk_oneshot() and exited with code 1. See bug #486.
+        _will_use_sdk = os.environ.get("CLAUDE_MPM_RUNTIME") == "sdk"
+
+        if _will_use_sdk:
+            print("SDK Mode -- persistent session active")
+            print("   Type /help for commands, /exit to end session")
+            print()
+            os.environ["CLAUDE_MPM_SDK_BANNER_SHOWN"] = "1"
+
+        if is_headless:
+            # Headless mode: Run services quietly (stdout -> stderr)
+            # No progress bar - stdout must stay clean for JSON streaming
+            run_background_services(
+                force_sync=force_sync, headless=True, no_sync=no_sync
+            )
+        else:
+            # Normal mode: Show single-line startup progress bar.
+            # StartupProgressBar suppresses sub-step stdout while active,
+            # then clears itself so Claude's output starts on a clean line.
+            _startup_steps = [
+                "Syncing hooks & agents",
+                "Loading project registry",
+                "Checking MCP config",
+                "Starting MCP gateway",
+                "Checking for updates",
+                "Loading skills",
+                "Syncing remote skills",
+                "Discovering skills",
+                "Building domain skills",
+                "Verifying PM skills",
+                "Configuring output",
+                "Setting up browser tools",
+            ]
+            with StartupProgressBar(
+                steps=_startup_steps,
+                title="Loading claude-mpm",
+            ) as startup_pb:
+                run_background_services(
+                    force_sync=force_sync,
+                    headless=False,
+                    no_sync=no_sync,
+                    progress=startup_pb,
+                )
+            # Progress bar cleared on __exit__; now show the "starting" notice
+            # Inform user about Claude Code initialization delay (3-5 seconds)
+            # This message appears before os.execvpe() replaces our process
+            # See: docs/research/claude-startup-delay-analysis-2025-12-01.md
+            if not _will_use_sdk:
+                print(
+                    "⏳ Starting Claude Code... (this may take a few seconds)",
+                    flush=True,
+                )
+
+    if hasattr(args, "debug") and args.debug:
+        logger.debug(f"Command: {args.command}")
+        logger.debug(f"Arguments: {args}")
+
+    if not args.command:
+        args.command = CLICommands.RUN.value
+        ensure_run_attributes(args)
+
+    try:
+        return execute_command(args.command, args)
+    except KeyboardInterrupt:
+        logger.info("Session interrupted by user")
+        return 0
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        if args.debug:
+            import traceback
+
+            traceback.print_exc()
+        return 1
+
+
+# For backward compatibility - export main
+if __name__ == "__main__":
+    sys.exit(main())

@@ -13,7 +13,7 @@ use crate::hook::{Hook, InstallInfo, InstalledHook};
 use crate::languages::LanguageImpl;
 use crate::languages::python::{Uv, python_exec, query_python_info_cached};
 use crate::process::Cmd;
-use crate::run::CONCURRENCY;
+use crate::run::INTERNAL_CONCURRENCY;
 use crate::store::{CacheBucket, Store, ToolBucket};
 
 #[derive(Debug, Default)]
@@ -111,7 +111,7 @@ impl LanguageImpl for Pygrep {
             // 2) If not found, try to find a system installed Python (system or system uv managed).
             debug!("No managed Python interpreter found, trying to find a system installed one");
             let mut output = uv
-                .cmd("uv python find", store)
+                .cmd(store)
                 .arg("python")
                 .arg("find")
                 .arg("--python-preference")
@@ -133,7 +133,7 @@ impl LanguageImpl for Pygrep {
                 // 3) If still not found, try to download a Python interpreter.
                 debug!("No Python interpreter found, trying to install one");
                 output = uv
-                    .cmd("uv python install", store)
+                    .cmd(store)
                     .arg("python")
                     .arg("install")
                     .arg(INSTALL_PYTHON_VERSION)
@@ -200,14 +200,14 @@ impl LanguageImpl for Pygrep {
             .context("Failed to write Python script")?;
 
         let args = Args::parse(&hook.args).context("Failed to parse `args`")?;
-        let mut cmd = Cmd::new(&info.toolchain, "python script")
+        let mut cmd = Cmd::new(&info.toolchain)
             .current_dir(hook.work_dir())
             .envs(&hook.env)
             .arg("-I") // Isolate mode.
             .arg("-B") // Don't write bytecode.
             .arg(py_script.path())
             .args(args.to_args())
-            .arg(CONCURRENCY.to_string())
+            .arg(INTERNAL_CONCURRENCY.to_string())
             .arg(hook.entry.expect_direct().raw())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

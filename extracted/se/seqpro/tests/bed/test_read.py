@@ -1,0 +1,181 @@
+from tempfile import NamedTemporaryFile
+
+import polars as pl
+import pytest
+import seqpro as sp
+from polars.testing import assert_frame_equal
+from pytest_cases import parametrize_with_cases
+
+
+def bed_valid():
+    return pl.DataFrame(
+        {
+            "chrom": ["chr1"],
+            "chromStart": [0],
+            "chromEnd": [2],
+        },
+    )
+
+
+def bed_negative():
+    return pl.DataFrame(
+        {
+            "chrom": ["chr1"],
+            "chromStart": [-1],
+            "chromEnd": [2],
+        }
+    )
+
+
+def bed_null():
+    return pl.DataFrame(
+        {
+            "chrom": ["chr1", "chr1"],
+            "chromStart": [0, 1],
+            "chromEnd": [2, 3],
+            "name": [None, "david"],
+            "score": [None, 0.0],
+            "strand": [None, "+"],
+        }
+    )
+
+
+@pytest.mark.xfail(reason="Region length must be non-negative.")
+def bed_invalid_length():
+    return pl.DataFrame(
+        {
+            "chrom": ["chr1"],
+            "chromStart": [0],
+            "chromEnd": [-1],
+        }
+    )
+
+
+def narrowpeak_valid():
+    return pl.DataFrame(
+        {
+            "chrom": ["chr1"],
+            "chromStart": [0],
+            "chromEnd": [2],
+            "name": ["peak"],
+            "score": [0.0],
+            "strand": ["+"],
+            "signalValue": [0.0],
+            "pValue": [0.0],
+            "qValue": [0.0],
+            "peak": [0],
+        }
+    )
+
+
+def narrowpeak_null():
+    return pl.DataFrame(
+        {
+            "chrom": ["chr1", "chr1"],
+            "chromStart": [0, 1],
+            "chromEnd": [2, 3],
+            "name": ["peak1", "peak2"],
+            "score": [0.0, 0.0],
+            "strand": ["+", "-"],
+            "signalValue": [0.0, 0.0],
+            "pValue": [None, 0.2],
+            "qValue": [None, 0.3],
+            "peak": [None, 0],
+        },
+    )
+
+
+@pytest.mark.xfail(reason="Peak < 0.")
+def narrowpeak_invalid():
+    return pl.DataFrame(
+        {
+            "chrom": ["chr1"],
+            "chromStart": [0],
+            "chromEnd": [2],
+            "name": ["peak"],
+            "score": [0.0],
+            "strand": ["+"],
+            "signalValue": [0.0],
+            "pValue": [0.0],
+            "qValue": [0.0],
+            "peak": [-2],
+        }
+    )
+
+
+def broadpeak_valid():
+    return pl.DataFrame(
+        {
+            "chrom": ["chr1"],
+            "chromStart": [0],
+            "chromEnd": [2],
+            "name": ["peak"],
+            "score": [0.0],
+            "strand": ["+"],
+            "signalValue": [0.0],
+            "pValue": [0.0],
+            "qValue": [0.0],
+        }
+    )
+
+
+@parametrize_with_cases("bed", cases=".", prefix="bed_")
+def test_read_bed(bed: pl.DataFrame):
+    with NamedTemporaryFile("w+", suffix=".bed") as f:
+        fill_null = [
+            pl.col(col).fill_null(".")
+            for col in {"name", "score", "strand"}.intersection(bed.columns)
+        ]
+        bed.with_columns(fill_null).write_csv(
+            f.name, include_header=False, separator="\t"
+        )
+        assert_frame_equal(sp.bed.read(f.name), bed)
+
+
+@parametrize_with_cases("bed", cases=".", prefix="narrowpeak_")
+def test_read_narrowpeak(bed: pl.DataFrame):
+    with NamedTemporaryFile("w+", suffix=".narrowPeak") as f:
+        bed.with_columns(
+            pl.col("name", "score", "strand").fill_null("."),
+            pl.col("pValue", "qValue", "peak").fill_null(-1),
+        ).write_csv(f.name, include_header=False, separator="\t")
+        assert_frame_equal(sp.bed.read(f.name), bed)
+
+
+@parametrize_with_cases("bed", cases=".", prefix="broadpeak_")
+def test_read_broadpeak(bed: pl.DataFrame):
+    with NamedTemporaryFile("w+", suffix=".broadPeak") as f:
+        bed.with_columns(
+            pl.col("name", "score", "strand").fill_null("."),
+            pl.col("pValue", "qValue").fill_null(-1),
+        ).write_csv(f.name, include_header=False, separator="\t")
+        assert_frame_equal(sp.bed.read(f.name), bed)
+
+
+def test_read_returns_polars_dataframe(tmp_path):
+    bed_content = "chr1\t0\t100\tname\t0\t+\n"
+    bed_file = tmp_path / "test.bed"
+    bed_file.write_text(bed_content)
+    result = sp.bed.read(bed_file)
+    assert isinstance(result, pl.DataFrame)
+
+
+def test_read_sets_zero_based_meta(tmp_path):
+    bed_file = tmp_path / "test.bed"
+    bed_file.write_text("chr1\t0\t100\tname\t0\t+\n")
+    result = sp.bed.read(bed_file)
+    assert result.config_meta.get_metadata().get("coordinate_system_zero_based") is True
+
+
+def test_read_narrowpeak_sets_zero_based_meta(tmp_path):
+    peak_file = tmp_path / "test.narrowPeak"
+    peak_file.write_text("chr1\t0\t100\tpeak\t0\t+\t1.0\t-1\t-1\t-1\n")
+    result = sp.bed.read(peak_file)
+    assert result.config_meta.get_metadata().get("coordinate_system_zero_based") is True
+
+
+def test_read_broadpeak_sets_zero_based_meta(tmp_path):
+    peak_file = tmp_path / "test.broadPeak"
+    peak_file.write_text("chr1\t0\t100\tpeak\t0\t+\t1.0\t-1\t-1\n")
+    result = sp.bed.read(peak_file)
+    assert result.config_meta.get_metadata().get("coordinate_system_zero_based") is True

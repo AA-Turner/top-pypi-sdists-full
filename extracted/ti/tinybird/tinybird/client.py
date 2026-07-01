@@ -470,10 +470,26 @@ class TinyB:
     async def datasource_truncate(self, datasource_name: str):
         return await self._req(f"/v0/datasources/{datasource_name}/truncate", method="POST", data="")
 
-    async def datasource_delete_rows(self, datasource_name: str, delete_condition: str, dry_run: bool = False):
-        params = {"delete_condition": delete_condition}
+    async def datasource_delete_rows(
+        self,
+        datasource_name: str,
+        delete_condition: str,
+        dry_run: bool = False,
+        lightweight: bool = False,
+        wait: bool = True,
+        partition: Optional[str] = None,
+        projection_mode: Optional[str] = None,
+    ):
+        params: Dict[str, Any] = {"delete_condition": delete_condition}
+        if lightweight:
+            params["wait"] = "true" if wait else "false"
+            if partition:
+                params["partition"] = partition
+            if projection_mode:
+                params["projection_mode"] = projection_mode
+            return await self._req(f"/v1/datasources/{datasource_name}/delete", method="POST", data=params)
         if dry_run:
-            params.update({"dry_run": "true"})
+            params["dry_run"] = "true"
         return await self._req(f"/v0/datasources/{datasource_name}/delete", method="POST", data=params)
 
     async def datasource_dependencies(

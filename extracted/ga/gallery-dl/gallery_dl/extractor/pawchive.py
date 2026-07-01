@@ -69,6 +69,10 @@ class PawchiveExtractor(Extractor):
             service = post["service"]
             creator_id = post["user"]
 
+            if not post.get("has_full", True):
+                self.log.warning("%s: Incomplete/Missing file import ('%s')",
+                                 post["id"], post.get("preview_state"))
+
             if creator_info is not None:
                 key = f"{service}_{creator_id}"
                 if key not in creator_info:

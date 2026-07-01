@@ -28,7 +28,7 @@ class SubAgent:
     model:
         Model identifier. Plain names (e.g. ``"gpt-4.1-mini"``) are sent
         to the OpenAI Agents SDK directly. Names containing a ``/``
-        (e.g. ``"anthropic/claude-sonnet-4-20250514"``) are routed through
+        (e.g. ``"anthropic/claude-sonnet-4-6"``) are routed through
         LiteLLM automatically.
     tools_filter:
         If set, only MCP tools whose names appear in this list will be

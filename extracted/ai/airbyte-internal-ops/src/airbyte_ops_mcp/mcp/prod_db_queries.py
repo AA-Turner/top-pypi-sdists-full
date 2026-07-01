@@ -1958,7 +1958,17 @@ class PinnedConnectorVersionInfo(BaseModel):
     pin_count: int = Field(
         description="Total number of scoped_configuration rows pinning to this version"
     )
-    actor_pins: int = Field(description="Number of actor-scoped pins")
+    breaking_change_pins: int = Field(
+        default=0,
+        description="Number of actor-scoped pins created by breaking changes",
+    )
+    rollout_pins: int = Field(
+        default=0,
+        description="Number of pins created by connector rollouts",
+    )
+    actor_pins: int = Field(
+        description="Number of actor-scoped pins (excludes breaking change and rollout pins)"
+    )
     workspace_pins: int = Field(description="Number of workspace-scoped pins")
     org_pins: int = Field(description="Number of organization-scoped pins")
 
@@ -2021,6 +2031,8 @@ def query_connector_pin_stats(
                 row["last_published"].isoformat() if row.get("last_published") else None
             ),
             pin_count=row["pin_count"],
+            breaking_change_pins=row.get("breaking_change_pins", 0),
+            rollout_pins=row.get("rollout_pins", 0),
             actor_pins=row.get("actor_pins", 0),
             workspace_pins=row.get("workspace_pins", 0),
             org_pins=row.get("org_pins", 0),

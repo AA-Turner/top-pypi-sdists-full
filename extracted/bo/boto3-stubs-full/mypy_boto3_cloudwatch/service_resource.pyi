@@ -45,6 +45,7 @@ from .type_defs import (
     DimensionFilterTypeDef,
     DimensionTypeDef,
     EvaluationCriteriaTypeDef,
+    EvaluationWindowOutputTypeDef,
     GetMetricStatisticsInputMetricGetStatisticsTypeDef,
     GetMetricStatisticsOutputTypeDef,
     MetricDataQueryAlarmTypeDef,
@@ -350,6 +351,7 @@ class Alarm(ServiceResource):
     threshold_metric_id: str
     evaluation_state: EvaluationStateType
     state_transitioned_timestamp: datetime
+    evaluation_window: EvaluationWindowOutputTypeDef
     evaluation_criteria: EvaluationCriteriaTypeDef
     evaluation_interval: int
     meta: CloudWatchResourceMeta  # type: ignore[override]

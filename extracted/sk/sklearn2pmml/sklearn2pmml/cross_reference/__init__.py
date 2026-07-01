@@ -1,13 +1,15 @@
-from pandas import DataFrame
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import FeatureUnion
 from sklearn2pmml.preprocessing import IdentityTransformer
+from sklearn2pmml.util import _is_dataframe, _clear, _copy, _get_column_count, _get_column
 
 import numpy
 
 class Memory(object):
 
-	def __init__(self, data = dict()):
+	def __init__(self, data = None):
+		if data is None:
+			data = dict()
 		self.data = data
 
 	def __getitem__(self, key):
@@ -20,8 +22,8 @@ class Memory(object):
 		del self.data[key]
 
 	def __len__(self):
-		if isinstance(self.data, DataFrame):
-			return self.data.shape[1]
+		if _is_dataframe(self.data):
+			return _get_column_count(self.data)
 		return len(self.data)
 
 	def __contains__(self, key):
@@ -44,10 +46,7 @@ class Memory(object):
 		self.__dict__.update(state)
 
 	def clear(self):
-		if isinstance(self.data, DataFrame):
-			self.data.drop(columns = self.data.columns, inplace = True)
-		else:
-			self.data.clear()
+		self.data = _clear(self.data)
 
 def _set_position(transformers, position):
 	if position == "first":
@@ -91,11 +90,8 @@ class Memorizer(_BaseMemoryManager):
 		if X.shape[1] != len(self.names):
 			raise ValueError()
 		for idx, name in enumerate(self.names):
-			if isinstance(X, DataFrame):
-				x = X.iloc[:, idx]
-			else:
-				x = X[:, idx]
-			self.memory[name] = x.copy()
+			x = _get_column(X, idx)
+			self.memory[name] = _copy(x)
 		return numpy.empty(shape = (X.shape[0], 0), dtype = int)
 
 	def get_feature_names_out(self, input_features = None):
@@ -119,7 +115,7 @@ class Recaller(_BaseMemoryManager):
 		result = []
 		for idx, name in enumerate(self.names):
 			x = self.memory[name]
-			result.append(x.copy())
+			result.append(_copy(x))
 			if self.clear_after:
 				del self.memory[name]
 		return numpy.asarray(result).T

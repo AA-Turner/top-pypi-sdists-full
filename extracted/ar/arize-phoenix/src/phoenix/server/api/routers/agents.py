@@ -20,7 +20,7 @@ from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.trace import SpanContext, format_span_id, format_trace_id
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator
 from pydantic.alias_generators import to_camel
-from pydantic_ai import AgentRunResult, RunUsage
+from pydantic_ai import AgentRunResult
 from pydantic_ai.ui.vercel_ai import VercelAIAdapter
 from pydantic_ai.ui.vercel_ai.request_types import (
     RegenerateMessage,
@@ -35,6 +35,7 @@ from pydantic_ai.ui.vercel_ai.response_types import (
     ToolInputAvailableChunk,
     ToolOutputAvailableChunk,
 )
+from pydantic_ai.usage import RunUsage
 from sqlalchemy import Insert, exists, func, select
 from sqlalchemy.dialects.postgresql import insert as insert_postgresql
 from sqlalchemy.dialects.sqlite import insert as insert_sqlite
@@ -89,8 +90,9 @@ from phoenix.server.api.types.SandboxConfig import (
     get_sandbox_backend_info,
 )
 from phoenix.server.bearer_auth import PhoenixUser, is_authenticated
+from phoenix.server.dml_event import DmlEvent, SpanInsertEvent
 from phoenix.server.sandbox import SecretsContext
-from phoenix.server.types import DbSessionFactory
+from phoenix.server.types import CanPutItem, DbSessionFactory
 from phoenix.tracers import Tracer, detached_otel_context
 
 _PHOENIX_PROVIDER_METADATA_KEY = "phoenix"
@@ -358,6 +360,8 @@ def _build_message_metadata_chunk(
 
 
 def _build_usage_payload(usage: RunUsage) -> AssistantMessageMetadataUsage:
+    """Convert a run's token usage into the metadata payload, including cache
+    read/write details only when the run actually used the prompt cache."""
     usage_payload = AssistantMessageMetadataUsage(
         tokens=AssistantMessageMetadataUsageTokens(
             prompt=usage.input_tokens,
@@ -377,7 +381,8 @@ async def _persist_db_traces(
     *,
     session: AsyncSession,
     db_traces: list[models.Trace],
-) -> None:
+) -> tuple[int, ...]:
+    project_ids = tuple(dict.fromkeys(db_trace.project_rowid for db_trace in db_traces))
     project_sessions = [
         db_trace.project_session for db_trace in db_traces if db_trace.project_session is not None
     ]
@@ -391,6 +396,22 @@ async def _persist_db_traces(
         # from the relationship and doesn't try to cascade-insert a duplicate.
         db_trace.project_session = persistent_by_session_id[project_session.session_id]
     session.add_all(db_traces)
+    await session.flush()
+    return project_ids
+
+
+async def _persist_db_traces_and_emit_event(
+    *,
+    db: DbSessionFactory,
+    event_queue: CanPutItem[DmlEvent],
+    db_traces: list[models.Trace],
+) -> None:
+    if not db_traces:
+        return
+    async with db() as session:
+        project_ids = await _persist_db_traces(session=session, db_traces=db_traces)
+    if project_ids:
+        event_queue.put(SpanInsertEvent(project_ids))
 
 
 async def _load_available_sandbox_backend_types(
@@ -678,6 +699,22 @@ def create_agents_router(authentication_enabled: bool) -> APIRouter:
         request: Request,
         request_body: ChatRequest,
     ) -> Response:
+        """Stream a chat turn from the GraphQL server agent.
+
+        This is the endpoint the PXI CLI talks to directly (no pre-configured
+        agent record): it builds a fresh server agent per request from the
+        caller-supplied model and contexts, then streams the reply back as
+        Vercel-AI chunks.
+
+        The request contexts gate capabilities — GraphQL mutations, web access,
+        and subagents — and mutations are refused for viewer users. When trace
+        recording is enabled (and permitted by system settings), the run is
+        traced; locally ingested traces are persisted to the agent's project
+        once the stream completes.
+
+        Returns ``403`` if agents or the server agent are disabled, or if a
+        viewer requests mutations.
+        """
         if not request.app.state.system_settings.agent_assistant_enabled.enabled:
             raise HTTPException(status_code=403, detail="Agents are disabled")
         if get_env_phoenix_agents_disable_bash():
@@ -751,7 +788,7 @@ def create_agents_router(authentication_enabled: bool) -> APIRouter:
             yield _build_message_metadata_chunk(
                 span_context=agent_span_recorder.span_context if agent_span_recorder else None,
                 session_id=session_id,
-                usage=result.usage(),
+                usage=result.usage,
             )
             _log_run_complete(result)
 
@@ -776,10 +813,11 @@ def create_agents_router(authentication_enabled: bool) -> APIRouter:
                             request.app.state.db, project_name
                         )
                         db_traces = tracer.get_db_traces(project_id=project_id)
-                        if db_traces:
-                            async with request.app.state.db() as session:
-                                await _persist_db_traces(session=session, db_traces=db_traces)
-                                await session.flush()
+                        await _persist_db_traces_and_emit_event(
+                            db=request.app.state.db,
+                            event_queue=request.state.event_queue,
+                            db_traces=db_traces,
+                        )
                     tracer.tracer_provider.shutdown()
 
         return adapter.streaming_response(_stream_with_session())
@@ -947,7 +985,7 @@ def create_agents_router(authentication_enabled: bool) -> APIRouter:
             yield _build_message_metadata_chunk(
                 span_context=agent_span_recorder.span_context if agent_span_recorder else None,
                 session_id=session_id,
-                usage=result.usage(),
+                usage=result.usage,
             )
             _log_run_complete(result)
 
@@ -1017,10 +1055,11 @@ def create_agents_router(authentication_enabled: bool) -> APIRouter:
                             request.app.state.db, project_name
                         )
                         db_traces = tracer.get_db_traces(project_id=project_id)
-                        if db_traces:
-                            async with request.app.state.db() as session:
-                                await _persist_db_traces(session=session, db_traces=db_traces)
-                                await session.flush()
+                        await _persist_db_traces_and_emit_event(
+                            db=request.app.state.db,
+                            event_queue=request.state.event_queue,
+                            db_traces=db_traces,
+                        )
                     tracer.tracer_provider.shutdown()
 
         return adapter.streaming_response(_stream_with_session())
@@ -1087,10 +1126,11 @@ def create_agents_router(authentication_enabled: bool) -> APIRouter:
                 if ingest_traces:
                     project_id = await _ensure_project_exists(request.app.state.db, project_name)
                     db_traces = tracer.get_db_traces(project_id=project_id)
-                    if db_traces:
-                        async with request.app.state.db() as session:
-                            await _persist_db_traces(session=session, db_traces=db_traces)
-                            await session.flush()
+                    await _persist_db_traces_and_emit_event(
+                        db=request.app.state.db,
+                        event_queue=request.state.event_queue,
+                        db_traces=db_traces,
+                    )
                 tracer.tracer_provider.shutdown()
         return _SummarizeResponse(summary=result.summary.strip())
 

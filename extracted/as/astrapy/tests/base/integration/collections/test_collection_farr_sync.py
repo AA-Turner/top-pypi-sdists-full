@@ -14,10 +14,14 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from astrapy.cursors import RerankedResult
 from astrapy.data_types import DataAPIVector
+from astrapy.exceptions import DataAPIResponseException
+from astrapy.info import CollectionRerankOptions, RerankServiceOptions
 
 from ..conftest import IS_ASTRA_DB, USE_RERANKER_API_KEY_HEADER, DefaultCollection
 
@@ -83,7 +87,7 @@ class TestCollectionFindAndRerankSync:
         assert all(len(hit.scores) > 0 for hit in hits)
         # some scores can get back as None or integer
         assert all(
-            all(isinstance(sc, (float, int, type(None))) for sc in hit.scores.values())
+            all(isinstance(sc, float | int | type(None)) for sc in hit.scores.values())
             for hit in hits
         )
         assert all(
@@ -126,6 +130,83 @@ class TestCollectionFindAndRerankSync:
         assert len(cur_no_hl.to_list()) == 2
         assert len(cur_nu_hl.to_list()) == 2
         assert len(cur_ob_hl.to_list()) == 2
+
+    @pytest.mark.skipif(
+        "ASTRAPY_TEST_LATEST_MAIN" not in os.environ,
+        reason="Not in latest-main testing mode",
+    )
+    @pytest.mark.describe(
+        "test of collection find-and-rerank override, vectorize, sync"
+    )
+    def test_collection_farr_override_vectorize_sync(
+        self,
+        sync_empty_farr_vectorize_collection: DefaultCollection,
+        rerankservice_collection_parameters: CollectionRerankOptions,
+    ) -> None:
+        coll = sync_empty_farr_vectorize_collection
+        # insertions
+        coll.insert_many(
+            [
+                {
+                    "_id": "01",
+                    "$vectorize": "this is a cat",
+                    "$lexical": "a cat",
+                    "tag": "test01",
+                },
+                {
+                    "_id": "01b",
+                    "$vectorize": "this is a lynx",
+                    "$lexical": "a lynx",
+                    "tag": "test01",
+                },
+                {
+                    "_id": "02",
+                    "$hybrid": "this is a dog",
+                    "tag": "test01",
+                },
+                {
+                    "_id": "03",
+                    "$hybrid": {
+                        "$vectorize": "this is a Pucciniomycotina",
+                        "$lexical": "Pucciniomycotina, my dear rust fungus",
+                    },
+                    "tag": "test01",
+                },
+            ]
+        )
+        farr_baseline = coll.find_and_rerank(
+            {},
+            sort={"$hybrid": "bla"},
+            projection={"$vectorize": True},
+            include_scores=True,
+            limit=5,
+        ).to_list()
+
+        override_service = rerankservice_collection_parameters.service
+        farr_override = coll.find_and_rerank(
+            {},
+            sort={"$hybrid": "bla"},
+            projection={"$vectorize": True},
+            include_scores=True,
+            limit=5,
+            rerank_service=override_service,
+        ).to_list()
+
+        assert len(farr_baseline) == len(farr_override)
+        assert [rres.document["_id"] for rres in farr_baseline] == [
+            rres.document["_id"] for rres in farr_override
+        ]
+
+        with pytest.raises(DataAPIResponseException, match="Invalid reranking service"):
+            wrong_service = RerankServiceOptions("bla", "ble")
+            coll.find_and_rerank(
+                {},
+                sort={"$hybrid": "bla"},
+                projection={"$vectorize": True},
+                include_scores=True,
+                limit=5,
+                rerank_service=wrong_service,
+            ).to_list()
 
     @pytest.mark.describe("test of collection find-and-rerank novectorize, sync")
     def test_collection_farr_novectorize_sync(
@@ -173,7 +254,7 @@ class TestCollectionFindAndRerankSync:
         assert all(len(hit.scores) > 0 for hit in hits)
         # some scores can get back as None or integer
         assert all(
-            all(isinstance(sc, (float, int, type(None))) for sc in hit.scores.values())
+            all(isinstance(sc, float | int | type(None)) for sc in hit.scores.values())
             for hit in hits
         )
         assert all(
@@ -222,6 +303,78 @@ class TestCollectionFindAndRerankSync:
         assert len(cur_nu_hl.to_list()) == 2
         assert len(cur_ob_hl.to_list()) == 2
 
+    @pytest.mark.skipif(
+        "ASTRAPY_TEST_LATEST_MAIN" not in os.environ,
+        reason="Not in latest-main testing mode",
+    )
+    @pytest.mark.describe(
+        "test of collection find-and-rerank rerank override, novectorize, sync"
+    )
+    def test_collection_farr_override_novectorize_sync(
+        self,
+        sync_empty_farr_vector_collection: DefaultCollection,
+        rerankservice_collection_parameters: CollectionRerankOptions,
+    ) -> None:
+        coll = sync_empty_farr_vector_collection
+        # insertions
+        coll.insert_many(
+            [
+                {
+                    "_id": "01",
+                    "text_content": "this is a cat",
+                    "$vector": [1, 2],
+                    "$lexical": "a cat",
+                    "tag": "test01",
+                },
+                {
+                    "_id": "01b",
+                    "text_content": "this is a lynx",
+                    "$vector": [2, 1],
+                    "$lexical": "a lynx",
+                    "tag": "test01",
+                },
+            ]
+        )
+        farr_baseline = coll.find_and_rerank(
+            {},
+            sort={"$hybrid": {"$vector": [0, 1], "$lexical": "bla"}},
+            projection={"$vector": True},
+            include_scores=True,
+            limit=5,
+            rerank_on="text_content",
+            rerank_query="blaa",
+        ).to_list()
+
+        override_service = rerankservice_collection_parameters.service
+        farr_override = coll.find_and_rerank(
+            {},
+            sort={"$hybrid": {"$vector": [0, 1], "$lexical": "bla"}},
+            projection={"$vector": True},
+            include_scores=True,
+            limit=5,
+            rerank_on="text_content",
+            rerank_query="blaa",
+            rerank_service=override_service,
+        ).to_list()
+
+        assert len(farr_baseline) == len(farr_override)
+        assert [rres.document["_id"] for rres in farr_baseline] == [
+            rres.document["_id"] for rres in farr_override
+        ]
+
+        with pytest.raises(DataAPIResponseException, match="Invalid reranking service"):
+            wrong_service = RerankServiceOptions("bla", "ble")
+            coll.find_and_rerank(
+                {},
+                sort={"$hybrid": {"$vector": [0, 1], "$lexical": "bla"}},
+                projection={"$vector": True},
+                include_scores=True,
+                limit=5,
+                rerank_on="text_content",
+                rerank_query="blaa",
+                rerank_service=wrong_service,
+            ).to_list()
+
     @pytest.mark.describe(
         "test of collection find-and-rerank include_scores, vectorize, sync"
     )
@@ -249,7 +402,7 @@ class TestCollectionFindAndRerankSync:
         assert itm_f.scores == {}
         assert itm_t.scores != {}
         assert all(
-            isinstance(val, (float, int, type(None))) for val in itm_t.scores.values()
+            isinstance(val, float | int | type(None)) for val in itm_t.scores.values()
         )
 
     @pytest.mark.describe(
@@ -287,7 +440,7 @@ class TestCollectionFindAndRerankSync:
         assert itm_f.scores == {}
         assert itm_t.scores != {}
         assert all(
-            isinstance(val, (float, int, type(None))) for val in itm_t.scores.values()
+            isinstance(val, float | int | type(None)) for val in itm_t.scores.values()
         )
 
     @pytest.mark.describe(
@@ -313,7 +466,7 @@ class TestCollectionFindAndRerankSync:
         assert cur_n0.get_sort_vector() is None
         assert cur_f0.get_sort_vector() is None
         gsv_t0 = cur_t0.get_sort_vector()
-        assert isinstance(gsv_t0, (list, DataAPIVector))
+        assert isinstance(gsv_t0, list | DataAPIVector)
         assert isinstance(gsv_t0[0], float)
 
         cur_n1 = coll.find_and_rerank(sort={"$hybrid": "bla"})
@@ -332,7 +485,7 @@ class TestCollectionFindAndRerankSync:
         assert cur_n1.get_sort_vector() is None
         assert cur_f1.get_sort_vector() is None
         gsv_t1 = cur_t1.get_sort_vector()
-        assert isinstance(gsv_t1, (list, DataAPIVector))
+        assert isinstance(gsv_t1, list | DataAPIVector)
         assert isinstance(gsv_t1[0], float)
 
         cur_n2 = coll.find_and_rerank(sort={"$hybrid": "bla"})
@@ -351,7 +504,7 @@ class TestCollectionFindAndRerankSync:
         assert cur_n2.get_sort_vector() is None
         assert cur_f2.get_sort_vector() is None
         gsv_t2 = cur_t2.get_sort_vector()
-        assert isinstance(gsv_t2, (list, DataAPIVector))
+        assert isinstance(gsv_t2, list | DataAPIVector)
         assert isinstance(gsv_t2[0], float)
 
     @pytest.mark.describe(
@@ -385,7 +538,7 @@ class TestCollectionFindAndRerankSync:
         assert cur_n0.get_sort_vector() is None
         assert cur_f0.get_sort_vector() is None
         gsv_t0 = cur_t0.get_sort_vector()
-        assert isinstance(gsv_t0, (list, DataAPIVector))
+        assert isinstance(gsv_t0, list | DataAPIVector)
         assert isinstance(gsv_t0[0], float)
 
         cur_n1 = coll.find_and_rerank(
@@ -412,7 +565,7 @@ class TestCollectionFindAndRerankSync:
         assert cur_n1.get_sort_vector() is None
         assert cur_f1.get_sort_vector() is None
         gsv_t1 = cur_t1.get_sort_vector()
-        assert isinstance(gsv_t1, (list, DataAPIVector))
+        assert isinstance(gsv_t1, list | DataAPIVector)
         assert isinstance(gsv_t1[0], float)
 
         cur_n2 = coll.find_and_rerank(
@@ -439,5 +592,5 @@ class TestCollectionFindAndRerankSync:
         assert cur_n2.get_sort_vector() is None
         assert cur_f2.get_sort_vector() is None
         gsv_t2 = cur_t2.get_sort_vector()
-        assert isinstance(gsv_t2, (list, DataAPIVector))
+        assert isinstance(gsv_t2, list | DataAPIVector)
         assert isinstance(gsv_t2[0], float)

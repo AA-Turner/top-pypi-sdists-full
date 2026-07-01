@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: confluent-kafka
-Version: 2.14.2
+Version: 2.15.0
 Summary: Confluent's Python client for Apache Kafka
 Author-email: "Confluent Inc." <support@confluent.io>
 Project-URL: Homepage, https://github.com/confluentinc/confluent-kafka-python
@@ -56,14 +56,20 @@ Requires-Dist: certifi; extra == "avro"
 Requires-Dist: httpx>=0.26; extra == "avro"
 Requires-Dist: authlib>=1.0.0; extra == "avro"
 Provides-Extra: json
-Requires-Dist: pyrsistent; extra == "json"
 Requires-Dist: jsonschema>=4.18.0; extra == "json"
-Requires-Dist: orjson>=3.10; extra == "json"
 Requires-Dist: attrs>=21.2.0; extra == "json"
 Requires-Dist: cachetools>=5.5.0; extra == "json"
 Requires-Dist: certifi; extra == "json"
 Requires-Dist: httpx>=0.26; extra == "json"
 Requires-Dist: authlib>=1.0.0; extra == "json"
+Provides-Extra: json-fast
+Requires-Dist: jsonschema>=4.18.0; extra == "json-fast"
+Requires-Dist: orjson>=3.10; extra == "json-fast"
+Requires-Dist: attrs>=21.2.0; extra == "json-fast"
+Requires-Dist: cachetools>=5.5.0; extra == "json-fast"
+Requires-Dist: certifi; extra == "json-fast"
+Requires-Dist: httpx>=0.26; extra == "json-fast"
+Requires-Dist: authlib>=1.0.0; extra == "json-fast"
 Provides-Extra: protobuf
 Requires-Dist: googleapis-common-protos; extra == "protobuf"
 Requires-Dist: protobuf; extra == "protobuf"
@@ -72,6 +78,8 @@ Requires-Dist: cachetools>=5.5.0; extra == "protobuf"
 Requires-Dist: certifi; extra == "protobuf"
 Requires-Dist: httpx>=0.26; extra == "protobuf"
 Requires-Dist: authlib>=1.0.0; extra == "protobuf"
+Provides-Extra: oauthbearer-aws
+Requires-Dist: boto3>=1.42.25; extra == "oauthbearer-aws"
 Provides-Extra: dev
 Requires-Dist: sphinx; extra == "dev"
 Requires-Dist: sphinx-rtd-theme; extra == "dev"
@@ -90,9 +98,7 @@ Requires-Dist: fastavro<1.8.0,>=1.5.4; python_version == "3.7" and extra == "dev
 Requires-Dist: fastavro<2,>=1.5.4; python_version > "3.7" and extra == "dev"
 Requires-Dist: requests; extra == "dev"
 Requires-Dist: avro<2,>=1.11.1; extra == "dev"
-Requires-Dist: pyrsistent; extra == "dev"
 Requires-Dist: jsonschema>=4.18.0; extra == "dev"
-Requires-Dist: orjson>=3.10; extra == "dev"
 Requires-Dist: googleapis-common-protos; extra == "dev"
 Requires-Dist: protobuf; extra == "dev"
 Requires-Dist: azure-identity; extra == "dev"
@@ -113,7 +119,6 @@ Requires-Dist: mypy; extra == "dev"
 Requires-Dist: attrs; extra == "dev"
 Requires-Dist: types-cachetools; extra == "dev"
 Requires-Dist: types-requests; extra == "dev"
-Requires-Dist: orjson; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-timeout; extra == "dev"
 Requires-Dist: requests-mock; extra == "dev"
@@ -146,11 +151,10 @@ Requires-Dist: fastavro<1.8.0,>=1.5.4; python_version == "3.7" and extra == "dev
 Requires-Dist: fastavro<2,>=1.5.4; python_version > "3.7" and extra == "dev"
 Requires-Dist: requests; extra == "dev"
 Requires-Dist: avro<2,>=1.11.1; extra == "dev"
-Requires-Dist: pyrsistent; extra == "dev"
 Requires-Dist: jsonschema>=4.18.0; extra == "dev"
-Requires-Dist: orjson>=3.10; extra == "dev"
 Requires-Dist: googleapis-common-protos; extra == "dev"
 Requires-Dist: protobuf; extra == "dev"
+Requires-Dist: boto3>=1.42.25; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"
@@ -178,9 +182,7 @@ Requires-Dist: fastavro<1.8.0,>=1.5.4; python_version == "3.7" and extra == "doc
 Requires-Dist: fastavro<2,>=1.5.4; python_version > "3.7" and extra == "docs"
 Requires-Dist: requests; extra == "docs"
 Requires-Dist: avro<2,>=1.11.1; extra == "docs"
-Requires-Dist: pyrsistent; extra == "docs"
 Requires-Dist: jsonschema>=4.18.0; extra == "docs"
-Requires-Dist: orjson>=3.10; extra == "docs"
 Requires-Dist: googleapis-common-protos; extra == "docs"
 Requires-Dist: protobuf; extra == "docs"
 Provides-Extra: tests
@@ -190,7 +192,6 @@ Requires-Dist: mypy; extra == "tests"
 Requires-Dist: attrs; extra == "tests"
 Requires-Dist: types-cachetools; extra == "tests"
 Requires-Dist: types-requests; extra == "tests"
-Requires-Dist: orjson; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-timeout; extra == "tests"
 Requires-Dist: requests-mock; extra == "tests"
@@ -223,11 +224,10 @@ Requires-Dist: fastavro<1.8.0,>=1.5.4; python_version == "3.7" and extra == "tes
 Requires-Dist: fastavro<2,>=1.5.4; python_version > "3.7" and extra == "tests"
 Requires-Dist: requests; extra == "tests"
 Requires-Dist: avro<2,>=1.11.1; extra == "tests"
-Requires-Dist: pyrsistent; extra == "tests"
 Requires-Dist: jsonschema>=4.18.0; extra == "tests"
-Requires-Dist: orjson>=3.10; extra == "tests"
 Requires-Dist: googleapis-common-protos; extra == "tests"
 Requires-Dist: protobuf; extra == "tests"
+Requires-Dist: boto3>=1.42.25; extra == "tests"
 Provides-Extra: examples
 Requires-Dist: confluent-kafka; extra == "examples"
 Requires-Dist: fastapi; extra == "examples"
@@ -242,9 +242,7 @@ Requires-Dist: fastavro<1.8.0,>=1.5.4; python_version == "3.7" and extra == "exa
 Requires-Dist: fastavro<2,>=1.5.4; python_version > "3.7" and extra == "examples"
 Requires-Dist: requests; extra == "examples"
 Requires-Dist: avro<2,>=1.11.1; extra == "examples"
-Requires-Dist: pyrsistent; extra == "examples"
 Requires-Dist: jsonschema>=4.18.0; extra == "examples"
-Requires-Dist: orjson>=3.10; extra == "examples"
 Requires-Dist: googleapis-common-protos; extra == "examples"
 Requires-Dist: protobuf; extra == "examples"
 Requires-Dist: azure-identity; extra == "examples"
@@ -284,9 +282,7 @@ Requires-Dist: fastavro<1.8.0,>=1.5.4; python_version == "3.7" and extra == "all
 Requires-Dist: fastavro<2,>=1.5.4; python_version > "3.7" and extra == "all"
 Requires-Dist: requests; extra == "all"
 Requires-Dist: avro<2,>=1.11.1; extra == "all"
-Requires-Dist: pyrsistent; extra == "all"
 Requires-Dist: jsonschema>=4.18.0; extra == "all"
-Requires-Dist: orjson>=3.10; extra == "all"
 Requires-Dist: googleapis-common-protos; extra == "all"
 Requires-Dist: protobuf; extra == "all"
 Requires-Dist: azure-identity; extra == "all"
@@ -307,7 +303,6 @@ Requires-Dist: mypy; extra == "all"
 Requires-Dist: attrs; extra == "all"
 Requires-Dist: types-cachetools; extra == "all"
 Requires-Dist: types-requests; extra == "all"
-Requires-Dist: orjson; extra == "all"
 Requires-Dist: pytest; extra == "all"
 Requires-Dist: pytest-timeout; extra == "all"
 Requires-Dist: requests-mock; extra == "all"
@@ -340,11 +335,10 @@ Requires-Dist: fastavro<1.8.0,>=1.5.4; python_version == "3.7" and extra == "all
 Requires-Dist: fastavro<2,>=1.5.4; python_version > "3.7" and extra == "all"
 Requires-Dist: requests; extra == "all"
 Requires-Dist: avro<2,>=1.11.1; extra == "all"
-Requires-Dist: pyrsistent; extra == "all"
 Requires-Dist: jsonschema>=4.18.0; extra == "all"
-Requires-Dist: orjson>=3.10; extra == "all"
 Requires-Dist: googleapis-common-protos; extra == "all"
 Requires-Dist: protobuf; extra == "all"
+Requires-Dist: boto3>=1.42.25; extra == "all"
 Dynamic: license-file
 
 # Confluent's Python Client for Apache Kafka®
@@ -373,6 +367,7 @@ Unlike the basic Apache Kafka Python client, `confluent-kafka-python` provides:
 
 - **High Performance & Reliability**: Built on [`librdkafka`](https://github.com/confluentinc/librdkafka), the battle-tested C client for Apache Kafka, ensuring maximum throughput, low latency, and stability. The client is supported by Confluent and is trusted in mission-critical production environments.
 - **Comprehensive Kafka Support**: Full support for the Kafka protocol, transactions, and administration APIs.
+- **Queues for Kafka (Preview)**: A `ShareConsumer` ([KIP-932](https://cwiki.apache.org/confluence/display/KAFKA/KIP-932%3A+Queues+for+Kafka)) for queue-like, cooperative consumption with per-record acknowledgement. See the [Share Consumer guide](docs/kip-932-share-consumer.md). **Preview** — not recommended for production.
 - **AsyncIO Producer**: A fully asynchronous producer (`AIOProducer`) for seamless integration with modern Python applications using `asyncio`.
 - **Seamless Schema Registry Integration**: Synchronous and asynchronous clients for Confluent Schema Registry to handle schema management and serialization (Avro, Protobuf, JSON Schema).
 - **Improved Error Handling**: Detailed, context-aware error messages and exceptions to speed up debugging and troubleshooting.
@@ -612,7 +607,10 @@ for topic, f in fs.items():
 ```
 ## Thread safety
 
-The `Producer`, `Consumer`, and `AdminClient` are all thread safe.
+The `Producer`, `Consumer`, and `AdminClient` are all thread safe. The
+`ShareConsumer` (Preview) is **not** thread safe — a single instance must not
+be used concurrently from multiple threads (see the
+[Share Consumer guide](docs/kip-932-share-consumer.md)).
 ## Install
 
 ```bash
@@ -626,6 +624,9 @@ pip install "confluent-kafka[protobuf,schemaregistry]" # Protobuf
 
 # With Data Contract rules (includes CSFLE support)
 pip install "confluent-kafka[avro,schemaregistry,rules]"
+
+# With AWS IAM OAUTHBEARER authentication (mints JWTs via AWS STS GetWebIdentityToken)
+pip install "confluent-kafka[oauthbearer-aws]"
 ```
 
 **Note:** Pre-built Linux wheels do not include SASL Kerberos/GSSAPI support. For Kerberos, see the source installation instructions in [INSTALL.md](INSTALL.md).
@@ -652,6 +653,20 @@ When using Data Contract rules (including CSFLE) add the `rules`extra, e.g.:
 ```bash
 pip install "confluent-kafka[avro,schemaregistry,rules]"
 ```
+
+To authenticate to a Kafka cluster using AWS IAM (when running on EC2, EKS, ECS,
+Fargate, or Lambda with an IAM role attached), add the `oauthbearer-aws` extra:
+
+```bash
+pip install "confluent-kafka[oauthbearer-aws]"
+```
+
+Activation is config-only — set `sasl.oauthbearer.method=oidc`,
+`sasl.oauthbearer.metadata.authentication.type=aws_iam`, and
+`sasl.oauthbearer.config="region=...,audience=..."`. The client mints fresh
+JWTs via AWS STS on every token refresh — no static credentials, no Python-side
+imports. See [`examples/oauth_oidc_ccloud_aws_iam.py`](examples/oauth_oidc_ccloud_aws_iam.py)
+for a worked example.
 
 **Install from source**
 

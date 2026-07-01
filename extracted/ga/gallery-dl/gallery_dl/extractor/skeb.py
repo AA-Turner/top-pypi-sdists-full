@@ -83,7 +83,7 @@ class SkebExtractor(Extractor):
                 user_name = parts[1][1:]
                 post_num = parts[3]
 
-                if post["private"]:
+                if post.get("private"):
                     self.log.debug("Skipping @%s/%s (private)",
                                    user_name, post_num)
                     continue

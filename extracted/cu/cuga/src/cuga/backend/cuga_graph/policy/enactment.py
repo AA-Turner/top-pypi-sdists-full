@@ -29,6 +29,7 @@ class PolicyEnactment:
         state: AgentState,
         config: Optional[RunnableConfig] = None,
         policy_types: Optional[List[PolicyType]] = None,
+        adapter: Any = None,
     ) -> tuple[Optional[Command], Optional[Dict[str, Any]]]:
         """
         Check for applicable policies and return enactment command or metadata.
@@ -103,7 +104,7 @@ class PolicyEnactment:
                     f"Policy matched: {policy_match.policy.name} (action: {policy_match.action.action_type})"
                 )
                 command, metadata = await PolicyEnactment._enact_policy_action(
-                    state, policy_match, policy_system, context
+                    state, policy_match, policy_system, context, adapter
                 )
 
             # ALWAYS apply Tool Guide policies (merge metadata from all matches)
@@ -183,7 +184,11 @@ class PolicyEnactment:
 
     @staticmethod
     async def _enact_policy_action(
-        state: Any, policy_match: PolicyMatch, policy_system: PolicyConfigurable, context: Any
+        state: Any,
+        policy_match: PolicyMatch,
+        policy_system: PolicyConfigurable,
+        context: Any,
+        adapter: Any = None,
     ) -> tuple[Optional[Command], Optional[Dict[str, Any]]]:
         """
         Enact a specific policy action.
@@ -200,7 +205,7 @@ class PolicyEnactment:
         action_type = policy_match.action.action_type
 
         if action_type == PolicyActionType.BLOCK_INTENT:
-            return PolicyEnactment._enact_block_intent(state, policy_match)
+            return PolicyEnactment._enact_block_intent(state, policy_match, adapter)
 
         elif action_type == PolicyActionType.GUIDE_PROMPT:
             return await PolicyEnactment._enact_guide_prompt(state, policy_match, policy_system, context)
@@ -228,7 +233,9 @@ class PolicyEnactment:
             return None, None
 
     @staticmethod
-    def _enact_block_intent(state: Any, policy_match: PolicyMatch) -> tuple[Command, None]:
+    def _enact_block_intent(
+        state: Any, policy_match: PolicyMatch, adapter: Any = None
+    ) -> tuple[Command, None]:
         """
         Block the intent and return immediately with guard response.
 
@@ -243,14 +250,25 @@ class PolicyEnactment:
 
         blocked_message = AIMessage(content=policy_match.action.content)
 
+        # adapter=None preserves the exact legacy Lite literals (back-compat
+        # for the output-formatter caller and any non-adapter path).
+        if adapter is not None:
+            base_messages = adapter.get_messages(state)
+            messages_key = adapter.messages_key
+            metadata_key = adapter.metadata_key
+        else:
+            base_messages = state.chat_messages
+            messages_key = "chat_messages"
+            metadata_key = "cuga_lite_metadata"
+
         return (
             Command(
                 goto=END,
                 update={
-                    "chat_messages": state.chat_messages + [blocked_message],
+                    messages_key: base_messages + [blocked_message],
                     "final_answer": policy_match.action.content,
                     "execution_complete": True,
-                    "cuga_lite_metadata": {
+                    metadata_key: {
                         "policy_blocked": True,
                         "policy_id": policy_match.policy.id,
                         "policy_name": policy_match.policy.name,
@@ -768,6 +786,9 @@ You have been provided with a step-by-step playbook for this task. Follow these 
         """
         from langchain_core.messages import HumanMessage, SystemMessage
         from cuga.backend.llm.models import LLMManager
+        from cuga.backend.cuga_graph.utils.langfuse_tracing import get_langfuse_invoke_config
+
+        lf_invoke_config = get_langfuse_invoke_config()
 
         logger.info(f"Formatting output using policy: {policy_match.policy.name}")
 
@@ -858,7 +879,7 @@ Please reformat this response according to the instructions above."""
                     + [HumanMessage(content=user_prompt)]
                 )
 
-            formatted_response = await llm.ainvoke(messages)
+            formatted_response = await llm.ainvoke(messages, config=lf_invoke_config)
             formatted_content = formatted_response.content
 
         else:  # json_schema
@@ -901,7 +922,7 @@ Extract and format the information from this response as JSON according to the s
                 try:
                     # Use with_structured_output with json_schema method
                     structured_llm = llm.with_structured_output(schema, method="json_schema")
-                    formatted_response = await structured_llm.ainvoke(messages)
+                    formatted_response = await structured_llm.ainvoke(messages, config=lf_invoke_config)
 
                     # Structured output returns a dict, convert to JSON string
                     if isinstance(formatted_response, dict):
@@ -936,7 +957,7 @@ Important:
                             + [HumanMessage(content=user_prompt)]
                         )
 
-                    formatted_response = await llm.ainvoke(messages_fallback)
+                    formatted_response = await llm.ainvoke(messages_fallback, config=lf_invoke_config)
                     formatted_content = formatted_response.content
 
             except json.JSONDecodeError:

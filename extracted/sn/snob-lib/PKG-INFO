@@ -1,0 +1,32 @@
+Metadata-Version: 2.4
+Name: snob_lib
+Version: 0.1.0
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-File: LICENSE
+Summary: A tool that only selects meaningful python tests to run.
+Keywords: snob,pytest,testing,rust,rts,maturin,pyo3
+Home-Page: https://github.com/alexpasmantier/snob
+Author: Alexandre Pasmantier <alex.pasmant@gmail.com>, Bertrand Chardon <bertrand.chardon@gmail.com>
+Author-email: Bertrand Chardon <bertrand.chardon@gmail.com>, Alexandre Pasmantier <alex.pasmant@gmail.com>
+License: MIT
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://github.com/alexpasmantier/snob
+
+# snob 🍵
+
+`snob` is a tool that allows developers to select tests to execute for a given commit. The idea behind it is that most tests are executed for no reason most of the time.
+
+
+
+the rust repo defines two things:
+
+- a lib called `snob_lib`
+- a binary called `snob`
+
+a python package named `snob_lib` is produced using `Maturin` (it's the python version of the rust lib)
+
+we then define a `pytest` plugin that leverages `snob_lib` (especially the exposed `get_tests` function)
+

@@ -30,6 +30,7 @@ __all__ = (
     "AddonStatusType",
     "ArgoCdRoleType",
     "AuthenticationModeType",
+    "CancellationStatusType",
     "CapabilityDeletePropagationPolicyType",
     "CapabilityIssueCodeType",
     "CapabilityStatusType",
@@ -148,6 +149,7 @@ AddonStatusType = Literal[
 ]
 ArgoCdRoleType = Literal["ADMIN", "EDITOR", "VIEWER"]
 AuthenticationModeType = Literal["API", "API_AND_CONFIG_MAP", "CONFIG_MAP"]
+CancellationStatusType = Literal["Failed", "InProgress", "Successful"]
 CapabilityDeletePropagationPolicyType = Literal["RETAIN"]
 CapabilityIssueCodeType = Literal["AccessDenied", "ClusterUnreachable"]
 CapabilityStatusType = Literal[
@@ -155,7 +157,7 @@ CapabilityStatusType = Literal[
 ]
 CapabilityTypeType = Literal["ACK", "ARGOCD", "KRO"]
 CapacityTypesType = Literal["CAPACITY_BLOCK", "ON_DEMAND", "SPOT"]
-CategoryType = Literal["MISCONFIGURATION", "UPGRADE_READINESS"]
+CategoryType = Literal["MISCONFIGURATION", "ROLLBACK_READINESS", "UPGRADE_READINESS"]
 ClusterActiveWaiterName = Literal["cluster_active"]
 ClusterDeletedWaiterName = Literal["cluster_deleted"]
 ClusterIssueCodeType = Literal[
@@ -359,6 +361,7 @@ UpdateTypeType = Literal[
     "RemoteNetworkConfigUpdate",
     "UpgradePolicyUpdate",
     "VendedLogsUpdate",
+    "VersionRollback",
     "VersionUpdate",
     "VpcConfigUpdate",
     "ZonalShiftConfigUpdate",
@@ -559,8 +562,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -656,7 +657,6 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
@@ -742,7 +742,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -763,6 +762,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

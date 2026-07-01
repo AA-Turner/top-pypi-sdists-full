@@ -1,0 +1,29 @@
+schema: 1
+name: self-improvement
+version: "0.1.0"
+description: >
+  Observes agent runs for tool and generation failures, classifies them, and
+  spawns a reflector subagent that proposes skill edits to prevent recurrence.
+  Proposed skills live under skills/proposed; promotion to skills/promoted is
+  explicit.
+
+hooks:
+  - hooks/observer.py
+
+tools:
+  - tools/reflector.py
+  - tools/skill_stats.py
+
+skills:
+  - skills-promoted
+  - skills-proposed
+
+flags:
+  enabled:
+    description: Master switch for the self-improvement loop.
+    default: true
+
+author:
+  name: Dreadnode
+license: MIT
+keywords: [self-improvement, reflection, skills]

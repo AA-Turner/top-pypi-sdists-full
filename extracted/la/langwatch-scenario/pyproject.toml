@@ -1,0 +1,139 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "langwatch-scenario"
+version = "0.7.31"
+description = "The end-to-end agent testing library"
+readme = "README.md"
+authors = [{ name = "LangWatch Team", email = "support@langwatch.ai" }]
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "pytest>=9.0.3",
+    "pytest-rerunfailures>=14.0",
+    "litellm>=1.83.14",
+    "openai>=1.88.0",
+    "python-dotenv>=1.0.1",
+    "termcolor>=2.4.0",
+    "pydantic>=2.7.0",
+    "joblib>=1.4.2",
+    # Pin <2 — wrapt 2.x is RC-only as of 2026-05 and its type stubs
+    # break pyright on `@scenario.cache()`-decorated example agents
+    # (decorated callables surface as accepting 0 positional args).
+    # Revert when wrapt 2.x stabilises and the stubs are correct.
+    "wrapt>=1.17.2,<2",
+    "pytest-asyncio>=0.26.0",
+    "rich>=13.3.3,<15.0.0",
+    "pksuid>=1.1.2",
+    "httpx>=0.27.0",
+    "rx>=3.2.0",
+    "python-dateutil>=2.9.0.post0",
+    "pydantic-settings>=2.9.1",
+    # Pin <0.3 — 0.22.0 imports pandas at module load (via langwatch.evaluation),
+    # which breaks `test (3.12)` CI since pandas is in the [report] extra not
+    # installed by default. Reverting an unbounded floor that surfaced on rebase.
+    "langwatch>=0.2.19,<0.3",
+    "opentelemetry-sdk>=1.20.0",
+    # Voice agent support (issue #350). Hard deps: voice is first-class.
+    # imageio-ffmpeg bundles the ffmpeg binary (not ffplay) for audio
+    # conversion and playback-via-subprocess.
+    "imageio-ffmpeg>=0.5.0",
+    "numpy>=1.26",
+    "webrtcvad-wheels>=2.0",
+    "websockets>=12",
+    # Twilio transport (TwilioAgentAdapter): REST client + webhook server.
+    "twilio>=9.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    # µ-law codec: stdlib `audioop` was removed in Python 3.13; the LTS fork
+    # is a drop-in replacement on 3.13+.
+    "audioop-lts>=0.2.1; python_version>='3.13'",
+    # Gemini Live transport (GeminiLiveAgentAdapter): official async SDK.
+    "google-genai>=1.0",
+    # ElevenLabs TTS provider (elevenlabs/<voice> routing). STT + hosted
+    # Conversational AI adapters use raw httpx; TTS uses the SDK because
+    # its streaming-bytes API cleanly handles chunked PCM without us
+    # reimplementing the framing.
+    "elevenlabs>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "isort",
+    "pytest-cov",
+    "pre-commit",
+    "pyright",
+    "pydantic-ai-slim[openai]>=1.56.0",
+    "function-schema",
+    "pdoc3",
+    "respx",
+]
+# Install with `pip install 'langwatch-scenario[report]'` to use
+# `scenario redteam-report`.
+report = [
+    "streamlit>=1.30",
+    "plotly>=5.0",
+    "pandas>=2.0",
+]
+
+[project.scripts]
+scenario = "scenario.cli:main"
+
+[project.urls]
+"Homepage" = "https://github.com/langwatch/scenario"
+"Bug Tracker" = "https://github.com/langwatch/scenario/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scenario*"]
+
+[tool.setuptools.package-data]
+"scenario" = ["_generated/**/*", "voice/assets/noise/*.wav", "voice/assets/noise/LICENSES.md"]
+
+[tool.pytest.ini_options]
+markers = ["agent_test: marks tests as agent scenario tests"]
+# Per-test timeout deliberately NOT set in ini_options — pytest-timeout's
+# signal and thread methods both failed to isolate hangs in asyncio tests
+# (first hang killed the whole process). @e2e voice tests that hit LLMs
+# can legitimately take 5+ min; unit tests finish fast. Developers hitting
+# a hung test can add @pytest.mark.timeout(N) inline on that test.
+
+[tool.uv]
+constraint-dependencies = [
+    "urllib3>=2.7.0",
+    "python-liquid>=2.2.0",
+    "filelock>=3.20.3",
+    "virtualenv>=20.36.1",
+]
+
+
+[dependency-groups]
+dev = [
+    "function-schema>=0.4.5",
+    "pre-commit>=4.2.0",
+    "pydantic-ai-slim[openai]>=1.56.0",
+    "pyright>=1.1.405",
+    "pytest-asyncio-concurrent>=0.4.1",
+    "pdoc3>=0.11.6",
+    "respx>=0.22.0",
+    # Guard the suite against individual hangs — any test taking longer
+    # than `timeout` in pytest.ini_options below fails fast instead of
+    # pinning the CI runner. Set per-test; global suite has no limit.
+    "pytest-timeout>=2.3",
+    # Voice agents feature contract in specs/voice-agents.feature: pytest-bdd
+    # binds each Scenario to a Python test function so the 83-scenario contract
+    # is verifiable (issue #350). Minimal bindings live under tests/voice/bdd/;
+    # scale-up tracked as follow-up.
+    "pytest-bdd>=8.1.0",
+]

@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: slack_bolt
-Version: 1.28.0
+Version: 1.29.0
 Summary: The Bolt Framework for Python
 Home-page: https://github.com/slackapi/bolt-python
 Author: Slack Technologies, LLC
 Author-email: opensource@slack.com
 License: MIT
 Project-URL: Documentation, https://docs.slack.dev/tools/bolt-python/
+Project-URL: Source, https://github.com/slackapi/bolt-python
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9

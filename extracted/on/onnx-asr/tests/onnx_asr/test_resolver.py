@@ -1,0 +1,237 @@
+import sys
+from pathlib import Path
+from typing import get_args
+
+import pytest
+
+from onnx_asr.asr import Asr, BaseAsr
+from onnx_asr.loader import (
+    AsrNames,
+    AsrTypeNames,
+    VadNames,
+    VadTypeNames,
+    create_asr_resolver,
+    create_se_resolver,
+    create_vad_resolver,
+)
+from onnx_asr.models.kaldi import KaldiTransducer
+from onnx_asr.models.nemo import NemoConformerAED
+from onnx_asr.models.tone import TOneCtc
+from onnx_asr.models.wespeaker import WespeakerEmbeddings
+from onnx_asr.models.whisper import WhisperHf
+from onnx_asr.resolver import Resolver
+from onnx_asr.utils import (
+    InvalidModelTypeInConfigError,
+    ModelFileNotFoundError,
+    ModelNotSupportedError,
+    ModelPathNotDirectoryError,
+    MoreThanOneModelFileFoundError,
+    NoModelNameOrPathSpecifiedError,
+)
+from onnx_asr.vad import BaseVad
+
+
+@pytest.mark.parametrize("model", get_args(AsrNames))
+def test_model_names(model: AsrNames) -> None:
+    loader = create_asr_resolver(model)
+    assert issubclass(loader.model_type, BaseAsr)
+    assert not loader.offline
+    assert loader.local_dir is None
+    assert isinstance(loader.repo_id, str)
+
+
+@pytest.mark.parametrize("model", get_args(AsrNames))
+def test_model_names_with_path(model: AsrNames, tmp_path: Path) -> None:
+    loader = create_asr_resolver(model, tmp_path)
+    assert issubclass(loader.model_type, BaseAsr)
+    assert loader.offline
+    assert loader.local_dir == tmp_path
+    assert isinstance(loader.repo_id, str)
+
+
+@pytest.mark.parametrize(
+    ("model", "type"),
+    [
+        ("alphacep/vosk-model-ru", KaldiTransducer),
+        ("alphacep/vosk-model-small-ru", KaldiTransducer),
+        ("t-tech/t-one", TOneCtc),
+        ("onnx-community/whisper-tiny", WhisperHf),
+        ("istupakov/canary-180m-flash-onnx", NemoConformerAED),
+    ],
+)
+def test_model_repos(model: str, type: type[Asr]) -> None:
+    loader = create_asr_resolver(model)
+    assert loader.model_type == type
+    assert not loader.offline
+    assert loader.local_dir is None
+    assert loader.repo_id == model
+
+
+@pytest.mark.parametrize(
+    ("model", "type"),
+    [
+        ("alphacep/vosk-model-ru", KaldiTransducer),
+        ("alphacep/vosk-model-small-ru", KaldiTransducer),
+        ("t-tech/t-one", TOneCtc),
+    ],
+)
+def test_model_repos_with_path(model: str, tmp_path: Path, type: type[Asr]) -> None:
+    loader = create_asr_resolver(model, tmp_path)
+    assert loader.model_type == type
+    assert loader.offline
+    assert loader.local_dir == tmp_path
+    assert loader.repo_id == model
+
+
+@pytest.mark.parametrize("model", get_args(AsrTypeNames))
+def test_model_types(model: AsrTypeNames, tmp_path: Path) -> None:
+    loader = create_asr_resolver(model, tmp_path)
+    assert issubclass(loader.model_type, BaseAsr)
+    assert loader.offline
+    assert loader.local_dir == tmp_path
+    assert loader.repo_id is None
+
+
+def test_custom_model_type() -> None:
+    loader = Resolver(KaldiTransducer, "alphacep/vosk-model-ru")
+    assert loader.model_type == KaldiTransducer
+    assert not loader.offline
+    assert loader.local_dir is None
+    assert loader.repo_id == "alphacep/vosk-model-ru"
+
+
+def test_custom_model_type_with_path(tmp_path: Path) -> None:
+    loader = Resolver(KaldiTransducer, local_dir=tmp_path)
+    assert loader.model_type == KaldiTransducer
+    assert loader.offline
+    assert loader.local_dir == tmp_path
+    assert loader.repo_id is None
+
+
+def test_model_not_supported_error(tmp_path: Path) -> None:
+    with pytest.raises(ModelNotSupportedError):
+        create_asr_resolver("xxx", tmp_path)
+
+
+@pytest.mark.parametrize("model", get_args(AsrTypeNames))
+def test_no_model_name_or_path_specified_error(model: AsrTypeNames) -> None:
+    with pytest.raises(NoModelNameOrPathSpecifiedError):
+        create_asr_resolver(model)
+
+
+@pytest.mark.parametrize("model", get_args(AsrTypeNames))
+def test_no_model_name_and_empty_path_specified_error(model: AsrTypeNames, tmp_path: Path) -> None:
+    with pytest.raises(NoModelNameOrPathSpecifiedError):
+        create_asr_resolver(model, Path(tmp_path, "model"))
+
+
+@pytest.mark.parametrize("model", get_args(AsrTypeNames))
+def test_model_path_not_found_error(model: AsrTypeNames, tmp_path: Path) -> None:
+    Path(tmp_path, "model").write_text("test")
+    with pytest.raises(ModelPathNotDirectoryError):
+        create_asr_resolver(model, Path(tmp_path, "model"))
+
+
+def test_model_file_not_found_error(tmp_path: Path) -> None:
+    with pytest.raises(ModelFileNotFoundError):
+        create_asr_resolver("onnx-community/whisper-tiny", tmp_path)
+
+
+def test_offline_model_file_not_found_error() -> None:
+    with pytest.raises(ModelFileNotFoundError):
+        create_asr_resolver("onnx-community/whisper-tiny", offline=True).resolve_model(quantization="fp16")
+
+
+def test_invalid_model_type_in_config_error(tmp_path: Path) -> None:
+    Path(tmp_path, "config.json").write_text('{"model_type": "xxx"}')
+    with pytest.raises(InvalidModelTypeInConfigError):
+        create_asr_resolver("onnx-community/whisper-tiny", tmp_path)
+
+
+def test_remote_config_not_found_error() -> None:
+    with pytest.raises(IOError):  # noqa: PT011
+        create_asr_resolver("alphacep/vosk-model-small-ru").resolve_config()
+
+
+def test_offline_config_not_found_error() -> None:
+    with pytest.raises(FileNotFoundError):
+        create_asr_resolver("alphacep/vosk-model-small-ru", offline=True).resolve_config()
+
+
+def test_resolve_model_file_not_found_error() -> None:
+    loader = create_asr_resolver("onnx-community/whisper-tiny")
+    with pytest.raises(ModelFileNotFoundError):
+        loader.resolve_model(quantization="xxx")
+
+
+def test_more_than_one_model_file_found_error() -> None:
+    loader = create_asr_resolver("onnx-community/whisper-tiny.en")
+    with pytest.raises(MoreThanOneModelFileFoundError):
+        loader.resolve_model(quantization="*int8")
+
+
+def test_with_offline_huggingface_hub() -> None:
+    create_asr_resolver("onnx-community/whisper-tiny").resolve_model(quantization="uint8")
+
+    create_asr_resolver("onnx-community/whisper-tiny", offline=True).resolve_model(quantization="uint8")
+
+
+def test_without_huggingface_hub(monkeypatch: pytest.MonkeyPatch) -> None:
+    loader = create_asr_resolver("onnx-community/whisper-tiny")
+
+    path = loader._download_model("uint8", local_files_only=False)
+
+    monkeypatch.setitem(sys.modules, "huggingface_hub", None)
+    loader_with_path = create_asr_resolver("onnx-community/whisper-tiny", path)
+    assert loader_with_path.offline
+    loader_with_path.resolve_model(quantization="uint8")
+
+
+@pytest.mark.parametrize("model", get_args(VadNames))
+def test_vad(model: str) -> None:
+    loader = create_vad_resolver(model)
+    assert issubclass(loader.model_type, BaseVad)
+    assert not loader.offline
+    assert loader.local_dir is None
+    assert isinstance(loader.repo_id, str)
+
+
+@pytest.mark.parametrize("model", ["silero"])
+def test_vad_with_path(model: str, tmp_path: Path) -> None:
+    loader = create_vad_resolver(model, tmp_path)
+    assert issubclass(loader.model_type, BaseVad)
+    assert loader.offline
+    assert loader.local_dir == tmp_path
+    assert isinstance(loader.repo_id, str)
+
+
+@pytest.mark.parametrize("model", get_args(VadTypeNames))
+def test_vad_types(model: VadTypeNames, tmp_path: Path) -> None:
+    loader = create_vad_resolver(model, tmp_path)
+    assert issubclass(loader.model_type, BaseVad)
+    assert loader.offline
+    assert loader.local_dir == tmp_path
+    assert loader.repo_id is None
+
+
+def test_resolve_vad_file_not_found_error() -> None:
+    loader = create_vad_resolver("silero")
+    with pytest.raises(ModelFileNotFoundError):
+        loader.resolve_model(quantization="xxx")
+
+
+@pytest.mark.parametrize("model", ["wespeaker/wespeaker-voxceleb-resnet34"])
+def test_se(model: str) -> None:
+    loader = create_se_resolver(model)
+    assert issubclass(loader.model_type, WespeakerEmbeddings)
+    assert not loader.offline
+    assert loader.local_dir is None
+    assert isinstance(loader.repo_id, str)
+
+
+def test_se_with_path(tmp_path: Path) -> None:
+    loader = create_se_resolver(local_dir=tmp_path)
+    assert issubclass(loader.model_type, WespeakerEmbeddings)
+    assert loader.offline
+    assert loader.local_dir == tmp_path
+    assert loader.repo_id is None

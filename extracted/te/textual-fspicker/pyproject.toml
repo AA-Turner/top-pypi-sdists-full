@@ -1,0 +1,94 @@
+[project]
+name = "textual-fspicker"
+version = "1.0.1"
+description = "A simple Textual filesystem picker dialog library."
+authors = [
+    { name = "Dave Pearson", email = "davep@davep.org" }
+]
+dependencies = [
+    "textual>=1.0.0",
+]
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = [
+    "terminal",
+    "library",
+    "file system",
+    "filesystem",
+    "dialog",
+]
+classifiers = [
+    "Environment :: Console",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Terminals",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://textual-fspicker.davep.dev/"
+Repository = "https://github.com/davep/textual-fspicker"
+Documentation = "https://textual-fspicker.davep.dev/"
+Source = "https://github.com/davep/textual-fspicker"
+Issues = "https://github.com/davep/textual-fspicker/issues"
+Discussions = "https://github.com/davep/textual-fspicker/discussions"
+
+[build-system]
+requires = ["uv_build>=0.8.11"]
+build-backend = "uv_build"
+
+[tool.uv]
+managed = true
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.0.1",
+    "mypy>=1.14.1",
+    "mkdocstrings[python]>=0.28.2",
+    "mkdocs-material>=9.6.5",
+    "ruff>=0.9.8",
+    "codespell>=2.4.1",
+    "ruff>=0.12.9",
+]
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
+
+[tool.pyright]
+venvPath="."
+venv=".venv"
+exclude=[".venv"]
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
+ignore = [
+    # I think try...expect...pass reads far better.
+    "SIM105",
+]
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 120

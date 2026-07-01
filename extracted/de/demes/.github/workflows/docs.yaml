@@ -1,0 +1,83 @@
+name: Build and deploy docs
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags:
+      - '*'
+
+jobs:
+  build-deploy-docs:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # Fetch the history for all tags and branches
+          # so that the correct version string can be constructed
+          # by setuptools_scm.
+          fetch-depth: 0
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements/minimal.txt
+          pip install -r requirements/docs.txt
+          python -m pip install build packaging
+
+      - name: Build package
+        run: |
+          # Generate the version string which appears in the docs.
+          python -m build --sdist
+
+      - name: Build Docs
+        run: |
+          cd docs
+          make
+
+      - name: Checkout docs site
+        if: (!github.event.pull_request)
+        uses: actions/checkout@v3
+        with:
+          repository: popsim-consortium/demes-docs
+          token: ${{ secrets.POPSIMBOT_DEMES_DOCS_TOKEN }}
+          path: demes-docs
+
+      - name: Copy our docs to the tag specific location
+        if: (!github.event.pull_request)
+        run: |
+          cd demes-docs
+          rm -rf ${GITHUB_REF_NAME}
+          cp -r ../docs/_build/html ${GITHUB_REF_NAME}
+          rm -fr latest
+          ln -s ${GITHUB_REF_NAME} latest
+
+      - name: Check if tag is a new stable version
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        run: |
+          if [ -f stable ]; then
+            export STABLE=$(readlink stable)
+          else
+            export STABLE=0
+          fi
+          if python docs/is_new_stable.py ${STABLE} ${GITHUB_REF_NAME}; then
+            # Use for "stable" docs path.
+            echo "new stable is ${GITHUB_REF_NAME}"
+            rm -fr stable
+            ln -s ${GITHUB_REF_NAME} stable
+            echo "STABLE_PATH=stable" >> $GITHUB_ENV
+          fi
+
+      - name: Commit and push the docs
+        if: (!github.event.pull_request)
+        run: |
+          cd demes-docs
+          git config user.name PopSim-bot
+          git config user.email graham.gower+popsim-bot@gmail.com
+          git add .
+          git diff-index --quiet HEAD || git commit -m "Automated doc build for ${GITHUB_REF}"
+          git push

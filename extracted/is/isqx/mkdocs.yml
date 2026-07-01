@@ -1,0 +1,133 @@
+site_name: isqx
+site_description: A system for representing physical units
+repo_name: abc8747/isqx
+repo_url: https://github.com/abc8747/isqx
+site_url: https://abc8747.github.io/isqx/
+nav:
+  - Home: "index.md"
+  - Examples: "examples.md"
+  - API Reference:
+      - isqx (core, fmt): "api/core.md"
+      - isqx (iso80000): "api/iso80000.md"
+      - isqx.usc: "api/usc.md"
+      - isqx.aerospace: "api/aerospace.md"
+      - isqx.details: "api/details.md"
+      - isqx.mkdocs: "api/mkdocs.md"
+  - Design: "design.md"
+  - Visualiser: "vis.md"
+  - Contributing: "contributing.md"
+
+theme:
+  name: material
+  features:
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - navigation.expand
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+plugins:
+  - search
+  - social
+  - isqx:
+      definitions:
+        - isqx._iso80000
+        - isqx.aerospace
+        - isqx.usc
+        - isqx.chemistry
+      details:
+        - isqx.details.iso80000.SPACE_AND_TIME
+        - isqx.details.iso80000.MECHANICS
+        - isqx.details.iso80000.THERMODYNAMICS
+        - isqx.details.iso80000.ELECTROMAGNETISM
+        - isqx.details.iso80000.LIGHT_AND_RADIATION
+        - isqx.details.iso80000.ACOUSTICS
+        - isqx.details.iso80000.PHYSICAL_CHEMISTRY_AND_MOLECULAR_PHYSICS
+        - isqx.details.iso80000.ATOMIC_AND_NUCLEAR_PHYSICS
+        - isqx.details.iso80000.CHARACTERISTIC_NUMBERS
+        - isqx.details.iso80000.CONDENSED_MATTER_PHYSICS
+        - isqx.details.iso80000.INFORMATION_SCIENCE_AND_TECHNOLOGY
+        - isqx.details.chemistry.PHYSICAL_CHEMISTRY
+        - isqx.details.aerospace.AEROSPACE
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          inventories:
+            - https://docs.python.org/3/objects.inv
+            - https://numpy.org/doc/stable/objects.inv
+            - https://mkdocstrings.github.io/griffe/objects.inv
+          options:
+            # NOTE: bug in upstream, with `annotations_path: brief` top level SI unit definitions like `(KG * M * S**-2).alias("newton")` gets incorrectly rendered as `.alias("newton")`
+            # https://github.com/mkdocstrings/python/blob/bac553d8bd87c2ca9a1cd67fc473e2686a4eedc2/src/mkdocstrings_handlers/python/templates/material/_base/expression.html.jinja#L92
+            # this should have the check ` and expression.first.classname in ("ExprName", "ExprAttribute")`
+            annotations_path: source # temporary fix
+            inherited_members: true
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            merge_init_into_class: true
+            docstring_section_style: table
+            signature_crossrefs: true
+            show_if_no_docstring: true
+            show_submodules: false
+            show_source: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_labels: false
+            docstring_style: sphinx
+            group_by_category: false
+      enable_inventory: true
+markdown_extensions:
+  - abbr
+  - attr_list
+  - admonition
+  - footnotes
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.blocks.tab:
+      alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tilde
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      pygments_lang_class: true
+  - pymdownx.inlinehilite:
+      style_plain_text: py3
+  - pymdownx.magiclink
+  - pymdownx.snippets:
+      base_path: [!relative $config_dir]
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - toc:
+      permalink: "¤"
+  - pymdownx.arithmatex:
+      generic: true
+hooks:
+  - scripts/docs.py

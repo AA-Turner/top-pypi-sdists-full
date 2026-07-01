@@ -1,6 +1,8 @@
 #pragma once
 
+#include <condition_variable>
 #include <mutex>
+#include <string>
 
 #include "storage/wal/wal_record.h"
 
@@ -18,7 +20,8 @@ public:
         common::VirtualFileSystem* vfs);
     ~WAL();
 
-    void logCommittedWAL(LocalWAL& localWAL, main::ClientContext* context);
+    void logCommittedWAL(LocalWAL& localWAL, main::ClientContext* context,
+        uint64_t& commitSequence);
     void logAndFlushCheckpoint(main::ClientContext* context);
 
     bool rotateForCheckpoint(main::ClientContext* context);
@@ -31,12 +34,16 @@ public:
     void reset();
 
     uint64_t getFileSize();
+    void throwIfPoisoned();
 
     static WAL* Get(const main::ClientContext& context);
 
 private:
     void initWriter(main::ClientContext* context);
     void addNewWALRecordNoLock(const WALRecord& walRecord);
+    void throwIfPoisonedNoLock() const;
+    void poisonNoLock(const std::string& reason);
+    void waitForDurabilityNoLock(uint64_t commitSequence, std::unique_lock<std::mutex>& lck);
     void flushAndSyncNoLock();
     void writeHeader(main::ClientContext& context);
 
@@ -48,6 +55,12 @@ private:
     [[maybe_unused]] bool readOnly;
     common::VirtualFileSystem* vfs;
     std::unique_ptr<common::FileInfo> fileInfo;
+    std::condition_variable groupCommitCV;
+    uint64_t appendedCommitSequence = 0;
+    uint64_t durableCommitSequence = 0;
+    bool syncInProgress = false;
+    bool poisoned = false;
+    std::string poisonReason;
 
     // Since most writes to the shared WAL will be flushing local WAL (which has its own checksums),
     // these writes can go through the normal writer. We do still need a checksum writer though for

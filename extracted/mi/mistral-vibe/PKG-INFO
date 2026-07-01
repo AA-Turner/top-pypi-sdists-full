@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.18.1
+Version: 2.18.3
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -36,7 +36,7 @@ Requires-Dist: cryptography==48.0.1
 Requires-Dist: eval-type-backport==0.3.1
 Requires-Dist: gitdb==4.0.12
 Requires-Dist: gitpython==3.1.50
-Requires-Dist: giturlparse==0.14.0
+Requires-Dist: giturlparse==0.15.0
 Requires-Dist: google-auth==2.49.2
 Requires-Dist: googleapis-common-protos==1.74.0
 Requires-Dist: h11==0.16.0
@@ -59,7 +59,7 @@ Requires-Dist: keyring==25.7.0
 Requires-Dist: linkify-it-py==2.1.0
 Requires-Dist: markdown-it-py==4.0.0
 Requires-Dist: markdownify==1.2.2
-Requires-Dist: mcp==1.28.0
+Requires-Dist: mcp==1.28.1
 Requires-Dist: mdit-py-plugins==0.5.0
 Requires-Dist: mdurl==0.1.2
 Requires-Dist: mistralai==2.4.11
@@ -95,6 +95,7 @@ Requires-Dist: requests==2.33.1
 Requires-Dist: rich==15.0.0
 Requires-Dist: rpds-py==0.30.0
 Requires-Dist: secretstorage==3.5.0; sys_platform == 'linux'
+Requires-Dist: sentry-sdk==2.63.0
 Requires-Dist: six==1.17.0
 Requires-Dist: smmap==5.0.3
 Requires-Dist: sounddevice==0.5.5
@@ -112,7 +113,7 @@ Requires-Dist: typing-inspection==0.4.2
 Requires-Dist: uc-micro-py==2.0.0
 Requires-Dist: urllib3==2.7.0
 Requires-Dist: uvicorn==0.46.0; sys_platform != 'emscripten'
-Requires-Dist: watchfiles==1.1.1
+Requires-Dist: watchfiles==1.2.0
 Requires-Dist: websockets==16.0
 Requires-Dist: zipp==3.23.1
 Requires-Dist: zstandard==0.25.0
@@ -357,7 +358,7 @@ Simply run `vibe` to enter the interactive chat loop.
 - **Todo View Toggle**: Press `Ctrl+T` to toggle the todo list view.
 - **Debug Console**: Press `Ctrl+\` to toggle the debug console.
 - **Agent Selection**: Press `Shift+Tab` to cycle through agents (default, plan, ...).
-- **Exit**: Type `/exit`, `exit`, `quit`, `:q`, or `:quit` in the input box, or press `Ctrl+C` / `Ctrl+D` twice within ~1 second.
+- **Exit**: Type `/exit`, `exit`, `quit`, `:q`, or `:quit` in the input box, or press `Ctrl+C` / `Ctrl+D` twice within ~1 second. Set `ask_confirmation_on_exit = false` (or toggle it in `/config`) to make `Ctrl+D` quit on the first press; `Ctrl+C` always requires confirmation.
 
 You can start Vibe with a prompt using the following command:
 
@@ -925,7 +926,7 @@ Mistral Vibe can be used in text editors and IDEs that support [Agent Client Pro
 
 ## Data collection & usage
 
-Use of Vibe is subject to our [Privacy Policy](https://legal.mistral.ai/terms/privacy-policy) and may include the collection and processing of data related to your use of the service, such as usage data, to operate, maintain, and improve Vibe. You can disable telemetry in your `config.toml` by setting `enable_telemetry = false`.
+Use of Vibe is subject to our [Privacy Policy](https://legal.mistral.ai/terms/privacy-policy) and may include the collection and processing of data related to your use of the service, such as usage data, to operate, maintain, and improve Vibe. You can disable telemetry and crash reporting in your `config.toml` by setting `enable_telemetry = false`.
 
 
 ## License

@@ -1,0 +1,1130 @@
+# pylint: disable=too-many-lines
+"""Report subcommand - generates memory footprint reports from ELF files."""
+
+import os
+import json
+import argparse
+import logging
+from importlib.metadata import version
+from typing import Dict, Any, Optional
+
+from ..utils.git import detect_git_metadata, detect_github_metadata
+from ..utils.budget_alerts import iter_budget_alerts
+from ..utils.formatter import format_report_human_readable
+from ..utils.github import is_pull_request_event
+from ..linker.parser import LinkerScriptParser
+from ..core.generator import ReportGenerator
+from ..core.models import MemoryRegion
+from ..api.client import MemBrowseClient
+from ..auth.strategy import determine_auth_strategy
+from ..analysis.defaults import (
+    create_default_memory_regions,
+    map_sections_to_default_regions
+)
+from ..analysis.mapper import MemoryMapper
+
+# Set up logger
+logger = logging.getLogger(__name__)
+
+# Default MemBrowse API base URL (automatically appends /upload)
+DEFAULT_API_URL = 'https://api.membrowse.com'
+
+
+def print_upload_response(response_data: dict) -> str:
+    """
+    Print upload response details including changes summary and budget alerts.
+
+    Args:
+        response_data: The API response data from MemBrowse
+
+    Returns:
+        str: Comparison URL if available, None otherwise
+    """
+    # Check if upload was successful
+    success = response_data.get('success', False)
+    comparison_url = None
+
+    if success:
+        logger.debug("Report uploaded successfully to MemBrowse")
+
+        # Display comparison link if available and capture URL
+        comparison_url = _display_comparison_link(response_data)
+    else:
+        logger.error("Upload failed")
+
+    logger.debug("Full API Response:")
+    logger.debug(json.dumps(response_data, indent=2))
+
+    # Display API message if present
+    api_message = response_data.get('message')
+    if api_message:
+        logger.debug("%s", api_message)
+
+    # Handle error responses
+    if not success:
+        error = response_data.get('error', 'Unknown error')
+        error_type = response_data.get('type', 'UnknownError')
+        logger.error("Error: %s - %s", error_type, error)
+
+        # Display upload limit details if present
+        if error_type == 'UploadLimitExceededError':
+            _display_upload_limit_error(response_data)
+
+        # Display upgrade URL if present
+        upgrade_url = response_data.get('upgrade_url')
+        if upgrade_url:
+            logger.error("Upgrade at: %s", upgrade_url)
+
+        return None  # Don't display changes/alerts for failed uploads
+
+    # Extract response data (only for successful uploads)
+    data = response_data.get('data', {})
+
+    # Display overwrite warning
+    if data.get('is_overwritten', False):
+        logger.warning("This upload overwrote existing data")
+
+    # Display changes summary
+    changes_summary = data.get('changes_summary', {})
+    logger.debug("changes_summary present: %s", bool(changes_summary))
+    if changes_summary:
+        logger.debug("changes_summary keys: %s", list(changes_summary.keys()))
+        _display_changes_summary(changes_summary)
+
+    # Display budget alerts
+    alerts = data.get('alerts') or {}
+    budget_alerts = alerts.get('budgets', [])
+    logger.debug("alerts present: %s", bool(alerts))
+    logger.debug("budget_alerts count: %d", len(budget_alerts))
+
+    if budget_alerts:
+        _display_budget_alerts(budget_alerts)
+
+    return comparison_url
+
+
+def _display_changes_summary(changes_summary: dict) -> None:
+    """Display memory changes summary in human-readable format"""
+    logger.debug("Memory Changes Summary:")
+
+    # Check if changes_summary is empty or None
+    if not changes_summary:
+        logger.debug("  No changes detected")
+        return
+
+    # Track if we found any actual changes
+    has_changes = False
+
+    for region_name, changes in changes_summary.items():
+        # Skip if changes is falsy (None, empty dict, etc.)
+        if not changes or not isinstance(changes, dict):
+            continue
+
+        used_change = changes.get('used_change', 0)
+        free_change = changes.get('free_change', 0)
+
+        # Skip regions with no actual changes
+        if used_change == 0 and free_change == 0:
+            continue
+
+        # We found at least one change
+        has_changes = True
+        logger.debug("  %s:", region_name)
+
+        if used_change != 0:
+            direction = "increased" if used_change > 0 else "decreased"
+            logger.debug("    Used: %s by %s bytes", direction, f"{abs(used_change):,}")
+
+        if free_change != 0:
+            direction = "increased" if free_change > 0 else "decreased"
+            logger.debug("    Free: %s by %s bytes", direction, f"{abs(free_change):,}")
+
+    # If we processed regions but found no changes
+    if not has_changes:
+        logger.debug("  No changes detected")
+
+
+def _display_budget_alerts(budget_alerts: list) -> None:
+    """Display budget alerts in human-readable format"""
+    logger.debug("Budget Alerts:")
+
+    current_budget = None
+    for alert in iter_budget_alerts(budget_alerts):
+        # Print budget name header when we encounter a new budget
+        if current_budget != alert.budget_name:
+            current_budget = alert.budget_name
+            logger.debug("  %s:", alert.budget_name)
+
+        # Display region alert
+        logger.debug("    %s: %s bytes (exceeded by %s bytes)",
+                    alert.region, f"{alert.usage:,}", f"{alert.exceeded:,}")
+
+
+def _display_upload_limit_error(response_data: dict) -> None:
+    """Display detailed upload limit error information"""
+    logger.error("Upload Limit Details:")
+
+    upload_count_monthly = response_data.get('upload_count_monthly')
+    monthly_limit = response_data.get('monthly_upload_limit')
+    upload_count_total = response_data.get('upload_count_total')
+    period_start = response_data.get('period_start')
+    period_end = response_data.get('period_end')
+
+    if upload_count_monthly is not None and monthly_limit is not None:
+        logger.error("  Monthly uploads: %s / %s", upload_count_monthly, monthly_limit)
+
+    if upload_count_total is not None:
+        logger.error("  Total uploads: %s", upload_count_total)
+
+    if period_start and period_end:
+        logger.error("  Billing period: %s to %s", period_start, period_end)
+
+
+def _display_comparison_link(response_data: dict) -> str:
+    """
+    Display link to build comparison page from API response.
+
+    Args:
+        response_data: The API response data from MemBrowse
+
+    Returns:
+        str: Comparison URL from API response, or None if not available
+    """
+    if not response_data:
+        return None
+
+    # Extract comparison URL directly from API response
+    data = response_data.get('data', {})
+    comparison_url = data.get('comparison_url')
+
+    # Display URL if available
+    if comparison_url:
+        logger.debug("View build comparison: %s", comparison_url)
+
+    return comparison_url
+
+
+def _validate_file_paths(elf_path: str, ld_script_paths: list[str]) -> tuple[bool, str]:
+    """
+    Validate that ELF file and linker scripts exist.
+
+    Args:
+        elf_path: Path to ELF file
+        ld_script_paths: List of linker script paths
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    # Validate ELF file exists
+    if not os.path.exists(elf_path):
+        return False, f"ELF file not found: {elf_path}"
+
+    # Validate linker scripts exist
+    for ld_script in ld_script_paths:
+        if not os.path.exists(ld_script):
+            return False, f"Linker script not found: {ld_script}"
+
+    return True, ""
+
+
+def _validate_upload_arguments(
+    api_key: Optional[str],
+    target_name: str,
+    is_github_mode: bool = False
+) -> tuple[bool, str]:
+    """
+    Validate arguments required for uploading reports.
+
+    Args:
+        api_key: Optional API key for upload
+        target_name: Target name for upload
+        is_github_mode: Whether --github flag is set (enables tokenless for fork PRs)
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    # Normalize: treat empty/whitespace-only API key as no key
+    api_key = api_key.strip() if api_key else None
+
+    # Target name always required for uploads
+    if not target_name:
+        return False, "--target-name is required when using --upload"
+
+    # In GitHub mode, allow tokenless for any PR (fork or same-repo). Same-repo
+    # PRs only land here without a key for secret-less actors like Dependabot.
+    if is_github_mode and not api_key and is_pull_request_event():
+        logger.info("PR detected without API key - will use tokenless upload")
+        return True, ""
+
+    # Otherwise API key is required
+    if not api_key:
+        error_msg = "--api-key is required when using --upload"
+        if is_github_mode:
+            error_msg += (
+                ". For PRs to public repositories (including fork and "
+                "Dependabot PRs), api_key can be omitted."
+            )
+        return False, error_msg
+
+    return True, ""
+
+
+def add_report_parser(subparsers) -> argparse.ArgumentParser:
+    """
+    Add 'report' subcommand parser.
+
+    Args:
+        subparsers: Subparsers object from argparse
+
+    Returns:
+        The report parser
+    """
+    parser = subparsers.add_parser(
+        'report',
+        help='Generate memory footprint report from ELF and linker scripts',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+examples:
+  # Local mode - human-readable output (default)
+  membrowse report firmware.elf "linker.ld"
+
+  # Show all symbols instead of top 20
+  membrowse report firmware.elf "linker.ld" --all-symbols
+
+  # Output as JSON
+  membrowse report firmware.elf "linker.ld" --json
+
+  # Save JSON to file
+  membrowse report firmware.elf "linker.ld" --json > report.json
+
+  # Upload to MemBrowse (Git metadata auto-detected by default)
+  membrowse report firmware.elf "linker.ld" --upload \\
+      --api-key "$API_KEY" --target-name esp32 \\
+      --api-url https://api.membrowse.com
+
+  # Upload without Git metadata
+  membrowse report firmware.elf "linker.ld" --upload --no-git \\
+      --api-key "$API_KEY" --target-name esp32
+
+  # GitHub Actions mode (auto-detects Git metadata from GitHub environment)
+  membrowse report firmware.elf "linker.ld" --upload --github \\
+      --target-name stm32f4 --api-key "$API_KEY"
+        """
+    )
+
+    # Positional arguments (optional when --identical is used)
+    parser.add_argument(
+        'elf_path',
+        nargs='?',
+        default=None,
+        help='Path to ELF file (not required with --identical)')
+    parser.add_argument(
+        'ld_scripts',
+        nargs='?',
+        default=None,
+        help='Space-separated linker script paths (optional - if omitted, '
+             'uses default Code/Data regions)')
+
+    # Mode flags
+    mode_group = parser.add_argument_group('mode options')
+    mode_group.add_argument(
+        '--upload',
+        action='store_true',
+        help='Upload report to MemBrowse platform'
+    )
+    mode_group.add_argument(
+        '--no-git',
+        action='store_true',
+        help='Disable auto-detection of Git metadata when uploading'
+    )
+    mode_group.add_argument(
+        '--github',
+        action='store_true',
+        help='Use GitHub Actions environment for Git metadata detection (use with --upload)'
+    )
+
+    # Upload parameters (only relevant with --upload)
+    upload_group = parser.add_argument_group(
+        'upload options',
+        'Required when using --upload'
+    )
+    upload_group.add_argument('--api-key', nargs='?', default=None, const='',
+                               help='MemBrowse API key')
+    upload_group.add_argument(
+        '--target-name',
+        help='Build configuration/target (e.g., esp32, stm32, x86)')
+    upload_group.add_argument(
+        '--api-url',
+        default=DEFAULT_API_URL,
+        help='MemBrowse API base URL (default: %(default)s, /upload appended automatically)'
+    )
+    upload_group.add_argument(
+        '--identical',
+        action='store_true',
+        help='Mark this commit as having identical memory footprint to previous '
+             '(metadata-only upload, no build analysis required)'
+    )
+
+    # Optional Git metadata (overrides auto-detected values)
+    git_group = parser.add_argument_group(
+        'git metadata options',
+        'Optional Git metadata (auto-detected by default, use --no-git to disable)'
+    )
+    git_group.add_argument('--commit-sha', help='Git commit SHA')
+    git_group.add_argument('--base-sha', '--parent-sha', dest='base_sha',
+                           help='Git base/parent commit SHA (for comparison). '
+                                'Use "none" or "" to explicitly set no parent.')
+    git_group.add_argument('--branch-name', help='Git branch name')
+    git_group.add_argument('--repo-name', help='Repository name')
+    git_group.add_argument('--commit-message', help='Commit message')
+    git_group.add_argument(
+        '--commit-timestamp',
+        help='Commit timestamp (ISO format)')
+    git_group.add_argument('--author-name', help='Commit author name')
+    git_group.add_argument('--author-email', help='Commit author email')
+    git_group.add_argument('--pr-number', help='Pull request number')
+    git_group.add_argument('--pr-name', help='Pull request name/title')
+    git_group.add_argument('--tags', nargs='*', default=None,
+                               help='Git tag name(s)')
+    git_group.add_argument('--pr-author-name', help='Pull request author name')
+    git_group.add_argument('--pr-author-email', help='Pull request author email')
+
+    # Performance options
+    perf_group = parser.add_argument_group('performance options')
+    perf_group.add_argument(
+        '--skip-line-program',
+        action='store_true',
+        help='Skip DWARF line program processing for faster analysis'
+    )
+    perf_group.add_argument(
+        '--def',
+        dest='linker_defs',
+        action='append',
+        metavar='VAR=VALUE',
+        help='Define linker script variable (can be specified multiple times, '
+             'e.g., --def __flash_size__=4096K)'
+    )
+    perf_group.add_argument(
+        '--map-file',
+        default=None,
+        metavar='PATH',
+        help='Path to linker map file for archive/object file attribution '
+             '(supports GNU LD and IAR formats; GNU LD generated with -Wl,-Map=output.map)'
+    )
+    perf_group.add_argument(
+        '--skip-section',
+        dest='skip_sections',
+        action='append',
+        metavar='NAME',
+        help='Exclude an ELF section by exact name (can be specified '
+             'multiple times), e.g. --skip-section .noinit --skip-section '
+             '.user_data. Skipped sections do not contribute to any region\'s '
+             'used_size, and symbols inside them are also removed from the '
+             'report.'
+    )
+    perf_group.add_argument(
+        '--limits',
+        default=None,
+        metavar='PATH',
+        help='Optional linker script supplying the real LENGTH for each '
+             'MEMORY region. Use when the primary ld_scripts were built with '
+             'inflated region sizes so the link succeeds even when the ELF '
+             'exceeds the real target capacity. Section attribution still '
+             'uses the primary ld_scripts (the wider ranges, so overflow '
+             'sections stay attributed); utilization and overflow are then '
+             "reported against this script's LENGTH values. Omit when the "
+             'binary fits — the primary ld_scripts are already the real limit.'
+    )
+
+    # Alert handling
+    alert_group = parser.add_argument_group('alert options')
+    alert_group.add_argument(
+        '--dont-fail-on-alerts',
+        action='store_true',
+        help='Continue even if budget alerts are detected (default: fail on alerts)'
+    )
+
+    # Output options
+    output_group = parser.add_argument_group('output options')
+    output_group.add_argument(
+        '--json',
+        action='store_true',
+        help='Output report as JSON (default is human-readable format)'
+    )
+    output_group.add_argument(
+        '--all-symbols',
+        action='store_true',
+        help='Display all symbols instead of just top 20 (human-readable mode only)'
+    )
+    output_group.add_argument(
+        '--output-raw-response',
+        action='store_true',
+        help='Output raw API response as JSON to stdout (for piping to GitHub Actions PR comment)'
+    )
+
+    return parser
+
+
+def _apply_default_regions(generator: ReportGenerator, report: dict) -> None:
+    """
+    Apply default Code/Data regions to report when no linker scripts provided.
+
+    Args:
+        generator: ReportGenerator with ELF analyzer
+        report: Report dict to update with memory_layout
+    """
+    sections = generator.elf_analyzer.get_sections()
+    if generator.skip_sections:
+        sections, _ = generator._apply_section_skips(  # pylint: disable=protected-access
+            sections, [])
+    default_regions_data = create_default_memory_regions(sections)
+
+    if not default_regions_data:
+        logger.warning(
+            "No memory regions created - all sections have address 0 or "
+            "no allocatable sections found"
+        )
+
+    logger.debug("Created default regions: %s", list(default_regions_data.keys()))
+
+    # Convert to MemoryRegion objects
+    memory_regions = {}
+    for name, data in default_regions_data.items():
+        memory_regions[name] = MemoryRegion(
+            address=data['address'],
+            limit_size=data['limit_size'],
+            type=data.get('attributes', 'UNKNOWN')
+        )
+
+    # Map sections to default regions by type (not by address)
+    # This is necessary because default regions have limit_size=0
+    map_sections_to_default_regions(sections, memory_regions)
+    MemoryMapper.calculate_utilization(memory_regions)
+
+    # Update report with default regions
+    report['memory_layout'] = {
+        name: region.to_dict()
+        for name, region in memory_regions.items()
+    }
+
+
+def generate_report(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    elf_path: str,
+    ld_scripts: Optional[str] = None,
+    skip_line_program: bool = False,
+    linker_variables: Optional[Dict[str, Any]] = None,
+    map_file: Optional[str] = None,
+    limits_ld: Optional[str] = None,
+    skip_sections: Optional[list] = None,
+) -> dict:
+    """
+    Generate a memory footprint report from ELF and optionally linker scripts.
+
+    Args:
+        elf_path: Path to ELF file
+        ld_scripts: Space-separated linker script paths (optional - if omitted,
+            uses default Code/Data regions based on ELF section flags)
+        skip_line_program: Skip DWARF line program processing for faster analysis
+        linker_variables: Optional dict of user-defined linker script variables
+        map_file: Optional path to GNU LD map file for archive/object file attribution
+        limits_ld: Optional path to a separate linker script whose LENGTH
+            values are the real per-region capacities. Use when the primary
+            ``ld_scripts`` were built with inflated region sizes so the link
+            succeeds even when the ELF exceeds the real target capacity; the
+            primary scripts remain the source of truth for section-to-region
+            attribution, and this script only overrides the utilization
+            denominator. Omit when the binary fits — the primary scripts are
+            already the real limit.
+        skip_sections: Optional list of exact ELF section names (e.g.
+            ``.noinit``) to exclude from the report. Listed sections are
+            removed before region mapping so they don't contribute to any
+            region's ``used_size``; symbols inside them are also dropped.
+
+    Returns:
+        dict: Memory analysis report (JSON-serializable)
+
+    Raises:
+        ValueError: If file paths are invalid or parsing fails
+    """
+    # Validate ELF file exists
+    if not os.path.exists(elf_path):
+        raise ValueError(f"ELF file not found: {elf_path}")
+
+    logger.debug("Started Memory Report generation")
+    logger.debug("ELF file: %s", elf_path)
+
+    # Handle optional linker scripts
+    memory_regions_data = _parse_linker_scripts_if_provided(
+        ld_scripts, elf_path, linker_variables
+    )
+
+    real_limits = _resolve_real_limits(
+        limits_ld, memory_regions_data, elf_path, linker_variables
+    )
+
+    # Generate JSON report
+    logger.debug("Generating memory report...")
+    try:
+        generator = ReportGenerator(
+            elf_path,
+            memory_regions_data,
+            skip_line_program=skip_line_program,
+            map_file_path=map_file,
+            real_limits=real_limits,
+            skip_sections=skip_sections,
+        )
+        report = generator.generate_report()
+
+        # Fall back to default regions when no linker scripts were provided
+        # OR when parsing yielded none (e.g. SECTIONS-only script with no
+        # MEMORY block). Otherwise upload fails: "memory_layout is required".
+        if not memory_regions_data:
+            if memory_regions_data is not None:
+                logger.warning(
+                    "Linker scripts parsed but yielded no memory regions; "
+                    "falling back to default Code/Data regions from ELF sections"
+                )
+            _apply_default_regions(generator, report)
+
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to generate memory report: %s", e)
+        raise ValueError(f"Failed to generate memory report: {e}") from e
+
+    logger.debug("Memory report generated successfully")
+    return report
+
+
+def _resolve_real_limits(
+    limits_ld: Optional[str],
+    attribution_regions: Optional[Dict[str, Any]],
+    elf_path: str,
+    linker_variables: Optional[Dict[str, Any]]
+) -> Optional[Dict[str, int]]:
+    """Parse the limits linker script and return a ``name -> real_limit_size``
+    mapping for regions that appear in both scripts.
+
+    Raises:
+        ValueError: When ``ORIGIN`` disagrees between the attribution and
+            limits scripts for a given region name — that almost always means
+            the user mixed up two unrelated builds.
+    """
+    if not limits_ld:
+        return None
+
+    if not attribution_regions:
+        logger.warning(
+            "--limits supplied but no attribution regions were parsed; "
+            "ignoring --limits")
+        return None
+
+    if not os.path.exists(limits_ld):
+        raise ValueError(f"Limits linker script not found: {limits_ld}")
+
+    logger.debug("Parsing limits linker script: %s", limits_ld)
+    try:
+        limits_parser = LinkerScriptParser(
+            [limits_ld], elf_file=elf_path, user_variables=linker_variables
+        )
+        limits_regions = limits_parser.parse_memory_regions()
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to parse limits linker script: %s", e)
+        raise ValueError(f"Failed to parse limits linker script: {e}") from e
+
+    real_limits: Dict[str, int] = {}
+    for name, limit_data in limits_regions.items():
+        attribution = attribution_regions.get(name)
+        if attribution is None:
+            logger.warning(
+                "Region '%s' appears in --limits but not in primary "
+                "linker scripts; skipping", name)
+            continue
+
+        if attribution['address'] != limit_data['address']:
+            raise ValueError(
+                f"ORIGIN mismatch for region '{name}': attribution script "
+                f"has 0x{attribution['address']:x} but limits script has "
+                f"0x{limit_data['address']:x}. This usually means the two "
+                f"scripts are from different builds.")
+
+        real_size = limit_data['limit_size']
+        if real_size > attribution['limit_size']:
+            logger.warning(
+                "Region '%s' limit (0x%x) is larger than attribution range "
+                "(0x%x); utilization will not reflect sections past the "
+                "attribution end", name, real_size, attribution['limit_size'])
+
+        real_limits[name] = real_size
+
+    for name in attribution_regions:
+        if name not in real_limits:
+            logger.debug(
+                "Region '%s' has no entry in --limits; keeping attribution "
+                "LENGTH", name)
+
+    return real_limits
+
+
+def _parse_linker_scripts_if_provided(
+    ld_scripts: Optional[str],
+    elf_path: str,
+    linker_variables: Optional[Dict[str, Any]]
+) -> Optional[Dict[str, Any]]:
+    """
+    Parse linker scripts if provided, otherwise return None for default regions.
+
+    Args:
+        ld_scripts: Space-separated linker script paths (or None/empty)
+        elf_path: Path to ELF file for architecture detection
+        linker_variables: Optional user-defined linker variables
+
+    Returns:
+        Parsed memory regions data, or None if no linker scripts provided
+    """
+    if not ld_scripts or not ld_scripts.strip():
+        logger.debug("No linker scripts provided - using default Code/Data regions")
+        return None
+
+    # Split and validate linker scripts
+    ld_array = ld_scripts.split()
+    for ld_script in ld_array:
+        if not os.path.exists(ld_script):
+            raise ValueError(f"Linker script not found: {ld_script}")
+
+    logger.debug("Linker scripts: %s", ld_scripts)
+
+    # Parse memory regions from linker scripts
+    logger.debug("Parsing memory regions from linker scripts...")
+    try:
+        parser = LinkerScriptParser(
+            ld_array, elf_file=elf_path, user_variables=linker_variables
+        )
+        return parser.parse_memory_regions()
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to parse memory regions: %s", e)
+        raise ValueError(f"Failed to parse memory regions: {e}") from e
+
+
+def _create_metadata_only_report() -> dict:
+    """
+    Create a minimal report for identical commits (no build-relevant changes).
+
+    Contains only structural fields, no actual analysis.
+
+    Returns:
+        Minimal report dictionary for identical commits
+    """
+    return {
+        'file_path': None,
+        'architecture': None,
+        'toolchain': None,
+        'entry_point': None,
+        'file_type': None,
+        'machine': None,
+        'symbols': [],
+        'program_headers': [],
+        'memory_layout': {}
+    }
+
+
+def upload_report(  # pylint: disable=too-many-arguments
+    report: dict,
+    commit_info: dict,
+    target_name: str,
+    api_key: Optional[str],
+    *,
+    api_url: str = DEFAULT_API_URL,
+    build_failed: bool = None,
+    identical: bool = False,
+    is_github_mode: bool = False,
+    client: Optional[MemBrowseClient] = None
+) -> tuple[dict, str]:
+    """
+    Upload a memory footprint report to MemBrowse platform.
+
+    Args:
+        report: Memory analysis report (from generate_report)
+        commit_info: Dict with Git metadata in metadata['git'] format
+            {
+                'commit_hash': str,
+                'base_commit_hash': str,
+                'branch_name': str,
+                'repository': str,
+                'commit_message': str,
+                'commit_timestamp': str,
+                'author_name': str,
+                'author_email': str,
+                'pr_number': str
+            }
+        target_name: Build configuration/target (e.g., esp32, stm32, x86)
+        api_key: MemBrowse API key (None for tokenless fork PR uploads)
+        api_url: MemBrowse API base URL (e.g., 'https://api.membrowse.com')
+                 The /upload endpoint suffix is added automatically
+        build_failed: Whether the build failed (keyword-only)
+        identical: Whether this commit has identical memory footprint to previous
+                   (no changes in build directories, metadata-only report)
+        is_github_mode: Whether --github flag is set (enables tokenless for fork PRs)
+
+    Returns:
+        tuple[dict, str]: (API response data, comparison URL if available)
+
+    Raises:
+        ValueError: If upload arguments are invalid
+        RuntimeError: If upload fails
+    """
+    # Validate upload arguments
+    is_valid, error_message = _validate_upload_arguments(
+        api_key, target_name, is_github_mode=is_github_mode
+    )
+    if not is_valid:
+        raise ValueError(error_message)
+
+    # Set up log prefix
+    log_prefix = _get_log_prefix(commit_info)
+
+    logger.debug("%s: Target: %s", log_prefix, target_name)
+
+    # Build and enrich report
+    enriched_report = _build_enriched_report(
+        report, commit_info, target_name, build_failed, identical
+    )
+
+    # Upload to MemBrowse
+    response_data = _perform_upload(
+        enriched_report, api_key, api_url, log_prefix,
+        is_github_mode=is_github_mode, client=client
+    )
+
+    # Always print upload response details (success or failure)
+    comparison_url = print_upload_response(response_data)
+
+    # Validate upload success
+    _validate_upload_success(response_data, log_prefix)
+
+    logger.debug("%s: Memory report uploaded successfully", log_prefix)
+    return response_data, comparison_url
+
+
+def _get_log_prefix(commit_info: dict) -> str:
+    """Get log prefix from commit info."""
+    if commit_info.get('commit_hash'):
+        return f"({commit_info.get('commit_hash')})"
+    return "MemBrowse"
+
+
+def _build_enriched_report(
+    report: dict,
+    commit_info: dict,
+    target_name: str,
+    build_failed: bool = None,
+    identical: bool = False
+) -> dict:
+    """Build enriched report with metadata."""
+    metadata = {
+        'git': commit_info,
+        'repository': commit_info.get('repository'),
+        'target_name': target_name,
+        'analysis_version': version('membrowse'),
+        # Core reads these from memory_analysis (where they already are, via
+        # the spread of `report` into memory_analysis below). Duplicated here
+        # so older Core versions that only looked at metadata.* still pick
+        # them up.
+        'architecture': report.get('architecture'),
+        'toolchain': report.get('toolchain'),
+    }
+
+    # Add build_failed directly to metadata if provided
+    if build_failed is not None:
+        metadata['build_failed'] = build_failed
+
+    # Add identical flag (commit has no changes in build directories)
+    metadata['identical'] = identical
+
+    return {
+        'metadata': metadata,
+        'memory_analysis': report
+    }
+
+
+def _perform_upload(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    enriched_report: dict,
+    api_key: Optional[str],
+    api_url: str,
+    log_prefix: str,
+    is_github_mode: bool = False,
+    client: Optional[MemBrowseClient] = None
+) -> dict:
+    """Perform the actual upload to MemBrowse."""
+    try:
+        if client is None:
+            # Determine authentication strategy
+            auth_context = determine_auth_strategy(
+                api_key=api_key,
+                auto_detect_fork=is_github_mode
+            )
+            client = MemBrowseClient(auth_context, api_url)
+        return client.upload_report(enriched_report)
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("%s: Failed to upload report to %s: %s", log_prefix, api_url, e)
+        raise RuntimeError(f"Failed to upload report to {api_url}: {e}") from e
+
+
+def _validate_upload_success(response_data: dict, log_prefix: str) -> None:
+    """Validate that upload was successful."""
+    if not response_data.get('success'):
+        logger.error("%s: Upload failed - see response details above", log_prefix)
+        raise RuntimeError("Upload failed - see response details above")
+
+
+def _check_budget_alerts(response_data: dict, commit_info: dict) -> None:
+    """Check for budget alerts and fail if necessary."""
+    data = response_data.get('data', {})
+    log_prefix = _get_log_prefix(commit_info)
+    alerts = data.get('alerts') or {}
+    budget_alerts = alerts.get('budgets', [])
+
+    if budget_alerts:
+        error_msg = (
+            f"Budget Alert Error: {len(budget_alerts)} budget(s) exceeded. "
+            "Use --dont-fail-on-alerts to continue despite alerts."
+        )
+        logger.error("%s: %s", log_prefix, error_msg)
+        raise RuntimeError(
+            f"Budget alerts detected: {len(budget_alerts)} budget(s) exceeded"
+        )
+
+
+def _parse_linker_definitions(linker_defs: list) -> Optional[Dict[str, str]]:
+    """
+    Parse --def linker variable definitions from command line.
+
+    Args:
+        linker_defs: List of KEY=VALUE strings from --def arguments
+
+    Returns:
+        Dictionary of parsed variables, or None if no valid definitions
+    """
+    if not linker_defs:
+        return None
+
+    linker_variables = {}
+    for def_str in linker_defs:
+        if '=' not in def_str:
+            logger.warning("Ignoring invalid --def argument (missing '='): %s", def_str)
+            continue
+        key, value = def_str.split('=', 1)
+        key = key.strip()
+        value = value.strip()
+        if not key:
+            logger.warning("Ignoring invalid --def argument (empty key): %s", def_str)
+            continue
+        linker_variables[key] = value
+        logger.debug("User-defined linker variable: %s = %s", key, value)
+
+    return linker_variables if linker_variables else None
+
+
+def _handle_upload_and_alerts(
+    report: dict,
+    args: argparse.Namespace,
+    commit_info: dict,
+) -> int:
+    """
+    Handle report upload and budget alert checking.
+
+    Args:
+        report: The generated memory report
+        args: Parsed command-line arguments
+        commit_info: Git commit metadata
+        verbose: Verbose logging flag
+
+    Returns:
+        Exit code (0 for success, 1 for error)
+    """
+    try:
+        response_data, comparison_url = upload_report(
+            report=report,
+            commit_info=commit_info,
+            target_name=getattr(args, 'target_name', None),
+            api_key=getattr(args, 'api_key', None),
+            api_url=getattr(args, 'api_url', DEFAULT_API_URL),
+            identical=getattr(args, 'identical', False),
+            is_github_mode=getattr(args, 'github', False),
+        )
+
+        # Check for budget alerts first to determine exit code
+        exit_code = 0
+        if not getattr(args, 'dont_fail_on_alerts', False):
+            try:
+                _check_budget_alerts(response_data, commit_info)
+            except RuntimeError:
+                # Budget alerts detected - should fail CI
+                exit_code = 1
+
+        # Output raw API response to stdout if requested (for piping to PR comment script)
+        if getattr(args, 'output_raw_response', False):
+            output_data = {
+                'comparison_url': comparison_url or '',
+                'api_response': response_data or {},
+                'target_name': getattr(args, 'target_name', ''),
+                'pr_number': commit_info.get('pr_number', '')
+            }
+            print(json.dumps(output_data, indent=2))
+            return exit_code
+
+        # If we reach here and have alerts, re-raise to fail
+        if exit_code != 0:
+            raise RuntimeError("Budget alerts detected")
+
+        return 0
+    except (ValueError, RuntimeError) as e:
+        logger.error("Failed to upload report: %s", e)
+        return 1
+
+
+def _validate_limits_input(
+    limits_path: Optional[str], ld_script_paths: list[str]
+) -> Optional[str]:
+    """Validate --limits path, returning an error message or None if valid."""
+    if not limits_path:
+        return None
+    if not ld_script_paths:
+        return "--limits requires a primary linker script"
+    if not os.path.exists(limits_path):
+        return f"Limits linker script not found: {limits_path}"
+    return None
+
+
+def _validate_args(args: argparse.Namespace) -> Optional[str]:
+    """Validate report arguments, returning an error message or None if valid."""
+    identical_mode = getattr(args, 'identical', False)
+    upload_mode = getattr(args, 'upload', False)
+
+    if identical_mode and not upload_mode:
+        return "--identical requires --upload flag"
+
+    if upload_mode:
+        is_valid, error_message = _validate_upload_arguments(
+            getattr(args, 'api_key', None),
+            getattr(args, 'target_name', None),
+            is_github_mode=getattr(args, 'github', False)
+        )
+        if not is_valid:
+            return error_message
+
+    if not identical_mode:
+        if not args.elf_path:
+            return "elf_path is required (unless using --identical)"
+
+        ld_script_paths = args.ld_scripts.split() if args.ld_scripts else []
+        is_valid, error_message = _validate_file_paths(args.elf_path, ld_script_paths)
+        if not is_valid:
+            return error_message
+
+        limits_error = _validate_limits_input(
+            getattr(args, 'limits', None), ld_script_paths)
+        if limits_error:
+            return limits_error
+
+    return None
+
+
+def run_report(args: argparse.Namespace) -> int:
+    """
+    Execute the report subcommand.
+
+    This function converts argparse.Namespace to function parameters
+    and calls generate_report() and optionally upload_report().
+
+    Args:
+        args: Parsed command-line arguments
+
+    Returns:
+        Exit code (0 for success, 1 for error)
+    """
+    error = _validate_args(args)
+    if error:
+        logger.error("%s", error)
+        return 1
+
+    identical_mode = getattr(args, 'identical', False)
+    upload_mode = getattr(args, 'upload', False)
+
+    # Handle identical mode: create metadata-only report, skip ELF analysis
+    if identical_mode:
+        logger.debug("Identical mode: skipping ELF analysis, uploading metadata only")
+        report = _create_metadata_only_report()
+    else:
+        # Parse linker variable definitions
+        linker_variables = _parse_linker_definitions(getattr(args, 'linker_defs', None))
+
+        # Generate report
+        try:
+            report = generate_report(
+                elf_path=args.elf_path,
+                ld_scripts=args.ld_scripts,
+                skip_line_program=getattr(args, 'skip_line_program', False),
+                linker_variables=linker_variables,
+                map_file=getattr(args, 'map_file', None),
+                limits_ld=getattr(args, 'limits', None),
+                skip_sections=getattr(args, 'skip_sections', None),
+            )
+        except ValueError as e:
+            logger.error("Failed to generate report: %s", e)
+            return 1
+
+    # If not uploading, output report to stdout
+    if not upload_mode:
+        if getattr(args, 'json', False):
+            print(json.dumps(report, indent=2))
+        else:
+            show_all_symbols = getattr(args, 'all_symbols', False)
+            print(format_report_human_readable(report, show_all_symbols=show_all_symbols))
+        return 0
+
+    # Build commit_info dict in metadata['git'] format
+    arg_to_metadata_map = {
+        'commit_sha': 'commit_hash',
+        'base_sha': 'base_commit_hash',
+        'branch_name': 'branch_name',
+        'repo_name': 'repository',
+        'commit_message': 'commit_message',
+        'commit_timestamp': 'commit_timestamp',
+        'author_name': 'author_name',
+        'author_email': 'author_email',
+        'tags': 'tags',
+        'pr_number': 'pr_number',
+        'pr_name': 'pr_name',
+        'pr_author_name': 'pr_author_name',
+        'pr_author_email': 'pr_author_email',
+    }
+
+    # Handle --parent-sha "none" or "" as explicit null
+    explicit_no_parent = False
+    parent_sha_val = getattr(args, 'base_sha', None)
+    if parent_sha_val is not None and parent_sha_val.strip().lower() in ('none', ''):
+        args.base_sha = None
+        explicit_no_parent = True
+
+    commit_info = {
+        metadata_key: getattr(args, arg_key, None)
+        for arg_key, metadata_key in arg_to_metadata_map.items()
+        if getattr(args, arg_key, None) is not None
+    }
+
+    # Auto-detect Git metadata (enabled by default, use --no-git to disable)
+    # --github mode uses GitHub-specific detection, otherwise use local git
+    if getattr(args, 'github', False):
+        detected_metadata = detect_github_metadata()
+        # Update commit_info with detected metadata (only if not already set)
+        commit_info = {k: commit_info.get(k) or v for k, v in detected_metadata.items()}
+    elif not getattr(args, 'no_git', False):
+        detected_metadata = detect_git_metadata()
+        # Update commit_info with detected metadata (only if not already set)
+        commit_info = {k: commit_info.get(k) or v for k, v in detected_metadata.items()}
+
+    # Explicit --parent-sha none: set to JSON null so the API sees "no parent"
+    if explicit_no_parent:
+        commit_info['parent_commit_hash'] = None
+
+    # Upload report and handle alerts
+    return _handle_upload_and_alerts(report, args, commit_info)

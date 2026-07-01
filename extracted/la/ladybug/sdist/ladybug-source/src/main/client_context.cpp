@@ -51,6 +51,7 @@ ActiveQuery::ActiveQuery() : interrupted{false} {}
 
 void ActiveQuery::reset() {
     interrupted = false;
+    queryID.reset();
     timer = Timer();
 }
 
@@ -73,6 +74,7 @@ ClientContext::ClientContext(Database* database) : localDatabase{database} {
     clientConfig.recursivePatternCardinalityScaleFactor =
         ClientConfigDefault::RECURSIVE_PATTERN_FACTOR;
     clientConfig.disableMapKeyCheck = ClientConfigDefault::DISABLE_MAP_KEY_CHECK;
+    clientConfig.enablePackedPathExtend = ClientConfigDefault::ENABLE_PACKED_PATH_EXTEND;
     clientConfig.warningLimit = ClientConfigDefault::WARNING_LIMIT;
     progressBar = std::make_unique<ProgressBar>(clientConfig.enableProgressBar);
     warningContext = std::make_unique<WarningContext>(&clientConfig);
@@ -372,6 +374,7 @@ std::unique_ptr<QueryResult> ClientContext::executeWithParams(PreparedStatement*
     if (!preparedStatement->isSuccess()) {
         return QueryResult::getQueryResultWithError(preparedStatement->errMsg);
     }
+    const auto useCachedPlan = preparedStatement->canReuseCachedPlanWith(inputParams);
     try {
         bindParametersNoLock(*preparedStatement, inputParams);
     } catch (std::exception& e) {
@@ -386,6 +389,9 @@ std::unique_ptr<QueryResult> ClientContext::executeWithParams(PreparedStatement*
     }
     // LCOV_EXCL_STOP
     auto cachedStatement = cachedPreparedStatementManager.getCachedStatement(name);
+    if (useCachedPlan) {
+        return executeNoLock(preparedStatement, cachedStatement, queryID);
+    }
     // rebind
     auto [newPreparedStatement, newCachedStatement] =
         prepareNoLock(cachedStatement->parsedStatement, false /*shouldCommitNewTransaction*/,
@@ -525,6 +531,8 @@ ClientContext::PrepareResult ClientContext::prepareNoLock(
                 preparedStatement->unknownParameters = expressionBinder->getUnknownParameters();
                 preparedStatement->parameterMap = expressionBinder->getKnownParameters();
                 cachedStatement->columns = boundStatement->getStatementResult()->getColumns();
+                cachedStatement->columnNames =
+                    boundStatement->getStatementResult()->getColumnNames();
                 auto planner = Planner(this);
                 auto bestPlan = planner.planStatement(*boundStatement);
                 optimizer::Optimizer::optimize(&bestPlan, this, planner.getCardinalityEstimator());
@@ -567,6 +575,7 @@ std::unique_ptr<QueryResult> ClientContext::executeNoLock(PreparedStatement* pre
                 if (!queryID) {
                     queryID = localDatabase->getNextQueryID();
                 }
+                setActiveQueryID(queryID.value());
                 const auto executionContext =
                     std::make_unique<ExecutionContext>(profiler.get(), this, *queryID);
                 auto mapper = PlanMapper(executionContext.get());

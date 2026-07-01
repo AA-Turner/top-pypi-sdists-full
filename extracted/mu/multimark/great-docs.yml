@@ -1,0 +1,135 @@
+# Great Docs Configuration
+# See https://posit-dev.github.io/great-docs/user-guide/03-configuration.html
+
+# Docstring Parser
+# ----------------
+# The docstring format used in your package (numpy, google, or sphinx)
+parser: numpy
+
+# Site
+# ----
+site_url: "https://posit-dev.github.io/multimark/"
+
+# Dynamic Introspection
+# ---------------------
+# Use runtime introspection for more accurate documentation (default: true)
+# Set to false if your package has cyclic alias issues (e.g., PyO3/Rust bindings)
+dynamic: true
+
+# Logo & Favicon
+# ---------------
+# Point to a single logo file (replaces the text title in the navbar):
+logo:
+  light: assets/logo-light.png
+  dark: assets/logo-dark.png
+
+hero:
+  name: false
+  tagline: "Python bindings to cmark: CommonMark parsing and rendering (HTML, LaTeX, man, XML)"
+  logo_height: 120px
+  badges: false
+
+# Author Information
+# ------------------
+# Author metadata for display in the landing page sidebar
+# You can add additional fields: github, orcid, affiliation, homepage
+authors:
+  - name: Rich Iannone
+    role: Maintainer
+    email: riannone@me.com
+    github: rich-iannone
+    orcid: 0000-0003-3925-190X
+
+# Funding / Copyright Holder
+# --------------------------
+# Credit the organization that funds or holds copyright for this package.
+# Displays in sidebar and footer. Homepage and ROR provide links.
+# funding:
+#   name: "Posit Software, PBC"
+#   roles:
+#     - Copyright holder
+#     - funder
+#   homepage: https://posit.co
+#   ror: https://ror.org/03wc8by49
+
+# API Reference Structure
+# -----------------------
+# Customize the sections below to organize your API documentation.
+# - Reorder items within a section to change their display order
+# - Move items between sections or create new sections
+# - Use 'members: false' to exclude methods from documentation
+# - Add 'desc:' to sections for descriptions
+
+reference:
+  - title: Renderers
+    desc: Convert Markdown to various output formats
+    contents:
+      - markdown_to_html
+      - markdown_to_latex
+      - markdown_to_man
+      - markdown_to_commonmark
+      - markdown_to_xml
+
+  - title: Options
+    desc: Parsing and rendering configuration
+    contents:
+      - name: Options
+        members: false
+
+  - title: Utility
+    desc: Package information
+    contents:
+      - cmark_version
+
+# Jupyter Kernel
+# --------------
+# Jupyter kernel to use for executing code cells in .qmd files.
+# This is set at the project level so it applies to all pages, including
+# auto-generated API reference pages. Can be overridden in individual .qmd
+# file frontmatter if needed for special cases.
+jupyter: python3
+
+# Navigation Icons
+# ----------------
+nav_icons:
+  navbar:
+    User Guide: book-open
+    Reference: code-2
+  sidebar:
+    Getting Started: rocket
+    Core Concepts: puzzle
+    Advanced Usage: graduation-cap
+    Introduction: info
+    Installation: download
+    Quick Start: play
+    GFM Extensions: blocks
+    Output Formats: file-output
+    Options and Flags: sliders-horizontal
+    Security Considerations: shield
+    Practical Recipes: chef-hat
+    Performance: zap
+
+# Tags
+# ----
+tags:
+  enabled: true
+  icons:
+    Overview: info
+    Setup: download
+    Tutorial: book-open
+    HTML: globe
+    LaTeX: file-text
+    XML: file-code
+    Extensions: blocks
+    Tables: table
+    Configuration: sliders-horizontal
+    Options: toggle-left
+    Security: shield
+    Performance: zap
+
+# CLI Documentation
+# -----------------
+cli:
+  enabled: true
+  module: multimark._cli
+  name: main

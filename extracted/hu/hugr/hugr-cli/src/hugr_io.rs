@@ -1,0 +1,126 @@
+//! Input/output arguments for the HUGR CLI.
+
+use clio::Input;
+use hugr::Extension;
+use hugr::envelope::description::PackageDesc;
+use hugr::envelope::read_envelope;
+use hugr::extension::ExtensionRegistry;
+use hugr::extension::resolution::WeakExtensionRegistry;
+use hugr::package::Package;
+use std::io::{BufReader, Read};
+use std::path::PathBuf;
+use walkdir::WalkDir;
+
+use crate::CliError;
+
+/// Arguments for reading a HUGR input.
+#[derive(Debug, clap::Args)]
+pub struct HugrInputArgs {
+    /// Input file. Defaults to `-` for stdin.
+    #[arg(value_parser, default_value = "-", help_heading = "Input")]
+    pub input: Input,
+
+    /// No standard extensions.
+    #[arg(
+        long,
+        help_heading = "Input",
+        help = "Don't use standard extensions when validating hugrs. Prelude is still used."
+    )]
+    pub no_std: bool,
+    /// Extensions paths.
+    #[arg(
+        short,
+        long,
+        help_heading = "Input",
+        help = "Paths to additional serialised extensions needed to load the Hugr."
+    )]
+    pub extensions: Vec<PathBuf>,
+    /// Extension directories.
+    #[arg(
+        short = 'E',
+        long,
+        help_heading = "Input",
+        help = "Directories to recursively search for serialised extensions (*.json) needed to load the Hugr. \
+        Files not matching the extension schema are ignored."
+    )]
+    pub extension_dirs: Vec<PathBuf>,
+}
+
+impl HugrInputArgs {
+    /// Read a hugr envelope from the input and return the package encoded
+    /// within.
+    pub fn get_package(&mut self) -> Result<Package, CliError> {
+        self.get_described_package().map(|(_, package)| package)
+    }
+
+    /// Read a hugr envelope from the input and return the envelope
+    /// description and the decoded package.
+    pub fn get_described_package(&mut self) -> Result<(PackageDesc, Package), CliError> {
+        self.get_described_package_with_reader::<&[u8]>(None)
+    }
+
+    /// Read a hugr envelope from an optional reader and return the envelope
+    /// description and the decoded package.
+    ///
+    /// If `reader` is `None`, reads from the input specified in the args.
+    pub fn get_described_package_with_reader<R: Read>(
+        &mut self,
+        reader: Option<R>,
+    ) -> Result<(PackageDesc, Package), CliError> {
+        let extensions = self.load_extensions()?;
+
+        match reader {
+            Some(r) => {
+                let buffer = BufReader::new(r);
+                Ok(read_envelope(buffer, &extensions)?)
+            }
+            None => {
+                let buffer = BufReader::new(&mut self.input);
+                Ok(read_envelope(buffer, &extensions)?)
+            }
+        }
+    }
+
+    /// Return a register with the selected extensions.
+    ///
+    /// This includes the standard extensions if [`HugrInputArgs::no_std`] is `false`,
+    /// and the extensions loaded from [`HugrInputArgs::extensions`] and
+    /// [`HugrInputArgs::extension_dirs`].
+    pub fn load_extensions(&self) -> Result<ExtensionRegistry, CliError> {
+        let mut reg = if self.no_std {
+            hugr::extension::PRELUDE_REGISTRY.to_owned()
+        } else {
+            hugr::std_extensions::STD_REG.to_owned()
+        };
+
+        let mut extensions: Vec<Extension> = Vec::with_capacity(self.extensions.len());
+        for ext in &self.extensions {
+            let f = std::fs::File::open(ext)?;
+            let ext: Extension = serde_json::from_reader(f)?;
+            extensions.push(ext);
+        }
+
+        for dir in &self.extension_dirs {
+            for entry in WalkDir::new(dir)
+                .into_iter()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().extension().is_some_and(|ext| ext == "json"))
+            {
+                let f = std::fs::File::open(entry.path())?;
+                if let Ok(ext) = serde_json::from_reader::<_, Extension>(f) {
+                    extensions.push(ext);
+                }
+            }
+        }
+
+        // After deserialization, we need to update all the internal
+        // `Weak<Extension>` references.
+        let extra_extensions = ExtensionRegistry::new_with_extension_resolution(
+            extensions,
+            &WeakExtensionRegistry::from(&reg),
+        )?;
+
+        reg.extend(extra_extensions);
+        Ok(reg)
+    }
+}

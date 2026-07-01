@@ -1,0 +1,20 @@
+[project]
+name = "query-cache-common"
+dynamic = ["version"]
+description = "Common code for Query Cache shared across client and server"
+license = {file = "../../LICENSE"}
+requires-python = ">=3.9"
+dependencies = [
+    "typing-extensions>=4.0.0",
+    "query-cache-protobuf",
+    "humanize",
+]
+
+[tool.hatch.version]
+source = "code"
+path = "../../tooling/versions.py"
+expression = "VERSIONS['query-cache-common']"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

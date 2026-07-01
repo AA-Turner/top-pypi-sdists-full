@@ -1,0 +1,107 @@
+# Trivy container scan. This can be reused across all the applications.
+#
+# Runs Trivy, checks findings against the centralized base-allowlist in the SDK
+# repo (.security/base-allowlist.json), posts a summary comment on PRs, and
+# fails on new/expired entries.
+
+name: Atlan Application Trivy container scan
+
+on:
+  workflow_call:
+    secrets:
+      ORG_PAT_GITHUB:
+        required: true
+      CHAINGUARD_USERNAME:
+        required: true
+      CHAINGUARD_PASSWORD:
+        required: true
+
+    inputs:
+      skip-files:
+        description: "Comma-separated list of files or directories to be skipped"
+        required: false
+        type: string
+      fail-on-vulns:
+        description: "Whether to fail if new/expired HIGH/CRITICAL vulnerabilities are found"
+        required: false
+        type: string
+        default: 'true'
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+  security-events: write
+
+jobs:
+  build:
+    runs-on: "ubuntu-24.04"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Checkout base allowlist from SDK
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: atlanhq/application-sdk
+          ref: main
+          sparse-checkout: |
+            .security
+            .github/scripts
+          path: _sdk
+          token: ${{ secrets.ORG_PAT_GITHUB }}
+
+      # Composite handles build, Trivy JSON+SARIF scan, SARIF upload.
+      # fail-on-vulns is disabled here — the allowlist gate below takes over.
+      - id: trivy-scan
+        uses: "atlanhq/application-sdk/.github/actions/trivy-container@main"
+        with:
+          chainguard-username: ${{ secrets.CHAINGUARD_USERNAME }}
+          chainguard-password: ${{ secrets.CHAINGUARD_PASSWORD }}
+          github-token: ${{ secrets.ORG_PAT_GITHUB }}
+          skip-files: ${{ inputs.skip-files }}
+          fail-on-vulns: 'false'
+
+      - name: Check against allowlist
+        id: gate
+        env:
+          FAIL_ON_FINDINGS: ${{ inputs.fail-on-vulns }}
+        run: >
+          python3 _sdk/.github/scripts/check_allowlist.py
+          --trivy-results trivy-container-results.json
+          --write-comment
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('fs');
+            let body;
+            try {
+              body = fs.readFileSync('/tmp/scan_comment.md', 'utf8');
+            } catch {
+              body = '### \u{1F6E1}\uFE0F Security Gate\n\nScan results unavailable.';
+            }
+            const marker = '### \u{1F6E1}\uFE0F Security Gate';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+            }

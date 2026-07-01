@@ -1,0 +1,186 @@
+from pathlib import Path
+from types import SimpleNamespace
+
+from trinity.textual_app.target_workspace import (
+    absolute_path,
+    default_launch_cwd,
+    is_control_repo_target,
+    prepare_target_workspace,
+    resolve_target_path,
+    safe_start_target_workspace,
+    workspace_preflight_continuation,
+    workspace_preflight_effect,
+)
+
+
+def test_default_launch_cwd_resolves_explicit_launch_dir(tmp_path) -> None:
+    launch_dir = tmp_path / "project"
+    launch_dir.mkdir()
+
+    assert default_launch_cwd(launch_dir) == launch_dir.resolve()
+
+
+def test_default_launch_cwd_tolerates_missing_explicit_launch_dir(tmp_path) -> None:
+    missing = tmp_path / "missing" / "project"
+
+    resolved = default_launch_cwd(missing)
+
+    assert resolved.is_absolute()
+    assert resolved.name == "project"
+
+
+def test_resolve_target_path_uses_base_dir_for_relative_path(tmp_path) -> None:
+    resolved = resolve_target_path("project-a", tmp_path)
+
+    assert resolved == tmp_path / "project-a"
+
+
+def test_resolve_target_path_keeps_absolute_path(tmp_path) -> None:
+    target = tmp_path / "external"
+
+    resolved = resolve_target_path(str(target), tmp_path / "control")
+
+    assert resolved == target
+
+
+def test_is_control_repo_target_matches_control_repo_and_children(tmp_path) -> None:
+    control_repo = tmp_path / "Trinity"
+
+    assert is_control_repo_target(control_repo, control_repo) is True
+    assert is_control_repo_target(control_repo / "docs", control_repo) is True
+
+
+def test_is_control_repo_target_rejects_sibling_workspace(tmp_path) -> None:
+    control_repo = tmp_path / "Trinity"
+
+    assert is_control_repo_target(tmp_path / "msu", control_repo) is False
+
+
+def test_safe_start_target_workspace_skips_empty_or_control_repo(tmp_path) -> None:
+    control_repo = tmp_path / "Trinity"
+
+    assert safe_start_target_workspace(None, control_repo) is None
+    assert safe_start_target_workspace(control_repo, control_repo) is None
+    assert safe_start_target_workspace(control_repo / "docs", control_repo) is None
+
+
+def test_safe_start_target_workspace_keeps_sibling_workspace(tmp_path) -> None:
+    control_repo = tmp_path / "Trinity"
+    sibling = tmp_path / "msu"
+
+    assert safe_start_target_workspace(sibling, control_repo) == sibling
+
+
+def test_prepare_target_workspace_creates_missing_directory(tmp_path) -> None:
+    target = tmp_path / "new-project"
+
+    prepared = prepare_target_workspace(target)
+
+    assert prepared.error is None
+    assert prepared.resolved_path == target.resolve()
+    assert target.is_dir()
+
+
+def test_prepare_target_workspace_rejects_existing_file(tmp_path) -> None:
+    target = tmp_path / "not-a-directory"
+    target.write_text("file", encoding="utf-8")
+
+    prepared = prepare_target_workspace(target)
+
+    assert prepared.error == "not_directory"
+    assert prepared.resolved_path is None
+    assert prepared.message == str(target)
+
+
+def test_prepare_target_workspace_reports_os_error(tmp_path, monkeypatch) -> None:
+    target = tmp_path / "denied"
+    original_mkdir = Path.mkdir
+
+    def fail_mkdir(self, *args, **kwargs):
+        if self == target:
+            raise OSError("permission denied")
+        return original_mkdir(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "mkdir", fail_mkdir)
+
+    prepared = prepare_target_workspace(target)
+
+    assert prepared.error == "os_error"
+    assert prepared.resolved_path is None
+    assert "permission denied" in prepared.message
+
+
+def test_workspace_preflight_continuation_uses_fresh_execution(tmp_path) -> None:
+    preflight = SimpleNamespace(path=tmp_path / "app")
+
+    continuation = workspace_preflight_continuation(
+        preflight,
+        control_repo_confirmed=True,
+    )
+
+    assert continuation.preflight is preflight
+    assert continuation.control_repo_confirmed is True
+    assert continuation.use_retry is False
+    assert continuation.retry_selector == ""
+    assert continuation.retry_package_ids == ()
+
+
+def test_workspace_preflight_continuation_captures_pending_retry(tmp_path) -> None:
+    preflight = SimpleNamespace(path=tmp_path / "app")
+    pending_retry = SimpleNamespace(
+        selector="failed",
+        package_ids=("WP-1", "WP-2"),
+    )
+
+    continuation = workspace_preflight_continuation(
+        preflight,
+        control_repo_confirmed=False,
+        pending_retry=pending_retry,
+    )
+
+    assert continuation.preflight is preflight
+    assert continuation.control_repo_confirmed is False
+    assert continuation.use_retry is True
+    assert continuation.retry_selector == "failed"
+    assert continuation.retry_package_ids == ("WP-1", "WP-2")
+
+
+def test_workspace_preflight_effect_prefers_execution_recovery(tmp_path) -> None:
+    preflight = SimpleNamespace(path=tmp_path / "app")
+    snapshot = SimpleNamespace(session_id="wf-1")
+    outcome = SimpleNamespace(
+        snapshot=snapshot,
+        message="Interrupted execution exists.",
+        execution_recovery_required=True,
+    )
+
+    effect = workspace_preflight_effect(preflight, outcome)
+
+    assert effect.execution_recovery_snapshot is snapshot
+    assert effect.execution_recovery_message == "Interrupted execution exists."
+    assert effect.show_execution is False
+
+
+def test_workspace_preflight_effect_shows_execution_route(tmp_path) -> None:
+    preflight = SimpleNamespace(path=tmp_path / "app")
+    snapshot = SimpleNamespace(session_id="wf-1")
+    outcome = SimpleNamespace(
+        snapshot=snapshot,
+        message="",
+        execution_recovery_required=False,
+    )
+
+    effect = workspace_preflight_effect(preflight, outcome)
+
+    assert effect.execution_preflight is preflight
+    assert effect.execution_snapshot is snapshot
+    assert effect.show_execution is True
+
+
+def test_absolute_path_tolerates_missing_path(tmp_path) -> None:
+    missing = tmp_path / "missing" / "child"
+
+    resolved = absolute_path(missing)
+
+    assert resolved.is_absolute()
+    assert resolved.name == "child"

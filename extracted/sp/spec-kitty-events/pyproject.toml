@@ -1,0 +1,133 @@
+[project]
+name = "spec-kitty-events"
+version = "6.1.0"
+description = "Event log library with Lamport clocks and systematic error tracking"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    {name = "Robert Douglass", email = "rob@example.com"}
+]
+license = {file = "LICENSE"}
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
+
+dependencies = [
+    "pydantic>=2.0.0,<3.0.0",
+    "python-ulid>=1.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "hypothesis>=6.0.0",
+    "mypy>=1.0.0",
+]
+conformance = [
+    "jsonschema>=4.21.0,<5.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools]
+license-files = ["LICENSE"]
+
+[tool.setuptools.package-data]
+spec_kitty_events = [
+    "py.typed",
+    "schemas/*.json",
+    "conformance/fixtures/*.json",
+    "conformance/README.md",
+    "conformance/fixtures/events/valid/*.json",
+    "conformance/fixtures/events/invalid/*.json",
+    "conformance/fixtures/class_taxonomy/*/*.json",
+    "conformance/fixtures/class_taxonomy/*/*/*.json",
+    "conformance/fixtures/lane_mapping/valid/*.json",
+    "conformance/fixtures/lane_mapping/invalid/*.json",
+    "conformance/fixtures/edge_cases/valid/*.json",
+    "conformance/fixtures/edge_cases/invalid/*.json",
+    "conformance/fixtures/edge_cases/replay/*.jsonl",
+    "conformance/fixtures/legacy/*.json",
+    "conformance/fixtures/collaboration/valid/*.json",
+    "conformance/fixtures/collaboration/invalid/*.json",
+    "conformance/fixtures/glossary/valid/*.json",
+    "conformance/fixtures/glossary/invalid/*.json",
+    "conformance/fixtures/mission_next/valid/*.json",
+    "conformance/fixtures/mission_next/invalid/*.json",
+    "conformance/fixtures/mission_next/replay/*.jsonl",
+    "conformance/fixtures/dossier/valid/*.json",
+    "conformance/fixtures/dossier/invalid/*.json",
+    "conformance/fixtures/dossier/replay/*.jsonl",
+    "conformance/fixtures/mission_audit/valid/*.json",
+    "conformance/fixtures/mission_audit/invalid/*.json",
+    "conformance/fixtures/mission_audit/replay/*.jsonl",
+    "conformance/fixtures/mission_audit/replay/*.json",
+    "conformance/fixtures/decisionpoint/valid/*.json",
+    "conformance/fixtures/decisionpoint/invalid/*.json",
+    "conformance/fixtures/decisionpoint/replay/*.jsonl",
+    "conformance/fixtures/decisionpoint/replay/*.json",
+    "conformance/fixtures/connector/valid/*.json",
+    "conformance/fixtures/connector/invalid/*.json",
+    "conformance/fixtures/connector/replay/*.jsonl",
+    "conformance/fixtures/connector/replay/*_output.json",
+    "conformance/fixtures/sync/valid/*.json",
+    "conformance/fixtures/sync/invalid/*.json",
+    "conformance/fixtures/sync/replay/*.jsonl",
+    "conformance/fixtures/sync/replay/*_output.json",
+    "conformance/fixtures/profile_invocation/valid/*.json",
+    "conformance/fixtures/profile_invocation/invalid/*.json",
+    "conformance/fixtures/retrospective/valid/*.json",
+    "conformance/fixtures/retrospective/invalid/*.json",
+    "conformance/fixtures/analytics/valid/*.json",
+    "conformance/fixtures/analytics/invalid/*.json",
+    "conformance/fixtures/replay/*.jsonl",
+    "conformance/fixtures/replay/*.json",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "--cov=src/spec_kitty_events --cov-report=term-missing --cov-report=html"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.coverage.run]
+source = ["src/spec_kitty_events"]
+omit = ["*/tests/*", "*/__pycache__/*", "*/conformance/test_*", "*/conformance/conftest.py", "*/schemas/generate.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
+[dependency-groups]
+# Default dev group picked up by `uv run pytest`.  The pytest `addopts` above
+# includes `--cov`, so pytest-cov must be available out of the box or fresh
+# `uv run pytest` invocations fail with a cryptic "unrecognized arguments".
+# Hypothesis is required by the V1 reducer property tests; jsonschema is
+# required by the conformance tests.  Keeping them all here means contributors
+# can run the full suite without remembering `--extra dev --extra conformance`.
+dev = [
+    "pytest>=9.0.2",
+    "pytest-cov>=4.0.0",
+    "hypothesis>=6.0.0",
+    "jsonschema>=4.21.0,<5.0.0",
+]

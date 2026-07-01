@@ -1,7 +1,8 @@
 """Connector version selector with 4-tab DataTable interface.
 
-Each tab selects both a connector AND a version in one click, populating
-the rollout status and pin detail sections below.
+Tabs (in order): Active Rollouts, Recent Releases, Pinned Versions,
+Default Versions.  Each tab selects both a connector AND a version in
+one click, populating the rollout status and pin detail sections below.
 """
 
 from __future__ import annotations
@@ -10,17 +11,19 @@ from prefab_ui.actions import SetState
 from prefab_ui.actions.mcp import CallTool
 from prefab_ui.components import (
     H2,
+    Button,
     CardContent,
     CardHeader,
     DataTable,
     DataTableColumn,
     Div,
     Muted,
+    Row,
     Tab,
     Tabs,
     Text,
 )
-from prefab_ui.components.control_flow import If
+from prefab_ui.components.control_flow import Else, If
 from prefab_ui.rx import EVENT, RESULT, STATE
 
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
@@ -56,16 +59,6 @@ def render_connector_selector(state: dict[str, object]) -> None:
                 variant="line",
             ),
         ):
-            with Tab("Latest Versions", value="latest-versions"):
-                _render_latest_versions_tab()
-            with Tab("Recent Releases", value="recent-releases"):
-                _render_lazy_tab(
-                    state_key="recent_release_rows",
-                    tool=load_recent_releases_tab,
-                    loading_label="Loading recent releases\u2026",
-                    empty_label="No recent releases found.",
-                    render_fn=_render_recent_releases_table,
-                )
             with Tab("Active Rollouts", value="active-rollouts"):
                 _render_lazy_tab(
                     state_key="progressive_rollout_rows",
@@ -73,6 +66,14 @@ def render_connector_selector(state: dict[str, object]) -> None:
                     loading_label="Loading active rollouts\u2026",
                     empty_label="No active progressive rollouts.",
                     render_fn=_render_active_rollouts_table,
+                )
+            with Tab("Recent Releases", value="recent-releases"):
+                _render_lazy_tab(
+                    state_key="recent_release_rows",
+                    tool=load_recent_releases_tab,
+                    loading_label="Loading recent releases\u2026",
+                    empty_label="No recent releases found.",
+                    render_fn=_render_recent_releases_table,
                 )
             with Tab("Pinned Versions", value="pinned-versions"):
                 _render_lazy_tab(
@@ -82,10 +83,12 @@ def render_connector_selector(state: dict[str, object]) -> None:
                     empty_label="No pinned versions found.",
                     render_fn=_render_pinned_versions_table,
                 )
+            with Tab("Default Versions", value="latest-versions"):
+                _render_latest_versions_tab()
 
 
 # ---------------------------------------------------------------------------
-# Tab 1: Latest Versions (one row per connector, latest GA default only)
+# Tab 4: Default Versions (one row per connector, latest GA default only)
 # ---------------------------------------------------------------------------
 
 
@@ -105,7 +108,7 @@ def _render_latest_versions_tab() -> None:
                 ),
                 DataTableColumn(
                     key="latest_version",
-                    header="Latest Version",
+                    header="Default Version",
                     sortable=True,
                 ),
             ],
@@ -175,6 +178,7 @@ def _render_lazy_tab(
 
 # ---------------------------------------------------------------------------
 # Tab 2: Recent Releases (all versions published in last 30 days, max 50)
+# (Previously tab 2, unchanged)
 # ---------------------------------------------------------------------------
 
 
@@ -208,7 +212,7 @@ def _render_recent_releases_table() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Tab 3: Active Rollouts (same content as Progressive Rollouts dashboard)
+# Tab 1: Active Rollouts (same content as Progressive Rollouts dashboard)
 # ---------------------------------------------------------------------------
 
 
@@ -231,8 +235,8 @@ def _render_active_rollouts_table() -> None:
                     sortable=True,
                 ),
                 DataTableColumn(
-                    key="tier_display",
-                    header="Tier",
+                    key="tier_summary",
+                    header="Tiers",
                     sortable=True,
                 ),
                 DataTableColumn(
@@ -249,6 +253,9 @@ def _render_active_rollouts_table() -> None:
                     key="rc_pin_count_display",
                     header="Pins on RC",
                     sortable=True,
+                    format="number",
+                    align="right",
+                    header_class="[&>button]:justify-end",
                 ),
             ],
             rows=STATE.progressive_rollout_rows,
@@ -261,11 +268,12 @@ def _render_active_rollouts_table() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Tab 4: Pinned Versions (cross-connector, versions with ≥1 pin)
+# Tab 3: Pinned Versions (cross-connector, versions with ≥1 pin)
 # ---------------------------------------------------------------------------
 
 
 def _render_pinned_versions_table() -> None:
+    _render_pin_origin_filter_chips()
     with Div(style=_TAB_LIST_STYLE):
         DataTable(
             columns=[
@@ -280,24 +288,52 @@ def _render_pinned_versions_table() -> None:
                     sortable=True,
                 ),
                 DataTableColumn(
-                    key="actor_pins_display",
-                    header="Actor\nPins",
+                    key="breaking_change_pins_display",
+                    header="Breaking Change Pins",
                     sortable=True,
+                    format="number",
+                    align="right",
+                    header_class="[&>button]:justify-end",
+                ),
+                DataTableColumn(
+                    key="rollout_pins_display",
+                    header="Rollout Pins",
+                    sortable=True,
+                    format="number",
+                    align="right",
+                    header_class="[&>button]:justify-end",
+                ),
+                DataTableColumn(
+                    key="actor_pins_display",
+                    header="Actor Pins",
+                    sortable=True,
+                    format="number",
+                    align="right",
+                    header_class="[&>button]:justify-end",
                 ),
                 DataTableColumn(
                     key="workspace_pins_display",
-                    header="Workspace\nPins",
+                    header="Workspace Pins",
                     sortable=True,
+                    format="number",
+                    align="right",
+                    header_class="[&>button]:justify-end",
                 ),
                 DataTableColumn(
                     key="org_pins_display",
-                    header="Organization\nPins",
+                    header="Organization Pins",
                     sortable=True,
+                    format="number",
+                    align="right",
+                    header_class="[&>button]:justify-end",
                 ),
                 DataTableColumn(
-                    key="pin_count_display",
-                    header="Total\nPins",
+                    key="custom_pin_count_display",
+                    header="Total Custom Pins",
                     sortable=True,
+                    format="number",
+                    align="right",
+                    header_class="[&>button]:justify-end",
                 ),
             ],
             rows=STATE.pinned_version_rows,
@@ -307,6 +343,41 @@ def _render_pinned_versions_table() -> None:
                 version_tag_key="docker_image_tag",
             ),
         )
+
+
+# Filter chip definitions: (label, origin_filter value)
+_PIN_FILTER_CHIPS: list[tuple[str, str]] = [
+    ("All", "all"),
+    ("Rollouts", "rollout"),
+    ("Custom Pins", "custom"),
+    ("Breaking Changes", "breaking_change"),
+]
+
+
+def _filter_chip_actions(origin_filter: str) -> list:
+    """Build click actions for a pin origin filter chip."""
+    return [
+        SetState("pin_origin_filter", origin_filter),
+        CallTool(
+            load_pinned_versions_tab,
+            arguments={"origin_filter": origin_filter},
+            on_success=[
+                SetState("pinned_version_rows", RESULT.rows),
+            ],
+            on_error=fail_tool_call("Failed to filter pinned versions."),
+        ),
+    ]
+
+
+def _render_pin_origin_filter_chips() -> None:
+    """Render origin-type filter chips above the Pinned Versions table."""
+    with Row(gap=2, css_class="mb-3"):
+        for label, filter_value in _PIN_FILTER_CHIPS:
+            actions = _filter_chip_actions(filter_value)
+            with If(STATE.pin_origin_filter.__eq__(filter_value)):
+                Button(label, variant="default", size="sm", on_click=actions)
+            with Else():
+                Button(label, variant="outline", size="sm", on_click=actions)
 
 
 # ---------------------------------------------------------------------------

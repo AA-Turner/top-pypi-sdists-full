@@ -29,6 +29,8 @@ from datadog_api_client.v2.model.uc_config_pair import UCConfigPair
 from datadog_api_client.v2.model.azure_uc_config_patch_request import AzureUCConfigPatchRequest
 from datadog_api_client.v2.model.budget_with_entries import BudgetWithEntries
 from datadog_api_client.v2.model.validation_response import ValidationResponse
+from datadog_api_client.v2.model.custom_forecast_response import CustomForecastResponse
+from datadog_api_client.v2.model.custom_forecast_upsert_request import CustomForecastUpsertRequest
 from datadog_api_client.v2.model.budget_validation_response import BudgetValidationResponse
 from datadog_api_client.v2.model.budget_validation_request import BudgetValidationRequest
 from datadog_api_client.v2.model.budget_array import BudgetArray
@@ -358,6 +360,29 @@ class CloudCostManagementApi:
             api_client=api_client,
         )
 
+        self._delete_custom_forecast_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/cost/budget/{budget_id}/custom-forecast",
+                "operation_id": "delete_custom_forecast",
+                "http_method": "DELETE",
+                "version": "v2",
+            },
+            params_map={
+                "budget_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "budget_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["*/*"],
+            },
+            api_client=api_client,
+        )
+
         self._delete_tag_pipelines_ruleset_endpoint = _Endpoint(
             settings={
                 "response_type": None,
@@ -419,6 +444,26 @@ class CloudCostManagementApi:
                     "openapi_types": (str,),
                     "attribute": "budget_id",
                     "location": "path",
+                },
+                "actual": {
+                    "openapi_types": (bool,),
+                    "attribute": "actual",
+                    "location": "query",
+                },
+                "forecast": {
+                    "openapi_types": (bool,),
+                    "attribute": "forecast",
+                    "location": "query",
+                },
+                "start": {
+                    "openapi_types": (int,),
+                    "attribute": "start",
+                    "location": "query",
+                },
+                "end": {
+                    "openapi_types": (int,),
+                    "attribute": "end",
+                    "location": "query",
                 },
             },
             headers_map={
@@ -1847,6 +1892,26 @@ class CloudCostManagementApi:
             api_client=api_client,
         )
 
+        self._upsert_custom_forecast_endpoint = _Endpoint(
+            settings={
+                "response_type": (CustomForecastResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/cost/budget/custom-forecast",
+                "operation_id": "upsert_custom_forecast",
+                "http_method": "PUT",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (CustomForecastUpsertRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
         self._validate_budget_endpoint = _Endpoint(
             settings={
                 "response_type": (BudgetValidationResponse,),
@@ -2123,6 +2188,23 @@ class CloudCostManagementApi:
 
         return self._delete_custom_costs_file_endpoint.call_with_http_info(**kwargs)
 
+    def delete_custom_forecast(
+        self,
+        budget_id: str,
+    ) -> None:
+        """Delete a budget's custom forecast.
+
+        Delete the custom forecast for a budget.
+
+        :param budget_id: Budget id.
+        :type budget_id: str
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["budget_id"] = budget_id
+
+        return self._delete_custom_forecast_endpoint.call_with_http_info(**kwargs)
+
     def delete_tag_pipelines_ruleset(
         self,
         ruleset_id: str,
@@ -2160,17 +2242,42 @@ class CloudCostManagementApi:
     def get_budget(
         self,
         budget_id: str,
+        *,
+        actual: Union[bool, UnsetType] = unset,
+        forecast: Union[bool, UnsetType] = unset,
+        start: Union[int, UnsetType] = unset,
+        end: Union[int, UnsetType] = unset,
     ) -> BudgetWithEntries:
         """Get budget.
 
-        Get a budget
+        Get a budget by ID. Pass ``actual=true`` or ``forecast=true`` to include cost data in the response. Use ``start`` and ``end`` (millisecond epochs, both required) to set the cost window. When ``forecast=true`` , each entry also includes ``ootb_forecast`` (the ML forecast before overrides) and ``custom_forecast`` ( ``null`` if no override is set, a number if one is).
 
         :param budget_id: Budget id.
         :type budget_id: str
+        :param actual: When ``true`` , includes actual cost data in the response.
+        :type actual: bool, optional
+        :param forecast: When ``true`` , includes forecast cost data in the response, including ``ootb_forecast`` and ``custom_forecast`` per entry.
+        :type forecast: bool, optional
+        :param start: Start of the cost window in milliseconds since epoch. Must be used together with ``end``.
+        :type start: int, optional
+        :param end: End of the cost window in milliseconds since epoch. Must be used together with ``start``.
+        :type end: int, optional
         :rtype: BudgetWithEntries
         """
         kwargs: Dict[str, Any] = {}
         kwargs["budget_id"] = budget_id
+
+        if actual is not unset:
+            kwargs["actual"] = actual
+
+        if forecast is not unset:
+            kwargs["forecast"] = forecast
+
+        if start is not unset:
+            kwargs["start"] = start
+
+        if end is not unset:
+            kwargs["end"] = end
 
         return self._get_budget_endpoint.call_with_http_info(**kwargs)
 
@@ -3404,6 +3511,23 @@ class CloudCostManagementApi:
         kwargs["body"] = body
 
         return self._upsert_cost_tag_description_by_key_endpoint.call_with_http_info(**kwargs)
+
+    def upsert_custom_forecast(
+        self,
+        body: CustomForecastUpsertRequest,
+    ) -> CustomForecastResponse:
+        """Create or replace a budget's custom forecast.
+
+        Create or replace the custom forecast for an existing budget.
+        Pass an empty ``entries`` list to delete the custom forecast for the budget.
+
+        :type body: CustomForecastUpsertRequest
+        :rtype: CustomForecastResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._upsert_custom_forecast_endpoint.call_with_http_info(**kwargs)
 
     def validate_budget(
         self,

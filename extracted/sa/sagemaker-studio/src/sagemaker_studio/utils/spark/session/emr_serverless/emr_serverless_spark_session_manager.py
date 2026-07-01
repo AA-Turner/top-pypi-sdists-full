@@ -14,12 +14,14 @@ import uuid
 import boto3
 from pyspark.sql.connect.session import SparkSession as _SparkSession
 
-from sagemaker_studio.project import ClientConfig, Project
+from sagemaker_studio.project import ClientConfig
 from sagemaker_studio.utils._internal import InternalUtils
 from sagemaker_studio.utils.loggerutils import sync_with_metrics
+from sagemaker_studio.utils.spark.connection_resolver import _ensure_project
 from sagemaker_studio.utils.spark.session.constants import SPARK_CONNECT_LOG_FILE
 from sagemaker_studio.utils.spark.session.emr_serverless.interceptors import CustomChannelBuilder
 from sagemaker_studio.utils.spark.session.spark_config_builder import (
+    apply_compatibility_mode_configs,
     build_spark_configs,
     extract_connection_spark_configs,
 )
@@ -58,7 +60,8 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
         self._connection = connection
         self.connection_name = connection_name
         self.config = config
-        self.spark_conf = spark_conf
+        if spark_conf:
+            self.set_user_spark_conf(spark_conf)
         self.application_id = None
         self.emr_serverless_session_id = None
         self.emr_serverless_runtime_role = None
@@ -98,7 +101,7 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
 
         self.emr_serverless_client = internal_model_session.client("emr-serverless", **emr_kwargs)
         self.sts_client = boto3.client("sts", region_name=region)
-        self.project = Project()
+        self.project = _ensure_project()
 
         # Use pre-resolved connection if available, otherwise look up by name
         connection = self._connection
@@ -110,6 +113,7 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
                     "EMRServerlessSparkSessionManager requires a connection or connection_name. "
                     "Use sparkutils.init() which resolves the connection automatically."
                 )
+            self._connection = connection
 
         # Extract application ID and runtime role from connection props.
         # Consistent with SageMakerStudioDataEngineeringSessions (Livy flow) which reads
@@ -166,7 +170,7 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
                 account_id=account_id,
                 service_configs=service_configs,
                 connection_configs=self.connection_spark_configs,
-                user_configs=self.spark_conf,
+                user_configs=self._user_spark_conf,
             )
 
             self.emr_serverless_session_id, spark_endpoint_url, endpoint_response = (
@@ -411,19 +415,8 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
 
     @staticmethod
     def _get_compatibility_mode_configs() -> dict:
-        """Compatibility mode spark configs applied when FTA is supported.
-
-        Consistent with SageMakerStudioDataEngineeringSessions apply_compatibility_mode_configs.
-        """
-        return {
-            "spark.hadoop.fs.s3.credentialsResolverClass": "com.amazonaws.glue.accesscontrol.AWSLakeFormationCredentialResolver",
-            "spark.hadoop.fs.s3.useDirectoryHeaderAsFolderObject": "true",
-            "spark.hadoop.fs.s3.folderObject.autoAction.disabled": "true",
-            "spark.sql.catalog.createDirectoryAfterTable.enabled": "true",
-            "spark.sql.catalog.dropDirectoryBeforeTable.enabled": "true",
-            "spark.sql.catalog.spark_catalog.glue.lakeformation-enabled": "true",
-            "spark.sql.catalog.skipLocationValidationOnCreateTable.enabled": "true",
-        }
+        """Compatibility mode spark configs applied when FTA is supported."""
+        return apply_compatibility_mode_configs({})
 
     @sync_with_metrics("_start_emr_serverless_session")
     def _start_emr_serverless_session(self, application_id, user_id, spark_configs):

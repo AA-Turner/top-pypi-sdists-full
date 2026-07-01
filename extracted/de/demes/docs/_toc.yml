@@ -1,0 +1,11 @@
+format: jb-article
+root: index
+sections:
+- file: introduction
+- file: installation
+- file: quickstart
+- file: api
+- file: cli
+- file: development
+- file: CITATION
+- file: CHANGELOG

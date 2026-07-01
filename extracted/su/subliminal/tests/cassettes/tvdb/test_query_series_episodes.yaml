@@ -1,0 +1,111 @@
+interactions:
+- request:
+    body: '{"apikey": "5EC930FB90DA1ADA", "username": null, "password": null}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Accept-Language:
+      - en
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '66'
+      Content-Type:
+      - application/json
+      User-Agent:
+      - Subliminal/2.2
+    method: POST
+    uri: https://api.thetvdb.com/login
+  response:
+    body:
+      string: '{"token":"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDAwOTQyMTcsImlkIjoic3VibGltaW5hbCIsIm9yaWdfaWF0IjoxNzM5NDg5NDE3fQ.Es455TPGAju2IUoTiXJPoMMAC3nxEZO02xXHTc1QtvIjcaZ_juLlB_Dr6TyoQ-dsICova3PnduVSTGYsLhsISPZhTqu0gBbiZosMcsDODRLl-B8VVrifpu2W0Cmt1FZzcTIGFB1hIxGAO7bJvVwMTyntyNxhK_3GBRVB2fD94zATWaHWN6veiRUXuNfupJQ2omYf9WqCh4R_ZyrqZvs2QM8zmhmUUoV6_bQjtET-16dO8ErMODUl6V_cY1bKYAXI-XSRpVEWwgXXKtDHVfrG5TDMT_wGhw6R4N5aW0aqmnLqlkxGjD4GwsEQpENtU77XmPAuoyNxTkyJ_mgFi7c0sg"}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '470'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 13 Feb 2025 23:30:17 GMT
+      Vary:
+      - Accept-Language
+      Via:
+      - 1.1 ac6c61c5795b4bc9c16e9a11b9a19660.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - 3sMXRKjHzE-b5O82C0_0Fn6Iu8J_X4xcOV1uwTlaNZ03gU3GKwwBUw==
+      X-Amz-Cf-Pop:
+      - MAD51-C3
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - Thundar!
+      X-Thetvdb-Api-Version:
+      - 3.0.0
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Accept-Language:
+      - en
+      Authorization:
+      - Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDAwOTQyMTcsImlkIjoic3VibGltaW5hbCIsIm9yaWdfaWF0IjoxNzM5NDg5NDE3fQ.Es455TPGAju2IUoTiXJPoMMAC3nxEZO02xXHTc1QtvIjcaZ_juLlB_Dr6TyoQ-dsICova3PnduVSTGYsLhsISPZhTqu0gBbiZosMcsDODRLl-B8VVrifpu2W0Cmt1FZzcTIGFB1hIxGAO7bJvVwMTyntyNxhK_3GBRVB2fD94zATWaHWN6veiRUXuNfupJQ2omYf9WqCh4R_ZyrqZvs2QM8zmhmUUoV6_bQjtET-16dO8ErMODUl6V_cY1bKYAXI-XSRpVEWwgXXKtDHVfrG5TDMT_wGhw6R4N5aW0aqmnLqlkxGjD4GwsEQpENtU77XmPAuoyNxTkyJ_mgFi7c0sg
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      User-Agent:
+      - Subliminal/2.2
+    method: GET
+    uri: https://api.thetvdb.com/series/80379/episodes/query?airedSeason=7&airedEpisode=5&page=1
+  response:
+    body:
+      string: '{"links":{"first":1,"last":1,"next":null,"prev":null},"data":[{"id":4668379,"airedSeason":7,"airedSeasonID":522809,"airedEpisodeNumber":5,"episodeName":"The
+        Workplace Proximity","firstAired":"2013-10-17","guestStars":["Ayumi Iizuka","Todd
+        Eric Andrews"],"directors":["Mark Cendrowski"],"writers":["Chuck Lorre","Eric
+        Kaplan","Jim Reynolds"],"overview":"Sheldon must decide how much \"Amy time\"
+        is too much after she takes a job at his university, and their relationship
+        is put to the test. Meanwhile, Howard finds himself sleeping on Raj''s couch
+        after a fight with Bernadette.","language":{"episodeName":"en","overview":"en"},"productionCode":"4X5305","showUrl":"","lastUpdated":1592063484,"dvdDiscid":"","dvdSeason":7,"dvdEpisodeNumber":5,"dvdChapter":null,"absoluteNumber":140,"filename":"series/80379/episodes/5eaa0359d5874.jpg","seriesId":80379,"lastUpdatedBy":198416,"airsAfterSeason":null,"airsBeforeSeason":null,"airsBeforeEpisode":null,"imdbId":"tt3229392","contentRating":"TV-PG","thumbAuthor":198416,"thumbAdded":"2020-04-29
+        22:44:41","thumbWidth":"640","thumbHeight":"360","siteRating":7.7,"siteRatingCount":4973,"isMovie":0}]}'
+    headers:
+      Age:
+      - '76467'
+      Cache-Control:
+      - private, max-age=86400
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 13 Feb 2025 02:15:50 GMT
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Accept-Encoding,Accept-Language
+      Via:
+      - 1.1 352ab4fc53db02754a30e59a7814a0d2.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - _aBz_UAnOVdDptNMAomOxRZUjipJJU46DyNao3erkciDzAfnYE41Tg==
+      X-Amz-Cf-Pop:
+      - MAD51-C3
+      X-Cache:
+      - Hit from cloudfront
+      X-Powered-By:
+      - Thundar!
+      X-Thetvdb-Api-Version:
+      - 3.0.0
+      content-length:
+      - '1139'
+    status:
+      code: 200
+      message: OK
+version: 1

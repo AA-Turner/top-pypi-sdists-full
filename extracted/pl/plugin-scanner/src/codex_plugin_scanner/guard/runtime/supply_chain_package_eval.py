@@ -86,6 +86,11 @@ _TARBALL_SCAN_MAX_BYTES = 6 * 1024 * 1024
 _TARBALL_SCAN_MAX_FILES = 500
 _TARBALL_SCAN_MAX_PACKAGE_JSON_BYTES = 256 * 1024
 _CLOUD_VALIDATION_ERROR_CACHE_TTL_SECONDS = 15 * 60
+_REGISTRY_DEFAULT_RANGES = {
+    "npm": "latest",
+    "pypi": ">=0",
+}
+_DIST_TAG_RANGE_ECOSYSTEMS = {"npm"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -248,8 +253,16 @@ def evaluate_package_request_artifact(
                     bundle_version=bundle_meta["bundle_version"],
                     workspace_fingerprint=workspace_fingerprint,
                 )
-                _persist_evidence(store=store, artifact=artifact, evaluation=cached_result, now=now_value)
-                return cached_result
+                if not _cached_cloud_validation_error_requires_uncached_retry(
+                    cached,
+                    store=store,
+                    artifact=artifact,
+                    evaluation=cached_result,
+                    workspace_dir=workspace_dir,
+                    now=now_value,
+                ):
+                    _persist_evidence(store=store, artifact=artifact, evaluation=cached_result, now=now_value)
+                    return cached_result
     bundle_evaluation = (
         _evaluate_with_bundle(
             artifact=artifact,
@@ -361,7 +374,12 @@ def evaluate_package_request_artifact(
             fallback = _with_additional_reason(fallback, cloud_fallback_reason)
             if _cloud_fallback_requires_reconnect_copy(cloud_fallback_reason):
                 fallback = _with_cloud_auth_reconnect_copy(fallback)
-        if bundle_meta is not None and bundle_evaluation.decision != "monitor" and isinstance(bundle_payload, dict):
+        if (
+            bundle_meta is not None
+            and bundle_evaluation.decision != "monitor"
+            and fallback.cache_status != "cloud-error"
+            and isinstance(bundle_payload, dict)
+        ):
             cache_workspace_id = workspace_id
             if cache_workspace_id is None:
                 bundle_section = bundle_payload.get("bundle")
@@ -529,9 +547,11 @@ def _cache_reusable_cloud_validation_error(
     evaluation: PackageRequestEvaluation,
     now: str,
 ) -> None:
-    if workspace_id is None or bundle_meta is None:
-        return
-    if not any(str(reason.get("code") or "") == "cloud_validation_error" for reason in evaluation.reasons):
+    if (
+        workspace_id is None
+        or bundle_meta is None
+        or not _evaluation_has_reason_code(evaluation, "cloud_validation_error")
+    ):
         return
     store.cache_supply_chain_evaluation(
         workspace_id=workspace_id,
@@ -543,6 +563,69 @@ def _cache_reusable_cloud_validation_error(
         decision=evaluation.to_cache_dict(),
         now=now,
     )
+
+
+def _cached_cloud_validation_error_requires_uncached_retry(
+    cached: dict[str, object],
+    *,
+    store: GuardStore,
+    artifact: GuardArtifact,
+    evaluation: PackageRequestEvaluation,
+    workspace_dir: Path | None,
+    now: str,
+) -> bool:
+    if not _cached_eval_has_reason_code(cached, "cloud_validation_error"):
+        return False
+    return not _cached_cloud_validation_error_has_saved_policy(
+        store=store,
+        artifact=artifact,
+        evaluation=evaluation,
+        workspace_dir=workspace_dir,
+        now=now,
+    )
+
+
+def _cached_cloud_validation_error_has_saved_policy(
+    *,
+    store: GuardStore,
+    artifact: GuardArtifact,
+    evaluation: PackageRequestEvaluation,
+    workspace_dir: Path | None,
+    now: str,
+) -> bool:
+    if workspace_dir is None:
+        return False
+    try:
+        from ..local_supply_chain import (  # local import avoids the runtime/local helper cycle
+            _stored_package_policy_is_stale_policy_bundle_family,
+            package_request_policy_hash,
+        )
+
+        artifact_hash = package_request_policy_hash(
+            artifact=artifact,
+            store=store,
+            workspace_dir=workspace_dir,
+            evaluation=evaluation,
+        )
+    except (ImportError, TypeError, ValueError, OSError):
+        return False
+    decision = store.resolve_policy_decision(
+        artifact.harness,
+        artifact.artifact_id,
+        artifact_hash,
+        str(workspace_dir),
+        artifact.publisher,
+        now,
+    )
+    if not isinstance(decision, dict):
+        return False
+    if _stored_package_policy_is_stale_policy_bundle_family(decision, store=store):
+        return False
+    return decision.get("action") in {"allow", "block"}
+
+
+def _evaluation_has_reason_code(evaluation: PackageRequestEvaluation, code: str) -> bool:
+    return any(isinstance(reason, dict) and str(reason.get("code") or "") == code for reason in evaluation.reasons)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1484,13 +1567,19 @@ def _targets_from_artifact(artifact: GuardArtifact) -> tuple[dict[str, object], 
             continue
         namespace, name = _split_namespace_name(package_name)
         requested = _optional_string(item.get("requested_specifier"))
-        exact_version = _exact_version(requested)
         raw_spec = _optional_string(item.get("raw_spec")) or package_name
         source_url = _optional_string(item.get("source_url"))
         if source_url is None:
             source_url = _source_url_from_specifier(requested)
         if source_url is None:
             source_url = _source_url_from_raw_spec(raw_spec)
+        if source_url is not None:
+            requested = None
+        if requested is None and source_url is None:
+            requested = _default_registry_range(ecosystem)
+        exact_version = (
+            None if _requested_specifier_is_range(requested, ecosystem=ecosystem) else _exact_version(requested)
+        )
         parsed.append(
             {
                 "ecosystem": ecosystem,
@@ -1553,7 +1642,7 @@ def _build_request_payload(
     policy_version: str,
 ) -> dict[str, object]:
     lockfile_context = _lockfile_context(workspace_dir, artifact)
-    return {
+    payload: dict[str, object] = {
         "commandShape": {
             "argCount": len(str(artifact.metadata.get("redacted_command") or "").split()),
             "flags": list(_string_tuple(artifact.metadata.get("flags"))),
@@ -1562,14 +1651,13 @@ def _build_request_payload(
             "verb": str(artifact.metadata.get("intent_kind") or "install"),
         },
         "harness": artifact.harness,
-        "lockfileContext": lockfile_context,
         "packages": [
             {
                 "direct": True,
-                "dependencyPath": None,
                 "ecosystem": str(target["ecosystem"]),
                 "name": str(target["name"]),
                 "namespace": target["namespace"],
+                **({"sourceUrl": str(target["source_url"])} if target.get("source_url") else {}),
                 **({"version": str(target["version"])} if target.get("version") else {}),
                 **({"range": str(target["range"])} if target.get("range") else {}),
             }
@@ -1578,6 +1666,9 @@ def _build_request_payload(
         "policyVersion": policy_version,
         "workspaceFingerprint": workspace_fingerprint,
     }
+    if lockfile_context is not None:
+        payload["lockfileContext"] = lockfile_context
+    return payload
 
 
 def _lockfile_context(workspace_dir: Path | None, artifact: GuardArtifact) -> dict[str, object] | None:
@@ -3790,6 +3881,21 @@ def _exact_version(value: str | None) -> str | None:
     if any(token in normalized for token in ("||", " - ", ",")):
         return None
     return normalized
+
+
+def _default_registry_range(ecosystem: str) -> str | None:
+    return _REGISTRY_DEFAULT_RANGES.get(ecosystem)
+
+
+def _requested_specifier_is_range(value: str | None, *, ecosystem: str) -> bool:
+    normalized = _optional_string(value)
+    if normalized is None:
+        return False
+    if _exact_version(normalized) is None:
+        return True
+    if ecosystem not in _DIST_TAG_RANGE_ECOSYSTEMS:
+        return False
+    return re.fullmatch(r"[A-Za-z][A-Za-z0-9_.-]*", normalized) is not None
 
 
 def _optional_string(value: object) -> str | None:

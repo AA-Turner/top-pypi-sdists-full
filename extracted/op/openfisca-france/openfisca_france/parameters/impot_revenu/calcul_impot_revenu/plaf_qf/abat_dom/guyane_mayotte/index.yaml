@@ -1,6 +1,0 @@
-description: Abattement spécifique Guyane et Mayotte de l'impôt sur le revenu (IR)
-metadata:
-  short_label: Guyane et Mayotte
-  order:
-  - taux
-  - plaf

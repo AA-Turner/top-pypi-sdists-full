@@ -1,0 +1,84 @@
+[project]
+name = "sphinx-autosummary-accessors"
+license = { text = "MIT" }
+description = "sphinx autosummary extension to properly format pandas or xarray accessors"
+authors = [
+  { name = "Justus Magin", email = "keewis@posteo.de" },
+]
+readme = "README.rst"
+requires-python = ">=3.9"
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+  "sphinx >= 5.3",
+  "packaging",
+]
+dynamic = ["version"]
+
+[project.urls]
+Home = "https://github.com/xarray-contrib/sphinx-autosummary-accessors"
+Documentation = "https://sphinx-autosummary-accessors.readthedocs.io/en/stable"
+
+
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm[toml]>=7.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = [
+  "sphinx_autosummary_accessors",
+  "sphinx_autosummary_accessors.templates",
+]
+
+[tool.setuptools_scm]
+fallback_version = "999"
+
+[tool.ruff]
+target-version = "py38"
+builtins = ["ellipsis"]
+exclude = [
+  ".git",
+  ".eggs",
+  "build",
+  "dist",
+  "__pycache__",
+]
+line-length = 100
+
+[tool.ruff.lint]
+# E402: module level import not at top of file
+# E501: line too long - let black worry about that
+# E731: do not assign a lambda expression, use a def
+ignore = [
+  "E402",
+  "E501",
+  "E731",
+]
+select = [
+  "F",   # Pyflakes
+  "E",   # Pycodestyle
+  "I",   # isort
+  "UP",  # Pyupgrade
+  "TID", # flake8-tidy-imports
+  "W",
+]
+extend-safe-fixes = [
+  "TID252", # absolute imports
+]
+fixable = ["I", "TID252"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["sphinx_autosummary_accessors"]
+known-third-party = ["sphinx"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow all relative imports.
+ban-relative-imports = "all"

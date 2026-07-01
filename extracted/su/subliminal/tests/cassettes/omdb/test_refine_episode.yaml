@@ -1,0 +1,51 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, zstd
+      Connection:
+      - keep-alive
+      User-Agent:
+      - Subliminal/2.5
+    method: GET
+    uri: https://www.omdbapi.com/?r=json&v=1&apikey=7a541ee4&s=the+big+bang+theory&page=1&type=series
+  response:
+    body:
+      string: "{\"Search\":[{\"Title\":\"The Big Bang Theory\",\"Year\":\"2007\u20132019\",\"imdbID\":\"tt0898266\",\"Type\":\"series\",\"Poster\":\"https://m.media-amazon.com/images/M/MV5BZjgzY2QyNzItNDhhYi00ZWIwLWFjN2UtZDJkN2MxYWNjMmJjXkEyXkFqcGc@._V1_SX300.jpg\"},{\"Title\":\"The
+        Big Bang Theory After Show\",\"Year\":\"2015\u2013\",\"imdbID\":\"tt5612894\",\"Type\":\"series\",\"Poster\":\"N/A\"}],\"totalResults\":\"2\",\"Response\":\"True\"}"
+    headers:
+      CF-RAY:
+      - 9cd03655d9512f61-LIS
+      Cache-Control:
+      - public, max-age=3600
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Fri, 13 Feb 2026 00:29:35 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      access-control-allow-origin:
+      - '*'
+      cf-cache-status:
+      - DYNAMIC
+      content-length:
+      - '377'
+      expires:
+      - Fri, 13 Feb 2026 01:29:35 GMT
+      last-modified:
+      - Fri, 13 Feb 2026 00:29:35 GMT
+      vary:
+      - '*'
+      x-aspnet-version:
+      - 4.0.30319
+    status:
+      code: 200
+      message: OK
+version: 1

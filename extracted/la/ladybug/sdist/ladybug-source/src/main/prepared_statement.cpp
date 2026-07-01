@@ -15,6 +15,9 @@ CachedPreparedStatement::CachedPreparedStatement() = default;
 CachedPreparedStatement::~CachedPreparedStatement() = default;
 
 std::vector<std::string> CachedPreparedStatement::getColumnNames() const {
+    if (!columnNames.empty()) {
+        return columnNames;
+    }
     std::vector<std::string> names;
     for (auto& column : columns) {
         names.push_back(column->toString());
@@ -46,6 +49,22 @@ StatementType PreparedStatement::getStatementType() const {
     return preparedSummary.statementType;
 }
 
+bool PreparedStatement::canReuseCachedPlanWith(
+    const std::unordered_map<std::string, std::unique_ptr<Value>>& inputParams) const {
+    if (!unknownParameters.empty()) {
+        return false;
+    }
+    for (auto& [key, value] : inputParams) {
+        if (!parameterMap.contains(key)) {
+            return false;
+        }
+        if (parameterMap.at(key)->getDataType() != value->getDataType()) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static void validateParam(const std::string& paramName, Value* newVal, Value* oldVal) {
     if (newVal->getDataType().getLogicalTypeID() == LogicalTypeID::POINTER &&
         newVal->getValue<uint8_t*>() != oldVal->getValue<uint8_t*>()) {
@@ -74,6 +93,19 @@ void PreparedStatement::updateParameter(const std::string& name, Value* value) {
 
 void PreparedStatement::addParameter(const std::string& name, Value* value) {
     parameterMap.insert({name, std::make_shared<Value>(*value)});
+}
+
+void PreparedStatement::setParameter(const std::string& name, Value value) {
+    if (!parameterMap.contains(name)) {
+        throw BinderException(std::format("Parameter {} not found.", name));
+    }
+    auto& oldValue = parameterMap.at(name);
+    if (oldValue->getDataType() != value.getDataType()) {
+        throw BinderException(std::format("Cannot update parameter {} with type {}. Expected {}.",
+            name, value.getDataType().toString(), oldValue->getDataType().toString()));
+    }
+    validateParam(name, &value, oldValue.get());
+    *oldValue = std::move(value);
 }
 
 PreparedStatement::~PreparedStatement() = default;

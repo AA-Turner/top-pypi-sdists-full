@@ -1,15 +1,13 @@
 """Deal with app names of tasks."""
 
 from allianceauth.services.hooks import get_extension_logger
-from app_utils.logging import LoggerAddTag
 
-from taskmonitor import __title__
 from taskmonitor.app_settings import (
     TASKMONITOR_APP_NAME_MAPPING_CONFIG,
     TASKMONITOR_APP_NAME_MAPPING_DEFAULTS,
 )
 
-logger = LoggerAddTag(get_extension_logger(__name__), __title__)
+logger = get_extension_logger(__name__)
 
 
 def from_task_name(task_name: str) -> str:

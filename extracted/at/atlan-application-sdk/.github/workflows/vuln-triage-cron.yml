@@ -1,0 +1,87 @@
+# Vuln Triage — autonomous CVE remediation rover
+#
+# Dispatches a Cloudflare sandbox via mothership's Rover Direct API
+# (POST /api/sandbox/execute, mode=direct, snapshot=_base) to triage a
+# security-scan Linear ticket created by daily-security-scan.yml.
+#
+# The sandbox clones the repo into /workspace/application-sdk and then
+# reads .mothership/vuln-triage/ORCHESTRATION.md from disk — all the
+# per-CVE classification + remediation logic lives there, not on mothership.
+#
+# Triggered (1) automatically by daily-security-scan.yml right after it
+# files a new "vulnerabilities" ticket, passing that ticket's identifier,
+# and (2) manually via workflow_dispatch for re-runs / backfill.
+#
+# The dispatch + SSE-stream parsing lives in mothership_sandbox_dispatch.py
+# (tested) rather than inlined here — see docs/standards/ci.md.
+#
+# Required configuration (shared with sdk-evolution-cron.yml):
+#   secrets.HARNESS_TOKEN           Bearer token for /api/sandbox/execute.
+#   secrets.GLOBALPROTECT_USERNAME  VPN auth.
+#   secrets.GLOBALPROTECT_PASSWORD  VPN auth.
+#   vars.GLOBALPROTECT_PORTAL_URL   VPN portal URL.
+#   vars.MOTHERSHIP_URL             e.g. https://mothership.atlan.dev
+
+name: Vuln Triage (Rover)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ticket:
+        description: 'Linear ticket identifier to triage (e.g. BLDX-1234)'
+        required: true
+        type: string
+      severity:
+        description: 'Severity bucket of the ticket (CRITICAL/HIGH/MEDIUM/LOW)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    # The sandbox runs for up to 2h (max_timeout_seconds: 7200) and the
+    # dispatch script's stream timeout matches.
+    timeout-minutes: 130
+    steps:
+      - name: Checkout repo (for local globalprotect-connect action)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Connect to VPN (attempt 1/3)
+        id: vpn1
+        uses: ./.github/actions/globalprotect-connect
+        continue-on-error: true
+        with:
+          portal-url: ${{ vars.GLOBALPROTECT_PORTAL_URL }}
+          username: ${{ secrets.GLOBALPROTECT_USERNAME }}
+          password: ${{ secrets.GLOBALPROTECT_PASSWORD }}
+
+      - name: Connect to VPN (attempt 2/3)
+        if: steps.vpn1.outcome == 'failure'
+        id: vpn2
+        uses: ./.github/actions/globalprotect-connect
+        continue-on-error: true
+        with:
+          portal-url: ${{ vars.GLOBALPROTECT_PORTAL_URL }}
+          username: ${{ secrets.GLOBALPROTECT_USERNAME }}
+          password: ${{ secrets.GLOBALPROTECT_PASSWORD }}
+
+      - name: Connect to VPN (attempt 3/3)
+        if: steps.vpn2.outcome == 'failure'
+        uses: ./.github/actions/globalprotect-connect
+        with:
+          portal-url: ${{ vars.GLOBALPROTECT_PORTAL_URL }}
+          username: ${{ secrets.GLOBALPROTECT_USERNAME }}
+          password: ${{ secrets.GLOBALPROTECT_PASSWORD }}
+
+      - name: Dispatch Vuln Triage to mothership Rover Direct API
+        env:
+          MOTHERSHIP_URL: ${{ vars.MOTHERSHIP_URL }}
+          HARNESS_TOKEN: ${{ secrets.HARNESS_TOKEN }}
+          TICKET: ${{ inputs.ticket }}
+          SEVERITY: ${{ inputs.severity }}
+          GHA_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 .github/scripts/mothership_sandbox_dispatch.py

@@ -1,1 +1,0 @@
-__frontend_version__ = '4.0'

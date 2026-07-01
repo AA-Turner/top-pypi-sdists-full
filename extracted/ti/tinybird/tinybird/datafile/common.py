@@ -96,10 +96,6 @@ class IndexesSyntaxError(DatafileSyntaxError):
         super().__init__(message=message, lineno=lineno, pos=pos, hint=hint)
 
 
-class MalformedColumnError(Exception):
-    pass
-
-
 class PipeTypes:
     MATERIALIZED = "materialized"
     ENDPOINT = "endpoint"
@@ -2363,17 +2359,6 @@ def get_project_filenames(folder: str, with_vendor=False) -> List[str]:
     if with_vendor:
         folders.append(f"{folder}/vendor/**/**/*.datasource")
 
-    filenames: List[str] = []
-    for x in folders:
-        filenames += glob.glob(x)
-    return filenames
-
-
-def get_project_fixtures(folder: str) -> List[str]:
-    folders: List[str] = [
-        f"{folder}/fixtures/*.ndjson",
-        f"{folder}/fixtures/*.csv",
-    ]
     filenames: List[str] = []
     for x in folders:
         filenames += glob.glob(x)

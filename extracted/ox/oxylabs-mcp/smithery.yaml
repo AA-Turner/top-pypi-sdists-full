@@ -1,0 +1,23 @@
+runtime: "container"
+build:
+  dockerfile: "Dockerfile"
+  dockerBuildPath: "."
+startCommand:
+  type: "http"
+  configSchema:
+    type: "object"
+    properties:
+      oxylabsUsername:
+        type: "string"
+        description: "Oxylabs username"
+      oxylabsPassword:
+        type: "string"
+        description: "Oxylabs password"
+      oxylabsAiStudioApiKey:
+        type: "string"
+        description: "Oxylabs AI Studio api key"
+    required: []
+  exampleConfig:
+    oxylabsUsername: "Your Oxylabs username"
+    oxylabsPassword: "Your Oxylabs password"
+    oxylabsAiStudioApiKey: "Your Oxylabs AI Studio api key"

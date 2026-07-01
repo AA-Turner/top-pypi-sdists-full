@@ -31,6 +31,7 @@ struct CachedPreparedStatement {
     std::shared_ptr<parser::Statement> parsedStatement;
     std::unique_ptr<planner::LogicalPlan> logicalPlan;
     std::vector<std::shared_ptr<binder::Expression>> columns;
+    std::vector<std::string> columnNames;
 
     CachedPreparedStatement();
     ~CachedPreparedStatement();
@@ -65,9 +66,12 @@ public:
     const std::unordered_set<std::string>& getUnknownParameters() const {
         return unknownParameters;
     }
+    bool canReuseCachedPlanWith(
+        const std::unordered_map<std::string, std::unique_ptr<common::Value>>& inputParams) const;
     std::unordered_set<std::string> getKnownParameters();
     void updateParameter(const std::string& name, common::Value* value);
     void addParameter(const std::string& name, common::Value* value);
+    LBUG_API void setParameter(const std::string& name, common::Value value);
 
     std::string getName() const { return cachedPreparedStatementName; }
 

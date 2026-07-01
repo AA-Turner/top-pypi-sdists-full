@@ -15,6 +15,7 @@ from .html_and_jinja2_syntax import HtmlAndJinja2Syntax
 from .imports_requirements_analyzer import ImportsRequirementsAnalyzer
 from .internal_page_reference import InternalPageReference
 from .invalid_package_in_requirements import InvalidPackageInRequirements
+from .job_schedule_validity import JobScheduleValidity
 from .js_syntax import JsSyntax
 from .local_package_in_requirements import LocalPackageInRequirements
 from .main_block_in_stage import MainBlockInStage
@@ -47,6 +48,7 @@ _psycopg2 = Psycopg2MustBeBinary()
 _conflicting_path = ConflictingPath()
 _file_outside_project = FileOutsideProjectRoot()
 _missing_entrypoint = MissingEntrypoint()
+_job_schedule_validity = JobScheduleValidity()
 _env_in_bundle = EnvInBundle()
 _venv_in_bundle = VenvInBundle()
 _imports_analyzer = ImportsRequirementsAnalyzer()
@@ -94,6 +96,7 @@ run_after_abstra_json_change: List[LinterRule] = [
     _file_outside_project,
     _missing_entrypoint,
     _send_task_without_transition,
+    _job_schedule_validity,
 ]
 
 run_after_env_or_gitignore_change: List[LinterRule] = [

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nnunetv2
-Version: 2.8.0
+Version: 2.8.1
 Summary: nnU-Net is a framework for out-of-the box image segmentation.
 Author: Helmholtz Imaging Applied Computer Vision Lab
 Author-email: Fabian Isensee <f.isensee@dkfz-heidelberg.de>

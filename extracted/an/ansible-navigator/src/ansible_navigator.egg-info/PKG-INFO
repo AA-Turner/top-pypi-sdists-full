@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansible-navigator
-Version: 26.4.0
+Version: 26.6.0
 Summary: A text-based user interface (TUI) for the Red Hat Ansible Automation Platform
 Author-email: "Bradley A. Thornton" <bthornto@redhat.com>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>

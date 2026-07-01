@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypistats
-Version: 1.13.0
+Version: 1.14.0
 Summary: Python interface to PyPI Stats API https://pypistats.org/api
 Project-URL: Changelog, https://github.com/hugovk/pypistats/releases
 Project-URL: Homepage, https://github.com/hugovk/pypistats
@@ -26,7 +26,6 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: platformdirs
 Requires-Dist: prettytable>=3.12
-Requires-Dist: pytablewriter[html]>=0.63
 Requires-Dist: python-slugify
 Requires-Dist: termcolor>=3.2
 Requires-Dist: tomli; python_version < '3.11'

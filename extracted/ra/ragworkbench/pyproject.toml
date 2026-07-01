@@ -1,0 +1,155 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ragworkbench"
+version = "0.1.3"
+description = "A comprehensive benchmarking framework for Retrieval-Augmented Generation (RAG) systems"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Matan Orbach", email = "matano@il.ibm.com"},
+    {name = "Assaf Toledo", email = "assaf.toledo@ibm.com"},
+    {name = "Benjamin Sznajder", email = "benjams@il.ibm.com"},
+]
+maintainers = [
+    {name = "Matan Orbach", email = "matano@il.ibm.com"},
+    {name = "Assaf Toledo", email = "assaf.toledo@ibm.com"},
+    {name = "Benjamin Sznajder", email = "benjams@il.ibm.com"},
+]
+keywords = ["rag", "retrieval", "generation", "benchmark", "nlp", "ai", "llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+#[mypy.missing_imports]
+#mlflow = true
+
+dependencies = [
+    "pydantic",
+    "docling-core",
+    "typing-extensions",
+    "types-requests",
+    "requests",
+    "huggingface-hub",
+    "pandas",
+    "gdown",
+    "datasets",
+    "pandas-stubs",
+    "types-PyYAML",
+    "unitxt",
+    "scipy",
+    "nicegui",
+    "python-dotenv",
+    # Needed by some metrics
+    "bert_score",
+    "litellm",
+    "tenacity",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0",
+    "mypy>=1.0",
+    "isort==8.0.1",
+    "ruff==0.15.6",
+    "black==26.3.1",
+    "pre-commit==4.5.1",
+]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+    "mkdocs>=1.5",
+    "mkdocs-material>=9.0",
+]
+examples = [
+    "docling"
+]
+all = [
+    "ragworkbench[dev,docs,examples]",
+]
+
+[project.urls]
+Homepage = "https://github.com/IBM/RagWorkbench"
+Documentation = "https://github.com/IBM/RagWorkbench#readme"
+Repository = "https://github.com/IBM/RagWorkbench"
+Issues = "https://github.com/IBM/RagWorkbench/issues"
+Changelog = "https://github.com/IBM/RagWorkbench/blob/main/CHANGELOG.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ragworkbench"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in argument defaults
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # unused imports in __init__.py
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = [
+    "-q",
+    "--tb=short",
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "-s",
+]
+markers = [
+    "asyncio: marks tests as async tests",
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "src"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_equality = true
+
+# Per-module overrides for untyped libraries
+[[tool.mypy.overrides]]
+module = ["mlflow.*", "nicegui.*"]
+ignore_missing_imports = true
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+include = '\.pyi?$'

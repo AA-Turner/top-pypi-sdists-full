@@ -5,7 +5,7 @@ from ._mainExperiment import Experiment
 from tqdm import trange
 import os
 import numpy as np
-from scipy.ndimage import zoom
+from scipy.ndimage import zoom, gaussian_filter1d
 import matplotlib.pyplot as plt
 from scipy.io import loadmat
 
@@ -131,13 +131,13 @@ class Focus(Experiment):
             print("Warning: 'raw' dataset not found in the MAT file.")
             print("Available variables:", list(f.keys()))
         else:
-            self.expParams['data_raw'] = self.expParams['data_raw'].reshape(self.expParams['Naverage'], self.expParams['Nlines'], -1)
+            self.expParams['data_raw'] = self.expParams['data_raw'].reshape(-1, self.expParams['Naverage'], self.expParams['Nlines'])
             if withTumor:
-                self.AOsignal_withTumor = np.mean(self.expParams['data_raw'], axis=0).T
+                self.AOsignal_withTumor = np.mean(self.expParams['data_raw'], axis=1)
             else:   
-                self.AOsignal_withoutTumor = np.mean(self.expParams['data_raw'], axis=0).T
+                self.AOsignal_withoutTumor = np.mean(self.expParams['data_raw'], axis=1)
 
-    def recon_focus(self, withTumor=True, signals_AO=None):
+    def recon_focus(self, withTumor=True, signals_AO=None, isFiltered=True):
         """
         Reconstruct the focused zone image from AO signals.
         AO signals are already in the form of a NumPy array with dimensions (times, N).
@@ -146,7 +146,7 @@ class Focus(Experiment):
         Parameters:
             withTumor (bool): If True, uses signals with tumor. If False, uses signals without tumor.
             signals_AO (numpy.ndarray): Optional AO signals to use. If None, uses the experiment's signals.
-
+            isFiltered (bool): If True, applies filtering to the reconstructed image.
         Returns:
             numpy.ndarray: Reconstructed image with dimensions (X, Z).
         """
@@ -171,15 +171,50 @@ class Focus(Experiment):
         X = self.params.general['Nx']
         Z = self.params.general['Nz']
 
-        zoom_factor_y = Z / signals_AO_truncated.shape[0]
+        zoom_factor_z = Z / signals_AO_truncated.shape[0]
         zoom_factor_x = X / signals_AO_truncated.shape[1]
 
-        recon_image = zoom(signals_AO_truncated, (zoom_factor_y, zoom_factor_x), order=1)
+        signals_AO_truncated = signals_AO_truncated - np.min(signals_AO_truncated,axis=0,keepdims=True)
 
-        recon_image = (recon_image - np.min(recon_image)) / (np.max(recon_image) - np.min(recon_image) + 1e-9)
+        raw_recon = zoom(signals_AO_truncated, (zoom_factor_z, zoom_factor_x), order=1)
 
-        return recon_image
-    
+        raw_recon = (raw_recon - np.min(raw_recon)) / (np.max(raw_recon) - np.min(raw_recon) + 1e-9)
+
+        if not isFiltered:
+            return raw_recon
+
+        c0 = np.min(self.medium.kmedium.sound_speed)
+        
+        f_US = self.params.acoustic['f_US']
+        lambda_us = c0 / f_US
+
+        FWHM_axial = self.params.acoustic['emission']['num_cycles'] * lambda_us
+        sigma_axial = FWHM_axial / (2 * np.sqrt(2 * np.log(2)))
+
+        FWHM_foc = 1.028 * lambda_us * (self.params.acoustic['emission']['Foc'] / (self.params.acoustic['emission']['N_piezoFocal'] * self.params.acoustic['probe']['element_width']))
+        w0 = FWHM_foc / (2 * np.sqrt(2 * np.log(2)))  
+
+        z_R = (np.pi * (w0**2)) / lambda_us
+        dz = self.params.general['dz']
+        dx = self.params.general['dx']
+
+        Nz = raw_recon.shape[0] 
+        Nx = raw_recon.shape[1]
+
+        z_array = np.arange(Nz) * dz
+        sigma_lateral_z = w0 * np.sqrt(1 + ((z_array - self.params.acoustic['emission']['Foc']) / z_R)**2)
+
+        filtered_recon = np.zeros_like(raw_recon)
+        sigma_axial_px = sigma_axial / dz
+        AO_axial_filtered = gaussian_filter1d(raw_recon, sigma=sigma_axial_px, axis=0)
+        for iz in range(Nz):
+            sigma_lat_px = sigma_lateral_z[iz] / dx
+            ligne_laterale = AO_axial_filtered[iz, :]
+            filtered_recon[iz, :] = gaussian_filter1d(ligne_laterale, sigma=sigma_lat_px)
+
+        filtered_recon = (filtered_recon - np.min(filtered_recon)) / (np.max(filtered_recon) - np.min(filtered_recon) + 1e-9)
+        return filtered_recon
+
     def show_recon(self, withTumor=True, save_dir=None, wave_name=None, figsize=(12, 5)):
         """
         Show the reconstructed focused image.

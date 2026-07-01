@@ -1,0 +1,154 @@
+Metadata-Version: 2.4
+Name: onnx-asr
+Version: 0.11.0
+Summary: A lightweight Python package for Automatic Speech Recognition using ONNX models
+Project-URL: Homepage, https://github.com/istupakov/onnx-asr
+Project-URL: Documentation, https://istupakov.github.io/onnx-asr/
+Project-URL: Repository, https://github.com/istupakov/onnx-asr
+Project-URL: Issues, https://github.com/istupakov/onnx-asr/issues
+Project-URL: Changelog, https://github.com/istupakov/onnx-asr/releases
+Author-email: Ilya Stupakov <istupakov@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: asr,onnx,speech-recognition,speech-to-text,stt
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
+Classifier: Topic :: Multimedia :: Sound/Audio :: Speech
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: numpy>=1.22.4
+Requires-Dist: typing-extensions>=4.6.0; python_version < '3.11'
+Provides-Extra: cpu
+Requires-Dist: onnxruntime>=1.18.1; extra == 'cpu'
+Provides-Extra: gpu
+Requires-Dist: onnxruntime-gpu>=1.18.1; extra == 'gpu'
+Provides-Extra: hub
+Requires-Dist: huggingface-hub>=0.30.2; extra == 'hub'
+Description-Content-Type: text/markdown
+
+# ONNX ASR
+
+[![PyPI - Version](https://img.shields.io/pypi/v/onnx-asr)](https://pypi.org/project/onnx-asr)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/onnx-asr)](https://pypi.org/project/onnx-asr)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/onnx-asr)](https://pypi.org/project/onnx-asr)
+[![PyPI - Types](https://img.shields.io/pypi/types/onnx-asr)](https://pypi.org/project/onnx-asr)
+[![PyPI - License](https://img.shields.io/pypi/l/onnx-asr)](https://github.com/istupakov/onnx-asr/blob/main/LICENSE)<br>
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![mypy](https://img.shields.io/badge/mypy-checked-blue)](https://mypy-lang.org/)
+[![Material for MkDocs](https://img.shields.io/badge/Material_for_MkDocs-526CFE?logo=MaterialForMkDocs&logoColor=white)](https://squidfunk.github.io/mkdocs-material/)
+[![CodeFactor Grade](https://img.shields.io/codefactor/grade/github/istupakov/onnx-asr)](https://www.codefactor.io/repository/github/istupakov/onnx-asr/overview/main)
+[![Codecov](https://img.shields.io/codecov/c/github/istupakov/onnx-asr)](https://codecov.io/github/istupakov/onnx-asr)
+[![GitHub - CI](https://github.com/istupakov/onnx-asr/actions/workflows/python-package.yml/badge.svg)](https://github.com/istupakov/onnx-asr/actions/workflows/python-package.yml)
+
+**onnx-asr** is a Python package for Automatic Speech Recognition using ONNX models. It's a lightweight, fast, and easy-to-use pure Python package with minimal dependencies (no need for PyTorch, Transformers, or FFmpeg):
+
+[![numpy](https://img.shields.io/badge/numpy-required-blue?logo=numpy)](https://pypi.org/project/numpy/)
+[![onnxruntime](https://img.shields.io/badge/onnxruntime-required-blue?logo=onnx)](https://pypi.org/project/onnxruntime/)
+[![huggingface-hub](https://img.shields.io/badge/huggingface--hub-optional-blue?logo=huggingface)](https://pypi.org/project/huggingface-hub/)
+
+Key features of **onnx-asr** include:
+
+* Supports many modern ASR [models](https://istupakov.github.io/onnx-asr/usage/#supported-model-names)
+* Runs on a wide range of devices, from small IoT/edge devices to servers with powerful GPUs ([benchmarks](https://istupakov.github.io/onnx-asr/benchmarks/))
+* Works on Windows, Linux, and macOS on x86 and Arm CPUs, with support for CUDA, TensorRT, CoreML, DirectML, ROCm, and WebGPU
+* Supports NumPy versions from 1.22 to 2.4+ and Python versions from 3.10 to 3.14
+* Loads models from Hugging Face or local directories, including quantized versions
+* Accepts WAV files or NumPy arrays, with built-in file reading and resampling
+* Supports custom models (see the [Conversion Guide](https://istupakov.github.io/onnx-asr/conversion/) for instructions)
+* Supports batch processing
+* Supports long-form recognition using [VAD](https://istupakov.github.io/onnx-asr/usage/#vad-voice-activity-detection) (Voice Activity Detection)
+* Can return token-level timestamps and log probabilities
+* Provides a fully typed and well-documented [Python API](https://istupakov.github.io/onnx-asr/reference/)
+* Provides a simple command-line interface ([CLI](https://istupakov.github.io/onnx-asr/usage/#cli))
+
+> [!NOTE]
+> Supports **Parakeet v2 (En) / v3 (Multilingual)**, **Canary v1/v2 (Multilingual)** and **GigaAM v2/v3 (Ru)** models!
+
+> [!WARNING]
+> onnxruntime 1.24.1 has known compatibility issues with onnx-asr. Please use newer (or older) versions!
+
+> [!TIP]
+> You can check the onnx-asr demo on HF Spaces:
+> 
+> [![Open in Spaces](https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-xl-dark.svg)](https://istupakov-onnx-asr.hf.space/)
+
+
+## Quickstart
+
+Install onnx-asr:
+```sh
+pip install onnx-asr[cpu,hub]
+```
+
+Load a model and recognize a WAV file:
+```py
+import onnx_asr
+
+# Load the Parakeet TDT v3 model from Hugging Face (may take a few minutes)
+model = onnx_asr.load_model("nemo-parakeet-tdt-0.6b-v3")
+
+# Recognize speech and print result
+result = model.recognize("test.wav")
+print(result)
+```
+
+> [!WARNING]
+> The maximum audio length for most models is 20-30 seconds. For longer audio, [VAD](https://istupakov.github.io/onnx-asr/usage/#vad-voice-activity-detection) can be used.
+
+For more examples, see the [Usage Guide](https://istupakov.github.io/onnx-asr/usage/).
+
+See the [Installation Guide](https://istupakov.github.io/onnx-asr/installation/) for detailed installation instructions.
+
+## Supported Model Architectures
+
+The package supports the following modern ASR model architectures (see the [supported model names](https://istupakov.github.io/onnx-asr/usage/#supported-model-names) for the full list of models and [comparison](https://istupakov.github.io/onnx-asr/comparison/) with original implementations):
+
+* NVIDIA NeMo Conformer/FastConformer/Parakeet/Canary (with CTC, RNN-T, TDT and Transformer decoders)
+* GigaChat GigaAM v2/v3 (with CTC and RNN-T decoders, including E2E versions)
+* Kaldi Icefall Zipformer (with stateless RNN-T decoder) including Alpha Cephei Vosk 0.52+
+* T-Tech T-one (with CTC decoder, no streaming support yet)
+* OpenAI Whisper
+
+When saving these models in ONNX format, usually only the encoder and decoder are saved. To run them, the corresponding preprocessor and decoding must be implemented. Therefore, the package contains these implementations for all supported models:
+
+* Log-mel spectrogram preprocessors
+* Greedy search decoding
+
+## Benchmarks
+
+**Inverse Real-Time Factor (RTFx)**: the ratio of audio duration to processing time. RTFx > 1 means processing faster than real-time (higher RTFx values indicate better performance).
+
+| Model               | 9800X3D CPU (RTFx) | Cortex A53 CPU (RTFx) | T4 CUDA (RTFx) | RTX 5070 Ti TensorRT (RTFx) |
+|---------------------|---------|---------|---------|----------|
+| NeMo Parakeet v2/v3 | 36      | 1.0     | 57      | 320      |
+| NeMo Canary v2      | 8       | N/A     | 21      | 36       |
+| GigaAM v3 CTC       | 59      | 1.6     | 84      | 1370     |
+| GigaAM v3 RNN-T     | 43      | 1.5     | 40      | 130      |
+
+See the [Benchmarks](https://istupakov.github.io/onnx-asr/benchmarks/) page for detailed performance benchmarks.
+
+## Troubleshooting / FAQ
+
+See the [Troubleshooting Guide](https://istupakov.github.io/onnx-asr/troubleshooting/) for common issues and solutions.
+
+For more help, check the [GitHub Issues](https://github.com/istupakov/onnx-asr/issues) or open a new one.
+
+## License
+
+[MIT License](https://github.com/istupakov/onnx-asr/blob/main/LICENSE)

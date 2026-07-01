@@ -381,6 +381,17 @@ class TestGetEndpoints:
         with pytest.raises(SHCSessionError):
             api.get_device("hdm:ZigBee:abc")
 
+    # put_device ----------------------------------------------------------------
+    def test_put_device_url_and_body(self):
+        api = _make_api()
+        api._requests_session.put.return_value = _fake_response(None)
+        body = {"@type": "device", "id": "hdm:ZigBee:abc", "profile": "OUTDOOR"}
+        api.put_device("hdm:ZigBee:abc", body)
+        called_url = api._requests_session.put.call_args[0][0]
+        assert called_url == f"{_API_ROOT}/devices/hdm:ZigBee:abc"
+        sent = api._requests_session.put.call_args.kwargs["data"]
+        assert '"profile": "OUTDOOR"' in sent
+
     # get_services --------------------------------------------------------------
     def test_get_services_url(self):
         payload = [{"@type": "DeviceServiceData"}]
@@ -609,6 +620,23 @@ class TestLongPollingSubscribe:
         bad_resp = [{"jsonrpc": "1.0", "result": "x"}]
         api._requests_session.post.return_value = _fake_response(bad_resp)
         with pytest.raises(SHCSessionError, match="JSON-RPC version"):
+            api.long_polling_subscribe()
+
+    def test_subscribe_empty_list_response_raises_shcsessionerror(self):
+        """Regression: a malformed/empty JSON-RPC response (e.g. a proxy
+        hiccup during an SHC reboot returning `[]`) must raise a handled
+        SHCSessionError, not a bare IndexError."""
+        api = _make_api()
+        api._requests_session.post.return_value = _fake_response([])
+        with pytest.raises(SHCSessionError, match="Malformed JSON-RPC response"):
+            api.long_polling_subscribe()
+
+    def test_subscribe_non_list_response_raises_shcsessionerror(self):
+        """A JSON object instead of a list must raise a handled
+        SHCSessionError, not a bare AttributeError from result[0].get(...)."""
+        api = _make_api()
+        api._requests_session.post.return_value = _fake_response({"jsonrpc": "2.0"})
+        with pytest.raises(SHCSessionError, match="Malformed JSON-RPC response"):
             api.long_polling_subscribe()
 
 

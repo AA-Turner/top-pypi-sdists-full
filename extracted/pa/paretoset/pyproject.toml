@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "paretoset"
+dynamic = ["version", "readme"]
+description = "Compute the Pareto (non-dominated) set, i.e., skyline operator/query."
+authors = [
+    {name = "tommyod", email = "tommy.odland@gmail.com"},
+]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.8"
+dependencies = ["numba", "numpy", "pandas"]
+
+[project.optional-dependencies]
+dev = ["black", "flake8", "ipython", "mypy", "pep8"]
+docs = ["nbsphinx", "numpydoc", "sphinx", "recommonmark", "myst-parser"]
+test = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/tommyod/paretoset"
+Repository = "https://github.com/tommyod/paretoset.git"
+
+[tool.setuptools.dynamic]
+version = {attr = "paretoset.__version__"}
+readme = {file = ["README.md"], content-type = "text/markdown"}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["paretoset*"]
+exclude = ["contrib", "docs", "tests"]
+
+[tool.setuptools.package-data]
+"paretoset" = ["templates/*", "*.tex", "*.html"]

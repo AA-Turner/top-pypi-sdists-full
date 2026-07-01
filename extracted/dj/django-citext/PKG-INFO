@@ -1,0 +1,99 @@
+Metadata-Version: 2.4
+Name: django-citext
+Version: 1.0.3
+Summary: PostgreSQL CIText integration for Django.
+Keywords: PostgreSQL,Django,CITEXT,Case Insensitive,postgres
+Author-email: Johannes Maron <johannes@maron.family>, Jörg Benesch <benesch.joerg@gmail.com>, Rust Saiargaliev <fly.amureki@gmail.com>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Classifier: Development Status :: 1 - Planning
+Classifier: Programming Language :: Python
+Classifier: Environment :: Web Environment
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Database
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
+License-File: LICENSE
+Requires-Dist: django
+Requires-Dist: psycopg>=3.1.8; extra != 'psycopg2'
+Requires-Dist: model-bakery ; extra == "bakery"
+Requires-Dist: psycopg2-binary ; extra == "psycopg2"
+Requires-Dist: pytest ; extra == "test"
+Requires-Dist: pytest-cov ; extra == "test"
+Requires-Dist: pytest-django ; extra == "test"
+Project-URL: Changelog, https://github.com/voiio/django-citext/releases
+Project-URL: Project-URL, https://github.com/voiio/django-citext
+Provides-Extra: bakery
+Provides-Extra: psycopg2
+Provides-Extra: test
+
+# Django CIText
+
+PostgreSQL CIText integration for Django.
+
+[![PyPi Version](https://img.shields.io/pypi/v/django-citext.svg)](https://pypi.python.org/pypi/django-citext/)
+[![Test Coverage](https://codecov.io/gh/voiio/django-citext/branch/main/graph/badge.svg)](https://codecov.io/gh/voiio/django-citext)
+[![GitHub License](https://img.shields.io/github/license/voiio/django-citext)](https://raw.githubusercontent.com/voiio/django-citext/main/LICENSE)
+
+## Setup
+
+```ShellSession
+python3 -m pip install django-citext
+```
+
+```python
+# settings.py
+INSTALLED_APPS = [
+    "citext",
+    # ...
+]
+```
+
+## Usage
+
+```python
+# myapp/models.py
+from django.db import models
+from citext import CITextField, CIEmailField
+
+
+class MyModel(models.Model):
+    name = CITextField()
+    email = CIEmailField(unique=True)
+```
+
+```python
+# myapp/views.py
+from django.http import HttpResponse, HttpResponseNotFound
+
+from . import models
+
+
+def my_view(request, email):
+    try:
+        my_model = models.MyModel.objects.get(email=email)
+    except models.MyModel.DoesNotExist:
+        return HttpResponseNotFound()
+    return HttpResponse(my_model.name)
+```
+
+## Credits
+
+Project is based on the Django's own CIText implementation,
+which was removed in Django 5.0. Big thanks to the Django contributors
+for their excellent work.
+

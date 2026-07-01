@@ -1,0 +1,38 @@
+site_name: Metagit-AI Documentation
+theme:
+  palette:
+    scheme: slate
+  name: material
+nav:
+  - 'index.md'
+  - 'For AI agents': 'agents.md'
+  - 'Installation': 'install.md'
+  - 'Terminology': 'terminology.md'
+  - 'Application Logic': 'app.logic.md'
+  - 'Development': 'development.md'
+  - 'Secrets': 'secrets.analysis.md'
+  - 'CLI Reference': 'cli_reference.md'
+  - 'Changelog': 'changelog.md'
+  - 'Features':
+    - 'Repository Detection': 'repository_detection.md'
+    - 'Hermes & org IaC guide': 'hermes-iac-workspace-guide.md'
+    - 'Hermes orchestrator workspace': 'hermes-orchestrator-workspace.md'
+    - 'Configuration exemplar': 'reference/metagit-config.md'
+    - 'Workspace layout API': 'reference/workspace-layout-api.md'
+    - 'Metagit Web UI': 'reference/metagit-web.md'
+    - 'Skills': 'skills.md'
+markdown_extensions:
+  - mkdocs-click
+  - admonition         # Adds boxes for Notes, Warnings, etc.
+  - attr_list          # Adds attribute lists to generated HTML
+  - codehilite         # Syntax coloring for code blocks
+  - def_list           # Adds syntax for definition lists
+  - sane_lists         # Enables list items with multiple paragraphs
+  - toc:               # Builds a table of contents
+      permalink: "#"   # Puts a "#" at the end of each header
+  - pymdownx.superfences:
+        # make exceptions to highlighting of code:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid_custom

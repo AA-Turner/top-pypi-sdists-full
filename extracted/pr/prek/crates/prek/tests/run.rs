@@ -1,11 +1,12 @@
 use std::path::Path;
+use std::time::SystemTime;
 
 use anyhow::Result;
 use assert_cmd::assert::OutputAssertExt;
 use assert_fs::prelude::*;
 use insta::assert_snapshot;
 use predicates::prelude::predicate;
-use prek_consts::env_vars::EnvVars;
+use prek_consts::env_vars::{EnvVars, EnvVarsRead};
 use prek_consts::{
     PRE_COMMIT_CONFIG_YAML, PRE_COMMIT_CONFIG_YML, PRE_COMMIT_HOOKS_YAML, PREK_TOML,
 };
@@ -30,15 +31,13 @@ fn run_basic() -> Result<()> {
               - id: check-json
     "});
 
-    // Create a repository with some files.
     cwd.child("file.txt").write_str("Hello, world!\n")?;
     cwd.child("valid.json").write_str("{}")?;
-    cwd.child("invalid.json").write_str("{}")?;
     cwd.child("main.py").write_str(r#"print "abc"  "#)?;
 
     context.git_add(".");
 
-    cmd_snapshot!(context.filters(), context.run(), @r"
+    cmd_snapshot!(context.filters(), context.run().arg("-q"), @"
     success: false
     exit_code: 1
     ----- stdout -----
@@ -54,9 +53,7 @@ fn run_basic() -> Result<()> {
     - files were modified by this hook
 
       Fixing valid.json
-      Fixing invalid.json
       Fixing main.py
-    check json...............................................................Passed
 
     ----- stderr -----
     ");
@@ -71,6 +68,49 @@ fn run_basic() -> Result<()> {
 
     ----- stderr -----
     "#);
+
+    Ok(())
+}
+
+#[test]
+fn run_does_not_rewrite_unchanged_config_tracking_file() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    context.write_pre_commit_config(indoc::indoc! {r#"
+        repos:
+          - repo: local
+            hooks:
+              - id: noop
+                name: Noop
+                language: system
+                entry: "true"
+                always_run: true
+    "#});
+    context.git_add(".");
+
+    context.run().arg("--all-files").assert().success();
+
+    let tracking_file = context.home_dir().child("config-tracking.json");
+    tracking_file.assert(predicate::path::is_file());
+    let original_content = fs_err::read_to_string(tracking_file.path())?;
+
+    fs_err::OpenOptions::new()
+        .write(true)
+        .open(tracking_file.path())?
+        .set_modified(SystemTime::UNIX_EPOCH)?;
+    let original_modified = fs_err::metadata(tracking_file.path())?.modified()?;
+
+    context.run().arg("--all-files").assert().success();
+
+    assert_eq!(
+        fs_err::read_to_string(tracking_file.path())?,
+        original_content
+    );
+    assert_eq!(
+        fs_err::metadata(tracking_file.path())?.modified()?,
+        original_modified
+    );
 
     Ok(())
 }
@@ -137,6 +177,10 @@ fn run_in_non_git_repo() {
 
     let mut filters = context.filters();
     filters.push((r"exit code: ", "exit status: "));
+    filters.push((
+        r"Command `[^`]*git(?:\.exe)? rev-parse --show-toplevel`",
+        "Command `[GIT] rev-parse --show-toplevel`",
+    ));
 
     cmd_snapshot!(filters, context.run(), @r"
     success: false
@@ -144,7 +188,7 @@ fn run_in_non_git_repo() {
     ----- stdout -----
 
     ----- stderr -----
-    error: Command `get git root` exited with an error:
+    error: Command `[GIT] rev-parse --show-toplevel` exited with an error:
 
     [status]
     exit status: 128
@@ -1343,7 +1387,7 @@ fn file_types() -> Result<()> {
     "#});
     context.git_add(".");
 
-    cmd_snapshot!(context.filters(), context.run(), @r"
+    cmd_snapshot!(context.filters(), context.run(), @r#"
     success: false
     exit_code: 1
     ----- stdout -----
@@ -1356,16 +1400,16 @@ fn file_types() -> Result<()> {
     - hook id: trailing-whitespace
     - exit code: 1
 
-      ['main.py', 'json.json']
+      ['json.json', 'main.py']
     trailing-whitespace......................................................Failed
     - hook id: trailing-whitespace
     - exit code: 1
 
-      ['file.txt', '.pre-commit-config.yaml', 'main.py']
+      ['.pre-commit-config.yaml', 'file.txt', 'main.py']
     trailing-whitespace..................................(no files to check)Skipped
 
     ----- stderr -----
-    ");
+    "#);
 
     Ok(())
 }
@@ -1811,7 +1855,7 @@ fn intent_to_add_file_survives_conflicted_stash_restore() -> Result<()> {
         .chain([(r"/\d+-\d+.patch", "/[TIME]-[PID].patch")])
         .collect();
 
-    cmd_snapshot!(filters, context.run(), @r"
+    cmd_snapshot!(filters, context.run(), @r#"
     success: false
     exit_code: 1
     ----- stdout -----
@@ -1823,7 +1867,7 @@ fn intent_to_add_file_survives_conflicted_stash_restore() -> Result<()> {
     Unstaged changes detected, stashing unstaged changes to `[HOME]/patches/[TIME]-[PID].patch`
     Stashed changes conflicted with changes made by hook, rolling back the hook changes
     Restored working tree changes from `[HOME]/patches/[TIME]-[PID].patch`
-    ");
+    "#);
 
     assert_eq!(context.read("intent.txt"), "preserve me\n");
     assert_eq!(context.read("test.py"), "a=1\nb = 2\n");
@@ -2050,6 +2094,10 @@ fn init_nonexistent_repo() {
         .into_iter()
         .chain([
             (r"exit code: ", "exit status: "),
+            (
+                r"Command `[^`]*git(?:\.exe)? fetch origin --tags`",
+                "Command `[GIT] fetch origin --tags`",
+            ),
             // Normalize Git error message to handle environment-specific variations
             (
                 r"fatal: unable to access 'https://notexistentatallnevergonnahappen\.com/nonexistent/repo/':.*",
@@ -2058,7 +2106,7 @@ fn init_nonexistent_repo() {
         ])
         .collect::<Vec<_>>();
 
-    cmd_snapshot!(filters, context.run(), @"
+    cmd_snapshot!(filters, context.run(), @r#"
     success: false
     exit_code: 2
     ----- stdout -----
@@ -2066,14 +2114,14 @@ fn init_nonexistent_repo() {
     ----- stderr -----
     error: Failed to init hooks
       caused by: Failed to clone repo `https://notexistentatallnevergonnahappen.com/nonexistent/repo`
-      caused by: Command `git full clone` exited with an error:
+      caused by: Command `[GIT] fetch origin --tags` exited with an error:
 
     [status]
     exit status: 128
 
     [stderr]
     fatal: unable to access 'https://notexistentatallnevergonnahappen.com/nonexistent/repo/': [error]
-    ");
+    "#);
 }
 
 #[test]
@@ -2223,7 +2271,12 @@ fn unmatched_skip_does_not_suppress_remote_clone() {
     let filters = context
         .filters()
         .into_iter()
-        .chain([(r"exit code: ", "exit status: "),
+        .chain([
+            (r"exit code: ", "exit status: "),
+            (
+                r"Command `[^`]*git(?:\.exe)? fetch origin --tags`",
+                "Command `[GIT] fetch origin --tags`",
+            ),
             // Normalize Git error message to handle environment-specific variations
             (
                 r"fatal: unable to access 'https://notexistentatallnevergonnahappen\.com/nonexistent/repo/':.*",
@@ -2235,7 +2288,7 @@ fn unmatched_skip_does_not_suppress_remote_clone() {
     cmd_snapshot!(
         filters,
         context.run().arg("--all-files").arg("--skip").arg("other-hook"),
-        @"
+        @r#"
     success: false
     exit_code: 2
     ----- stdout -----
@@ -2243,14 +2296,14 @@ fn unmatched_skip_does_not_suppress_remote_clone() {
     ----- stderr -----
     error: Failed to init hooks
       caused by: Failed to clone repo `https://notexistentatallnevergonnahappen.com/nonexistent/repo`
-      caused by: Command `git full clone` exited with an error:
+      caused by: Command `[GIT] fetch origin --tags` exited with an error:
 
     [status]
     exit status: 128
 
     [stderr]
     fatal: unable to access 'https://notexistentatallnevergonnahappen.com/nonexistent/repo/': [error]
-    "
+    "#
     );
 }
 
@@ -2417,7 +2470,7 @@ fn run_multiple_files() -> Result<()> {
     cwd.child("file2.txt").write_str("Hello, world!")?;
     context.git_add(".");
     // `--files` with multiple files
-    cmd_snapshot!(context.filters(), context.run().arg("--files").arg("file1.txt").arg("file2.txt"), @r"
+    cmd_snapshot!(context.filters(), context.run().arg("--files").arg("file1.txt").arg("file2.txt"), @r#"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -2425,10 +2478,10 @@ fn run_multiple_files() -> Result<()> {
     - hook id: multiple-files
     - duration: [TIME]
 
-      file2.txt file1.txt
+      file1.txt file2.txt
 
     ----- stderr -----
-    ");
+    "#);
     Ok(())
 }
 
@@ -2515,7 +2568,7 @@ fn run_directory() -> Result<()> {
     ");
 
     // multiple `--directory`
-    cmd_snapshot!(context.filters(), context.run().arg("--directory").arg("dir1").arg("--directory").arg("dir2"), @r"
+    cmd_snapshot!(context.filters(), context.run().arg("--directory").arg("dir1").arg("--directory").arg("dir2"), @r#"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -2523,10 +2576,10 @@ fn run_directory() -> Result<()> {
     - hook id: directory
     - duration: [TIME]
 
-      dir2/file.txt dir1/file.txt
+      dir1/file.txt dir2/file.txt
 
     ----- stderr -----
-    ");
+    "#);
 
     // non-existing directory
     cmd_snapshot!(context.filters(), context.run().arg("--directory").arg("non-existing-dir"), @r"
@@ -2551,7 +2604,7 @@ fn run_directory() -> Result<()> {
 
     ----- stderr -----
     ");
-    cmd_snapshot!(context.filters(), context.run().arg("--directory").arg("dir1").arg("--files").arg("dir2/file.txt"), @r"
+    cmd_snapshot!(context.filters(), context.run().arg("--directory").arg("dir1").arg("--files").arg("dir2/file.txt"), @r#"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -2559,10 +2612,10 @@ fn run_directory() -> Result<()> {
     - hook id: directory
     - duration: [TIME]
 
-      dir2/file.txt dir1/file.txt
+      dir1/file.txt dir2/file.txt
 
     ----- stderr -----
-    ");
+    "#);
 
     // run `--directory` inside a subdirectory
     cmd_snapshot!(context.filters(), context.run().current_dir(cwd.join("dir1")).arg("--directory").arg("."), @r"
@@ -3623,7 +3676,7 @@ fn run_log_file() {
 /// Test `language_version: system` works and disables downloading.
 #[test]
 fn system_language_version() {
-    if !EnvVars::is_set(EnvVars::CI) {
+    if !EnvVars.is_set(EnvVars::CI) {
         // Skip when not running in CI, as we may not have toolchains installed locally.
         return;
     }

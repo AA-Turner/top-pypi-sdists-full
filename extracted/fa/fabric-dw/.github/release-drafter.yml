@@ -1,0 +1,32 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+autolabeler:
+  - label: 'type:feature'
+    title:
+      - '/^feat(\(.+\))?!?:/i'
+  - label: 'type:fix'
+    title:
+      - '/^fix(\(.+\))?!?:/i'
+  - label: 'area:docs'
+    title:
+      - '/^docs(\(.+\))?!?:/i'
+  - label: 'area:ci'
+    title:
+      - '/^(ci|chore)(\(.+\))?!?:/i'
+categories:
+  - title: 'Features'
+    labels: ['type:feature']
+  - title: 'Fixes'
+    labels: ['type:fix', 'bug']
+  - title: 'Documentation'
+    labels: ['area:docs', 'area:docs-site']
+  - title: 'CI / Tooling'
+    labels: ['area:ci', 'area:bootstrap']
+  - title: 'Other'
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+change-title-escapes: '\<*_&'
+version-resolver:
+  default: patch
+template: |
+  ## Changes
+  $CHANGES

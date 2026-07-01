@@ -228,6 +228,22 @@ def test_errors(tmpdir):
         sunpy.map.Map(files)
 
 
+def test_array_of_filenames_error():
+    files = np.array([AIA_171_IMAGE, RHESSI_IMAGE])
+    with pytest.raises(ValueError, match="use a Python list rather than a NumPy array"):
+        sunpy.map.Map(files)
+
+
+def test_array_missing_header_error():
+    with pytest.raises(ValueError, match="must be followed by a header-like object or an astropy.wcs.WCS instance"):
+        sunpy.map.Map(AIA_MAP.data)
+
+
+def test_array_invalid_second_argument_error():
+    with pytest.raises(ValueError, match="but got int"):
+        sunpy.map.Map(AIA_MAP.data, 42)
+
+
 @pytest.mark.filterwarnings("ignore:One of the data, header pairs failed to validate")
 @pytest.mark.parametrize(('allow_errors', 'error', 'match'),
                          [(True, RuntimeError, 'No maps loaded'),
@@ -392,3 +408,12 @@ def test_map_list_of_files_with_one_broken():
 
     with pytest.raises(OSError, match='Failed to read'):
         sunpy.map.Map(files, allow_errors=False)
+
+
+def test_eitmap_does_not_match_level1_header_regression():
+    # Regression test for operator-precedence bug in EITMap.is_datasource_for
+    header = {"instrume": "EIT", "level": "L1"}
+
+    # Before fix (old precedence): this incorrectly returned True
+    # After fix: must be False so EITL1Map can claim it
+    assert sunpy.map.sources.EITMap.is_datasource_for(None, header) is False

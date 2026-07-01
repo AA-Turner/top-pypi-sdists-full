@@ -1,7 +1,0 @@
-description: Plafond de ressources pour majoration du Complément familial (CF)
-metadata:
-  short_label: Plafond de ressources pour majoration
-  label_en: Resource ceiling for increase
-  order:
-  - couple_avec_1_revenu
-  - biactifs_isoles

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansible-sign
-Version: 0.1.5
+Version: 0.1.6
 Summary: Ansible content validation library and CLI
 Author-email: Rick Elrod <relrod@redhat.com>
 License-Expression: MIT

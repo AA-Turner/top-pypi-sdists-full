@@ -26,6 +26,7 @@ class ClientConfig(BaseClientConfig):
             "secretsmanager": self.overrides.get("secretsmanager", {}),
             "athena": self.overrides.get("athena", {}),
             "emr-serverless": self.overrides.get("emr-serverless", {}),
+            "emr": self.overrides.get("emr", {}),
         }
 
 

@@ -1,3 +1,4 @@
+import math
 import re
 import threading
 from datetime import date
@@ -15,8 +16,9 @@ from langchain_core.messages import AIMessage
 from langchain_core.outputs import ChatResult
 from loguru import logger
 
+from cuga.backend.llm.load_test_mock import clone_load_test_mock_chat_model, is_mock_llm_enabled
 from cuga.backend.secrets import resolve_secret
-from cuga.config import settings
+from cuga.config import DEFAULT_LLM_HTTP_TIMEOUT, settings
 
 
 class ReasoningChatOpenAI(ChatOpenAI):
@@ -74,6 +76,19 @@ except ImportError:
     ReasoningChatLiteLLM = None  # type: ignore[misc, assignment]
 
 _ENV_REF_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]*$")
+_DEFAULT_LLM_HTTP_TIMEOUT = DEFAULT_LLM_HTTP_TIMEOUT
+
+
+def _parse_timeout(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        timeout = float(value)
+    except (TypeError, ValueError):
+        return None
+    if timeout <= 0 or not math.isfinite(timeout):
+        return None
+    return timeout
 
 
 def _normalize_secret(val: Optional[str]) -> Optional[str]:
@@ -254,6 +269,7 @@ class LLMManager:
             d['resolved_model_name'] = self._get_model_name(model_settings, platform)
             d['resolved_api_version'] = self._get_api_version(model_settings, platform)
             d['resolved_base_url'] = self._get_base_url(model_settings, platform)
+            d['resolved_http_timeout'] = self._get_http_timeout(model_settings)
 
         settings_str = json.dumps(d, sort_keys=True)
         return hashlib.md5(settings_str.encode()).hexdigest()
@@ -556,6 +572,38 @@ class LLMManager:
 
         return True
 
+    def _get_http_timeout(self, model_settings: Dict[str, Any]) -> float:
+        """Return HTTP timeout (seconds) for OpenAI, Azure, and OpenRouter clients.
+
+        Other platforms (groq, watsonx, rits, google-genai, litellm) ignore this
+        setting until wired separately.
+
+        Priority:
+        1. timeout in model_settings (per-agent TOML)
+        2. CUGA_LLM_HTTP_TIMEOUT env var
+        3. LLM_HTTP_TIMEOUT env var
+        4. settings.connections.llm_http_timeout (TOML)
+        5. Default (_DEFAULT_LLM_HTTP_TIMEOUT)
+        """
+        per_model = _parse_timeout(model_settings.get("timeout"))
+        if per_model is not None:
+            return per_model
+
+        for env_var in ("CUGA_LLM_HTTP_TIMEOUT", "LLM_HTTP_TIMEOUT"):
+            env_val = _parse_timeout(os.environ.get(env_var))
+            if env_val is not None:
+                logger.debug(f"Using {env_var} from environment: {env_val}")
+                return env_val
+
+        try:
+            toml_timeout = _parse_timeout(settings.connections.llm_http_timeout)
+            if toml_timeout is not None:
+                return toml_timeout
+        except (AttributeError, TypeError) as exc:
+            logger.debug(f"Could not read connections.llm_http_timeout from settings: {exc}")
+
+        return _DEFAULT_LLM_HTTP_TIMEOUT
+
     def _is_reasoning_model(self, model_name: str) -> bool:
         """Check if model is a reasoning model that doesn't support temperature
 
@@ -576,6 +624,21 @@ class LLMManager:
         model_name = self._get_model_name(model_settings, platform)
         api_version = self._get_api_version(model_settings, platform)
         base_url = self._get_base_url(model_settings, platform)
+        http_timeout = self._get_http_timeout(model_settings)
+        # Compute effective sampling values *after* reasoning-model suppression and
+        # platform-specific overrides, so the INFO log reflects what is actually sent.
+        is_reasoning = self._is_reasoning_model(model_name)
+        effective_temperature = None if is_reasoning else temperature
+        effective_top_p = (
+            None
+            if is_reasoning
+            else (0.95 if platform == "rits-restricted" else model_settings.get('top_p', 1.0))
+        )
+        logger.info(
+            f"Sampling config for {platform}/{model_name}: "
+            f"temperature={effective_temperature}, top_p={effective_top_p}, "
+            f"max_tokens={max_tokens}"
+        )
         if platform == "azure":
             api_version = str(model_settings.get('api_version'))
             is_reasoning = self._is_reasoning_model(model_name)
@@ -584,7 +647,7 @@ class LLMManager:
                 logger.debug(f"Creating AzureChatOpenAI reasoning model: {model_name} (no temperature)")
                 llm = AzureChatOpenAI(
                     model_version=api_version,
-                    timeout=61,
+                    timeout=http_timeout,
                     api_version="2025-04-01-preview",
                     azure_deployment=model_name + "-" + api_version,
                     max_completion_tokens=max_tokens,
@@ -592,9 +655,10 @@ class LLMManager:
             else:
                 logger.debug(f"Creating AzureChatOpenAI model: {model_name} - {api_version}")
                 llm = AzureChatOpenAI(
-                    timeout=61,
+                    timeout=http_timeout,
                     azure_deployment=model_name + "-" + api_version,
                     temperature=temperature,
+                    top_p=model_settings.get('top_p', 1.0),
                     max_tokens=max_tokens,
                 )
         elif platform == "openai":
@@ -603,11 +667,12 @@ class LLMManager:
             openai_params: Dict[str, Any] = {
                 "model_name": model_name,
                 "max_tokens": max_tokens,
-                "timeout": 61,
+                "timeout": http_timeout,
             }
 
             if not is_reasoning:
                 openai_params["temperature"] = temperature
+                openai_params["top_p"] = model_settings.get('top_p', 1.0)
             else:
                 logger.debug(f"Skipping temperature for reasoning model: {model_name}")
 
@@ -652,25 +717,53 @@ class LLMManager:
                 temperature=temperature,
             )
         elif platform == "watsonx":
-            llm = ChatWatsonx(
-                model_id=model_name,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                project_id=os.environ['WATSONX_PROJECT_ID'],
-            )
+            watsonx_params: Dict[str, Any] = {
+                "params": {
+                    "temperature": temperature,
+                    "max_completion_tokens": max_tokens,
+                },
+            }
+
+            watsonx_url = model_settings.get("url")
+            if watsonx_url:
+                watsonx_params["url"] = watsonx_url
+
+            deployment_id = model_settings.get("deployment_id")
+            if deployment_id:
+                # Deployment id is model-specific configuration representing
+                # the id of a deployed model in production
+                watsonx_params["deployment_id"] = deployment_id
+            else:
+                # model id is not used when using a deployment id
+                watsonx_params["model_id"] = model_name
+
+            space_id = os.getenv("WATSONX_SPACE_ID")
+            project_id = os.getenv("WATSONX_PROJECT_ID")
+
+            if space_id:
+                watsonx_params["space_id"] = space_id
+            elif project_id:
+                watsonx_params["project_id"] = project_id
+            else:
+                raise ValueError("WatsonX requires WATSONX_SPACE_ID or WATSONX_PROJECT_ID to be set.")
+
+            llm = ChatWatsonx(**watsonx_params)
         elif platform == "rits":
             apikey_name = model_settings.get("apikey_name")
             api_key = _normalize_secret(resolve_secret(apikey_name)) if apikey_name else None
             if not api_key and apikey_name:
                 api_key = os.environ.get(apikey_name)
-            llm = ChatOpenAI(
-                api_key=api_key,
-                base_url=model_settings.get('url'),
-                max_tokens=max_tokens,
-                model=model_name,
-                temperature=temperature,
-                seed=42,
-            )
+            rits_params: Dict[str, Any] = {
+                "api_key": api_key,
+                "base_url": model_settings.get('url'),
+                "max_tokens": max_tokens,
+                "model": model_name,
+                "seed": 42,
+            }
+            if not is_reasoning:
+                rits_params["temperature"] = temperature
+                rits_params["top_p"] = model_settings.get('top_p', 1.0)
+            llm = ChatOpenAI(**rits_params)
         elif platform == "rits-restricted":
             api_key = _normalize_secret(resolve_secret("RITS_API_KEY_RESTRICT")) or os.environ.get(
                 "RITS_API_KEY_RESTRICT"
@@ -713,13 +806,14 @@ class LLMManager:
             openrouter_params: Dict[str, Any] = {
                 "model_name": model_name,
                 "max_tokens": max_tokens,
-                "timeout": 61,
+                "timeout": http_timeout,
                 "openai_api_key": api_key,
                 "openai_api_base": base_url,
             }
 
             if not is_reasoning:
                 openrouter_params["temperature"] = temperature
+                openrouter_params["top_p"] = model_settings.get('top_p', 1.0)
             else:
                 logger.debug(f"Skipping temperature for reasoning model: {model_name}")
 
@@ -752,6 +846,7 @@ class LLMManager:
             }
             if not is_reasoning:
                 litellm_params["temperature"] = temperature
+                litellm_params["top_p"] = model_settings.get('top_p', 1.0)
             else:
                 logger.debug(f"Skipping temperature for reasoning model (litellm): {model_name}")
             # Tell litellm to use the OpenAI-compatible code path without parsing
@@ -803,12 +898,24 @@ class LLMManager:
 
         max_tokens = model_settings.get('max_tokens')
         assert max_tokens is not None, "max_tokens must be specified in model_settings"
+
+        if is_mock_llm_enabled():
+            mock = clone_load_test_mock_chat_model()
+            return self._update_model_parameters(
+                mock,
+                temperature=model_settings.get('temperature', 0.1),
+                max_tokens=max_tokens,
+                max_completion_tokens=max_tokens,
+            )
+
         # Check if pre-instantiated model is available
         if self._pre_instantiated_model is not None:
             logger.debug(f"Using pre-instantiated model: {type(self._pre_instantiated_model).__name__}")
             # Update parameters for the task
             updated_model = self._update_model_parameters(
-                self._pre_instantiated_model, temperature=0.1, max_tokens=max_tokens
+                self._pre_instantiated_model,
+                temperature=model_settings.get('temperature', 0.1),
+                max_tokens=max_tokens,
             )
             return updated_model
 
@@ -827,7 +934,10 @@ class LLMManager:
             # Update parameters for the task
             cached_model = self._models[cache_key]
             updated_model = self._update_model_parameters(
-                cached_model, temperature=0.1, max_tokens=max_tokens, max_completion_tokens=max_tokens
+                cached_model,
+                temperature=model_settings.get('temperature', 0.1),
+                max_tokens=max_tokens,
+                max_completion_tokens=max_tokens,
             )
             return updated_model
 
@@ -839,7 +949,11 @@ class LLMManager:
         self._models[cache_key] = model
 
         # Update parameters for the task
-        updated_model = self._update_model_parameters(model, temperature=0.1, max_tokens=max_tokens)
+        updated_model = self._update_model_parameters(
+            model,
+            temperature=model_settings.get('temperature', 0.1),
+            max_tokens=max_tokens,
+        )
         return updated_model
 
 
@@ -861,6 +975,13 @@ def create_llm_from_config(llm_cfg: dict) -> BaseChatModel:
         max_tokens = 16000
     if not isinstance(max_tokens, int):
         max_tokens = 16000
+
+    if is_mock_llm_enabled():
+        mock = clone_load_test_mock_chat_model()
+        return mgr._update_model_parameters(
+            mock, temperature=0.1, max_tokens=max_tokens, max_completion_tokens=max_tokens
+        )
+
     api_key = llm_cfg.get("api_key") or None
     _secrets = getattr(settings, "secrets", None)
     use_env = _secrets and (

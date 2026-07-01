@@ -1,6 +1,0 @@
-[src]
-exclude = ["tests/fixtures"]
-
-[terminal]
-error-on-warning = true
-output-format = "concise"

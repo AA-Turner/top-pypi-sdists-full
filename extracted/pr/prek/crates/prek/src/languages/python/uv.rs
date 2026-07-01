@@ -11,16 +11,18 @@ use target_lexicon::{Architecture, ArmArchitecture, Environment, HOST, Operating
 use tokio::task::JoinSet;
 use tracing::{debug, trace, warn};
 
-use prek_consts::env_vars::EnvVars;
+use prek_consts::env_vars::{EnvVars, EnvVarsRead};
 
+use crate::archive;
 use crate::fs::LockedFile;
-use crate::http::{REQWEST_CLIENT, download_and_extract};
+use crate::http::{DownloadChecksumPolicy, REQWEST_CLIENT, download_artifact_with};
 use crate::process::Cmd;
 use crate::store::{CacheBucket, Store};
 use crate::version;
+use crate::warn_user;
 
 // The version range of `uv` we will install. Should update periodically.
-const CUR_UV_VERSION: &str = "0.11.19";
+const CUR_UV_VERSION: &str = "0.11.23";
 static UV_VERSION_RANGE: LazyLock<VersionReq> =
     LazyLock::new(|| VersionReq::parse(">=0.7.0").unwrap());
 
@@ -142,7 +144,7 @@ static UV_EXE: LazyLock<Option<(PathBuf, Version)>> = LazyLock::new(|| {
     None
 });
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum PyPiMirror {
     Pypi,
     Tuna,
@@ -170,7 +172,7 @@ impl PyPiMirror {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum InstallSource {
     /// Download uv from GitHub releases.
     GitHub,
@@ -196,18 +198,25 @@ impl InstallSource {
             "https://github.com/astral-sh/uv/releases/download/{CUR_UV_VERSION}/{archive_name}"
         );
 
-        download_and_extract(&download_url, &archive_name, store, async |extracted| {
-            let source = extracted.join("uv").with_extension(EXE_EXTENSION);
-            let target_path = target.join("uv").with_extension(EXE_EXTENSION);
-
-            debug!(?source, target = %target_path.display(), "Moving uv to target");
-            // TODO: retry on Windows
-            replace_uv_binary(&source, &target_path).await?;
-
-            anyhow::Ok(())
-        })
+        let download = download_artifact_with(
+            &download_url,
+            &archive_name,
+            store,
+            DownloadChecksumPolicy::Disabled,
+            async || Ok(None),
+            |req| req,
+        )
         .await
-        .context("Failed to download and extract uv")?;
+        .context("Failed to download uv")?;
+        let extracted = archive::extract_archive(download.path())
+            .await
+            .context("Failed to extract uv")?;
+        let source = extracted.join("uv").with_extension(EXE_EXTENSION);
+        let target_path = target.join("uv").with_extension(EXE_EXTENSION);
+
+        debug!(?source, target = %target_path.display(), "Moving uv to target");
+        // TODO: retry on Windows
+        replace_uv_binary(&source, &target_path).await?;
 
         Ok(())
     }
@@ -233,14 +242,9 @@ impl InstallSource {
             .get(&api_url)
             .header("Accept", "*/*")
             .send()
-            .await?;
-
-        if !response.status().is_success() {
-            bail!(
-                "Failed to fetch uv metadata from PyPI: {}",
-                response.status()
-            );
-        }
+            .await
+            .and_then(reqwest::Response::error_for_status)
+            .with_context(|| format!("Failed to fetch uv metadata from PyPI at {api_url}"))?;
 
         let metadata: serde_json::Value = response.json().await?;
         let files = metadata["urls"]
@@ -260,7 +264,7 @@ impl InstallSource {
             .as_str()
             .context("Missing download URL in PyPI response")?;
 
-        self.download_and_extract_wheel(store, target, &wheel_name, download_url)
+        self.install_from_wheel_url(store, target, &wheel_name, download_url)
             .await
     }
 
@@ -312,46 +316,54 @@ impl InstallSource {
             format!("{simple_url}{download_path}")
         };
 
-        self.download_and_extract_wheel(store, target, &wheel_name, &download_url)
+        self.install_from_wheel_url(store, target, &wheel_name, &download_url)
             .await
     }
 
-    async fn download_and_extract_wheel(
+    async fn install_from_wheel_url(
         &self,
         store: &Store,
         target: &Path,
         filename: &str,
         download_url: &str,
     ) -> Result<()> {
-        download_and_extract(download_url, filename, store, async |extracted| {
-            // Find the uv binary in the extracted contents
-            let data_dir = format!("uv-{CUR_UV_VERSION}.data");
-            let extracted_uv = extracted
-                .join(data_dir)
-                .join("scripts")
-                .join("uv")
-                .with_extension(EXE_EXTENSION);
-
-            // Copy the binary to the target location
-            let target_path = target.join("uv").with_extension(EXE_EXTENSION);
-
-            debug!(?extracted_uv, target = %target_path.display(), "Moving uv to target");
-            replace_uv_binary(&extracted_uv, &target_path).await?;
-
-            // Set executable permissions on Unix
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                let metadata = fs_err::tokio::metadata(&target_path).await?;
-                let mut perms = metadata.permissions();
-                perms.set_mode(0o755);
-                fs_err::tokio::set_permissions(&target_path, perms).await?;
-            }
-
-            Ok(())
-        })
+        let download = download_artifact_with(
+            download_url,
+            filename,
+            store,
+            DownloadChecksumPolicy::Disabled,
+            async || Ok(None),
+            |req| req,
+        )
         .await
-        .context("Failed to download and extract uv wheel")?;
+        .context("Failed to download uv wheel")?;
+        let extracted = archive::extract_archive(download.path())
+            .await
+            .context("Failed to extract uv wheel")?;
+
+        // Find the uv binary in the extracted contents
+        let data_dir = format!("uv-{CUR_UV_VERSION}.data");
+        let extracted_uv = extracted
+            .join(data_dir)
+            .join("scripts")
+            .join("uv")
+            .with_extension(EXE_EXTENSION);
+
+        // Copy the binary to the target location
+        let target_path = target.join("uv").with_extension(EXE_EXTENSION);
+
+        debug!(?extracted_uv, target = %target_path.display(), "Moving uv to target");
+        replace_uv_binary(&extracted_uv, &target_path).await?;
+
+        // Set executable permissions on Unix
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let metadata = fs_err::tokio::metadata(&target_path).await?;
+            let mut perms = metadata.permissions();
+            perms.set_mode(0o755);
+            fs_err::tokio::set_permissions(&target_path, perms).await?;
+        }
 
         Ok(())
     }
@@ -359,7 +371,7 @@ impl InstallSource {
     async fn install_from_pip(&self, target: &Path) -> Result<()> {
         // When running `pip install` in multiple threads, it can fail
         // without extracting files properly.
-        Cmd::new("python3", "pip install uv")
+        Cmd::new("python3")
             .arg("-m")
             .arg("pip")
             .arg("install")
@@ -404,8 +416,8 @@ impl Uv {
         Self { path }
     }
 
-    pub(crate) fn cmd(&self, summary: &str, store: &Store) -> Cmd {
-        let mut cmd = Cmd::new(&self.path, summary);
+    pub(crate) fn cmd(&self, store: &Store) -> Cmd {
+        let mut cmd = Cmd::new(&self.path);
         cmd.env(EnvVars::UV_CACHE_DIR, store.cache_path(CacheBucket::Uv));
         cmd
     }
@@ -530,7 +542,7 @@ impl Uv {
             }
         }
 
-        let source = if let Some(uv_source) = uv_source_from_env() {
+        let source = if let Some(uv_source) = uv_source_from_env(&EnvVars) {
             uv_source
         } else {
             Self::select_source().await?
@@ -556,8 +568,8 @@ impl Uv {
     }
 }
 
-fn uv_source_from_env() -> Option<InstallSource> {
-    let var = EnvVars::var(EnvVars::PREK_UV_SOURCE).ok()?;
+fn uv_source_from_env(env_vars: &impl EnvVarsRead) -> Option<InstallSource> {
+    let var = env_vars.var(EnvVars::PREK_UV_SOURCE).ok()?;
     match var.as_str() {
         "github" => Some(InstallSource::GitHub),
         "pypi" => Some(InstallSource::PyPi(PyPiMirror::Pypi)),
@@ -567,7 +579,12 @@ fn uv_source_from_env() -> Option<InstallSource> {
         "pip" => Some(InstallSource::Pip),
         custom if custom.starts_with("http") => Some(InstallSource::PyPi(PyPiMirror::Custom(var))),
         _ => {
-            warn!("Invalid UV_SOURCE value: {}", var);
+            warn_user!(
+                "Invalid value for {}: {:?}. Expected github, pypi, tuna, aliyun, tencent, pip, or an http(s) URL; using default ({:?})",
+                EnvVars::PREK_UV_SOURCE,
+                var,
+                "auto",
+            );
             None
         }
     }
@@ -584,6 +601,36 @@ mod tests {
             UV_VERSION_RANGE.matches(&version),
             "CUR_UV_VERSION {CUR_UV_VERSION} does not satisfy the version requirement {}",
             &*UV_VERSION_RANGE
+        );
+    }
+
+    #[test]
+    fn uv_source_from_env_reads_source_override() {
+        assert_eq!(uv_source_from_env(&EnvVars::from_map(&[])), None);
+        assert_eq!(
+            uv_source_from_env(&EnvVars::from_map(&[(EnvVars::PREK_UV_SOURCE, "github")])),
+            Some(InstallSource::GitHub)
+        );
+        assert_eq!(
+            uv_source_from_env(&EnvVars::from_map(&[(EnvVars::PREK_UV_SOURCE, "pypi")])),
+            Some(InstallSource::PyPi(PyPiMirror::Pypi))
+        );
+        assert_eq!(
+            uv_source_from_env(&EnvVars::from_map(&[(EnvVars::PREK_UV_SOURCE, "pip")])),
+            Some(InstallSource::Pip)
+        );
+        assert_eq!(
+            uv_source_from_env(&EnvVars::from_map(&[(
+                EnvVars::PREK_UV_SOURCE,
+                "https://example.com/simple",
+            )])),
+            Some(InstallSource::PyPi(PyPiMirror::Custom(
+                "https://example.com/simple".to_string()
+            )))
+        );
+        assert_eq!(
+            uv_source_from_env(&EnvVars::from_map(&[(EnvVars::PREK_UV_SOURCE, "unknown")])),
+            None
         );
     }
 

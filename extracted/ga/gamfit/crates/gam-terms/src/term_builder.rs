@@ -924,11 +924,74 @@ fn parse_periodic_axes_option(
         return Ok(None);
     };
     let mut periods = parse_periods_option(options, dim)?.unwrap_or_else(|| vec![None; dim]);
+    // Scalar boolean form (`periodic=true` / `false`, `yes` / `no`) applies to
+    // every axis — the documented per-axis-flag broadcast (see the doc on
+    // `parse_periodic_axes`, the tensor sibling that already accepts it). A
+    // 1-D `duchon(x, periodic=true)` lands here: the cyclic *domain* is then
+    // resolved from the data range by `parse_cyclic_boundary` (the 1-D builder
+    // consults `boundary` first), so a finite explicit period is NOT required —
+    // we only need to NOT mis-read "true" as an axis index (#1074). `false`
+    // means no axis is periodic.
+    let lowered = raw_axes.trim().to_ascii_lowercase();
+    match lowered.as_str() {
+        "true" | "yes" | "y" => return Ok(Some(periods)),
+        "false" | "no" | "n" => return Ok(Some(vec![None; dim])),
+        _ => {}
+    }
     let axes = split_list_option(raw_axes);
     if axes.is_empty() {
         return Ok(Some(periods));
     }
-    for a in axes {
+
+    // Boolean forms `periodic=true` / `periodic=[true, false, ...]`, mirroring
+    // `parse_tensor_periodic_axes`. The radial 1-D builders (`duchon`/`tps`/
+    // `matern`) intentionally DERIVE the wrap period from the closed center
+    // lattice when none is supplied (`prepare_periodic_duchon_centers_1d_with_period`,
+    // gam#580: `None => span`), so a boolean-selected periodic axis legitimately
+    // omits `period`. Without this branch, `duchon(x, periodic=true)`-style
+    // radial formulas failed with the misleading "invalid periodic axis 'true'".
+    let is_bool = |t: &str| {
+        matches!(
+            t.to_ascii_lowercase().as_str(),
+            "true" | "yes" | "y" | "false" | "no" | "n"
+        )
+    };
+    let is_truthy = |t: &str| matches!(t.to_ascii_lowercase().as_str(), "true" | "yes" | "y");
+
+    // Scalar boolean: `periodic=true` / `periodic=false`.
+    if axes.len() == 1 && is_bool(&axes[0]) {
+        if !is_truthy(&axes[0]) {
+            // Non-periodic: return None so the 1-D builder (which routes on
+            // `spec.periodic.is_some()`) does NOT take the periodic path.
+            return Ok(None);
+        }
+        // Every axis periodic; honor any explicit per-axis period, else leave
+        // `None` for the caller (formula arm) / builder to derive the span.
+        return Ok(Some(periods));
+    }
+
+    // Per-axis boolean list: `periodic=[true, false, ...]` (length must match dim).
+    if axes.iter().all(|a| is_bool(a)) {
+        if axes.len() != dim {
+            return Err(format!(
+                "periodic flag list length {} must match smooth dimension {dim}",
+                axes.len()
+            ));
+        }
+        if !axes.iter().any(|a| is_truthy(a)) {
+            return Ok(None);
+        }
+        for (i, a) in axes.iter().enumerate() {
+            if !is_truthy(a) {
+                periods[i] = None;
+            }
+        }
+        return Ok(Some(periods));
+    }
+
+    // Index-list form: `periodic=[0, 2]`. Each listed axis must carry an
+    // explicit finite period — an index gives no per-axis span-derive hint.
+    for a in &axes {
         let axis = a
             .parse::<usize>()
             .map_err(|err| format!("invalid periodic axis '{a}': {err}"))?;
@@ -944,8 +1007,8 @@ fn parse_periodic_axes_option(
         }
     }
     // Axes not listed are non-periodic even if period list has a finite placeholder.
-    let listed: std::collections::BTreeSet<usize> = split_list_option(raw_axes)
-        .into_iter()
+    let listed: std::collections::BTreeSet<usize> = axes
+        .iter()
         .filter_map(|a| a.parse::<usize>().ok())
         .collect();
     for i in 0..dim {
@@ -1133,7 +1196,10 @@ fn parse_period_origins(
 
 /// Parse a per-axis periodic flag list for tensor smooths. Accepts three forms:
 /// - `periodic=true` / `periodic=false` (scalar applied to every axis),
-/// - `periodic=[true, false, ...]` (one flag per axis, length `dim`), and
+/// - `periodic=[true, false, ...]` (one flag per axis, length `dim`),
+/// - `periodic=c(1, 1)` / `c(0, 0)` (a length-`dim` 0/1 mask, mgcv's
+///   per-margin spelling — distinguished from an axis-index list by the
+///   repeated 0/1 value), and
 /// - `periodic=[0, 2, ...]` (axis indices that are periodic; others are not).
 ///
 /// `boundary=[..., "periodic"/"cyclic"/"cc", ...]` may also flip individual
@@ -1161,7 +1227,25 @@ fn parse_tensor_periodic_axes(
                             "true" | "yes" | "y" | "false" | "no" | "n" | "none"
                         )
                     });
-                if all_bool {
+                // mgcv writes per-margin flag vectors as `periodic=c(1,1)` /
+                // `periodic=c(0,0)` — a length-`dim` mask where each entry is a
+                // 0/1 flag for THAT margin, not an axis index. A bare axis-index
+                // list (`periodic=[0,1]`, `periodic=[0]`) lists DISTINCT margin
+                // indices to turn on. The two collide only when the list is all
+                // 0/1 of length `dim`; disambiguate by the repeated-value
+                // signature `c(1,1)`/`c(0,0)` (a valid axis-index set never
+                // repeats an index), which is the canonical mask spelling. This
+                // is what makes the leading tensor margin honor its periodic flag
+                // (#1751: `periodic=c(1,1)` previously parsed `1,1` as axis
+                // indices, marking only axis 1 and dropping axis 0).
+                let all_zero_one = !entries.is_empty()
+                    && entries.iter().all(|v| v == "0" || v == "1");
+                let has_repeat = {
+                    let mut seen = std::collections::BTreeSet::new();
+                    !entries.iter().all(|v| seen.insert(v.clone()))
+                };
+                let numeric_mask = all_zero_one && entries.len() == dim && has_repeat;
+                if all_bool || numeric_mask {
                     if entries.len() != dim {
                         return Err(format!(
                             "periodic list length {} must match smooth dimension {}",
@@ -1170,7 +1254,7 @@ fn parse_tensor_periodic_axes(
                         ));
                     }
                     for (i, v) in entries.iter().enumerate() {
-                        axes[i] = matches!(v.as_str(), "true" | "yes" | "y");
+                        axes[i] = matches!(v.as_str(), "true" | "yes" | "y" | "1");
                     }
                 } else {
                     for axis_raw in entries {
@@ -1198,7 +1282,68 @@ fn parse_tensor_periodic_axes(
             }
         }
     }
+    // A per-margin basis vector (`bs=c('cc','ps')` / `type=[...]`) declares each
+    // margin's basis family, and a cyclic family (`cc`/`cp`/`cyclic`) makes THAT
+    // margin periodic — exactly as the 1-D `s(x, bs='cc')` smooth wraps its lone
+    // axis. Without this, the per-margin `cc` token was validated but discarded:
+    // every `bs=c(...)` spelling collapsed to the same open B-spline tensor
+    // (#1752). Only honor the vector form here; a scalar `bs='cc'` on a tensor is
+    // ambiguous about which margins wrap, so it does not flip any axis on.
+    if let Some(raw) = options.get("bs").or_else(|| options.get("type"))
+        && bs_selector_is_vector(raw)
+    {
+        let per_margin = parse_option_list(raw);
+        if per_margin.len() == dim {
+            for (axis, margin_bs) in per_margin.iter().enumerate() {
+                if matches!(
+                    canonicalize_smooth_type(margin_bs),
+                    "cc" | "cp" | "cyclic"
+                ) {
+                    axes[axis] = true;
+                }
+            }
+        }
+    }
     Ok(axes)
+}
+
+/// Reject endpoint boundary conditions (`clamped`/`anchored`) requested on a
+/// tensor-product margin.
+///
+/// Tensor smooths support `bc=`/`boundary=` only for *periodic* margin
+/// selection (`periodic`/`cyclic`/`cc`), which [`parse_tensor_periodic_axes`]
+/// consumes. Endpoint boundary conditions are a 1-D B-spline structural
+/// reparameterization and are NOT implemented for tensor margins, but the
+/// periodic-axes parser silently ignores every non-periodic token — so
+/// `te(x, y, bc=['clamped', 'natural'])` used to be accepted as a no-op and
+/// fit an ordinary unconstrained tensor, dropping the user's clamp without a
+/// word. Surface it as a clean, explicit error instead of a silent drop. The
+/// inert margin tokens (`natural`/`free`/`none`/empty) and the periodic
+/// selectors are accepted; anything else is an unsupported endpoint BC.
+fn reject_tensor_endpoint_boundary_conditions(
+    options: &BTreeMap<String, String>,
+    dim: usize,
+) -> Result<(), String> {
+    let Some(raw) = options.get("boundary").or_else(|| options.get("bc")) else {
+        return Ok(());
+    };
+    let entries = parse_option_list(raw);
+    for (axis, value) in entries.iter().enumerate() {
+        let inert = matches!(
+            value.as_str(),
+            "natural" | "free" | "none" | "" | "periodic" | "cyclic" | "cc"
+        );
+        if !inert {
+            return Err(TermBuilderError::unsupported_feature(format!(
+                "tensor smooth margin {axis} endpoint boundary condition '{value}' is not supported \
+                 (got bc/boundary={raw:?} on a {dim}-D tensor); tensor margins accept only periodic \
+                 selection (periodic/cyclic/cc) or the inert natural/free token. Apply clamped/anchored \
+                 endpoint boundary conditions with a 1-D s(x, bc=...) term instead."
+            ))
+            .to_string());
+        }
+    }
+    Ok(())
 }
 
 fn tensor_k_axis_option_axis(
@@ -1913,15 +2058,17 @@ pub fn build_smooth_basis(
             // degrees of freedom on: the wrap constraint removes the ordinary
             // boundary wiggle, and the cyclic second-difference penalty leaves
             // only the constant direction (handled by the smooth
-            // identifiability constraint).  Reusing the open-spline default
-            // ceiling (often 20 internal knots, i.e. 24 cyclic coefficients)
-            // gives small binomial/continuation-ratio fits a large penalized
-            // nuisance space whose REML/LAML optimum is driven by finite-sample
-            // Bernoulli noise rather than the low-frequency periodic signal.
-            // Match the mgcv `bs="cc"` spirit: default to a modest cyclic
-            // basis unless the caller explicitly requests `k=...`; high-
-            // frequency periodic structure remains available through that
-            // explicit contract.
+            // identifiability constraint).  An over-rich default would give
+            // small binomial/continuation-ratio fits a large penalized nuisance
+            // space whose REML/LAML optimum is driven by finite-sample Bernoulli
+            // noise rather than the low-frequency periodic signal.  Cap the
+            // cyclic default in the mgcv `bs="cc"` spirit: a modest basis unless
+            // the caller explicitly requests `k=...`; high-frequency periodic
+            // structure remains available through that explicit contract.  Since
+            // gam#1680 lowered the open-spline univariate default to ≈12
+            // functions this cap and the open-spline default coincide, so it now
+            // acts as an explicit floor/guard that keeps the cyclic default lean
+            // even if the open-spline heuristic is later widened.
             let cyclic_default_basis_cap = CYCLIC_DEFAULT_BASIS_DIM.max(degree + 1);
             let default_basis = (default_internal + degree + 1).min(cyclic_default_basis_cap);
             let num_basis = option_usize_any(options, &["k", "basis_dim", "basis-dim", "basisdim"])
@@ -2211,6 +2358,11 @@ pub fn build_smooth_basis(
                     "__by_col",
                     "identifiability",
                     "by",
+                    "periodic",
+                    "cyclic",
+                    "period",
+                    "period_start",
+                    "period_end",
                     "scale_dims",
                 ],
             )?;
@@ -2591,6 +2743,11 @@ pub fn build_smooth_basis(
                     "__by_col",
                     "identifiability",
                     "by",
+                    "periodic",
+                    "cyclic",
+                    "period",
+                    "period_start",
+                    "period_end",
                     "scale_dims",
                 ],
             )?;
@@ -2838,11 +2995,29 @@ pub fn build_smooth_basis(
             // The default is the full Hilbert scale (curvature `Primary` + trend
             // ridge + mass + tension); REML deselects what the data don't support.
             let operator_penalties = DuchonOperatorPenaltySpec::default();
+            // For a 1-D periodic Duchon with no EXPLICIT period, anchor the wrap
+            // to the covariate DATA range rather than letting the basis builder
+            // derive it from the (k-subsampled) center span. The center span is a
+            // strict subset of the data and undershoots the true period, seaming
+            // the curve (f(0) ≠ f(2π)); the data range is the caller's actual
+            // domain. Honors any explicit `period=` (parse_periodic_axes_option
+            // already threaded it) and leaves multi-D / non-periodic untouched.
+            let mut periodic = parse_periodic_axes_option(options, cols.len())?;
+            if cols.len() == 1
+                && let Some(axes) = periodic.as_mut()
+                && axes.len() == 1
+                && axes[0].is_none()
+            {
+                let (minv, maxv) = col_minmax(ds.values.column(cols[0]))?;
+                if maxv > minv {
+                    axes[0] = Some(maxv - minv);
+                }
+            }
             Ok(SmoothBasisSpec::Duchon {
                 feature_cols: cols.to_vec(),
                 spec: DuchonBasisSpec {
                     center_strategy,
-                    periodic: parse_periodic_axes_option(options, cols.len())?,
+                    periodic,
                     length_scale,
                     power,
                     nullspace_order,
@@ -2952,6 +3127,7 @@ pub fn build_smooth_basis(
                 }
             }
             let periodic_axes = parse_tensor_periodic_axes(options, dim)?;
+            reject_tensor_endpoint_boundary_conditions(options, dim)?;
             let periods_opt = parse_periods(options, &periodic_axes)?;
             let origins_opt = parse_period_origins(options, &periodic_axes)?;
             let degree = option_usize(options, "degree").unwrap_or(DEFAULT_BSPLINE_DEGREE);
@@ -3070,19 +3246,55 @@ pub fn build_smooth_basis(
                 }
                 let effective_degree = degree.min(k_axis - 1).max(1);
                 let effective_penalty_order = penalty_order.min(effective_degree);
+                // A `cc`/`cp`/`cyclic` per-margin basis declares periodicity
+                // without necessarily supplying a `period=`: mgcv's `bs="cc"`
+                // wraps at the covariate's observed data range. Mirror the 1-D
+                // cyclic fallback (`parse_periodic_domain_1d`) here so a bare
+                // `te(x, z, bs=c('cc','cc'))` wraps each margin on its own
+                // [min, max] span instead of hard-erroring (#1752).
+                let margin_is_cc = matches!(
+                    canonicalize_smooth_type(per_axis_bs[axis].as_deref().unwrap_or("")),
+                    "cc" | "cp" | "cyclic"
+                );
                 let (knotspec, boundary, axis_period) = if periodic_axes[axis] {
-                    let period_value = periods_opt[axis].ok_or_else(|| {
-                        format!(
-                            "tensor smooth axis {axis} is periodic but no period was supplied; \
-                             pass period=<value> (scalar) or period=[..., <value>, ...]"
-                        )
-                    })?;
-                    if !period_value.is_finite() || period_value <= 0.0 {
-                        return Err(format!(
-                            "tensor smooth axis {axis}: period must be a positive finite value, got {period_value}"
-                        ));
-                    }
-                    let domain_start = origins_opt[axis].unwrap_or(data_min);
+                    // A `cc`/`cp`/`cyclic` per-margin basis declares periodicity
+                    // without necessarily supplying a `period=`; in that case wrap
+                    // at the covariate's observed [min, max] span, mirroring the
+                    // 1-D cyclic fallback (`parse_periodic_domain_1d`) so a bare
+                    // `te(x, z, bs=c('cc','cc'))` wraps each margin on its own
+                    // range instead of hard-erroring (#1752). An axis made
+                    // periodic by an explicit `periodic=`/`boundary=` selector
+                    // (not a cyclic margin basis) still requires an explicit
+                    // `period=`: a data-derived period there is a sample-dependent
+                    // off-by-ε seam and is not inferred.
+                    let (domain_start, period_value) = match periods_opt[axis] {
+                        Some(period_value) => {
+                            if !period_value.is_finite() || period_value <= 0.0 {
+                                return Err(format!(
+                                    "tensor smooth axis {axis}: period must be a positive finite value, got {period_value}"
+                                ));
+                            }
+                            (origins_opt[axis].unwrap_or(data_min), period_value)
+                        }
+                        None if margin_is_cc => {
+                            let span = data_max - data_min;
+                            if !span.is_finite() || span <= 0.0 {
+                                return Err(format!(
+                                    "tensor smooth axis {axis}: cyclic margin requires a positive \
+                                     observed data range to derive its period, got [{data_min}, {data_max}]"
+                                ));
+                            }
+                            (origins_opt[axis].unwrap_or(data_min), span)
+                        }
+                        None => {
+                            return Err(format!(
+                                "tensor smooth axis {axis} is periodic but requires an explicit \
+                                 period: pass period=<value> (scalar) or period=[..., <value>, ...]. \
+                                 Deriving the period from the observed data range is sample-dependent \
+                                 (off-by-ε seam), so it is not inferred."
+                            ));
+                        }
+                    };
                     let domain_end = domain_start + period_value;
                     (
                         BSplineKnotSpec::PeriodicUniform {
@@ -3555,25 +3767,51 @@ fn min_per_group_unique_count(
         .max(1)
 }
 
-/// Per-column knot count from the unique-value count, with the same n^(1/3)
-/// ceiling growth as `heuristic_knots` so per-column smooths can support more
-/// detail at large scale. The 4-knot floor stays put because we still need
-/// enough basis functions to fit a non-trivial smooth at all.
+/// Default internal-knot count for an *additive* univariate smooth, derived
+/// from the column's unique-value count.
+///
+/// The basis dimension is `internal_knots + degree + 1`, so the cap below maps
+/// to a default cubic basis of ~12 functions — deliberately close to mgcv's
+/// univariate default (`k = 10`). A penalized smooth controls its wiggliness
+/// through the *penalty*, not the basis size: REML/LAML shrinks a too-rich
+/// basis toward the null, but it cannot do so cleanly when the basis is so
+/// over-sized that the design becomes weakly identified. Growing the basis with
+/// `n` (the old `n^(1/3)`-ceilinged `unique/4` rule, which pinned to 20 internal
+/// knots ⇒ a 24-function basis for any column with ≥80 unique values) therefore
+/// *hurts* recovery on finite, weak-signal fits: a 4-smooth additive model on
+/// n=120 asks for ~92 coefficients, the outer optimizer stalls on the resulting
+/// flat two-penalty (range + null-space) REML surface, and the truth leaks into
+/// surplus columns the penalty can't shrink away (gam#1680; the same defect was
+/// documented for thin-plate fields in gam#1074). A k-sweep on the #1680 design
+/// confirms a basis of ~10–15 recovers truth at RMSE ≈ 0.12 while the old
+/// 24-function default lands at ≈ 0.39 (~3× worse) — *whether or not* the
+/// covariates are collinear, so this is basis over-richness, not collinearity.
+///
+/// The cap is flat in `n`: a user who genuinely needs a wigglier fit raises `k`
+/// explicitly (mgcv's contract — opt *in* to more flexibility), and the SPEC
+/// requires the default to allow recovering the null rather than forcing the
+/// user to opt out of overfitting. The 4-knot floor stays put because we still
+/// need enough basis functions to fit a non-trivial smooth at all, and the
+/// `unique/4` growth below the cap keeps small/sparse columns (n ≤ 32, where
+/// `unique/4 ≤ 8`) on exactly their previous knot count.
 pub fn heuristic_knots_for_column(col: ArrayView1<'_, f64>) -> usize {
+    /// Default cubic basis ≈ `MAX_DEFAULT_INTERNAL_KNOTS + degree + 1` = 12
+    /// functions, matching mgcv's lean univariate default.
+    const MAX_DEFAULT_INTERNAL_KNOTS: usize = 8;
     let unique = unique_count_column(col);
-    let ceiling = ((unique as f64).cbrt() as usize).max(20);
-    (unique / 4).clamp(4, ceiling)
+    (unique / 4).clamp(4, MAX_DEFAULT_INTERNAL_KNOTS)
 }
 
 /// Per-margin basis sizes for a tensor-product smooth (`te`/`ti`/`t2`).
 ///
 /// The 1-D heuristic [`heuristic_knots_for_column`] is calibrated for an
-/// *additive* margin: a column with ~80 unique values asks for ~20 basis
-/// functions, which is sensible for a single `s(x)` term (≈20 coefficients).
+/// *additive* margin: a well-resolved column asks for the lean univariate
+/// default (≈12 basis functions, the mgcv-like cap of 8 internal knots; see
+/// gam#1680), which is sensible for a single `s(x)` term.
 /// A tensor product, however, multiplies the per-margin sizes:
 /// `p = ∏_d k_d`. Reusing the 1-D rule per margin makes `p` explode with the
-/// tensor dimension — a 3-D `te(x,y,z)` at the 1-D ceiling of 20/margin is
-/// `20³ = 8000` columns, and every REML evaluation pays an O(p³) dense
+/// tensor dimension — a 3-D `te(x,y,z)` at the 1-D ceiling of 12/margin is
+/// `12³ ≈ 1728` columns, and every REML evaluation pays an O(p³) dense
 /// penalty reparameterization (the full-tensor sum-to-zero constraint is not
 /// Kronecker-factorable), turning model selection over tensor candidates into
 /// a multi-minute single-threaded stall (gam#813). It also requests far more
@@ -4153,14 +4391,35 @@ pub fn parse_periodic_domain_1d(
     minv: f64,
     maxv: f64,
 ) -> Result<(f64, f64), String> {
-    let start = match option_numeric_expr(options, "period_start")? {
-        Some(v) => v,
-        None => option_numeric_expr(options, "start")?.unwrap_or(minv),
+    let start_opt = match option_numeric_expr(options, "period_start")? {
+        Some(v) => Some(v),
+        None => option_numeric_expr(options, "start")?,
     };
-    let end = match option_numeric_expr(options, "period_end")? {
-        Some(v) => v,
-        None => option_numeric_expr(options, "end")?.unwrap_or(maxv),
+    let end_opt = match option_numeric_expr(options, "period_end")? {
+        Some(v) => Some(v),
+        None => option_numeric_expr(options, "end")?,
     };
+    // Reject the pure data-range fallback. A B-spline periodic smooth that takes
+    // its wrap from the observed [min, max] is sample-dependent and silently
+    // wrong: uniform draws on a true period of 2π land on [ε, 2π−ε], so using
+    // (max−min) as the period seams the curve with an off-by-ε discontinuity and
+    // the fit drifts with the sample. (Unlike the radial closed-lattice Duchon
+    // path, whose centers DO tile a full period, so its span-derive is exact —
+    // see `parse_periodic_axes_option`.) Require the caller to name the period
+    // explicitly via `period=`/`period_end`. The end is only defaulted to `maxv`
+    // when a `period_start`/`start` was given (a half-open declaration); a bare
+    // periodic smooth with neither bound is an error.
+    if end_opt.is_none() && start_opt.is_none() {
+        return Err(
+            "periodic B-spline smooth requires an explicit period: pass period=<value> \
+             (e.g. period=2*pi) or period_start=/period_end=. Deriving the period from the \
+             observed data range is sample-dependent and produces an off-by-ε seam, so it is \
+             not inferred."
+                .to_string(),
+        );
+    }
+    let start = start_opt.unwrap_or(minv);
+    let end = end_opt.unwrap_or(maxv);
     if !(start.is_finite() && end.is_finite()) {
         return Err(format!(
             "periodic smooth domain requires finite endpoints, got ({start}, {end})"
@@ -4685,6 +4944,64 @@ mod tests {
             vec![5, 6],
             "square-bracket k lists should materialize the requested per-margin values"
         );
+    }
+
+    /// #1776 / #1752: a bare doubly-cyclic tensor `te(x, z, bs=c('cc','cc'))`
+    /// with NO explicit `period=` must build — each cyclic margin wraps on its
+    /// own observed `[min, max]` data span (mirroring mgcv's `bs="cc"` and the
+    /// 1-D cyclic fallback), instead of hard-erroring "periodic but requires an
+    /// explicit period". The periodic-radial refactor (c8c3192fa) replaced that
+    /// fallback with an unconditional `period=`-required error and orphaned the
+    /// `margin_is_cc` binding that drives it (the #1776 dead-binding `-D
+    /// warnings` build break). This pins the restored data-range derivation so a
+    /// regression that drops the `None if margin_is_cc` branch trips here, fast,
+    /// with no fit/optimizer in the loop.
+    #[test]
+    fn bare_doubly_cyclic_tensor_derives_period_from_data_range_1776() {
+        let ds = continuous_dataset(
+            &["y", "x", "z"],
+            (0..40)
+                .map(|i| {
+                    let x = i as f64 / 39.0;
+                    let z = ((i * 7) % 40) as f64 / 39.0;
+                    vec![x.sin() + z.cos(), x, z]
+                })
+                .collect(),
+        );
+
+        let parsed = parse_formula("y ~ te(x, z, bs=c('cc','cc'))")
+            .expect("parse doubly-cyclic tensor formula");
+        let col_map = ds.column_map();
+        let mut notes = Vec::new();
+        // Must NOT hard-error: the bare cyclic margins derive their period from
+        // the observed data range (the restored #1752 fallback).
+        let terms = build_termspec(
+            &parsed.terms,
+            &ds,
+            &col_map,
+            &mut notes,
+            &ResourcePolicy::default_library(),
+        )
+        .expect(
+            "bare cc-cc tensor must build via the data-range period fallback (#1776/#1752), \
+             not hard-error on a missing explicit period",
+        );
+        let SmoothBasisSpec::TensorBSpline { spec, .. } = &terms.smooth_terms[0].basis else {
+            panic!("expected tensor smooth");
+        };
+        assert_eq!(
+            spec.marginalspecs.len(),
+            2,
+            "te(x, z) builds exactly two tensor margins"
+        );
+        for (axis, marginal) in spec.marginalspecs.iter().enumerate() {
+            assert!(
+                matches!(marginal.knotspec, BSplineKnotSpec::PeriodicUniform { .. }),
+                "cyclic margin {axis} must build a periodic (wrapped) knotspec from the \
+                 data range, got {:?}",
+                marginal.knotspec
+            );
+        }
     }
 
     #[test]
@@ -5427,12 +5744,24 @@ mod tests {
         )
         .expect("build fs factor smooth");
 
-        // The marginal wiggliness penalty count (one per marginal penalty) is the
-        // SAME for sz and fs; the difference of interest is the null-space ridges.
-        // `fs` adds one rank-1 ridge per marginal null direction. After the fix
-        // `sz` must add the SAME number of null-space ridges, so its total
-        // penalty count must equal `fs`'s. Before the fix `sz` had strictly fewer
-        // penalties (only the wiggliness penalties), so this assertion fails.
+        // Penalty structure (#1074 + #1605). `fs` is the exchangeable
+        // random-effect smooth: all `L` level blocks share ONE wiggliness λ per
+        // marginal penalty, plus one rank-1 null-space ridge per marginal null
+        // direction (the #1605 double penalty). `sz` is the sum-to-zero factor
+        // smooth and mgcv's `smooth.construct.sz` emits ONE penalty matrix PER
+        // LEVEL — `L` independent curvature smoothing parameters — so REML can
+        // shrink a low-amplitude group's deviation hard while leaving a busy
+        // group nearly unpenalized. We mirror that: the single marginal
+        // wiggliness penalty is split into its `L` independent zero-sum-contrast
+        // summands (`L-1` free per-group blocks `(e_k e_kᵀ)⊗S` + the reference
+        // coupling block `(11ᵀ)⊗S`), each carrying its own λ, and the null-space
+        // ridges stay POOLED (the per-group intercept/slope shrinkage mgcv pools
+        // under one variance even for `sz`).
+        //
+        // So with `nw` marginal wiggliness penalties and `nn` marginal null
+        // directions: fs has `nw + nn` penalties; sz has `L·nw + nn`. sz must
+        // therefore carry strictly MORE penalties than fs (the per-group split),
+        // and the surplus must be exactly `(L-1)·nw`.
         let n_levels = sz_spec
             .group_frozen_levels
             .as_ref()
@@ -5440,26 +5769,43 @@ mod tests {
             .unwrap_or(4);
         assert!(n_levels >= 3, "test needs >=3 groups, got {n_levels}");
 
+        // fs = nw + nn  ⇒  nn = fs_penalties - nw. The marginal has nw==1
+        // wiggliness penalty (a single difference/curvature operator), so the
+        // per-group split adds exactly (L-1)·nw = (L-1) extra penalties on top of
+        // fs's count.
+        let nw = 1usize; // one marginal wiggliness penalty for the B-spline marginal
+        let expected_sz = fs_built.penalties.len() + (n_levels - 1) * nw;
         assert_eq!(
             sz_built.penalties.len(),
+            expected_sz,
+            "sz must split its wiggliness penalty per level (#1074): expected \
+             fs_count {} + (L-1)·nw {} = {}, but sz had {}",
             fs_built.penalties.len(),
-            "sz must carry the same number of penalties as fs (wiggliness + one \
-             null-space ridge per marginal null direction); sz had {} (only the \
-             wiggliness penalties => null space unpenalized => over-smoothed), fs \
-             had {}",
+            (n_levels - 1) * nw,
+            expected_sz,
+            sz_built.penalties.len(),
+        );
+        assert!(
+            sz_built.penalties.len() > fs_built.penalties.len(),
+            "sz must carry strictly more penalties than fs after the per-group \
+             split (sz={}, fs={})",
             sz_built.penalties.len(),
             fs_built.penalties.len(),
         );
 
-        // There must be at least one extra null-space ridge beyond the wiggliness
-        // penalty (a cubic-regression marginal has a 2-D {const, linear} null
-        // space). This is the structural property that lets REML keep the
-        // deviation curvature un-over-smoothed.
+        // The null-space ridges must still be present (the #1605 property that
+        // keeps the deviation curvature un-over-smoothed). After removing the `L`
+        // per-group wiggliness blocks, the remainder are the pooled null ridges,
+        // and there must be at least one (a B-spline marginal has a non-empty
+        // {const, linear} null space).
+        let n_wiggliness = n_levels * nw; // L per-group blocks
         assert!(
-            sz_built.penalties.len() >= 2,
-            "sz deviation block carries no null-space ridge (penalties={}); the \
-             null space is unpenalized and REML over-smooths the deviations",
+            sz_built.penalties.len() > n_wiggliness,
+            "sz deviation block carries no null-space ridge (penalties={}, \
+             wiggliness blocks={}); the null space is unpenalized and REML \
+             over-smooths the deviations",
             sz_built.penalties.len(),
+            n_wiggliness,
         );
 
         // The zero-sum constraint must be preserved: the sz design must stay the

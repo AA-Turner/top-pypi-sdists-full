@@ -1,5 +1,0 @@
-Metadata-Version: 2.1
-Name: tee-output
-Version: 0.4.16
-Summary: A utility to tee standard output / standard error from the current process into a logfile. Preserves terminal semantics, so breakpoint() etc continue to work.
-Author: Greg Brockman

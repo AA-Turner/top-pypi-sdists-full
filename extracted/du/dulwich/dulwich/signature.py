@@ -236,7 +236,6 @@ class GPGSignatureVendor(SignatureSigner, SignatureVerifier):
         """
         import gpg
 
-        signature: bytes
         with gpg.Context(armor=True) as c:
             if keyid is not None:
                 key = c.get_key(keyid)
@@ -247,8 +246,10 @@ class GPGSignatureVendor(SignatureSigner, SignatureVerifier):
                     )
             else:
                 signature, _unused_result = c.sign(
-                    data, mode=gpg.constants.sig.mode.DETACH
+                    data,
+                    mode=gpg.constants.sig.mode.DETACH,
                 )
+        assert isinstance(signature, bytes)
         return signature
 
     def verify(self, data: bytes, signature: bytes) -> None:
@@ -280,6 +281,7 @@ class GPGSignatureVendor(SignatureSigner, SignatureVerifier):
                     data,
                     signature=signature,
                 )
+                assert result is not None
 
                 # Check that we actually got valid signatures
                 if not result.signatures:
@@ -471,10 +473,13 @@ class GPGCliSignatureVendor(SignatureSigner, SignatureVerifier):
                 # Check each signing key against trusted keyids
                 for signed_by in signing_keys:
                     signed_by_normalized = signed_by.replace(" ", "").upper()
-                    # Check if signed_by matches or is a suffix of any trusted keyid
-                    # (GPG sometimes shows short key IDs)
+                    # A key ID is the trailing hex of a fingerprint, so the
+                    # shorter value must be a suffix of the longer one. Plain
+                    # substring matching would accept a key whose fingerprint
+                    # merely contains the trusted ID somewhere in the middle.
                     if any(
-                        signed_by_normalized in keyid or keyid in signed_by_normalized
+                        signed_by_normalized.endswith(keyid)
+                        or keyid.endswith(signed_by_normalized)
                         for keyid in keyids_normalized
                     ):
                         return
@@ -639,8 +644,12 @@ class X509SignatureVendor(SignatureSigner, SignatureVerifier):
 
                 for signed_by in signing_certs:
                     signed_by_normalized = signed_by.replace(" ", "").upper()
+                    # A key ID is the trailing hex of a fingerprint, so the
+                    # shorter value must be a suffix of the longer one rather
+                    # than appearing anywhere inside it.
                     if any(
-                        signed_by_normalized in keyid or keyid in signed_by_normalized
+                        signed_by_normalized.endswith(keyid)
+                        or keyid.endswith(signed_by_normalized)
                         for keyid in keyids_normalized
                     ):
                         return

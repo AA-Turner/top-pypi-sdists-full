@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: customerio-cdp-analytics
-Version: 1.0.1
+Version: 1.0.2
 Summary: Customer.io Data Pipelines (CDP) Python bindings.
 Author-email: "Peaberry Software Inc." <support@customerio.com>
 License-Expression: MIT

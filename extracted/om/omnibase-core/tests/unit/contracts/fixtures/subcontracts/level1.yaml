@@ -1,5 +1,0 @@
-# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
-# SPDX-License-Identifier: MIT
----
-name: "level1"
-nested: !include level2.yaml

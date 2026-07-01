@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unidiff2"
+version = "0.7.8"
+description = "Unified diff parsing/metadata extraction library."
+readme = {file = "README.rst", content-type = "text/x-rst"}
+keywords = ["unified", "diff", "parse", "metadata"]
+license = {text = "MIT"}
+authors = [
+  {name = "Matias Bordese", email = "mbordese@gmail.com"},
+]
+maintainers = [
+  {name = "Jef Roelandt", email = "roelandt.jef@plaws.fr"},
+]
+requires-python = ">=3.7"
+classifiers = [
+  "Intended Audience :: Developers",
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/SuperMeepEnby/python-unidiff2"
+
+[project.scripts]
+unidiff = "bin.unidiff:main"
+

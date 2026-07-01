@@ -1,7 +1,0 @@
-definitions:
-  x:
-    $ref: "x.yaml#/definitions/x"
-  y:
-    $ref: "y.yaml#/definitions/y"
-  z:
-    $ref: "z.yaml#/definitions/z"

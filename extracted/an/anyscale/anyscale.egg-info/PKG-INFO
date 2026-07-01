@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: anyscale
-Version: 0.26.103
+Version: 0.26.104
 Summary: Command Line Interface for Anyscale
 Author: Anyscale Inc.
 License: AS License
@@ -77,6 +77,15 @@ Requires-Dist: google-cloud-redis; extra == "backend"
 Requires-Dist: google-cloud-certificate-manager; extra == "backend"
 Requires-Dist: terminado; extra == "backend"
 Requires-Dist: tornado; extra == "backend"
+Dynamic: author
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Anyscale
 

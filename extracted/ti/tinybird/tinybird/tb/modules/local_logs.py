@@ -82,10 +82,6 @@ def bytes_to_gb(b):
     return round(b / (1024**3), 2)  # two decimal places (e.g., 1.75 GB)
 
 
-def get_container(client, name_or_id):
-    return client.containers.get(name_or_id)
-
-
 def get_image_arch(client, image_ref):
     try:
         image = client.images.get(image_ref)

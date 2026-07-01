@@ -19,15 +19,15 @@ from allianceauth.services.hooks import get_extension_logger
 from app_utils.database import TableSizeMixin
 from app_utils.logging import LoggerAddTag
 
-from . import __title__
-from .app_settings import (
+from taskmonitor import __title__
+from taskmonitor.app_settings import (
     TASKMONITOR_QUEUED_TASKS_ADMIN_LIMIT,
     TASKMONITOR_REPORTS_MAX_AGE,
     TASKMONITOR_TRUNCATE_NESTED_DATA,
 )
-from .core import app_names, celery_queues
-from .core.list_queryset import ListAsQuerySet
-from .helpers import truncate_dict, truncate_list, truncate_result
+from taskmonitor.core import app_names, celery_queues
+from taskmonitor.core.list_queryset import ListAsQuerySet
+from taskmonitor.helpers import truncate_dict, truncate_list, truncate_result
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
@@ -47,14 +47,14 @@ class QueuedTaskManagerBase(models.Manager):
 
     @staticmethod
     def _none():
-        from .models import QueuedTask
+        from taskmonitor.models import QueuedTask
 
         return ListAsQuerySet([], model=QueuedTask)
 
     @staticmethod
     def from_dto_list(tasks: list) -> models.QuerySet:
         """Create from a list of QueuedTaskShort objects."""
-        from .models import QueuedTask
+        from taskmonitor.models import QueuedTask
 
         objs = [
             QueuedTask.from_dto(obj, position) for position, obj in enumerate(tasks)
@@ -182,7 +182,7 @@ class TaskStatisticManager(models.Manager):
 
     def get_queryset(self) -> models.QuerySet:
         """Return queryset with generated data from statistics query."""
-        from .models import TaskStatistic
+        from taskmonitor.models import TaskStatistic
 
         objs = cache.get_or_set(
             key=self._CACHE_KEY, default=self._run_query, timeout=self._CACHE_TIMEOUT
@@ -212,7 +212,7 @@ class TaskStatisticManager(models.Manager):
 
     @staticmethod
     def _run_query() -> list:
-        from .models import TaskLog, TaskStatistic
+        from taskmonitor.models import TaskLog, TaskStatistic
 
         excluded_fields = {"id"}
         field_names = [

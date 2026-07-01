@@ -1,0 +1,19 @@
+[project]
+name = "shipyard-bp-utils"
+version = "1.3.3"
+description = "Utility functions for blueprints"
+requires-python = ">=3.11"
+dependencies = [
+    "python-dateutil>=2.8.2",
+    "shipyard-templates>=0.9.0",
+]
+
+[dependency-groups]
+dev = [
+    "pyfakefs>=5.8.0",
+    "pytest>=8.0.1",
+    "pytest-faker>=2.0.0",
+]
+
+[tool.uv]
+package = true

@@ -84,6 +84,18 @@ def initialize_report_handlers(
         prepare_directory(allure_path)
         handlers.append(AllureHandler(output_dir=allure_path, config=config.output))
 
+    if config.cache.enabled:
+        from schemathesis.cli.commands.run.handlers.crashes import CrashHandler
+
+        handlers.append(
+            CrashHandler(
+                cache_directory=config.cache.directory,
+                schema_location=params.get("location") or "",
+                base_url=config.base_url or "",
+                sanitization=config.output.sanitization,
+            )
+        )
+
     for custom_handler in CUSTOM_HANDLERS:
         handlers.append(custom_handler(*args, **params))
 
@@ -121,6 +133,11 @@ def execute_event_loop(
     output_handler: EventHandler,
     context_factory: Callable[[ProjectConfig], ExecutionContext],
 ) -> None:
+    from rich.text import Text
+
+    # Warm Rich's lazy emoji-codes import on the main thread; it is not concurrency-safe.
+    Text.from_markup("")
+
     handlers = [*initialize_report_handlers(config=config, args=args, params=params), output_handler]
     ctx: ExecutionContext | None = None
 

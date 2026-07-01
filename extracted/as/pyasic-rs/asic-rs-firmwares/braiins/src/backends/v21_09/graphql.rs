@@ -1,0 +1,262 @@
+use std::{net::IpAddr, time::Duration};
+
+use once_cell::sync::OnceCell;
+
+use asic_rs_core::{data::command::MinerCommand, traits::miner::*};
+use async_trait::async_trait;
+use reqwest::Client;
+use serde_json::{Value, json};
+use tokio::sync::RwLock;
+
+#[derive(Debug)]
+pub struct BraiinsGraphQLAPI {
+    client: OnceCell<Client>,
+    ip: IpAddr,
+    port: u16,
+    timeout: Duration,
+    session_id: RwLock<Option<String>>,
+    auth: MinerAuth,
+}
+
+impl BraiinsGraphQLAPI {
+    pub fn new(ip: IpAddr, auth: MinerAuth) -> Self {
+        Self {
+            client: OnceCell::new(),
+            ip,
+            port: 80,
+            timeout: Duration::from_secs(5),
+            session_id: RwLock::new(None),
+            auth,
+        }
+    }
+
+    pub fn set_auth(&mut self, auth: MinerAuth) {
+        self.auth = auth;
+        *self.session_id.get_mut() = None;
+    }
+
+    pub fn username(&self) -> &str {
+        self.auth.username()
+    }
+
+    fn build_client() -> anyhow::Result<Client> {
+        Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .map_err(|e| anyhow::anyhow!("failed to create HTTP client: {e}"))
+    }
+
+    fn client(&self) -> anyhow::Result<&Client> {
+        self.client.get_or_try_init(Self::build_client)
+    }
+
+    async fn authenticate(&self) -> anyhow::Result<String> {
+        let url = format!("http://{}:{}/graphql", self.ip, self.port);
+        let client = self.client()?;
+        let body = json!({
+            "query": r#"mutation (
+                $username: String!,
+                $password: String!
+            ) {
+                auth {
+                    login(
+                        username: $username,
+                        password: $password
+                    ) {
+                        ... on VoidResult {
+                            void
+                        }
+                    }
+                }
+            }"#,
+            "variables": {
+                "username": self.auth.username(),
+                "password": self.auth.password(),
+            }
+        });
+
+        let response = client
+            .post(&url)
+            .json(&body)
+            .timeout(self.timeout)
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("Auth request failed: {}", e))?;
+
+        // Extract session_id from Set-Cookie header
+        for cookie in response.headers().get_all("set-cookie") {
+            if let Ok(cookie_str) = cookie.to_str() {
+                // Look for session_id or similar cookie
+                for part in cookie_str.split(';') {
+                    let part = part.trim();
+                    if let Some(value) = part.strip_prefix("session_id=")
+                        && !value.is_empty()
+                    {
+                        return Ok(value.to_string());
+                    }
+                }
+            }
+        }
+
+        Err(anyhow::anyhow!("Failed to obtain session cookie"))
+    }
+
+    async fn ensure_authenticated(&self) -> anyhow::Result<()> {
+        if self.session_id.read().await.is_some() {
+            return Ok(());
+        }
+
+        let session = self.authenticate().await?;
+        *self.session_id.write().await = Some(session);
+        Ok(())
+    }
+
+    pub async fn send_graphql_command(
+        &self,
+        command: &str,
+        privileged: bool,
+        parameters: Option<Value>,
+    ) -> anyhow::Result<Value> {
+        if privileged {
+            self.ensure_authenticated().await?;
+        }
+
+        let url = format!("http://{}:{}/graphql", self.ip, self.port);
+        let client = self.client()?;
+        let mut body = json!({ "query": command });
+        if let Some(vars) = parameters {
+            body["variables"] = vars;
+        }
+
+        let mut request = client.post(&url).json(&body).timeout(self.timeout);
+
+        if let Some(ref session) = *self.session_id.read().await {
+            request = request.header("Cookie", format!("session_id={}", session));
+        }
+
+        let response = request
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("GraphQL request failed: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!("GraphQL HTTP error: {}", response.status()));
+        }
+
+        let json: Value = response
+            .json()
+            .await
+            .map_err(|e| anyhow::anyhow!("GraphQL parse error: {}", e))?;
+
+        // Check for errors first — GraphQL can return both "data": null and "errors" together
+        if let Some(errors) = json.get("errors")
+            && let Some(arr) = errors.as_array()
+            && !arr.is_empty()
+        {
+            return Err(anyhow::anyhow!("GraphQL errors: {}", errors));
+        }
+
+        if let Some(data) = json.get("data")
+            && !data.is_null()
+        {
+            return Ok(data.clone());
+        }
+
+        Err(anyhow::anyhow!("GraphQL returned null data"))
+    }
+
+    pub async fn set_password(&self, password: &str) -> anyhow::Result<bool> {
+        let mutation = r#"mutation ($password: String) {
+            bos {
+                setPassword(newPassword: $password) {
+                    ... on VoidResult {
+                        void
+                    }
+                    ... on BosError {
+                        message
+                    }
+                }
+            }
+        }"#;
+
+        let variables = json!({ "password": password });
+        let result = self
+            .send_graphql_command(mutation, true, Some(variables))
+            .await?;
+
+        Ok(result.pointer("/bos/setPassword/message").is_none()
+            && result.pointer("/bos/setPassword").is_some())
+    }
+
+    pub async fn factory_reset(&self) -> anyhow::Result<bool> {
+        let mutation = r#"mutation {
+            bos {
+                factoryReset {
+                    ... on VoidResult {
+                        void
+                    }
+                    ... on BosError {
+                        message
+                    }
+                }
+            }
+        }"#;
+
+        let result = self.send_graphql_command(mutation, true, None).await?;
+
+        Ok(result.pointer("/bos/factoryReset/message").is_none()
+            && result.pointer("/bos/factoryReset").is_some())
+    }
+
+    pub async fn read_logs(&self) -> anyhow::Result<String> {
+        let log_query = r#"query ($target: LogTarget!) {
+            bos {
+                log(target: $target)
+            }
+        }"#;
+
+        let mut logs = String::new();
+        let variables = json!({ "target": "BOSMINER" });
+        let lines = self
+            .send_graphql_command(log_query, true, Some(variables))
+            .await?
+            .pointer("/bos/log")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+
+        for line in lines.iter().filter_map(Value::as_str) {
+            logs.push_str(line);
+            logs.push('\n');
+        }
+
+        Ok(logs)
+    }
+}
+
+#[async_trait]
+impl GraphQLClient for BraiinsGraphQLAPI {
+    async fn send_command(
+        &self,
+        command: &str,
+        _privileged: bool,
+        parameters: Option<Value>,
+    ) -> anyhow::Result<Value> {
+        self.send_graphql_command(command, _privileged, parameters)
+            .await
+    }
+}
+
+#[async_trait]
+impl APIClient for BraiinsGraphQLAPI {
+    async fn get_api_result(&self, command: &MinerCommand) -> anyhow::Result<Value> {
+        match command {
+            MinerCommand::GraphQL { command } => {
+                self.send_graphql_command(command, true, None).await
+            }
+            _ => Err(anyhow::anyhow!(
+                "Unsupported command type for GraphQL client"
+            )),
+        }
+    }
+}

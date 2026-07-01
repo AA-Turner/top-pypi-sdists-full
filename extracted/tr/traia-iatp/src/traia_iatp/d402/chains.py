@@ -1,0 +1,122 @@
+NETWORK_TO_ID = {
+    "sepolia": "11155111",
+    "base-sepolia": "84532",
+    "arbitrum-sepolia": "421614",
+    "base": "8453",
+    "arbitrum_one": "42161",
+    "avalanche-fuji": "43113",
+    "avalanche": "43114",
+}
+
+
+def get_chain_id(network: str) -> str:
+    """Get the chain ID for a given network
+    Supports string encoded chain IDs and human readable networks
+    """
+    try:
+        int(network)
+        return network
+    except ValueError:
+        pass
+    if network not in NETWORK_TO_ID:
+        raise ValueError(f"Unsupported network: {network}")
+    return NETWORK_TO_ID[network]
+
+
+KNOWN_TOKENS = {
+    "11155111": [  # Sepolia
+        {
+            "human_name": "usdc",
+            "address": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+            "name": "USD Coin",
+            "decimals": 6,
+            "version": "2",
+        }
+    ],
+    "84532": [  # Base Sepolia
+        {
+            "human_name": "usdc",
+            "address": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+            "name": "USDC",
+            "decimals": 6,
+            "version": "2",
+        }
+    ],
+    "421614": [  # Arbitrum Sepolia
+        {
+            "human_name": "usdc",
+            "address": "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+            "name": "USD Coin",
+            "decimals": 6,
+            "version": "2",
+        }
+    ],
+    "8453": [  # Base Mainnet
+        {
+            "human_name": "usdc",
+            "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "name": "USD Coin",
+            "decimals": 6,
+            "version": "2",
+        }
+    ],
+    "42161": [  # Arbitrum One
+        {
+            "human_name": "usdc",
+            "address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+            "name": "USD Coin",
+            "decimals": 6,
+            "version": "2",
+        }
+    ],
+    "43113": [  # Avalanche Fuji
+        {
+            "human_name": "usdc",
+            "address": "0x5425890298aed601595a70AB815c96711a31Bc65",
+            "name": "USD Coin",
+            "decimals": 6,
+            "version": "2",
+        }
+    ],
+    "43114": [  # Avalanche Mainnet
+        {
+            "human_name": "usdc",
+            "address": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+            "name": "USDC",
+            "decimals": 6,
+            "version": "2",
+        }
+    ],
+}
+
+
+def get_token_name(chain_id: str, address: str) -> str:
+    """Get the token name for a given chain and address"""
+    for token in KNOWN_TOKENS[chain_id]:
+        if token["address"] == address:
+            return token["name"]
+    raise ValueError(f"Token not found for chain {chain_id} and address {address}")
+
+
+def get_token_version(chain_id: str, address: str) -> str:
+    """Get the token version for a given chain and address"""
+    for token in KNOWN_TOKENS[chain_id]:
+        if token["address"] == address:
+            return token["version"]
+    raise ValueError(f"Token not found for chain {chain_id} and address {address}")
+
+
+def get_token_decimals(chain_id: str, address: str) -> int:
+    """Get the token decimals for a given chain and address"""
+    for token in KNOWN_TOKENS[chain_id]:
+        if token["address"] == address:
+            return token["decimals"]
+    raise ValueError(f"Token not found for chain {chain_id} and address {address}")
+
+
+def get_default_token_address(chain_id: str, token_type: str = "usdc") -> str:
+    """Get the default token address for a given chain and token type"""
+    for token in KNOWN_TOKENS[chain_id]:
+        if token["human_name"] == token_type:
+            return token["address"]
+    raise ValueError(f"Token type '{token_type}' not found for chain {chain_id}")

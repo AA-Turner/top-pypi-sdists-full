@@ -1,0 +1,33 @@
+Metadata-Version: 2.4
+Name: gribberish
+Version: 1.4.0
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: numpy>=2
+Requires-Dist: matplotlib ; extra == 'dev'
+Requires-Dist: cf-xarray ; extra == 'dev'
+Requires-Dist: zarr>=3.1.1 ; extra == 'dev'
+Requires-Dist: virtualizarr>=2.6 ; extra == 'dev'
+Requires-Dist: obstore ; extra == 'dev'
+Requires-Dist: ujson ; extra == 'dev'
+Requires-Dist: dask[complete] ; extra == 'dev'
+Requires-Dist: ipywidgets ; extra == 'dev'
+Requires-Dist: scipy ; extra == 'dev'
+Requires-Dist: cfgrib ; extra == 'dev'
+Requires-Dist: pyproj ; extra == 'dev'
+Requires-Dist: xoak ; extra == 'dev'
+Requires-Dist: scikit-learn ; extra == 'dev'
+Requires-Dist: pytest ; extra == 'dev'
+Requires-Dist: pytest-asyncio ; extra == 'dev'
+Requires-Dist: virtualizarr>=2.6 ; extra == 'virtualizarr'
+Requires-Dist: zarr>=3.1.1 ; extra == 'virtualizarr'
+Requires-Dist: obstore ; extra == 'virtualizarr'
+Requires-Dist: xarray>=2025.6.0 ; extra == 'xarray'
+Requires-Dist: obstore ; extra == 'xarray'
+Requires-Dist: zarr>=3.1.1 ; extra == 'zarr'
+Provides-Extra: dev
+Provides-Extra: virtualizarr
+Provides-Extra: xarray
+Provides-Extra: zarr
+Requires-Python: >=3.12

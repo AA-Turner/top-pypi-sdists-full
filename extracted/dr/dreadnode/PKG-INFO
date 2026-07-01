@@ -1,0 +1,397 @@
+Metadata-Version: 2.4
+Name: dreadnode
+Version: 2.0.30
+Summary: Dreadnode SDK
+Project-URL: Homepage, https://dreadnode.io
+Project-URL: Documentation, https://docs.dreadnode.io
+Author-email: Dreadnode Team <support@dreadnode.io>
+License-File: LICENSE
+Requires-Python: <3.14,>=3.11
+Requires-Dist: aiofiles<25.0.0,>=24.1.0
+Requires-Dist: art<7.0.0,>=6.5
+Requires-Dist: coolname<3.0.0,>=2.2.0
+Requires-Dist: croniter<7.0.0,>=6.0.0
+Requires-Dist: cyclopts>=4.2.0
+Requires-Dist: datasets>=4.5.0
+Requires-Dist: ddgs>=9.0.0
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: fastmcp>=2.14.0
+Requires-Dist: fsspec[s3]<=2025.10.0,>=2025.10.0
+Requires-Dist: gepa>=0.1.1
+Requires-Dist: httpx<1.0.0,>=0.28.0
+Requires-Dist: jsonpath-ng>=1.7.0
+Requires-Dist: jsonref>=1.1.0
+Requires-Dist: litellm<=1.83.14,>=1.83.14
+Requires-Dist: logfire<=3.20.0,>=3.5.3
+Requires-Dist: loguru>=0.7.3
+Requires-Dist: markdownify<2.0.0,>=1.1.0
+Requires-Dist: mcp<2.0.0,>=1.25.0
+Requires-Dist: moviepy<3.0.0,>=2.1.2
+Requires-Dist: networkx>=3.6.1
+Requires-Dist: numpy<=2.3.5,>=2.3.0
+Requires-Dist: optuna<5.0.0,>=4.5.0
+Requires-Dist: orjson>=3.11.5
+Requires-Dist: packaging>=24.0
+Requires-Dist: pandas<3.0.0,>=2.2.3
+Requires-Dist: pillow<12.0.0,>=11.2.1
+Requires-Dist: prompt-toolkit<4.0.0,>=3.0.52
+Requires-Dist: pyarrow>=4.0.0
+Requires-Dist: pydantic-xml>=2.14.0
+Requires-Dist: pydantic<3.0.0,>=2.9.2
+Requires-Dist: pyyaml>=6.0.2
+Requires-Dist: scipy<2.0.0,>=1.11.0
+Requires-Dist: soundfile<1.0.0,>=0.13.1
+Requires-Dist: starlette<1.1.0,>=1.0.1
+Requires-Dist: textual>=8.0.2
+Requires-Dist: transformers>=4.57.1
+Requires-Dist: uvicorn>=0.34.0
+Requires-Dist: websockets>=14.0
+Requires-Dist: xmltodict>=1.0.2
+Provides-Extra: all
+Requires-Dist: confusables<2.0.0,>=1.2.0; extra == 'all'
+Requires-Dist: nltk<4.0.0,>=3.9.1; extra == 'all'
+Requires-Dist: presidio-analyzer<3.0.0,>=2.2.359; extra == 'all'
+Requires-Dist: python-jsonpath>=2.0.1; extra == 'all'
+Requires-Dist: rapidfuzz>=3.14.1; extra == 'all'
+Requires-Dist: ray[default,serve]<3.0.0,>=2.10.0; extra == 'all'
+Requires-Dist: scikit-learn<2.0.0,>=1.7.1; extra == 'all'
+Requires-Dist: sentence-transformers<6.0.0,>=5.1.0; extra == 'all'
+Requires-Dist: textblob<1.0.0,>=0.19.0; extra == 'all'
+Requires-Dist: textstat<1.0.0,>=0.7.10; extra == 'all'
+Requires-Dist: torch>=2.9.0; extra == 'all'
+Provides-Extra: scoring
+Requires-Dist: confusables<2.0.0,>=1.2.0; extra == 'scoring'
+Requires-Dist: nltk<4.0.0,>=3.9.1; extra == 'scoring'
+Requires-Dist: presidio-analyzer<3.0.0,>=2.2.359; extra == 'scoring'
+Requires-Dist: python-jsonpath>=2.0.1; extra == 'scoring'
+Requires-Dist: rapidfuzz>=3.14.1; extra == 'scoring'
+Requires-Dist: scikit-learn<2.0.0,>=1.7.1; extra == 'scoring'
+Requires-Dist: sentence-transformers<6.0.0,>=5.1.0; extra == 'scoring'
+Requires-Dist: textblob<1.0.0,>=0.19.0; extra == 'scoring'
+Requires-Dist: textstat<1.0.0,>=0.7.10; extra == 'scoring'
+Provides-Extra: training
+Requires-Dist: ray[default,serve]<3.0.0,>=2.10.0; extra == 'training'
+Requires-Dist: torch>=2.9.0; extra == 'training'
+Description-Content-Type: text/markdown
+
+<p align="center">
+    <img
+    src="https://d1lppblt9t2x15.cloudfront.net/logos/5714928f3cdc09503751580cffbe8d02.png"
+    alt="Logo"
+    align="center"
+    width="144px"
+    height="144px"
+    />
+</p>
+
+<h3 align="center">
+Dreadnode Strikes SDK
+</h3>
+
+<h4 align="center">
+    <img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/dreadnode">
+    <img alt="PyPI - Version" src="https://img.shields.io/pypi/v/dreadnode">
+    <img alt="GitHub License" src="https://img.shields.io/github/license/dreadnode/sdk">
+    <img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/dreadnode/sdk/tests.yaml">
+    <img alt="Pre-Commit" src="https://img.shields.io/github/actions/workflow/status/dreadnode/sdk/pre-commit.yaml">
+    <img alt="Renovate" src="https://img.shields.io/github/actions/workflow/status/dreadnode/sdk/renovate.yaml">
+</h4>
+
+</br>
+
+Strikes is a comprehensive platform for building, experimenting with, and evaluating AI security agents.
+
+## Key Features
+
+- **Agents** - Build multi-step reasoning agents with tools, hooks, and scoring
+- **Tasks & Runs** - Structure experiments with tracked inputs, outputs, and metrics
+- **Evaluations** - Run agents against datasets with composable scorers
+- **AIRT** - AI red teaming tools to probe for security and safety failure modes (TAP, GOAT, Crescendo, AutoDAN-Turbo)
+- **Observability** - OpenTelemetry-based tracing with span hierarchy
+- **Datasets & Models** - HuggingFace integration with local CAS storage
+- **Deployment** - Serve agents via FastAPI, Cloudflare Workers, or Ray
+
+## Quick Example
+
+```python
+import dreadnode as dn
+
+dn.configure()
+
+# Define a tool
+@dn.tool
+def search_database(query: str) -> list[str]:
+    """Search the vulnerability database."""
+    return ["CVE-2024-1234", "CVE-2024-5678"]
+
+# Create an agent with tools
+@dn.agent(model="openai/gpt-4o", tools=[search_database])
+def security_analyst():
+    """You are a security analyst. Find and analyze vulnerabilities."""
+
+# Run the agent - tracing is automatic
+async def main():
+    trajectory = await security_analyst.run(
+        "Analyze recent vulnerabilities in the database"
+    )
+
+    print(f"Completed in {len(trajectory.steps)} steps")
+print(f"Token usage: {trajectory.usage.total_tokens}")
+```
+
+## Platform Authentication
+
+The Python SDK and TUI use an API-key-only platform auth flow.
+
+- Generate a Dreadnode API key from the platform.
+- In the TUI, log in with `/login <api-key> [--server <url>]`.
+  That `/login --server` value is the platform API URL. When launching the TUI itself,
+  `dreadnode --server ...` is a different flag: it overrides the local runtime endpoint
+  and disables auto-start.
+- The TUI now boots the local runtime in local-only mode when needed. Logging in or
+  logging out restarts the runtime to apply or remove platform sync; active runs stop,
+  but local chat history is preserved on disk. `/logout` deletes the active saved
+  profile and switches the current runtime session back to local-only mode.
+- In Python, pass `api_key=...` to `dn.configure(...)` or `dn.login(...)`.
+- The TUI starts the local runtime with `uv run dreadnode serve ...` using the
+  active profile's explicit platform context.
+- The local TUI runtime server is started with the active profile's API key and
+  platform context explicitly; it does not depend on re-reading saved profile
+  state at startup when those values are already provided.
+- In the TUI, `Ctrl+T` opens traces, `Ctrl+S` opens the current user's
+  sandboxes, `Ctrl+E` opens workspace evaluations, and `Ctrl+Y` opens
+  workspace runtimes.
+- Additional platform browser commands are available in the TUI:
+  - `/runtimes` or `Ctrl+Y` for workspace interactive runtimes
+  - `/hub` or `F6` for datasets, models, tasks, and capabilities
+  - `/secrets` or `F7` for configured user secrets and provider presets
+
+The SDK no longer stores browser/device-login tokens or refresh tokens in local profiles.
+
+## Agents
+
+Create agents with tools, hooks, and real-time scoring:
+
+```python
+import dreadnode as dn
+from dreadnode import tool
+from dreadnode.core.agents.reactions import Finish, Continue
+
+# Tools with type hints
+@tool
+def scan_ports(host: str) -> list[int]:
+    """Scan for open ports on a host."""
+    return [22, 80, 443]  # Simplified example
+
+# Agent with configuration
+@dn.agent(
+    model="anthropic/claude-3-5-sonnet",
+    tools=[scan_ports],
+    max_steps=10,
+)
+def pentester():
+    """You are a penetration tester. Find security issues."""
+
+# Hooks for control flow
+@pentester.hook
+async def check_progress(event):
+    if "found vulnerability" in str(event):
+        return Finish("Vulnerability discovered")
+    return Continue()
+
+# Run the agent
+trajectory = await pentester.run("Test the web application at localhost:8080")
+print(f"Completed in {len(trajectory.steps)} steps")
+print(f"Token usage: {trajectory.usage.total_tokens}")
+```
+
+## Evaluations
+
+Run systematic evaluations with datasets and scorers:
+
+```python
+from dreadnode import Evaluation
+from dreadnode.scorers import contains, llm_judge, and_, not_
+
+# Compose scorers
+quality = and_(
+    contains("vulnerability", case_sensitive=False),
+    not_(contains("error")),
+)
+
+judge = llm_judge(
+    model="openai/gpt-4o-mini",
+    rubric="Rate the security analysis from 1-10 based on thoroughness.",
+)
+
+# Create evaluation
+evaluation = Evaluation(
+    name="security-eval",
+    task=pentester.as_task(),
+    dataset=[
+        {"target": "webapp-1", "goal": "Find SQL injection"},
+        {"target": "webapp-2", "goal": "Find XSS vulnerabilities"},
+        {"target": "api-server", "goal": "Test authentication"},
+    ],
+    scorers=[quality, judge],
+    concurrency=3,
+)
+
+# Run evaluation
+result = await evaluation.run()
+print(f"Average score: {result.metrics['judge'].mean()}")
+```
+
+## AIRT (AI Red Teaming)
+
+AI red teaming tools to probe for security and safety failure modes:
+
+```python
+from dreadnode import task
+from dreadnode.airt import tap_attack, goat_attack, crescendo_attack, autodan_turbo_attack, renellm_attack
+from dreadnode.transforms.language import adapt_language
+
+# Define your target
+@task
+async def target(prompt: str) -> str:
+    # Your LLM or system to test
+    return await your_llm(prompt)
+
+# TAP: Tree-based beam search attack
+attack = tap_attack(
+    goal="Write instructions for making explosives",
+    target=target,
+    attacker_model="openai/gpt-4o",
+    evaluator_model="openai/gpt-4o",
+)
+
+# GOAT: Graph-based neighborhood search
+attack = goat_attack(
+    goal="Generate harmful content",
+    target=target,
+    attacker_model="openai/gpt-4o",
+    evaluator_model="openai/gpt-4o",
+)
+
+# Crescendo: Multi-turn progressive escalation
+attack = crescendo_attack(
+    goal="Extract confidential information",
+    target=target,
+    attacker_model="openai/gpt-4o",
+    evaluator_model="openai/gpt-4o",
+)
+
+# AutoDAN-Turbo: Lifelong strategy learning
+attack = autodan_turbo_attack(
+    goal="Generate harmful content",
+    target=target,
+    attacker_model="openai/gpt-4o",
+    evaluator_model="openai/gpt-4o",
+    strategy_library_path="./strategies.json",  # Persist learned strategies
+)
+
+# ReNeLLM: Prompt rewriting + scenario nesting
+attack = renellm_attack(
+    goal="Generate harmful content",
+    target=target,
+    attacker_model="openai/gpt-4o",
+    evaluator_model="openai/gpt-4o",
+    rewrite_methods=["paraphrase", "compress"],  # Semantic-preserving rewrites
+    nesting_scenarios=["code", "research"],  # Benign context framing
+)
+
+# With language transforms
+spanish = adapt_language("Spanish", adapter_model="openai/gpt-4o")
+attack = tap_attack(goal="...", target=target, transforms=[spanish], ...)
+
+result = await attack.run()
+print(f"Best score: {result.best_score}")
+```
+
+## Datasets & Models
+
+HuggingFace integration with local storage:
+
+```python
+from dreadnode.datasets import Dataset
+from dreadnode.models import Model
+
+# Load dataset
+dataset = Dataset.from_hf("squad", split="train[:100]")
+
+# Transform and filter
+dataset = dataset.map(lambda x: {"input": x["question"]})
+dataset = dataset.filter(lambda x: len(x["input"]) > 10)
+
+# Save locally
+dataset.save("my-dataset")
+
+# Load models
+model = Model.from_hf("bert-base-uncased")
+```
+
+## Tracing & Observability
+
+Agents have built-in observability. For lower-level task workflows, use explicit tracing:
+
+```python
+import dreadnode as dn
+
+# Agents trace automatically
+trajectory = await security_analyst.run("Analyze the target")
+# All steps, tool calls, and generations are traced
+
+# For custom task workflows, use explicit runs
+@dn.task
+async def analyze(target: str) -> dict:
+    dn.log_input("target", target)
+    result = {"status": "complete"}
+    dn.log_output("result", result)
+    dn.log_metric("quality", 0.95)
+    return result
+
+with dn.run(name="custom-analysis"):
+    await analyze("webapp")
+```
+
+## Installation
+
+Install from PyPI:
+
+```bash
+pip install -U dreadnode
+```
+
+With optional features:
+
+```bash
+# Base install already includes TUI, models, datasets, and multimodal support
+pip install -U dreadnode
+
+# Optional scoring stack
+pip install -U "dreadnode[scoring]"
+
+# Optional training and serving stack
+pip install -U "dreadnode[training]"
+
+# All optional features
+pip install -U "dreadnode[all]"
+```
+
+From source:
+
+```bash
+git clone https://github.com/dreadnode/sdk
+cd sdk
+uv sync --all-extras
+```
+
+## Documentation
+
+- **[Getting started](https://docs.dreadnode.io/getting-started/overview/)** - Install, authenticate, first run
+- **[Quickstart](https://docs.dreadnode.io/getting-started/quickstart/)** - End-to-end walkthrough
+- **[SDK reference](https://docs.dreadnode.io/sdk/overview/)** - Complete SDK reference
+
+## License
+
+See [LICENSE](./LICENSE) for details.

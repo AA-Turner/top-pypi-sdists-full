@@ -27,6 +27,7 @@ import urllib.parse
 import fastapi
 import jax
 from jax import numpy as jnp
+from jax.extend import backend
 from pathwaysutils import plugin_executable
 import requests
 import uvicorn
@@ -77,7 +78,7 @@ class _ProfileState:
               jax.sharding,
               "make_single_device_sharding",
               jax.sharding.SingleDeviceSharding,
-          )(jax.devices()[0])
+          )(backend.get_default_device())
       ]
     else:
       out_avals = ()
@@ -141,7 +142,7 @@ def _create_profile_request(
       if isinstance(v, bool):
         advanced_config[k] = {"boolValue": v}
       elif isinstance(v, int):
-        advanced_config[k] = {"intValue": v}
+        advanced_config[k] = {"int64Value": v}
       elif isinstance(v, str):
         advanced_config[k] = {"stringValue": v}
       else:
@@ -461,9 +462,11 @@ def monkey_patch_jax() -> None:
     start_server(port)
 
   jax.profiler.start_server = start_server_patch
+  jax._src.profiler.start_server = start_server_patch  # pylint: disable=protected-access
 
   def stop_server_patch() -> None:
     _logger.debug("jax.profile.stop_server patched with pathways' stop_server")
     stop_server()
 
   jax.profiler.stop_server = stop_server_patch
+  jax._src.profiler.stop_server = stop_server_patch  # pylint: disable=protected-access

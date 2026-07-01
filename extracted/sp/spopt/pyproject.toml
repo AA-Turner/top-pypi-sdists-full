@@ -1,0 +1,112 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[project]
+name = "spopt"
+dynamic = ["version"]
+authors = [
+    { name = "James D. Gaboardi", email = "jgaboardi@gmail.com" },
+    { name = "Xin Feng", email = "xin.feng@ucr.edu" },
+]
+
+maintainers = [{ name = "spopt contributors" }]
+license = { text = "BSD 3-Clause" }
+description = "Spatial Optimization in PySAL"
+keywords = ["spatial optimization"]
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "geopandas>=0.14.0",
+    "libpysal>=4.10.0",
+    "mapclassify>=2.7.0",
+    "networkx>=3.2",
+    "numpy>=1.26.0",
+    "pandas>=2.1.0",
+    "pointpats>=2.4.0",
+    "pulp>=2.8",
+    "scikit-learn>=1.4.0",
+    "scipy>=1.12.0",
+    "shapely>=2.1.0",
+    "spaghetti>=1.7.4",
+    "tqdm>=4.66.0",
+]
+
+
+[project.urls]
+Home = "https://pysal.org/spopt/"
+Repository = "https://github.com/pysal/spopt"
+
+[project.optional-dependencies]
+tests = [
+    "codecov",
+    "coverage",
+    "pytest",
+    "pytest-cov",
+    "pytest-xdist",
+]
+dev = ["pre-commit", "ruff"]
+docs = [
+    "nbsphinx",
+    "numpydoc",
+    "pandoc",
+    "sphinx",
+    "sphinxcontrib-bibtex",
+    "sphinx_bootstrap_theme",
+]
+notebooks = [
+    "folium",
+    "glpk",
+    "inequality",
+    "matplotlib>=3.8",
+    "matplotlib-scalebar",
+    "overpy",
+    "routingpy",
+    "seaborn",
+    "watermark",
+]
+sa3 = [
+    "fast_hdbscan>=0.2.2",
+    "numba",
+]
+
+
+[tool.setuptools.packages.find]
+include = ["spopt", "spopt.*"]
+
+[tool.ruff]
+line-length = 88
+extend-include = ["*.ipynb"]
+lint.select = ["E", "F", "W", "I", "UP", "N", "B", "A", "C4", "SIM", "ARG"]
+
+[tool.ruff.lint.per-file-ignores]
+ "*__init__.py" = [
+     "F401",  # imported but unused
+     "F403",  # star import; unable to detect undefined names
+ ]
+"*.ipynb" = [
+    "F401",  # imported but unused
+]
+
+[tool.coverage.run]
+source = ["./spopt"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "if self.debug:",
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "except ModuleNotFoundError:",
+    "except ImportError",
+]
+ignore_errors = true
+omit = ["spopt/tests/*", "docs/conf.py"]

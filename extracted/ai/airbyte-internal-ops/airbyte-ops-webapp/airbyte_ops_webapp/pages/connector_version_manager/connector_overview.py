@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from prefab_ui.actions import SetState
+from prefab_ui.actions import Fetch, SetState
 from prefab_ui.actions.mcp import CallTool
 from prefab_ui.components import (
     H2,
@@ -23,8 +23,9 @@ from prefab_ui.components import (
     Text,
 )
 from prefab_ui.components.control_flow import If
-from prefab_ui.rx import STATE
+from prefab_ui.rx import RESULT, STATE
 
+from airbyte_ops_webapp.auth.oauth import OAUTH_SESSION_PATH
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     fail_tool_call,
     rollout_action_success_actions,
@@ -33,6 +34,7 @@ from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
 from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
     advance_rollout,
     finalize_rollout,
+    promote_to_next_stage,
 )
 from airbyte_ops_webapp.theme import (
     BUTTON_DESTRUCTIVE_CLASS,
@@ -52,30 +54,18 @@ _OVERVIEW_LABEL_STYLE: dict[str, str] = {
 }
 
 
-def _select_active_rollout() -> SetState:
-    """Build a `SetState` that snapshots `active_rollouts[0]` into `selected_rollout`."""
-    return SetState(
-        "selected_rollout",
-        {
-            "rollout_id": STATE.active_rollouts[0].rollout_id,
-            "connector_id": STATE.active_rollouts[0].connector_id,
-            "connector_name": STATE.active_rollouts[0].connector_name,
-            "connector_type": STATE.active_rollouts[0].connector_type,
-            "docker_repository": STATE.active_rollouts[0].docker_repository,
-            "state": STATE.active_rollouts[0].state,
-            "rc_docker_image_tag": STATE.active_rollouts[0].rc_docker_image_tag,
-            "initial_docker_image_tag": STATE.active_rollouts[
-                0
-            ].initial_docker_image_tag,
-            "current_target_rollout_pct": STATE.active_rollouts[
-                0
-            ].current_target_rollout_pct,
-            "final_target_rollout_pct": STATE.active_rollouts[
-                0
-            ].final_target_rollout_pct,
-            "created_at": STATE.active_rollouts[0].created_at,
-            "updated_at": STATE.active_rollouts[0].updated_at,
-        },
+def _refresh_token_then(on_success: list) -> Fetch:
+    """Fetch a fresh OAuth token, then execute chained actions on success."""
+    return Fetch.get(
+        OAUTH_SESSION_PATH,
+        on_success=[
+            SetState("auth_bearer_token", RESULT.auth_bearer_token),
+            SetState("oauth_user_email", RESULT.oauth_user_email),
+            *on_success,
+        ],
+        on_error=fail_tool_call(
+            "Session expired. Please sign in again to perform this action."
+        ),
     )
 
 
@@ -102,9 +92,12 @@ def render_rollout_status_section() -> None:
                 with If(STATE.active_rollouts.length().__eq__(0)):
                     Muted("No progressive rollouts active.")
 
-                # Case B: Active rollout exists
+                # Case B: Active rollout exists — show consolidated view
                 with If(STATE.active_rollouts.length()):
                     _render_active_rollout_detail()
+
+    # Rollout confirmation modal (shared for all actions)
+    _render_rollout_confirmation_modal()
 
 
 def _pivoted_row(label: str, value: object) -> None:
@@ -130,15 +123,15 @@ def _render_connector_identity_rows() -> None:
 
 
 def _render_version_comparison_rows() -> None:
-    """Pivoted rows comparing selected version against the latest version."""
+    """Pivoted rows comparing selected version against the default version."""
     _pivoted_row("Selected Version", STATE.selected_version_tag)
     _pivoted_row("Selected Version Release Date", STATE.selected_version_release_date)
-    _pivoted_row("Latest Version", STATE.selected_connector.latest_version)
-    _pivoted_row("Latest Version Release Date", STATE.latest_version_release_date)
+    _pivoted_row("Default Version", STATE.selected_connector.latest_version)
+    _pivoted_row("Default Version Release Date", STATE.latest_version_release_date)
 
 
 def _render_active_rollout_detail() -> None:
-    """Pivoted detail rows for the first active rollout."""
+    """Consolidated rollout detail from `STATE.rollout_summary`."""
     with (
         Div(
             style={
@@ -150,55 +143,66 @@ def _render_active_rollout_detail() -> None:
         Column(gap=0),
     ):
         H3("Rollout Status", css_class="text-sm mb-1")
-        _pivoted_row("State", STATE.active_rollouts[0].state)
-        _pivoted_row("RC", STATE.active_rollouts[0].rc_docker_image_tag)
-        _pivoted_row("Autopilot", STATE.active_rollouts[0].autopilot_display)
-        _pivoted_row("Updated", STATE.active_rollouts[0].updated_at_display)
-        _pivoted_row("Pins on RC", STATE.active_rollouts[0].rc_pin_count_display)
+        _pivoted_row("RC", STATE.rollout_summary.rc_version)
+        _pivoted_row("Tiers", STATE.rollout_summary.tier_summary)
+        _pivoted_row("Autopilot", STATE.rollout_summary.autopilot)
+        _pivoted_row("Updated", STATE.rollout_summary.updated_at)
+        _pivoted_row("Pins on RC", STATE.rollout_summary.total_rc_pins)
 
-        # Action buttons (only for actionable states)
+        # Action buttons
         _render_rollout_action_buttons()
-
-    # Rollout confirmation modal (shared for advance/promote/cancel)
-    _render_advance_confirmation_modal()
 
 
 def _render_rollout_action_buttons() -> None:
-    """Advance, Promote, and Cancel action buttons."""
-    with Row(gap=2, css_class="mt-2"):
-        Button(
-            "Advance Rollout",
-            variant="info",
-            css_class=BUTTON_INFO_CLASS,
-            disabled=STATE.is_loading,
-            on_click=[
-                SetState("rollout_action", "advance"),
-                _select_active_rollout(),
-                SetState("rollout_modal_open", True),
-            ],
-        )
-        Button(
-            "Promote to GA",
-            variant="outline",
-            css_class=BUTTON_OUTLINE_CLASS,
-            disabled=STATE.is_loading,
-            on_click=[
-                SetState("rollout_action", "promote"),
-                _select_active_rollout(),
-                SetState("rollout_modal_open", True),
-            ],
-        )
-        Button(
-            "Cancel Rollout",
-            variant="destructive",
-            css_class=BUTTON_DESTRUCTIVE_CLASS,
-            disabled=STATE.is_loading,
-            on_click=[
-                SetState("rollout_action", "cancel"),
-                _select_active_rollout(),
-                SetState("rollout_modal_open", True),
-            ],
-        )
+    """Advance Rollout %, Promote to Next Stage, Promote to Default GA, Cancel."""
+    with Column(gap=2, css_class="mt-2"):
+        # Row 1: Advance and Cancel
+        with Row(gap=2, css_class="flex-wrap"):
+            Button(
+                "Advance Rollout %",
+                variant="info",
+                css_class=BUTTON_INFO_CLASS,
+                disabled=STATE.is_loading,
+                on_click=[
+                    SetState("rollout_action", "advance"),
+                    SetState("rollout_modal_open", True),
+                ],
+            )
+            Button(
+                "Cancel Rollout",
+                variant="destructive",
+                css_class=BUTTON_DESTRUCTIVE_CLASS,
+                disabled=STATE.is_loading,
+                on_click=[
+                    SetState("rollout_action", "cancel"),
+                    SetState("rollout_modal_open", True),
+                ],
+            )
+
+        # Row 2: Promote to Next Stage and Promote to Default GA
+        with Row(gap=2, css_class="flex-wrap"):
+            Button(
+                "Promote to Next Stage",
+                variant="outline",
+                css_class=BUTTON_OUTLINE_CLASS,
+                disabled=STATE.is_loading.__or__(
+                    STATE.rollout_summary.has_next_stage.__eq__(False)
+                ),
+                on_click=[
+                    SetState("rollout_action", "promote_next_stage"),
+                    SetState("rollout_modal_open", True),
+                ],
+            )
+            Button(
+                "Promote to Default GA",
+                variant="outline",
+                css_class=BUTTON_OUTLINE_CLASS,
+                disabled=STATE.is_loading,
+                on_click=[
+                    SetState("rollout_action", "promote_ga"),
+                    SetState("rollout_modal_open", True),
+                ],
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -206,8 +210,8 @@ def _render_rollout_action_buttons() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _render_advance_confirmation_modal() -> None:
-    """Confirmation dialog for rollout actions (advance, promote, cancel)."""
+def _render_rollout_confirmation_modal() -> None:
+    """Confirmation dialog for rollout actions."""
     with Dialog(
         title="Confirm Rollout Action",
         description="Please confirm the rollout action below.",
@@ -215,11 +219,15 @@ def _render_advance_confirmation_modal() -> None:
     ):
         Button("", css_class="hidden")
 
+        # --- Advance Rollout % ---
         with If(STATE.rollout_action.__eq__("advance")):
             with Column(gap=4):
                 Markdown(
-                    content="**Advance rollout to next stage?**\n\n"
-                    "RC: " + STATE.selected_rollout.rc_docker_image_tag
+                    content="**Advance rollout percentage?**\n\n"
+                    "RC: "
+                    + STATE.rollout_summary.rc_docker_image_tag
+                    + " — Current tier: "
+                    + STATE.rollout_summary.advance_tier
                 )
                 with Column(gap=1):
                     Markdown("**Target Percentage** (leave blank to auto-increment)")
@@ -243,29 +251,82 @@ def _render_advance_confirmation_modal() -> None:
                         on_click=[
                             SetState("rollout_modal_open", False),
                             *start_tool_call("Advancing rollout…"),
-                            CallTool(
-                                advance_rollout,
-                                arguments={
-                                    "rollout_id": STATE.selected_rollout.rollout_id,
-                                    "connector_id": STATE.selected_rollout.connector_id,
-                                    "docker_repository": STATE.selected_rollout.docker_repository,
-                                    "docker_image_tag": STATE.selected_rollout.rc_docker_image_tag,
-                                    "target_percentage": STATE.rollout_target_percentage,
-                                    "auth_bearer_token": STATE.auth_bearer_token,
-                                    "user_email": STATE.oauth_user_email,
-                                },
-                                on_success=rollout_action_success_actions(),
-                                on_error=fail_tool_call("Advance rollout failed."),
+                            _refresh_token_then(
+                                [
+                                    CallTool(
+                                        advance_rollout,
+                                        arguments={
+                                            "rollout_id": STATE.rollout_summary.advance_rollout_id,
+                                            "connector_id": STATE.rollout_summary.connector_id,
+                                            "docker_repository": STATE.rollout_summary.docker_repository,
+                                            "docker_image_tag": STATE.rollout_summary.rc_docker_image_tag,
+                                            "target_percentage": STATE.rollout_target_percentage,
+                                            "auth_bearer_token": STATE.auth_bearer_token,
+                                            "user_email": STATE.oauth_user_email,
+                                        },
+                                        on_success=rollout_action_success_actions(),
+                                        on_error=fail_tool_call(
+                                            "Advance rollout failed."
+                                        ),
+                                    ),
+                                ]
                             ),
                         ],
                     )
 
-        with If(STATE.rollout_action.__eq__("promote")):
+        # --- Promote to Next Stage ---
+        with If(STATE.rollout_action.__eq__("promote_next_stage")):
+            with Column(gap=4):
+                Markdown(
+                    content="**Promote to next stage?**\n\n"
+                    "This will start a new rollout at the next tier for "
+                    + STATE.rollout_summary.rc_docker_image_tag
+                    + "."
+                )
+                with Row(justify="end", gap=2):
+                    Button(
+                        "Cancel",
+                        variant="outline",
+                        css_class=BUTTON_OUTLINE_CLASS,
+                        on_click=[SetState("rollout_modal_open", False)],
+                    )
+                    Button(
+                        "Confirm",
+                        variant="info",
+                        css_class=BUTTON_INFO_CLASS,
+                        disabled=STATE.is_loading,
+                        on_click=[
+                            SetState("rollout_modal_open", False),
+                            *start_tool_call("Promoting to next stage…"),
+                            _refresh_token_then(
+                                [
+                                    CallTool(
+                                        promote_to_next_stage,
+                                        arguments={
+                                            "connector_id": STATE.rollout_summary.connector_id,
+                                            "docker_repository": STATE.rollout_summary.docker_repository,
+                                            "docker_image_tag": STATE.rollout_summary.rc_docker_image_tag,
+                                            "next_tier": STATE.rollout_summary.next_tier,
+                                            "auth_bearer_token": STATE.auth_bearer_token,
+                                            "user_email": STATE.oauth_user_email,
+                                        },
+                                        on_success=rollout_action_success_actions(),
+                                        on_error=fail_tool_call(
+                                            "Promote to next stage failed."
+                                        ),
+                                    ),
+                                ]
+                            ),
+                        ],
+                    )
+
+        # --- Promote to Default GA ---
+        with If(STATE.rollout_action.__eq__("promote_ga")):
             with Column(gap=4):
                 Markdown(
                     content="**Promote RC to GA?**\n\n"
                     "This will make "
-                    + STATE.selected_rollout.rc_docker_image_tag
+                    + STATE.rollout_summary.rc_docker_image_tag
                     + " the new default version for all users."
                 )
                 with Row(justify="end", gap=2):
@@ -282,24 +343,31 @@ def _render_advance_confirmation_modal() -> None:
                         disabled=STATE.is_loading,
                         on_click=[
                             SetState("rollout_modal_open", False),
-                            *start_tool_call("Promoting rollout…"),
-                            CallTool(
-                                finalize_rollout,
-                                arguments={
-                                    "rollout_id": STATE.selected_rollout.rollout_id,
-                                    "connector_id": STATE.selected_rollout.connector_id,
-                                    "docker_repository": STATE.selected_rollout.docker_repository,
-                                    "docker_image_tag": STATE.selected_rollout.rc_docker_image_tag,
-                                    "state": "succeeded",
-                                    "auth_bearer_token": STATE.auth_bearer_token,
-                                    "user_email": STATE.oauth_user_email,
-                                },
-                                on_success=rollout_action_success_actions(),
-                                on_error=fail_tool_call("Promote rollout failed."),
+                            *start_tool_call("Promoting rollout to GA…"),
+                            _refresh_token_then(
+                                [
+                                    CallTool(
+                                        finalize_rollout,
+                                        arguments={
+                                            "rollout_id": STATE.rollout_summary.promote_rollout_id,
+                                            "connector_id": STATE.rollout_summary.connector_id,
+                                            "docker_repository": STATE.rollout_summary.docker_repository,
+                                            "docker_image_tag": STATE.rollout_summary.rc_docker_image_tag,
+                                            "state": "succeeded",
+                                            "auth_bearer_token": STATE.auth_bearer_token,
+                                            "user_email": STATE.oauth_user_email,
+                                        },
+                                        on_success=rollout_action_success_actions(),
+                                        on_error=fail_tool_call(
+                                            "Promote rollout failed."
+                                        ),
+                                    ),
+                                ]
                             ),
                         ],
                     )
 
+        # --- Cancel Rollout ---
         with If(STATE.rollout_action.__eq__("cancel")):
             with Column(gap=4):
                 Markdown(
@@ -322,19 +390,25 @@ def _render_advance_confirmation_modal() -> None:
                         on_click=[
                             SetState("rollout_modal_open", False),
                             *start_tool_call("Canceling rollout…"),
-                            CallTool(
-                                finalize_rollout,
-                                arguments={
-                                    "rollout_id": STATE.selected_rollout.rollout_id,
-                                    "connector_id": STATE.selected_rollout.connector_id,
-                                    "docker_repository": STATE.selected_rollout.docker_repository,
-                                    "docker_image_tag": STATE.selected_rollout.rc_docker_image_tag,
-                                    "state": "canceled",
-                                    "auth_bearer_token": STATE.auth_bearer_token,
-                                    "user_email": STATE.oauth_user_email,
-                                },
-                                on_success=rollout_action_success_actions(),
-                                on_error=fail_tool_call("Cancel rollout failed."),
+                            _refresh_token_then(
+                                [
+                                    CallTool(
+                                        finalize_rollout,
+                                        arguments={
+                                            "rollout_id": STATE.rollout_summary.promote_rollout_id,
+                                            "connector_id": STATE.rollout_summary.connector_id,
+                                            "docker_repository": STATE.rollout_summary.docker_repository,
+                                            "docker_image_tag": STATE.rollout_summary.rc_docker_image_tag,
+                                            "state": "canceled",
+                                            "auth_bearer_token": STATE.auth_bearer_token,
+                                            "user_email": STATE.oauth_user_email,
+                                        },
+                                        on_success=rollout_action_success_actions(),
+                                        on_error=fail_tool_call(
+                                            "Cancel rollout failed."
+                                        ),
+                                    ),
+                                ]
                             ),
                         ],
                     )

@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from schemathesis.checks import RunChecks
 from schemathesis.config import ProjectConfig
 from schemathesis.core import NOT_SET, NotSet
 from schemathesis.core.error_feedback import ErrorFeedbackStore
@@ -16,11 +17,12 @@ from schemathesis.engine.observations import Observations
 from schemathesis.engine.run.cache import Cache
 from schemathesis.engine.supervisor import Supervisor
 from schemathesis.generation.case import Case
-from schemathesis.schemas import APIOperation, BaseSchema
+from schemathesis.schemas import APIOperation
 
 if TYPE_CHECKING:
     import requests
 
+    from schemathesis.core.spec import ApiSchema
     from schemathesis.engine import StopReason
     from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.resources import ExtraDataSource
@@ -30,7 +32,7 @@ if TYPE_CHECKING:
 class EngineContext:
     """Holds context shared for a test run."""
 
-    schema: BaseSchema
+    schema: ApiSchema
     control: ExecutionControl
     outcome_cache: dict[int, BaseException | None]
     start_time: float
@@ -55,12 +57,14 @@ class EngineContext:
         "_supervisor_lock",
         "_cache",
         "_cache_lock",
+        "_checks",
+        "_checks_lock",
     )
 
     def __init__(
         self,
         *,
-        schema: BaseSchema,
+        schema: ApiSchema,
         stop_event: threading.Event,
         observations: Observations | None = None,
         max_time: int | None = None,
@@ -87,6 +91,8 @@ class EngineContext:
         self._supervisor_lock = threading.Lock()
         self._cache = LazyInit.UNSET
         self._cache_lock = threading.Lock()
+        self._checks = LazyInit.UNSET
+        self._checks_lock = threading.Lock()
 
     def _repr_pretty_(self, *args: Any, **kwargs: Any) -> None: ...
 
@@ -97,10 +103,6 @@ class EngineContext:
     @property
     def running_time(self) -> float:
         return time.monotonic() - self.start_time
-
-    @property
-    def has_reached_time_limit(self) -> bool:
-        return self.control.has_reached_time_limit
 
     @property
     def has_to_stop(self) -> bool:
@@ -186,6 +188,9 @@ class EngineContext:
 
     # Runtime cache controller -- replay during probing, persist at end of run.
     cache: LazyInit[Cache] = LazyInit(lambda ctx: Cache(ctx))
+
+    # Per-run class-based check instances, shared across worker threads.
+    checks: LazyInit[RunChecks] = LazyInit(lambda ctx: RunChecks.from_registry(config=ctx.config.checks_config_for()))
 
 
 def make_session(config: ProjectConfig, *, operation: APIOperation | None = None) -> requests.Session:

@@ -329,21 +329,24 @@ def _compute_release_candidates(
     connector_versions: dict[str, list[str]],
     yanked: set[tuple[str, str]],
     progressive_rollouts: set[tuple[str, str]],
-) -> dict[str, str]:
+) -> dict[str, list[str]]:
     """Derive active release candidates from versioned marker files.
 
-    For each connector, selects the highest progressive rollout candidate
-    version that is not already promoted to `latest/` and not already yanked.
+    For each connector, collects all progressive rollout candidate versions
+    that are newer than the latest GA version and not yanked. Returns them
+    ordered highest-first so that the first entry is the "active" candidate
+    and subsequent entries are superseded (but still tracked) candidates.
 
     Returns:
-        dict mapping connector_name -> rollout candidate version string.
+        dict mapping connector_name -> list of rollout candidate version
+        strings, ordered highest (newest) first.
     """
     highest_ga = _compute_highest_ga_versions(
         connector_versions=connector_versions,
         yanked=yanked,
         progressive_rollouts=progressive_rollouts,
     )
-    rc_versions: dict[str, str] = {}
+    rc_versions: dict[str, list[str]] = {}
     for connector, versions in connector_versions.items():
         latest_ga = highest_ga.get(connector)
         if latest_ga is None:
@@ -371,12 +374,14 @@ def _compute_release_candidates(
                 rc_candidates.append((parsed, version_str))
         candidates = ga_candidates or rc_candidates
         if candidates:
-            _, rc_version = max(candidates)
-            rc_versions[connector] = rc_version
+            # Sort highest-first: newest RC is the active candidate
+            sorted_candidates = sorted(candidates, reverse=True)
+            rc_versions[connector] = [v_str for _, v_str in sorted_candidates]
             logger.info(
-                "Computed rollout candidate for %s: %s (latest GA: %s)",
+                "Computed %d rollout candidate(s) for %s: %s (latest GA: %s)",
+                len(sorted_candidates),
                 connector,
-                rc_version,
+                [v_str for _, v_str in sorted_candidates],
                 latest_ga_str,
             )
     return rc_versions
@@ -414,27 +419,29 @@ def _read_rc_registry_entry(
 
 def _apply_release_candidates_to_entries(
     entries: list[dict[str, Any]],
-    rc_entries: dict[str, dict[str, Any]],
+    rc_entries: dict[str, list[dict[str, Any]]],
 ) -> list[dict[str, Any]]:
     """Inject `releases.releaseCandidates` into global registry entries.
 
-    For each entry whose `dockerRepository` has an active rollout candidate,
+    For each entry whose `dockerRepository` has active rollout candidates,
     adds:
 
         {
             "releases": {
                 "releaseCandidates": {
-                    "<candidate_version>": { ...full candidate registry entry... }
+                    "<version_1>": { ...full candidate registry entry... },
+                    "<version_2>": { ...older candidate registry entry... }
                 }
             }
         }
 
-    This matches the legacy field name used by the platform to discover active
-    rollout candidates from the compiled registry JSON.
+    Multiple entries may be present per connector. The platform iterates
+    all entries and creates rollout records for each.
 
     Args:
         entries: List of registry entry dicts (from `_compile_global_registry`).
-        rc_entries: Mapping of `dockerRepository` -> `{"version": str, "entry": dict}`.
+        rc_entries: Mapping of `dockerRepository` -> list of
+            `{"version": str, "entry": dict}` dicts, ordered highest-first.
 
     Returns:
         New list with rollout candidate info injected.
@@ -443,11 +450,11 @@ def _apply_release_candidates_to_entries(
     for entry in entries:
         docker_repo = entry.get("dockerRepository", "")
         if docker_repo in rc_entries:
-            rc_info = rc_entries[docker_repo]
+            rc_infos = rc_entries[docker_repo]
             updated = copy.deepcopy(entry)
             updated.setdefault("releases", {})
             updated["releases"]["releaseCandidates"] = {
-                rc_info["version"]: rc_info["entry"]
+                rc_info["version"]: rc_info["entry"] for rc_info in rc_infos
             }
             result.append(updated)
         else:
@@ -1284,6 +1291,7 @@ def _build_version_index(
     yanked: set[tuple[str, str]],
     latest_version: str | None,
     rc_version: str | None = None,
+    rc_versions_all: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build the per-connector versions.json content.
 
@@ -1293,8 +1301,13 @@ def _build_version_index(
     If `rc_version` is provided, the matching rollout candidate entry is
     annotated with the legacy `"is_release_candidate": true` field and a
     top-level `"release_candidate"` field is added to the index.
+
+    If `rc_versions_all` is provided (list of all RC versions, highest-first),
+    all matching versions are annotated. When more than one RC version is
+    present, a `"release_candidates"` list is added to the index.
     """
     base = f"{store.bucket_root}/{METADATA_FOLDER}/airbyte/{connector}"
+    rc_version_set = set(rc_versions_all) if rc_versions_all else set()
 
     version_entries: list[dict[str, Any]] = []
     for v_str in sorted(
@@ -1302,7 +1315,7 @@ def _build_version_index(
     ):
         is_yanked = (connector, v_str) in yanked
         is_latest = v_str == latest_version
-        is_rc = v_str == rc_version
+        is_rc = v_str == rc_version or v_str in rc_version_set
 
         entry: dict[str, Any] = {
             "version": v_str,
@@ -1348,6 +1361,8 @@ def _build_version_index(
         result["definition_id"] = definition_id
     if rc_version:
         result["release_candidate"] = rc_version
+    if rc_versions_all and len(rc_versions_all) > 1:
+        result["release_candidates"] = rc_versions_all
 
     return result
 
@@ -1880,28 +1895,33 @@ def compile_registry(
 
         # Inject release candidate info into entries that have active RCs.
         if rc_versions:
-            rc_entries: dict[str, dict[str, Any]] = {}
-            for connector, rc_ver in rc_versions.items():
-                rc_entry = _read_rc_registry_entry(
-                    fs,
-                    store=store,
-                    connector=connector,
-                    rc_version=rc_ver,
-                    registry_type=registry_type,
-                )
-                if rc_entry:
-                    docker_repo = rc_entry.get(
-                        "dockerRepository",
-                        f"airbyte/{connector}",
+            rc_entries: dict[str, list[dict[str, Any]]] = {}
+            for connector, rc_ver_list in rc_versions.items():
+                for rc_ver in rc_ver_list:
+                    rc_entry = _read_rc_registry_entry(
+                        fs,
+                        store=store,
+                        connector=connector,
+                        rc_version=rc_ver,
+                        registry_type=registry_type,
                     )
-                    rc_entries[docker_repo] = {
-                        "version": rc_ver,
-                        "entry": rc_entry,
-                    }
+                    if rc_entry:
+                        docker_repo = rc_entry.get(
+                            "dockerRepository",
+                            f"airbyte/{connector}",
+                        )
+                        rc_entries.setdefault(docker_repo, []).append(
+                            {
+                                "version": rc_ver,
+                                "entry": rc_entry,
+                            }
+                        )
             if rc_entries:
                 entries = _apply_release_candidates_to_entries(entries, rc_entries)
+                total_rcs = sum(len(v) for v in rc_entries.values())
                 _log_progress(
-                    "  Injected %d release candidates into %s registry",
+                    "  Injected %d release candidate(s) for %d connector(s) into %s registry",
+                    total_rcs,
                     len(rc_entries),
                     registry_type,
                 )
@@ -1987,7 +2007,7 @@ def compile_registry(
         """Build and write a single connector's versions.json."""
         versions = connector_versions[connector]
         latest_v = latest_versions.get(connector)
-        rc_v = rc_versions.get(connector)
+        rc_v_list = rc_versions.get(connector)
         index = _build_version_index(
             fs,
             store=store,
@@ -1995,7 +2015,8 @@ def compile_registry(
             versions=versions,
             yanked=yanked,
             latest_version=latest_v,
-            rc_version=rc_v,
+            rc_version=rc_v_list[0] if rc_v_list else None,
+            rc_versions_all=rc_v_list,
         )
         index_path = f"{base}/{connector}/versions.json"
         if dry_run:

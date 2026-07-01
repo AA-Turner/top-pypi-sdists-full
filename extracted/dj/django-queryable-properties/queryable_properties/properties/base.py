@@ -1,0 +1,562 @@
+# encoding: utf-8
+
+from __future__ import unicode_literals
+
+from collections import namedtuple
+from copy import deepcopy
+from functools import partial
+
+import six
+
+from ..compat import LOOKUP_SEP, pretty_name
+from ..exceptions import QueryablePropertyError
+from ..query import QUERYING_PROPERTIES_MARKER
+from ..utils import get_queryable_property, reset_queryable_property
+from ..utils.internal import NodeModifier, QueryPath, get_queryable_property_descriptor, parametrizable_decorator_method
+from .cache_behavior import CLEAR_CACHE
+from .mixins import AnnotationGetterMixin, AnnotationMixin, LookupFilterMixin
+
+RESET_METHOD_NAME = 'reset_property'
+
+
+@six.python_2_unicode_compatible
+class QueryablePropertyDescriptor(property):
+    """
+    Descriptor class for queryable properties that allows the actual attribute
+    access on model instances and handles caching.
+
+    This class deliberately inherits from property to be treated like regular
+    properties by Django, e.g. to allow queryable properties with a setter to
+    be used in the initializer kwargs of models.
+    """
+
+    _ignore_cached_value = False  #: Internal flag that allows to ignore cached values in getter/setter interactions.
+
+    def __new__(cls, prop):
+        """
+        Construct a new QueryablePropertyDescriptor for the given queryable
+        property.
+
+        :param prop: The queryable property to allow attribute access for.
+        :type prop: QueryableProperty
+        """
+        descriptor = super(QueryablePropertyDescriptor, cls).__new__(cls, doc=prop.__doc__)
+        descriptor.prop = prop
+        return descriptor
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+
+        # Always check for cached values first regardless of the associated
+        # property being configured as cached since values will also be cached
+        # through annotation selections.
+        if not self._ignore_cached_value and self.has_cached_value(obj):
+            return self.get_cached_value(obj)
+        if not self.prop.get_value:
+            raise AttributeError('Unreadable queryable property.')
+        value = self.prop.get_value(obj)
+        if self.prop.cached:
+            self.set_cached_value(obj, value)
+        return value
+
+    def __set__(self, obj, value):
+        # Values set while initializing new objects from DB values should
+        # always be cached regardless of the actual setter.
+        if getattr(obj, QUERYING_PROPERTIES_MARKER, False):
+            self.set_cached_value(obj, value)
+            return
+        if not self.prop.set_value:
+            raise AttributeError("Can't set queryable property.")
+        return_value = self.prop.set_value(obj, value)
+        # If a value is set and the property is set up to cache values or has
+        # a current cached value, invoke the configured setter cache behavior.
+        if self.prop.cached or (not self._ignore_cached_value and self.has_cached_value(obj)):
+            self.prop.setter_cache_behavior(self, obj, value, return_value)
+
+    def __str__(self):
+        return six.text_type(self.prop)
+
+    def __repr__(self):
+        return '<{}: {}>'.format(self.__class__.__name__, six.text_type(self))
+
+    def get_cached_value(self, obj):
+        """
+        Get the cached value for the associated queryable property from the
+        given object. Requires a cached value to be present.
+
+        :param django.db.models.Model obj: The object to get the cached value
+                                           from.
+        :return: The cached value.
+        """
+        return obj.__dict__[self.prop.name]
+
+    def set_cached_value(self, obj, value):
+        """
+        Set the cached value for the associated queryable property on the given
+        object.
+
+        :param django.db.models.Model obj: The object to set the cached value
+                                           for.
+        :param value: The value to cache.
+        """
+        obj.__dict__[self.prop.name] = value
+
+    def has_cached_value(self, obj):
+        """
+        Check if a value for the associated queryable property is cached on the
+        given object.
+
+        :param django.db.models.Model obj: The object to check for a cached
+                                           value.
+        :return: True if a value is cached; otherwise False.
+        :rtype: bool
+        """
+        return self.prop.name in obj.__dict__
+
+    def clear_cached_value(self, obj):
+        """
+        Clear the cached value for the associated queryable property on the
+        given object. Does not require a cached value to be present and will
+        do nothing if no value is cached.
+
+        :param django.db.models.Model obj: The object to clear the cached value
+                                           on.
+        """
+        obj.__dict__.pop(self.prop.name, None)
+
+
+@six.python_2_unicode_compatible
+class QueryableProperty(object):
+    """
+    Base class for all queryable property definitions, which provide methods
+    for single object as well as queryset interaction.
+    """
+
+    cached = False  #: Determines if the result of the getter is cached, like Python's/Django's ``cached_property``.
+    setter_cache_behavior = CLEAR_CACHE  #: Determines what happens if the setter of a cached property is used.
+    filter_requires_annotation = False  #: Determines if using the property to filter requires annotating first.
+
+    # Set the attributes of mixin methods to None for easier checks if a
+    # property implements them.
+    set_value = None
+    get_annotation = None
+    get_update_kwargs = None
+
+    def __init__(self, verbose_name=None):
+        """
+        Initialize a new queryable property.
+
+        :param str verbose_name: An optional verbose name of the property. If
+                                 not provided it defaults to a prettified
+                                 version of the property's name.
+        """
+        self.model = None
+        self.name = None
+        self.setter_cache_behavior = six.get_method_function(self.setter_cache_behavior)
+        self.verbose_name = verbose_name
+
+    def __reduce__(self):
+        # Since queryable property instances only make sense in the context of
+        # model classes, they can simply be pickled using their model class and
+        # name and loaded back from the model class when unpickling. This also
+        # saves memory as unpickled properties will be the exact same object as
+        # the one on the model class.
+        return get_queryable_property, (self.model, self.name)
+
+    def __str__(self):
+        return '.'.join((self.model.__module__, self.model.__name__, self.name))
+
+    def __repr__(self):
+        return '<{}: {}>'.format(self.__class__.__name__, six.text_type(self))
+
+    @property
+    def short_description(self):
+        """
+        Return the verbose name of this property as its short description,
+        which is required for the admin integration.
+
+        :return: The verbose name of this property.
+        :rtype: str
+        """
+        return self.verbose_name
+
+    def get_value(self, obj):  # pragma: no cover
+        """
+        Getter method for the queryable property, which will be called when
+        the property is read-accessed.
+
+        :param django.db.models.Model obj: The object on which the property was accessed.
+        :return: The getter value.
+        """
+        raise NotImplementedError()
+
+    def get_filter(self, cls, lookup, value):  # pragma: no cover
+        """
+        Generate a :class:`django.db.models.Q` object that emulates filtering
+        a queryset using this property.
+
+        :param type cls: The model class of which a queryset should be
+                         filtered.
+        :param str lookup: The lookup to use for the filter (e.g. 'exact',
+                           'lt', etc.)
+        :param value: The value passed to the filter condition.
+        :return: A Q object to filter using this property.
+        :rtype: django.db.models.Q
+        """
+        raise NotImplementedError()
+
+    def contribute_to_class(self, cls, name):
+        if LOOKUP_SEP in name:
+            raise QueryablePropertyError('The name of a queryable property must not contain the lookup separator "{}".'
+                                         .format(LOOKUP_SEP))
+        # Store some useful values on model class initialization.
+        self.model = self.model or cls
+        self.name = self.name or name
+        if self.verbose_name is None:
+            self.verbose_name = pretty_name(self.name)
+        setattr(cls, name, QueryablePropertyDescriptor(self))  # Add a descriptor for this property to the model class
+        # If not already set, also add a method to the model class that allows
+        # to reset the cached values of queryable properties.
+        if not getattr(cls, RESET_METHOD_NAME, None):
+            setattr(cls, RESET_METHOD_NAME, reset_queryable_property)
+
+    def _resolve(self, model=None, relation_path=QueryPath(), remaining_path=QueryPath()):
+        """
+        Core part of resolving queryable properties that allows individual
+        properties to customize the resolving process.
+
+        Must return a reference to this or another appropriate queryable
+        property based on the given parameters as well as the (potentially
+        modified) remaining path.
+
+        :param type | None model: The model class the property is being
+                                  referenced on, which may be a subclass of
+                                  the model it's defined on. If not provided,
+                                  this defaults to the model the property is
+                                  defined on.
+        :param QueryPath relation_path: The path representing the relation the
+                                        property is being referenced across.
+        :param QueryPath remaining_path: The remaining query path of the
+                                         expression that referenced the
+                                         property.
+        :return: A 2-tuple containing a reference to a queryable property as
+                 well as the final remaining path.
+        :rtype: (QueryablePropertyReference, QueryPath)
+        """
+        return QueryablePropertyReference(self, model or self.model, relation_path), remaining_path
+
+
+class queryable_property(QueryableProperty):
+    """
+    A queryable property that is intended to be used as a decorator.
+    """
+
+    # Set the attributes of the default methods to None since the decorator
+    # may be used without implementing these methods.
+    get_value = None
+    get_filter = None
+
+    def __init__(self, getter=None, cached=None, annotation_based=False, **kwargs):
+        """
+        Initialize a new queryable property, optionally using the given getter
+        method and getter configuration.
+
+        :param function getter: The method to decorate.
+        :param cached: Determines if values obtained by the getter should be
+                       cached (similar to ``cached_property``). A value of None
+                       means using the default value.
+        :type cached: bool | None
+        :param annotation_based: If True, the :class:`AnnotationGetterMixin` is
+                                 automatically added to this property to define
+                                 a getter implementation and this property is
+                                 expected to decorate the annotater method
+                                 instead of the getter. If False, property is
+                                 expected to decorate the getter method.
+        :type annotation_based: bool
+        """
+        super(queryable_property, self).__init__(**kwargs)
+        self.__doc__ = None
+        if getter:
+            self(getter, force_getter=True)
+        if cached is not None:
+            self.cached = cached
+        if annotation_based:
+            AnnotationGetterMixin.inject_into_object(self)
+
+    def __call__(self, method, force_getter=False):
+        # Since the initializer may be used as a parametrized decorator, the
+        # resulting object will be called to apply the decorator.
+        if force_getter or not isinstance(self, AnnotationGetterMixin):
+            self.get_value = method
+        else:
+            self.get_annotation = self._extract_function(method)
+        self.__doc__ = method.__doc__ or self.__doc__
+        return self
+
+    def _extract_function(self, method_or_function):
+        """
+        Extract the function from the given function or method. Allows to
+        decorate either regular functions or e.g. classmethods with the
+        decorators of this property.
+
+        :param method_or_function: The decorated method or function.
+        :type method_or_function: function | classmethod | staticmethod
+        :return: The actual function object.
+        """
+        return getattr(method_or_function, '__func__', method_or_function)
+
+    def _clone(self, **kwargs):
+        """
+        Clone this queryable property while overriding attributes. This is
+        necessary whenever an additional decorator is used to not mess up in
+        inheritance scenarios.
+
+        :param kwargs: Attributes to override.
+        :return: A (modified) clone of this queryable property.
+        :rtype: queryable_property
+        """
+        attrs = deepcopy(self.__dict__)
+        attrs.update(kwargs)
+        clone = self.__class__()
+        clone.__dict__.update(attrs)
+        return clone
+
+    @parametrizable_decorator_method
+    def getter(self, method, cached=None):
+        """
+        Decorator for a function or method that is used as the getter of this
+        queryable property. May be used as a parameter-less decorator
+        (``@getter``) or as a decorator with keyword arguments
+        (``@getter(cached=True)``).
+
+        :param function method: The method to decorate.
+        :param cached: If ``True``, values returned by the decorated getter
+                       method will be cached. A value of None means no change.
+        :type cached: bool | None
+        :return: A cloned queryable property.
+        :rtype: queryable_property
+        """
+        clone = self._clone()
+        if cached is not None:
+            clone.cached = cached
+        return clone(method, force_getter=True)
+
+    @parametrizable_decorator_method
+    def setter(self, method, cache_behavior=None):
+        """
+        Decorator for a function or method that is used as the setter of this
+        queryable property. May be used as a parameter-less decorator
+        (``@setter``) or as a decorator with keyword arguments
+        (``@setter(cache_behavior=DO_NOTHING)``).
+
+        :param function method: The method to decorate.
+        :param cache_behavior: A function that defines how the setter interacts
+                               with cached values. A value of None means no
+                               change.
+        :type cache_behavior: function | None
+        :return: A cloned queryable property.
+        :rtype: queryable_property
+        """
+        attrs = dict(set_value=method)
+        if cache_behavior:
+            attrs['setter_cache_behavior'] = cache_behavior
+        return self._clone(**attrs)
+
+    @parametrizable_decorator_method
+    def filter(self, method, requires_annotation=None, lookups=None, boolean=False, remaining_lookups_via_parent=None):
+        """
+        Decorator for a function or method that is used to generate a filter
+        for querysets to emulate filtering by this queryable property. May be
+        used as a parameter-less decorator (``@filter``) or as a decorator with
+        keyword arguments (``@filter(requires_annotation=False)``). May be used
+        to define a one-for-all filter function or a filter function that will
+        be called for certain lookups only using the ``lookups`` argument.
+
+        :param method: The method to decorate.
+        :type method: function | classmethod | staticmethod
+        :param requires_annotation: ``True`` if filtering using this queryable
+                                    property requires its annotation to be
+                                    applied first; otherwise ``False``. None if
+                                    this information should not be changed.
+        :type requires_annotation: bool | None
+        :param lookups: If given, the decorated function or method will be used
+                        for the specified lookup(s) only. Automatically adds
+                        the :class:`LookupFilterMixin` to this property if this
+                        is used.
+        :type lookups: collections.Iterable[str] | None
+        :param boolean: If ``True``, the decorated function or method is
+                        expected to be a simple boolean filter, which doesn't
+                        take the ``lookup`` and ``value`` parameters and should
+                        always return a ``Q`` object representing the positive
+                        (i.e. ``True``) filter case. The decorator will
+                        automatically negate the condition if the filter was
+                        called with a ``False`` value.
+        :type boolean: bool
+        :param remaining_lookups_via_parent: ``True`` if lookup-based filters
+                                             should fall back to the base class
+                                             implementation for lookups without
+                                             a registered filter function;
+                                             otherwise ``False``. None if this
+                                             information should not be changed.
+        :type remaining_lookups_via_parent: bool
+        :return: A cloned queryable property.
+        :rtype: queryable_property
+        """
+        method = extracted = self._extract_function(method)
+        if boolean:
+            if lookups is not None:
+                raise QueryablePropertyError('A boolean filter cannot specify lookups at the same time.')
+
+            # Re-use the boolean_filter decorator by simulating a method with
+            # a self argument when in reality `method` doesn't have one.
+            method = LookupFilterMixin.boolean_filter(lambda prop, model: extracted(model))
+            lookups = method._lookups
+            method = partial(method, None)
+
+        if remaining_lookups_via_parent is not None and not hasattr(self, 'lookup_mappings') and lookups is None:
+            raise QueryablePropertyError('remaining_lookups_via_parent can only be used with lookup-based filters.')
+
+        attrs = {}
+        if requires_annotation is not None:
+            attrs['filter_requires_annotation'] = requires_annotation
+        if remaining_lookups_via_parent is not None:
+            attrs['remaining_lookups_via_parent'] = remaining_lookups_via_parent
+        if lookups is not None:  # Register only for the given lookups.
+            attrs['lookup_mappings'] = dict(getattr(self, 'lookup_mappings', {}),
+                                            **{lookup: method for lookup in lookups})
+        else:  # Register as a one-for-all filter function.
+            attrs['get_filter'] = method
+        clone = self._clone(**attrs)
+        # If the decorated function/method is used for certain lookups only,
+        # add the LookupFilterMixin into the new property to be able to reuse
+        # its filter implementation based on the lookup mappings.
+        if lookups is not None:
+            LookupFilterMixin.inject_into_object(clone)
+        return clone
+
+    def annotater(self, method):
+        """
+        Decorator for a function or method that is used to generate an
+        annotation to represent this queryable property in querysets. The
+        :class:`AnnotationMixin` will automatically be applied to this property
+        when this decorator is used.
+
+        :param method: The method to decorate.
+        :type method: function | classmethod | staticmethod
+        :return: A cloned queryable property.
+        :rtype: queryable_property
+        """
+        clone = self._clone(get_annotation=self._extract_function(method))
+        # Dynamically add the AnnotationMixin into the new property to allow
+        # to use the default filter implementation. Since an explicitly set
+        # filter implementation is stored in the instance dict, it will be used
+        # over the default implementation.
+        return AnnotationMixin.inject_into_object(clone)
+
+    def updater(self, method):
+        """
+        Decorator for a function or method that is used to resolve an update
+        keyword argument for this queryable property into the actual update
+        keyword arguments.
+
+        :param method: The method to decorate.
+        :type method: function | classmethod | staticmethod
+        :return: A cloned queryable property.
+        :rtype: queryable_property
+        """
+        return self._clone(get_update_kwargs=self._extract_function(method))
+
+
+class QueryablePropertyReference(namedtuple('QueryablePropertyReference', 'property model relation_path')):
+    """
+    A reference to a queryable property that also holds the path to reach the
+    property across relations.
+    """
+    __slots__ = ()
+    node_modifier = NodeModifier(lambda item, ref: ((ref.relation_path + item[0]).as_str(), item[1]))
+
+    @property
+    def full_path(self):
+        """
+        Return the full query path to the queryable property (including the
+        relation prefix).
+
+        :return: The full path to the queryable property.
+        :rtype: QueryPath
+        """
+        return self.relation_path + self.property.name
+
+    @property
+    def descriptor(self):
+        """
+        Return the descriptor object associated with the queryable property
+        this reference points to.
+
+        :return: The queryable property descriptor for the referenced property.
+        :rtype: queryable_properties.properties.base.QueryablePropertyDescriptor
+        """
+        return get_queryable_property_descriptor(self.model, self.property.name)
+
+    def get_filter(self, lookups, value):
+        """
+        A wrapper for the get_filter method of the property this reference
+        points to. It checks if the property actually supports filtering and
+        applies the relation path (if any) to the returned Q object.
+
+        :param QueryPath lookups: The lookups/transforms to use for the filter.
+        :param value: The value passed to the filter condition.
+        :return: A Q object to filter using this property.
+        :rtype: django.db.models.Q
+        """
+        if not self.property.get_filter:
+            raise QueryablePropertyError('Queryable property "{}" is supposed to be used as a filter but does not '
+                                         'implement filtering.'.format(self.property))
+
+        # Use the model stored on this reference instead of the one on the
+        # property since the query may be happening from a subclass of the
+        # model the property is defined on.
+        q_obj = self.property.get_filter(self.model, lookups.as_str() or 'exact', value)
+        if self.relation_path:
+            # If the resolved property belongs to a related model, all actual
+            # conditions in the returned Q object must be modified to use the
+            # current relation path as prefix.
+            q_obj = self.node_modifier.modify_leaves(q_obj, ref=self)
+        return q_obj
+
+    def get_annotation(self):
+        """
+        A wrapper for the get_annotation method of the property this reference
+        points to. It checks if the property actually supports annotation
+        creation performs the internal call with the correct model class.
+
+        :return: An annotation object.
+        """
+        if not self.property.get_annotation:
+            raise QueryablePropertyError('Queryable property "{}" needs to be added as annotation but does not '
+                                         'implement annotation creation.'.format(self.property))
+        # Use the model stored on this reference instead of the one on the
+        # property since the query may be happening from a subclass of the
+        # model the property is defined on.
+        return self.property.get_annotation(self.model)
+
+    def annotate_query(self, query, full_group_by, select=False, remaining_path=QueryPath()):
+        """
+        Add the annotation represented by the referenced property to the given
+        query.
+
+        :param django.db.models.sql.query.Query query: The query to add the
+                                                       annotation to.
+        :param bool full_group_by: Signals whether to use all fields of the
+                                   query for the GROUP BY clause when dealing
+                                   with an aggregate-based annotation.
+        :param bool select: Signals whether the annotation should be selected.
+        :param QueryPath remaining_path: The remaining query path of the
+                                         expression that referenced the
+                                         property.
+        :return: A 2-tuple containing the added annotation as well as the
+                 remaining query path (i.e. lookups/transforms).
+        :rtype: (django.db.models.expressions.BaseExpression, QueryPath)
+        """
+        with query._add_queryable_property_annotation(self, full_group_by, select=select) as annotation:
+            return annotation, remaining_path

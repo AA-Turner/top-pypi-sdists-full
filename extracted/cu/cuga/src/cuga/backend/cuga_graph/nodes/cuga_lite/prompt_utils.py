@@ -11,8 +11,9 @@ from cuga.config import settings
 from loguru import logger
 from pydantic import BaseModel, Field
 from langchain_core.tools import StructuredTool
-from cuga.backend.cuga_graph.nodes.cuga_lite.tool_provider_interface import AppDefinition
+from cuga.backend.cuga_graph.nodes.cuga_lite.providers.base import AppDefinition
 from cuga.backend.llm.utils.helpers import create_chat_prompt_from_templates
+from cuga.backend.cuga_graph.nodes.cuga_lite.executors.common.variable_utils import VariableUtils
 from cuga.backend.cuga_graph.nodes.cuga_lite.model_runtime_profile import runtime_defaults_for_model
 
 
@@ -105,7 +106,10 @@ class PromptUtils:
         """
         if hasattr(tool, 'args_schema') and tool.args_schema:
             try:
-                schema = tool.args_schema.schema()
+                if hasattr(tool.args_schema, 'model_json_schema'):
+                    schema = tool.args_schema.model_json_schema()
+                else:
+                    schema = tool.args_schema.schema()
                 properties = schema.get('properties', {})
                 required = schema.get('required', [])
 
@@ -172,7 +176,10 @@ class PromptUtils:
 
         if hasattr(tool, 'args_schema') and tool.args_schema:
             try:
-                schema = tool.args_schema.schema()
+                if hasattr(tool.args_schema, 'model_json_schema'):
+                    schema = tool.args_schema.model_json_schema()
+                else:
+                    schema = tool.args_schema.schema()
                 properties = schema.get('properties', {})
                 required = schema.get('required', [])
 
@@ -206,11 +213,55 @@ class PromptUtils:
         return params_doc, response_doc
 
     @staticmethod
+    def _build_shortlister_payload(
+        all_tools: List[StructuredTool],
+        all_apps: List[AppDefinition],
+    ) -> tuple[Dict[str, Any], Dict[str, Any]]:
+        """Serialize ``all_tools`` and ``all_apps`` for the shortlister LLM prompt.
+
+        Shared by :meth:`find_tools` (runtime tool discovery) and
+        :meth:`shortlist_tool_names` (bind-time cap reduction). Per coderabbit on
+        cuga-agent#203, keeping a single payload builder prevents the two callers
+        from drifting — both must include ``args_schema``, ``_response_schemas``,
+        and ``_param_constraints`` for the LLM to rank tools consistently.
+        """
+        tools_as_dict: Dict[str, Any] = {}
+        for tool in all_tools:
+            tool_dict = tool.model_dump()
+            if hasattr(tool, 'args_schema') and tool.args_schema:
+                try:
+                    if hasattr(tool.args_schema, 'schema'):
+                        tool_dict['args_schema'] = tool.args_schema.schema()
+                    elif hasattr(tool.args_schema, 'model_json_schema'):
+                        tool_dict['args_schema'] = tool.args_schema.model_json_schema()
+                    else:
+                        tool_dict['args_schema'] = {}
+                except (AttributeError, TypeError, ValueError) as e:
+                    # Narrow to expected serialization failures so unexpected bugs propagate
+                    # instead of silently stripping schema (coderabbit on #203).
+                    logger.debug(f"Failed to serialize args_schema for tool {tool.name}: {e}")
+                    tool_dict['args_schema'] = {}
+            else:
+                tool_dict['args_schema'] = {}
+
+            if hasattr(tool, 'func'):
+                if hasattr(tool.func, '_response_schemas'):
+                    tool_dict['_response_schemas'] = tool.func._response_schemas
+                if hasattr(tool.func, '_param_constraints'):
+                    tool_dict['_param_constraints'] = tool.func._param_constraints
+
+            tools_as_dict[tool.name] = tool_dict
+
+        apps_as_dict = {app.name: app.model_dump() for app in all_apps}
+        return tools_as_dict, apps_as_dict
+
+    @staticmethod
     async def find_tools(
         query: str,
         all_tools: List[StructuredTool],
         all_apps: List[AppDefinition],
         llm: Optional[Any] = None,
+        run_config: Optional[Any] = None,
     ) -> str:
         """
         Search tools from given applications and return the top 4 matching tools with reasoning.
@@ -246,42 +297,13 @@ class PromptUtils:
                 ('human', '{input}'),
             ],
         )
-        # Serialize tools properly, converting args_schema class to dict
-        tools_as_dict = {}
-        for tool in all_tools:
-            tool_dict = tool.model_dump()
-            # Extract and convert args_schema from the tool object (it's an attribute, not in model_dump)
-            if hasattr(tool, 'args_schema') and tool.args_schema:
-                try:
-                    # Try schema() method (Pydantic v1)
-                    if hasattr(tool.args_schema, 'schema'):
-                        tool_dict['args_schema'] = tool.args_schema.schema()
-                    # Try model_json_schema() method (Pydantic v2)
-                    elif hasattr(tool.args_schema, 'model_json_schema'):
-                        tool_dict['args_schema'] = tool.args_schema.model_json_schema()
-                    else:
-                        tool_dict['args_schema'] = {}
-                except Exception as e:
-                    logger.debug(f"Failed to serialize args_schema for tool {tool.name}: {e}")
-                    tool_dict['args_schema'] = {}
-            else:
-                tool_dict['args_schema'] = {}
-
-            # Also ensure response_schemas and param_constraints are included if they exist
-            if hasattr(tool, 'func'):
-                if hasattr(tool.func, '_response_schemas'):
-                    tool_dict['_response_schemas'] = tool.func._response_schemas
-                if hasattr(tool.func, '_param_constraints'):
-                    tool_dict['_param_constraints'] = tool.func._param_constraints
-
-            tools_as_dict[tool.name] = tool_dict
-
-        apps_as_dict = {app.name: app.model_dump() for app in all_apps}
+        tools_as_dict, apps_as_dict = PromptUtils._build_shortlister_payload(all_tools, all_apps)
         from cuga.backend.llm.models import LLMManager
         from cuga.backend.cuga_graph.nodes.api.shortlister_agent.prompts.load_prompt import (
             ShortListerOutputLite,
         )
         from cuga.backend.cuga_graph.nodes.shared.base_agent import BaseAgent
+        from cuga.backend.cuga_graph.utils.langfuse_tracing import nested_langgraph_invoke_config
 
         llm_manager = LLMManager()
         model = llm or llm_manager.get_model(settings.agent.code.model)
@@ -292,7 +314,8 @@ class PromptUtils:
                 "all_apps": apps_as_dict,
                 "all_tools": tools_as_dict,
                 "instructions": "",
-            }
+            },
+            config=nested_langgraph_invoke_config(run_config),
         )
 
         enriched_tools = []
@@ -341,12 +364,11 @@ class PromptUtils:
                         # Fallback for other types
                         output_schema = {"value": raw_output_schema} if raw_output_schema is not None else {}
 
-            # Use model_dump with by_alias=True to ensure proper field names
             enriched_tool = Tool(
                 name=api_detail.name,
-                input=input_schema,  # Use alias name
+                input=VariableUtils.sanitize_value(input_schema),
                 reasoning=api_detail.reasoning,
-                output_schema=output_schema,
+                output_schema=VariableUtils.sanitize_value(output_schema),
                 params_doc=params_doc,
                 response_doc=response_doc,
             )
@@ -396,6 +418,89 @@ class PromptUtils:
             markdown_lines.append("---\n")
 
         return "\n".join(markdown_lines)
+
+    @staticmethod
+    async def shortlist_tool_names(
+        query: str,
+        all_tools: List[StructuredTool],
+        all_apps: List[AppDefinition],
+        llm: Optional[Any] = None,
+        top_k: int = 4,
+        instructions: Optional[str] = None,
+        run_config: Optional[Any] = None,
+    ) -> List[str]:
+        """Rank tools by relevance to ``query`` and return up to ``top_k`` names (best-first).
+
+        Wraps the same shortlister LLM chain as :meth:`find_tools` but exposes the
+        ranked ``APIDetails.name`` list directly. Used by bind-time shortlisting in
+        ``resolve_model_with_bind_tools`` when the candidate tool count exceeds the
+        configured provider cap.
+        """
+        if top_k <= 0 or not all_tools:
+            return []
+        # A whitespace-only query would otherwise invoke the LLM and produce arbitrary
+        # rankings, defeating the "no query" failure path in the caller (coderabbit on #203).
+        if not query or not query.strip():
+            return []
+
+        from cuga.backend.llm.models import LLMManager
+        from cuga.backend.cuga_graph.nodes.api.shortlister_agent.prompts.load_prompt import (
+            ShortListerOutputLite,
+        )
+        from cuga.backend.cuga_graph.nodes.shared.base_agent import BaseAgent
+
+        effective_instructions = (
+            instructions
+            if instructions is not None
+            else (
+                f"Return the {top_k} most relevant tools (or fewer if not enough are relevant), "
+                "ordered best-first by relevance. Do not exceed this count."
+            )
+        )
+
+        prompt = create_chat_prompt_from_templates(
+            system_path='./prompts/shortlister/system.jinja2',
+            message_templates=[
+                (
+                    'human',
+                    """
+                Current Apps: {all_apps}
+                Current Available Tools: {all_tools}
+                """,
+                ),
+                ('ai', 'Sure, now give me the intent'),
+                ('human', '{input}'),
+            ],
+        )
+        tools_as_dict, apps_as_dict = PromptUtils._build_shortlister_payload(all_tools, all_apps)
+
+        from cuga.backend.cuga_graph.utils.langfuse_tracing import nested_langgraph_invoke_config
+
+        llm_manager = LLMManager()
+        model = llm or llm_manager.get_model(settings.agent.code.model)
+        chain = BaseAgent.get_chain(prompt, model, ShortListerOutputLite)
+        response = await chain.ainvoke(
+            {
+                "input": query,
+                "all_apps": apps_as_dict,
+                "all_tools": tools_as_dict,
+                "instructions": effective_instructions,
+            },
+            config=nested_langgraph_invoke_config(run_config),
+        )
+
+        valid_names = {t.name for t in all_tools}
+        ranked: List[str] = []
+        seen: set = set()
+        for api_detail in getattr(response, "result", None) or []:
+            name = getattr(api_detail, "name", None)
+            if not name or name in seen or name not in valid_names:
+                continue
+            seen.add(name)
+            ranked.append(name)
+            if len(ranked) >= top_k:
+                break
+        return ranked
 
     @staticmethod
     def create_find_tools_bound(all_tools: List[StructuredTool], all_apps: List[AppDefinition]):
@@ -537,6 +642,11 @@ def create_mcp_prompt(
     processed_apps = format_apps_for_prompt(apps)
 
     if not enable_shell_tool:
+        if skills_enabled:
+            logger.warning(
+                "Skills are enabled but enable_shell_tool=False; the skills block will be suppressed. "
+                "Set advanced_features.enable_shell_tool=true to activate skills."
+            )
         skills_enabled = False
         skills_prompt_section = ""
 

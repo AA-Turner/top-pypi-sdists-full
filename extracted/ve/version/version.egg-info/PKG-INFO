@@ -1,0 +1,13 @@
+Metadata-Version: 1.1
+Name: version
+Version: 0.1.1
+Summary: Implementation of semantic version
+Home-page: http://github.com/halst/version
+Author: Vladimir Keleshev
+Author-email: vladimir@keleshev.com
+License: MIT
+Description: `version` lives on `GitHub <http://github.com/halst/version/>`_.
+Keywords: semver semantic version versioning versions
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Topic :: Utilities

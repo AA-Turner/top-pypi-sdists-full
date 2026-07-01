@@ -1,7 +1,0 @@
-# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
-# SPDX-License-Identifier: MIT
-# Topic Completeness Allowlist (OMN-3257)
-#
-# All topics migrated to contract YAML or standalone manifests as of OMN-4622.
-# This file is intentionally empty.
-allowlist: []

@@ -1,0 +1,78 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body:
+        sql: SELECT * FROM products
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/dataSources/demo-test-ds/scanSql
+    response:
+      body:
+        string:
+          columns:
+            - dataType: INT
+              name: product_id
+              nullValue: '0'
+            - dataType: STRING
+              name: product_name
+              nullValue: _
+            - dataType: STRING
+              name: category
+              nullValue: _
+          dataPreview:
+            - - '150'
+              - Skirt
+              - Clothing
+            - - '210'
+              - Artego
+              - Electronics
+            - - '240'
+              - PortaCode
+              - Electronics
+            - - '420'
+              - Elentrix
+              - Outdoor
+            - - '430'
+              - Integres
+              - Outdoor
+            - - '120'
+              - Polo Shirt
+              - Clothing
+            - - '110'
+              - Pullover
+              - Clothing
+            - - '310'
+              - Applica
+              - Home
+            - - '330'
+              - Optique
+              - Home
+            - - '140'
+              - Shorts
+              - Clothing
+      headers:
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+version: 1

@@ -467,15 +467,31 @@ def test_connector_version_manager_tool_calls_have_error_handlers(
         "load_active_rollouts_tab",
         "load_connector_version_context",
         "load_pinned_versions_tab",
+        # Filter chips (4 chips x 2 serialized branches + initial = 8 extra)
+        "load_pinned_versions_tab",
+        "load_pinned_versions_tab",
+        "load_pinned_versions_tab",
+        "load_pinned_versions_tab",
+        "load_pinned_versions_tab",
+        "load_pinned_versions_tab",
+        "load_pinned_versions_tab",
+        "load_pinned_versions_tab",
         "load_connector_version_context",
+        # Rollout actions: advance, promote next stage, promote GA, cancel
         "advance_rollout",
+        "load_connector_context",
+        "promote_to_next_stage",
+        "load_connector_context",
         "finalize_rollout",
+        "load_connector_context",
         "finalize_rollout",
+        "load_connector_context",
         "resolve_scope_guid",
         "remove_selected_pins",
         "load_version_pins",
         "resolve_scope_guid",
         "apply_override",
+        "load_version_pins",
     ]
     for call in tool_calls:
         error_actions = call["onError"]

@@ -111,7 +111,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.codespell]
 ignore-words-list = "indention"
-skip = ".cache,.yarn,dist,node_modules,.mypy_cache,.ruff_cache,site,.git,dictionary.txt,.venv,media,.ansible,_readthedocs,uv.lock"
+skip = ".cache,.yarn,dist,node_modules,.mypy_cache,.ruff_cache,site,.git,dictionary.txt,.venv,media,.ansible,_readthedocs,uv.lock,.tox"
 
 [tool.coverage.report]
 exclude_also = ["if TYPE_CHECKING:", "pragma: no cover"]
@@ -406,7 +406,7 @@ markers = [
 ]
 norecursedirs = [".ansible", "scenarios"]
 testpaths = ["tests"]
-verbosity_assertions = 2
+verbosity_assertions = "2"
 
 [tool.ruff]
 builtins = ["__"]
@@ -669,6 +669,7 @@ TERM = "xterm-256color"
 [tool.uv]
 constraint-dependencies = [
   "ansible-core>=2.20.0.dev0; python_version >= '3.14'",
+  "cairosvg>=2.9.0",
 ]
 default-groups = ["dev", "docs", "lint", "pkg"]
 package = true

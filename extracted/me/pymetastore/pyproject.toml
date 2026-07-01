@@ -1,0 +1,97 @@
+[project]
+name = "pymetastore"
+version = "0.4.2"
+description = "A Python client for the Thrift interface to Hive Metastore"
+authors = [
+    { name = "Chris Riccomini", email = "criccomini@apache.org" },
+    { name = "Kostas Pardalis" },
+]
+dependencies = [
+    "thrift>=0.16.0",
+]
+requires-python = ">=3.8"
+readme = "README.md"
+keywords = [
+    "data",
+    "data catalog",
+    "data discovery",
+    "data engineering",
+    "data governance",
+    "data infrastructure",
+    "data integration",
+    "data pipelines",
+    "hcatalog",
+    "hive",
+    "hive metastore",
+    "metadata",
+    "metastore",
+    "thrift",
+    "python",
+    "recap",
+]
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+repository = "https://github.com/recap-build/pymetastore"
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[tool.pdm.dev-dependencies]
+test = [
+    "pytest>=7.3.2",
+]
+style = [
+    "black>=23.3.0",
+    "isort>=5.11.5",
+    "pylint>=2.13.9",
+    "pyright>=1.1.315",
+]
+
+[tool.pdm.scripts]
+thrift = "thrift -r --gen py --out pymetastore vendor/hive-thrift/src/main/thrift/hive_metastore.thrift"
+black = "black pymetastore/ tests/"
+isort = "isort pymetastore/ tests/"
+
+[tool.pdm.scripts.style]
+composite = [
+    "black",
+    "isort",
+]
+
+[tool.black]
+exclude = "pymetastore/hive_metastore/"
+
+[tool.isort]
+profile = "black"
+case_sensitive = true
+skip_glob = [
+    "pymetastore/hive_metastore/*",
+]
+
+[tool.pylint.master]
+ignore = "pymetastore/hive_metastore"
+fail-under = 7
+
+[tool.pylint.messages_control]
+max-line-length = 110
+
+[tool.pyright]
+include = [
+    "pymetastore/",
+]
+pythonPlatform = "All"
+exclude = [
+    "**/__pycache__",
+    "pymetastore/hive_metastore",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as an integration test",
+]

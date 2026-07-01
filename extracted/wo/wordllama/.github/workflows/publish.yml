@@ -1,0 +1,266 @@
+name: Build and publish
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Build the wheels for Linux, Windows, and macOS for Python 3.9 and newer
+  build_wheels:
+    name: Build wheel for cp${{ matrix.python }}-${{ matrix.platform_id }}-${{ matrix.manylinux_image }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Ensure that a wheel builder finishes even if another fails
+      fail-fast: false
+      matrix:
+        include:
+          # Windows 64 bit
+          - os: windows-latest
+            python: 39
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 310
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 311
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 312
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 313
+            platform_id: win_amd64
+
+          # Linux 64 bit manylinux2014
+          - os: ubuntu-latest
+            python: 39
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux2014
+          - os: ubuntu-latest
+            python: 310
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux2014
+          - os: ubuntu-latest
+            python: 311
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux2014
+          - os: ubuntu-latest
+            python: 312
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux2014
+          - os: ubuntu-latest
+            python: 313
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux2014
+
+          # macOS x86_64
+          - os: macos-13
+            python: 39
+            platform_id: macosx_x86_64
+          - os: macos-13
+            python: 310
+            platform_id: macosx_x86_64
+          - os: macos-13
+            python: 311
+            platform_id: macosx_x86_64
+          - os: macos-13
+            python: 312
+            platform_id: macosx_x86_64
+          - os: macos-13
+            python: 313
+            platform_id: macosx_x86_64
+
+          # macOS arm64
+          - os: macos-14
+            python: 39
+            platform_id: macosx_arm64
+          - os: macos-14
+            python: 310
+            platform_id: macosx_arm64
+          - os: macos-14
+            python: 311
+            platform_id: macosx_arm64
+          - os: macos-14
+            python: 312
+            platform_id: macosx_arm64
+          - os: macos-14
+            python: 313
+            platform_id: macosx_arm64
+
+    steps:
+      # 1. Checkout the repository
+      - name: Checkout wordllama
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          tags: true
+
+      # 2. Setup Python
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # 3. Install Conda for macOS arm64
+      - name: Install Conda for macOS arm64
+        if: ${{ matrix.platform_id == 'macosx_arm64' }}
+        run: |
+          set -ex
+          # macOS arm64 runners do not have conda installed. Thus, we must install conda manually
+          EXPECTED_SHA="8bde418e8f5030b887535940cad3b531adf128a38b99e58ba6a26e68e9d5ad06"
+          MINIFORGE_URL="https://github.com/conda-forge/miniforge/releases/download/24.11.2-1/Miniforge3-24.11.2-1-MacOSX-arm64.sh"
+          curl -L --retry 10 $MINIFORGE_URL -o miniforge.sh
+
+          # Check SHA
+          file_sha=$(shasum -a 256 miniforge.sh | awk '{print $1}')
+          if [ "$EXPECTED_SHA" != "$file_sha" ]; then
+              echo "SHA values did not match!"
+              exit 1
+          fi
+
+          # Install Miniforge
+          MINIFORGE_PATH=$HOME/miniforge
+          bash ./miniforge.sh -b -p $MINIFORGE_PATH
+          echo "$MINIFORGE_PATH/bin" >> $GITHUB_PATH
+          echo "CONDA_HOME=$MINIFORGE_PATH" >> $GITHUB_ENV
+
+      # 4. Install Conda for macOS x86_64
+      - name: Install Conda for macOS x86_64
+        if: ${{ matrix.platform_id == 'macosx_x86_64' }}
+        run: |
+          set -ex
+          EXPECTED_SHA="50a00997a0f08737d076e93f964dffcb51bc4792fd9371344fd244ab97bcf61c"
+          MINIFORGE_URL="https://github.com/conda-forge/miniforge/releases/download/24.11.2-1/Miniforge3-24.11.2-1-MacOSX-x86_64.sh"
+          curl -L --retry 10 $MINIFORGE_URL -o miniforge.sh
+
+          # Verify SHA
+          file_sha=$(shasum -a 256 miniforge.sh | awk '{print $1}')
+          if [ "$EXPECTED_SHA" != "$file_sha" ]; then
+              echo "SHA mismatch for Miniforge installer!"
+              exit 1
+          fi
+
+          # Install Miniforge
+          bash miniforge.sh -b -p $HOME/miniforge
+          echo "$HOME/miniforge/bin" >> $GITHUB_PATH
+          echo "CONDA_HOME=$HOME/miniforge" >> $GITHUB_ENV
+
+      # 5. Set conda environment for non-macos arm64 environments
+      - name: Set conda environment for other environments
+        if: ${{ matrix.platform_id != 'macosx_arm64' && matrix.platform_id != 'macosx_x86_64' }}
+        run: |
+          # For other environments, assume Conda is at /usr/local/miniconda
+          echo "CONDA_HOME=/usr/local/miniconda" >> $GITHUB_ENV
+
+      # # 6. Initialize Conda
+      # - name: Initialize Conda
+      #   run: |
+      #     if [[ "$CONDA_HOME" != "" ]]; then
+      #       source $CONDA_HOME/etc/profile.d/conda.sh
+      #       conda activate base
+      #     fi
+
+      # # 7. Install OpenMP via Conda for macOS environments
+      # - name: Install OpenMP via Conda (macOS only)
+      #   if: startsWith(matrix.platform_id, 'macosx_')
+      #   run: |
+      #     conda install -y -c conda-forge libomp llvm-openmp
+
+      # # 8. Set Compiler Flags for OpenMP (macOS only)
+      # - name: Set Compiler Flags for OpenMP (macOS only)
+      #   if: startsWith(matrix.platform_id, 'macosx_')
+      #   run: |
+      #     # Export OpenMP include and lib paths
+      #     echo "CXXFLAGS=-I${CONDA_HOME}/include" >> $GITHUB_ENV
+      #     echo "LDFLAGS=-L${CONDA_HOME}/lib -lomp" >> $GITHUB_ENV
+
+      # 9. Build and test wheels
+      - name: Build and test wheels
+        env:
+          CIBW_PRERELEASE_PYTHONS: ${{ matrix.prerelease_pythons }}
+          CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
+          CIBW_ARCHS: all
+          CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
+          CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux_image }}
+          # Needed on Windows CI to compile with Visual Studio compiler
+          # otherwise Meson detects a MINGW64 platform and use MINGW64
+          # toolchain
+          CIBW_CONFIG_SETTINGS_WINDOWS: "setup-args=--vsenv"
+          CIBW_BUILD_VERBOSITY: 1
+          CXXFLAGS: ${{ env.CXXFLAGS }}
+          LDFLAGS: ${{ env.LDFLAGS }}
+        run: |
+          bash build_tools/build_wheels.sh
+
+      # 10. Store artifacts
+      - name: Store artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-cp${{ matrix.python }}-${{ matrix.platform_id }}
+          path: wheelhouse/*.whl
+
+  build_sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          tags: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Install required Python packages
+        run: |
+          pip install uv
+          uv pip install --system setuptools setuptools_scm wheel cython "numpy>=2" build twine
+
+      - name: Print detected version
+        run: |
+          python -c "import setuptools_scm; print(setuptools_scm.get_version())"
+
+      - name: Build sdist
+        run: |
+          python setup.py sdist
+
+      - name: Check packages
+        run: twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-sdist
+          path: dist/
+
+  upload_pypi:
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+
+      - name: Display structure of downloaded files
+        run: ls -R dist/
+
+      - name: Publish to PyPI
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && github.repository_owner == 'dleemiller')
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages_dir: dist/

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: notebooklm-mcp-cli
-Version: 0.7.7
+Version: 0.8.0
 Summary: Unified CLI and MCP server for Google NotebookLM
 Project-URL: Homepage, https://github.com/jacob-bd/notebooklm-mcp-cli
 Project-URL: Repository, https://github.com/jacob-bd/notebooklm-mcp-cli
@@ -346,7 +346,7 @@ For detailed instructions and troubleshooting, see **[docs/AUTHENTICATION.md](do
 
 ## MCP Configuration
 
-> **⚠️ Context Window Warning:** This MCP provides **35 tools**. Disable it when not using NotebookLM to preserve context. In Claude Code: `@notebooklm-mcp` to toggle.
+> **⚠️ Context Window Warning:** This MCP provides **39 tools**. Disable it when not using NotebookLM to preserve context. In Claude Code: `@notebooklm-mcp` to toggle.
 
 ### Automatic Setup (Recommended)
 
@@ -508,6 +508,7 @@ Simply chat with your AI tool (Claude Code, Cursor, Gemini CLI) using natural la
 
 - "Create an audio podcast overview of this notebook in deep dive format"
 - "Generate a video explainer with classic visual style"
+- "Make a short vertical video overview of the key idea"
 - "Make a briefing doc from these sources"
 - "Create flashcards for studying, medium difficulty"
 - "Generate an infographic in landscape orientation with professional style"

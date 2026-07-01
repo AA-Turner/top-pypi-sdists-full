@@ -1,0 +1,301 @@
+"""Test the token-based auth logic for the httpx Client.
+
+N.B. these manipulate environment variables so currently run in isolation via scripts/run_unit_test.sh.
+"""
+
+from typing import Any, Generator
+from unittest import mock
+from uuid import uuid4
+
+import httpx
+import pytest
+import respx
+
+import qnexus as qnx
+from qnexus.client import _nexus_client, get_nexus_client
+from qnexus.client.utils import read_token, remove_token, write_token
+from qnexus.config import CONFIG
+from qnexus.exceptions import AuthenticationError
+
+
+@pytest.fixture(autouse=True)
+def clean_token_state() -> Generator[Any, Any, Any]:
+    """Clean up token state before and after each test."""
+    # Ensure tokens are stored to disk for these tests
+    old_store_tokens = CONFIG.store_tokens
+    CONFIG.store_tokens = True
+
+    # Setup - clean token files
+    remove_token("refresh_token")
+    remove_token("access_token")
+    global _nexus_client
+    if _nexus_client is not None:
+        _nexus_client.close()
+        _nexus_client = None
+
+    # Store tokens in a temporary location
+    old_token_path = CONFIG.token_path
+    CONFIG.token_path = f"/tmp/qnexus_tests/{str(uuid4())}"
+
+    yield  # Run the test
+
+    # Teardown - clean up after test
+    remove_token("refresh_token")
+    remove_token("access_token")
+    get_nexus_client(reload=True)
+    CONFIG.token_path = old_token_path
+    CONFIG.store_tokens = old_store_tokens
+
+
+@respx.mock
+def test_token_refresh() -> None:
+    """Test the auth refresh logic, using in-memory token storage.
+
+    Test that we can refresh the access token using the refresh token
+    and that the new access token is used in subsequent requests.
+    """
+
+    old_id_token = "dummy_id"
+    refreshed_access_token = "new_dummy_id"
+
+    write_token("refresh_token", "dummy_oat")
+    write_token("access_token", old_id_token)
+
+    # Mock the list projects endpoint to force a refresh
+    list_project_route = respx.get(
+        f"{get_nexus_client().base_url}/api/projects/v1beta2"
+    ).mock(
+        side_effect=[
+            httpx.Response(401),
+            httpx.Response(200, json={"included": {}, "data": []}),
+        ]
+    )
+
+    # Mock the refresh endpoint
+    refresh_token_route = respx.post(
+        f"{get_nexus_client().base_url}/auth/tokens/refresh"
+    ).mock(
+        return_value=httpx.Response(
+            200,
+            headers={
+                "set-cookie": f"myqos_id={refreshed_access_token}; "
+                "HttpOnly; Path=/; SameSite=Lax; Secure"
+            },
+        )
+    )
+
+    qnx.projects.get_all().list()
+
+    assert list_project_route.called
+    assert refresh_token_route.called
+
+    # Confirm that the access token was updated
+    assert read_token("access_token") == refreshed_access_token
+    assert get_nexus_client().auth.cookies.get("myqos_id") == refreshed_access_token  # type: ignore
+
+    # confirm that the request headers were updated
+    first_cookie_header = list_project_route.calls[0].request.headers["cookie"]
+    assert f"myqos_id={old_id_token}" in first_cookie_header
+
+    last_cookie_header = list_project_route.calls[-1].request.headers["cookie"]
+    assert f"myqos_id={refreshed_access_token}" in last_cookie_header
+
+
+@respx.mock
+def test_token_refresh_expired() -> None:
+    """Test the case of an expired refresh token, using in-memory token storage."""
+
+    write_token("refresh_token", "dummy_oat")
+    write_token("access_token", "dummy_id")
+
+    # Mock the list projects endpoint to force a refresh
+    list_project_route = respx.get(
+        f"{get_nexus_client().base_url}/api/projects/v1beta2"
+    ).mock(return_value=httpx.Response(401))
+
+    # Mock the expiry of the refresh token
+    refresh_token_route = respx.post(
+        f"{get_nexus_client().base_url}/auth/tokens/refresh"
+    ).mock(return_value=httpx.Response(401))
+
+    with pytest.raises(AuthenticationError):
+        qnx.projects.get_all().list()
+
+    assert list_project_route.called
+    assert refresh_token_route.called
+
+
+@respx.mock
+def test_login_region_sg_uses_sg_domain_and_does_not_short_circuit() -> None:
+    """`login(region="sg")` should target SG auth endpoints and bypass already-logged-in short-circuit."""
+    original_domain = CONFIG.domain
+
+    try:
+        sg_domain = "nexus.quantinuum.sg"
+
+        device_auth_route = respx.post(
+            f"https://{sg_domain}:443/auth/device/device_authorization"
+        ).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={
+                    "user_code": "ABC-123",
+                    "device_code": "device-code",
+                    "verification_uri_complete": "https://example.com/verify",
+                    "expires_in": 2,
+                    "interval": 1,
+                },
+            )
+        )
+        token_route = respx.post(f"https://{sg_domain}:443/auth/device/token").mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={
+                    "refresh_token": "dummy_oat",
+                    "access_token": "dummy_id",
+                    "email": "user@example.com",
+                },
+            )
+        )
+
+        with (
+            mock.patch(
+                "qnexus.client.auth.is_logged_in", return_value=True
+            ) as is_logged_in,
+            mock.patch("qnexus.client.auth.webbrowser.open", return_value=True),
+            mock.patch("qnexus.client.auth.time.sleep", return_value=None),
+        ):
+            qnx.login(region="sg")
+
+        assert CONFIG.domain == sg_domain
+        assert device_auth_route.called
+        assert token_route.called
+        assert is_logged_in.call_count == 0
+    finally:
+        CONFIG.domain = original_domain
+
+
+def test_nexus_client_reloads_tokens() -> None:
+    """Test the reload functionality of the nexus client.
+
+    Test that if we write new tokens and reload the client,
+    that the new tokens are used."""
+
+    oat_one = "dummy_oat_one"
+    oat_two = "dummy_oat_two"
+
+    write_token("refresh_token", oat_one)
+    client_one = get_nexus_client(reload=True)
+    assert client_one.auth.cookies.get("myqos_oat") == oat_one  # type: ignore
+
+    write_token("refresh_token", oat_two)
+    client_two = get_nexus_client()
+    assert client_two.auth.cookies.get("myqos_oat") == oat_one  # type: ignore
+
+    client_two = get_nexus_client(reload=True)
+    assert client_two.auth.cookies.get("myqos_oat") == oat_two  # type: ignore
+
+
+def test_nexus_client_reloads_domain() -> None:
+    """Test the reload functionality of the nexus client.
+    We should be able to change the domain in the config
+    and have the client reload with the new domain obtainable
+    via a getter function.
+    """
+
+    domain_one = "dummy_domain_one.com"
+    domain_two = "dummy_domain_two.com"
+
+    CONFIG.domain = domain_one
+    # mock login
+    write_token("refresh_token", "dummy_oat")
+    write_token("access_token", "dummy_id")
+
+    client_one = get_nexus_client(reload=True)
+    client_two = get_nexus_client(reload=True)
+
+    assert domain_one in str(client_one.base_url)
+    assert domain_one in str(client_two.base_url)
+
+    CONFIG.domain = domain_two
+
+    assert domain_two not in str(client_one.base_url)
+    assert domain_two not in str(client_two.base_url)
+
+    client_two = get_nexus_client(reload=True)
+    # client_two getter should not effect client_one
+    assert domain_two not in str(client_one.base_url)
+    # client_two getter should reload the client
+    assert domain_two in str(client_two.base_url)
+
+
+@respx.mock
+def test_login_with_token_sets_cookies_in_memory() -> None:
+    """Test that login_with_token injects the refresh token and exchanges it
+    for an access token, all held in memory on the client's auth handler."""
+
+    alice_refresh = "alice_refresh"
+    alice_access = "alice_access"
+
+    # Mock the refresh endpoint to return an access token cookie
+    refresh_route = respx.post(f"{CONFIG.url}/auth/tokens/refresh").mock(
+        return_value=httpx.Response(
+            200,
+            headers={
+                "set-cookie": f"myqos_id={alice_access}; "
+                "HttpOnly; Path=/; SameSite=Lax; Secure"
+            },
+        )
+    )
+
+    qnx.login_with_token(alice_refresh)
+
+    client = get_nexus_client()
+    assert refresh_route.called
+    assert client.auth.cookies.get("myqos_oat") == alice_refresh  # type: ignore
+    assert client.auth.cookies.get("myqos_id") == alice_access  # type: ignore
+
+
+@respx.mock
+def test_login_with_token_swap_between_accounts() -> None:
+    """Test hot-swapping between two accounts using login_with_token.
+
+    After each swap the client should hold only the most recent account's tokens."""
+
+    alice_refresh = "alice_refresh"
+    alice_access = "alice_access"
+    bob_refresh = "bob_refresh"
+    bob_access = "bob_access"
+
+    refresh_route = respx.post(f"{CONFIG.url}/auth/tokens/refresh").mock(
+        side_effect=[
+            httpx.Response(
+                200,
+                headers={
+                    "set-cookie": f"myqos_id={alice_access}; "
+                    "HttpOnly; Path=/; SameSite=Lax; Secure"
+                },
+            ),
+            httpx.Response(
+                200,
+                headers={
+                    "set-cookie": f"myqos_id={bob_access}; "
+                    "HttpOnly; Path=/; SameSite=Lax; Secure"
+                },
+            ),
+        ]
+    )
+
+    # Swap to alice
+    qnx.login_with_token(alice_refresh)
+    client = get_nexus_client()
+    assert client.auth.cookies.get("myqos_oat") == alice_refresh  # type: ignore
+    assert client.auth.cookies.get("myqos_id") == alice_access  # type: ignore
+
+    # Swap to bob
+    qnx.login_with_token(bob_refresh)
+    client = get_nexus_client()
+    assert client.auth.cookies.get("myqos_oat") == bob_refresh  # type: ignore
+    assert client.auth.cookies.get("myqos_id") == bob_access  # type: ignore
+
+    assert refresh_route.call_count == 2

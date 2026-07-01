@@ -12,15 +12,14 @@ from pydantic_ai.capabilities import (
     CombinedCapability,
     DynamicCapability,
 )
-from pydantic_ai.mcp import MCPServerStreamableHTTP
+from pydantic_ai.mcp import MCPToolset
 from pydantic_ai.models import Model
-from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.ui.vercel_ai.response_types import ToolOutputAvailableChunk
 
 from phoenix.server.agents.capabilities import (
-    AnthropicPromptCacheCapability,
     MintlifyDocsMCPCapability,
     SkillsCapability,
+    build_anthropic_prompt_cache_capability,
     get_context_capability_function,
 )
 from phoenix.server.agents.capabilities.skills import SkillsToolset
@@ -63,7 +62,7 @@ def build_agent(
     *,
     model: Model,
     prompts: AgentPrompts | None = None,
-    docs_mcp_server: MCPServerStreamableHTTP | None = None,
+    docs_mcp_server: MCPToolset[AgentDependencies] | None = None,
     enable_web_access: bool = False,
     tracer_provider: TracerProvider | None = None,
     server_agent: AbstractAgent[None, str] | None = None,
@@ -105,11 +104,11 @@ def build_agent(
             ),
         ),
     ]
-    if isinstance(model, AnthropicModel):
-        capabilities.append(AnthropicPromptCacheCapability())
+    if (prompt_cache := build_anthropic_prompt_cache_capability(model)) is not None:
+        capabilities.append(prompt_cache)
     if docs_mcp_server is not None:
         capabilities.append(
-            MintlifyDocsMCPCapability(
+            MintlifyDocsMCPCapability[AgentDependencies](
                 mcp_server=docs_mcp_server,
                 instructions=resolved_prompts.docs_tool,
             )

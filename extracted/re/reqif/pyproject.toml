@@ -1,0 +1,87 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "reqif/__init__.py"
+
+[tool.hatch.build]
+include = [
+  "LICENSE",
+  "README.md",
+  "pyproject.toml",
+  "reqif/"
+]
+exclude = [
+  "/.*",
+  "/tests",
+]
+
+[project]
+name = "reqif"
+dynamic = ["version"]
+description = "Python library for ReqIF format. ReqIF parsing and unparsing."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.8"
+authors = [
+    { name = "Stanislav Pankevich", email = "s.pankevich@gmail.com" },
+]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "lxml >= 4.6.2",
+    "jinja2 >= 2.11.2",
+    "xmlschema >= 2.4.0",
+    "openpyxl",
+]
+
+[project.optional-dependencies]
+development = [
+  # Developer tasks
+  "invoke >= 1.4.1",
+
+  # Formatting
+  "black >= 21.9b0",
+
+  # Linters & static analysis
+  "flake8 >= 3.9.2",
+  "mypy == 1.16",
+  "pylint >= 2.11.1",
+  "ruff >= 0.0.243",
+
+  # Unit tests
+  "pytest >= 6.2.2",
+  "coverage >= 5.4",
+
+  # Integration tests
+  "lit >= 0.11.0.post1",
+  "filecheck >= 0.0.20",
+  "html5lib >= 1.1",
+  "pytidylib >= 0.3.2",
+
+  # Examples
+  "dataclasses-json"
+]
+
+[project.scripts]
+reqif = "reqif.cli.main:main"
+
+[project.urls]
+Changelog = "https://github.com/strictdoc-project/reqif/releases"
+Homepage = "https://github.com/strictdoc-project/reqif"
+Source = "https://github.com/strictdoc-project/reqif"
+
+[tool.black]
+line-length = 80

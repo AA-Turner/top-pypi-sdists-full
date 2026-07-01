@@ -911,30 +911,6 @@ def engine_replicated_to_local(engine: str) -> str:
     return _RE_REPLICATED_MT.sub(_replace, engine.strip())
 
 
-def engine_patch_replicated_engine(engine: str, engine_full: Optional[str], new_table_name: str) -> Optional[str]:
-    """
-    >>> engine_patch_replicated_engine("ReplicatedMergeTree", "ReplicatedMergeTree('/clickhouse/tables/1-1/table_name', 'replica') PARTITION BY toYYYYMM(EventDate) ORDER BY (CounterID, EventDate, intHash32(UserID)) SAMPLE BY intHash32(UserID) SETTINGS index_granularity = 8192", 'table_name_staging')
-    "ReplicatedMergeTree('/clickhouse/tables/1-1/table_name_staging', 'replica') PARTITION BY toYYYYMM(EventDate) ORDER BY (CounterID, EventDate, intHash32(UserID)) SAMPLE BY intHash32(UserID) SETTINGS index_granularity = 8192"
-    >>> engine_patch_replicated_engine("ReplicatedMergeTree", "ReplicatedMergeTree('/clickhouse/tables/{layer}-{shard}/sales_product_rank_rt_replicated_2', '{replica}') PARTITION BY toYYYYMM(date) ORDER BY (purchase_location, sku_rank_lc, date)", 'sales_product_rank_rt_replicated_2_staging')
-    "ReplicatedMergeTree('/clickhouse/tables/{layer}-{shard}/sales_product_rank_rt_replicated_2_staging', '{replica}') PARTITION BY toYYYYMM(date) ORDER BY (purchase_location, sku_rank_lc, date)"
-    >>> engine_patch_replicated_engine("ReplicatedMergeTree", None, 't_000') is None
-    True
-    >>> engine_patch_replicated_engine("Log", "Log()", 't_000')
-    'Log()'
-    >>> engine_patch_replicated_engine("MergeTree", "MergeTree PARTITION BY toYYYYMM(event_date) ORDER BY (event_date, event_time) SETTINGS index_granularity = 1024", 't_000')
-    'MergeTree PARTITION BY toYYYYMM(event_date) ORDER BY (event_date, event_time) SETTINGS index_granularity = 1024'
-    """
-    if not engine_full:
-        return None
-    if engine.lower().startswith("Replicated".lower()):
-        parts = _RE_REPLICATED_ENGINE_SPLIT.split(engine_full)
-        paths = parts[2].split("/")
-        paths[-1] = new_table_name
-        zoo_path = "/".join(paths)
-        return "".join([*parts[:2], zoo_path, *parts[3:]])
-    return engine_full
-
-
 if __name__ == "__main__":
     print(  # noqa: T201
         _parse_table_structure(

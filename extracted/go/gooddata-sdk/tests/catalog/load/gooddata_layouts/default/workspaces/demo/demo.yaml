@@ -1,0 +1,26 @@
+# (C) 2026 GoodData Corporation
+automations: []
+customApplicationSettings: []
+filterViews: []
+hierarchyPermissions:
+  - assignee:
+      id: demo2
+      type: user
+    name: MANAGE
+  - assignee:
+      id: demoGroup
+      type: userGroup
+    name: ANALYZE
+id: demo
+name: Demo
+permissions:
+  - assignee:
+      id: demo2
+      type: user
+    name: ANALYZE
+  - assignee:
+      id: demoGroup
+      type: userGroup
+    name: VIEW
+settings: []
+userDataFilters: []

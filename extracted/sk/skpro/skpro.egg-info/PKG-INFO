@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skpro
-Version: 2.13.0
+Version: 2.14.0
 Summary: A unified framework for tabular probabilistic regression, time-to-event prediction, and probability distributions in python
 Author: Franz Király
 Author-email: skpro developers <info@sktime.net>
@@ -42,7 +42,7 @@ Provides-Extra: all-extras
 Requires-Dist: distfit; python_version < "3.13" and extra == "all-extras"
 Requires-Dist: lifelines<0.31.0; python_version < "3.13" and extra == "all-extras"
 Requires-Dist: matplotlib>=3.3.2; extra == "all-extras"
-Requires-Dist: polars<1.37.0; extra == "all-extras"
+Requires-Dist: polars<1.43.0; extra == "all-extras"
 Requires-Dist: pymc; python_version < "3.13" and extra == "all-extras"
 Requires-Dist: statsmodels>=0.12.1; extra == "all-extras"
 Provides-Extra: dev
@@ -65,15 +65,10 @@ Requires-Dist: numpydoc; extra == "docs"
 Requires-Dist: pydata-sphinx-theme; extra == "docs"
 Requires-Dist: sphinx!=7.2.0,<10.0.0; extra == "docs"
 Requires-Dist: sphinx-design<0.7.0; extra == "docs"
-Requires-Dist: sphinx-issues<6.0.0; extra == "docs"
-Requires-Dist: sphinx-gallery<0.21.0; extra == "docs"
+Requires-Dist: sphinx-issues<7.0.0; extra == "docs"
+Requires-Dist: sphinx-gallery<0.22.0; extra == "docs"
 Requires-Dist: sphinx-panels; extra == "docs"
 Requires-Dist: tabulate; extra == "docs"
-Provides-Extra: dependencies-2024
-Requires-Dist: numpy==2.1.0; extra == "dependencies-2024"
-Requires-Dist: pandas==2.3.2; extra == "dependencies-2024"
-Requires-Dist: scikit-learn==1.5.1; extra == "dependencies-2024"
-Requires-Dist: scipy==1.14.1; extra == "dependencies-2024"
 Dynamic: license-file
 
 <a href="https://skpro.readthedocs.io/en/latest"><img src="https://github.com/sktime/skpro/blob/main/docs/source/images/skpro-banner.png" width="500" align="right" /></a>

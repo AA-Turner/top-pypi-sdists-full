@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: soda-duckdb
+Version: 4.16.0
+Summary: Soda DuckDB V4
+Author-email: "Soda Data N.V." <info@soda.io>
+License: Proprietary
+Requires-Python: >=3.10
+Requires-Dist: soda-core==4.16.0
+Requires-Dist: duckdb>=1.2.0
+Requires-Dist: pytz

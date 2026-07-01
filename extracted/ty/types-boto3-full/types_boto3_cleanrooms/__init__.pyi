@@ -25,6 +25,8 @@ Usage::
         ListConfiguredTablesPaginator,
         ListIdMappingTablesPaginator,
         ListIdNamespaceAssociationsPaginator,
+        ListIntermediateTableVersionsPaginator,
+        ListIntermediateTablesPaginator,
         ListMembersPaginator,
         ListMembershipsPaginator,
         ListPrivacyBudgetTemplatesPaginator,
@@ -50,6 +52,8 @@ Usage::
     list_configured_tables_paginator: ListConfiguredTablesPaginator = client.get_paginator("list_configured_tables")
     list_id_mapping_tables_paginator: ListIdMappingTablesPaginator = client.get_paginator("list_id_mapping_tables")
     list_id_namespace_associations_paginator: ListIdNamespaceAssociationsPaginator = client.get_paginator("list_id_namespace_associations")
+    list_intermediate_table_versions_paginator: ListIntermediateTableVersionsPaginator = client.get_paginator("list_intermediate_table_versions")
+    list_intermediate_tables_paginator: ListIntermediateTablesPaginator = client.get_paginator("list_intermediate_tables")
     list_members_paginator: ListMembersPaginator = client.get_paginator("list_members")
     list_memberships_paginator: ListMembershipsPaginator = client.get_paginator("list_memberships")
     list_privacy_budget_templates_paginator: ListPrivacyBudgetTemplatesPaginator = client.get_paginator("list_privacy_budget_templates")
@@ -75,6 +79,8 @@ from .paginator import (
     ListConfiguredTablesPaginator,
     ListIdMappingTablesPaginator,
     ListIdNamespaceAssociationsPaginator,
+    ListIntermediateTablesPaginator,
+    ListIntermediateTableVersionsPaginator,
     ListMembershipsPaginator,
     ListMembersPaginator,
     ListPrivacyBudgetsPaginator,
@@ -102,6 +108,8 @@ __all__ = (
     "ListConfiguredTablesPaginator",
     "ListIdMappingTablesPaginator",
     "ListIdNamespaceAssociationsPaginator",
+    "ListIntermediateTableVersionsPaginator",
+    "ListIntermediateTablesPaginator",
     "ListMembersPaginator",
     "ListMembershipsPaginator",
     "ListPrivacyBudgetTemplatesPaginator",

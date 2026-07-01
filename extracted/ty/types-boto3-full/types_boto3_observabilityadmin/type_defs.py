@@ -35,6 +35,7 @@ from .literals import (
     RecordFormatType,
     ResourceTypeType,
     RuleHealthType,
+    SignalTypeType,
     SSEAlgorithmType,
     StatusType,
     TelemetryEnrichmentStatusType,
@@ -741,6 +742,7 @@ class PipelineOutputTypeDef(TypedDict):
 class TestTelemetryPipelineInputTypeDef(TypedDict):
     Records: Sequence[RecordTypeDef]
     Configuration: TelemetryPipelineConfigurationTypeDef
+    SignalType: NotRequired[SignalTypeType]
 
 
 class TelemetryPipelineTypeDef(TypedDict):

@@ -1,0 +1,14 @@
+[project]
+name = "design"
+version = "0.1.0"
+description = "Example project to demonstrate existing unit libraries"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "jax>=0.4.30",
+    "numba>=0.60.0",
+    "numpy>=2.0.2",
+    "perfplot>=0.10.2",
+    "pint>=0.24.4",
+    "polars>=1.31.0",
+]

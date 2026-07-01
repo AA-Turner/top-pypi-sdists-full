@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: matplotlib-label-lines
+Version: 0.8.1
+Summary: Label lines in matplotlib.
+Project-URL: Homepage, https://github.com/cphyc/matplotlib-label-lines
+Author-email: Corentin Cadiou <contact@cphyc.me>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Framework :: Matplotlib
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX :: AIX
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.9
+Requires-Dist: matplotlib>=2.0.2
+Requires-Dist: more-itertools
+Requires-Dist: numpy>=1.16
+Provides-Extra: test
+Requires-Dist: matplotlib==3.10.1; extra == 'test'
+Requires-Dist: pytest-cov==6.0.0; extra == 'test'
+Requires-Dist: pytest-mpl==0.17.0; extra == 'test'
+Requires-Dist: pytest==8.3.5; extra == 'test'

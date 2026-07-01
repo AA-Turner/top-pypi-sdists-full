@@ -2,7 +2,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use futures::{StreamExt, TryStreamExt};
+use futures_util::{StreamExt, TryStreamExt};
 use rustc_hash::FxHashMap;
 use semver::Version;
 
@@ -15,7 +15,7 @@ use crate::cli::run::Selectors;
 use crate::config::GlobPatterns;
 use crate::fs::CWD;
 use crate::printer::Printer;
-use crate::run::CONCURRENCY;
+use crate::run::INTERNAL_CONCURRENCY;
 use crate::settings::FilesystemOptions;
 use crate::store::Store;
 use crate::workspace::{Project, Workspace};
@@ -393,7 +393,11 @@ pub(crate) async fn auto_update(
 
     let tag_filters =
         TagFilters::new(include_tag, exclude_tag, repo_include_tag, repo_exclude_tag)?;
-    let jobs = if jobs == 0 { *CONCURRENCY } else { jobs };
+    let jobs = if jobs == 0 {
+        *INTERNAL_CONCURRENCY
+    } else {
+        jobs
+    };
     let reporter = AutoUpdateReporter::new(printer);
 
     let repo_sources = collect_repo_sources(&workspace, cooldown_days, filesystem.as_ref())?;
@@ -401,7 +405,7 @@ pub(crate) async fn auto_update(
         (filter_repos.is_empty() || filter_repos.iter().any(|repo| repo == repo_source.repo))
             && !exclude_repos.iter().any(|repo| repo == repo_source.repo)
     });
-    let outcomes: Vec<RepoUpdate<'_>> = futures::stream::iter(sources)
+    let outcomes: Vec<RepoUpdate<'_>> = futures_util::stream::iter(sources)
         .map(async |repo_source| {
             let progress = reporter.on_update_start(repo_source.repo);
             let result =

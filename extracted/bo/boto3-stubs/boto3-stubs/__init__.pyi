@@ -214,8 +214,6 @@ from mypy_boto3_iot_managed_integrations.client import (
     ManagedintegrationsforIoTDeviceManagementClient,
 )
 from mypy_boto3_iotdeviceadvisor.client import IoTDeviceAdvisorClient
-from mypy_boto3_iotevents.client import IoTEventsClient
-from mypy_boto3_iotevents_data.client import IoTEventsDataClient
 from mypy_boto3_iotfleetwise.client import IoTFleetWiseClient
 from mypy_boto3_iotsecuretunneling.client import IoTSecureTunnelingClient
 from mypy_boto3_iotsitewise.client import IoTSiteWiseClient
@@ -315,7 +313,6 @@ from mypy_boto3_opensearchserverless.client import OpenSearchServiceServerlessCl
 from mypy_boto3_organizations.client import OrganizationsClient
 from mypy_boto3_osis.client import OpenSearchIngestionClient
 from mypy_boto3_outposts.client import OutpostsClient
-from mypy_boto3_panorama.client import PanoramaClient
 from mypy_boto3_partnercentral_account.client import PartnerCentralAccountAPIClient
 from mypy_boto3_partnercentral_benefits.client import PartnerCentralBenefitsClient
 from mypy_boto3_partnercentral_channel.client import PartnerCentralChannelAPIClient
@@ -402,7 +399,6 @@ from mypy_boto3_signer.client import SignerClient
 from mypy_boto3_signer_data.client import SignerDataPlaneClient
 from mypy_boto3_signin.client import SignInServiceClient
 from mypy_boto3_simpledbv2.client import SimpleDBv2Client
-from mypy_boto3_simspaceweaver.client import SimSpaceWeaverClient
 from mypy_boto3_snow_device_management.client import SnowDeviceManagementClient
 from mypy_boto3_snowball.client import SnowballClient
 from mypy_boto3_sns.client import SNSClient
@@ -425,6 +421,7 @@ from mypy_boto3_sts.client import STSClient
 from mypy_boto3_supplychain.client import SupplyChainClient
 from mypy_boto3_support.client import SupportClient
 from mypy_boto3_support_app.client import SupportAppClient
+from mypy_boto3_supportauthz.client import SupportAuthZClient
 from mypy_boto3_sustainability.client import SustainabilityClient
 from mypy_boto3_swf.client import SWFClient
 from mypy_boto3_synthetics.client import SyntheticsClient
@@ -3942,42 +3939,6 @@ def client(
 
 @overload
 def client(
-    service_name: Literal["iotevents"],
-    region_name: str | None = ...,
-    api_version: str | None = ...,
-    use_ssl: bool | None = ...,
-    verify: bool | str | None = ...,
-    endpoint_url: str | None = ...,
-    aws_access_key_id: str | None = ...,
-    aws_secret_access_key: str | None = ...,
-    aws_session_token: str | None = ...,
-    config: Config | None = ...,
-    aws_account_id: str | None = ...,
-) -> IoTEventsClient:
-    """
-    Create client for IoTEvents service.
-    """
-
-@overload
-def client(
-    service_name: Literal["iotevents-data"],
-    region_name: str | None = ...,
-    api_version: str | None = ...,
-    use_ssl: bool | None = ...,
-    verify: bool | str | None = ...,
-    endpoint_url: str | None = ...,
-    aws_access_key_id: str | None = ...,
-    aws_secret_access_key: str | None = ...,
-    aws_session_token: str | None = ...,
-    config: Config | None = ...,
-    aws_account_id: str | None = ...,
-) -> IoTEventsDataClient:
-    """
-    Create client for IoTEventsData service.
-    """
-
-@overload
-def client(
     service_name: Literal["iotfleetwise"],
     region_name: str | None = ...,
     api_version: str | None = ...,
@@ -5688,24 +5649,6 @@ def client(
 
 @overload
 def client(
-    service_name: Literal["panorama"],
-    region_name: str | None = ...,
-    api_version: str | None = ...,
-    use_ssl: bool | None = ...,
-    verify: bool | str | None = ...,
-    endpoint_url: str | None = ...,
-    aws_access_key_id: str | None = ...,
-    aws_secret_access_key: str | None = ...,
-    aws_session_token: str | None = ...,
-    config: Config | None = ...,
-    aws_account_id: str | None = ...,
-) -> PanoramaClient:
-    """
-    Create client for Panorama service.
-    """
-
-@overload
-def client(
     service_name: Literal["partnercentral-account"],
     region_name: str | None = ...,
     api_version: str | None = ...,
@@ -7236,24 +7179,6 @@ def client(
 
 @overload
 def client(
-    service_name: Literal["simspaceweaver"],
-    region_name: str | None = ...,
-    api_version: str | None = ...,
-    use_ssl: bool | None = ...,
-    verify: bool | str | None = ...,
-    endpoint_url: str | None = ...,
-    aws_access_key_id: str | None = ...,
-    aws_secret_access_key: str | None = ...,
-    aws_session_token: str | None = ...,
-    config: Config | None = ...,
-    aws_account_id: str | None = ...,
-) -> SimSpaceWeaverClient:
-    """
-    Create client for SimSpaceWeaver service.
-    """
-
-@overload
-def client(
     service_name: Literal["snow-device-management"],
     region_name: str | None = ...,
     api_version: str | None = ...,
@@ -7610,6 +7535,24 @@ def client(
 ) -> SupportAppClient:
     """
     Create client for SupportApp service.
+    """
+
+@overload
+def client(
+    service_name: Literal["supportauthz"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> SupportAuthZClient:
+    """
+    Create client for SupportAuthZ service.
     """
 
 @overload

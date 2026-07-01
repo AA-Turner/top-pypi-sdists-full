@@ -1,0 +1,115 @@
+Metadata-Version: 2.4
+Name: keeper-mlkem
+Version: 1.0.2
+Summary: Fast ML-KEM implementation with C extensions
+Home-page: https://github.com/Keeper-Security/commander-qrc
+Author: Keeper Security
+Author-email: Keeper Security <ops@keepersecurity.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/Keeper-Security/commander-qrc
+Project-URL: Documentation, https://github.com/Keeper-Security/commander-qrc/blob/master/README.md
+Project-URL: Repository, https://github.com/Keeper-Security/commander-qrc
+Project-URL: Issues, https://github.com/Keeper-Security/commander-qrc/issues
+Keywords: cryptography,post-quantum,kyber,ml-kem,lattice-based,key-encapsulation,pqc,fips-203
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Security :: Cryptography
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+
+# Keeper ML-KEM
+
+Production-ready post-quantum cryptography library implementing ML-KEM (FIPS 203) for Keeper Commander applications.
+
+## Overview
+
+This package provides a lightweight, optimized implementation of the Module-Lattice-Based Key-Encapsulation Mechanism (ML-KEM) as standardized in FIPS 203. It features native C extensions for performance-critical operations while maintaining a simple, intuitive API.
+
+## Installation
+
+```bash
+pip install keeper-mlkem
+```
+
+## Usage
+
+### Basic Example
+
+```python
+from mlkem import ML_KEM, MLKEM_768_PARAMETERS
+
+# Initialize ML-KEM-768
+ml_kem = ML_KEM(MLKEM_768_PARAMETERS)
+
+# Generate key pair
+encapsulation_key, decapsulation_key = ml_kem.key_gen()
+
+# Encapsulate (create shared secret)
+shared_secret, ciphertext = ml_kem.encaps(encapsulation_key)
+
+# Decapsulate (recover shared secret)
+recovered_secret = ml_kem.decaps(decapsulation_key, ciphertext)
+
+assert shared_secret == recovered_secret
+```
+
+### Security Parameters
+
+Three security levels are available, aligned with NIST security categories:
+
+```python
+from mlkem import MLKEM_512_PARAMETERS, MLKEM_768_PARAMETERS, MLKEM_1024_PARAMETERS
+
+ML_KEM(MLKEM_512_PARAMETERS)   # NIST Level 1 (128-bit security)
+ML_KEM(MLKEM_768_PARAMETERS)   # NIST Level 3 (192-bit security) - Recommended
+ML_KEM(MLKEM_1024_PARAMETERS)  # NIST Level 5 (256-bit security)
+```
+
+## Technical Specifications
+
+- **Standard**: FIPS 203 (Module-Lattice-Based Key-Encapsulation Mechanism)
+- **Language**: Python 3.11+
+- **Performance**: Optimized C extensions for cryptographic operations
+- **Validation**: Tested against official NIST test vectors
+
+## System Requirements
+
+- Python 3.11 or higher
+- C compiler (for installation from source)
+  - **Linux**: GCC (typically pre-installed)
+  - **macOS**: Clang via Xcode Command Line Tools (`xcode-select --install`)
+  - **Windows**: Microsoft Visual C++ Build Tools
+
+Pre-built wheels are available for major platforms (Linux, macOS, Windows) and common architectures.
+
+## About ML-KEM
+
+ML-KEM is a post-quantum cryptographic algorithm designed to resist attacks from both classical and quantum computers. It provides a secure method for two parties to establish a shared secret over an insecure channel:
+
+1. **Key Generation**: Generate a public/private key pair
+2. **Encapsulation**: Use the public key to generate a shared secret and ciphertext
+3. **Decapsulation**: Use the private key to recover the shared secret from the ciphertext
+
+The resulting shared secret can be used with symmetric encryption algorithms (e.g., AES) or key derivation functions for secure communications.
+
+## License
+
+MIT License - Copyright (c) 2025 Keeper Security Inc.
+
+## Security Notice
+
+This library implements ML-KEM (FIPS 203) and has been validated against official NIST test vectors. While it is suitable for production use, users should follow best practices for cryptographic implementations:
+
+- Keep the library updated to receive security patches
+- Use appropriate key sizes for your security requirements (ML-KEM-768 is recommended for most applications)
+- Properly handle and store private keys

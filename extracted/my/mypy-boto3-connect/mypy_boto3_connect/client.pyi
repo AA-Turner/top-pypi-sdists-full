@@ -159,6 +159,8 @@ from .type_defs import (
     CompleteAttachedFileUploadRequestTypeDef,
     CreateAgentStatusRequestTypeDef,
     CreateAgentStatusResponseTypeDef,
+    CreateAttachedFileRequestTypeDef,
+    CreateAttachedFileResponseTypeDef,
     CreateContactFlowModuleAliasRequestTypeDef,
     CreateContactFlowModuleAliasResponseTypeDef,
     CreateContactFlowModuleRequestTypeDef,
@@ -599,6 +601,8 @@ from .type_defs import (
     StartAttachedFileUploadResponseTypeDef,
     StartChatContactRequestTypeDef,
     StartChatContactResponseTypeDef,
+    StartContactConversationalAnalyticsJobRequestTypeDef,
+    StartContactConversationalAnalyticsJobResponseTypeDef,
     StartContactEvaluationRequestTypeDef,
     StartContactEvaluationResponseTypeDef,
     StartContactMediaProcessingRequestTypeDef,
@@ -1124,6 +1128,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_agent_status.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_agent_status)
+        """
+
+    def create_attached_file(
+        self, **kwargs: Unpack[CreateAttachedFileRequestTypeDef]
+    ) -> CreateAttachedFileResponseTypeDef:
+        """
+        Creates an attached file for a completed voice contact by copying a recording
+        from a source S3 URI into Connect Customer managed storage.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_attached_file.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_attached_file)
         """
 
     def create_contact(
@@ -3676,6 +3691,16 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_chat_contact.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#start_chat_contact)
+        """
+
+    def start_contact_conversational_analytics_job(
+        self, **kwargs: Unpack[StartContactConversationalAnalyticsJobRequestTypeDef]
+    ) -> StartContactConversationalAnalyticsJobResponseTypeDef:
+        """
+        Starts a Contact Lens post-call analytics job for the specified contact.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_contact_conversational_analytics_job.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#start_contact_conversational_analytics_job)
         """
 
     def start_contact_evaluation(

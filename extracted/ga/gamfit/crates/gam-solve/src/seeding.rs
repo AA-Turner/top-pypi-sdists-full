@@ -609,27 +609,77 @@ where
         // unsupported term's keep corner is never cheaper than its shrink-out
         // corner, so #1266 is untouched.
         let keep_saturation = clamp_seed_rho_to_bounds(bnds.0, bnds);
-        for axis in 0..n_smooths {
-            let anchor = best_seed.clone();
-            let mut targets = vec![
-                clamp_seed_rho_to_bounds(anchor[axis] - 3.0, bnds),
-                clamp_seed_rho_to_bounds(anchor[axis] + 3.0, bnds),
-            ];
-            if (anchor[axis] - saturation).abs() > 1e-9 {
-                targets.push(saturation);
-            }
-            if nullspace_coords.contains(&axis) {
-                // Step toward the keep basin (a moderate un-shrink) and the full
-                // keep saturation, so the probe reaches the basin wherever it sits
-                // between the anchor and λ_null → 0.
-                targets.push(clamp_seed_rho_to_bounds(anchor[axis] - 6.0, bnds));
-                if (anchor[axis] - keep_saturation).abs() > 1e-9 {
-                    targets.push(keep_saturation);
+        // Coordinate descent over the per-axis grid line. A single pass takes at
+        // most one ±3 step from the isotropic anchor, so when that anchor sits at
+        // a corner (e.g. fully over-smoothed because one penalty block dominates
+        // the cost) it cannot carry the remaining coordinates the several grid
+        // intervals back to their own optimum: the grid could express "saturate
+        // all" or "saturate none", but not the asymmetric "saturate s(z), keep
+        // s(x)" corner the Marra–Wood null-space cases need (#1266/#1548).
+        // Re-anchoring on `best_seed` and sweeping until a full pass yields no
+        // improvement lets the existing safe ±3 steps compound into a full
+        // traversal. The step set is unchanged, so no new (potentially
+        // inner-cap-overfit) low-λ probe is introduced — the keep direction stays
+        // gated to null-space coordinates — and every move remains criterion-
+        // ranked against the true REML/LAML cost, so the sweep can only lower it.
+        let span = (bnds.1 - bnds.0).abs();
+        let max_sweeps = (span / 3.0).ceil() as usize + 2;
+        for _ in 0..max_sweeps {
+            let mut improved = false;
+            for axis in 0..n_smooths {
+                let anchor = best_seed.clone();
+                let mut targets = vec![
+                    clamp_seed_rho_to_bounds(anchor[axis] - 3.0, bnds),
+                    clamp_seed_rho_to_bounds(anchor[axis] + 3.0, bnds),
+                ];
+                if (anchor[axis] - saturation).abs() > 1e-9 {
+                    targets.push(saturation);
+                }
+                if nullspace_coords.contains(&axis) {
+                    // Step toward the keep basin (a moderate un-shrink) and the full
+                    // keep saturation, so the probe reaches the basin wherever it sits
+                    // between the anchor and λ_null → 0.
+                    targets.push(clamp_seed_rho_to_bounds(anchor[axis] - 6.0, bnds));
+                    if (anchor[axis] - keep_saturation).abs() > 1e-9 {
+                        targets.push(keep_saturation);
+                    }
+                }
+                for target in targets {
+                    let mut candidate = anchor.clone();
+                    candidate[axis] = target;
+                    if let Some(c) = eval_cost(&candidate)
+                        && c.is_finite()
+                        && best_cost.map(|b| c < b).unwrap_or(true)
+                    {
+                        best_cost = Some(c);
+                        best_seed = candidate;
+                        improved = true;
+                    }
                 }
             }
-            for target in targets {
+            if !improved {
+                break;
+            }
+        }
+        // Adjacent-pair over-smoothing corner: send one term's (mass, tension)
+        // / null-space pair fully to the bound while the SIBLING terms stay
+        // free. Probe this corner from BOTH the refined isotropic best AND the
+        // baseline anchor. Anchoring only on `best_seed` cannot express "shrink
+        // s(z), keep s(x) at its supported λ": the per-axis sweep above drives
+        // every coordinate toward the dominant over-smoothing optimum, so the
+        // kept siblings are already saturated and the genuine "keep the rest at
+        // baseline" corner is unreachable (the unsupported pair gets railed but
+        // the supported pair can never relax back below the ±3 refinement
+        // reach). Including the baseline anchor lets the grid seed exactly the
+        // asymmetric corner #1266 is about — one pair at the bound, the rest at
+        // the supported baseline λ. Both anchors are criterion-ranked (adopted
+        // only on a strict cost decrease), so this never displaces a better
+        // interior optimum and leaves balanced fits byte-identical.
+        for anchor in [best_seed.clone(), baseline_seed.clone()] {
+            for start in 0..n_smooths.saturating_sub(1) {
                 let mut candidate = anchor.clone();
-                candidate[axis] = target;
+                candidate[start] = saturation;
+                candidate[start + 1] = saturation;
                 if let Some(c) = eval_cost(&candidate)
                     && c.is_finite()
                     && best_cost.map(|b| c < b).unwrap_or(true)
@@ -637,19 +687,6 @@ where
                     best_cost = Some(c);
                     best_seed = candidate;
                 }
-            }
-        }
-        for start in 0..n_smooths.saturating_sub(1) {
-            let anchor = best_seed.clone();
-            let mut candidate = anchor;
-            candidate[start] = saturation;
-            candidate[start + 1] = saturation;
-            if let Some(c) = eval_cost(&candidate)
-                && c.is_finite()
-                && best_cost.map(|b| c < b).unwrap_or(true)
-            {
-                best_cost = Some(c);
-                best_seed = candidate;
             }
         }
     }
@@ -743,6 +780,33 @@ mod tests {
                 Some(supported_cost + unsupported_gap)
             });
         assert_eq!(selected.to_vec(), vec![0.0, 0.0, 12.0, 12.0]);
+    }
+
+    #[test]
+    fn objective_grid_repeat_sweep_reaches_multistep_asymmetric_optimum_1266() {
+        // #1266: the per-axis grid refinement must repeat-sweep (coordinate
+        // descent) so the ±3 steps compound into a full traversal. The optimum
+        // here is the asymmetric corner "saturate s(x) high, keep s(z) low":
+        // axis 0 minimized at +9, axis 1 minimized at 0. The cost couples the
+        // axes so the isotropic [d, d] line is minimized at d=3 (best isotropic
+        // anchor [3, 3], cost 45), never at the true optimum. A SINGLE per-axis
+        // pass from [3, 3] can move axis 0 only one +3 step to 6 (reaching
+        // [6, 0], cost 9); only a second sweep carries axis 0 the remaining step
+        // 6 -> 9 to land the true optimum [9, 0], cost 0. The target +9 is an
+        // interior value, so it is reachable by neither the saturation probe
+        // (bound = +12) nor the adjacent-pair corner probe ([12, 12]) — it can
+        // only be found by the repeat-sweep coordinate descent.
+        let base = Array1::zeros(2);
+        let selected =
+            select_objective_seed_on_log_lambda_grid(&base, (-12.0, 12.0), 2, &[], |rho| {
+                Some((rho[0] - 9.0).powi(2) + rho[1].powi(2))
+            });
+        assert_eq!(
+            selected.to_vec(),
+            vec![9.0, 0.0],
+            "repeat-sweep coordinate descent must reach the multi-step \
+             asymmetric interior optimum [9, 0]; a single pass stalls at [6, 0]",
+        );
     }
 
     #[test]

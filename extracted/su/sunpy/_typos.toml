@@ -13,6 +13,7 @@ default.extend-ignore-identifiers-re = [
     "Hsi",
     "nd",
     "NDData",
+    "NDCube",
     "alog",
     "alog10",
     "FOVs",
@@ -31,4 +32,10 @@ default.extend-ignore-identifiers-re = [
     "precessed",
     "ASO",
     "aso",
+    "blos",
+    "BLOS",
+    "gae",
+    "GAE",
+    "soop",
+    "SOOP",
 ]

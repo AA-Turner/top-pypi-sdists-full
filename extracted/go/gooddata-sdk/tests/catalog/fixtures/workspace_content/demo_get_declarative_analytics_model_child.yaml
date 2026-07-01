@@ -1,0 +1,50 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/layout/workspaces/demo_west/analyticsModel?exclude=ACTIVITY_INFO
+    response:
+      body:
+        string:
+          analytics:
+            analyticalDashboardExtensions:
+              - id: campaign
+                permissions:
+                  - assigneeRule:
+                      type: allWorkspaceUsers
+                    name: VIEW
+            analyticalDashboards: []
+            attributeHierarchies: []
+            dashboardPlugins: []
+            exportDefinitions: []
+            filterContexts: []
+            memoryItems: []
+            metrics: []
+            parameters: []
+            visualizationObjects: []
+      headers:
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+version: 1

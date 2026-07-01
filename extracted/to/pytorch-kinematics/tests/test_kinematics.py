@@ -1,0 +1,565 @@
+import math
+import os
+from timeit import timeit
+
+import torch
+
+import pytorch_kinematics as pk
+from pytorch_kinematics.transforms.math import quaternion_close
+
+TEST_DIR = os.path.dirname(__file__)
+
+
+def quat_pos_from_transform3d(tg):
+    m = tg.get_matrix()
+    pos = m[:, :3, 3]
+    rot = pk.matrix_to_quaternion(m[:, :3, :3])
+    return pos, rot
+
+
+# test more complex robot and the MJCF parser
+def test_fk_mjcf():
+    chain = pk.build_chain_from_mjcf(open(os.path.join(TEST_DIR, "ant.xml")).read())
+    chain = chain.to(dtype=torch.float64)
+    print(chain)
+    print(chain.get_joint_parameter_names())
+
+    th = {joint: 0.0 for joint in chain.get_joint_parameter_names()}
+    th.update({'hip_1': 1.0, 'ankle_1': 1})
+    ret = chain.forward_kinematics(th)
+    tg = ret['aux_1']
+    pos, rot = quat_pos_from_transform3d(tg)
+    assert quaternion_close(rot, torch.tensor([0.87758256, 0., 0., 0.47942554], dtype=torch.float64))
+    assert torch.allclose(pos, torch.tensor([0.2, 0.2, 0.75], dtype=torch.float64))
+    tg = ret['front_left_foot']
+    pos, rot = quat_pos_from_transform3d(tg)
+    assert quaternion_close(rot, torch.tensor([0.77015115, -0.4600326, 0.13497724, 0.42073549], dtype=torch.float64))
+    assert torch.allclose(pos, torch.tensor([0.13976626, 0.47635466, 0.75], dtype=torch.float64))
+    print(ret)
+
+
+def test_fk_serial_mjcf():
+    chain = pk.build_serial_chain_from_mjcf(open(os.path.join(TEST_DIR, "ant.xml")).read(), 'front_left_foot')
+    chain = chain.to(dtype=torch.float64)
+    tg = chain.forward_kinematics([1.0, 1.0])
+    pos, rot = quat_pos_from_transform3d(tg)
+    assert quaternion_close(rot, torch.tensor([0.77015115, -0.4600326, 0.13497724, 0.42073549], dtype=torch.float64))
+    assert torch.allclose(pos, torch.tensor([0.13976626, 0.47635466, 0.75], dtype=torch.float64))
+
+
+def test_fkik():
+    data = '<robot name="test_robot">' \
+           '<link name="link1" />' \
+           '<link name="link2" />' \
+           '<link name="link3" />' \
+           '<joint name="joint1" type="revolute">' \
+           '<origin xyz="1.0 0.0 0.0"/>' \
+           '<parent link="link1"/>' \
+           '<child link="link2"/>' \
+           '</joint>' \
+           '<joint name="joint2" type="revolute">' \
+           '<origin xyz="1.0 0.0 0.0"/>' \
+           '<parent link="link2"/>' \
+           '<child link="link3"/>' \
+           '</joint>' \
+           '</robot>'
+    chain = pk.build_serial_chain_from_urdf(data, 'link3')
+    th1 = torch.tensor([0.42553542, 0.17529176])
+    tg = chain.forward_kinematics(th1)
+    pos, rot = quat_pos_from_transform3d(tg)
+    assert torch.allclose(pos, torch.tensor([[1.91081784, 0.41280851, 0.0000]]))
+    assert quaternion_close(rot, torch.tensor([[0.95521418, 0.0000, 0.0000, 0.2959153]]))
+    N = 20
+    th_batch = torch.rand(N, 2)
+    tg_batch = chain.forward_kinematics(th_batch)
+    m = tg_batch.get_matrix()
+    for i in range(N):
+        tg = chain.forward_kinematics(th_batch[i])
+        assert torch.allclose(tg.get_matrix().view(4, 4), m[i])
+
+    # check that gradients are passed through
+    th2 = torch.tensor([0.42553542, 0.17529176], requires_grad=True)
+    tg = chain.forward_kinematics(th2)
+    pos, rot = quat_pos_from_transform3d(tg)
+    # note that since we are using existing operations we are not checking grad calculation correctness
+    assert th2.grad is None
+    pos.norm().backward()
+    assert th2.grad is not None
+
+
+def test_urdf():
+    chain = pk.build_chain_from_urdf(open(os.path.join(TEST_DIR, "kuka_iiwa.urdf")).read())
+    chain.to(dtype=torch.float64)
+    th = [0.0, -math.pi / 4.0, 0.0, math.pi / 2.0, 0.0, math.pi / 4.0, 0.0]
+    ret = chain.forward_kinematics(th)
+    tg = ret['lbr_iiwa_link_7']
+    pos, rot = quat_pos_from_transform3d(tg)
+    assert quaternion_close(rot, torch.tensor([7.07106781e-01, 0, -7.07106781e-01, 0], dtype=torch.float64))
+    assert torch.allclose(pos, torch.tensor([-6.60827561e-01, 0, 3.74142136e-01], dtype=torch.float64), atol=1e-6)
+
+
+def test_urdf_serial():
+    chain = pk.build_serial_chain_from_urdf(open(os.path.join(TEST_DIR, "kuka_iiwa.urdf")).read(), "lbr_iiwa_link_7")
+    chain.to(dtype=torch.float64)
+    th = [0.0, -math.pi / 4.0, 0.0, math.pi / 2.0, 0.0, math.pi / 4.0, 0.0]
+
+    ret = chain.forward_kinematics(th, end_only=False)
+    tg = ret['lbr_iiwa_link_7']
+    pos, rot = quat_pos_from_transform3d(tg)
+    assert quaternion_close(rot, torch.tensor([7.07106781e-01, 0, -7.07106781e-01, 0], dtype=torch.float64))
+    assert torch.allclose(pos, torch.tensor([-6.60827561e-01, 0, 3.74142136e-01], dtype=torch.float64), atol=1e-6)
+
+    N = 1000
+    d = "cuda" if torch.cuda.is_available() else "cpu"
+    dtype = torch.float64
+
+    th_batch = torch.rand(N, len(chain.get_joint_parameter_names()), dtype=dtype, device=d)
+
+    chain = chain.to(dtype=dtype, device=d)
+
+    # NOTE: Warmstart since pytorch can be slow the first time you run it
+    #  this has to be done after you move it to the GPU. Otherwise the timing isn't representative.
+    for _ in range(5):
+        ret = chain.forward_kinematics(th)
+
+    number = 10
+
+    def _fk_parallel():
+        tg_batch = chain.forward_kinematics(th_batch)
+        m = tg_batch.get_matrix()
+
+    dt_parallel = timeit(_fk_parallel, number=number) / number
+    print("elapsed {}s for N={} when parallel".format(dt_parallel, N))
+
+    def _fk_serial():
+        for i in range(N):
+            tg = chain.forward_kinematics(th_batch[i])
+            m = tg.get_matrix()
+
+    dt_serial = timeit(_fk_serial, number=number) / number
+    print("elapsed {}s for N={} when serial".format(dt_serial, N))
+
+    # assert torch.allclose(tg.get_matrix().view(4, 4), m[i])
+
+
+# test robot with prismatic and fixed joints
+def test_fk_simple_arm():
+    chain = pk.build_chain_from_sdf(open(os.path.join(TEST_DIR, "simple_arm.sdf")).read())
+    chain = chain.to(dtype=torch.float64)
+    # print(chain)
+    # print(chain.get_joint_parameter_names())
+    ret = chain.forward_kinematics({
+        'arm_shoulder_pan_joint': 0.,
+        'arm_elbow_pan_joint': math.pi / 2.0,
+        'arm_wrist_lift_joint': -0.5,
+        'arm_wrist_roll_joint': 0.,
+    })
+    tg = ret['arm_wrist_roll']
+    pos, rot = quat_pos_from_transform3d(tg)
+    assert quaternion_close(rot, torch.tensor([0.70710678, 0., 0., 0.70710678], dtype=torch.float64))
+    assert torch.allclose(pos, torch.tensor([1.05, 0.55, 0.5], dtype=torch.float64))
+
+    N = 100
+    ret = chain.forward_kinematics({k: torch.rand(N) for k in chain.get_joint_parameter_names()})
+    tg = ret['arm_wrist_roll']
+    assert list(tg.get_matrix().shape) == [N, 4, 4]
+
+
+def test_sdf_serial_chain():
+    chain = pk.build_serial_chain_from_sdf(open(os.path.join(TEST_DIR, "simple_arm.sdf")).read(), 'arm_wrist_roll')
+    chain = chain.to(dtype=torch.float64)
+    tg = chain.forward_kinematics([0., math.pi / 2.0, -0.5, 0.])
+    pos, rot = quat_pos_from_transform3d(tg)
+    assert quaternion_close(rot, torch.tensor([0.70710678, 0., 0., 0.70710678], dtype=torch.float64))
+    assert torch.allclose(pos, torch.tensor([1.05, 0.55, 0.5], dtype=torch.float64))
+
+
+def test_cuda():
+    if torch.cuda.is_available():
+        d = "cuda"
+        dtype = torch.float64
+        chain = pk.build_chain_from_sdf(open(os.path.join(TEST_DIR, "simple_arm.sdf")).read())
+        # noinspection PyUnusedLocal
+        chain = chain.to(dtype=dtype, device=d)
+
+        # NOTE: do it twice because we previously had an issue with default arguments
+        #  like joint=Joint() causing spooky behavior
+        chain = pk.build_chain_from_sdf(open(os.path.join(TEST_DIR, "simple_arm.sdf")).read())
+        chain = chain.to(dtype=dtype, device=d)
+
+        ret = chain.forward_kinematics({
+            'arm_shoulder_pan_joint': 0,
+            'arm_elbow_pan_joint': math.pi / 2.0,
+            'arm_wrist_lift_joint': -0.5,
+            'arm_wrist_roll_joint': 0,
+        })
+        tg = ret['arm_wrist_roll']
+        pos, rot = quat_pos_from_transform3d(tg)
+        assert quaternion_close(rot, torch.tensor([0.70710678, 0., 0., 0.70710678], dtype=dtype, device=d))
+        assert torch.allclose(pos, torch.tensor([1.05, 0.55, 0.5], dtype=dtype, device=d))
+
+        data = '<robot name="test_robot">' \
+               '<link name="link1" />' \
+               '<link name="link2" />' \
+               '<link name="link3" />' \
+               '<joint name="joint1" type="revolute">' \
+               '<origin xyz="1.0 0.0 0.0"/>' \
+               '<parent link="link1"/>' \
+               '<child link="link2"/>' \
+               '</joint>' \
+               '<joint name="joint2" type="revolute">' \
+               '<origin xyz="1.0 0.0 0.0"/>' \
+               '<parent link="link2"/>' \
+               '<child link="link3"/>' \
+               '</joint>' \
+               '</robot>'
+        chain = pk.build_serial_chain_from_urdf(data, 'link3')
+        chain = chain.to(dtype=dtype, device=d)
+        N = 20
+        th_batch = torch.rand(N, 2).to(device=d, dtype=dtype)
+        tg_batch = chain.forward_kinematics(th_batch)
+        m = tg_batch.get_matrix()
+        for i in range(N):
+            tg = chain.forward_kinematics(th_batch[i])
+            assert torch.allclose(tg.get_matrix().view(4, 4), m[i])
+
+
+# FIXME: comment out because compound joints are no longer implemented
+# def test_fk_mjcf_humanoid():
+#     chain = pk.build_chain_from_mjcf(open(os.path.join(TEST_DIR, "humanoid.xml")).read())
+#     print(chain)
+#     print(chain.get_joint_parameter_names())
+#     th = {'left_knee': 0.0, 'right_knee': 0.0}
+#     ret = chain.forward_kinematics(th)
+#     print(ret)
+
+
+def test_mjcf_slide_joint_parsing():
+    # just testing that we can parse it without error
+    # the slide joint is not actually of a link to another link, but instead of the base to the world
+    # which we do not represent
+    chain = pk.build_chain_from_mjcf(open(os.path.join(TEST_DIR, "hopper.xml")).read())
+    print(chain.get_joint_parameter_names())
+    print(chain.get_frame_names())
+
+
+def test_fk_val():
+    chain = pk.build_chain_from_mjcf(open(os.path.join(TEST_DIR, "val.xml")).read())
+    chain = chain.to(dtype=torch.float64)
+    ret = chain.forward_kinematics(torch.zeros([1000, chain.n_joints], dtype=torch.float64))
+    tg = ret['drive45']
+    pos, rot = quat_pos_from_transform3d(tg)
+    torch.set_printoptions(precision=6, sci_mode=False)
+    assert quaternion_close(rot, torch.tensor([0.5, 0.5, -0.5, 0.5], dtype=torch.float64))
+    assert torch.allclose(pos, torch.tensor([-0.225692, 0.259045, 0.262139], dtype=torch.float64))
+
+
+def test_fk_partial_batched_dict():
+    # Test that you can pass in dict of batched joint configs for a subset of the joints
+    chain = pk.build_serial_chain_from_mjcf(open(os.path.join(TEST_DIR, "val.xml")).read(), 'left_tool')
+    th = {
+        'joint56': torch.zeros([1000], dtype=torch.float64),
+        'joint57': torch.zeros([1000], dtype=torch.float64),
+        'joint41': torch.zeros([1000], dtype=torch.float64),
+        'joint42': torch.zeros([1000], dtype=torch.float64),
+        'joint43': torch.zeros([1000], dtype=torch.float64),
+        'joint44': torch.zeros([1000], dtype=torch.float64),
+        'joint45': torch.zeros([1000], dtype=torch.float64),
+        'joint46': torch.zeros([1000], dtype=torch.float64),
+        'joint47': torch.zeros([1000], dtype=torch.float64),
+    }
+    chain = chain.to(dtype=torch.float64)
+    tg = chain.forward_kinematics(th)
+
+
+def test_fk_partial_batched():
+    # Test that you can pass in dict of batched joint configs for a subset of the joints
+    chain = pk.build_serial_chain_from_mjcf(open(os.path.join(TEST_DIR, "val.xml")).read(), 'left_tool')
+    th = torch.zeros([1000, 9], dtype=torch.float64)
+    chain = chain.to(dtype=torch.float64)
+    tg = chain.forward_kinematics(th)
+
+
+def test_ur5_fk():
+    urdf = os.path.join(TEST_DIR, "ur5.urdf")
+    pk_chain = pk.build_serial_chain_from_urdf(open(urdf).read(), 'ee_link', 'base_link')
+    th = [0.0, -math.pi / 4.0, 0.0, math.pi / 2.0, 0.0, math.pi / 4.0]
+
+    try:
+        import ikpy.chain
+        ik_chain = ikpy.chain.Chain.from_urdf_file(urdf,
+                                                   active_links_mask=[False, True, True, True, True, True, True, False])
+        ik_ret = ik_chain.forward_kinematics([0, *th, 0])
+    except ImportError:
+        ik_ret = [[-6.44330720e-18, 3.58979314e-09, -1.00000000e+00, 5.10955359e-01],
+                  [1.00000000e+00, 1.79489651e-09, 0.00000000e+00, 1.91450000e-01],
+                  [1.79489651e-09, -1.00000000e+00, -3.58979312e-09, 6.00114361e-01],
+                  [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]
+
+    ret = pk_chain.forward_kinematics(th, end_only=True)
+    print(ret.get_matrix())
+    ik_ret = torch.tensor(ik_ret, dtype=ret.dtype)
+    print(ik_ret)
+    assert torch.allclose(ik_ret, ret.get_matrix(), atol=1e-6)
+
+
+def test_compile_jacobian():
+    """Test that jacobian_tensor works with torch.compile(fullgraph=True)"""
+    if not hasattr(torch, 'compile'):
+        return  # skip on PyTorch < 2.0
+
+    # Test with URDF (revolute joints only) - Kuka
+    chain = pk.build_serial_chain_from_urdf(
+        open(os.path.join(TEST_DIR, "kuka_iiwa.urdf")).read(), "lbr_iiwa_link_7")
+    chain = chain.to(dtype=torch.float64)
+    th = torch.randn(8, 7, dtype=torch.float64)
+
+    eager_J = chain.jacobian_tensor(th)
+    compiled_fn = torch.compile(chain.jacobian_tensor, fullgraph=True)
+    compiled_J = compiled_fn(th)
+    assert torch.allclose(eager_J, compiled_J, atol=1e-10)
+
+    # Test with prismatic joints (simple_arm via SDF)
+    chain2 = pk.build_serial_chain_from_sdf(
+        open(os.path.join(TEST_DIR, "simple_arm.sdf")).read(), "arm_wrist_roll")
+    chain2 = chain2.to(dtype=torch.float64)
+    th2 = torch.randn(8, 4, dtype=torch.float64)
+
+    eager_J2 = chain2.jacobian_tensor(th2)
+    compiled_fn2 = torch.compile(chain2.jacobian_tensor, fullgraph=True)
+    compiled_J2 = compiled_fn2(th2)
+    assert torch.allclose(eager_J2, compiled_J2, atol=1e-10)
+
+    # Test gradients through compiled Jacobian
+    th_grad = torch.randn(4, 7, dtype=torch.float64, requires_grad=True)
+    th_grad2 = th_grad.detach().clone().requires_grad_(True)
+
+    eager_out = chain.jacobian_tensor(th_grad)
+    eager_out.sum().backward()
+
+    compiled_out = compiled_fn(th_grad2)
+    compiled_out.sum().backward()
+
+    assert torch.allclose(th_grad.grad, th_grad2.grad, atol=1e-10)
+
+
+def test_compile_fk():
+    """Test that forward_kinematics_tensor works with torch.compile(fullgraph=True)"""
+    if not hasattr(torch, 'compile'):
+        return  # skip on PyTorch < 2.0
+
+    # Test with URDF (revolute joints only)
+    chain = pk.build_chain_from_urdf(open(os.path.join(TEST_DIR, "kuka_iiwa.urdf")).read())
+    chain = chain.to(dtype=torch.float64)
+
+    th = torch.randn(8, chain.n_joints, dtype=torch.float64)
+
+    eager_result = chain.forward_kinematics_tensor(th)
+    compiled_fn = torch.compile(chain.forward_kinematics_tensor, fullgraph=True)
+    compiled_result = compiled_fn(th)
+    assert torch.allclose(eager_result, compiled_result, atol=1e-10)
+
+    # Test with SDF (has prismatic and fixed joints)
+    chain2 = pk.build_chain_from_sdf(open(os.path.join(TEST_DIR, "simple_arm.sdf")).read())
+    chain2 = chain2.to(dtype=torch.float64)
+    th2 = torch.randn(8, chain2.n_joints, dtype=torch.float64)
+
+    eager2 = chain2.forward_kinematics_tensor(th2)
+    compiled_fn2 = torch.compile(chain2.forward_kinematics_tensor, fullgraph=True)
+    compiled2 = compiled_fn2(th2)
+    assert torch.allclose(eager2, compiled2, atol=1e-10)
+
+    # Test with MJCF (branching tree)
+    chain3 = pk.build_chain_from_mjcf(open(os.path.join(TEST_DIR, "ant.xml")).read())
+    chain3 = chain3.to(dtype=torch.float64)
+    th3 = torch.randn(8, chain3.n_joints, dtype=torch.float64)
+
+    eager3 = chain3.forward_kinematics_tensor(th3)
+    compiled_fn3 = torch.compile(chain3.forward_kinematics_tensor, fullgraph=True)
+    compiled3 = compiled_fn3(th3)
+    assert torch.allclose(eager3, compiled3, atol=1e-10)
+
+    # Test gradients through compiled FK
+    th_grad = torch.randn(4, chain.n_joints, dtype=torch.float64, requires_grad=True)
+    th_grad2 = th_grad.detach().clone().requires_grad_(True)
+
+    eager_out = chain.forward_kinematics_tensor(th_grad)
+    eager_out.sum().backward()
+
+    compiled_out = compiled_fn(th_grad2)
+    compiled_out.sum().backward()
+
+    assert torch.allclose(th_grad.grad, th_grad2.grad, atol=1e-10)
+
+
+def test_compile_rotation_conversions():
+    """Test that rotation conversion functions work with torch.compile(fullgraph=True)"""
+    if not hasattr(torch, 'compile'):
+        return  # skip on PyTorch < 2.0
+
+    from pytorch_kinematics.transforms import rotation_conversions
+
+    # Test matrix_to_quaternion
+    R = rotation_conversions.random_rotations(16, dtype=torch.float64)
+    eager_q = rotation_conversions.matrix_to_quaternion(R)
+    compiled_m2q = torch.compile(rotation_conversions.matrix_to_quaternion, fullgraph=True)
+    compiled_q = compiled_m2q(R)
+    assert torch.allclose(eager_q, compiled_q, atol=1e-10)
+
+    # Test quaternion_to_axis_angle
+    q = rotation_conversions.random_quaternions(16, dtype=torch.float64)
+    eager_aa = rotation_conversions.quaternion_to_axis_angle(q)
+    compiled_q2aa = torch.compile(rotation_conversions.quaternion_to_axis_angle, fullgraph=True)
+    compiled_aa = compiled_q2aa(q)
+    assert torch.allclose(eager_aa, compiled_aa, atol=1e-10)
+
+    # Test axis_angle_to_quaternion
+    aa = torch.randn(16, 3, dtype=torch.float64)
+    eager_q2 = rotation_conversions.axis_angle_to_quaternion(aa)
+    compiled_aa2q = torch.compile(rotation_conversions.axis_angle_to_quaternion, fullgraph=True)
+    compiled_q2 = compiled_aa2q(aa)
+    assert torch.allclose(eager_q2, compiled_q2, atol=1e-10)
+
+    # Test round-trip: matrix -> quaternion -> axis_angle -> quaternion -> matrix
+    R2 = rotation_conversions.random_rotations(16, dtype=torch.float64)
+
+    def round_trip(R):
+        q = rotation_conversions.matrix_to_quaternion(R)
+        aa = rotation_conversions.quaternion_to_axis_angle(q)
+        q2 = rotation_conversions.axis_angle_to_quaternion(aa)
+        return rotation_conversions.quaternion_to_matrix(q2)
+
+    eager_rt = round_trip(R2)
+    compiled_rt = torch.compile(round_trip, fullgraph=True)(R2)
+    assert torch.allclose(eager_rt, compiled_rt, atol=1e-10)
+
+
+def test_compile_ik_step():
+    """Test that the fused IK step kernel works with torch.compile(fullgraph=True)"""
+    if not hasattr(torch, 'compile'):
+        return  # skip on PyTorch < 2.0
+
+    from pytorch_kinematics.ik import _ik_step_kernel
+
+    N, M, DOF = 4, 3, 7
+    m_flat = torch.eye(4, dtype=torch.float64).unsqueeze(0).expand(N * M, -1, -1).contiguous()
+    # Add some random rotation to make it realistic
+    from pytorch_kinematics.transforms import rotation_conversions
+    R = rotation_conversions.random_rotations(N * M, dtype=torch.float64)
+    m_flat = m_flat.clone()
+    m_flat[:, :3, :3] = R
+    m_flat[:, :3, 3] = torch.randn(N * M, 3, dtype=torch.float64)
+
+    target_pos = torch.randn(N, 3, dtype=torch.float64)
+    target_wxyz = rotation_conversions.random_quaternions(N, dtype=torch.float64)
+    J = torch.randn(N * M, 6, DOF, dtype=torch.float64)
+    reg_matrix = 1e-9 * torch.eye(6, dtype=torch.float64)
+
+    eager_dq, eager_dx = _ik_step_kernel(m_flat, target_pos, target_wxyz, J, reg_matrix, M)
+    compiled_fn = torch.compile(_ik_step_kernel, fullgraph=True)
+    compiled_dq, compiled_dx = compiled_fn(m_flat, target_pos, target_wxyz, J, reg_matrix, M)
+
+    assert torch.allclose(eager_dq, compiled_dq, atol=1e-10)
+    assert torch.allclose(eager_dx, compiled_dx, atol=1e-10)
+
+
+def test_analytical_grad_revolute():
+    """Test analytical FK gradient against finite differences (revolute-only chain)."""
+    chain = pk.build_serial_chain_from_urdf(
+        open(os.path.join(TEST_DIR, "kuka_iiwa.urdf")).read(), "lbr_iiwa_link_7")
+    chain = chain.to(dtype=torch.float64)
+
+    th = torch.tensor([[0.1, -0.3, 0.2, 0.8, -0.1, 0.5, -0.2]], dtype=torch.float64)
+
+    # Loss that exercises both position and rotation gradients
+    def compute_loss(q):
+        T = chain.forward_kinematics_tensor(q)
+        return T[:, :, :3, 3].sum() + T[:, :, :3, :3].diagonal(dim1=-2, dim2=-1).sum()
+
+    # Analytical gradient (our custom backward)
+    q_a = th.detach().clone().requires_grad_(True)
+    compute_loss(q_a).backward()
+    grad_analytical = q_a.grad.clone()
+
+    # Finite difference gradient
+    eps = 1e-6
+    grad_fd = torch.zeros_like(th)
+    for j in range(th.shape[1]):
+        q_plus = th.clone(); q_plus[0, j] += eps
+        q_minus = th.clone(); q_minus[0, j] -= eps
+        grad_fd[0, j] = (compute_loss(q_plus) - compute_loss(q_minus)) / (2 * eps)
+
+    assert torch.allclose(grad_analytical, grad_fd, atol=1e-5), \
+        f"Max diff: {(grad_analytical - grad_fd).abs().max()}"
+
+
+def test_analytical_grad_prismatic():
+    """Test analytical FK gradient against finite differences (mixed revolute+prismatic)."""
+    chain = pk.build_chain_from_urdf(
+        open(os.path.join(TEST_DIR, "prismatic_robot.urdf")).read())
+    chain = chain.to(dtype=torch.float64)
+
+    th = torch.tensor([[0.1, 0.2, -0.1]], dtype=torch.float64)
+
+    def compute_loss(q):
+        T = chain.forward_kinematics_tensor(q)
+        return T[:, :, :3, 3].sum() + T[:, :, :3, :3].diagonal(dim1=-2, dim2=-1).sum()
+
+    q_a = th.detach().clone().requires_grad_(True)
+    compute_loss(q_a).backward()
+    grad_analytical = q_a.grad.clone()
+
+    eps = 1e-6
+    grad_fd = torch.zeros_like(th)
+    for j in range(th.shape[1]):
+        q_plus = th.clone(); q_plus[0, j] += eps
+        q_minus = th.clone(); q_minus[0, j] -= eps
+        grad_fd[0, j] = (compute_loss(q_plus) - compute_loss(q_minus)) / (2 * eps)
+
+    assert torch.allclose(grad_analytical, grad_fd, atol=1e-5), \
+        f"Max diff: {(grad_analytical - grad_fd).abs().max()}"
+
+
+def test_analytical_grad_batched():
+    """Test analytical FK gradient with batched configs (B > 1)."""
+    chain = pk.build_serial_chain_from_urdf(
+        open(os.path.join(TEST_DIR, "kuka_iiwa.urdf")).read(), "lbr_iiwa_link_7")
+    chain = chain.to(dtype=torch.float64)
+
+    B = 4
+    th = torch.randn(B, 7, dtype=torch.float64)
+
+    def compute_loss(q):
+        T = chain.forward_kinematics_tensor(q)
+        return T[:, :, :3, 3].sum() + T[:, :, :3, :3].diagonal(dim1=-2, dim2=-1).sum()
+
+    q_a = th.detach().clone().requires_grad_(True)
+    compute_loss(q_a).backward()
+    grad_analytical = q_a.grad.clone()
+
+    eps = 1e-6
+    grad_fd = torch.zeros_like(th)
+    for b in range(B):
+        for j in range(th.shape[1]):
+            q_plus = th.clone(); q_plus[b, j] += eps
+            q_minus = th.clone(); q_minus[b, j] -= eps
+            grad_fd[b, j] = (compute_loss(q_plus) - compute_loss(q_minus)) / (2 * eps)
+
+    assert torch.allclose(grad_analytical, grad_fd, atol=1e-5), \
+        f"Max diff: {(grad_analytical - grad_fd).abs().max()}"
+
+
+if __name__ == "__main__":
+    test_fk_partial_batched()
+    test_fk_partial_batched_dict()
+    test_fk_val()
+    test_sdf_serial_chain()
+    test_urdf_serial()
+    test_fkik()
+    test_fk_simple_arm()
+    test_fk_mjcf()
+    test_cuda()
+    test_urdf()
+    # test_fk_mjcf_humanoid()
+    test_mjcf_slide_joint_parsing()
+    test_ur5_fk()

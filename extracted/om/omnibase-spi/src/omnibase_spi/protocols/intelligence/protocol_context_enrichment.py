@@ -21,8 +21,6 @@ Example:
     >>> assert isinstance(MyEnricher(), ProtocolContextEnrichment)
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
@@ -58,7 +56,7 @@ class ProtocolContextEnrichment(Protocol):
         self,
         prompt: str,
         context: str,
-    ) -> ContractEnrichmentResult:
+    ) -> "ContractEnrichmentResult":
         """Enrich a prompt with relevant context.
 
         Analyzes the provided context in relation to the prompt and

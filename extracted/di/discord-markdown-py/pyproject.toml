@@ -1,0 +1,13 @@
+[project]
+name = "discord-markdown-py"
+dependencies = ["cffi"]
+version = "0.2.1"
+requires-python = ">=3.8"
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+module-name = "discord_markdown"
+manifest-path = "ffi/py/Cargo.toml"

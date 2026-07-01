@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2019-2025 Mike Fährmann
+# Copyright 2019-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -29,15 +29,20 @@ class IssuuPublicationExtractor(IssuuBase, GalleryExtractor):
     example = "https://issuu.com/issuu/docs/TITLE/"
 
     def metadata(self, page):
-
         data = text.extr(
-            page, '{\\"documentTextVersion\\":', ']\\n"])</script>')
-        data = util.json_loads(text.unescape(
-            '{"":' + data.replace('\\"', '"')))
+            page, '\\"initialDocumentData\\":', ',\\"initialPageNumber')
+        data = util.json_loads(text.unescape(data.replace('\\"', '"')))
 
-        doc = data["initialDocumentData"]["document"]
+        doc = data["document"]
         doc["date"] = self.parse_datetime_iso(
             doc["originalPublishDateInISOString"])
+
+        try:
+            path = doc.pop("path")
+            doc["username"] = path["username"]
+            doc["documentName"] = path["documentName"]
+        except Exception as exc:
+            self.log.traceback(exc)
 
         self.count = text.parse_int(doc["pageCount"])
         self.base = (f"https://image.isu.pub/{doc['revisionId']}-"
@@ -58,15 +63,15 @@ class IssuuUserExtractor(IssuuBase, Extractor):
 
     def items(self):
         user, pnum = self.groups
-        base = self.root + "/" + user
+        base = f"{self.root}/{user}"
         pnum = text.parse_int(pnum, 1)
 
         while True:
-            url = base + "/" + str(pnum) if pnum > 1 else base
+            url = f"{base}/{pnum}" if pnum > 1 else base
             try:
                 html = self.request(url).text
-                data = text.extr(html, '\\"docs\\":', '}]\\n"]')
-                docs = util.json_loads(data.replace('\\"', '"'))
+                data = text.extr(html, '\\"docs\\":', '}],')
+                docs = util.json_loads(data.replace('\\"', '"') + "}]")
             except Exception as exc:
                 self.log.traceback(exc)
                 return

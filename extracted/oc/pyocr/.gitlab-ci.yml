@@ -1,0 +1,40 @@
+image: debian:bullseye
+
+
+.apt: &apt
+  before_script:
+    - apt-get update
+    # WORKAROUND: manpages is required to install some of the openjdk-jre
+    # and openjdk-jre is required for plantuml, which is required to generate
+    # documentation
+    - mkdir -p /usr/share/man/man1
+    - apt-get install -y -qq git
+    - apt-get install -y -qq make
+    - apt-get install -y -qq python3
+    - apt-get install -y -qq python3-pip
+
+
+check:
+  only:
+    - branches@World/OpenPaperwork/pyocr
+    - tags@World/OpenPaperwork/pyocr
+  <<: *apt
+  script:
+    - pip install ".[lint]"
+    - make check
+
+
+test:
+  only:
+    - branches@World/OpenPaperwork/pyocr
+    - tags@World/OpenPaperwork/pyocr
+  <<: *apt
+  script:
+    # required for Pillow
+    - apt-get install -y -qq zlib1g-dev
+    - apt-get install -y -qq libjpeg-dev
+    - apt-get install -y -qq libpng-dev
+    - apt-get install -y -qq build-essential gcc
+    - apt-get install -y -qq python3-dev
+    - pip install ".[dev]"
+    - make test

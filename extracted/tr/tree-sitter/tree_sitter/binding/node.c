@@ -1,5 +1,7 @@
 #include "types.h"
 
+PyObject *point_new_internal(ModuleState *state, TSPoint point);
+
 PyObject *node_new_internal(ModuleState *state, TSNode node, PyObject *tree) {
     Node *self = PyObject_New(Node, state->node_type);
     if (self == NULL) {
@@ -71,7 +73,7 @@ PyObject *node_edit(Node *self, PyObject *args, PyObject *kwargs) {
                                      &old_end_byte, &new_end_byte, &start_row, &start_column,
                                      &old_end_row, &old_end_column, &new_end_row,
                                      &new_end_column)) {
-        Py_RETURN_NONE;
+        return NULL;
     }
 
     TSInputEdit edit = {
@@ -325,7 +327,7 @@ PyObject *node_child_with_descendant(Node *self, PyObject *args) {
         return NULL;
     }
 
-    TSNode child = ts_node_child_with_descendant(self->node, ((Node *) descendant)->node);
+    TSNode child = ts_node_child_with_descendant(self->node, ((Node *)descendant)->node);
     if (ts_node_is_null(child)) {
         Py_RETURN_NONE;
     }
@@ -385,11 +387,11 @@ PyObject *node_get_is_missing(Node *self, void *Py_UNUSED(payload)) {
 }
 
 PyObject *node_get_start_byte(Node *self, void *Py_UNUSED(payload)) {
-    return PyLong_FromSize_t((size_t)ts_node_start_byte(self->node));
+    return PyLong_FromUnsignedLong(ts_node_start_byte(self->node));
 }
 
 PyObject *node_get_end_byte(Node *self, void *Py_UNUSED(payload)) {
-    return PyLong_FromSize_t((size_t)ts_node_end_byte(self->node));
+    return PyLong_FromUnsignedLong(ts_node_end_byte(self->node));
 }
 
 PyObject *node_get_byte_range(Node *self, void *Py_UNUSED(payload)) {
@@ -427,12 +429,12 @@ PyObject *node_get_range(Node *self, void *Py_UNUSED(payload)) {
 
 PyObject *node_get_start_point(Node *self, void *Py_UNUSED(payload)) {
     TSPoint point = ts_node_start_point(self->node);
-    return POINT_NEW(GET_MODULE_STATE(self), point);
+    return point_new_internal(GET_MODULE_STATE(self), point);
 }
 
 PyObject *node_get_end_point(Node *self, void *Py_UNUSED(payload)) {
     TSPoint point = ts_node_end_point(self->node);
-    return POINT_NEW(GET_MODULE_STATE(self), point);
+    return point_new_internal(GET_MODULE_STATE(self), point);
 }
 
 PyObject *node_get_children(Node *self, void *Py_UNUSED(payload)) {
@@ -558,13 +560,13 @@ PyObject *node_get_text(Node *self, void *Py_UNUSED(payload)) {
     }
 
     PyObject *result = NULL;
-    size_t start_offset = (size_t)ts_node_start_byte(self->node);
-    size_t end_offset = (size_t)ts_node_end_byte(self->node);
+    uint32_t start_offset = ts_node_start_byte(self->node),
+             end_offset = ts_node_end_byte(self->node);
 
     // Case 1: source is a byte buffer
     if (!PyCallable_Check(tree->source)) {
-        PyObject *start_byte = PyLong_FromSize_t(start_offset),
-                 *end_byte = PyLong_FromSize_t(end_offset);
+        PyObject *start_byte = PyLong_FromUnsignedLong(start_offset),
+                 *end_byte = PyLong_FromUnsignedLong(end_offset);
         PyObject *slice = PySlice_New(start_byte, end_byte, NULL);
         Py_XDECREF(start_byte);
         Py_XDECREF(end_byte);
@@ -597,13 +599,12 @@ PyObject *node_get_text(Node *self, void *Py_UNUSED(payload)) {
         TSPoint current_point = start_point;
 
         for (size_t current_offset = start_offset; current_offset < end_offset;) {
-            // Form arguments to callable.
             PyObject *byte_offset_obj = PyLong_FromSize_t(current_offset);
             if (!byte_offset_obj) {
                 Py_DECREF(collected_bytes);
                 return NULL;
             }
-            PyObject *position_obj = POINT_NEW(GET_MODULE_STATE(self), current_point);
+            PyObject *position_obj = point_new_internal(GET_MODULE_STATE(self), current_point);
             if (!position_obj) {
                 Py_DECREF(byte_offset_obj);
                 Py_DECREF(collected_bytes);
@@ -614,7 +615,6 @@ PyObject *node_get_text(Node *self, void *Py_UNUSED(payload)) {
             Py_XDECREF(byte_offset_obj);
             Py_XDECREF(position_obj);
 
-            // Call callable.
             PyObject *rv = PyObject_Call(tree->source, args, NULL);
             Py_XDECREF(args);
 
@@ -634,10 +634,10 @@ PyObject *node_get_text(Node *self, void *Py_UNUSED(payload)) {
             }
             collected_bytes = new_collected_bytes;
 
-            // Update current_point and current_offset
-            Py_ssize_t bytes_read = PyBytes_Size(rv);
-            const char *rv_str = PyBytes_AsString(rv);  // Retrieve the string pointer once
-            for (Py_ssize_t i = 0; i < bytes_read; ++i) {
+            size_t bytes_read = (size_t)PyBytes_Size(rv);
+            const char *rv_str = PyBytes_AsString(rv);
+            Py_XDECREF(rv);
+            for (size_t i = 0; i < bytes_read; ++i) {
                 if (rv_str[i] == '\n') {
                     ++current_point.row;
                     current_point.column = 0;

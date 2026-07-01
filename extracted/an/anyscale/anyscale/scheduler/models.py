@@ -1,8 +1,13 @@
 from dataclasses import dataclass, field, fields
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, ClassVar, Dict, List, Optional
 
 from anyscale._private.models import ModelBase, ModelEnum
+
+
+# Quota values are fractional but capped at this many decimal places.
+_MAX_QUOTA_DECIMAL_PLACES = 3
 
 
 # --- Enum helpers ---
@@ -137,6 +142,22 @@ def _validate_non_negative_int(name: str, value: Optional[int]):
             raise ValueError(f"'{name}' must be >= 0.")
 
 
+def _validate_non_negative_quota(name: str, value: Optional[float]):
+    """Non-negative number with at most _MAX_QUOTA_DECIMAL_PLACES decimals; rejects bool."""
+    if value is None:
+        return
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise TypeError(f"'{name}' must be a number.")
+    if value < 0:
+        raise ValueError(f"'{name}' must be >= 0.")
+    # For finite values .exponent is an int (= -decimal_places).
+    exponent = Decimal(str(value)).as_tuple().exponent
+    if isinstance(exponent, int) and -exponent > _MAX_QUOTA_DECIMAL_PLACES:
+        raise ValueError(
+            f"'{name}' supports at most {_MAX_QUOTA_DECIMAL_PLACES} decimal places."
+        )
+
+
 def _coerce_list(name: str, value, item_cls):
     """Validate a list and return a new list with dict items coerced to item_cls."""
     if value is None:
@@ -170,7 +191,7 @@ def _filter_known(cls, d: Dict[str, Any]) -> Dict[str, Any]:
 
 @dataclass(frozen=True)
 class MatchExpression(ModelBase):
-    """A structured label-match used in scheduling-rule selectors and flavor requirements."""
+    """A structured label-match used in scheduling-rule and flavor selectors."""
 
     __doc_py_example__ = """\
 from anyscale.scheduler.models import MatchExpression, Operator
@@ -224,14 +245,14 @@ expr = MatchExpression(key="team", operator=Operator.IN, values=["research", "ml
 
 @dataclass(frozen=True)
 class ResourceFlavor(ModelBase):
-    """A named flavor with optional match-expression requirements and advanced launch overrides."""
+    """A named flavor with an optional match-expression selector and advanced launch overrides."""
 
     __doc_py_example__ = """\
 from anyscale.scheduler.models import ResourceFlavor, MatchExpression, Operator
 
 flavor = ResourceFlavor(
     name="spot",
-    requirements=[
+    selector=[
         MatchExpression(key="market", operator=Operator.IN, values=["spot"]),
     ],
 )
@@ -243,17 +264,17 @@ flavor = ResourceFlavor(
         if not isinstance(name, str) or not name.strip():
             raise ValueError("'name' must be a non-empty string.")
 
-    requirements: Optional[List[MatchExpression]] = field(
+    selector: Optional[List[MatchExpression]] = field(
         default=None,
         metadata={
             "docstring": "Match expressions describing which instances satisfy this flavor."
         },
     )
 
-    def _validate_requirements(
-        self, requirements: Optional[List[MatchExpression]]
+    def _validate_selector(
+        self, selector: Optional[List[MatchExpression]]
     ) -> Optional[List[MatchExpression]]:
-        return _coerce_list("requirements", requirements, MatchExpression)
+        return _coerce_list("selector", selector, MatchExpression)
 
     advanced_instance_config: Optional[Dict[str, Any]] = field(
         default=None,
@@ -273,11 +294,11 @@ flavor = ResourceFlavor(
     @classmethod
     def from_api_dict(cls, d: Dict[str, Any]) -> "ResourceFlavor":
         filtered = _filter_known(cls, d)
-        reqs = filtered.get("requirements")
-        if isinstance(reqs, list):
-            filtered["requirements"] = [
+        sel = filtered.get("selector")
+        if isinstance(sel, list):
+            filtered["selector"] = [
                 MatchExpression.from_api_dict(r) if isinstance(r, dict) else r
-                for r in reqs
+                for r in sel
             ]
         return cls(**filtered)
 
@@ -298,15 +319,15 @@ quota = ResourceQuotaSpec(name="gpu", nominal_quota=64)
         if not isinstance(name, str) or not name.strip():
             raise ValueError("'name' must be a non-empty string.")
 
-    nominal_quota: int = field(
-        metadata={"docstring": "Guaranteed capacity for this queue+flavor+resource."}
+    nominal_quota: float = field(
+        metadata={
+            "docstring": "Guaranteed capacity for this queue+flavor+resource. "
+            "Fractional values are allowed (up to 3 decimal places)."
+        }
     )
 
-    def _validate_nominal_quota(self, nominal_quota: int):
-        if not isinstance(nominal_quota, int) or isinstance(nominal_quota, bool):
-            raise TypeError("'nominal_quota' must be an integer.")
-        if nominal_quota < 0:
-            raise ValueError("'nominal_quota' must be >= 0.")
+    def _validate_nominal_quota(self, nominal_quota: float):
+        _validate_non_negative_quota("nominal_quota", nominal_quota)
 
     @classmethod
     def from_api_dict(cls, d: Dict[str, Any]) -> "ResourceQuotaSpec":
@@ -657,7 +678,7 @@ anyscale.scheduler.apply_config(config)
     __doc_yaml_example__ = """\
 resource_flavors:
   - name: spot
-    requirements:
+    selector:
       - key: market
         operator: in
         values: [spot]

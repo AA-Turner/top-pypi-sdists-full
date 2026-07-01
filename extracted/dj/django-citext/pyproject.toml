@@ -1,0 +1,102 @@
+[build-system]
+requires = ["flit_core>=3.2", "flit_scm", "wheel"]
+build-backend = "flit_scm:buildapi"
+
+[project]
+name = "django-citext"
+authors = [
+  { name = "Johannes Maron", email = "johannes@maron.family" },
+  { name = "Jörg Benesch", email = "benesch.joerg@gmail.com" },
+  { name = "Rust Saiargaliev", email = "fly.amureki@gmail.com" }
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+keywords = ["PostgreSQL", "Django", "CITEXT", "Case Insensitive", "postgres"]
+dynamic = ["version", "description"]
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Programming Language :: Python",
+  "Environment :: Web Environment",
+  "License :: OSI Approved :: BSD License",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Database",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Framework :: Django",
+  "Framework :: Django :: 4.2",
+  "Framework :: Django :: 5.1",
+  "Framework :: Django :: 5.2",
+]
+requires-python = ">=3.9"
+dependencies = [
+  "django",
+  "psycopg>=3.1.8; extra != 'psycopg2'",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "pytest-cov",
+  "pytest-django",
+]
+psycopg2 = ["psycopg2-binary"]
+bakery = ["model-bakery"]
+
+[project.urls]
+Project-URL = "https://github.com/voiio/django-citext"
+Changelog = "https://github.com/voiio/django-citext/releases"
+
+[tool.flit.module]
+name = "citext"
+
+[tool.setuptools_scm]
+write_to = "citext/_version.py"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--cov --tb=short -rxs"
+testpaths = ["tests"]
+DJANGO_SETTINGS_MODULE = "tests.testapp.settings"
+
+[tool.coverage.run]
+source = ["citext"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.ruff]
+src = ["emark", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "F", # pyflakes
+    "I", # isort
+    "S", # flake8-bandit
+    "D", # pydocstyle
+    "UP", # pyupgrade
+    "B", # flake8-bugbear
+    "C", # flake8-comprehensions
+]
+
+ignore = ["B904", "D1", "D212", "E501", "S101", "UP031"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+split-on-trailing-comma = true
+known-first-party = ["citext", "tests"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+force-wrap-aliases = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"

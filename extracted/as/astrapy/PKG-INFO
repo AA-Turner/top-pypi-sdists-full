@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: astrapy
-Version: 2.2.1
+Version: 2.3.0
 Summary: A Python client for the Data API on DataStax Astra DB
 Project-URL: Homepage, https://github.com/datastax/astrapy
 Project-URL: Documentation, https://docs.datastax.com/en/astra-db-serverless/api-reference/dataapiclient.html
@@ -13,14 +13,13 @@ Keywords: Astra,Astra DB,DataStax
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Build Tools
-Requires-Python: <4.0,>=3.9
+Requires-Python: <4.0,>=3.10
 Requires-Dist: deprecation~=2.1.0
 Requires-Dist: h11>=0.16.0
 Requires-Dist: httpx[http2]<1,>=0.25.2
@@ -68,8 +67,8 @@ my_collection = my_database.create_collection(
     "dreams_collection",
     definition=(
         CollectionDefinition.builder()
-        .set_vector_dimension(3)
-        .set_vector_metric(VectorMetric.COSINE)
+        .with_vector_dimension(3)
+        .with_vector_metric(VectorMetric.COSINE)
         .build()
     )
 )
@@ -137,7 +136,7 @@ my_collection = database.create_collection(
     "my_vectorize_collection",
     definition=(
         CollectionDefinition.builder()
-        .set_vector_service(
+        .with_vector_service(
             provider="example_vendor",
             model_name="embedding_model_name",
             authentication={"providerKey": "<STORED_API_KEY_NAME>"}  # if needed
@@ -684,7 +683,7 @@ my_database = my_client.get_database(
 
 my_collection = my_database.create_collection(
     "ecommerce",
-    definition=CollectionDefinition.builder().set_default_id(
+    definition=CollectionDefinition.builder().with_default_id(
         DefaultIdType.UUIDV6
     ).build(),
 )
@@ -951,6 +950,7 @@ from astrapy.info import (
     ColumnType,
     CreateTableDefinition,
     CreateTypeDefinition,
+    DatabaseDefinition,
     EmbeddingProvider,
     EmbeddingProviderAuthentication,
     EmbeddingProviderModel,
@@ -961,6 +961,9 @@ from astrapy.info import (
     ListTableDefinition,
     ListTableDescriptor,
     ListTypeDescriptor,
+    PCUGroupTypeDetailsDescriptor,
+    PCUGroupTypeDescriptor,
+    PCUGroupDescriptor,
     RerankingProvider,
     RerankingProviderAuthentication,
     RerankingProviderModel,

@@ -29,11 +29,13 @@ __all__ = (
     "AgentStatusTypeType",
     "AiUseCaseType",
     "AllowedUserActionType",
+    "AnalyticsModeType",
     "AnsweringMachineDetectionStatusType",
     "ApplicationTypeType",
     "ArtifactStatusType",
     "AttachmentScopeType",
     "AutoEvaluationStatusType",
+    "BehaviorType",
     "BehaviorTypeType",
     "BooleanComparisonTypeType",
     "ChannelType",
@@ -173,6 +175,7 @@ __all__ = (
     "ListWorkspacePagesPaginatorName",
     "ListWorkspacesPaginatorName",
     "LocaleCodeType",
+    "MaskModeType",
     "MediaStreamTypeType",
     "MediaTypeType",
     "MeetingFeatureStatusType",
@@ -202,6 +205,7 @@ __all__ = (
     "PhoneNumberTypeType",
     "PhoneNumberWorkflowStatusType",
     "PhoneTypeType",
+    "PolicyType",
     "QuestionRuleCategoryAutomationConditionType",
     "QueueStatusType",
     "QueueTypeType",
@@ -261,6 +265,7 @@ __all__ = (
     "StatusType",
     "StorageTypeType",
     "StringComparisonTypeType",
+    "SummaryModeType",
     "TargetListTypeType",
     "TaskTemplateFieldTypeType",
     "TaskTemplateStatusType",
@@ -300,6 +305,7 @@ AgentStatusStateType = Literal["DISABLED", "ENABLED"]
 AgentStatusTypeType = Literal["CUSTOM", "OFFLINE", "ROUTABLE"]
 AiUseCaseType = Literal["AgentAssistance", "SelfService"]
 AllowedUserActionType = Literal["CALL", "DISCARD"]
+AnalyticsModeType = Literal["AutomatedInteraction", "ContactLens", "PostContact", "RealTime"]
 AnsweringMachineDetectionStatusType = Literal[
     "AMD_ERROR",
     "AMD_NOT_APPLICABLE",
@@ -320,6 +326,7 @@ ApplicationTypeType = Literal["MCP", "THIRD_PARTY_APPLICATION"]
 ArtifactStatusType = Literal["APPROVED", "IN_PROGRESS", "REJECTED"]
 AttachmentScopeType = Literal["CASE", "CHAT", "EMAIL", "TASK"]
 AutoEvaluationStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
+BehaviorType = Literal["Disable", "Enable"]
 BehaviorTypeType = Literal["ROUTE_ANY_CHANNEL", "ROUTE_CURRENT_CHANNEL_ONLY"]
 BooleanComparisonTypeType = Literal["IS_FALSE", "IS_TRUE"]
 ChannelType = Literal["CHAT", "EMAIL", "TASK", "VOICE"]
@@ -486,6 +493,7 @@ FileUseCaseTypeType = Literal[
     "EMAIL_MESSAGE_PLAIN_TEXT",
     "EMAIL_MESSAGE_PLAIN_TEXT_REDACTED",
     "EMAIL_MESSAGE_REDACTED",
+    "VOICE_RECORDING",
 ]
 FilterV2StringConditionComparisonOperatorType = Literal["NOT_EXISTS"]
 FlowAssociationResourceTypeType = Literal[
@@ -678,6 +686,7 @@ LocaleCodeType = Literal[
     "zh_CN",
     "zh_TW",
 ]
+MaskModeType = Literal["EntityType", "PII"]
 MediaStreamTypeType = Literal["AUDIO", "VIDEO"]
 MediaTypeType = Literal[
     "IMAGE_LOGO_DARK_FAVICON",
@@ -969,6 +978,7 @@ PhoneNumberTypeType = Literal[
 ]
 PhoneNumberWorkflowStatusType = Literal["CLAIMED", "FAILED", "IN_PROGRESS"]
 PhoneTypeType = Literal["DESK_PHONE", "SOFT_PHONE"]
+PolicyType = Literal["None", "RedactedAndOriginal", "RedactedOnly"]
 QuestionRuleCategoryAutomationConditionType = Literal["NOT_PRESENT", "PRESENT"]
 QueueStatusType = Literal["DISABLED", "ENABLED"]
 QueueTypeType = Literal["AGENT", "STANDARD"]
@@ -1061,6 +1071,7 @@ StatisticType = Literal["AVG", "MAX", "SUM"]
 StatusType = Literal["COMPLETE", "DELETED", "IN_PROGRESS"]
 StorageTypeType = Literal["KINESIS_FIREHOSE", "KINESIS_STREAM", "KINESIS_VIDEO_STREAM", "S3"]
 StringComparisonTypeType = Literal["CONTAINS", "EXACT", "STARTS_WITH"]
+SummaryModeType = Literal["AutomatedInteraction", "ContactChain", "PostContact"]
 TargetListTypeType = Literal["PROFICIENCIES"]
 TaskTemplateFieldTypeType = Literal[
     "BOOLEAN",
@@ -1335,8 +1346,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -1432,7 +1441,6 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
@@ -1518,7 +1526,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -1539,6 +1546,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

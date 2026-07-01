@@ -43,8 +43,8 @@ pgp = ["gpg"]
 paramiko = ["paramiko"]
 colordiff = ["rich"]
 dev = [
-    "ruff==0.15.12",
-    "mypy==1.20.2",
+    "ruff==0.15.15",
+    "mypy==2.1.0",
     "dissolve>=0.1.1",
     "codespell==2.4.2",
 ]
@@ -52,6 +52,7 @@ hypothesis = ["hypothesis>=6"]
 merge = ["merge3"]
 fuzzing = ["atheris"]
 patiencediff = ["patiencediff"]
+range_diff = ["munkres"]
 aiohttp = ["aiohttp"]
 
 [project.scripts]

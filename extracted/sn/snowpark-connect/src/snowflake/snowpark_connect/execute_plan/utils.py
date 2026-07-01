@@ -1,0 +1,389 @@
+#
+# Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
+#
+from typing import Optional
+
+import pandas
+import pyarrow as pa
+import pyarrow.compute as pc
+import pyspark.sql.connect.proto.relations_pb2 as relation_proto
+from pyarrow import Table
+from pyspark.sql.pandas.types import _dedup_names
+
+from snowflake.snowpark import types as sf_types
+from snowflake.snowpark_connect.error.error_codes import ErrorCodes
+from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.type_mapping import (
+    SnowparkToArrowEmptyTableMapper,
+    SnowparkToArrowMapper,
+    SnowparkToArrowTempSchemaMapper,
+)
+from snowflake.snowpark_connect.utils.telemetry import (
+    SnowparkConnectNotImplementedError,
+)
+
+
+def is_streaming(rel: relation_proto.Relation) -> bool:
+    """
+    Check if the relation is a streaming relation.
+
+    A streaming relation is a relation that is the result of a streaming
+    operation. This is used to determine if the relation should be shown
+    immediately or if it should be stored in the session state for later use.
+    """
+    """Check if the relation is a streaming relation."""
+    try:
+        match rel.WhichOneof("rel_type"):
+            case "read":
+                return rel.read.is_streaming is True
+            case "project":
+                return is_streaming(rel.project.input)
+            case "filter":
+                return is_streaming(rel.filter.input)
+            case "join":
+                return is_streaming(rel.join.left) or is_streaming(rel.join.right)
+            case "set_op":
+                return is_streaming(rel.set_op.input)
+            case "sort":
+                return is_streaming(rel.sort.input)
+            case "limit":
+                return is_streaming(rel.limit.input)
+            case "aggregate":
+                return is_streaming(rel.aggregate.input)
+            case "sample":
+                return is_streaming(rel.sample.input)
+            case "offset":
+                return is_streaming(rel.offset.input)
+            case "deduplicate":
+                return is_streaming(rel.deduplicate.input)
+            case "subquery_alias":
+                return is_streaming(rel.subquery_alias.input)
+            case "repartition":
+                return is_streaming(rel.repartition.input)
+            case "to_df":
+                return is_streaming(rel.to_df.input)
+            case "with_columns_renamed":
+                return is_streaming(rel.with_columns_renamed.input)
+            case "show_string":
+                return is_streaming(rel.show_string.input)
+            case "drop":
+                return is_streaming(rel.drop.input)
+            case "tail":
+                return is_streaming(rel.tail.input)
+            case "with_columns":
+                return is_streaming(rel.with_columns.input)
+            case "hint":
+                return is_streaming(rel.hint.input)
+            case "unpivot":
+                return is_streaming(rel.unpivot.input)
+            case "to_schema":
+                return is_streaming(rel.to_schema.input)
+            case "repartition_by_expression":
+                return is_streaming(rel.repartition_by_expression.input)
+            case "map_partitions":
+                return is_streaming(rel.map_partitions.input)
+            case "collect_metrics":
+                return is_streaming(rel.collect_metrics.input)
+            case "parse":
+                return is_streaming(rel.parse.input)
+            case "group_map":
+                return is_streaming(rel.group_map.input)
+            case "co_group_map":
+                return is_streaming(rel.co_group_map.input)
+            case "with_watermark":
+                return is_streaming(rel.with_watermark.input)
+            case "apply_in_pandas_with_state":
+                return is_streaming(rel.apply_in_pandas.input)
+            case "html_string":
+                return is_streaming(rel.html_string.input)
+            case "cached_remote_relation":
+                exception = SnowparkConnectNotImplementedError(
+                    "Cached remote relation not implemented"
+                )
+                attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+                raise exception
+            case "common_inline_user_defined_table_function":
+                return is_streaming(rel.common_inline_user_defined_table_function.input)
+            case "fill_na":
+                return is_streaming(rel.fill_na.input)
+            case "drop_na":
+                return is_streaming(rel.drop_na.input)
+            case "replace":
+                return is_streaming(rel.replace.input)
+            case "stat":
+                return is_streaming(rel.stat.input)
+            case "summary":
+                return is_streaming(rel.summary.input)
+            case "crosstab":
+                return is_streaming(rel.crosstab.input)
+            case "describe":
+                return is_streaming(rel.describe.input)
+            case "cov":
+                return is_streaming(rel.cov.input)
+            case "corr":
+                return is_streaming(rel.corr.input)
+            case "approx_quantile":
+                return is_streaming(rel.approx_quantile.input)
+            case "freq_items":
+                return is_streaming(rel.freq_items.input)
+            case "sample_by":
+                return is_streaming(rel.sample_by.input)
+            case _:
+                return False
+    except AttributeError:
+        # This is a leaf node with no `input`.
+        return False
+
+
+def _is_agg_function_with_single_row_result(rel: relation_proto.Relation) -> bool:
+    """
+    Detect a Spark Connect relation corresponding to a global aggregate.
+
+    A Spark Connect `aggregate` relation with *no* grouping expressions corresponds to a global
+    aggregation (e.g. `df.agg(...)` / `df.groupBy().agg(...)`). This always produces exactly one
+    output row (even if the input is empty), regardless of the specific aggregate functions used.
+    """
+    try:
+        if rel.WhichOneof("rel_type") != "aggregate":
+            return False
+
+        agg = rel.aggregate
+        if len(agg.grouping_expressions) != 0:
+            return False
+
+        # an "aggregate" with no aggregate expressions is not meaningful.
+        return len(agg.aggregate_expressions) > 0
+    except Exception:
+        # if we can't prove it is a global aggregate, keep the default path.
+        return False
+
+
+def pandas_to_arrow_batches_bytes(pandas_df: pandas.DataFrame) -> bytes:
+    """
+    Serialize a pandas DataFrame as Pyarrow encoded bytes.
+    """
+    # Pyarrow doesn't support duplicate column names, so we need to deduplicate them.
+    # It is important that the schema is passed in whatever message we send back to the
+    # client, otherwise the names will not be correct.
+    pandas_df.columns = _dedup_names(pandas_df.columns)
+    sink = pa.BufferOutputStream()
+    batch = pa.RecordBatch.from_pandas(pandas_df, schema=None)
+    with pa.ipc.new_stream(sink, batch.schema) as writer:
+        writer.write_batch(batch)
+    return sink.getvalue().to_pybytes()
+
+
+def arrow_table_to_arrow_bytes(
+    table: pa.Table, snowpark_schema: sf_types.StructType, spark_columns: list
+) -> bytes:
+    """
+    Serialize a pyarrow.table as Pyarrow encoded bytes according to provided snowpark schema.
+    """
+    assert table.num_rows > 0, "Table must have at least one row"
+
+    pa_schema_temp = pa.schema(
+        SnowparkToArrowTempSchemaMapper().map_schema(
+            snowpark_schema, pa.struct(table.schema)
+        )
+    )
+
+    pa_schema_final = pa.schema(
+        SnowparkToArrowMapper().map_schema(snowpark_schema, pa.struct(table.schema))
+    )
+
+    table = _cast_arrow_table(table, pa_schema_final, spark_columns, pa_schema_temp)
+    # note that we don't need to track the original column name, since this helper function only needs to generate arrow
+    # data bytes. When the arrow bytes are returned to spark connect client, an explicit schema would be passed along,
+    # which contains expected column name. E.g.,
+    #   return [
+    #         proto_base.ExecutePlanResponse(
+    #             session_id=request.session_id,
+    #             operation_id=get_or_generate(operation_id),
+    #             arrow_batch=proto_base.ExecutePlanResponse.ArrowBatch(
+    #                 row_count=row_count,
+    #                 data=arrow_bytes, # arrow bytes generated by this helper function
+    #             ),
+    #             schema=schema,    # schema containing correct column name
+    #         ),
+    #   ]
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, table.schema) as writer:
+        writer.write_table(table)
+    arrow_bytes = sink.getvalue().to_pybytes()
+    return arrow_bytes
+
+
+def _safe_cast_timestamp_columns(table: Table, target_pa_schema: pa.Schema) -> None:
+    """Validate that columns being cast to a timestamp type don't overflow int64.
+
+    The Snowflake connector may return numeric types (decimal128, int64) for
+    timestamp results. The main cast uses safe=False to allow Spark-style integer
+    overflow wrapping, but timestamp overflows should raise — matching Spark's
+    ArithmeticException behavior. We do this by attempting a safe=True cast on
+    just the timestamp columns and letting ArrowInvalid propagate.
+    """
+    for i, target_field in enumerate(target_pa_schema):
+        if not pa.types.is_timestamp(target_field.type):
+            continue
+        src_type = table.schema.field(i).type
+        if pa.types.is_timestamp(src_type):
+            continue
+        table.column(i).cast(target_field.type, safe=True)
+
+
+def _has_only_inherited_nulls(parent: pa.Array, child: pa.Array) -> bool:
+    """True when *child* has nulls but ALL of them sit at positions where
+    *parent* is also null — i.e. the child nulls are Arrow physical
+    artefacts from the struct's flat storage layout, not real user-supplied
+    data.
+
+    Arrow stores structs as a validity bitmap + parallel child arrays.
+    When the struct is null at a position (validity=false), the child
+    array at that index contains undefined/garbage data that may appear
+    as null.  These "inherited" nulls are harmless — no code ever reads
+    them.
+
+    Returns False when any child null appears at a position where the
+    parent struct is non-null (validity=true), meaning the user provided
+    a struct with a genuinely missing field value.
+    """
+    if child.null_count == 0:
+        return False
+    if parent.null_count == 0:
+        return False
+    parent_valid = pc.is_valid(parent)
+    child_null = pc.is_null(child)
+    return not pc.any(pc.and_(parent_valid, child_null)).as_py()
+
+
+def _pa_type_relaxed_for_nulls(
+    arr: pa.Array,
+    pa_type: pa.DataType,
+    parent: pa.Array | None = None,
+) -> pa.DataType:
+    """Return *pa_type* with field nullability widened to True only for
+    struct children whose nulls are inherited from a null parent struct
+    (Arrow physical artefacts from flat child-array storage).
+
+    Children with "real" nulls — where the parent struct exists
+    (validity=true) but the child value is null — keep their declared
+    nullability so that genuine non-nullable constraint violations
+    propagate as errors downstream.
+    """
+    if pa.types.is_struct(pa_type) and pa.types.is_struct(arr.type):
+        if pa_type.num_fields != arr.type.num_fields:
+            return pa_type
+        return pa.struct(
+            [
+                pa.field(
+                    pa_type.field(i).name,
+                    _pa_type_relaxed_for_nulls(
+                        arr.field(i), pa_type.field(i).type, parent=arr
+                    ),
+                    nullable=(
+                        pa_type.field(i).nullable
+                        or _has_only_inherited_nulls(arr, arr.field(i))
+                    ),
+                )
+                for i in range(pa_type.num_fields)
+            ]
+        )
+    # Array/Map nullability is never relaxed — only recurse for inner element
+    # types to handle nested structs within list/map values.
+    if pa.types.is_list(pa_type) and pa.types.is_list(arr.type):
+        vf = pa_type.value_field
+        values = arr.values
+        return pa.list_(
+            pa.field(
+                vf.name,
+                _pa_type_relaxed_for_nulls(values, vf.type, parent=arr),
+                nullable=vf.nullable,
+            )
+        )
+    if pa.types.is_map(pa_type) and pa.types.is_map(arr.type):
+        kf = pa_type.key_field
+        itf = pa_type.item_field
+        entries = arr.values
+        keys = entries.field(0)
+        items = entries.field(1)
+        return pa.map_(
+            pa.field(
+                kf.name,
+                _pa_type_relaxed_for_nulls(keys, kf.type, parent=arr),
+                nullable=kf.nullable,
+            ),
+            pa.field(
+                itf.name,
+                _pa_type_relaxed_for_nulls(items, itf.type, parent=arr),
+                nullable=itf.nullable,
+            ),
+        )
+    return pa_type
+
+
+def _relax_pa_schema_for_nulls(table: Table, schema: pa.Schema) -> pa.Schema:
+    """Return *schema* with nested field nullability widened wherever the
+    corresponding data carries nulls inherited from a null parent struct.
+
+    Top-level column nullability is never changed — a null in a non-nullable
+    top-level column is a genuine data error that should propagate.  Only
+    nested struct/list/map children are relaxed, because Arrow's physical
+    layout can place null slots in child buffers under a null parent even
+    when the child field is declared non-nullable.
+    """
+    relaxed = []
+    for i in range(len(schema)):
+        col = table.column(i).combine_chunks()
+        field = schema.field(i)
+        relaxed.append(
+            pa.field(
+                field.name,
+                _pa_type_relaxed_for_nulls(col, field.type),
+                nullable=field.nullable,
+            )
+        )
+    return pa.schema(relaxed)
+
+
+def _cast_arrow_table(
+    table: Table,
+    target_pa_schema: pa.Schema,
+    spark_columns: list,
+    temp_pa_schema: Optional[pa.Schema] = None,
+) -> Table:
+    # 1. rename column names to 0,1,2, etc. to avoid unmatching names due to undesired factors like quotes.
+    # 2. casting is required here because sometimes arrow table does use expected data type. E.g., for LongType,
+    #       pyarrow table uses decimal128(38,0), which converts to Decimal instead of Long on client side.
+    table = table.rename_columns([str(i) for i in range(table.num_columns)])
+    if temp_pa_schema is not None and not temp_pa_schema.equals(target_pa_schema):
+        # cast to temp_pa_schema is necessary for cases when i.e. the pyarrow table has int64,
+        # but the snowpark schema is Decimal128(p, s) with p <= 18.
+        table = table.cast(temp_pa_schema, safe=False)
+
+    # Cast non-timestamp columns with safe=False (Spark allows integer overflow
+    # wrapping, so we must not reject decimal128 → int64 overflows here).
+    # For timestamp columns, use safe=True to catch values that overflow int64
+    # microseconds — matching Spark's ArithmeticException on timestamp overflow.
+    _safe_cast_timestamp_columns(table, target_pa_schema)
+    table = table.cast(target_pa_schema, safe=False)
+    table = table.rename_columns(spark_columns)
+    return table
+
+
+def pandas_empty_table_to_arrow_bytes(
+    pandas_df: pandas.DataFrame,
+    snowpark_schema: sf_types.StructType,
+    spark_columns: list,
+) -> bytes:
+    """
+    Serialize an empty pandas DataFrame as Pyarrow encoded bytes according to provided snowpark schema and spark columns.
+    """
+    pandas_df.columns = _dedup_names(pandas_df.columns)
+    table = pa.Table.from_pandas(pandas_df)
+    pa_schema = pa.schema(
+        SnowparkToArrowEmptyTableMapper().map_schema(
+            snowpark_schema, pa.struct(table.schema)
+        )
+    )
+    table = _cast_arrow_table(table, pa_schema, spark_columns)
+    return pandas_to_arrow_batches_bytes(table.to_pandas())

@@ -26,37 +26,85 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListCertificatesPaginator, SearchCertificatesPaginator
+from .paginator import (
+    ListAcmeAccountsPaginator,
+    ListAcmeDomainValidationsPaginator,
+    ListAcmeEndpointsPaginator,
+    ListAcmeExternalAccountBindingsPaginator,
+    ListCertificatesPaginator,
+    SearchCertificatesPaginator,
+)
 from .type_defs import (
     AddTagsToCertificateRequestTypeDef,
+    CreateAcmeDomainValidationRequestTypeDef,
+    CreateAcmeDomainValidationResponseTypeDef,
+    CreateAcmeEndpointRequestTypeDef,
+    CreateAcmeEndpointResponseTypeDef,
+    CreateAcmeExternalAccountBindingRequestTypeDef,
+    CreateAcmeExternalAccountBindingResponseTypeDef,
+    DeleteAcmeDomainValidationRequestTypeDef,
+    DeleteAcmeEndpointRequestTypeDef,
+    DeleteAcmeExternalAccountBindingRequestTypeDef,
     DeleteCertificateRequestTypeDef,
+    DescribeAcmeAccountRequestTypeDef,
+    DescribeAcmeAccountResponseTypeDef,
+    DescribeAcmeDomainValidationRequestTypeDef,
+    DescribeAcmeDomainValidationResponseTypeDef,
+    DescribeAcmeEndpointRequestTypeDef,
+    DescribeAcmeEndpointResponseTypeDef,
+    DescribeAcmeExternalAccountBindingRequestTypeDef,
+    DescribeAcmeExternalAccountBindingResponseTypeDef,
     DescribeCertificateRequestTypeDef,
     DescribeCertificateResponseTypeDef,
     EmptyResponseMetadataTypeDef,
     ExportCertificateRequestTypeDef,
     ExportCertificateResponseTypeDef,
     GetAccountConfigurationResponseTypeDef,
+    GetAcmeExternalAccountBindingCredentialsRequestTypeDef,
+    GetAcmeExternalAccountBindingCredentialsResponseTypeDef,
     GetCertificateRequestTypeDef,
     GetCertificateResponseTypeDef,
     ImportCertificateRequestTypeDef,
     ImportCertificateResponseTypeDef,
+    ListAcmeAccountsRequestTypeDef,
+    ListAcmeAccountsResponseTypeDef,
+    ListAcmeDomainValidationsRequestTypeDef,
+    ListAcmeDomainValidationsResponseTypeDef,
+    ListAcmeEndpointsRequestTypeDef,
+    ListAcmeEndpointsResponseTypeDef,
+    ListAcmeExternalAccountBindingsRequestTypeDef,
+    ListAcmeExternalAccountBindingsResponseTypeDef,
     ListCertificatesRequestTypeDef,
     ListCertificatesResponseTypeDef,
     ListTagsForCertificateRequestTypeDef,
     ListTagsForCertificateResponseTypeDef,
+    ListTagsForResourceRequestTypeDef,
+    ListTagsForResourceResponseTypeDef,
     PutAccountConfigurationRequestTypeDef,
     RemoveTagsFromCertificateRequestTypeDef,
     RenewCertificateRequestTypeDef,
     RequestCertificateRequestTypeDef,
     RequestCertificateResponseTypeDef,
     ResendValidationEmailRequestTypeDef,
+    RevokeAcmeAccountRequestTypeDef,
+    RevokeAcmeExternalAccountBindingRequestTypeDef,
     RevokeCertificateRequestTypeDef,
     RevokeCertificateResponseTypeDef,
     SearchCertificatesRequestTypeDef,
     SearchCertificatesResponseTypeDef,
+    TagResourceRequestTypeDef,
+    UntagResourceRequestTypeDef,
+    UpdateAcmeDomainValidationRequestTypeDef,
+    UpdateAcmeEndpointRequestTypeDef,
     UpdateCertificateOptionsRequestTypeDef,
 )
-from .waiter import CertificateValidatedWaiter
+from .waiter import (
+    AcmeDomainValidationDeletedWaiter,
+    AcmeDomainValidationValidatedWaiter,
+    AcmeEndpointActiveWaiter,
+    AcmeEndpointDeletedWaiter,
+    CertificateValidatedWaiter,
+)
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
@@ -71,6 +119,7 @@ class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
     InvalidArgsException: type[BotocoreClientError]
     InvalidArnException: type[BotocoreClientError]
     InvalidDomainValidationOptionsException: type[BotocoreClientError]
@@ -81,6 +130,7 @@ class Exceptions(BaseClientExceptions):
     RequestInProgressException: type[BotocoreClientError]
     ResourceInUseException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
     TagPolicyException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
     TooManyTagsException: type[BotocoreClientError]
@@ -132,6 +182,67 @@ class ACMClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#add_tags_to_certificate)
         """
 
+    def create_acme_domain_validation(
+        self, **kwargs: Unpack[CreateAcmeDomainValidationRequestTypeDef]
+    ) -> CreateAcmeDomainValidationResponseTypeDef:
+        """
+        Creates a domain validation for an ACME endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/create_acme_domain_validation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#create_acme_domain_validation)
+        """
+
+    def create_acme_endpoint(
+        self, **kwargs: Unpack[CreateAcmeEndpointRequestTypeDef]
+    ) -> CreateAcmeEndpointResponseTypeDef:
+        """
+        Creates an ACME endpoint, which is a managed ACME server with a unique endpoint
+        URL.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/create_acme_endpoint.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#create_acme_endpoint)
+        """
+
+    def create_acme_external_account_binding(
+        self, **kwargs: Unpack[CreateAcmeExternalAccountBindingRequestTypeDef]
+    ) -> CreateAcmeExternalAccountBindingResponseTypeDef:
+        """
+        Creates an external account binding (EAB) for an ACME endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/create_acme_external_account_binding.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#create_acme_external_account_binding)
+        """
+
+    def delete_acme_domain_validation(
+        self, **kwargs: Unpack[DeleteAcmeDomainValidationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a domain validation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/delete_acme_domain_validation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#delete_acme_domain_validation)
+        """
+
+    def delete_acme_endpoint(
+        self, **kwargs: Unpack[DeleteAcmeEndpointRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes an ACME endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/delete_acme_endpoint.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#delete_acme_endpoint)
+        """
+
+    def delete_acme_external_account_binding(
+        self, **kwargs: Unpack[DeleteAcmeExternalAccountBindingRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes an external account binding.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/delete_acme_external_account_binding.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#delete_acme_external_account_binding)
+        """
+
     def delete_certificate(
         self, **kwargs: Unpack[DeleteCertificateRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -140,6 +251,50 @@ class ACMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/delete_certificate.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#delete_certificate)
+        """
+
+    def describe_acme_account(
+        self, **kwargs: Unpack[DescribeAcmeAccountRequestTypeDef]
+    ) -> DescribeAcmeAccountResponseTypeDef:
+        """
+        Returns detailed metadata about the specified ACME account, including its
+        status, public key thumbprint, and associated external account binding.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/describe_acme_account.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#describe_acme_account)
+        """
+
+    def describe_acme_domain_validation(
+        self, **kwargs: Unpack[DescribeAcmeDomainValidationRequestTypeDef]
+    ) -> DescribeAcmeDomainValidationResponseTypeDef:
+        """
+        Returns detailed metadata about the specified domain validation, including its
+        status, domain scope, and DNS resource records required for validation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/describe_acme_domain_validation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#describe_acme_domain_validation)
+        """
+
+    def describe_acme_endpoint(
+        self, **kwargs: Unpack[DescribeAcmeEndpointRequestTypeDef]
+    ) -> DescribeAcmeEndpointResponseTypeDef:
+        """
+        Returns detailed metadata about the specified ACME endpoint, including its
+        status, URL, authorization behavior, and certificate authority configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/describe_acme_endpoint.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#describe_acme_endpoint)
+        """
+
+    def describe_acme_external_account_binding(
+        self, **kwargs: Unpack[DescribeAcmeExternalAccountBindingRequestTypeDef]
+    ) -> DescribeAcmeExternalAccountBindingResponseTypeDef:
+        """
+        Returns detailed metadata about the specified external account binding,
+        including the associated IAM role, expiration time, and usage history.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/describe_acme_external_account_binding.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#describe_acme_external_account_binding)
         """
 
     def describe_certificate(
@@ -172,6 +327,16 @@ class ACMClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#get_account_configuration)
         """
 
+    def get_acme_external_account_binding_credentials(
+        self, **kwargs: Unpack[GetAcmeExternalAccountBindingCredentialsRequestTypeDef]
+    ) -> GetAcmeExternalAccountBindingCredentialsResponseTypeDef:
+        """
+        Retrieves the key ID and MAC key credentials for an external account binding.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/get_acme_external_account_binding_credentials.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#get_acme_external_account_binding_credentials)
+        """
+
     def get_certificate(
         self, **kwargs: Unpack[GetCertificateRequestTypeDef]
     ) -> GetCertificateResponseTypeDef:
@@ -193,6 +358,46 @@ class ACMClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#import_certificate)
         """
 
+    def list_acme_accounts(
+        self, **kwargs: Unpack[ListAcmeAccountsRequestTypeDef]
+    ) -> ListAcmeAccountsResponseTypeDef:
+        """
+        Retrieves a list of ACME accounts registered with the specified ACME endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/list_acme_accounts.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#list_acme_accounts)
+        """
+
+    def list_acme_domain_validations(
+        self, **kwargs: Unpack[ListAcmeDomainValidationsRequestTypeDef]
+    ) -> ListAcmeDomainValidationsResponseTypeDef:
+        """
+        Retrieves a list of domain validations for the specified ACME endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/list_acme_domain_validations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#list_acme_domain_validations)
+        """
+
+    def list_acme_endpoints(
+        self, **kwargs: Unpack[ListAcmeEndpointsRequestTypeDef]
+    ) -> ListAcmeEndpointsResponseTypeDef:
+        """
+        Retrieves a list of ACME endpoints in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/list_acme_endpoints.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#list_acme_endpoints)
+        """
+
+    def list_acme_external_account_bindings(
+        self, **kwargs: Unpack[ListAcmeExternalAccountBindingsRequestTypeDef]
+    ) -> ListAcmeExternalAccountBindingsResponseTypeDef:
+        """
+        Retrieves a list of external account bindings for the specified ACME endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/list_acme_external_account_bindings.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#list_acme_external_account_bindings)
+        """
+
     def list_certificates(
         self, **kwargs: Unpack[ListCertificatesRequestTypeDef]
     ) -> ListCertificatesResponseTypeDef:
@@ -211,6 +416,16 @@ class ACMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/list_tags_for_certificate.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#list_tags_for_certificate)
+        """
+
+    def list_tags_for_resource(
+        self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
+    ) -> ListTagsForResourceResponseTypeDef:
+        """
+        Lists the tags associated with an ACM resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/list_tags_for_resource.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#list_tags_for_resource)
         """
 
     def put_account_configuration(
@@ -265,6 +480,27 @@ class ACMClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#resend_validation_email)
         """
 
+    def revoke_acme_account(
+        self, **kwargs: Unpack[RevokeAcmeAccountRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Revokes an ACME account, preventing it from requesting or revoking certificates.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/revoke_acme_account.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#revoke_acme_account)
+        """
+
+    def revoke_acme_external_account_binding(
+        self, **kwargs: Unpack[RevokeAcmeExternalAccountBindingRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Revokes an external account binding, preventing new ACME accounts from being
+        registered using this binding.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/revoke_acme_external_account_binding.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#revoke_acme_external_account_binding)
+        """
+
     def revoke_certificate(
         self, **kwargs: Unpack[RevokeCertificateRequestTypeDef]
     ) -> RevokeCertificateResponseTypeDef:
@@ -285,6 +521,46 @@ class ACMClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#search_certificates)
         """
 
+    def tag_resource(
+        self, **kwargs: Unpack[TagResourceRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Adds one or more tags to an ACM resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/tag_resource.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#tag_resource)
+        """
+
+    def untag_resource(
+        self, **kwargs: Unpack[UntagResourceRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Removes one or more tags from an ACM resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/untag_resource.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#untag_resource)
+        """
+
+    def update_acme_domain_validation(
+        self, **kwargs: Unpack[UpdateAcmeDomainValidationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Updates the prevalidation configuration of an existing domain validation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/update_acme_domain_validation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#update_acme_domain_validation)
+        """
+
+    def update_acme_endpoint(
+        self, **kwargs: Unpack[UpdateAcmeEndpointRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Updates the configuration of an existing ACME endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/update_acme_endpoint.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#update_acme_endpoint)
+        """
+
     def update_certificate_options(
         self, **kwargs: Unpack[UpdateCertificateOptionsRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -293,6 +569,50 @@ class ACMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/update_certificate_options.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#update_certificate_options)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_acme_accounts"]
+    ) -> ListAcmeAccountsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_acme_domain_validations"]
+    ) -> ListAcmeDomainValidationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_acme_endpoints"]
+    ) -> ListAcmeEndpointsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_acme_external_account_bindings"]
+    ) -> ListAcmeExternalAccountBindingsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]
@@ -317,6 +637,51 @@ class ACMClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#get_paginator)
         """
 
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["acme_domain_validation_deleted"]
+    ) -> AcmeDomainValidationDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["acme_domain_validation_validated"]
+    ) -> AcmeDomainValidationValidatedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["acme_endpoint_active"]
+    ) -> AcmeEndpointActiveWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["acme_endpoint_deleted"]
+    ) -> AcmeEndpointDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["certificate_validated"]
     ) -> CertificateValidatedWaiter:

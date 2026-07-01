@@ -7,11 +7,13 @@
 #include "common/types/types.h"
 #include "common/vector/value_vector.h"
 #include "in_mem_hash_index.h"
+#include "storage/page_range.h"
 #include <span>
 
 namespace lbug::storage {
 class StorageManager;
-}
+class ShadowFile;
+} // namespace lbug::storage
 namespace lbug {
 namespace transaction {
 class Transaction;
@@ -84,6 +86,12 @@ struct LBUG_API IndexStorageInfo {
     }
 };
 
+struct IndexStorageEntry {
+    std::string component;
+    PageRange pageRange;
+    uint64_t sizeBytes;
+};
+
 class LBUG_API Index {
 public:
     struct InsertState {
@@ -151,6 +159,11 @@ public:
         visible_func /*isVisible*/) {
         return false;
     }
+    virtual bool lookupAll(const transaction::Transaction* /*transaction*/,
+        common::ValueVector* /*keyVector*/, uint64_t /*vectorPos*/,
+        std::vector<common::offset_t>& /*results*/, visible_func /*isVisible*/) {
+        return false;
+    }
     virtual bool scanPrimaryKeyRange(common::ValueVector* /*lowerBoundVector*/,
         uint64_t /*lowerBoundPos*/, bool /*lowerInclusive*/,
         common::ValueVector* /*upperBoundVector*/, uint64_t /*upperBoundPos*/,
@@ -170,12 +183,16 @@ public:
     virtual void checkpointInMemory() {
         // DO NOTHING.
     };
-    virtual void checkpoint(main::ClientContext*, PageAllocator&) {
+    virtual void checkpoint(main::ClientContext*, PageAllocator&, ShadowFile&) {
         // DO NOTHING.
     }
     virtual void rollbackCheckpoint() {
         // DO NOTHING.
     }
+    virtual void reclaimStorage(PageAllocator&) const {
+        // DO NOTHING.
+    }
+    virtual std::vector<IndexStorageEntry> getStorageEntries() const { return {}; }
     virtual void finalize(main::ClientContext*) {
         // DO NOTHING.
     }
@@ -206,19 +223,21 @@ class IndexHolder {
 public:
     explicit IndexHolder(std::unique_ptr<Index> loadedIndex);
     IndexHolder(IndexInfo indexInfo, std::unique_ptr<uint8_t[]> storageInfoBuffer,
-        uint32_t storageInfoBufferSize);
+        uint64_t storageInfoBufferSize);
 
     std::string getName() const { return indexInfo.name; }
     bool isLoaded() const { return loaded; }
+    const IndexInfo& getIndexInfo() const { return indexInfo; }
 
     void serialize(common::Serializer& ser) const;
     LBUG_API void load(main::ClientContext* context, StorageManager* storageManager);
     bool needCommitInsert() const { return index->needCommitInsert(); }
     // NOLINTNEXTLINE(readability-make-member-function-const): Semantically non-const.
-    void checkpoint(main::ClientContext* context, PageAllocator& pageAllocator) {
+    void checkpoint(main::ClientContext* context, PageAllocator& pageAllocator,
+        ShadowFile& shadowFile) {
         if (loaded) {
             DASSERT(index);
-            index->checkpoint(context, pageAllocator);
+            index->checkpoint(context, pageAllocator, shadowFile);
         }
     }
     // NOLINTNEXTLINE(readability-make-member-function-const): Semantically non-const.
@@ -227,6 +246,19 @@ public:
             DASSERT(index);
             index->rollbackCheckpoint();
         }
+    }
+    void reclaimStorage(PageAllocator& pageAllocator) const {
+        if (loaded) {
+            DASSERT(index);
+            index->reclaimStorage(pageAllocator);
+        }
+    }
+    std::vector<IndexStorageEntry> getStorageEntries() const {
+        if (!loaded) {
+            return {};
+        }
+        DASSERT(index);
+        return index->getStorageEntries();
     }
     // NOLINTNEXTLINE(readability-make-member-function-const): Semantically non-const.
     void finalize(main::ClientContext* context) {

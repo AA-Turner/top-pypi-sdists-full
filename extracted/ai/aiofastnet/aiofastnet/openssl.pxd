@@ -1,0 +1,130 @@
+from libc.stdint cimport uint64_t
+from posix.types cimport off_t
+
+# All OpenSSL and static mem bio functions are intentionally do not ask nogil.
+#
+# First, there is not much gain by letting OS to switch threads for such short-lived operation when GIL is present.
+# More likely it will only hurt performance
+
+# Second, users should not have a chance to modify supplied buffers (write, writelines, get_buffer)
+# from another thread when GIL is enabled.
+# Currently, aiofn_unpack_simple_buffer does PyBuffer_Release immediately to simplify call-site.
+
+# For freethreaded python, it is UB, if another thread tries to modify transport buffers, people should not do it under
+# any circumstances.
+
+cdef extern from "openssl_compat.h":
+    ctypedef struct SSL_CTX:
+        pass
+
+    ctypedef struct SSL:
+        pass
+
+    ctypedef struct BIO:
+        pass
+
+    ctypedef struct X509:
+        pass
+
+    ctypedef struct X509_VERIFY_PARAM:
+        pass
+
+    ctypedef struct SSL_CIPHER:
+        pass
+
+    ctypedef struct ASN1_OCTET_STRING:
+        pass
+
+    ctypedef struct OPENSSL_STACK:
+        pass
+
+    enum:
+        SSL_VERIFY_PEER
+        SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER
+        SSL_MODE_ENABLE_PARTIAL_WRITE
+        SSL_MODE_AUTO_RETRY
+        SSL_OP_ENABLE_KTLS
+        SSL_OP_IGNORE_UNEXPECTED_EOF
+
+    int init_openssl_compat(const char *ssl_lib_path, const char *crypto_lib_path)
+    const char* openssl_compat_last_error()
+
+    int BIO_free(BIO *a)
+    int BIO_pending(BIO *b)
+    long BIO_set_nbio(BIO *b, long n)
+    long BIO_get_mem_data(BIO *b, char** pp)
+    int BIO_reset(BIO *b)
+    int BIO_get_ktls_send(BIO *b)
+    int BIO_get_ktls_recv(BIO *b)
+    ssize_t SSL_sendfile(SSL *ssl, int fd, off_t offset, size_t size, int flags)
+
+    SSL *SSL_new(SSL_CTX *ctx)
+    void SSL_free(SSL *ssl)
+    void SSL_set_bio(SSL *ssl, BIO *rbio, BIO *wbio)
+    int SSL_set_fd(SSL *ssl, int fd)
+    BIO *SSL_get_rbio(const SSL *ssl)
+    BIO *SSL_get_wbio(const SSL *ssl)
+    void SSL_set_accept_state(SSL *ssl)
+    void SSL_set_connect_state(SSL *ssl)
+    uint64_t SSL_clear_options(SSL *ssl, uint64_t op)
+    int SSL_set_options_available()
+    uint64_t SSL_set_options(SSL *ssl, uint64_t op)
+    long SSL_set_mode(SSL *ssl, long mode)
+    int SSL_set_tlsext_host_name(const SSL *s, const char *name)
+    int SSL_get_error(const SSL *ssl, int ret)
+    int SSL_pending(const SSL *ssl)
+    int SSL_renegotiate(SSL *ssl)
+    int SSL_do_handshake(SSL *ssl)
+    int SSL_read(SSL *ssl, void *buf, int num)
+    int SSL_write(SSL *ssl, const void *buf, int num)
+    int SSL_shutdown(SSL *ssl)
+    long SSL_get_verify_result(const SSL *ssl)
+    const char *SSL_get_version(const SSL *ssl)
+    size_t SSL_get_finished(const SSL *ssl, void *buf, size_t count)
+    size_t SSL_get_peer_finished(const SSL *ssl, void *buf, size_t count)
+    int SSL_session_reused(const SSL *ssl)
+    OPENSSL_STACK *SSL_get_peer_cert_chain(const SSL *ssl)
+    OPENSSL_STACK *SSL_get0_verified_chain(const SSL *ssl)
+    OPENSSL_STACK *SSL_get_ciphers(const SSL *ssl)
+    OPENSSL_STACK *SSL_get_client_ciphers(const SSL *ssl)
+    void SSL_get0_alpn_selected(const SSL *ssl, const unsigned char **data, unsigned int *len)
+    void SSL_set_read_ahead(SSL *s, int yes)
+
+    const SSL_CIPHER *SSL_get_current_cipher(const SSL *ssl)
+    const char *SSL_CIPHER_get_name(const SSL_CIPHER *cipher)
+    const char *SSL_CIPHER_get_version(const SSL_CIPHER *cipher)
+    int SSL_CIPHER_get_bits(const SSL_CIPHER *cipher, int *alg_bits)
+
+    X509 *SSL_get_peer_certificate(const SSL *ssl)
+    X509_VERIFY_PARAM *SSL_get0_param(SSL *ssl)
+    X509_VERIFY_PARAM *SSL_CTX_get0_param(SSL_CTX *ctx)
+
+    unsigned int X509_VERIFY_PARAM_get_hostflags(const X509_VERIFY_PARAM *param)
+    void X509_VERIFY_PARAM_set_hostflags(X509_VERIFY_PARAM *param, unsigned int flags)
+    int X509_VERIFY_PARAM_set1_host(X509_VERIFY_PARAM *param, const char *name, size_t namelen)
+    int X509_VERIFY_PARAM_set1_ip(X509_VERIFY_PARAM *param, const unsigned char *ip, size_t iplen)
+    const char *X509_verify_cert_error_string(long n)
+    void X509_free(X509 *a)
+    int i2d_X509(X509 *x, unsigned char **out)
+    int OPENSSL_sk_num(const OPENSSL_STACK *stack)
+    void *OPENSSL_sk_value(const OPENSSL_STACK *stack, int index)
+
+    unsigned long ERR_peek_last_error()
+    void ERR_clear_error()
+    const char* ERR_lib_error_string(unsigned long e)
+    const char* ERR_reason_error_string(unsigned long e)
+    void ERR_print_errors_cb(int (*cb)(const char *str, size_t len, void *u),
+                             void *u)
+    int ERR_GET_LIB(unsigned long e)
+
+    void ASN1_OCTET_STRING_free(ASN1_OCTET_STRING *a)
+    const unsigned char *ASN1_STRING_get0_data(const ASN1_OCTET_STRING *x)
+    int ASN1_STRING_length(ASN1_OCTET_STRING *x)
+    ASN1_OCTET_STRING* a2i_IPADDRESS(const char *ipasc)
+
+
+cdef extern from "static_mem_bio.h":
+    BIO *BIO_new_static_mem(void *buf, size_t cap)
+    int BIO_static_mem_get_write_buf(BIO *bio, char **pp, size_t *space)
+    int BIO_static_mem_produce(BIO *bio, size_t nbytes)
+    int BIO_static_mem_consume(BIO *bio, size_t nbytes)

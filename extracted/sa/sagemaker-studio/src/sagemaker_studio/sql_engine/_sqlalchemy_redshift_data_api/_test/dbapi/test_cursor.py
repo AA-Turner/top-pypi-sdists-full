@@ -1269,3 +1269,60 @@ class TestCursorLargeResultSets:
         assert cursor_large_results.fetchone() is None
         assert cursor_large_results.fetchall() == []
         assert cursor_large_results.fetchmany(10) == []
+
+
+class TestCursorGetExecutionMetadata:
+    """Tests for Cursor.get_execution_metadata()."""
+
+    def test_returns_none_when_no_statement_executed(self, mock_connection):
+        cursor = Cursor(mock_connection)
+        assert cursor.get_execution_metadata() is None
+
+    def test_returns_metadata_with_session_and_result_stats(self, mock_connection):
+        mock_connection._session_id = "session-xyz"
+        cursor = Cursor(mock_connection)
+        cursor._statement_id = "stmt-abc"
+        cursor._has_result_set = True
+        cursor._rowcount = -1
+        cursor._result_rows = 50
+        cursor._result_size = 2048
+
+        result = cursor.get_execution_metadata()
+
+        assert result["statement_id"] == "stmt-abc"
+        assert result["has_result_set"] is True
+        assert result["session_id"] == "session-xyz"
+        assert result["result_rows"] == 50
+        assert result["result_size_bytes"] == 2048
+        assert "records_updated" not in result
+
+    def test_includes_records_updated_for_dml(self, mock_connection):
+        mock_connection._session_id = None
+        cursor = Cursor(mock_connection)
+        cursor._statement_id = "stmt-dml"
+        cursor._has_result_set = False
+        cursor._rowcount = 42
+        cursor._result_rows = None
+        cursor._result_size = None
+
+        result = cursor.get_execution_metadata()
+
+        assert result["statement_id"] == "stmt-dml"
+        assert result["records_updated"] == 42
+        assert "session_id" not in result
+        assert "result_rows" not in result
+        assert "result_size_bytes" not in result
+
+    def test_excludes_none_result_stats(self, mock_connection):
+        mock_connection._session_id = "s-1"
+        cursor = Cursor(mock_connection)
+        cursor._statement_id = "stmt-1"
+        cursor._has_result_set = True
+        cursor._rowcount = -1
+        cursor._result_rows = None
+        cursor._result_size = None
+
+        result = cursor.get_execution_metadata()
+
+        assert "result_rows" not in result
+        assert "result_size_bytes" not in result

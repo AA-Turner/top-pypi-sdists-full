@@ -1,55 +1,48 @@
 Metadata-Version: 2.4
 Name: langchain-azure-ai
-Version: 1.2.7
+Version: 1.2.8
 Summary: An integration package to support Microsoft Foundry (formerly Azure AI) capabilities in LangChain/LangGraph ecosystem.
 License-Expression: MIT
-License-File: LICENSE
-Requires-Python: >=3.10.0,<4.0
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: aiohttp~=3.14
+Requires-Dist: azure-ai-contentunderstanding>=1.2.0b2,<2.0.0
+Requires-Dist: azure-ai-projects>=2.2.0,<3.0
+Requires-Dist: azure-ai-contentsafety>=1.0.0,<2.0.0
+Requires-Dist: azure-core~=1.41
+Requires-Dist: azure-identity~=1.15
+Requires-Dist: azure-search-documents>=11.4,<13.0
+Requires-Dist: langchain>=1.2.12,<2.0.0
+Requires-Dist: langchain-openai>=1.0.0,<2.0.0
+Requires-Dist: langgraph>=1.1.1,<3.0
+Requires-Dist: numpy>=1.26.2 ; python_full_version < '3.13'
+Requires-Dist: numpy>=2.1.0 ; python_full_version >= '3.13'
+Requires-Dist: six>=1.17.0,<2.0.0
+Requires-Dist: azure-ai-agentserver-core>=2.0.0b7,<3.0 ; extra == 'hosting'
+Requires-Dist: azure-ai-agentserver-invocations>=1.0.0b6,<2.0 ; extra == 'hosting'
+Requires-Dist: azure-ai-agentserver-responses>=1.0.0b8,<2.0 ; extra == 'hosting'
+Requires-Dist: starlette>=1.3.1 ; extra == 'hosting'
+Requires-Dist: azure-monitor-opentelemetry~=1.8 ; extra == 'opentelemetry'
+Requires-Dist: opentelemetry-api>=1.37 ; extra == 'opentelemetry'
+Requires-Dist: opentelemetry-instrumentation>=0.58b0 ; extra == 'opentelemetry'
+Requires-Dist: opentelemetry-instrumentation-threading>=0.58b0 ; extra == 'opentelemetry'
+Requires-Dist: opentelemetry-semantic-conventions>=0.58b0 ; extra == 'opentelemetry'
+Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.2,<0.6.0 ; extra == 'opentelemetry'
+Requires-Dist: wrapt>=1.14.0 ; extra == 'opentelemetry'
+Requires-Dist: azure-ai-documentintelligence>=1.0.2,<2.0.0 ; extra == 'tools'
+Requires-Dist: azure-ai-textanalytics>=5.3.0,<6.0.0 ; extra == 'tools'
+Requires-Dist: azure-ai-vision-imageanalysis>=1.0.0,<2.0.0 ; extra == 'tools'
+Requires-Dist: azure-cognitiveservices-speech>=1.50.0,<2.0.0 ; extra == 'tools'
+Requires-Dist: azure-mgmt-logic>=10.0.0,<11.0.0 ; extra == 'tools'
+Requires-Dist: filetype>=1.2,<2 ; extra == 'tools'
+Requires-Dist: azure-ai-agents==1.2.0b6 ; extra == 'v1'
+Requires-Dist: azure-ai-inference>=1.0.0b9,<2.0 ; extra == 'v1'
+Requires-Python: >=3.10.0, <4.0
+Project-URL: repository, https://github.com/langchain-ai/langchain-azure
+Project-URL: Source Code, https://github.com/langchain-ai/langchain-azure/tree/main/libs/azure-ai
+Project-URL: Release Notes, https://github.com/langchain-ai/langchain-azure/releases
 Provides-Extra: hosting
 Provides-Extra: opentelemetry
 Provides-Extra: tools
 Provides-Extra: v1
-Requires-Dist: aiohttp (>=3.14,<4.0)
-Requires-Dist: azure-ai-agents (==1.2.0b5) ; extra == "v1"
-Requires-Dist: azure-ai-agentserver-core (>=2.0.0b3,<3.0) ; extra == "hosting"
-Requires-Dist: azure-ai-agentserver-invocations (>=1.0.0b3,<2.0) ; extra == "hosting"
-Requires-Dist: azure-ai-agentserver-responses (>=1.0.0b5,<2.0) ; extra == "hosting"
-Requires-Dist: azure-ai-contentsafety (>=1.0.0,<2.0.0)
-Requires-Dist: azure-ai-contentunderstanding (>=1.2.0b1,<2.0.0)
-Requires-Dist: azure-ai-documentintelligence (>=1.0.2,<2.0.0) ; extra == "tools"
-Requires-Dist: azure-ai-inference (>=1.0.0b9,<2.0) ; extra == "v1"
-Requires-Dist: azure-ai-projects (>=2.2.0,<3.0)
-Requires-Dist: azure-ai-textanalytics (>=5.3.0,<6.0.0) ; extra == "tools"
-Requires-Dist: azure-ai-vision-imageanalysis (>=1.0.0,<2.0.0) ; extra == "tools"
-Requires-Dist: azure-cognitiveservices-speech (>=1.50.0,<2.0.0) ; extra == "tools"
-Requires-Dist: azure-core (>=1.41,<2.0)
-Requires-Dist: azure-identity (>=1.15,<2.0)
-Requires-Dist: azure-mgmt-logic (>=10.0.0,<11.0.0) ; extra == "tools"
-Requires-Dist: azure-monitor-opentelemetry (>=1.8,<2.0) ; extra == "opentelemetry"
-Requires-Dist: azure-search-documents (>=11.4,<12.0)
-Requires-Dist: filetype (>=1.2,<2) ; extra == "tools"
-Requires-Dist: langchain (>=1.2.12,<2.0.0)
-Requires-Dist: langchain-openai (>=1.0.0,<2.0.0)
-Requires-Dist: langgraph (>=1.1.1,<3.0)
-Requires-Dist: numpy (>=1.26.2) ; python_version < "3.13"
-Requires-Dist: numpy (>=2.1.0) ; python_version >= "3.13"
-Requires-Dist: opentelemetry-api (>=1.37) ; extra == "opentelemetry"
-Requires-Dist: opentelemetry-instrumentation (>=0.58b0) ; extra == "opentelemetry"
-Requires-Dist: opentelemetry-instrumentation-threading (>=0.58b0) ; extra == "opentelemetry"
-Requires-Dist: opentelemetry-semantic-conventions (>=0.58b0) ; extra == "opentelemetry"
-Requires-Dist: opentelemetry-semantic-conventions-ai (>=0.4.2,<0.5.0) ; extra == "opentelemetry"
-Requires-Dist: six (>=1.17.0,<2.0.0)
-Requires-Dist: starlette (>=1.3.1) ; extra == "hosting"
-Requires-Dist: wrapt (>=1.14.0) ; extra == "opentelemetry"
-Project-URL: Repository, https://github.com/langchain-ai/langchain-azure
-Project-URL: Release Notes, https://github.com/langchain-ai/langchain-azure/releases
-Project-URL: Source Code, https://github.com/langchain-ai/langchain-azure/tree/main/libs/azure-ai
 Description-Content-Type: text/markdown
 
 # langchain-azure-ai
@@ -256,6 +249,11 @@ Azure AI Content Understanding is also available as a document loader via `Azure
 
 ## Changelog
 
+- **1.2.8**:
+
+  - We extended `AzureAIProjectToolbox` to forward the `x-agent-foundry-call-id` header on toolbox calls, ensuring per-call isolation and authorization on the toolbox side for deployed agents (hosted agent container spec 2.0.0). [#785](https://github.com/langchain-ai/langchain-azure/pull/785)
+  - We fixed an issue where the LangGraph hosting wrapper for Microsoft Foundry (`langchain_azure_ai.agents.hosting`) did not stream model reasoning summaries. Hosted agents configured with reasoning summaries now emit them through the streaming Responses output. [#771](https://github.com/langchain-ai/langchain-azure/pull/771)
+
 - **1.2.7**:
 
   - **[NEW]** We extended `AzureAIProjectToolbox` with skills support: new `get_skills`/`aget_skills` methods load toolbox skills as DeepAgents-ready file mappings, and new `get_resources`/`aget_resources` methods fetch toolbox resources (such as skills) as LangChain `Blob` objects with flexible URI-scheme filtering. [#700](https://github.com/langchain-ai/langchain-azure/pull/700)
@@ -396,4 +394,3 @@ Azure AI Content Understanding is also available as a document loader via `Azure
 
   - Introduce `AzureAIEmbeddingsModel` for embedding generation and `AzureAIChatCompletionsModel` for chat completions generation using the Azure AI Inference API. This client also supports GitHub Models endpoint.
   - Introduce `AzureAIOpenTelemetryTracer` for tracing with OpenTelemetry and Azure Application Insights.
-

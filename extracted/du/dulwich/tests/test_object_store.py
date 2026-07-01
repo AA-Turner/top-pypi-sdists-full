@@ -271,6 +271,19 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
         # this does not change iteration on loose objects though
         self.assertEqual([testobject.id], list(self.store._iter_loose_objects()))
 
+    def test_getitem_verifies_sha(self) -> None:
+        """Retrieving a loose object stored under a wrong sha is rejected."""
+        from dulwich.errors import ChecksumMismatch
+        from dulwich.file import GitFile
+
+        self.store.add_object(testobject)
+        wrong_sha = b"1" * 40
+        path = self.store._get_shafile_path(wrong_sha)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with GitFile(path, "wb") as f:
+            f.write(testobject.as_legacy_object())
+        self.assertRaises(ChecksumMismatch, self.store.__getitem__, wrong_sha)
+
     def test_tempfile_in_loose_store(self) -> None:
         self.store.add_object(testobject)
         self.assertEqual([testobject.id], list(self.store._iter_loose_objects()))
@@ -284,6 +297,22 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
             os.close(fd)
 
         self.assertEqual([testobject.id], list(self.store._iter_loose_objects()))
+
+    def test_repack_identical_does_not_leak_tempfile(self) -> None:
+        pack_dir = self.store.pack_dir
+        b = make_object(Blob, data=b"yummy data")
+        self.store.add_objects([(b, None)])
+        self.assertEqual(1, len(self.store.packs))
+
+        self.store.repack()
+        self.assertEqual(1, len(self.store.packs))
+
+        leftover = [
+            n
+            for n in os.listdir(pack_dir)
+            if n.endswith(".pack") and not n.startswith("pack-")
+        ]
+        self.assertEqual([], leftover)
 
     def test_add_alternate_path(self) -> None:
         store = DiskObjectStore(self.store_dir)
@@ -965,10 +994,10 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
         else:
             commit()
 
-        # Access b1 — this triggers mmap and eviction due to tiny limit
+        # Access b1: this triggers mmap and eviction due to tiny limit
         self.assertEqual((Blob.type_num, b"data for pack one"), store.get_raw(b1.id))
 
-        # Access b2 — the first pack should have been evicted, but b2 is still
+        # Access b2: the first pack should have been evicted, but b2 is still
         # accessible because _update_pack_cache will re-open it if needed
         self.assertEqual((Blob.type_num, b"data for pack two"), store.get_raw(b2.id))
 
@@ -977,7 +1006,7 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
         self.addCleanup(store.close)
         self.assertIsNone(store.packed_git_limit)
 
-        # Add and access objects — no eviction should happen
+        # Add and access objects; no eviction should happen
         b1 = make_object(Blob, data=b"data one")
         f, commit, abort = store.add_pack()
         try:
@@ -1070,7 +1099,7 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
             commit()
         return b
 
-    def test_get_pack_by_name_uses_bare_hash_key(self) -> None:
+    def test_get_pack_by_name_uses_basename_key(self) -> None:
         """_get_pack_by_name and _update_pack_cache must agree on cache keys.
 
         Otherwise both populate _pack_cache for the same file under different
@@ -1082,14 +1111,14 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
         self.addCleanup(store.close)
 
         b = self._add_blob_in_pack(store, b"midx test")
-        # Force _update_pack_cache to populate the cache with bare-hash keys.
+        # Force _update_pack_cache to populate the cache.
         store.get_raw(b.id)
 
-        # All keys in _pack_cache must be bare hashes (no "pack-" prefix).
+        # _pack_cache is keyed by the full pack basename.
         for key in store._pack_cache:
-            self.assertFalse(
+            self.assertTrue(
                 key.startswith("pack-"),
-                f"_pack_cache key {key!r} should be a bare hash",
+                f"_pack_cache key {key!r} should be a pack basename",
             )
 
         cached_keys = set(store._pack_cache)
@@ -1299,6 +1328,156 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
         self.assertTrue(store.contains_packed(hex_to_sha(b.id)))
         # Unknown hex SHA: clean False, no exception.
         self.assertFalse(store.contains_packed(b"0" * 40))
+
+    def _rename_pack_to_loose(self, store) -> str:
+        """Rename the single pack in the store from pack-<h> to loose-<h>.
+
+        Mirrors the packs that ``git maintenance run --task=loose-objects``
+        writes. Returns the new "loose-<hash>" basename.
+        """
+        pack_dir = store.pack_dir
+        names = os.listdir(pack_dir)
+        pack_file = next(n for n in names if n.startswith("pack-"))
+        old_base = os.path.splitext(pack_file)[0]
+        new_base = "loose-" + old_base[len("pack-") :]
+        for ext in (".pack", ".idx"):
+            os.rename(
+                os.path.join(pack_dir, old_base + ext),
+                os.path.join(pack_dir, new_base + ext),
+            )
+        return new_base
+
+    def test_loose_named_pack_is_discovered(self) -> None:
+        """A "loose-<hash>" pack must be readable without any MIDX.
+
+        Regression for the underlying cause of issue #2229: git maintenance
+        writes valid packs named "loose-<hash>.pack", but the store only
+        discovered "pack-<hash>.pack". Objects living only in such a pack
+        were invisible to contains/get_raw.
+        """
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+        b = self._add_blob_in_pack(store, b"loose pack discovery")
+        store.close()
+
+        self._rename_pack_to_loose(DiskObjectStore(self.store_dir))
+
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+        self.assertEqual(
+            ["loose-"],
+            sorted({os.path.basename(p._basename)[:6] for p in store.packs}),
+        )
+        self.assertTrue(store.contains_packed(b.id))
+        self.assertEqual((Blob.type_num, b"loose pack discovery"), store.get_raw(b.id))
+
+    def test_midx_referencing_loose_named_pack(self) -> None:
+        """get_raw via a MIDX that references a "loose-<hash>" pack must work.
+
+        Regression for issue #2229: _get_pack_by_name asserted that every
+        MIDX pack name began with "pack-", crashing with AssertionError on
+        the "loose-<hash>.idx" names git maintenance writes into the MIDX.
+        """
+        from dulwich.midx import write_midx_file
+        from dulwich.pack import load_pack_index
+
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+        b = self._add_blob_in_pack(store, b"midx loose pack")
+        store.close()
+
+        new_base = self._rename_pack_to_loose(DiskObjectStore(self.store_dir))
+
+        # Build a MIDX that references the pack by its "loose-<hash>.idx" name.
+        pack_dir = os.path.join(self.store_dir, "pack")
+        idx = load_pack_index(
+            os.path.join(pack_dir, new_base + ".idx"), DEFAULT_OBJECT_FORMAT
+        )
+        entries = list(idx.iterentries())
+        write_midx_file(
+            os.path.join(pack_dir, "multi-pack-index"),
+            [(new_base + ".idx", entries)],
+        )
+
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+        midx = store.get_midx()
+        self.assertIsNotNone(midx)
+        self.assertEqual([new_base + ".idx"], midx.pack_names)
+        self.assertEqual((Blob.type_num, b"midx loose pack"), store.get_raw(b.id))
+
+    def test_repack_does_not_duplicate_loose_named_pack(self) -> None:
+        """repack must reuse an existing loose-<hash> pack, not duplicate it.
+
+        _complete_pack dedups by content (pack.name()), so repacking a store
+        whose objects already live in a loose-<hash> pack recognises that
+        pack instead of writing a second pack-<hash> with identical objects.
+        """
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+        b = self._add_blob_in_pack(store, b"repack dedup")
+        store.close()
+
+        self._rename_pack_to_loose(DiskObjectStore(self.store_dir))
+
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+        store.repack()
+        store.repack()
+
+        pack_dir = os.path.join(self.store_dir, "pack")
+        packs = sorted(n for n in os.listdir(pack_dir) if n.endswith(".pack"))
+        self.assertEqual(1, len(packs), packs)
+        self.assertTrue(packs[0].startswith("loose-"), packs[0])
+        self.assertEqual((Blob.type_num, b"repack dedup"), store.get_raw(b.id))
+
+    def test_get_pack_by_name_rejects_path_separators(self) -> None:
+        """A MIDX pack name with a path separator must not be joined as a path.
+
+        The MIDX is read from disk; a corrupt or hostile PNAM entry like
+        "../evil.idx" must be rejected rather than being resolved relative to
+        pack_dir and escaping it. Plant a real pack one level above pack_dir
+        and confirm the traversal name does not reach it.
+        """
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+        self._add_blob_in_pack(store, b"traversal target")
+        store.close()
+
+        # Move the pack up one directory (into the objects dir) so that a
+        # "../<name>" traversal from pack_dir would resolve onto it.
+        pack_dir = os.path.join(self.store_dir, "pack")
+        new_base = self._rename_pack_to_loose(DiskObjectStore(self.store_dir))
+        for ext in (".pack", ".idx"):
+            os.rename(
+                os.path.join(pack_dir, new_base + ext),
+                os.path.join(self.store_dir, new_base + ext),
+            )
+
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+        # Without the separator check this would resolve to ../<new_base>.pack
+        # (which exists) and open a pack outside pack_dir.
+        self.assertRaises(KeyError, store._get_pack_by_name, "../" + new_base + ".idx")
+        self.assertRaises(KeyError, store._get_pack_by_name, "..\\" + new_base + ".idx")
+
+    def test_add_pack_dedup_removes_temp_pack(self) -> None:
+        """A deduplicated add_pack must not leave its temp pack in pack_dir.
+
+        _complete_pack returns the existing pack early when the objects are
+        already packed; it must drop the temporary "tmp*.pack" it was about
+        to move in.
+        """
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+        b = make_object(Blob, data=b"temp pack cleanup")
+        self._add_blob_in_pack(store, b.data)
+        # Adding the same object again hits the dedup early-return.
+        self._add_blob_in_pack(store, b.data)
+
+        pack_dir = os.path.join(self.store_dir, "pack")
+        leftovers = [n for n in os.listdir(pack_dir) if n.startswith("tmp")]
+        self.assertEqual([], leftovers)
 
 
 class TreeLookupPathTests(TestCase):

@@ -1,0 +1,106 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+
+from attrs import define as _attrs_define
+from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.script_response import ScriptResponse
+    from ..models.script_version_response import ScriptVersionResponse
+
+
+T = TypeVar("T", bound="UpdatedScript")
+
+
+@_attrs_define
+class UpdatedScript:
+    """
+    Attributes:
+        script (ScriptResponse):
+        previous_version (None | ScriptVersionResponse | Unset): Previous script version before this deploy. None for
+            new scripts.
+    """
+
+    script: ScriptResponse
+    previous_version: None | ScriptVersionResponse | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        from ..models.script_version_response import ScriptVersionResponse
+
+        script = self.script.to_dict()
+
+        previous_version: dict[str, Any] | None | Unset
+        if isinstance(self.previous_version, Unset):
+            previous_version = UNSET
+        elif isinstance(self.previous_version, ScriptVersionResponse):
+            previous_version = self.previous_version.to_dict()
+        else:
+            previous_version = self.previous_version
+
+        field_dict: dict[str, Any] = {}
+        field_dict.update(self.additional_properties)
+        field_dict.update(
+            {
+                "script": script,
+            }
+        )
+        if previous_version is not UNSET:
+            field_dict["previous_version"] = previous_version
+
+        return field_dict
+
+    @classmethod
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.script_response import ScriptResponse
+        from ..models.script_version_response import ScriptVersionResponse
+
+        d = dict(src_dict)
+        script = ScriptResponse.from_dict(d.pop("script"))
+
+        def _parse_previous_version(
+            data: object,
+        ) -> None | ScriptVersionResponse | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                previous_version_type_0 = ScriptVersionResponse.from_dict(data)
+
+                return previous_version_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | ScriptVersionResponse | Unset, data)
+
+        previous_version = _parse_previous_version(d.pop("previous_version", UNSET))
+
+        updated_script = cls(
+            script=script,
+            previous_version=previous_version,
+        )
+
+        updated_script.additional_properties = d
+        return updated_script
+
+    @property
+    def additional_keys(self) -> list[str]:
+        return list(self.additional_properties.keys())
+
+    def __getitem__(self, key: str) -> Any:
+        return self.additional_properties[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.additional_properties[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.additional_properties[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.additional_properties

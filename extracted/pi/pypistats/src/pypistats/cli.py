@@ -5,11 +5,15 @@ CLI with subcommands for pypistats
 from __future__ import annotations
 
 import argparse
+import atexit
 import calendar
 import datetime as dt
 import re
 
 import pypistats
+from pypistats import _cache
+
+atexit.register(_cache.clear)
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -272,11 +276,7 @@ common_arguments = [
     ]
 )
 def recent(args: argparse.Namespace) -> None:  # pragma: no cover
-    print(
-        pypistats.recent(
-            args.package, period=args.period, format=args.format, verbose=args.verbose
-        )
-    )
+    print(pypistats.recent(args.package, period=args.period, format=args.format))
 
 
 @subcommand(
@@ -300,7 +300,6 @@ def overall(args: argparse.Namespace) -> None:  # pragma: no cover
             total="daily" if args.daily else ("monthly" if args.monthly else "all"),
             sort=args.sort,
             color="no",  # Coloured percentages not really helpful here
-            verbose=args.verbose,
         )
     )
 
@@ -323,7 +322,6 @@ def python_major(args: argparse.Namespace) -> None:  # pragma: no cover
             total="daily" if args.daily else ("monthly" if args.monthly else "all"),
             sort=args.sort,
             color=args.color,
-            verbose=args.verbose,
         )
     )
 
@@ -346,7 +344,6 @@ def python_minor(args: argparse.Namespace) -> None:  # pragma: no cover
             total="daily" if args.daily else ("monthly" if args.monthly else "all"),
             sort=args.sort,
             color=args.color,
-            verbose=args.verbose,
         )
     )
 
@@ -369,7 +366,6 @@ def system(args: argparse.Namespace) -> None:  # pragma: no cover
             total="daily" if args.daily else ("monthly" if args.monthly else "all"),
             sort=args.sort,
             color=args.color,
-            verbose=args.verbose,
         )
     )
 
@@ -435,6 +431,8 @@ def main() -> None:
             args.start_date = _this_month()
 
         args.format = _define_format(args)
+
+        pypistats._verbose = args.verbose
 
         args.func(args)
 

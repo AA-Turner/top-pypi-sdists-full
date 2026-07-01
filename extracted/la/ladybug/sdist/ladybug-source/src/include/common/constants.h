@@ -105,12 +105,18 @@ struct CopyConstants {
     static constexpr uint64_t PARALLEL_BLOCK_SIZE = INITIAL_BUFFER_SIZE / 2;
 
     static constexpr const char* IGNORE_ERRORS_OPTION_NAME = "IGNORE_ERRORS";
+    // Internal name of the duplicate-primary-key skip option. The user-facing COPY syntax is
+    // `IGNORE_ERRORS=true (DUPLICATE_PK_ONLY)`, which `Transformer::transformOptions` rewrites into
+    // this option key so the existing duplicate-PK skip path stays intact.
+    static constexpr const char* SKIP_DUPLICATE_PK_OPTION_NAME = "SKIP_DUPLICATE_PK";
+    static constexpr const char* DUPLICATE_PK_ONLY_QUALIFIER_NAME = "DUPLICATE_PK_ONLY";
 
     static constexpr const char* FROM_OPTION_NAME = "FROM";
     static constexpr const char* TO_OPTION_NAME = "TO";
 
     static constexpr const char* BOOL_CSV_PARSING_OPTIONS[] = {"HEADER", "PARALLEL",
-        "LIST_UNBRACED", "AUTODETECT", "AUTO_DETECT", CopyConstants::IGNORE_ERRORS_OPTION_NAME};
+        "LIST_UNBRACED", "AUTODETECT", "AUTO_DETECT", CopyConstants::IGNORE_ERRORS_OPTION_NAME,
+        CopyConstants::SKIP_DUPLICATE_PK_OPTION_NAME};
     static constexpr bool DEFAULT_CSV_HAS_HEADER = false;
     static constexpr bool DEFAULT_CSV_PARALLEL = true;
 
@@ -124,6 +130,7 @@ struct CopyConstants {
     static constexpr char DEFAULT_CSV_LIST_BEGIN_CHAR = '[';
     static constexpr char DEFAULT_CSV_LIST_END_CHAR = ']';
     static constexpr bool DEFAULT_IGNORE_ERRORS = false;
+    static constexpr bool DEFAULT_SKIP_DUPLICATE_PK = false;
     static constexpr bool DEFAULT_CSV_AUTO_DETECT = true;
     static constexpr bool DEFAULT_CSV_SET_DIALECT = false;
     static constexpr std::array DEFAULT_CSV_DELIMITER_SEARCH_SPACE = {',', ';', '\t', '|'};

@@ -1,3 +1,0 @@
-"""
-Milestones Tests initialization module
-"""

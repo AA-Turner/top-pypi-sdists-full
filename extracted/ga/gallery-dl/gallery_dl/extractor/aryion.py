@@ -160,22 +160,19 @@ class AryionExtractor(Extractor):
 
     def _parse_post(self, post_id):
         url = f"{self.root}/g4/data.php?id={post_id}"
-        with self.request(url, method="HEAD", fatal=False) as response:
+        with self.request(url, method="HEAD", fatal=False,
+                          allow_redirects=False) as response:
 
             if response.status_code >= 400:
                 self.log.warning(
                     "Unable to fetch post %s ('%s %s')",
                     post_id, response.status_code, response.reason)
                 return None
-            headers = response.headers
-
-            # folder
-            if headers["content-type"] in {
-                "application/x-folder",
-                "application/x-comic-folder",
-                "application/x-comic-folder-nomerge",
-            }:
+            if response.status_code >= 300:
+                # folder
                 return False
+
+            headers = response.headers
 
             # get filename from 'Content-Disposition' header
             fname, _, ext = text.filename_from_contentdisposition(

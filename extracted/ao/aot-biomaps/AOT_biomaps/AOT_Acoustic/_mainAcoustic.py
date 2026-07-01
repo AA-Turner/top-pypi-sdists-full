@@ -43,7 +43,7 @@ try:
     from kwave.options.simulation_execution_options import SimulationExecutionOptions
     KWAVE_AVAILABLE = True
     
-    # Check if kwave binaries are available and executable
+    # correct kwave issue with subprocess.Popen on Windows and Linux (encoding)
     import subprocess
     import sys
 
@@ -57,6 +57,8 @@ try:
             super().__init__(*args, **kwargs)
 
     subprocess.Popen = PatchedPopen
+
+    # Check if kwave binaries are available and executable
     try:
         # Try to check if the CUDA binary exists and is executable
         import kwave
@@ -561,10 +563,15 @@ class AcousticField(ABC):
                 raise ValueError("Field data is not available. Please generate or load the field first.")
 
             if reshape_type == 'NxNyNzNt':
-                factorX = self.field.shape[2] // Nx if Nx is not None else 1
-                factorY = self.field.shape[1] // Ny if Ny is not None else 1
-                factorZ = self.field.shape[0] // Nz if Nz is not None else 1
-                factorT = self.field.shape[3] // Nt if Nt is not None else 1
+                if self.params.acoustic["dim"] == Dim.D2.value:
+                    factorX = self.field.shape[2] // Nx if Nx is not None else 1
+                    factorZ = self.field.shape[1] // Nz if Nz is not None else 1
+                    factorT = self.field.shape[0] // Nt if Nt is not None else 1
+                elif self.params.acoustic["dim"] == Dim.D3.value:
+                    factorX = self.field.shape[3] // Nx if Nx is not None else 1
+                    factorY = self.field.shape[2] // Ny if Ny is not None else 1
+                    factorZ = self.field.shape[1] // Nz if Nz is not None else 1
+                    factorT = self.field.shape[0] // Nt if Nt is not None else 1
             elif reshape_type == 'dxdydzdt':
                 factorX = int(np.round(self.params.general['dx'] / dx)) if dx else 1
                 factorY = int(np.round(self.params.general['dy'] / dy)) if dy else 1
@@ -578,7 +585,8 @@ class AcousticField(ABC):
             else:
                 raise ValueError("Invalid reshape_type. Supported types are: 'NxNyNzNt', 'dxdydzdt', 'factor'.")
             factorX = max(1, factorX)
-            factorY = max(1, factorY)
+            if self.params.acoustic["dim"] == Dim.D3.value:
+                factorY = max(1, factorY)
             factorZ = max(1, factorZ)
             factorT = max(1, factorT)
 

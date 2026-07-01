@@ -15,7 +15,7 @@
 """
 Bottleneck entrypoint for reading os.environ and exposing its contents as
 (normalized) regular variables.
-Except for the vectorize information, which for the time being passes as os.environ.
+Except for most vectorize information, handled by the embedding_provider_switcher.
 """
 
 from __future__ import annotations
@@ -163,7 +163,7 @@ if DOCKER_COMPOSE_LOCAL_DATA_API:
         The reason is that `docker-compose` is not included in the `ubuntu-latest`
         Github runner starting August 2024 (in favour of `docker compose`).
 
-        - More modern testcontainers would require python>=3.9.
+        - Moving to testcontainers >= 4 would require refactoring this setup.
         - Aliasing 'docker-compose' in the CI container is (more) brittle.
         - Pip installing a modern testcontainers in the CI yaml is 'inelegant'.
             (and would require a try/except here with different inits to keep compat.)
@@ -204,5 +204,4 @@ ADMIN_ENV_VARIABLE_MAP = {
 }
 
 # misc variables
-HEADER_EMBEDDING_API_KEY_OPENAI = os.environ.get("HEADER_EMBEDDING_API_KEY_OPENAI")
 HEADER_RERANKING_API_KEY_NVIDIA = os.environ.get("HEADER_RERANKING_API_KEY_NVIDIA")

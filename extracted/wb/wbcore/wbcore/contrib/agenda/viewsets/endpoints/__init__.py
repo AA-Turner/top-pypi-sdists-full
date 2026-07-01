@@ -1,1 +1,0 @@
-from .calendar_items import CalendarItemEndpointConfig

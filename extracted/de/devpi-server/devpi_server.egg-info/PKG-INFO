@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: devpi-server
-Version: 6.20.2
+Version: 6.20.3
 Summary: devpi-server: backend for hosting private package indexes and PyPI on-demand mirrors
 Maintainer-email: Florian Schulze <mail@pyfidelity.com>
 License-Expression: MIT
@@ -121,6 +121,17 @@ Changelog
 
 .. towncrier release notes start
 
+6.20.3 (2026-06-30)
+===================
+
+Bug Fixes
+---------
+
+- Fix fetching files from re-created mirrors (for example after import or delete and create) without fetching simple project page first. This happens when uv uses a package URL directly from a lock file.
+
+- Search for METADATA file if the generated name with normalized project and version doesn't match. This fixes serving core metadata for older wheels.
+
+
 6.20.2 (2026-06-11)
 ===================
 
@@ -164,24 +175,4 @@ Bug Fixes
 - Return stale project list for mirrors when the lock can't be acquired within the timeout.
 
 - Fix importing of toxresults from devpi-server 6.5.0 to 6.9.0 where the wrong hash was stored.
-
-
-6.19.2 (2026-03-17)
-===================
-
-Bug Fixes
----------
-
-- Preserve log for documentation uploads in export.
-
-- Any missing file on mirrors will be ignored during event processing as is already the case in other places.
-
-- Use short timeout when project list is requested for ``has_project`` call on mirrors instead of the long one used for ``list_projects``. This prevents installers from timing out and retrying several times.
-
-- Fix error handling for proxy requests from replica to primary.
-
-Other Changes
--------------
-
-- Removed limit of reported missing files for devpi-fsck.
 

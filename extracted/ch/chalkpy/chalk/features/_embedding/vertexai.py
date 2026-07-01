@@ -39,10 +39,13 @@ class VertexAIProvider(EmbeddingProvider):
     def __init__(self, model: str, dimensions: Optional[int] = None) -> None:
         super().__init__()
 
-        # NOTE: The `vertexai` imports are deferred to the `_model`/`text_embedding_input`
-        # properties (execution time) so that graph construction succeeds in environments where
-        # the dependency is absent (e.g. the branch server, which imports user code against the
-        # lightweight base image).
+        try:
+            from vertexai.language_models import TextEmbeddingInput, TextEmbeddingModel
+        except ImportError:
+            raise missing_dependency_exception("chalkpy[vertexai]")
+        self.text_embedding_input = TextEmbeddingInput
+        self.text_embedding_model = TextEmbeddingModel
+
         if model not in _MODEL_SPECS:
             supported_models_str = ", ".join(f"'{model}'" for model in _MODEL_SPECS)
             raise ValueError(
@@ -55,20 +58,8 @@ class VertexAIProvider(EmbeddingProvider):
         self.dimensions = dimensions if dimensions is not None else specs.default_dimensions
 
     @functools.cached_property
-    def text_embedding_input(self):
-        try:
-            from vertexai.language_models import TextEmbeddingInput
-        except ImportError:
-            raise missing_dependency_exception("chalkpy[vertexai]")
-        return TextEmbeddingInput
-
-    @functools.cached_property
     def _model(self):
-        try:
-            from vertexai.language_models import TextEmbeddingModel
-        except ImportError:
-            raise missing_dependency_exception("chalkpy[vertexai]")
-        return TextEmbeddingModel.from_pretrained(self.model)
+        return self.text_embedding_model.from_pretrained(self.model)
 
     def get_provider_name(self) -> str:
         return "vertexai"

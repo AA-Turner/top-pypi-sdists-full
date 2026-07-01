@@ -7,6 +7,7 @@ from typing import Any, Callable, Literal, Mapping, Optional, TypeVar, Union
 
 import pyarrow as pa
 
+from chalk.context import ServerContextVariable
 from chalk.features._encoding.pyarrow import rich_to_pyarrow
 from chalk.features.feature_field import Feature
 from chalk.features.inference import generate_inference_resolver
@@ -7806,22 +7807,88 @@ def catalog_call(qualified_name: str, *args: Any, output_type: "pa.DataType | No
         registered via ``Catalog.register()``, or a resolver/model FQN when
         ``output_type`` is supplied.
     *args
-        Column expressions (underscore expressions) to pass as inputs.
+        Column expressions (underscore expressions) passed as positional
+        inputs. Order matters: for a model call the arguments must match the
+        order of the model's ``input_schema``.
     output_type
         Optional PyArrow data type for the return value.  When provided, the
         local catalog lookup is skipped — useful for model-registry and
         resolver FQNs that are only resolvable server-side.
 
+    Notes
+    -----
+    ``F.catalog_call`` does not call the model when the Python line runs — it
+    builds an ``UnderscoreFunction`` *describing* the call. Chalk then compiles
+    that description into the feature plan and the engine evaluates it (at
+    ``chalk apply`` / ``chalk query``). The actual model lives server-side
+    (resolved via the model endpoint config), so there is nothing to run eagerly
+    in Python; it only works where Chalk *compiles* the expression.
+
+    Valid (compiled) contexts:
+
+    * a feature-class attribute (``y: float = F.catalog_call(...)``),
+    * a ``chalkdf.DataFrame`` (``.with_columns(...)`` / ``.project(...)``),
+    * an ``@online(static=True)`` resolver, and
+    * a chalksql resolver (``catalog_call('model.<sg>', ...)``).
+
+    It is **not** supported inside a regular (eager) ``@online`` resolver, which
+    runs as ordinary Python and must ``return`` a concrete value. There the call
+    just yields an unevaluated ``UnderscoreFunction``:
+
+    * returning it directly raises
+      ``TypeError: ... not 'UnderscoreFunction'`` (the result can't be coerced to
+      the feature's type), and
+    * placing it in ``df.with_columns(...)`` raises
+      ``NotImplementedError: Unrecognized underscore expression``.
+
+    The difference is what the resolver returns: an eager ``@online`` resolver
+    returns the *value*, while a feature expression or ``@online(static=True)``
+    resolver returns a *description* that Chalk compiles and the engine runs.
+
     Examples
     --------
-    >>> from chalkdf import Catalog
+    **As a feature expression (recommended).** Call a model deployed to a
+    scaling group as a feature. No local catalog needed, and the output type
+    comes from the deployed model, so ``output_type`` is omitted.
+
     >>> import chalk.functions as F
+    >>> from chalk.features import features, _
+    >>> @features
+    ... class MyModel:
+    ...     id: int
+    ...     x_1: float
+    ...     x_2: float
+    ...     y: float = F.catalog_call("model.my-model-sg", _.x_1, _.x_2)
+
+    **In an ``@online(static=True)`` resolver.** Use this when you want a
+    resolver-shaped definition with an explicit input signature (for example
+    when there are many inputs). A static resolver is symbolically compiled, so
+    returning a ``DataFrame`` expression is the contract — unlike an eager
+    ``@online`` resolver, which would fail.
+
+    >>> from chalk import online, DataFrame
     >>> from chalk.features import _
+    >>> @online(static=True)
+    ... def score_my_model(
+    ...     df: DataFrame[MyModel.id, MyModel.x_1, MyModel.x_2],
+    ... ) -> DataFrame[MyModel.id, MyModel.y]:
+    ...     return df.with_columns(
+    ...         {str(MyModel.y): F.catalog_call("model.my-model-sg", _.x_1, _.x_2)}
+    ...     ).select(str(MyModel.id), str(MyModel.y))
+
+    **From a ``chalkdf.DataFrame``.** Call a function registered in a local
+    ``chalkdf`` Catalog. Note ``df`` here is a ``chalkdf.DataFrame`` (the
+    compiled chalkdf API), not the ``DataFrame`` you receive inside an eager
+    ``@online`` resolver.
+
+    >>> from chalkdf import Catalog, DataFrame
     >>> c = Catalog.local_catalog()
     >>> c.register("Tour", "get_known_for", tour_svc, output_type=pa.string())
+    >>> df: DataFrame = ...
     >>> df = df.with_columns({"known_for": F.catalog_call("Tour.get_known_for", _.city)})
 
-    With an explicit output_type (no local catalog needed):
+    Supply an explicit ``output_type`` to reference a name that only resolves
+    server-side, which skips the local catalog lookup:
 
     >>> df = df.with_columns({"pred": F.catalog_call("my_model.predict", _.feat, output_type=pa.float64())})
     """
@@ -7854,6 +7921,51 @@ def call_resolver(resolver_fqn: str, output_type: "pa.DataType", *args: Any):
     return UnderscoreFunction("call_resolver", resolver_fqn, output_type, *args)
 
 
+def get_server_context(name: ServerContextVariable):
+    """Read a server-side context variable.
+
+    Server-side context variables are computed once per deployment (out of band
+    from any individual query or stream message) and made available to
+    resolvers. The built-in :data:`chalk.ACTIVE_MODEL_VERSIONS` resolves to the
+    list of ``(model_name, model_version)`` pairs that were active when the
+    deployment was applied — useful, for example, to stamp streamed interactions
+    with the models live at processing time without an API call per message.
+
+    The value is inlined at graph-build time, so it reflects the deployment's
+    snapshot (it updates on the next apply, not continuously).
+
+    Parameters
+    ----------
+    name
+        A :class:`~chalk.context.ServerContextVariable` identifying the value to
+        read (e.g. :data:`chalk.ACTIVE_MODEL_VERSIONS`). Passing a typed handle
+        rather than a bare string lets Chalk enforce that the variable — and its
+        provider metadata — has been registered.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from dataclasses import dataclass
+    >>> from chalk import ACTIVE_MODEL_VERSIONS
+    >>> from chalk.features import features
+    >>> @dataclass
+    ... class ModelVersion:
+    ...     model_name: str
+    ...     model_version: int
+    >>> @features
+    ... class Interaction:
+    ...     id: str
+    ...     active_model_versions: list[ModelVersion] = F.get_server_context(ACTIVE_MODEL_VERSIONS)
+    """
+    # Runtime guard against callers passing a bare string (or anything else);
+    # pyright knows the annotation already excludes that, hence the suppression.
+    if not isinstance(name, ServerContextVariable):  # pyright: ignore[reportUnnecessaryIsInstance]
+        raise ValueError(
+            f"The `get_server_context()` function expects a `ServerContextVariable` value, got `{type(name)}`"
+        )
+    return UnderscoreFunction("get_server_context", name.context_variable_name)
+
+
 __all__ = (
     "call_resolver",
     "catalog_call",
@@ -7865,6 +7977,7 @@ __all__ = (
     "abs",
     "acos",
     "array_agg",
+    "get_server_context",
     "array_add",
     "array_average",
     "array_count_value",

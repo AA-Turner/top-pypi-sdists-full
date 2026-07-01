@@ -265,6 +265,17 @@ class RecomputeFeaturesGQL:
 
 @dataclasses_json.dataclass_json
 @dataclass
+class UpsertMaterializedFeatureViewGQL:
+    namespace: str
+    timeResolution: str
+    updateCadence: str
+    filename: str
+    lowerBound: Optional[str] = None
+    lookbackRetentionPeriod: Optional[str] = None
+
+
+@dataclasses_json.dataclass_json
+@dataclass
 class UpsertCronQueryGQL:
     name: str
     cron: str
@@ -783,3 +794,4 @@ class UpsertGraphGQL:
     sqlSources: Optional[List[UpsertSQLSourceGQL]] = None
     featureClasses: Optional[List[FeatureClassGQL]] = None
     lsp: Optional[LspGQL] = None
+    materializedFeatureViews: Optional[List[UpsertMaterializedFeatureViewGQL]] = None

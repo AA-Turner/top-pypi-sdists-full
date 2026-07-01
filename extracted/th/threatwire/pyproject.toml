@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "threatwire"
+version = "1.0.0"
+description = "Real-time network packet inspection and threat signature matching for Python-based IDS/IPS pipelines"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Abhishake Reddy Onteddu" , email = "ontedduabhishakereddy@gmail.com"}]
+keywords = ["security", "ids", "ips", "network", "threat-detection", "mitre-attack", "cybersecurity"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: System :: Networking :: Monitoring",
+]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+capture = ["scapy>=2.5.0"]
+fast    = ["pyahocorasick>=2.0.0"]
+all     = ["scapy>=2.5.0", "pyahocorasick>=2.0.0"]
+dev     = [
+    "pytest>=7.4",
+    "pytest-asyncio>=0.21",
+    "pytest-cov>=4.1",
+    "mypy>=1.5",
+    "ruff>=0.4",
+    "scapy>=2.5.0",
+]
+
+[project.scripts]
+threatwire = "threatwire.__main__:main"
+
+[project.urls]
+Homepage      = "https://github.com/ontedduabhishakereddy/threatwire"
+Repository    = "https://github.com/ontedduabhishakereddy/threatwire"
+Issues        = "https://github.com/ontedduabhishakereddy/threatwire/issues"
+Documentation = "https://github.com/ontedduabhishakereddy/threatwire/blob/main/README"
+
+[tool.setuptools.packages.find]
+where   = ["."]
+include = ["threatwire*"]
+
+[tool.setuptools.package-data]
+threatwire = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["threatwire"]
+omit   = ["tests/*", "examples/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under   = 70
+
+[tool.ruff]
+line-length    = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "S", "B", "A"]
+ignore = [
+    "S101",   # assert usage — fine in tests
+    "S311",   # random not used for crypto
+    "A003",   # shadowing builtin names
+    "S108",   # /tmp usage — acceptable in examples
+    "S310",   # urllib URL audit — acceptable for webhook/SIEM handlers
+    "S324",   # md5 for JA3 fingerprint — not security-critical
+    "S110",   # try/except/pass — acceptable in protocol parsers
+    "N806",   # Rule uppercase variable — domain convention
+    "N803",   # Rule uppercase arg — domain convention
+]
+
+[tool.mypy]
+python_version        = "3.9"
+strict                = false
+ignore_missing_imports = true
+warn_return_any       = true
+warn_unused_configs   = true

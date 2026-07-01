@@ -31,8 +31,6 @@ Related:
     - ContractLinearSnapshotEvent: Return type.
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
@@ -65,7 +63,7 @@ class ProtocolLinearSnapshotEffect(Protocol):
     async def snapshot(
         self,
         workspace_id: str,
-    ) -> ContractLinearSnapshotEvent:
+    ) -> "ContractLinearSnapshotEvent":
         """Poll Linear for workstream state and produce a snapshot event.
 
         Args:

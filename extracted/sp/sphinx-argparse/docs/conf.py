@@ -10,13 +10,14 @@ exclude_patterns = ['_build']
 
 project = 'sphinx-argparse'
 copyright = '2017, Alex Rudakov, Devon Ryan, and contributors'
-release = version = '0.5.2'
+release = version = '0.6.0'
 nitpicky = True
 
 # -- Options for intersphinx ---------------------------------------------------
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
+    'sphinx': ('https://www.sphinx-doc.org/', None),
 }
 
 # -- Options for HTML output ---------------------------------------------------

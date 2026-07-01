@@ -186,6 +186,7 @@ def test_unifiedresponse_slicing():
     assert isinstance(results[0], QueryResponseTable)
 
 
+@pytest.mark.thread_unsafe(reason="mocks a function")
 def test_show_in_notebook(mocker):
     pytest.importorskip("itables")
     mock_datagrid =  mocker.patch("itables.show")
@@ -444,6 +445,7 @@ def test_vso_fetch_hmi(tmpdir):
     assert len(files) == 1
 
 
+@pytest.mark.thread_unsafe(reason="mocks a method")
 def test_fido_no_time(mocker):
     jsoc_mock = mocker.patch("sunpy.net.jsoc.JSOCClient.search")
     jsoc_mock.return_value = jsoc.JSOCResponse()

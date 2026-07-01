@@ -1501,6 +1501,378 @@ def test_guard_protect_pnpm_install_alias_renders_wrapped_review_link_for_cloud_
     assert "review.. Open HOL Guard" not in output
 
 
+def test_guard_protect_ignores_stale_policy_bundle_package_family_block(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+) -> None:
+    home_dir = tmp_path / "guard-home"
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    server, thread, sync_url = _start_cloud_eval_server(
+        decision="allow",
+        package_name="cli",
+        evaluate_status=400,
+    )
+    monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", lambda _home: "http://127.0.0.1:5474")
+    try:
+        store = GuardStore(home_dir)
+        store.replace_remote_policies(
+            [
+                PolicyDecision(
+                    harness="*",
+                    scope="harness",
+                    action="block",
+                    artifact_id="family:package-request",
+                    source="policy-bundle",
+                    owner="policy-graph-default-high-block",
+                    reason="Block immediately high risk.",
+                )
+            ],
+            "2026-05-19T00:00:00Z",
+            remote_write_authorized=True,
+        )
+        store.set_sync_payload(
+            "policy_bundle",
+            {
+                "rules": [
+                    {
+                        "ruleId": "policy-graph-default-high-block",
+                        "matcherFamilies": ["package-request"],
+                        "scope": {"ecosystems": []},
+                    }
+                ]
+            },
+            "2026-05-19T00:00:00Z",
+        )
+        _seed_workspace_sync_credentials(home_dir, sync_url)
+        rc = main(
+            [
+                "guard",
+                "protect",
+                "--home",
+                str(home_dir),
+                "--workspace",
+                str(workspace_dir),
+                "--json",
+                "--dry-run",
+                "npm",
+                "i",
+                "-g",
+                "@stripe/cli",
+            ]
+        )
+    finally:
+        _stop_cloud_eval_server(server, thread)
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 2
+    assert payload["primary_approval_url"].startswith("http://127.0.0.1:5474/requests/")
+    reason_codes = {
+        reason["code"]
+        for reason in payload["supply_chain_evaluation"]["reasons"]
+        if isinstance(reason, dict) and isinstance(reason.get("code"), str)
+    }
+    assert "cloud_validation_error" in reason_codes
+    assert "saved_package_block" not in reason_codes
+    assert "saved package policy" not in payload["supply_chain_evaluation"]["user_copy"]["harness_message"]
+
+
+def test_guard_protect_keeps_active_policy_bundle_package_family_block(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+) -> None:
+    home_dir = tmp_path / "guard-home"
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    server, thread, sync_url = _start_cloud_eval_server(
+        decision="allow",
+        package_name="cli",
+        evaluate_status=200,
+    )
+    try:
+        store = GuardStore(home_dir)
+        store.replace_remote_policies(
+            [
+                PolicyDecision(
+                    harness="*",
+                    scope="harness",
+                    action="block",
+                    artifact_id="family:package-request",
+                    source="policy-bundle",
+                    owner="npm-block",
+                    reason="Block npm installs.",
+                )
+            ],
+            "2026-05-19T00:00:00Z",
+            remote_write_authorized=True,
+        )
+        store.set_sync_payload(
+            "policy_bundle",
+            {
+                "rules": [
+                    {
+                        "ruleId": "npm-block",
+                        "matcherFamilies": ["package-request"],
+                        "scope": {"ecosystems": ["npm"]},
+                    }
+                ]
+            },
+            "2026-05-19T00:00:00Z",
+        )
+        _seed_workspace_sync_credentials(home_dir, sync_url)
+        rc = main(
+            [
+                "guard",
+                "protect",
+                "--home",
+                str(home_dir),
+                "--workspace",
+                str(workspace_dir),
+                "--json",
+                "--dry-run",
+                "npm",
+                "i",
+                "-g",
+                "@stripe/cli",
+            ]
+        )
+    finally:
+        _stop_cloud_eval_server(server, thread)
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 2
+    reason_codes = {
+        reason["code"]
+        for reason in payload["supply_chain_evaluation"]["reasons"]
+        if isinstance(reason, dict) and isinstance(reason.get("code"), str)
+    }
+    assert "saved_package_block" in reason_codes
+    assert payload["supply_chain_evaluation"]["user_copy"]["next_step"].startswith(
+        "hol-guard policies clear --decision-id"
+    )
+
+
+def test_guard_protect_keeps_matcher_only_policy_bundle_package_family_block(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+) -> None:
+    home_dir = tmp_path / "guard-home"
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    server, thread, sync_url = _start_cloud_eval_server(
+        decision="allow",
+        package_name="cli",
+        evaluate_status=200,
+    )
+    try:
+        store = GuardStore(home_dir)
+        store.replace_remote_policies(
+            [
+                PolicyDecision(
+                    harness="*",
+                    scope="harness",
+                    action="block",
+                    artifact_id="family:package-request",
+                    source="policy-bundle",
+                    owner="matcher-only-package-block",
+                    reason="Block package installs.",
+                )
+            ],
+            "2026-05-19T00:00:00Z",
+            remote_write_authorized=True,
+        )
+        store.set_sync_payload(
+            "policy_bundle",
+            {"rules": [{"ruleId": "matcher-only-package-block", "matcherFamilies": ["package-request"]}]},
+            "2026-05-19T00:00:00Z",
+        )
+        _seed_workspace_sync_credentials(home_dir, sync_url)
+        rc = main(
+            [
+                "guard",
+                "protect",
+                "--home",
+                str(home_dir),
+                "--workspace",
+                str(workspace_dir),
+                "--json",
+                "--dry-run",
+                "npm",
+                "i",
+                "-g",
+                "@stripe/cli",
+            ]
+        )
+    finally:
+        _stop_cloud_eval_server(server, thread)
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 2
+    reason_codes = {
+        reason["code"]
+        for reason in payload["supply_chain_evaluation"]["reasons"]
+        if isinstance(reason, dict) and isinstance(reason.get("code"), str)
+    }
+    assert "saved_package_block" in reason_codes
+
+
+def test_guard_protect_keeps_package_scope_even_when_matcher_list_omits_package_family(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+) -> None:
+    home_dir = tmp_path / "guard-home"
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    server, thread, sync_url = _start_cloud_eval_server(
+        decision="allow",
+        package_name="cli",
+        evaluate_status=200,
+    )
+    try:
+        store = GuardStore(home_dir)
+        store.replace_remote_policies(
+            [
+                PolicyDecision(
+                    harness="*",
+                    scope="harness",
+                    action="block",
+                    artifact_id="family:package-request",
+                    source="policy-bundle",
+                    owner="ecosystem-package-block",
+                    reason="Block npm installs.",
+                )
+            ],
+            "2026-05-19T00:00:00Z",
+            remote_write_authorized=True,
+        )
+        store.set_sync_payload(
+            "policy_bundle",
+            {
+                "rules": [
+                    {
+                        "ruleId": "ecosystem-package-block",
+                        "matcherFamilies": ["tool-action"],
+                        "scope": {"ecosystems": ["npm"]},
+                    }
+                ]
+            },
+            "2026-05-19T00:00:00Z",
+        )
+        _seed_workspace_sync_credentials(home_dir, sync_url)
+        rc = main(
+            [
+                "guard",
+                "protect",
+                "--home",
+                str(home_dir),
+                "--workspace",
+                str(workspace_dir),
+                "--json",
+                "--dry-run",
+                "npm",
+                "i",
+                "-g",
+                "@stripe/cli",
+            ]
+        )
+    finally:
+        _stop_cloud_eval_server(server, thread)
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 2
+    reason_codes = {
+        reason["code"]
+        for reason in payload["supply_chain_evaluation"]["reasons"]
+        if isinstance(reason, dict) and isinstance(reason.get("code"), str)
+    }
+    assert "saved_package_block" in reason_codes
+
+
+def test_guard_protect_ignores_stale_policy_bundle_package_family_on_cloud_allow(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+) -> None:
+    home_dir = tmp_path / "guard-home"
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    server, thread, sync_url = _start_cloud_eval_server(
+        decision="allow",
+        package_name="cli",
+        evaluate_status=200,
+    )
+    monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", lambda _home: "http://127.0.0.1:5474")
+    try:
+        store = GuardStore(home_dir)
+        store.replace_remote_policies(
+            [
+                PolicyDecision(
+                    harness="*",
+                    scope="harness",
+                    action="block",
+                    artifact_id="family:package-request",
+                    source="policy-bundle",
+                    owner="policy-graph-default-high-block",
+                    reason="Block immediately high risk.",
+                )
+            ],
+            "2026-05-19T00:00:00Z",
+            remote_write_authorized=True,
+        )
+        store.set_sync_payload(
+            "policy_bundle",
+            {
+                "rules": [
+                    {
+                        "ruleId": "policy-graph-default-high-block",
+                        "matcherFamilies": ["package-request"],
+                        "scope": {"ecosystems": []},
+                    }
+                ]
+            },
+            "2026-05-19T00:00:00Z",
+        )
+        _seed_workspace_sync_credentials(home_dir, sync_url)
+        rc = main(
+            [
+                "guard",
+                "protect",
+                "--home",
+                str(home_dir),
+                "--workspace",
+                str(workspace_dir),
+                "--json",
+                "--dry-run",
+                "npm",
+                "i",
+                "-g",
+                "@stripe/cli",
+            ]
+        )
+    finally:
+        _stop_cloud_eval_server(server, thread)
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 0
+    assert payload["supply_chain_evaluation"]["decision"] == "allow"
+    reason_codes = {
+        reason["code"]
+        for reason in payload["supply_chain_evaluation"]["reasons"]
+        if isinstance(reason, dict) and isinstance(reason.get("code"), str)
+    }
+    assert "stale_package_bundle_policy_review" not in reason_codes
+    assert "saved_package_block" not in reason_codes
+
+
 def test_guard_protect_retry_runs_after_local_package_approval(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1667,11 +2039,13 @@ def test_guard_protect_retry_after_local_package_approval_reuses_recent_cloud_va
     assert store.list_approval_requests(status="pending", limit=None) == []
 
 
-def test_guard_protect_denied_retry_does_not_requeue_local_package_approval(
+def test_guard_protect_denied_retry_surfaces_saved_block_clear_command_without_requeue(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    install_fake_system_keyring,
     capsys,
 ) -> None:
+    install_fake_system_keyring()
     home_dir = tmp_path / "guard-home"
     workspace_dir = tmp_path / "workspace"
     workspace_dir.mkdir(parents=True, exist_ok=True)
@@ -1745,7 +2119,11 @@ def test_guard_protect_denied_retry_does_not_requeue_local_package_approval(
         isinstance(reason, dict) and reason.get("code") == "saved_package_block"
         for reason in retry_payload["supply_chain_evaluation"]["reasons"]
     )
+    user_copy = retry_payload["supply_chain_evaluation"]["user_copy"]
     assert "primary_approval_request_id" not in retry_payload
+    assert "hol-guard policies clear" in user_copy["harness_message"]
+    assert "--artifact-id" in user_copy["next_step"]
+    assert "--artifact-hash" in user_copy["next_step"]
     assert pending == []
     assert len(resolved) == 1
 
@@ -1808,11 +2186,13 @@ def test_guard_protect_json_queues_local_approval_when_cached_advisory_overrides
     assert pending[0]["risk_summary"] != payload["supply_chain_evaluation"]["risk_summary"]
 
 
-def test_guard_protect_denied_retry_with_cloud_block_does_not_requeue_local_package_approval(
+def test_guard_protect_denied_retry_with_cloud_block_surfaces_saved_block_clear_command_without_requeue(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    install_fake_system_keyring,
     capsys,
 ) -> None:
+    install_fake_system_keyring()
     home_dir = tmp_path / "guard-home"
     workspace_dir = tmp_path / "workspace"
     workspace_dir.mkdir(parents=True, exist_ok=True)
@@ -1886,7 +2266,11 @@ def test_guard_protect_denied_retry_with_cloud_block_does_not_requeue_local_pack
         isinstance(reason, dict) and reason.get("code") == "saved_package_block"
         for reason in retry_payload["supply_chain_evaluation"]["reasons"]
     )
+    user_copy = retry_payload["supply_chain_evaluation"]["user_copy"]
     assert "primary_approval_request_id" not in retry_payload
+    assert "hol-guard policies clear" in user_copy["harness_message"]
+    assert "--artifact-id" in user_copy["next_step"]
+    assert "--artifact-hash" in user_copy["next_step"]
     assert pending == []
     assert len(resolved) == 1
 

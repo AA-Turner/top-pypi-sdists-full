@@ -1,0 +1,58 @@
+Metadata-Version: 2.4
+Name: hadolint_coatl
+Version: 2.14.0
+Summary: Python wrapper around invoking hadolint (https://github.com/hadolint/hadolint)
+Home-page: https://github.com/coatl-dev/hadolint-coatl
+Author: César Román
+Author-email: cesar@coatl.dev
+License: MIT
+Project-URL: Funding, https://github.com/sponsors/cesarcoatl
+Project-URL: Source, https://github.com/coatl-dev/hadolint-coatl
+Project-URL: Tracker, https://github.com/coatl-dev/hadolint-coatl/issues
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
+
+# hadolint-coatl
+
+[![GitHub Release](https://img.shields.io/github/v/release/coatl-dev/hadolint-coatl)](https://github.com/coatl-dev/hadolint-coatl/releases/latest)
+[![Downloads](https://static.pepy.tech/badge/hadolint-coatl)](https://pepy.tech/project/hadolint-coatl)
+
+A python wrapper to provide a pip-installable [hadolint] binary. Inspired by
+[shellcheck-py].
+
+Internally this package provides a convenient way to download the pre-built
+hadolint binary for your particular platform.
+
+## Installation
+
+```bash
+pip install hadolint-coatl
+```
+
+## Usage
+
+After installation, the `hadolint` binary should be available in your
+environment (or `hadolint.exe` on windows).
+
+### As a pre-commit hook
+
+See [pre-commit] for instructions
+
+Sample `.pre-commit-config.yaml`:
+
+```yaml
+  - repo: https://github.com/coatl-dev/hadolint-coatl
+    rev: 2.14.0
+    hooks:
+      - id: hadolint
+```
+
+[hadolint]: https://github.com/hadolint/hadolint
+[pre-commit]: https://pre-commit.com
+[shellcheck-py]: https://github.com/shellcheck-py/shellcheck-py

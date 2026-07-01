@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cursor-sdk"
+version = "0.1.8"
+description = "cursor-sdk requires a binary wheel - install from PyPI."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary - see LICENSE.md" }
+authors = [{ name = "Anysphere", email = "support@cursor.com" }]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/cursor_sdk/**", "README.md", "LICENSE.md", "pyproject.toml"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cursor_sdk"]

@@ -1,0 +1,110 @@
+from collections.abc import Iterator
+from typing import NewType
+from unittest.mock import MagicMock
+
+import pytest
+import wireup.integration.flask
+from flask import Flask
+from flask.testing import FlaskClient
+from wireup._annotations import Injected, injectable
+from wireup.integration.flask import get_app_container
+
+from test.integration.flask import services as flask_integration_services
+from test.integration.flask.bp import bp
+from test.integration.flask.services.is_test_service import IsTestService
+from test.shared import shared_services
+
+
+def create_app() -> Flask:
+    app = Flask(__name__)
+    app.config["TESTING"] = True
+    app.register_blueprint(bp)
+
+    container = wireup.create_sync_container(
+        injectables=[shared_services, flask_integration_services],
+        config={**app.config, "custom_params": True},
+    )
+    wireup.integration.flask.setup(container, app)
+
+    return app
+
+
+@pytest.fixture
+def app() -> Flask:
+    return create_app()
+
+
+@pytest.fixture
+def client(app: Flask):
+    return app.test_client()
+
+
+def test_get_random_is_autowired_only_from_type(client: FlaskClient) -> None:
+    res = client.get("/random")
+    assert res.status_code == 200
+    assert res.json == {"lucky_number": 4}
+
+
+def test_get_env_injects_from_params(client: FlaskClient) -> None:
+    res = client.get("/env")
+    assert res.status_code == 200
+    assert res.json == {"debug": False, "test": True}
+
+
+def test_scoped_dependencies(client: FlaskClient) -> None:
+    res = client.get("/scoped")
+    assert res.status_code == 200
+    assert res.json == {}
+
+
+def test_will_not_autowire_when_no_injections_requested(client: FlaskClient) -> None:
+    res = client.get("/not-autowired")
+    assert res.data.decode() == "not autowired"
+
+
+def test_service_depends_on_flask_params(client: FlaskClient) -> None:
+    res = client.get("/foo")
+    assert res.status_code == 200
+    assert res.json == {"test": True}
+
+
+def test_service_override(client: FlaskClient, app: Flask):
+    mocked_foo = MagicMock()
+    mocked_foo.is_test = "mocked"
+
+    with get_app_container(app).override.injectable(IsTestService, new=mocked_foo):
+        res = client.get("/foo")
+        assert res.status_code == 200
+        assert res.json == {"test": "mocked"}
+
+
+def test_flask_err_cleanup() -> None:
+    Something = NewType("Something", str)
+    dep = {"created": False, "cleanup": False}
+
+    @injectable(lifetime="scoped")
+    def make_with_cleanup() -> Iterator[Something]:
+        dep["created"] = True
+        try:
+            yield Something("hello")
+        finally:
+            dep["cleanup"] = True
+
+    app = Flask(__name__)
+    app.config["PROPAGATE_EXCEPTIONS"] = True
+
+    @app.get("/err")
+    def _err_endpoint(with_cleanup: Injected[Something]) -> str:
+        assert with_cleanup == "hello"
+        msg = "err in endpoint"
+        raise Exception(msg)
+
+    container = wireup.create_sync_container(injectables=[make_with_cleanup])
+    wireup.integration.flask.setup(container, app)
+
+    client = app.test_client()
+    with pytest.raises(Exception):  # noqa: B017
+        client.get("/err")
+
+    assert dep["created"] is True
+    assert dep["cleanup"] is True

@@ -10,8 +10,8 @@ Config priority (last wins):
 
 import logging
 
-from sagemaker_studio import Project
 from sagemaker_studio.utils._internal import InternalUtils
+from sagemaker_studio.utils.spark.connection_resolver import _ensure_project
 
 CATALOG_LIMIT = 7
 
@@ -74,7 +74,48 @@ def _generate_s3tables_spark_configs(proj):
     return conf
 
 
-def _generate_irc_connection_spark_configs(proj):
+def _generate_glue_catalog_spark_configs(proj):
+    """Add non-FEDERATED Glue catalogs (standard Data Catalog entries)."""
+    catalogs = proj.connection().catalogs
+    conf = {}
+    catalog_count = 0
+    for catalog in catalogs:
+        if catalog_count >= CATALOG_LIMIT:
+            break
+        if catalog.type == "FEDERATED":
+            continue
+        catalog_name = catalog.spark_catalog_name
+        conf[f"spark.sql.catalog.{catalog_name}"] = "org.apache.iceberg.spark.SparkCatalog"
+        conf[f"spark.sql.catalog.{catalog_name}.catalog-impl"] = (
+            "org.apache.iceberg.aws.glue.GlueCatalog"
+        )
+        conf[f"spark.sql.catalog.{catalog_name}.glue.id"] = catalog.id
+        conf[f"spark.sql.catalog.{catalog_name}.glue.account-id"] = _get_account_id_from_arn(
+            catalog.resource_arn
+        )
+        conf[f"spark.sql.catalog.{catalog_name}.glue.catalog-arn"] = catalog.resource_arn
+        conf[f"spark.sql.catalog.{catalog_name}.client.region"] = _region
+        conf[f"spark.sql.catalog.{catalog_name}.glue.lakeformation-enabled"] = "true"
+        catalog_count += 1
+    return conf
+
+
+def apply_compatibility_mode_configs(spark_configs: dict) -> dict:
+    """Apply Lake Formation compatibility mode configs for FTA-supported compute."""
+    compatibility_spark_configs = {
+        "spark.hadoop.fs.s3.credentialsResolverClass": "com.amazonaws.glue.accesscontrol.AWSLakeFormationCredentialResolver",
+        "spark.hadoop.fs.s3.useDirectoryHeaderAsFolderObject": "true",
+        "spark.hadoop.fs.s3.folderObject.autoAction.disabled": "true",
+        "spark.sql.catalog.createDirectoryAfterTable.enabled": "true",
+        "spark.sql.catalog.dropDirectoryBeforeTable.enabled": "true",
+        "spark.sql.catalog.spark_catalog.glue.lakeformation-enabled": "true",
+        "spark.sql.catalog.skipLocationValidationOnCreateTable.enabled": "true",
+    }
+    spark_configs.update(compatibility_spark_configs)
+    return spark_configs
+
+
+def _generate_workday_irc_spark_configs(proj):
     import json
 
     conf = {}
@@ -104,10 +145,11 @@ def _generate_irc_connection_spark_configs(proj):
 def generate_spark_configs(account_id):
     """Generate base Spark properties shared across all backends."""
     spark_props = DEFAULT_SPARK_PROPS.copy()
-    proj = Project()
+    proj = _ensure_project()
     spark_props.update(_generate_spark_catalog_spark_configs(account_id))
     spark_props.update(_generate_s3tables_spark_configs(proj))
-    spark_props.update(_generate_irc_connection_spark_configs(proj))
+    spark_props.update(_generate_glue_catalog_spark_configs(proj))
+    spark_props.update(_generate_workday_irc_spark_configs(proj))
     return spark_props
 
 

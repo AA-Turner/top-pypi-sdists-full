@@ -1,0 +1,135 @@
+name: Unit Testing and Deployment
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    tags:
+      - "*"
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ALLOW_PLOTTING: true
+  SHELLOPTS: "errexit:pipefail"
+
+jobs:
+  doc:
+    name: Build Documentation
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install pytest-pyvista with test dependencies
+        run: uv pip install --system .[docs]
+
+      - name: Setup headless display
+        uses: pyvista/setup-headless-display-action@v4.3
+
+      - name: Build Documentation
+        run: |
+          make -C doc html
+          touch doc/_build/html/.nojekyll
+
+      - name: Deploy on release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: doc/_build/html/
+
+  unit_testing:
+    name: Unit Testing
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10", "3.13"]
+        vtk-version: ["9.2.6", "9.3.1", "9.4.2", "9.5.0", "latest"]
+        exclude:
+          # vtk 9.2.6 / 9.3.1 wheels not published for Python 3.13
+          - vtk-version: "9.2.6"
+            python-version: "3.13"
+          - vtk-version: "9.3.1"
+            python-version: "3.13"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Set up vtk
+        if: ${{ matrix.vtk-version != 'latest' }}
+        run: uv pip install --system vtk==${{ matrix.vtk-version }}
+
+      - name: Install with test dependencies
+        run: uv pip install --system .[tests]
+
+      - name: Unit Testing
+        run: pytest -vv
+
+      - name: Build and verify wheels
+        run: |
+          uv pip install --system build twine
+          python -m build
+          python -m twine check dist/*
+
+  # Publish to PyPI using trusted publishing
+  release:
+    name: Release
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags')
+    needs: [doc, unit_testing]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pyvista-zstd
+    permissions:
+      id-token: write # mandatory for trusted publishing
+      contents: write # required to create GitHub releases
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.13
+
+      - name: Build distributions
+        run: |
+          pip install build
+          python -m build
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3.0.0
+        with:
+          generate_release_notes: true
+          files: |
+            ./**/*.whl

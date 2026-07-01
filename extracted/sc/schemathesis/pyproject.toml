@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemathesis"
-version = "4.21.10"
+version = "4.22.1"
 description = "Adaptive API testing for OpenAPI and GraphQL"
 keywords = ["pytest", "hypothesis", "openapi", "graphql", "testing", "fuzzing", "adaptive"]
 authors = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
@@ -34,12 +34,10 @@ classifiers = [
 dependencies = [
   "click>=8.0,<9",
   "harfile>=0.5.0,<1.0",
-  "httpx>=0.22.0,<1.0",
   "hypothesis>=6.108.0,<7",
   "hypothesis_graphql>=0.13.0,<1",
   "hypothesis_jsonschema>=0.23.1,<0.24",
-  "jsonschema_rs>=0.46.4",
-  "junit-xml>=1.9,<2.0",
+  "jsonschema_rs>=0.46.7",
   "pyrate-limiter>=4.0,<5.0",
   "pytest>=9,<10",
   "PyYAML>=5.1,<7.0",
@@ -47,7 +45,6 @@ dependencies = [
   "rich>=13.9.4",
   "starlette-testclient>=0.4.1,<1",
   "tomli>=2.2.1; python_version < '3.11'",
-  "tenacity>=9.1.2,<10.0",
   "typing-extensions>=4.12.2",
   "werkzeug>=0.16.0,<4",
 ]
@@ -56,6 +53,7 @@ tests = [
   "coverage>=6",
   "fastapi>=0.86.0",
   "Flask>=2.1.1,<4.0",
+  "httpx>=0.22.0,<1.0",
   "hypothesis-openapi>=0.3,<1",
   "pydantic>=1.10.2",
   "pytest-asyncio>=1.0,<2.0",
@@ -207,7 +205,6 @@ known-third-party = [
   "hypothesis_graphql",
   "hypothesis_jsonschema",
   "jsonschema",
-  "junit_xml",
   "packaging",
   "pydantic",
   "pytest",

@@ -2420,15 +2420,22 @@ def _generate_outlook_map(
     annotate_regions=False,
     col="outlook_index",
     col_label=None,
+    fname_extra="",
 ):
-    """Generate a diverging choropleth map of the yield outlook index (or any anomaly column)."""
+    """Generate a diverging choropleth map of the yield outlook index (or any anomaly column).
+
+    ``fname_extra`` is appended before the ``.png`` extension so callers
+    can distinguish variants of the same map (e.g. ``_filtered`` for the
+    minimal-crop-area filtered anomaly map).
+    """
     # Fixed range: -40% to +40% departure (matching analysis.py anomaly maps)
     vmin = -40
     vmax = 40
 
-    # Determine extend arrows based on actual data range
-    data_min = df_outlook[col].min()
-    data_max = df_outlook[col].max()
+    # Determine extend arrows based on actual data range (NaN values are
+    # excluded regions; ignore them when picking arrows)
+    data_min = df_outlook[col].min(skipna=True)
+    data_max = df_outlook[col].max(skipna=True)
     if data_min < vmin and data_max > vmax:
         extend = "both"
     elif data_min < vmin:
@@ -2441,9 +2448,9 @@ def _generate_outlook_map(
     countries_display = [c.title().replace("_", " ") for c in countries]
     stage_suffix = f"_{stage_name}" if stage_name else ""
     if len(countries) > 1:
-        fname = f"yield_outlook_{len(countries)}_countries_{crop}_{model}{stage_suffix}_{current_year}.png"
+        fname = f"yield_outlook_{len(countries)}_countries_{crop}_{model}{stage_suffix}_{current_year}{fname_extra}.png"
     else:
-        fname = f"yield_outlook_{'_'.join(countries)}_{crop}_{model}{stage_suffix}_{current_year}.png"
+        fname = f"yield_outlook_{'_'.join(countries)}_{crop}_{model}{stage_suffix}_{current_year}{fname_extra}.png"
 
     friendly = friendly_stage_label(stage_name) if stage_name else ""
     stage_label = f", {friendly}" if friendly else ""
@@ -2985,137 +2992,189 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 logger.warning(f"No predictions found for {country} {crop} {model}")
                 continue
 
-            # Get all stages available for current year
-            df_current = df[df["Harvest Year"] == current_year]
-            if df_current.empty:
-                logger.warning(
-                    f"No predictions for year {current_year} in {country} {crop} {model}"
-                )
+            # Years to render maps for: every Harvest Year that has predictions.
+            # Headline outlook + predicted-yield choropleths are produced per
+            # year so hindcasts (e.g. 2024) get the same map treatment as the
+            # live forecast year. Obs-anomaly maps stay current-year-only
+            # since their reference periods (2013-2017 / 2018-2022 / 10yr) are
+            # anchored to the live forecast, not arbitrary hindcasts.
+            years_with_preds = sorted(
+                int(y) for y in df["Harvest Year"].dropna().unique()
+            )
+            if not years_with_preds:
+                logger.warning(f"No prediction years in DB for {country} {crop} {model}")
                 continue
 
             map_countries = countries if is_pooled else [country]
 
-            # Store raw predictions for diagnostics
+            # Store raw predictions for diagnostics (once per combo, not per year)
             df_pred_store[(country, crop, model)] = df
 
-            # Determine which stages to produce maps for (outlook maps
-            # are only meaningful for in-season stages, not pre-season)
-            _stage_names = df_current["Stage Name"].dropna().unique()
-            _planting = _infer_planting_month(_stage_names)
-            available_stages = sorted(
-                _stage_names, key=lambda s: _stage_sort_key(s, _planting)
-            )
-            in_season_stages = [
-                s for s in available_stages
-                if not s.startswith("Pre-Season") and not s.startswith("In-Season")
-            ]
-            if use_latest_stage or len(in_season_stages) <= 1:
-                stages_to_map = [in_season_stages[-1]] if in_season_stages else []
-            else:
-                stages_to_map = in_season_stages
-
-            for stage_name in stages_to_map:
-                # Filter to this stage across all years
-                df_stage = df[df["Stage Name"] == stage_name] if len(available_stages) > 1 else df
-
-                df_outlook = _compute_outlook_index(
-                    df_stage, current_year, n_years, aggregation,
-                    use_latest_stage=(len(available_stages) <= 1),
-                    stage_name=stage_name,
-                )
-                if df_outlook.empty:
-                    logger.warning(
-                        f"Could not compute outlook for {country} {crop} {model} stage {stage_name}"
-                    )
+            for year_to_map in years_with_preds:
+                df_current = df[df["Harvest Year"] == year_to_map]
+                if df_current.empty:
                     continue
 
-                n_hist = len(
-                    df_stage[
-                        (df_stage["Harvest Year"] < current_year)
-                        & (df_stage["Harvest Year"] >= current_year - n_years)
-                    ]["Harvest Year"].unique()
+                # Determine which stages to produce maps for (outlook maps
+                # are only meaningful for in-season stages, not pre-season)
+                _stage_names = df_current["Stage Name"].dropna().unique()
+                _planting = _infer_planting_month(_stage_names)
+                available_stages = sorted(
+                    _stage_names, key=lambda s: _stage_sort_key(s, _planting)
                 )
-                if n_hist < 3:
-                    logger.warning(
-                        f"Only {n_hist} historical years for {country} {crop} {model} "
-                        f"stage {stage_name} (requested {n_years})"
+                in_season_stages = [
+                    s for s in available_stages
+                    if not s.startswith("Pre-Season") and not s.startswith("In-Season")
+                ]
+                if use_latest_stage or len(in_season_stages) <= 1:
+                    stages_to_map = [in_season_stages[-1]] if in_season_stages else []
+                else:
+                    stages_to_map = in_season_stages
+
+                for stage_name in stages_to_map:
+                    # Filter to this stage across all years
+                    df_stage = df[df["Stage Name"] == stage_name] if len(available_stages) > 1 else df
+
+                    df_outlook = _compute_outlook_index(
+                        df_stage, year_to_map, n_years, aggregation,
+                        use_latest_stage=(len(available_stages) <= 1),
+                        stage_name=stage_name,
                     )
+                    if df_outlook.empty:
+                        logger.warning(
+                            f"Could not compute outlook for {country} {crop} {model} "
+                            f"stage {stage_name} year {year_to_map}"
+                        )
+                        continue
 
-                df_outlook["Crop"] = crop
-                df_outlook["Model"] = model
-                df_outlook["Stage Name"] = stage_name
-                df_outlook["Forecast Year"] = current_year
-                all_outlook_frames.append(df_outlook)
-
-                # Generate map — saved in maps/{model}[/{stage}] subfolder
-                stage_safe = friendly_stage_label(stage_name).replace(" - ", "-").replace(" ", "_")
-                dir_model = dir_outlook / "maps" / model / country
-                if len(available_stages) > 1:
-                    dir_model = dir_model / stage_safe
-                os.makedirs(dir_model, exist_ok=True)
-                _countries_str = "_".join(map_countries)
-                _generate_outlook_map(
-                    dg,
-                    df_outlook,
-                    map_countries,
-                    crop,
-                    model,
-                    current_year,
-                    n_years,
-                    aggregation,
-                    dir_model,
-                    stage_name=stage_name,
-                    annotate_regions=False,
-                )
-                logger.info(
-                    f"Map saved: {dir_model / f'yield_outlook_{_countries_str}_{crop}_{model}_{stage_name}_{current_year}.png'}"
-                )
-
-                # Absolute predicted-yield choropleth (sequential, tn/ha).
-                # Complements the diverging outlook-index map by showing the
-                # raw forecast value per region rather than a % departure.
-                df_pred_map = df_outlook[[
-                    "Country", "Region", "Country Region", "current_predicted",
-                ]].rename(columns={"current_predicted": "Predicted Yield (tn per ha)"})
-                pred_fname = (
-                    f"predicted_yield_{_countries_str}_{crop}_{model}"
-                    f"_{stage_name}_{current_year}.png"
-                )
-                plot.plot_map(
-                    dg,
-                    df_pred_map,
-                    merge_col="Country Region",
-                    name_country=[c.title().replace("_", " ") for c in map_countries],
-                    name_col="Predicted Yield (tn per ha)",
-                    dir_out=dir_model,
-                    fname=pred_fname,
-                    label=f"Predicted yield ({parser.get('ML', 'yield_units', fallback='Mg/ha')})\n{crop.title()}, {current_year}, {friendly_stage_label(stage_name)}",
-                    vmin=float(df_pred_map["Predicted Yield (tn per ha)"].min()),
-                    vmax=float(df_pred_map["Predicted Yield (tn per ha)"].max()),
-                    cmap=pal.scientific.sequential.Bamako_20_r,
-                    series="sequential",
-                    annotate_regions=False,
-                    loc_legend="lower left",
-                )
-
-                # Observed-baseline anomaly maps (matching analysis.py: 2013-2017, 2018-2022, 10yr)
-                for period_label, df_obs in obs_baselines.items():
-                    df_anom = df_outlook[["Country", "Region", "Country Region", "current_predicted"]].merge(
-                        df_obs, on="Region", how="left"
+                    n_hist = len(
+                        df_stage[
+                            (df_stage["Harvest Year"] < year_to_map)
+                            & (df_stage["Harvest Year"] >= year_to_map - n_years)
+                        ]["Harvest Year"].unique()
                     )
-                    df_anom["obs_anomaly"] = np.where(
-                        df_anom["obs_mean"] != 0,
-                        (df_anom["current_predicted"] - df_anom["obs_mean"]) / df_anom["obs_mean"] * 100,
-                        np.nan,
-                    )
-                    dir_obs = dir_model / "obs_anomaly" / period_label
-                    os.makedirs(dir_obs, exist_ok=True)
+                    if n_hist < 3:
+                        logger.warning(
+                            f"Only {n_hist} historical years for {country} {crop} {model} "
+                            f"stage {stage_name} year {year_to_map} (requested {n_years})"
+                        )
+
+                    df_outlook["Crop"] = crop
+                    df_outlook["Model"] = model
+                    df_outlook["Stage Name"] = stage_name
+                    df_outlook["Forecast Year"] = year_to_map
+                    all_outlook_frames.append(df_outlook)
+
+                    # Generate map — saved in maps/{model}[/{stage}] subfolder
+                    stage_safe = friendly_stage_label(stage_name).replace(" - ", "-").replace(" ", "_")
+                    dir_model = dir_outlook / "maps" / model / country
+                    if len(available_stages) > 1:
+                        dir_model = dir_model / stage_safe
+                    os.makedirs(dir_model, exist_ok=True)
+                    _countries_str = "_".join(map_countries)
                     _generate_outlook_map(
-                        dg, df_anom, map_countries, crop, model, current_year,
-                        n_years, aggregation, dir_obs,
-                        col="obs_anomaly",
-                        col_label=f"% departure from {period_label} observed mean\n{crop.title()}, {current_year}",
+                        dg,
+                        df_outlook,
+                        map_countries,
+                        crop,
+                        model,
+                        year_to_map,
+                        n_years,
+                        aggregation,
+                        dir_model,
+                        stage_name=stage_name,
+                        annotate_regions=False,
                     )
+                    logger.info(
+                        f"Map saved: {dir_model / f'yield_outlook_{_countries_str}_{crop}_{model}_{stage_name}_{year_to_map}.png'}"
+                    )
+
+                    # Absolute predicted-yield choropleth (sequential, tn/ha).
+                    # Complements the diverging outlook-index map by showing the
+                    # raw forecast value per region rather than a % departure.
+                    df_pred_map = df_outlook[[
+                        "Country", "Region", "Country Region", "current_predicted",
+                    ]].rename(columns={"current_predicted": "Predicted Yield (tn per ha)"})
+                    pred_fname = (
+                        f"predicted_yield_{_countries_str}_{crop}_{model}"
+                        f"_{stage_name}_{year_to_map}.png"
+                    )
+                    plot.plot_map(
+                        dg,
+                        df_pred_map,
+                        merge_col="Country Region",
+                        name_country=[c.title().replace("_", " ") for c in map_countries],
+                        name_col="Predicted Yield (tn per ha)",
+                        dir_out=dir_model,
+                        fname=pred_fname,
+                        label=f"Predicted yield ({parser.get('ML', 'yield_units', fallback='Mg/ha')})\n{crop.title()}, {year_to_map}, {friendly_stage_label(stage_name)}",
+                        vmin=float(df_pred_map["Predicted Yield (tn per ha)"].min()),
+                        vmax=float(df_pred_map["Predicted Yield (tn per ha)"].max()),
+                        cmap=pal.scientific.sequential.Bamako_20_r,
+                        series="sequential",
+                        annotate_regions=False,
+                        loc_legend="lower left",
+                    )
+
+                    # Observed-baseline anomaly maps — current year only.
+                    # The reference periods (2013-2017 / 2018-2022 / 10yr from
+                    # today) are anchored to the live forecast; rendering them
+                    # against hindcast predictions would compare a 2010 forecast
+                    # against an observed mean that includes the future.
+                    if year_to_map == current_year:
+                        # Minimal-crop-area filter (opt-in via geocif.txt):
+                        # regions producing < min_share % of national are
+                        # rendered gray on the *_filtered.png variant, so
+                        # tiny-area regions with noisy predictions don't
+                        # visually dominate the map. Computed here (not
+                        # earlier) so it's country-scoped and reflects the
+                        # same df used to build df_outlook.
+                        area_filter_enabled = parser.getboolean(
+                            "ML", "outlook_area_filter_enabled", fallback=True
+                        )
+                        min_share = parser.getfloat(
+                            "ML", "outlook_min_production_share", fallback=0.5
+                        )
+                        prod_pct = {}
+                        if area_filter_enabled:
+                            from .viz import diagnostics as _diag
+                            prod_pct = _diag.compute_production_pct(df, country)
+
+                        for period_label, df_obs in obs_baselines.items():
+                            df_anom = df_outlook[["Country", "Region", "Country Region", "current_predicted"]].merge(
+                                df_obs, on="Region", how="left"
+                            )
+                            df_anom["obs_anomaly"] = np.where(
+                                df_anom["obs_mean"] != 0,
+                                (df_anom["current_predicted"] - df_anom["obs_mean"]) / df_anom["obs_mean"] * 100,
+                                np.nan,
+                            )
+                            dir_obs = dir_model / "obs_anomaly" / period_label
+                            os.makedirs(dir_obs, exist_ok=True)
+                            _generate_outlook_map(
+                                dg, df_anom, map_countries, crop, model, current_year,
+                                n_years, aggregation, dir_obs,
+                                col="obs_anomaly",
+                                col_label=f"% departure from {period_label} observed mean\n{crop.title()}, {current_year}",
+                            )
+
+                            if area_filter_enabled and prod_pct:
+                                df_anom_f = df_anom.copy()
+                                mask_excluded = df_anom_f["Region"].map(
+                                    lambda r: prod_pct.get(r, 0.0) < min_share
+                                )
+                                df_anom_f.loc[mask_excluded, "obs_anomaly"] = np.nan
+                                _generate_outlook_map(
+                                    dg, df_anom_f, map_countries, crop, model, current_year,
+                                    n_years, aggregation, dir_obs,
+                                    col="obs_anomaly",
+                                    col_label=(
+                                        f"% departure from {period_label} observed mean\n"
+                                        f"{crop.title()}, {current_year}\n"
+                                        f"(regions with <{min_share:g}% national share grayed)"
+                                    ),
+                                    fname_extra="_filtered",
+                                )
 
             # Per-(country, crop, model) diagnostic plots
             from .viz import diagnostics as diag

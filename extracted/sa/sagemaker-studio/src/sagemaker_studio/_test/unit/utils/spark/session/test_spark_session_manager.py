@@ -114,3 +114,58 @@ class TestSparkSessionManager:
 
         result = manager.get_session_id()
         assert result == "session_id"
+
+    def test_set_user_spark_conf(self):
+        """Test that set_user_spark_conf stores user configs."""
+
+        class ConcreteManager(SparkSessionManager):
+            def create(self):
+                pass
+
+            def stop(self):
+                pass
+
+            def get_session_id(self):
+                pass
+
+        manager = ConcreteManager()
+        assert manager._user_spark_conf is None
+
+        manager.set_user_spark_conf({"spark.key": "val"})
+        assert manager._user_spark_conf == {"spark.key": "val"}
+
+    def test_set_user_spark_conf_to_none(self):
+        """Test that set_user_spark_conf can clear user configs."""
+
+        class ConcreteManager(SparkSessionManager):
+            def create(self):
+                pass
+
+            def stop(self):
+                pass
+
+            def get_session_id(self):
+                pass
+
+        manager = ConcreteManager()
+        manager.set_user_spark_conf({"spark.key": "val"})
+        manager.set_user_spark_conf(None)
+        assert manager._user_spark_conf is None
+
+    def test_user_spark_conf_default_is_none(self):
+        """Test that _user_spark_conf defaults to None on all instances."""
+
+        class ConcreteManager(SparkSessionManager):
+            def create(self):
+                pass
+
+            def stop(self):
+                pass
+
+            def get_session_id(self):
+                pass
+
+        mgr1 = ConcreteManager()
+        mgr2 = ConcreteManager()
+        mgr1.set_user_spark_conf({"spark.a": "1"})
+        assert mgr2._user_spark_conf is None

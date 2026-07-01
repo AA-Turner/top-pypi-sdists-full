@@ -313,12 +313,3 @@ def test_run_summary(results: List[TestSummaryResults], only_fail: bool = False,
         raise CLIException(FeedbackManager.error_some_data_validation_have_failed())
     if total_counts.get(ERROR, 0) > 0:
         raise CLIException(FeedbackManager.error_some_tests_have_errors())
-
-
-def get_bare_url(url: str) -> str:
-    if url.startswith("http://"):
-        return url[7:]
-    elif url.startswith("https://"):
-        return url[8:]
-    else:
-        return url

@@ -1,0 +1,1011 @@
+"""
+nedbd — the NEDB server daemon.
+
+Runs the NEDB engine as a long-lived process behind an HTTP/JSON API, so clients
+(NEDB Studio, apps, scripts) connect over a URL instead of embedding the engine —
+the way you run Redis or Postgres. Each named database is a durable ``NEDB(path)``
+(append-only log on disk, fsync'd) held open in memory for fast queries; the engine
+owns the log/MVCC/time-travel/integrity.
+
+Config (env):
+  NEDBD_HOST    bind host            (default 127.0.0.1)
+  NEDBD_PORT    bind port            (default 7070)
+  NEDBD_DATA    data root directory  (default ./nedb-data)
+  NEDBD_TOKEN   bearer token         (optional; if set, every /v1 route requires it)
+
+Run:
+  nedbd                 # console script (pip install nedb-engine)
+  python -m nedb.server
+
+HTTP API (all JSON):
+  GET    /health
+  GET    /v1/databases
+  POST   /v1/databases                         {name, init?: {indexes, seed, links}}
+  GET    /v1/databases/<name>
+  DELETE /v1/databases/<name>
+  POST   /v1/databases/<name>/query            {nql}
+  POST   /v1/databases/<name>/put              {coll, id, doc, client?, nonce?, idem?}
+  POST   /v1/databases/<name>/index            {coll, field, kind}
+  POST   /v1/databases/<name>/link             {frm, rel, to}
+  DELETE /v1/databases/<name>/rows/<coll>/<id>
+  GET    /v1/databases/<name>/verify
+  GET    /v1/databases/<name>/log?limit=N
+  POST   /v1/databases/<name>/files             {name, data_b64, tier?}  — store a file (Cascade-compressed)
+  GET    /v1/databases/<name>/files/<filename>?version=N&tier=warm  — retrieve a file
+  GET    /v1/databases/<name>/files/<filename>/root?version=N&tier=warm  — Merkle root (anchorable)
+  POST   /v1/databases/<name>/proof             {hash}  — Merkle inclusion proof (verifiable offline)
+  POST   /v1/databases/<name>/checkpoint        — on-demand checkpoint
+  GET    /v1/databases/<name>/batch             — batch writes (array of {op,coll,id,doc})
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+import traceback as _tb
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse, parse_qs
+
+from . import __version__
+from .engine import NEDB
+from .concurrent import Sequencer
+from .log import ReplayError
+
+NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+
+# Log level — resolved at startup in main() from --log-level flag or NEDBD_DEBUG env.
+# 0 = errors only (default), 1 = requests, 2 = deploy phases, 3 = everything.
+# main() patches _log_level on this module after argument parsing.
+_log_level: int = 3 if os.environ.get("NEDBD_DEBUG", "").strip() in ("1", "true", "yes") else 0
+
+def _log(msg: str, level: int = 3) -> None:
+    """Print if current log level >= required level."""
+    if _log_level >= level:
+        print(msg, flush=True)
+
+
+class HttpError(Exception):
+    def __init__(self, status: int, message: str):
+        super().__init__(message)
+        self.status = status
+        self.message = message
+
+
+class Manager:
+    """Owns the set of durable databases under a data root."""
+
+    def __init__(self, root: str):
+        self.root = root
+        os.makedirs(root, exist_ok=True)
+        self._open: Dict[str, NEDB] = {}
+        # Resolve TMK once at startup — applies to all databases opened by this daemon.
+        from .crypto import resolve_tmk
+        self._tmk = resolve_tmk()  # reads NEDB_TMK / NEDB_TMK_FILE env; None if unset
+        if self._tmk is not None:
+            print("  encryption: AES-256-GCM enabled (NEDB_TMK configured)")
+
+    def _path(self, name: str) -> str:
+        return os.path.join(self.root, name)
+
+    def _valid(self, name: str) -> None:
+        if not NAME_RE.fullmatch(name):
+            raise HttpError(400, f"invalid database name: {name!r}")
+
+    def exists(self, name: str) -> bool:
+        if name in self._open:
+            return True
+        p = self._path(name)
+        return os.path.exists(os.path.join(p, "log.aof")) or os.path.exists(os.path.join(p, "meta.json"))
+
+    def open(self, name: str) -> Sequencer:
+        self._valid(name)
+        if name not in self._open:
+            snap_path = os.path.join(self._path(name), "snapshot.json")
+            had_snap = os.path.exists(snap_path)
+            # Pass the manager-level TMK so every database is encrypted consistently.
+            db = NEDB(self._path(name), tmk=self._tmk)
+            if had_snap:
+                print(f"  [{name}] loaded from snapshot (seq={db.seq})")
+            # Wrap every database in a single-writer, group-commit Sequencer so the
+            # threaded daemon can serve concurrent clients safely AND fast: parallel
+            # reads, batched durable writes, one correct chain. No global lock.
+            self._open[name] = Sequencer(db)
+        return self._open[name]
+
+    def require(self, name: str) -> Sequencer:
+        self._valid(name)
+        if not self.exists(name):
+            raise HttpError(404, f"database not found: {name}")
+        return self.open(name)
+
+    def create(self, name: str, init: Optional[dict]) -> dict:
+        self._valid(name)
+        if self.exists(name):
+            raise HttpError(409, f"database already exists: {name}")
+        _log(f"  [nedbd] creating db '{name}'…", level=2)
+        db = self.open(name)
+        init = init or {}
+        for spec in init.get("indexes", []):
+            coll, field, kind = spec[0], spec[1], (spec[2] if len(spec) > 2 else "eq")
+            _log(f"  [nedbd]   index  {coll}.{field} ({kind})", level=3)
+            db.create_index(coll, field, kind)
+        for coll, docs in (init.get("seed") or {}).items():
+            _log(f"  [nedbd]   seed   {coll} × {len(docs)} rows", level=2)
+            for i, doc in enumerate(docs):
+                rid = str(doc.get("_id") or doc.get("id") or f"{coll}-{i + 1}")
+                db.put(coll, rid, dict(doc))
+        links = init.get("links", [])
+        if links:
+            _log(f"  [nedbd]   links  {len(links)}", level=2)
+        for link in links:
+            db.link(link[0], link[1], link[2])
+        _log(f"  [nedbd] db '{name}' created  seq={db.seq}", level=2)
+        return self.summary(name)
+
+    def drop(self, name: str) -> bool:
+        self._valid(name)
+        if not self.exists(name):
+            return False
+        if name in self._open:
+            self._open[name].close()
+            del self._open[name]
+        shutil.rmtree(self._path(name), ignore_errors=True)
+        return True
+
+    def names(self) -> List[str]:
+        found = set(self._open)
+        if os.path.isdir(self.root):
+            for entry in os.listdir(self.root):
+                p = os.path.join(self.root, entry)
+                if os.path.isdir(p) and (
+                    os.path.exists(os.path.join(p, "log.aof")) or os.path.exists(os.path.join(p, "meta.json"))
+                ):
+                    found.add(entry)
+        return sorted(found)
+
+    @staticmethod
+    def collection_counts(db: NEDB) -> Dict[str, int]:
+        counts: Dict[str, int] = {}
+        for key in db.store.keys(""):
+            coll = key.split(":", 1)[0]
+            counts[coll] = counts.get(coll, 0) + 1
+        return counts
+
+    def summary(self, name: str) -> dict:
+        db = self.require(name)
+        counts = self.collection_counts(db)
+        return {
+            "name": name,
+            "seq": db.seq,
+            "head": db.head,
+            "rows": sum(counts.values()),
+            "collections": counts,
+        }
+
+    def checkpoint_all(self) -> Dict[str, str]:
+        """Checkpoint every open database — call before shutdown."""
+        heads: Dict[str, str] = {}
+        for name, db in self._open.items():
+            try:
+                head = db.checkpoint()
+                heads[name] = head
+                print(f"  [{name}] checkpoint saved  head={head[:12]}…  seq={db.seq}")
+            except Exception as e:  # noqa: BLE001
+                print(f"  [{name}] checkpoint failed: {e}")
+        return heads
+
+    def close_all(self) -> None:
+        # Checkpoint each database before closing so the next startup is O(delta).
+        self.checkpoint_all()
+        for db in self._open.values():
+            db.close()
+        self._open.clear()
+
+
+def make_handler(manager: Manager, token: Optional[str]):
+    class Handler(BaseHTTPRequestHandler):
+        server_version = f"nedbd/{__version__}"
+        protocol_version = "HTTP/1.1"
+
+        # ── helpers ──────────────────────────────────────────────────────────
+        def _cors(self) -> None:
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+
+        def _send(self, status: int, obj: Any) -> None:
+            body = json.dumps(obj).encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self._cors()
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _body(self) -> dict:
+            n = int(self.headers.get("Content-Length", 0) or 0)
+            if not n:
+                return {}
+            try:
+                return json.loads(self.rfile.read(n) or b"{}")
+            except Exception:
+                raise HttpError(400, "invalid JSON body")
+
+        def _auth(self) -> None:
+            if not token:
+                return
+            got = self.headers.get("Authorization", "")
+            if got != f"Bearer {token}":
+                raise HttpError(401, "missing or invalid bearer token")
+
+        def log_message(self, fmt: str, *args: Any) -> None:  # quieter logs
+            return
+
+        # ── dispatch ─────────────────────────────────────────────────────────
+        def _parts(self):
+            u = urlparse(self.path)
+            return [p for p in u.path.split("/") if p], parse_qs(u.query)
+
+        def do_OPTIONS(self) -> None:
+            self.send_response(204)
+            self._cors()
+            self.end_headers()
+
+        def do_GET(self) -> None:
+            self._handle("GET")
+
+        def do_POST(self) -> None:
+            self._handle("POST")
+
+        def do_DELETE(self) -> None:
+            self._handle("DELETE")
+
+        def _handle(self, method: str) -> None:
+            _log(f"  [nedbd] {method} {self.path}", level=1)
+            try:
+                parts, query = self._parts()
+
+                if method == "GET" and (not parts or parts == ["health"]):
+                    self._send(200, {"ok": True, "service": "nedbd", "version": __version__,
+                                     "databases": manager.names(),
+                                     "encrypted": manager._tmk is not None})
+                    return
+
+                # everything under /v1 requires auth (if a token is configured)
+                if parts[:1] == ["v1"]:
+                    self._auth()
+
+                if parts == ["v1", "databases"]:
+                    if method == "GET":
+                        self._send(200, {"databases": [manager.summary(n) for n in manager.names()]})
+                        return
+                    if method == "POST":
+                        b = self._body()
+                        name = str(b.get("name", "")).strip()
+                        init = b.get("init") or {}
+                        if not name:
+                            raise HttpError(400, "name is required")
+                        n_idx  = len(init.get("indexes", []))
+                        n_seed = sum(len(v) for v in (init.get("seed") or {}).values())
+                        n_lnk  = len(init.get("links", []))
+                        _log(f"  [nedbd] deploy '{name}' — {n_idx} indexes, {n_seed} seed rows, {n_lnk} links", level=2)
+                        self._send(201, {"database": manager.create(name, init)})
+                        return
+
+                if len(parts) == 3 and parts[:2] == ["v1", "databases"]:
+                    name = parts[2]
+                    if method == "GET":
+                        self._send(200, self._detail(name))
+                        return
+                    if method == "DELETE":
+                        self._send(200, {"dropped": manager.drop(name)})
+                        return
+
+                if len(parts) == 4 and parts[:2] == ["v1", "databases"]:
+                    name, action = parts[2], parts[3]
+                    db = manager.require(name)
+                    if method == "POST" and action == "query":
+                        nql = str(self._body().get("nql", "")).strip()
+                        if not nql:
+                            raise HttpError(400, "nql is required")
+                        try:
+                            rows = db.query(nql)
+                        except Exception as e:  # noqa: BLE001
+                            raise HttpError(400, f"NQL error: {e}")
+                        self._send(200, {"rows": rows, "count": len(rows), "seq": db.seq, "head": db.head})
+                        return
+                    if method == "POST" and action == "put":
+                        b = self._body()
+                        coll, rid, doc = b.get("coll"), b.get("id"), b.get("doc")
+                        if not coll or rid is None or not isinstance(doc, dict):
+                            raise HttpError(400, "coll, id, and doc are required")
+                        _scalar = ("client", "nonce", "idem", "evidence", "confidence",
+                                   "valid_from", "valid_to")
+                        kw = {k: b[k] for k in _scalar if b.get(k) is not None}
+                        # caused_by may live at the top level of the request body
+                        # OR inside doc (natural for clients embedding it in the document).
+                        # Check both; top-level wins if both are present.
+                        _cb = b.get("caused_by") or doc.get("caused_by")
+                        if _cb is not None:
+                            kw["caused_by"] = list(_cb)
+                        try:
+                            stored = db.put(str(coll), str(rid), dict(doc), **kw)
+                        except ReplayError as e:
+                            raise HttpError(409, str(e))
+                        self._send(200, {"ok": True, "doc": stored, "seq": db.seq, "head": db.head})
+                        return
+                    if method == "POST" and action == "index":
+                        b = self._body()
+                        if not b.get("coll") or not b.get("field"):
+                            raise HttpError(400, "coll and field are required")
+                        db.create_index(str(b["coll"]), str(b["field"]), str(b.get("kind", "eq")))
+                        self._send(200, {"ok": True})
+                        return
+                    if method == "POST" and action == "link":
+                        b = self._body()
+                        if not (b.get("frm") and b.get("rel") and b.get("to")):
+                            raise HttpError(400, "frm, rel, and to are required")
+                        db.link(str(b["frm"]), str(b["rel"]), str(b["to"]))
+                        self._send(200, {"ok": True, "seq": db.seq, "head": db.head})
+                        return
+                    if method == "POST" and action == "neighbors":
+                        b = self._body()
+                        if not b.get("node") or not b.get("rel"):
+                            raise HttpError(400, "node and rel are required")
+                        nodes = db.neighbors(str(b["node"]), str(b["rel"]))
+                        self._send(200, {"nodes": nodes, "count": len(nodes)})
+                        return
+                    if method == "GET" and action == "verify":
+                        self._send(200, {"ok": db.verify(), "seq": db.seq, "head": db.head})
+                        return
+                    if method == "POST" and action == "checkpoint":
+                        head = db.checkpoint()
+                        self._send(200, {"ok": True, "head": head, "seq": db.seq})
+                        return
+                    if method == "GET" and action == "log":
+                        limit = int(query.get("limit", ["50"])[0])
+                        ops = [o.to_dict() for o in db.log.ops[-limit:]][::-1]
+                        self._send(200, {"log": ops, "seq": db.seq, "head": db.head})
+                        return
+                    # POST /v1/databases/<name>/proof
+                    # Body: {"hash": "<64-hex>"}  — the op.hash of a previously-written doc
+                    # Response: a self-contained Merkle inclusion proof + a verified flag.
+                    # The proof is verifiable client-side via nedb.verify_proof() with no
+                    # server / engine — the server's role is only to look up the seq,
+                    # collect the prev_head and subsequent op-hashes, and fold them into
+                    # the same derived head the client will re-derive locally.
+                    if method == "POST" and action == "proof":
+                        from .proof import verify_proof as _vp, fold_head as _fold, GENESIS as _GEN
+                        b = self._body()
+                        want = str(b.get("hash", "")).strip().lower()
+                        if not want or len(want) != 64:
+                            raise HttpError(400, "hash (64-char hex) is required")
+                        try:
+                            bytes.fromhex(want)
+                        except ValueError:
+                            raise HttpError(400, "hash must be 64-char hexadecimal")
+                        # Find the Op with this exact chain-hash.
+                        ops = db.log.ops
+                        target = None
+                        for o in ops:
+                            if o.hash == want:
+                                target = o
+                                break
+                        if target is None:
+                            raise HttpError(404, f"no op with hash={want[:16]}…")
+                        # The proof scheme is a Merkle fold over op-hashes — a
+                        # PARALLEL commitment to the engine's per-op chain. Both
+                        # are deterministic functions of the same log. Replay the
+                        # fold from GENESIS to determine the fold-value just before
+                        # this op (prev_head), then collect every subsequent op-hash
+                        # so the client can fold forward to the same derived head.
+                        op_hashes = [o.hash for o in ops]
+                        prev_head  = _fold(op_hashes[: target.seq], start=_GEN)
+                        subsequent = op_hashes[target.seq + 1:]
+                        derived_head = _fold(op_hashes, start=_GEN)
+                        proof = {
+                            "hash":       target.hash,
+                            "seq":        target.seq,
+                            "prev_head":  prev_head,
+                            "subsequent": subsequent,
+                            "head":       derived_head,
+                        }
+                        # Self-check: confirm the proof verifies before returning it,
+                        # so a 200 from this endpoint is a hard guarantee of soundness.
+                        proof["verified"] = _vp(proof)
+                        # Helpful extras for clients that want to anchor to db.head too.
+                        proof["engine_head"] = db.head
+                        proof["engine_seq"]  = db.seq
+                        self._send(200, proof)
+                        return
+                    # MongoDB-compatible query endpoint
+                    # POST /v1/databases/<name>/mongo
+                    # Body: {collection, op, ...op-specific args}
+                    # op can be: find findOne count aggregate insertOne updateOne updateMany
+                    #            deleteOne deleteMany distinct replaceOne
+                    if method == "POST" and action == "mongo":
+                        from .mongo import MongoCompat, MongoError, MongoUnsupportedError
+                        b = self._body()
+                        coll_name = b.get("collection")
+                        op = b.get("op")
+                        if not coll_name or not op:
+                            raise HttpError(400, "collection and op are required")
+                        mc = MongoCompat(db.db if isinstance(db, __import__("nedb.concurrent", fromlist=["Sequencer"]).Sequencer) else db)
+                        coll = mc[str(coll_name)]
+                        try:
+                            result: dict = {}
+                            if op == "find":
+                                filt = b.get("filter") or {}
+                                sort = b.get("sort")
+                                limit = b.get("limit")
+                                skip = b.get("skip", 0)
+                                cur = coll.find(filt)
+                                if sort:
+                                    cur = cur.sort(list(sort.items()) if isinstance(sort, dict) else sort)
+                                if skip: cur = cur.skip(int(skip))
+                                if limit: cur = cur.limit(int(limit))
+                                rows = cur.to_list()
+                                result = {"rows": rows, "count": len(rows)}
+                            elif op == "findOne":
+                                doc = coll.find_one(b.get("filter") or {})
+                                result = {"doc": doc}
+                            elif op == "count":
+                                result = {"count": coll.count_documents(b.get("filter") or {})}
+                            elif op == "distinct":
+                                result = {"values": coll.distinct(str(b.get("key", "_id")), b.get("filter"))}
+                            elif op == "aggregate":
+                                pipeline = b.get("pipeline") or []
+                                result = {"rows": coll.aggregate(pipeline), "count": len(coll.aggregate(pipeline))}
+                            elif op == "insertOne":
+                                r = coll.insert_one(dict(b.get("document") or {}))
+                                result = {"insertedId": r.inserted_id, "acknowledged": r.acknowledged}
+                            elif op == "updateOne":
+                                r = coll.update_one(b.get("filter") or {}, b.get("update") or {}, upsert=bool(b.get("upsert")))
+                                result = {"matchedCount": r.matched_count, "modifiedCount": r.modified_count, "upsertedId": r.upserted_id}
+                            elif op == "updateMany":
+                                r = coll.update_many(b.get("filter") or {}, b.get("update") or {}, upsert=bool(b.get("upsert")))
+                                result = {"matchedCount": r.matched_count, "modifiedCount": r.modified_count, "upsertedId": r.upserted_id}
+                            elif op == "deleteOne":
+                                r = coll.delete_one(b.get("filter") or {})
+                                result = {"deletedCount": r.deleted_count}
+                            elif op == "deleteMany":
+                                r = coll.delete_many(b.get("filter") or {})
+                                result = {"deletedCount": r.deleted_count}
+                            elif op == "replaceOne":
+                                r = coll.replace_one(b.get("filter") or {}, b.get("replacement") or {}, upsert=bool(b.get("upsert")))
+                                result = {"matchedCount": r.matched_count, "modifiedCount": r.modified_count, "upsertedId": r.upserted_id}
+                            else:
+                                raise HttpError(400, f"unknown mongo op: {op!r}")
+                            result["seq"] = db.seq
+                            self._send(200, result)
+                        except (MongoError, MongoUnsupportedError) as e:
+                            raise HttpError(400, str(e))
+                        return
+
+                    if method == "POST" and action == "files":
+                        b = self._body()
+                        fname = b.get("name")
+                        data_b64 = b.get("data_b64")
+                        if not fname or not data_b64:
+                            raise HttpError(400, "name and data_b64 are required")
+                        import base64 as _b64
+                        data = _b64.b64decode(data_b64)
+                        tier = str(b.get("tier", "warm"))
+                        version = db.put_file(str(fname), data, tier=tier)
+                        root = db.file_root(str(fname), version, tier=tier)
+                        self._send(201, {"name": fname, "version": version, "root": root,
+                                         "size": len(data), "tier": tier})
+                        return
+
+                # DELETE /v1/databases/<name>/rows/<coll>/<id>
+                if method == "DELETE" and len(parts) == 6 and parts[:2] == ["v1", "databases"] and parts[3] == "rows":
+                    db = manager.require(parts[2])
+                    db.delete(parts[4], parts[5])
+                    self._send(200, {"ok": True, "seq": db.seq, "head": db.head})
+                    return
+
+                # GET  /v1/databases/<name>/files/<filename>          → file bytes as base64
+                # GET  /v1/databases/<name>/files/<filename>/root      → Merkle root hex
+                if method == "GET" and len(parts) >= 5 and parts[:2] == ["v1", "databases"] and parts[3] == "files":
+                    import base64 as _b64
+                    db = manager.require(parts[2])
+                    fname = parts[4]
+                    version = int(query.get("version", ["-1"])[0])
+                    tier = query.get("tier", ["warm"])[0]
+                    # /root sub-resource
+                    if len(parts) == 6 and parts[5] == "root":
+                        root = db.file_root(fname, version, tier=tier)
+                        self._send(200, {"name": fname, "version": version, "root": root, "tier": tier})
+                        return
+                    data = db.get_file(fname, version, tier=tier)
+                    self._send(200, {"name": fname, "version": version,
+                                     "data_b64": _b64.b64encode(data).decode(),
+                                     "size": len(data), "tier": tier})
+                    return
+
+                # POST /v1/databases/<name>/batch  — multiple ops in one request
+                # Body: {ops: [{op:"put"|"del"|"link", coll, id, doc?, frm?, rel?, to?}, ...]}
+                if method == "POST" and len(parts) == 4 and parts[:2] == ["v1", "databases"] and parts[3] == "batch":
+                    db = manager.require(parts[2])
+                    b = self._body()
+                    ops_list = b.get("ops") or []
+                    if not isinstance(ops_list, list) or not ops_list:
+                        raise HttpError(400, "ops array is required")
+                    results = []
+                    for op in ops_list:
+                        kind = str(op.get("op", "put")).lower()
+                        if kind == "put":
+                            doc = db.put(str(op["coll"]), str(op["id"]), dict(op.get("doc") or {}))
+                            results.append({"op": "put", "id": op["id"], "seq": db.seq})
+                        elif kind == "del":
+                            db.delete(str(op["coll"]), str(op["id"]))
+                            results.append({"op": "del", "id": op["id"], "seq": db.seq})
+                        elif kind == "link":
+                            db.link(str(op["frm"]), str(op["rel"]), str(op["to"]))
+                            results.append({"op": "link", "seq": db.seq})
+                        else:
+                            results.append({"op": kind, "error": "unknown op"})
+                    self._send(200, {"results": results, "count": len(results),
+                                     "seq": db.seq, "head": db.head})
+                    return
+
+                raise HttpError(404, "no such route")
+            except HttpError as e:
+                _log(f"  [nedbd] HTTP {e.status}: {e.message}", level=1)
+                self._send(e.status, {"error": e.message})
+            except Exception as e:  # noqa: BLE001
+                # Always print errors (regardless of debug flag) so failures are visible.
+                print(f"  [nedbd] ERROR {method} {self.path}: {e}", flush=True)
+                _tb.print_exc()
+                self._send(500, {"error": str(e), "trace": _tb.format_exc()})
+
+        def _detail(self, name: str) -> dict:
+            db = manager.require(name)
+            counts = Manager.collection_counts(db)
+            snap_path = os.path.join(manager._path(name), "snapshot.json")
+            # Extract all unique relations from the adjacency list so the
+            # studio graph can show edges without a prior schema document.
+            relations = []
+            seen = set()
+            for (frm, rel), edges in db.relations._adj.items():
+                frm_coll = frm.split(":", 1)[0] if ":" in frm else frm
+                for to, added, removed in edges:
+                    if removed is not None:
+                        continue  # skip unlinked edges
+                    to_coll = to.split(":", 1)[0] if ":" in to else to
+                    key = (frm_coll, rel, to_coll)
+                    if key not in seen:
+                        seen.add(key)
+                        relations.append({"from": frm_coll, "relation": rel,
+                                          "to": to_coll, "cardinality": "one_to_many"})
+            return {
+                "name": name,
+                "seq": db.seq,
+                "head": db.head,
+                "rows": sum(counts.values()),
+                "collections": counts,
+                "indexes": [list(t) for t in db.indexes.config],
+                "relations": relations,
+                "integrity": {"ok": db.verify()},
+                "encrypted": db._dek is not None,
+                "has_snapshot": os.path.exists(snap_path),
+            }
+
+    return Handler
+
+
+def _run_doctor() -> None:  # noqa: C901
+    """Interactive environment diagnostic with exact copy-paste commands."""
+    import platform as _platform, shutil as _shutil, sys as _sys, subprocess as _sub
+
+    from . import __version__
+
+    # ── terminal colours (disabled on Windows without ANSI support) ──────────
+    _ansi = _sys.stdout.isatty() and _sys.platform != "win32" or os.environ.get("TERM")
+    def _c(code, text): return f"\033[{code}m{text}\033[0m" if _ansi else text
+    OK   = _c("32", "✓")
+    ERR  = _c("31", "✗")
+    WARN = _c("33", "!")
+    BOLD = lambda t: _c("1", t)
+    DIM  = lambda t: _c("2", t)
+    CMD  = lambda t: _c("36", t)     # cyan for copy-paste commands
+
+    def _hr(char="─", width=60): print(f"  {char * width}")
+    def _h(title): _hr(); print(f"  {BOLD(title)}"); _hr()
+    def _ok(msg):   print(f"  {OK}  {msg}")
+    def _err(msg):  print(f"  {ERR}  {msg}")
+    def _warn(msg): print(f"  {WARN}  {msg}")
+    def _cmd(label, cmd, comment=""):
+        parts = [f"      {CMD(cmd)}"]
+        if comment:
+            parts.append(f"  {DIM('# ' + comment)}")
+        elif label:
+            parts.append(f"  {DIM('# ' + label)}")
+        print("".join(parts))
+
+    print(f"\n  {BOLD('NEDB Doctor')}  ·  v{__version__}\n")
+
+    # ── 1. Python environment ─────────────────────────────────────────────────
+    _h("Python environment")
+    py_exe  = _sys.executable
+    py_ver  = _platform.python_version()
+    py_impl = _platform.python_implementation()
+    machine = _platform.machine()
+    sys_pl  = _sys.platform
+
+    # Detect MSYS2 / MinGW
+    msystem = os.environ.get("MSYSTEM", "")
+    is_msys2 = bool(msystem) or "mingw" in py_exe.lower()
+    env_tag = f"MSYS2 {msystem}" if is_msys2 else sys_pl
+
+    _ok(f"Python {py_ver}  ({py_impl}, {env_tag}, {machine})")
+    _ok(f"Executable  {py_exe}")
+
+    # pip executable
+    _pip = _shutil.which("pip3") or _shutil.which("pip") or f"{py_exe} -m pip"
+    _ok(f"pip         {_pip}")
+
+    # site-packages
+    import site as _site
+    _sp = (_site.getsitepackages() or [None])[0]
+    _ok(f"site-packages  {_sp}")
+
+    # ── 2. nedb._native ───────────────────────────────────────────────────────
+    _h("nedb._native  (embedded Rust DAG core)")
+    from nedb import __has_native__
+    has_native = __has_native__
+    if has_native:
+        _ok("nedb._native loaded — NedbCore / embedded DAG API ready")
+    else:
+        _err("nedb._native not available")
+        if is_msys2:
+            _warn("MSYS2/MinGW Python cannot load MSVC-compiled extensions.")
+            _warn("This is a known limitation — use HTTP mode (see Fix plan below).")
+        else:
+            print(f"\n  {BOLD('Fix:')}  reinstall to pull the platform wheel:\n")
+            _cmd("", f"{_pip} install --force-reinstall --no-cache-dir nedb-engine",
+                 "downloads the wheel with _native bundled")
+
+    # ── 3. nedbd-v2 binary ────────────────────────────────────────────────────
+    _h("nedbd-v2  (DAG HTTP server binary)")
+    _pkg_dir   = os.path.dirname(os.path.abspath(__file__))
+    _cwd       = os.getcwd()
+    _cargo_bin = os.path.join(os.path.expanduser("~"), ".cargo", "bin")
+    _bin_names = ["nedbd-v2", "nedbd_v2", "nedbd-v2.exe", "nedbd_v2.exe"]
+    _cargo_names = ["nedbd", "nedbd.exe"]
+    _search = (
+        [os.path.join(_pkg_dir, n) for n in _bin_names]
+        + [_shutil.which(n) or "" for n in _bin_names]
+        + [os.path.join(_cargo_bin, n) for n in _bin_names + _cargo_names]
+        + [os.path.join(_cwd, "rust", "nedb-v2", "target", "release", n)
+           for n in _bin_names + _cargo_names]
+    )
+    _bin = next((p for p in _search if p and os.path.isfile(p)), None)
+
+    if _bin:
+        _ok(f"Found:  {_bin}")
+        _ok("nedbd --dag is ready")
+    else:
+        _err("nedbd-v2 binary not found")
+        _warn(f"Searched: {_pkg_dir}  |  PATH  |  {_cargo_bin}")
+
+    # ── 4. cargo (Rust toolchain) ─────────────────────────────────────────────
+    _h("Rust toolchain")
+    _cargo_exe = _shutil.which("cargo")
+    if _cargo_exe:
+        try:
+            _cv = _sub.check_output([_cargo_exe, "--version"], stderr=_sub.DEVNULL,
+                                    timeout=5).decode().strip()
+        except Exception:
+            _cv = "(version unknown)"
+        _ok(f"cargo  {_cv}  →  {_cargo_exe}")
+        has_cargo = True
+    else:
+        _err("cargo not found on PATH")
+        _warn("Install Rust: https://rustup.rs")
+        has_cargo = False
+
+    # ── 5. Fix plan ───────────────────────────────────────────────────────────
+    print()
+    _h("Fix plan")
+
+    step = 1
+    all_good = has_native and _bin
+
+    if all_good:
+        _ok("Everything is working. Commands to use:\n")
+        _cmd("start DAG server",     f"nedbd --dag ./nedb-data")
+        _cmd("start AOF server",     f"nedbd ./nedb-data")
+        _cmd("run a test (embedded)",f"python3 tests/test_the_will.py")
+        print()
+        return
+
+    # Binary missing
+    if not _bin:
+        print(f"  {BOLD(f'Step {step}: Install the nedbd-v2 DAG server binary')}\n")
+        step += 1
+        if has_cargo:
+            _cmd("install from crates.io (recommended)",
+                 "cargo install nedb-engine",
+                 f"binary → {os.path.join(_cargo_bin, 'nedbd')}")
+            print()
+            _cmd("OR reinstall pip wheel (also bundles the binary)",
+                 f"{_pip} install --force-reinstall --no-cache-dir nedb-engine")
+        else:
+            _cmd("reinstall pip wheel (bundles the binary)",
+                 f"{_pip} install --force-reinstall --no-cache-dir nedb-engine")
+            print()
+            _warn("Or install Rust first (to build from source):")
+            if sys_pl == "win32" or is_msys2:
+                _cmd("", "winget install Rustlang.Rust.MSVC", "or visit https://rustup.rs")
+            else:
+                _cmd("", "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh")
+        print()
+
+    # _native missing
+    if not has_native:
+        print(f"  {BOLD(f'Step {step}: Use the embedded Rust core (nedb._native)')}\n")
+        step += 1
+        if is_msys2:
+            print(f"  {WARN}  MSYS2/MinGW cannot load MSVC extensions — use HTTP mode:\n")
+            _data_dir = os.path.join(os.path.expanduser("~"), "nedb-data")
+            _dag_cmd  = (_bin or "nedbd") + f" --dag {_data_dir}"
+            _cmd("terminal 1 — start the DAG server", _dag_cmd)
+            print()
+            _cmd("terminal 2 — run Python scripts with HTTP mode",
+                 f"NEDB_URL=http://localhost:7070 python3 your_script.py")
+            print()
+            _cmd("test the will (HTTP mode)",
+                 f"NEDB_URL=http://localhost:7070 python3 tests/test_the_will.py",
+                 "18/18 checks — no _native needed")
+        else:
+            _cmd("reinstall to pull platform wheel with _native",
+                 f"{_pip} install --force-reinstall --no-cache-dir nedb-engine")
+        print()
+
+    # Shell PATH tip
+    if _bin and _cargo_bin not in os.environ.get("PATH", ""):
+        print(f"  {BOLD('Note:')} {_cargo_bin} may not be on your PATH yet.\n")
+        if sys_pl == "win32" or is_msys2:
+            _cmd("add to PATH permanently (Git Bash / MSYS2)",
+                 f'echo \'export PATH="$PATH:{_cargo_bin}"\' >> ~/.bashrc && source ~/.bashrc')
+        else:
+            _cmd("add to PATH permanently",
+                 f'echo \'export PATH="$PATH:{_cargo_bin}"\' >> ~/.profile && source ~/.profile')
+        print()
+
+    print(f"  Run {CMD('nedbd --doctor')} again after installing to confirm everything is green.\n")
+
+
+def main() -> None:
+    import argparse as _ap, signal, threading
+    from .resp2 import make_resp2_server
+
+    parser = _ap.ArgumentParser(
+        prog="nedbd",
+        description="NEDB server daemon — serves durable, time-traveling databases over HTTP/JSON.",
+    )
+    parser.add_argument("--host",       default=os.environ.get("NEDBD_HOST",  "127.0.0.1"))
+    parser.add_argument("--port",       type=int, default=int(os.environ.get("NEDBD_PORT", "7070")))
+    parser.add_argument("--data",       default=os.environ.get("NEDBD_DATA",  "./nedb-data"))
+    parser.add_argument("--token",      default=os.environ.get("NEDBD_TOKEN") or None)
+    parser.add_argument("--resp2-port", type=int, default=int(os.environ.get("NEDBD_RESP2_PORT", "0")))
+    parser.add_argument(
+        "--log-level", type=int, default=None, metavar="N",
+        help="Verbosity: 0=errors only (default), 1=requests, 2=deploy phases, 3=everything. "
+             "Env var NEDBD_DEBUG=1 is equivalent to --log-level 3.",
+    )
+    parser.add_argument(
+        "--dag", action="store_true",
+        default=os.environ.get("NEDBD_DAG", "").lower() in ("1", "true", "yes"),
+        help="Run the v2 content-addressed DAG engine (Rust binary) instead of the v1 AOF engine. "
+             "No AOF, no global lock, instant cold start. Env var NEDBD_DAG=1 also enables this.",
+    )
+    parser.add_argument(
+        "--doctor", action="store_true",
+        help="Diagnose the NEDB environment — checks for native extension, DAG binary, "
+             "and prints platform-specific install instructions for anything missing.",
+    )
+    args = parser.parse_args()
+
+    # ── Doctor mode ───────────────────────────────────────────────────────────
+    if args.doctor:
+        _run_doctor()
+        return
+
+    # ── DAG mode: exec into the Rust v2 binary, replacing this process entirely ──
+    if args.dag:
+        import shutil as _shutil, subprocess as _sub, sys as _sys
+        _pkg_dir = os.path.dirname(os.path.abspath(__file__))
+        _cwd     = os.getcwd()
+        # Include .exe variants for Windows; search order:
+        # 1. Bundled in the Python wheel (platform wheel includes the binary)
+        # 2. PATH
+        # 3. Cargo release build relative to CWD (built from source)
+        # 4. Cargo release build relative to the package location
+        import platform as _platform
+        _ext  = ".exe" if _sys.platform == "win32" else ""
+        _arch = "arm64" if _platform.machine() in ("arm64", "aarch64") else "x64"
+        # Platform-specific names (in order of preference)
+        _names = (
+            # Mac: platform-specific binary bundled in fat wheel
+            ([f"nedbd-v2-darwin-{_arch}"] if _sys.platform == "darwin" else []) +
+            # Linux/Windows: generic names (also bundled in fat wheel)
+            ["nedbd-v2" + _ext, "nedbd_v2" + _ext] +
+            # Fallback: try both exe variants
+            (["nedbd-v2.exe", "nedbd_v2.exe"] if _sys.platform != "win32" else [])
+        )
+        _cargo_names = ["nedbd", "nedbd.exe"]
+        _cargo_dirs = [
+            os.path.join(_cwd, "rust", "nedb-v2", "target", "release"),
+            os.path.join(_cwd, "target", "release"),
+            os.path.join(os.path.dirname(_pkg_dir), "rust", "nedb-v2", "target", "release"),
+        ]
+        _candidates = (
+            [os.path.join(_pkg_dir, n) for n in _names]
+            + [_shutil.which(n) or "" for n in _names]
+            + [os.path.join(d, n) for d in _cargo_dirs for n in _cargo_names]
+        )
+        _bin = next((c for c in _candidates if c and os.path.isfile(c)), None)
+        if _bin is None:
+            print("", file=_sys.stderr)
+            print("  nedbd --dag: DAG engine binary not found.", file=_sys.stderr)
+            print("", file=_sys.stderr)
+            print("  The v2 content-addressed DAG engine (nedbd-v2) is a Rust binary that ships", file=_sys.stderr)
+            print("  alongside the Python package on supported platforms.", file=_sys.stderr)
+            print("", file=_sys.stderr)
+            print("  Run 'nedbd --doctor' for a full diagnosis and platform-specific fix:", file=_sys.stderr)
+            print("", file=_sys.stderr)
+            print("    nedbd --doctor", file=_sys.stderr)
+            print("", file=_sys.stderr)
+            print("  Quick fixes:", file=_sys.stderr)
+            print("    pip install --force-reinstall --no-cache-dir nedb-engine  # re-install with binary", file=_sys.stderr)
+            print("    cargo install nedb-engine                                # build from source (any platform)", file=_sys.stderr)
+            print("", file=_sys.stderr)
+            _sys.exit(1)
+        # Rust binary: nedbd-v2 [data_dir]
+        # Port/token/TMK are passed via environment variables (not CLI flags).
+        os.environ["NEDBD_PORT"] = str(args.port)
+        if args.token:
+            os.environ["NEDBD_TOKEN"] = args.token
+        _argv = [_bin, args.data]   # data_dir is the only positional arg
+        # os.execv replaces the process on POSIX; use subprocess on Windows
+        if _sys.platform == "win32":
+            _sys.exit(_sub.call(_argv))
+        else:
+            os.execv(_bin, _argv)
+
+    # Resolve log level: CLI flag beats env var.
+    # Level 0: only errors (always printed)
+    # Level 1: every request method+path
+    # Level 2: deploy phases (index/seed/link counts)
+    # Level 3: all of the above — equivalent to old NEDBD_DEBUG=1
+    _env_level = 3 if os.environ.get("NEDBD_DEBUG", "").strip() in ("1", "true", "yes") else 0
+    _log_level: int = args.log_level if args.log_level is not None else _env_level
+
+    # Patch the module-level _log and _DEBUG so the handler uses the resolved level.
+    import nedb.server as _srv_mod  # noqa: PLC0415
+    _srv_mod._log_level = _log_level  # type: ignore[attr-defined]
+
+    host  = args.host
+    port  = args.port
+    data  = args.data
+    token = args.token
+    resp2_port = args.resp2_port
+    manager = Manager(data)
+    httpd = ThreadingHTTPServer((host, port), make_handler(manager, token))
+    auth = "on" if token else "off"
+    BANNER = f"""\
+  ███╗   ██╗███████╗██████╗ ██████╗
+  ████╗  ██║██╔════╝██╔══██╗██╔══██╗
+  ██╔██╗ ██║█████╗  ██║  ██║██████╔╝
+  ██║╚██╗██║██╔══╝  ██║  ██║██╔══██╗
+  ██║ ╚████║███████╗██████╔╝██████╔╝
+  ╚═╝  ╚═══╝╚══════╝╚═════╝ ╚═════╝
+
+  a versioned, time-traveling, encrypted database
+  ─────────────────────────────────────────────────
+  INTERCHAINED, LLC    ×    Claude Sonnet 4.6
+  interchained.org       hyperagent.com/refer/J2G6TCD7
+"""
+    print(BANNER)
+    level_label = {0: "errors-only", 1: "requests", 2: "deploy", 3: "verbose"}.get(_log_level, str(_log_level))
+    print(f"  nedbd {__version__} — http://{host}:{port}  data={os.path.abspath(data)}  auth={auth}  log={level_label}")
+
+    # ── v2 DAG health notice ──────────────────────────────────────────────────
+    # Check once at startup whether the v2 binary and _native extension are available.
+    # Print a single actionable line if either is missing — non-blocking, no exit.
+    _has_native = False
+    try:
+        from nedb import __has_native__ as _has_native  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    _dag_bin_available = shutil.which("nedbd-v2") or shutil.which("nedbd_v2") or \
+        any(os.path.isfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), n))
+            for n in ["nedbd-v2", "nedbd-v2.exe", "nedbd_v2", "nedbd_v2.exe"])
+    if not _has_native or not _dag_bin_available:
+        print()
+    if not _dag_bin_available:
+        print("  ⚡ v2 DAG engine not found — for content-addressed, instant-cold-start mode:")
+        print("       cargo install nedb-engine   →   nedbd --dag ./data")
+    if not _has_native:
+        print("  ⚡ nedb._native not available — embedded v2 API requires the platform wheel")
+        print("       pip install --force-reinstall --no-cache-dir nedb-engine")
+        print("       OR use HTTP mode: NEDB_URL=http://localhost:7070 python3 your_script.py")
+    if not _has_native or not _dag_bin_available:
+        print("  ℹ  Run 'nedbd --doctor' for a full diagnosis and exact fix commands.")
+        print()
+    # Eagerly open all known databases so backfill-encrypt (if needed) runs
+    # immediately and is visible in the boot log, not hidden on first request.
+    names = manager.names()
+    for name in names:
+        try:
+            manager.open(name)
+        except Exception as e:
+            print(f"  [{name}] failed to open: {e}")
+    print(f"  {len(names)} database(s): {', '.join(names) or '(none)'}")
+
+    def _shutdown(signum, _frame):
+        """SIGTERM / SIGINT — checkpoint all databases then exit cleanly.
+        httpd.shutdown() MUST be called from a different thread than serve_forever()
+        or it deadlocks; we spawn a daemon thread to do it."""
+        sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
+        n = len(manager._open)
+        print(f"\nnedbd {sig_name} — checkpointing {n} database(s)…")
+        threading.Thread(target=httpd.shutdown, daemon=True).start()
+
+    signal.signal(signal.SIGTERM, _shutdown)
+    signal.signal(signal.SIGINT,  _shutdown)
+
+    # Optional hour-aligned periodic checkpoint.
+    # NEDBD_CHECKPOINT_INTERVAL=60 means checkpoint every 60 minutes, on the hour mark.
+    # The system clock handles the cadence — we sleep to the next :00 boundary, checkpoint,
+    # then repeat. Default: disabled (0). Value is in minutes.
+    ckpt_interval = int(os.environ.get("NEDBD_CHECKPOINT_INTERVAL", "0"))
+    _stop_ckpt = threading.Event()
+
+    if ckpt_interval > 0:
+        def _checkpoint_loop():
+            import time
+            interval_s = ckpt_interval * 60
+            while not _stop_ckpt.is_set():
+                # Sleep until the next clock-aligned boundary
+                now = time.time()
+                secs_into_interval = now % interval_s
+                sleep_s = interval_s - secs_into_interval
+                # Wake slightly after the boundary so we always round up
+                _stop_ckpt.wait(timeout=sleep_s + 0.5)
+                if _stop_ckpt.is_set():
+                    break
+                ts = time.strftime("%Y-%m-%d %H:%M")
+                n = len(manager._open)
+                print(f"  [checkpoint:{ts}] checkpointing {n} database(s)…")
+                manager.checkpoint_all()
+
+        ckpt_thread = threading.Thread(target=_checkpoint_loop, daemon=True)
+        ckpt_thread.start()
+        print(f"  checkpoint — every {ckpt_interval}min on the clock mark (NEDBD_CHECKPOINT_INTERVAL)")
+
+    # Optional RESP2 server (redis-cli / redis-benchmark compatible)
+    resp2_srv = None
+    if resp2_port > 0:
+        resp2_srv = make_resp2_server(manager, host, resp2_port)
+        t = threading.Thread(target=resp2_srv.serve_forever, daemon=True)
+        t.start()
+        print(f"  resp2  — redis://  {host}:{resp2_port}  (RESP2 wire protocol)")
+
+    try:
+        httpd.serve_forever()   # blocks; unblocked by _shutdown → httpd.shutdown()
+    finally:
+        _stop_ckpt.set()  # stop the checkpoint loop
+        httpd.server_close()
+        if resp2_srv:
+            resp2_srv.shutdown()
+        manager.close_all()   # checkpoint → fsync → close every open database
+        print("nedbd stopped cleanly.")
+
+
+if __name__ == "__main__":
+    main()

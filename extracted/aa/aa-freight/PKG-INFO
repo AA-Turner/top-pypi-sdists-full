@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aa-freight
-Version: 3.0.0
+Version: 3.0.1
 Summary: Freight is an Alliance Auth app for running a freight service.
 Author-email: Erik Kalkoken <kaloken87@gmail.com>
 Requires-Python: >=3.10

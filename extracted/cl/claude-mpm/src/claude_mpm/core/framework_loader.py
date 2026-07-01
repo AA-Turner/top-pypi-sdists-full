@@ -1,0 +1,868 @@
+"""Framework loader for Claude MPM - Refactored modular version."""
+
+import asyncio
+import os
+from pathlib import Path
+from typing import Any
+
+# Import framework components
+from claude_mpm.core.framework import (
+    AgentLoader,
+    CapabilityGenerator,
+    ContentFormatter,
+    ContextGenerator,
+    FileLoader,
+    InstructionLoader,
+    MemoryProcessor,
+    MetadataProcessor,
+    PackagedLoader,
+    TemplateProcessor,
+)
+from claude_mpm.core.logging_utils import get_logger
+from claude_mpm.utils.imports import safe_import
+
+# Import with fallback support
+AgentRegistryAdapter = safe_import(
+    "claude_mpm.core.unified_agent_registry",
+    "core.unified_agent_registry",
+    ["AgentRegistryAdapter"],
+)
+
+# Import API validator
+try:
+    from claude_mpm.core.api_validator import validate_api_keys
+except ImportError:
+    from ..core.api_validator import validate_api_keys
+
+# Import the service container and interfaces
+try:
+    from claude_mpm.services.core.cache_manager import CacheManager
+    from claude_mpm.services.core.memory_manager import MemoryManager
+    from claude_mpm.services.core.path_resolver import PathResolver
+    from claude_mpm.services.core.service_container import (
+        ServiceContainer,
+        get_global_container,
+    )
+    from claude_mpm.services.core.service_interfaces import (
+        ICacheManager,
+        IMemoryManager,
+        IPathResolver,
+    )
+except ImportError:
+    # Fallback for development environments
+    from ..services.core.cache_manager import CacheManager
+    from ..services.core.memory_manager import MemoryManager
+    from ..services.core.path_resolver import PathResolver
+    from ..services.core.service_container import ServiceContainer, get_global_container
+    from ..services.core.service_interfaces import (
+        ICacheManager,
+        IMemoryManager,
+        IPathResolver,
+    )
+
+
+class FrameworkLoader:
+    """
+    Load and prepare framework instructions for injection.
+
+    This refactored version uses modular components for better maintainability
+    and testability while maintaining backward compatibility.
+
+    Components:
+    - Loaders: Handle file I/O and resource loading
+    - Formatters: Generate and format content sections
+    - Processors: Process metadata, templates, and memories
+    """
+
+    def __init__(
+        self,
+        framework_path: Path | None = None,
+        agents_dir: Path | None = None,
+        service_container: ServiceContainer | None = None,
+        config: dict[str, Any] | None = None,
+    ):
+        """
+        Initialize framework loader with modular components.
+
+        Args:
+            framework_path: Explicit path to framework (auto-detected if None)
+            agents_dir: Custom agents directory (overrides framework agents)
+            service_container: Optional service container for dependency injection
+            config: Optional configuration dictionary for API validation and other settings
+        """
+        self.logger = get_logger("framework_loader")
+        self.agents_dir = agents_dir
+        self.framework_version = None
+        self.framework_last_modified = None
+        self.config = config or {}
+
+        # Resolve instructions override: read from env var set by CLI.
+        # CLAUDE_MPM_INSTRUCTIONS_OVERRIDE holds an absolute or cwd-relative path
+        # to a file whose contents replace INSTRUCTIONS.md for this session.
+        _override_env = os.environ.get("CLAUDE_MPM_INSTRUCTIONS_OVERRIDE")
+        self.instructions_override_path: Path | None = (
+            Path(_override_env) if _override_env else None
+        )
+
+        # Validate API keys on startup (before any other initialization)
+        self._validate_api_keys()
+
+        # Initialize service container
+        self.container = service_container or get_global_container()
+        self._register_services()
+
+        # Resolve services from container
+        self._cache_manager = self.container.resolve(ICacheManager)
+        self._path_resolver = self.container.resolve(IPathResolver)
+        self._memory_manager = self.container.resolve(IMemoryManager)
+
+        # Initialize framework path
+        self.framework_path = (
+            framework_path or self._path_resolver.detect_framework_path()
+        )
+
+        # Initialize modular components
+        self._init_components()
+
+        # Keep cache TTL constants for backward compatibility
+        self._init_cache_ttl()
+
+        # Load framework content
+        self.framework_content = self._load_framework_content()
+
+        # Initialize agent registry
+        self.agent_registry = AgentRegistryAdapter(self.framework_path)
+
+        # Output style manager (deferred initialization)
+        self.output_style_manager = None
+
+    def _validate_api_keys(self) -> None:
+        """Validate API keys if enabled in config."""
+        if self.config.get("validate_api_keys", True):
+            try:
+                self.logger.info("Validating configured API keys...")
+                validate_api_keys(config=self.config, strict=True)
+                self.logger.info("✅ API key validation completed successfully")
+            except ValueError as e:
+                self.logger.error(f"❌ API key validation failed: {e}")
+                raise
+            except Exception as e:
+                self.logger.error(f"❌ Unexpected error during API validation: {e}")
+                raise
+
+    def _register_services(self) -> None:
+        """Register services in the container if not already registered."""
+        if not self.container.is_registered(ICacheManager):
+            self.container.register(ICacheManager, CacheManager, True)
+
+        if not self.container.is_registered(IPathResolver):
+            cache_manager = self.container.resolve(ICacheManager)
+            path_resolver = PathResolver(cache_manager=cache_manager)
+            self.container.register_instance(IPathResolver, path_resolver)
+
+        if not self.container.is_registered(IMemoryManager):
+            cache_manager = self.container.resolve(ICacheManager)
+            path_resolver = self.container.resolve(IPathResolver)
+            memory_manager = MemoryManager(
+                cache_manager=cache_manager, path_resolver=path_resolver
+            )
+            self.container.register_instance(IMemoryManager, memory_manager)
+
+    def _init_components(self) -> None:
+        """Initialize modular components."""
+        # Loaders
+        self.file_loader = FileLoader()
+        self.packaged_loader = PackagedLoader()
+        self.instruction_loader = InstructionLoader(
+            self.framework_path,
+            instructions_override_path=self.instructions_override_path,
+        )
+        self.agent_loader = AgentLoader(self.framework_path)
+
+        # Formatters
+        self.content_formatter = ContentFormatter()
+        self.capability_generator = CapabilityGenerator()
+        self.context_generator = ContextGenerator()
+
+        # Processors
+        self.metadata_processor = MetadataProcessor()
+        self.template_processor = TemplateProcessor(self.framework_path)
+        self.memory_processor = MemoryProcessor()
+
+    def _init_cache_ttl(self) -> None:
+        """Initialize cache TTL constants for backward compatibility."""
+        if hasattr(self._cache_manager, "capabilities_ttl"):
+            self.CAPABILITIES_CACHE_TTL = self._cache_manager.capabilities_ttl
+            self.DEPLOYED_AGENTS_CACHE_TTL = self._cache_manager.deployed_agents_ttl
+            self.METADATA_CACHE_TTL = self._cache_manager.metadata_ttl
+            self.MEMORIES_CACHE_TTL = self._cache_manager.memories_ttl
+        else:
+            # Default TTL values
+            self.CAPABILITIES_CACHE_TTL = 60
+            self.DEPLOYED_AGENTS_CACHE_TTL = 30
+            self.METADATA_CACHE_TTL = 60
+            self.MEMORIES_CACHE_TTL = 60
+
+    # === Cache Management Methods (backward compatibility) ===
+
+    def clear_all_caches(self) -> None:
+        """Clear all caches to force reload on next access."""
+        self._cache_manager.clear_all()
+
+    def clear_agent_caches(self) -> None:
+        """Clear agent-related caches."""
+        self._cache_manager.clear_agent_caches()
+
+    def clear_memory_caches(self) -> None:
+        """Clear memory-related caches."""
+        self._cache_manager.clear_memory_caches()
+
+    # === Content Loading Methods ===
+
+    def _load_framework_content(self) -> dict[str, Any]:
+        """Load framework content using modular components."""
+        content = {
+            "claude_md": "",
+            "agents": {},
+            "version": "unknown",
+            "loaded": False,
+            "working_claude_md": "",
+            "framework_instructions": "",
+            "workflow_instructions": "",
+            "workflow_instructions_level": "",
+            "memory_instructions": "",
+            "memory_instructions_level": "",
+            "project_workflow": "",  # Deprecated
+            "project_memory": "",  # Deprecated
+            "actual_memories": "",
+            "agent_memories": {},
+        }
+
+        # Load all instructions
+        self.instruction_loader.load_all_instructions(content)
+
+        # Transfer metadata from loaders
+        if self.file_loader.framework_version:
+            self.framework_version = self.file_loader.framework_version
+            content["version"] = self.framework_version
+        if self.file_loader.framework_last_modified:
+            self.framework_last_modified = self.file_loader.framework_last_modified
+
+        # Load memories
+        self._load_actual_memories(content)
+
+        # Discover and load agents
+        agents_dir, templates_dir, main_dir = self._path_resolver.discover_agent_paths(
+            agents_dir=self.agents_dir, framework_path=self.framework_path
+        )
+        agents = self.agent_loader.load_agents_directory(
+            agents_dir, templates_dir, main_dir
+        )
+        if agents:
+            content["agents"] = agents
+            content["loaded"] = True
+
+        return content
+
+    def _load_actual_memories(self, content: dict[str, Any]) -> None:
+        """Load actual memories using the MemoryManager service."""
+        memories = self._memory_manager.load_memories()
+
+        # Only load PM memories (PM.md)
+        # Agent memories are loaded at deployment time in agent_template_builder.py
+        if "actual_memories" in memories:
+            content["actual_memories"] = memories["actual_memories"]
+        # NOTE: agent_memories are no longer loaded for PM instructions
+        # They are injected per-agent at deployment time
+
+    # === Agent Discovery Methods ===
+
+    def _get_deployed_agents(self) -> set[str]:
+        """Get deployed agents with caching."""
+        cached = self._cache_manager.get_deployed_agents()
+        if cached is not None:
+            return cached
+
+        deployed = self.agent_loader.get_deployed_agents()
+        self._cache_manager.set_deployed_agents(deployed)
+        return deployed
+
+    def _discover_local_json_templates(self) -> dict[str, dict[str, Any]]:
+        """Discover local JSON agent templates."""
+        return self.agent_loader.discover_local_json_templates()
+
+    def _parse_agent_metadata(self, agent_file: Path) -> dict[str, Any] | None:
+        """Parse agent metadata with caching."""
+        cache_key = str(agent_file)
+        file_mtime = agent_file.stat().st_mtime
+
+        # Try cache first
+        cached_result = self._cache_manager.get_agent_metadata(cache_key)
+        if cached_result is not None:
+            cached_data, cached_mtime = cached_result
+            if cached_mtime == file_mtime:
+                self.logger.debug(f"Using cached metadata for {agent_file.name}")
+                return cached_data
+
+        # Cache miss - parse the file
+        agent_data = self.metadata_processor.parse_agent_metadata(agent_file)
+
+        # Add routing information if not present
+        if agent_data and "routing" not in agent_data:
+            template_data = self.template_processor.load_template(agent_file.stem)
+            if template_data:
+                routing = self.template_processor.extract_routing(template_data)
+                if routing:
+                    agent_data["routing"] = routing
+                memory_routing = self.template_processor.extract_memory_routing(
+                    template_data
+                )
+                if memory_routing:
+                    agent_data["memory_routing"] = memory_routing
+
+        # Cache the result
+        if agent_data:
+            self._cache_manager.set_agent_metadata(cache_key, agent_data, file_mtime)
+
+        return agent_data
+
+    # === Framework Instructions Generation ===
+
+    def get_framework_instructions(self) -> str:
+        """
+        Get formatted framework instructions for injection.
+
+        Returns:
+            Complete framework instructions ready for injection
+        """
+        # Log the system prompt if needed
+        self._log_system_prompt()
+
+        # Generate the instructions
+        if self.framework_content["loaded"]:
+            return self._format_full_framework()
+        return self._format_minimal_framework()
+
+    def _format_full_framework(self) -> str:
+        """Format full framework instructions using modular components."""
+        # Initialize output style manager on first use
+        if self.output_style_manager is None:
+            self._initialize_output_style()
+
+        # Check if we need to inject output style
+        inject_output_style = False
+        output_style_content = None
+        if self.output_style_manager:
+            inject_output_style = self.output_style_manager.should_inject_content()
+            if inject_output_style:
+                output_style_content = self.output_style_manager.get_injectable_content(
+                    framework_loader=self
+                )
+                self.logger.info("Injecting output style content for Claude < 1.0.83")
+
+        # Generate dynamic sections
+        capabilities_section = self._generate_agent_capabilities_section()
+        context_section = self.context_generator.generate_temporal_user_context()
+        tool_status_section = self._generate_tool_status_section()
+
+        # Format the complete framework
+        return self.content_formatter.format_full_framework(
+            self.framework_content,
+            capabilities_section,
+            context_section,
+            inject_output_style,
+            output_style_content,
+            tool_status_section,
+        )
+
+    def _generate_tool_status_section(self) -> str:
+        """Why: The static PM instructions (Context-First Protocol, MEMORY.md)
+        tell the PM to use trusty-memory/trusty-search unconditionally. When
+        those daemons are absent/down this session the PM wastes tool calls and
+        tokens. This injects a per-session capability block so the PM can act on
+        what is ACTUALLY available and degrade gracefully (skip + inform).
+
+        What: Calls ``get_trusty_capabilities()`` and renders a markdown block
+        ``## Available Tool Services (auto-detected at session start)`` — a
+        Service | Status | Impact table plus an explicit NEGATION line per
+        service that is not ON, plus a DEGRADED-MODE note when ALL trusty
+        services are absent/not-running. Always-on but resilient: any failure
+        (or no detected capabilities) returns ``""`` so nothing is injected and
+        startup never breaks.
+
+        Test: ``tests/test_framework_loader_tool_status.py`` — asserts the block
+        is present with the correct NEGATION line when a service is absent, the
+        degraded-mode note when all absent, and an empty string on probe error.
+        """
+        try:
+            from claude_mpm.services.trusty_status import (
+                get_probe_hint,
+                get_trusty_capabilities_live,
+            )
+
+            capabilities = get_trusty_capabilities_live()
+        except Exception:
+            try:
+                from claude_mpm.services.trusty_status import get_trusty_capabilities
+
+                capabilities = get_trusty_capabilities()
+            except Exception as e:  # pragma: no cover - defensive
+                self.logger.debug(f"Skipping tool status section: {e}")
+                return ""
+            # get_probe_hint is defined unconditionally in trusty_status.py, but
+            # we're here because the live-probe import failed; provide a no-op so
+            # downstream code works without a second import attempt.
+
+            def get_probe_hint(_svc: str) -> str:  # type: ignore[misc]
+                return ""
+
+        if not capabilities:
+            return ""
+
+        # Human-facing labels for each detected state.
+        status_labels = {
+            "on": "ON",
+            "configured": "NOT RUNNING",
+            "not_running": "NOT RUNNING",
+            "absent": "ABSENT",
+            "degraded": "⚠ DEGRADED",
+        }
+
+        # Per-service Impact text keyed by availability (ON vs everything else).
+        impact_on = {
+            "trusty-memory": (
+                "Context-First Protocol active: query "
+                "`mcp__trusty-memory__memory_recall` first."
+            ),
+            "trusty-search": (
+                "Code search available: use `mcp__trusty-search__search` before "
+                "delegating to Research."
+            ),
+            "trusty-analyze": (
+                "Code analysis available: `mcp__trusty-analyze__*` is usable."
+            ),
+            "trusty-review": ("`/mpm-review` and `mcp__trusty-review__*` are usable."),
+        }
+        impact_off = {
+            "trusty-memory": (
+                "Despite MEMORY.md/Context-First guidance, trusty-memory is NOT "
+                "available this session — SKIP all `mcp__trusty-memory__*` calls "
+                "and memory recall steps."
+            ),
+            "trusty-search": (
+                "trusty-search is NOT available — SKIP code search; delegate "
+                "directly to Research."
+            ),
+            "trusty-analyze": (
+                "trusty-analyze is NOT available — SKIP `mcp__trusty-analyze__*` calls."
+            ),
+            "trusty-review": (
+                "code review via trusty-review unavailable; fall back to "
+                "`openrouter-code-reviewer`."
+            ),
+        }
+
+        lines = [
+            "\n\n## Available Tool Services (auto-detected at session start)\n",
+            "This OVERRIDES the unconditional tool guidance elsewhere in these "
+            "instructions. Do NOT call any service listed as NOT available "
+            "below.\n",
+            "| Service | Status | Impact |",
+            "| --- | --- | --- |",
+        ]
+
+        negations: list[str] = []
+        for service in (
+            "trusty-memory",
+            "trusty-search",
+            "trusty-analyze",
+            "trusty-review",
+        ):
+            state = capabilities.get(service, "absent")
+            is_on = state == "on"
+            label = status_labels.get(state, "ABSENT")
+            impact = (impact_on if is_on else impact_off)[service]
+            # trusty-search ON: verify the project index exists & is fresh, and
+            # kick off a background reindex (non-blocking) if it is not. Any
+            # failure here is swallowed inside the helper so startup never breaks.
+            if is_on and service == "trusty-search":
+                note = self._trusty_search_index_note()
+                if note:
+                    impact = f"{impact} {note}"
+            lines.append(f"| {service} | {label} | {impact} |")
+            if not is_on:
+                # For DEGRADED services, append the actionable hint from the probe
+                # in parentheses so the PM knows why the service is unavailable.
+                hint = get_probe_hint(service)
+                negation = f"- {impact}"
+                if hint and state == "degraded":
+                    negation = f"{negation} ({hint})"
+                negations.append(negation)
+
+        if negations:
+            lines.append("\n**Skip the following this session:**\n")
+            lines.extend(negations)
+
+        all_unavailable = all(state != "on" for state in capabilities.values())
+        if all_unavailable:
+            lines.append(
+                "\n**DEGRADED MODE — no trusty services available this session.** "
+                "Skip all memory recall and code search; delegate directly to "
+                "the Research agent. Suggest the user run `claude-mpm setup "
+                "trusty-search` / `claude-mpm setup trusty-memory` to enable "
+                "Context-First tooling."
+            )
+
+        return "\n".join(lines) + "\n"
+
+    def _trusty_search_index_note(self) -> str:
+        """Produce a user-facing note when the trusty-search index needs rebuilding.
+
+        WHAT: Queries the trusty-search daemon for this project's index status,
+        short-circuits to background mode when auto-rebuild is disabled, then
+        delegates the wait-vs-background decision to ``_decide_rebuild_note``.
+        Returns ``""`` for a fresh index or on any error (fail-open).
+
+        WHY: When trusty-search is ON the PM assumes code search "just works",
+        but a missing or stale index returns poor results. This thin coordinator
+        separates status-fetching and config-reading from the file-count and
+        wait-strategy logic so each concern stays below the WWL complexity
+        threshold and is independently testable.
+
+        Test: ``tests/test_framework_loader_index_freshness.py`` and
+        ``tests/test_trusty_search_index_auto_rebuild.py``.
+        """
+        try:
+            from pathlib import Path as _Path
+
+            import claude_mpm.services.trusty_status as _ts
+
+            cwd = _Path.cwd()
+            status = _ts.get_trusty_search_index_status(cwd=cwd)
+
+            needs_rebuild = _ts.is_index_missing_or_empty(status) or _ts.is_index_stale(
+                status
+            )
+            if not needs_rebuild:
+                return ""  # fresh index → no note
+
+            index_id = self._resolve_reindex_id(status, cwd=cwd)
+            _missing = _ts.is_index_missing_or_empty(status)
+
+            # Short-circuit: auto-link disabled or auto-rebuild disabled → background.
+            auto_rebuild_cfg = _ts.get_auto_rebuild_config()
+            if _ts._is_auto_link_disabled() or not auto_rebuild_cfg.get(
+                "enabled", True
+            ):
+                if index_id:
+                    _ts.trigger_trusty_search_reindex(index_id)
+                if _missing:
+                    return "Index not found/empty — background indexing started."
+                return "Index may be stale — background reindex started."
+
+            max_wait = float(auto_rebuild_cfg.get("max_wait_seconds", 5.0))
+            threshold = int(auto_rebuild_cfg.get("wait_threshold_files", 1500))
+
+            return FrameworkLoader._decide_rebuild_note(
+                index_id=index_id,
+                missing=_missing,
+                max_wait=max_wait,
+                threshold=threshold,
+                cwd=cwd,
+                ts=_ts,
+            )
+
+        except Exception as e:  # pragma: no cover - defensive fail-open
+            self.logger.debug(f"Skipping trusty-search index freshness check: {e}")
+            return ""
+
+    @staticmethod
+    def _decide_rebuild_note(
+        *,
+        index_id: "str | None",
+        missing: bool,
+        max_wait: float,
+        threshold: int,
+        cwd: "Any",
+        ts: "Any",
+    ) -> str:
+        """Choose wait-vs-background rebuild strategy and return the note string.
+
+        WHAT: Estimates the project file count via ``ts.estimate_index_file_count``,
+        then either blocks up to ``max_wait`` seconds for a small repo (via
+        ``ts.wait_for_index_ready``) or fires a background reindex via
+        ``ts.trigger_trusty_search_reindex`` for a large repo or when no
+        ``index_id`` is available. Returns the appropriate user-facing note.
+
+        WHY: Extracting this decision tree from ``_trusty_search_index_note``
+        keeps each method below the WWL LOC/CC thresholds while preserving the
+        identical logic: estimation failure for a stale index biases toward
+        background to avoid blocking startup unnecessarily, while a missing index
+        defaults to waiting (small unknown is acceptable).
+        """
+        # Estimate file count to decide wait vs background.
+        # Failure/unknown for a STALE but non-empty index biases toward
+        # BACKGROUND (treat as large) to avoid blocking startup for a
+        # potentially-large stale index. A truly missing/empty index still
+        # waits (unknown small is acceptable there).
+        _estimate_failed = False
+        try:
+            file_count = ts.estimate_index_file_count(cwd)
+        except Exception:
+            _estimate_failed = True
+            file_count = 0  # default; overridden below for stale case
+
+        # For stale (non-empty) index: estimation failure → treat as large.
+        if _estimate_failed and not missing:
+            file_count = threshold + 1
+
+        if file_count <= threshold:
+            # Small repo: block and wait so search is usable on turn 1.
+            if index_id:
+                ready = ts.wait_for_index_ready(
+                    index_id, cwd=cwd, max_wait_seconds=max_wait
+                )
+                if ready:
+                    return "Code-search index was rebuilt and is ready."
+                return (
+                    "Code-search index is rebuilding in the background; "
+                    "it may be incomplete this turn."
+                )
+            # No index_id resolved (very unusual) → fall through to background.
+
+        # Large repo or no index_id: background fire-and-forget.
+        if index_id:
+            ts.trigger_trusty_search_reindex(index_id)
+        if file_count > threshold:
+            if missing:
+                return (
+                    "Index not found/empty — background indexing started (large repo)."
+                )
+            return "Index may be stale — background reindex started (large repo)."
+        # Fallback for the no-index_id edge case.
+        if missing:
+            return "Index not found/empty — background indexing started."
+        return "Index may be stale — background reindex started."
+
+    @staticmethod
+    def _resolve_reindex_id(status: dict | None, cwd: Path | None = None) -> str | None:
+        """Why: The reindex POST needs an index ID. A matched (but empty/stale)
+        index reports its own ``index_id``; a wholly-missing index (status None)
+        has none, so we fall back to the first candidate derived from CWD.
+
+        What: Returns ``status["index_id"]`` when present, else the first
+        candidate from ``_index_id_candidates(cwd)``, else ``None``. The
+        ``cwd`` parameter accepts the path already captured by the caller
+        (``_trusty_search_index_note``) so both the status probe and the ID
+        fallback use the SAME directory snapshot — avoiding a race where
+        ``Path.cwd()`` is called independently at a slightly different instant.
+        Defaults to ``Path.cwd().resolve()`` for backward compatibility when
+        called without the ``cwd`` argument.
+
+        Args:
+            status: The index status dict (may be ``None`` for a wholly-missing
+                    index).
+            cwd: The project root captured by the caller.  Falls back to a fresh
+                 ``Path.cwd().resolve()`` call when ``None`` (backward compat).
+
+        Test: ``tests/test_framework_loader_index_freshness.py`` — status with
+        index_id returns it; None status returns the cwd-derived candidate.
+        """
+        if isinstance(status, dict):
+            index_id = status.get("index_id")
+            if isinstance(index_id, str) and index_id:
+                return index_id
+        try:
+            from claude_mpm.services.trusty_status import index_id_candidates
+
+            resolved = (cwd if cwd is not None else Path.cwd()).resolve()
+            candidates = index_id_candidates(resolved)
+            return candidates[0] if candidates else None
+        except Exception:
+            return None
+
+    def _format_minimal_framework(self) -> str:
+        """Format minimal framework instructions."""
+        return self.content_formatter.format_minimal_framework(self.framework_content)
+
+    def _generate_agent_capabilities_section(self) -> str:
+        """Generate agent capabilities section with caching."""
+        # Try cache first
+        cached_capabilities = self._cache_manager.get_capabilities()
+        if cached_capabilities is not None:
+            return cached_capabilities
+
+        self.logger.debug("Generating agent capabilities (cache miss)")
+
+        try:
+            # Discover local JSON templates
+            local_agents = self._discover_local_json_templates()
+
+            # Get deployed agents from .claude/agents/
+            deployed_agents = []
+            agents_dirs = [
+                Path.cwd() / ".claude" / "agents",
+                Path.home() / ".claude" / "agents",
+            ]
+
+            for agents_dir in agents_dirs:
+                if agents_dir.exists():
+                    for agent_file in agents_dir.glob("*.md"):
+                        if not agent_file.name.startswith("."):
+                            agent_data = self._parse_agent_metadata(agent_file)
+                            if agent_data:
+                                deployed_agents.append(agent_data)
+
+            # Generate capabilities section
+            section = self.capability_generator.generate_capabilities_section(
+                deployed_agents, local_agents
+            )
+
+            # Cache the result
+            self._cache_manager.set_capabilities(section)
+            self.logger.debug(f"Cached agent capabilities ({len(section)} chars)")
+
+            return section
+
+        except Exception as e:
+            self.logger.warning(f"Could not generate agent capabilities: {e}")
+            fallback = self.content_formatter.get_fallback_capabilities()
+            self._cache_manager.set_capabilities(fallback)
+            return fallback
+
+    # === Output Style Management ===
+
+    def _initialize_output_style(self) -> None:
+        """Initialize output style management."""
+        try:
+            from claude_mpm.core.output_style_manager import OutputStyleManager
+
+            self.output_style_manager = OutputStyleManager()
+            self._log_output_style_status()
+
+            # Extract output style content (read-only from source file)
+            output_style_content = (
+                self.output_style_manager.extract_output_style_content(
+                    framework_loader=self
+                )
+            )
+            # NOTE: Do NOT call save_output_style() here. The source file in
+            # src/claude_mpm/agents/ is a checked-in repo asset and must never
+            # be overwritten at runtime. Writing it back creates a race
+            # condition window during parallel test execution (pytest -n auto)
+            # that can truncate the file to 0 bytes.
+
+            # Deploy to Claude Code if supported
+            deployed = self.output_style_manager.deploy_output_style(
+                output_style_content
+            )
+
+            if deployed:
+                self.logger.info("✅ Output style deployed to Claude Code >= 1.0.83")
+            else:
+                self.logger.info("📝 Output style will be injected into instructions")
+
+        except Exception as e:
+            self.logger.warning(f"❌ Failed to initialize output style manager: {e}")
+
+    def _log_output_style_status(self) -> None:
+        """Log output style status information."""
+        if not self.output_style_manager:
+            return
+
+        claude_version = self.output_style_manager.claude_version
+        if claude_version:
+            self.logger.info(f"Claude Code version detected: {claude_version}")
+
+            if self.output_style_manager.supports_output_styles():
+                self.logger.info("✅ Claude Code supports output styles (>= 1.0.83)")
+                output_style_path = self.output_style_manager.output_style_path
+                if output_style_path.exists():
+                    self.logger.info(
+                        f"📁 Output style file exists: {output_style_path}"
+                    )
+                else:
+                    self.logger.info(
+                        f"📝 Output style will be created at: {output_style_path}"
+                    )
+            else:
+                self.logger.info(
+                    f"⚠️ Claude Code {claude_version} does not support output styles"
+                )
+                self.logger.info(
+                    "📝 Output style will be injected into framework instructions"
+                )
+        else:
+            self.logger.info("⚠️ Claude Code not detected or version unknown")
+            self.logger.info("📝 Output style will be injected as fallback")
+
+    # === Logging Methods ===
+
+    def _log_system_prompt(self) -> None:
+        """Log the system prompt if LogManager is available."""
+        try:
+            from .log_manager import get_log_manager
+
+            log_manager = get_log_manager()
+        except ImportError:
+            return
+
+        try:
+            # Get or create event loop
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            # Prepare metadata
+            metadata = {
+                "framework_version": self.framework_version,
+                "framework_loaded": self.framework_content.get("loaded", False),
+                "session_id": os.environ.get("CLAUDE_SESSION_ID", "unknown"),
+            }
+
+            # Log the prompt asynchronously
+            instructions = (
+                self._format_full_framework()
+                if self.framework_content["loaded"]
+                else self._format_minimal_framework()
+            )
+            metadata["instructions_length"] = len(instructions)
+
+            if loop.is_running():
+                _task = asyncio.create_task(
+                    log_manager.log_prompt("system_prompt", instructions, metadata)
+                )  # Fire-and-forget logging
+            else:
+                loop.run_until_complete(
+                    log_manager.log_prompt("system_prompt", instructions, metadata)
+                )
+
+            self.logger.debug("System prompt logged to prompts directory")
+        except Exception as e:
+            self.logger.debug(f"Could not log system prompt: {e}")
+
+    # === Agent Registry Methods (backward compatibility) ===
+
+    def get_agent_list(self) -> list[str]:
+        """Get list of available agents."""
+        if self.agent_registry:
+            agents = self.agent_registry.list_agents()
+            if agents:
+                return list(agents.keys())
+        return list(self.framework_content["agents"].keys())
+
+    def get_agent_definition(self, agent_name: str) -> str | None:
+        """Get specific agent definition."""
+        if self.agent_registry:
+            definition = self.agent_registry.get_agent_definition(agent_name)
+            if definition:
+                return definition
+        return self.framework_content["agents"].get(agent_name)
+
+    def get_agent_hierarchy(self) -> dict[str, list]:
+        """Get agent hierarchy from registry."""
+        if self.agent_registry:
+            return self.agent_registry.get_agent_hierarchy()
+        return {"project": [], "user": [], "system": []}

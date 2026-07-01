@@ -24,12 +24,16 @@ from .api import (
     GetTtsModelsResponse,
     GetUsageLogsPayload,
     GetUsageLogsResponse,
+    GetVoicesCountResponse,
+    GetVoicesPayload,
+    GetVoicesResponse,
     Language,  # pyright: ignore[reportDeprecated]
     LanguageCode,
     Model,
     RealtimeSTTAudioFormat,
     RealtimeSTTHeaderFormat,
     RealtimeSTTRawFormat,
+    RecomputeVoicePayload,
     StructuredContext,
     StructuredContextGeneralInput,
     StructuredContextGeneralItem,
@@ -54,6 +58,9 @@ from .api import (
     UploadFilePayload,
     UsageLogEntry,
     UsageLogsSort,
+    Voice,
+    VoiceModel,
+    VoiceModelStatus,
 )
 from .common import Token
 from .realtime import (
@@ -62,6 +69,7 @@ from .realtime import (
     RealtimeTTSConfig,
     RealtimeTTSEvent,
     RealtimeTTSTextMessage,
+    TtsTimestamps,
 )
 from .webhooks import (
     Headers,
@@ -104,6 +112,9 @@ __all__ = [
     "GetTranscriptionsResponse",
     "GetUsageLogsPayload",
     "GetUsageLogsResponse",
+    "GetVoicesCountResponse",
+    "GetVoicesPayload",
+    "GetVoicesResponse",
     "Language",
     "LanguageCode",
     "SupportedLanguage",
@@ -111,6 +122,7 @@ __all__ = [
     "RealtimeSTTAudioFormat",
     "RealtimeSTTHeaderFormat",
     "RealtimeSTTRawFormat",
+    "RecomputeVoicePayload",
     "StructuredContext",
     "StructuredContextGeneralInput",
     "StructuredContextGeneralItem",
@@ -136,12 +148,16 @@ __all__ = [
     "UploadFilePayload",
     "UsageLogEntry",
     "UsageLogsSort",
+    "Voice",
+    "VoiceModel",
+    "VoiceModelStatus",
     # realtime.py
     "RealtimeEvent",
     "RealtimeSTTConfig",
     "RealtimeTTSConfig",
     "RealtimeTTSEvent",
     "RealtimeTTSTextMessage",
+    "TtsTimestamps",
     # webhooks.py
     "Headers",
     "WebhookAuthConfig",

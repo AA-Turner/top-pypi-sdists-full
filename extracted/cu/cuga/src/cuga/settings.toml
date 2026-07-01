@@ -33,6 +33,7 @@ shortlisting_tool_threshold = 35  # Enable find_tools if total number of tools e
 cuga_lite_enable_few_shots = true  # MCP few-shots: prompt block + few-shot chat prefix (set false to disable)
 enable_todos = false  # Enable todos feature for complex multi-step task management
 reflection_enabled = false
+enable_filesystem_tools = false  # Enable workspace filesystem tools (read_file, write_file, etc.)
 save_reuse_generate_html = false  # Generate HTML visualization for saved flows (disabled by default for performance)
 decomposition_strategy = "flexible"  # "exact" = one subtask per app, "flexible" = allows multiple subtasks per app
 e2b_sandbox = false           # use E2B cloud sandbox for code execution
@@ -48,12 +49,17 @@ max_input_length = 5000  # Maximum characters allowed in user input (prevents ab
 sub_task_keep_last_n = 5  # Number of most recent generated variables to keep when executing sub-tasks
 code_executor_keep_last_n = -1  # Number of variables to keep after code execution: -1 = keep all, 1 = keep last 1, 2 = keep last 2, etc.
 cuga_lite_max_steps = 70  # Maximum number of steps (call_model + sandbox cycles) before returning error
+sandbox_execution_timeout = 30  # Seconds; per-block wall clock for sandbox code execution (incl. embedded LLM calls like find_tools). Env: DYNACONF_ADVANCED_FEATURES__SANDBOX_EXECUTION_TIMEOUT
 # bind_tools: generic default is none; resolved model ``gpt-oss-20b`` uses model_runtime_profile.py
 # mode: none | find_tools | all | apps | tools | apps_and_tools  (apps_and_tools = union of app tools + listed names)
 cuga_lite_bind_tools_mode = "none"
 cuga_lite_bind_tools_apps = []  # mode=apps or apps_and_tools
 cuga_lite_bind_tools_tool_names = []  # mode=tools or apps_and_tools (StructuredTool.name)
 cuga_lite_bind_tools_include_find_tools = false  # Also bind find_tools alongside all/apps/tools/apps_and_tools
+# Cap on tools sent to LLM.bind_tools (0 disables). Over-cap triggers an LLM shortlister; failure raises.
+cuga_lite_bind_tools_max_count = 128
+# Pad shortlister output to fill the cap. Off by default for code-execution mode.
+cuga_lite_bind_tools_pad_to_cap = false
 cuga_lite_nl_auto_continue = false  # When model returns NL with no code, LLM-classify interim vs final; if interim, simulate user "continue" and re-call model
 path_segment_index = 1  # Which path segment to use for operation naming (1 = first, 2 = second, 3 = third)
 force_autonomous_mode = false
@@ -71,6 +77,13 @@ sandbox_mode = "native"
 [skills]
 # When false, agent skills (SKILL.md, load_skill, sandbox upload, /api/skills) are disabled.
 enabled = false
+
+# Single skills root (no merge). Override with DYNACONF_SKILLS__ROOT env var.
+#   cuga          — <CUGA folder>/skills/ (default; e.g. .cuga/skills/)
+#   agents        — .agents/skills/ (npx skills / skills.sh universal layout)
+#   global_agents — ~/.config/agents/skills/
+#   global_cuga   — ~/.config/cuga/skills/
+root = "cuga"
 
 # Docker image for sandboxed execution (advanced_features.opensandbox_sandbox = true).
 opensandbox_image = "opensandbox/code-interpreter:v1.0.2"
@@ -180,14 +193,13 @@ filesystem_mcp = 8112
 docs_mcp = 8113
 digital_sales_api = 8000
 mcp_server = 8000
-petstore_api = 8081
 graph_visualization = 8080
 orchestrate_url = 4321
 trm_url = 8080
 oak_health_api = 8090  # cuga-oak-health OpenAPI (demo_health)
 
 [context_summarization]
-enabled = false  # Enable intelligent context summarization
+enabled = true  # Enable intelligent context summarization
 keep_last_n_messages = 10  # Number of recent messages to preserve unsummarized
 trim_tokens_to_summarize = 500  # Target token count for generated summaries
 summarization_model = "gpt-4o-mini"  # Model to use for generating summaries (fast and cost-effective)
@@ -203,6 +215,7 @@ trigger_fraction = 0.75  # Trigger at 75% of context window (recommended for pro
 [connections]
 inference_ca_cert = ""  # Path to a CA certificate for LLM inference HTTP clients (e.g. "vault-root-ca.crt"). Applied to OpenAI and LiteLLM. Env: CUGA_INFERENCE_CA_CERT
 inference_disable_ssl = false  # Disable SSL verification for all inference connections (overrides inference_ca_cert). Env: CUGA_DISABLE_SSL
+llm_http_timeout = 61  # Seconds; OpenAI/Azure/OpenRouter only (see DEFAULT_LLM_HTTP_TIMEOUT in config.py). Env: CUGA_LLM_HTTP_TIMEOUT or LLM_HTTP_TIMEOUT
 
 [observability]
 openlit = false  # Enable OpenLit LLM observability via OpenTelemetry (OTLP). Requires: pip install cuga[observability]
@@ -219,3 +232,14 @@ save_on_success = true       # Save trajectory on successful task completion
 save_on_failure = true       # Save trajectory on failed task completion
 async_save = true            # Fire-and-forget trajectory saving (non-blocking)
 timeout = 30.0               # Timeout in seconds for Evolve MCP calls
+
+[a2a]
+enabled = false                                              # Master toggle. When false, the A2A router is not mounted and the package is never imported.
+agent_name = "cuga"                                          # The name advertised in the AgentCard.
+agent_description = "CUGA agent exposed over A2A."           # Free-text description for the AgentCard.
+agent_version = "0.0.0"                                      # Version string for the AgentCard.
+agent_url = "http://localhost:8000"                          # Public URL clients should hit. Override per-deployment.
+auth_required = false                                        # When true, the AgentCard advertises a bearer security scheme.
+skill_ids = ["delegate_task"]                                # Skill IDs surfaced in the AgentCard.
+supervisor_config_path = ""                                  # YAML config for the CugaSupervisor that handles A2A inbound. When empty, a placeholder runner is used.
+auto_approve = false                                         # Simple-runner only: when true, human-in-the-loop interrupts are auto-confirmed and the graph resumes; when false, the interrupt is surfaced to the caller as an input_required event.

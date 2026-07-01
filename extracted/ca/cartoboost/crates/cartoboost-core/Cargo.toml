@@ -1,0 +1,17 @@
+[package]
+name = "cartoboost-core"
+version = "0.2.36"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+rayon = "1.11"
+toml.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+tempfile = "3"

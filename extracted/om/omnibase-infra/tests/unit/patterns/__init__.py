@@ -1,9 +1,0 @@
-# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
-# SPDX-License-Identifier: MIT
-"""Unit tests for infrastructure patterns.
-
-This package contains tests for:
-- Retry and exponential backoff logic
-- Compensation strategy for partial failures
-- Circuit breaker patterns (tested in mixins/)
-"""

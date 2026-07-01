@@ -1,4 +1,0 @@
-definitions:
-  people:
-    items:
-      $ref: "person.yaml#/definitions/person"

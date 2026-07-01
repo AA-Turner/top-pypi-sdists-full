@@ -1,6 +1,0 @@
-# NOTE: 크레이트 버전(0.1.0)은 의도적으로 internal — crates.io 에 publish 하지
-# 않으며, 배포 버전의 단일 출처는 pyproject.toml [project] version (maturin 이
-# wheel 버전으로 사용).  크레이트 간 의존은 전부 path 기반.
-[workspace]
-members = ["crates/core", "crates/simulator", "crates/python-binding", "crates/qasm", "crates/transpiler", "crates/gpu", "crates/mps", "crates/tensornet", "crates/stabilizer"]
-resolver = "2"

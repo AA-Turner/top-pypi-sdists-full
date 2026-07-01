@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[tool.setuptools.packages.find]
+include = ["nokap"]
+
+[project]
+name = "nokap"
+description = "Capture screenshots and PDFs from web pages using headless Chrome via CDP."
+readme = "README.md"
+keywords = ["screenshot", "chrome", "cdp", "pdf", "headless", "webshot"]
+license = { file = "LICENSE" }
+authors = [
+    {name = "Rich Iannone", email = "riannone@me.com"}
+]
+maintainers = [
+    {name = "Rich Iannone", email = "riannone@me.com"}
+]
+dynamic = ["version"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics :: Capture :: Screen Capture",
+    "Typing :: Typed",
+]
+dependencies = ["websockets>=12.0", "click>=8.0"]
+requires-python = ">=3.10"
+
+[project.scripts]
+nokap = "nokap._cli:cli"
+
+[project.optional-dependencies]
+extra = ["Pillow>=10.2.0"]
+mcp = ["mcp>=1.0"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=3.0",
+    "pytest-timeout>=2.0",
+    "pyright>=1.1",
+    "ruff>=0.4",
+    "mcp>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/posit-dev/nokap"
+Repository = "https://github.com/posit-dev/nokap"
+Documentation = "https://posit-dev.github.io/nokap/"
+"Bug Tracker" = "https://github.com/posit-dev/nokap/issues"
+
+[tool.pyright]
+include = ["nokap"]
+pythonVersion = "3.10"
+typeCheckingMode = "strict"
+reportPrivateUsage = false
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["SIM105"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = ["--strict-markers", "--strict-config"]
+markers = [
+    "integration: tests that launch Chrome (may be slow or flaky in CI)",
+]

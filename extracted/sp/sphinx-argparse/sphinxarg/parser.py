@@ -18,7 +18,7 @@ def parser_navigate(parser_result, path, current_path=None):
     if len(path) == 0:
         return parser_result
     if 'children' not in parser_result:
-        msg = f"Current parser has no child elements.  (path: {' '.join(current_path)})"
+        msg = f'Current parser has no child elements.  (path: {" ".join(current_path)})'
         raise NavigationException(msg)
     next_hop = path.pop(0)
     for child in parser_result['children']:
@@ -28,8 +28,8 @@ def parser_navigate(parser_result, path, current_path=None):
             current_path.append(next_hop)
             return parser_navigate(child, path, current_path)
     msg = (
-        f"Current parser has no child element with name: {next_hop} "
-        f"(path: {' '.join(current_path)})"
+        f'Current parser has no child element with name: {next_hop} '
+        f'(path: {" ".join(current_path)})'
     )
     raise NavigationException(msg)
 
@@ -55,6 +55,18 @@ def _format_usage_without_prefix(parser):
 
 
 def parse_parser(parser, data=None, **kwargs):
+    """Take data from argparse argument parser.
+
+    Keyword arguments:
+        - skip_default_values
+        - skip_default_const_values
+        - color
+    """
+    # Argparse in Python 3.14 uses ANSI color codes by default (#72)
+    if hasattr(parser, 'color'):
+        parser.color = kwargs.get('color', False)
+        # Disable colors, unless a flag is presented through user-settings
+
     if data is None:
         data = {
             'name': '',
@@ -85,14 +97,25 @@ def parse_parser(parser, data=None, **kwargs):
         for name, subaction in action._name_parser_map.items():
             if name in subsection_alias_names:
                 continue
+
+            if hasattr(subaction, 'color'):
+                subaction.color = parser.color
+                # Color is not inherited, must be set again
+
             subalias = subsection_alias[subaction]
             subaction.prog = f'{parser.prog} {name}'
             subdata = {
-                'name': name if not subalias else f"{name} ({', '.join(subalias)})",
+                'name': name if not subalias else f'{name} ({", ".join(subalias)})',
                 'help': helps.get(name, ''),
                 'usage': subaction.format_usage().strip(),
                 'bare_usage': _format_usage_without_prefix(subaction),
+                'parent': {
+                    'name': '' if 'name' not in data else data['name'],
+                    'prog': '' if 'prog' not in data else data['prog'],
+                },
             }
+            if 'parent' in data:
+                subdata['parent'].update({'parent': data['parent']})
             if subalias:
                 subdata['identifier'] = name
             parse_parser(subaction, subdata, **kwargs)

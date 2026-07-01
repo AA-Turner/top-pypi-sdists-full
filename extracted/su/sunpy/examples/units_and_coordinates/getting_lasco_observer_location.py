@@ -6,6 +6,7 @@ Setting the correct position for SOHO in a LASCO C3 Map
 How to get the correct location of SOHO using JPL HORIZONS
 and update the header.
 """
+# sphinx_gallery_tags = ["Map", "LASCO", "Coordinates"]
 # sphinx_gallery_thumbnail_number = 2
 
 import hvpy
@@ -24,7 +25,8 @@ from sunpy.util.config import get_and_create_download_dir
 
 lasco_file = hvpy.save_file(hvpy.getJP2Image(parse_time('2000/02/27 07:42').datetime,
                                              hvpy.DataSource.LASCO_C3.value),
-                            get_and_create_download_dir() + "/LASCO_C3.jp2")
+                            get_and_create_download_dir() + "/LASCO_C3.jp2",
+                            overwrite=True)
 lasco_map = sunpy.map.Map(lasco_file)
 
 ###############################################################################

@@ -35,6 +35,7 @@
 #include "parser/ddl/drop.h"
 #include "parser/expression/parsed_function_expression.h"
 #include "parser/expression/parsed_literal_expression.h"
+#include "storage/index/art_index.h"
 #include "storage/index/hash_index.h"
 #include "storage/storage_manager.h"
 #include "transaction/transaction.h"
@@ -312,8 +313,10 @@ BoundCreateTableInfo Binder::bindCreateRelTableGroupInfo(const CreateTableInfo* 
     }
     // Bind from to pairs
     node_table_id_pair_set_t nodePairsSet;
-    std::vector<NodeTableIDPair> nodePairs;
-    for (auto& [srcTableName, dstTableName] : extraInfo.srcDstTablePairs) {
+    std::vector<BoundRelTableInfo> relTableInfos;
+    for (auto& connection : extraInfo.connections) {
+        const auto& srcTableName = connection.srcTableName;
+        const auto& dstTableName = connection.dstTableName;
         auto [srcEntry, srcDbName] = bindNodeTableEntry(srcTableName);
         validateNodeTableType(srcEntry);
         auto [dstEntry, dstDbName] = bindNodeTableEntry(dstTableName);
@@ -372,12 +375,16 @@ BoundCreateTableInfo Binder::bindCreateRelTableGroupInfo(const CreateTableInfo* 
                 std::format("Found duplicate FROM-TO {}-{} pairs.", srcTableName, dstTableName));
         }
         nodePairsSet.insert(pair);
-        nodePairs.emplace_back(pair);
+        const auto& connectionMultiplicity = connection.relMultiplicity.has_value() ?
+                                                 *connection.relMultiplicity :
+                                                 extraInfo.relMultiplicity;
+        relTableInfos.emplace_back(pair, RelMultiplicityUtils::getFwd(connectionMultiplicity),
+            RelMultiplicityUtils::getBwd(connectionMultiplicity));
     }
     auto boundExtraInfo = std::make_unique<BoundExtraCreateRelTableGroupInfo>(
         std::move(propertyDefinitions), srcMultiplicity, dstMultiplicity, storageDirection,
-        std::move(nodePairs), std::move(storage), std::move(storageFormat), std::move(scanFunction),
-        std::move(scanBindData), std::move(foreignDatabaseName));
+        std::move(relTableInfos), std::move(storage), std::move(storageFormat),
+        std::move(scanFunction), std::move(scanBindData), std::move(foreignDatabaseName));
     return BoundCreateTableInfo(CatalogEntryType::REL_GROUP_ENTRY, info->tableName,
         info->onConflict, std::move(boundExtraInfo), clientContext->useInternalCatalogEntry());
 }
@@ -416,8 +423,11 @@ std::unique_ptr<BoundStatement> Binder::bindCreateIndex(const Statement& stateme
     if (!nodeTableEntry->getStorage().empty()) {
         throw BinderException("CREATE INDEX is only supported on native node tables.");
     }
-    if (!StringUtils::caseInsensitiveEquals(nodeTableEntry->getPrimaryKeyName(),
-            info.propertyName)) {
+    const auto isPrimaryIndex =
+        StringUtils::caseInsensitiveEquals(nodeTableEntry->getPrimaryKeyName(), info.propertyName);
+    const auto isArtIndex = StringUtils::caseInsensitiveEquals(indexType,
+        storage::ArtPrimaryKeyIndex::getIndexType().typeName);
+    if (!isPrimaryIndex && !isArtIndex) {
         throw BinderException(std::format(
             "{} indexes are currently supported only on node primary keys.", indexType));
     }
@@ -428,7 +438,9 @@ std::unique_ptr<BoundStatement> Binder::bindCreateIndex(const Statement& stateme
     auto& property = tableEntry->getProperty(info.propertyName);
     std::vector<PropertyDefinition> propertyDefinitions;
     propertyDefinitions.push_back(property.copy());
-    validatePrimaryKey(property.getName(), propertyDefinitions);
+    if (isPrimaryIndex) {
+        validatePrimaryKey(property.getName(), propertyDefinitions);
+    }
     auto indexName = info.indexName.empty() ? std::string(storage::PrimaryKeyIndex::DEFAULT_NAME) :
                                               info.indexName;
     if (info.onConflict == ConflictAction::ON_CONFLICT_THROW) {
@@ -448,7 +460,7 @@ std::unique_ptr<BoundStatement> Binder::bindCreateIndex(const Statement& stateme
     BoundCreateIndexInfo boundInfo{indexType, std::move(indexName), info.tableName,
         tableEntry->getTableID(), property.getName(), tableEntry->getPropertyID(property.getName()),
         tableEntry->getColumnID(property.getName()), property.getType().getPhysicalType(),
-        info.onConflict};
+        isPrimaryIndex, info.onConflict};
     return std::make_unique<BoundCreateIndex>(std::move(boundInfo));
 }
 
@@ -488,7 +500,7 @@ std::unique_ptr<BoundStatement> Binder::bindCreateTableAs(const Statement& state
     case TableType::REL: {
         auto& extraInfo = createInfo->extraInfo->constCast<ExtraCreateRelTableGroupInfo>();
         // Currently we don't support multiple from/to pairs for create rel table as
-        if (extraInfo.srcDstTablePairs.size() > 1) {
+        if (extraInfo.connections.size() > 1) {
             throw BinderException(
                 "Multiple FROM/TO pairs are not supported for CREATE REL TABLE AS.");
         }
@@ -497,10 +509,10 @@ std::unique_ptr<BoundStatement> Binder::bindCreateTableAs(const Statement& state
         auto catalog = Catalog::Get(*clientContext);
         auto transaction = transaction::Transaction::Get(*clientContext);
         auto fromTable =
-            catalog->getTableCatalogEntry(transaction, extraInfo.srcDstTablePairs[0].first)
+            catalog->getTableCatalogEntry(transaction, extraInfo.connections[0].srcTableName)
                 ->ptrCast<NodeTableCatalogEntry>();
         auto toTable =
-            catalog->getTableCatalogEntry(transaction, extraInfo.srcDstTablePairs[0].second)
+            catalog->getTableCatalogEntry(transaction, extraInfo.connections[0].dstTableName)
                 ->ptrCast<NodeTableCatalogEntry>();
         auto boundCreateInfo = bindCreateRelTableGroupInfo(createInfo);
         auto boundCopyFromInfo = bindCopyRelFromInfo(createInfo->tableName, propertyDefinitions,

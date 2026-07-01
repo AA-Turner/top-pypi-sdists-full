@@ -43,7 +43,7 @@ from anyscale.sdk.anyscale_client.models import (
     ServiceConfig,
 )
 from anyscale.util import confirm, get_endpoint
-from anyscale.utils.cloud_utils import CloudEventProducer
+from anyscale.utils.cloud_utils import _resolve_cloud_provider, CloudEventProducer
 
 
 POLL_INTERVAL_SECONDS = 10
@@ -140,7 +140,7 @@ class CloudFunctionalVerificationController(BaseController):
         return ComputeNodeType(
             name="head_node_type",
             instance_type=CloudFunctionalVerificationController.get_head_node_type(
-                cloud_resource.provider
+                _resolve_cloud_provider(cloud_resource)
             ),
         )
 
@@ -158,13 +158,13 @@ class CloudFunctionalVerificationController(BaseController):
         # ``any(... == K8S)`` default for backwards compatibility with
         # older resources that pre-date the K8s split.
         compute_stack = cloud_resource.compute_stack or ComputeStack.VM
-        cloud_provider = cloud_resource.provider
         cloud_resource_id = cloud_resource.cloud_resource_id
 
         if compute_stack == ComputeStack.K8S:
             mem_gib = K8S_HEAD_NODE_MEMORY_BYTES // (1024 ** 3)
             stack_suffix = f"_k8s_{K8S_HEAD_NODE_CPU}cpu_{mem_gib}gib"
         else:
+            cloud_provider = _resolve_cloud_provider(cloud_resource)
             stack_suffix = f"_vm_{self.get_head_node_type(cloud_provider)}"
         cluster_compute_name = (
             f"functional_verification{stack_suffix}_{cloud_id}_{cloud_resource_id}"
@@ -204,6 +204,7 @@ class CloudFunctionalVerificationController(BaseController):
         # for cost attribution. K8s clouds run pods, not VMs, so these tags
         # don't apply -- skip them on K8S.
         if compute_stack != ComputeStack.K8S:
+            cloud_provider = _resolve_cloud_provider(cloud_resource)
             if cloud_provider == CloudProviders.AWS:
                 cluster_compute_config.aws_advanced_configurations_json = {
                     "TagSpecifications": [
@@ -922,7 +923,7 @@ class CloudFunctionalVerificationController(BaseController):
             ]
         else:
             confirmation_message = [
-                f"It will spin up one {self.get_head_node_type(cloud_resource.provider)} instance for each function.",
+                f"It will spin up one {self.get_head_node_type(_resolve_cloud_provider(cloud_resource))} instance for each function.",
             ]
 
         if CloudFunctionalVerificationType.WORKSPACE in functions_to_verify:
@@ -940,7 +941,11 @@ class CloudFunctionalVerificationController(BaseController):
                 CloudProviders.GCP: 20,
             }
             estimated_minutes = (
-                20 if is_k8s else service_time_estimation[cloud_resource.provider]
+                20
+                if is_k8s
+                else service_time_estimation.get(
+                    _resolve_cloud_provider(cloud_resource), 20
+                )
             )
             confirmation_message.append(
                 f"Service verification takes about {estimated_minutes} minutes. "

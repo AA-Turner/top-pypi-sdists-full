@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from chalk._validation.validation import Validation
 from chalk._version import __version__
+from chalk.context import ACTIVE_MODEL_VERSIONS, ServerContextVariable
 from chalk.features import (
     Cron,
     DataFrame,
@@ -47,6 +48,7 @@ from chalk.ml.model_handler import model_handler
 from chalk.ml.model_reference import ModelReference
 from chalk.operators import StaticOperator, scan_parquet
 from chalk.prompts import Prompt, completion, run_prompt
+from chalk.queries.materialized_feature_view import MaterializedFeatureView
 from chalk.queries.named_query import NamedQuery
 from chalk.queries.query_context import ChalkContext
 from chalk.queries.scheduled_aggregate_backfill import AggregateBackfillTarget, ScheduledAggregateBackfill
@@ -63,9 +65,11 @@ realtime = online
 embedding = embed
 
 __all__ = (
+    "ACTIVE_MODEL_VERSIONS",
     "AggregateBackfillTarget",
     "AnyDataclass",
     "BranchId",
+    "ServerContextVariable",
     "ChalkContext",
     "Cron",
     "CronTab",
@@ -82,6 +86,7 @@ __all__ = (
     "JSON",
     "Last",
     "MaterializationWindowConfig",
+    "MaterializedFeatureView",
     "ModelReference",
     "NamedQuery",
     "Now",

@@ -1,0 +1,89 @@
+interactions:
+- request:
+    body: '{"model":"mistral-medium-latest","messages":[{"content":"You have access
+      to GitHub. Be brief.","role":"system"},{"content":"List 1 recent PR on octocat/Hello-World.
+      One sentence.","role":"user"}],"stream":false,"tools":[{"connector_id":"github_app","type":"connector"}]}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '270'
+      Host:
+      - api.mistral.ai
+      authorization:
+      - REDACTED
+      content-type:
+      - application/json
+      user-agent:
+      - mistral-client-python/2.4.2
+      x-metadata:
+      - '{"call_type": "workflows"}'
+    method: POST
+    uri: https://api.mistral.ai/v1/chat/completions
+  response:
+    body:
+      string: "{\"id\":\"chatcmpl-a7aefda811c84613adc927b96fc7ef00\",\"created\":1779444349,\"model\":\"mistral-medium-latest\",\"usage\":{\"prompt_tokens\":20224,\"total_tokens\":20310,\"completion_tokens\":86,\"request_count\":2,\"prompt_tokens_details\":{\"messages\":[],\"cached_tokens\":0,\"audio_tokens\":0}},\"object\":\"chat.multi_completion\",\"choices\":[{\"index\":0,\"finish_reason\":\"stop\",\"messages\":[{\"role\":\"assistant\",\"tool_calls\":[{\"id\":\"DoTGtjOPN\",\"function\":{\"name\":\"github_app_list_pull_requests\",\"arguments\":\"{\\\"owner\\\":
+        \\\"octocat\\\", \\\"repo\\\": \\\"Hello-World\\\", \\\"perPage\\\": 1}\"},\"index\":0,\"metadata\":{\"tool_type\":\"raw\",\"integration_id\":\"019d8b52-6f1c-72db-97bf-7284f2bf5ead\"}}],\"index\":0,\"content\":\"\"},{\"role\":\"tool\",\"index\":1,\"tool_call_id\":\"DoTGtjOPN\",\"content\":[{\"text\":\"[{\\\"number\\\":9562,\\\"title\\\":\\\"JIRA-013:
+        add contribution file\\\",\\\"body\\\":\\\"\\\\u0026#34;JIRA-013-my-contribution
+        had recent pushes \u2014 Compare \\\\u0026amp; pull request\\\\u0026#34;\\\",\\\"state\\\":\\\"open\\\",\\\"draft\\\":false,\\\"merged\\\":false,\\\"html_url\\\":\\\"https://github.com/octocat/Hello-World/pull/9562\\\",\\\"user\\\":{\\\"login\\\":\\\"nithinreddy-g36\\\",\\\"id\\\":285678383,\\\"profile_url\\\":\\\"https://github.com/nithinreddy-g36\\\",\\\"avatar_url\\\":\\\"https://avatars.githubusercontent.com/u/285678383?v=4\\\"},\\\"head\\\":{\\\"ref\\\":\\\"JIRA-013-my-contribution\\\",\\\"sha\\\":\\\"c5acfa68c6c31f07dad9e2dd770357b01b141bc8\\\",\\\"repo\\\":{\\\"full_name\\\":\\\"nithinreddy-g36/Hello-World\\\",\\\"description\\\":\\\"My
+        first repository on GitHub!\\\"}},\\\"base\\\":{\\\"ref\\\":\\\"master\\\",\\\"sha\\\":\\\"7fd1a60b01f91b314f59955a4e4d4e80d8edf11d\\\",\\\"repo\\\":{\\\"full_name\\\":\\\"octocat/Hello-World\\\",\\\"description\\\":\\\"My
+        first repository on GitHub!\\\"}},\\\"created_at\\\":\\\"2026-05-20T11:55:21Z\\\",\\\"updated_at\\\":\\\"2026-05-21T05:56:31Z\\\"}]\",\"type\":\"text\"}],\"metadata\":{\"tool_call_result\":{\"type\":\"success\"}}},{\"role\":\"assistant\",\"index\":2,\"content\":\"The
+        most recent PR in **octocat/Hello-World** is **[#9562](https://github.com/octocat/Hello-World/pull/9562)**
+        titled *\\\"JIRA-013: add contribution file\\\"*.\"}]}]}"
+    headers:
+      CF-RAY:
+      - 9ffb0130eb3dd110-CDG
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 22 May 2026 10:06:00 GMT
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=15552000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      access-control-allow-origin:
+      - '*'
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      content-length:
+      - '1972'
+      mistral-correlation-id:
+      - 019e4f25-faa7-7be0-b311-40f9e11f3b85
+      set-cookie:
+      - __cf_bm=Xn9HfcvqVMR6x3dF02pD._mzWnlqHmRxneqJ8UZiEdQ-1779444349.5887163-1.0.1.1-SktGzwKoPdhtdcICjSV136ulZ7PgZeyTaiQknJ0L1Ow98X2aV570DpnARjrh_186iBDWMrvXzRfJ3ApivgnLQwEPUFbBxpO_VP7nZzsNDic8BmK4d11X65aMyH03Ly7W;
+        HttpOnly; SameSite=None; Secure; Path=/; Domain=mistral.ai; Expires=Fri, 22
+        May 2026 10:36:00 GMT
+      x-envoy-upstream-service-time:
+      - '10481'
+      x-kong-proxy-latency:
+      - '11'
+      x-kong-request-id:
+      - 019e4f25-faa7-7be0-b311-40f9e11f3b85
+      x-kong-upstream-latency:
+      - '10482'
+      x-ratelimit-limit-req-minute:
+      - '950'
+      x-ratelimit-limit-tokens-minute:
+      - '2850000'
+      x-ratelimit-remaining-req-minute:
+      - '948'
+      x-ratelimit-remaining-tokens-minute:
+      - '2823719'
+      x-ratelimit-tokens-query-cost:
+      - '20310'
+    status:
+      code: 200
+      message: OK
+version: 1

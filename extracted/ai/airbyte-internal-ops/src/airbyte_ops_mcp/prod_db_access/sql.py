@@ -2203,9 +2203,13 @@ SELECT_VERSIONS_WITH_PINS = sqlalchemy.text(
         SELECT
             value::uuid AS version_id,
             COUNT(*) AS pin_count,
-            COUNT(*) FILTER (WHERE scope_type = 'actor')        AS actor_pins,
-            COUNT(*) FILTER (WHERE scope_type = 'workspace')    AS workspace_pins,
-            COUNT(*) FILTER (WHERE scope_type = 'organization') AS org_pins
+            COALESCE(SUM(CASE WHEN origin_type = 'breaking_change' THEN 1 END), 0) AS breaking_change_pins,
+            COALESCE(SUM(CASE WHEN origin_type = 'connector_rollout' THEN 1 END), 0) AS rollout_pins,
+            COALESCE(SUM(CASE WHEN (origin_type IS NULL OR origin_type NOT IN ('breaking_change', 'connector_rollout'))
+                          AND scope_type = 'actor' THEN 1
+                END), 0) AS actor_pins,
+            COALESCE(SUM(CASE WHEN scope_type = 'workspace' THEN 1 END), 0) AS workspace_pins,
+            COALESCE(SUM(CASE WHEN scope_type = 'organization' THEN 1 END), 0) AS org_pins
         FROM scoped_configuration
         WHERE key = 'connector_version'
         GROUP BY value::uuid
@@ -2218,6 +2222,8 @@ SELECT_VERSIONS_WITH_PINS = sqlalchemy.text(
          versions.docker_image_tag,
          versions.last_published,
          pins.pin_count,
+         pins.breaking_change_pins,
+         pins.rollout_pins,
          pins.actor_pins,
          pins.workspace_pins,
          pins.org_pins
@@ -2239,9 +2245,13 @@ SELECT_VERSIONS_WITH_PINS_BY_DEFINITION = sqlalchemy.text(
         SELECT
             value::uuid AS version_id,
             COUNT(*) AS pin_count,
-            COUNT(*) FILTER (WHERE scope_type = 'actor')        AS actor_pins,
-            COUNT(*) FILTER (WHERE scope_type = 'workspace')    AS workspace_pins,
-            COUNT(*) FILTER (WHERE scope_type = 'organization') AS org_pins
+            COALESCE(SUM(CASE WHEN origin_type = 'breaking_change' THEN 1 END), 0) AS breaking_change_pins,
+            COALESCE(SUM(CASE WHEN origin_type = 'connector_rollout' THEN 1 END), 0) AS rollout_pins,
+            COALESCE(SUM(CASE WHEN (origin_type IS NULL OR origin_type NOT IN ('breaking_change', 'connector_rollout'))
+                          AND scope_type = 'actor' THEN 1
+                END), 0) AS actor_pins,
+            COALESCE(SUM(CASE WHEN scope_type = 'workspace' THEN 1 END), 0) AS workspace_pins,
+            COALESCE(SUM(CASE WHEN scope_type = 'organization' THEN 1 END), 0) AS org_pins
         FROM scoped_configuration
         WHERE key = 'connector_version'
         GROUP BY value::uuid
@@ -2254,6 +2264,8 @@ SELECT_VERSIONS_WITH_PINS_BY_DEFINITION = sqlalchemy.text(
          versions.docker_image_tag,
          versions.last_published,
          pins.pin_count,
+         pins.breaking_change_pins,
+         pins.rollout_pins,
          pins.actor_pins,
          pins.workspace_pins,
          pins.org_pins

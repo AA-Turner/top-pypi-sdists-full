@@ -551,6 +551,20 @@ class TestLazySparkSession:
             "session_type": "ATHENA_SPARK_CONNECT",
         }
 
+    def test_get_session_info_emr_ec2(self):
+        """Test get_session_info returns correct type for EMR on EC2."""
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_manager.get_session_id.return_value = "emr-ec2-sess"
+        type(mock_manager).__name__ = "EmrEc2SparkSessionManager"
+        lazy_session = LazySparkSession(mock_manager)
+
+        result = lazy_session.get_session_info()
+
+        assert result == {
+            "session_id": "emr-ec2-sess",
+            "session_type": "EMR_EC2_SPARK_CONNECT",
+        }
+
     def test_get_session_info_no_manager(self):
         """Test get_session_info returns None when no manager."""
         lazy_session = LazySparkSession(None)
@@ -750,3 +764,151 @@ class TestLazySparkSession:
         mock_resolve.assert_called_once_with(
             connection_name="my-conn", config="cfg", spark_conf=user_conf
         )
+
+    @patch(
+        "sagemaker_studio.utils.spark.session.lazy_spark_session.SparkConnectGrpcException",
+        MockSparkConnectGrpcException,
+    )
+    def test_getattr_raises_after_max_reconnect_attempts_grpc(self):
+        """Test __getattr__ raises RuntimeError after exceeding max reconnect attempts for gRPC."""
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_project = Mock()
+        mock_manager.project = mock_project
+        mock_connection = Mock()
+        mock_project.connection.return_value = mock_connection
+        mock_connection.catalogs = []
+
+        # Every session always fails with SparkConnectGrpcException
+        bad_session = Mock()
+        type(bad_session).version = PropertyMock(side_effect=MockSparkConnectGrpcException)
+        mock_manager.create.return_value = bad_session
+
+        lazy_session = LazySparkSession(mock_manager)
+
+        with pytest.raises(RuntimeError, match="reconnection failed after"):
+            # Access attribute repeatedly — each call increments reconnect counter
+            for _ in range(4):
+                lazy_session.sql
+
+    @patch(
+        "sagemaker_studio.utils.spark.session.lazy_spark_session.SparkConnectGrpcException",
+        MockSparkConnectGrpcException,
+    )
+    def test_getattr_raises_after_max_reconnect_attempts_athena_stopped(self):
+        """Test __getattr__ raises RuntimeError after max attempts for Athena STOPPED."""
+        from botocore.exceptions import ClientError
+
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_project = Mock()
+        mock_manager.project = mock_project
+        mock_connection = Mock()
+        mock_project.connection.return_value = mock_connection
+        mock_connection.catalogs = []
+
+        bad_session = Mock()
+        error_response = {
+            "Error": {"Code": "InvalidRequestException", "Message": "Session is in STOPPED state"}
+        }
+        type(bad_session).version = PropertyMock(
+            side_effect=ClientError(error_response, "GetSession")
+        )
+        mock_manager.create.return_value = bad_session
+
+        lazy_session = LazySparkSession(mock_manager)
+
+        with pytest.raises(RuntimeError, match="reconnection failed after"):
+            for _ in range(4):
+                lazy_session.sql
+
+    @patch(
+        "sagemaker_studio.utils.spark.session.lazy_spark_session.SparkConnectGrpcException",
+        MockSparkConnectGrpcException,
+    )
+    def test_getattr_raises_after_max_reconnect_attempts_emr_resource_not_found(self):
+        """Test __getattr__ raises RuntimeError after max attempts for EMR ResourceNotFoundException."""
+        from botocore.exceptions import ClientError
+
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_project = Mock()
+        mock_manager.project = mock_project
+        mock_connection = Mock()
+        mock_project.connection.return_value = mock_connection
+        mock_connection.catalogs = []
+
+        bad_session = Mock()
+        error_response = {
+            "Error": {"Code": "ResourceNotFoundException", "Message": "Session not found"}
+        }
+        type(bad_session).version = PropertyMock(
+            side_effect=ClientError(error_response, "GetSession")
+        )
+        mock_manager.create.return_value = bad_session
+
+        lazy_session = LazySparkSession(mock_manager)
+
+        with pytest.raises(RuntimeError, match="reconnection failed after"):
+            for _ in range(4):
+                lazy_session.sql
+
+    @patch(
+        "sagemaker_studio.utils.spark.session.lazy_spark_session.SparkConnectGrpcException",
+        MockSparkConnectGrpcException,
+    )
+    def test_getattr_raises_after_max_reconnect_attempts_glue(self):
+        """Test __getattr__ raises RuntimeError after max attempts for Glue EntityNotFoundException."""
+        from botocore.exceptions import ClientError
+
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_project = Mock()
+        mock_manager.project = mock_project
+        mock_connection = Mock()
+        mock_project.connection.return_value = mock_connection
+        mock_connection.catalogs = []
+
+        bad_session = Mock()
+        error_response = {
+            "Error": {"Code": "EntityNotFoundException", "Message": "Session not found"}
+        }
+        type(bad_session).version = PropertyMock(
+            side_effect=ClientError(error_response, "GetSession")
+        )
+        mock_manager.create.return_value = bad_session
+
+        lazy_session = LazySparkSession(mock_manager)
+
+        with pytest.raises(RuntimeError, match="reconnection failed after"):
+            for _ in range(4):
+                lazy_session.sql
+
+    @patch(
+        "sagemaker_studio.utils.spark.session.lazy_spark_session.SparkConnectGrpcException",
+        MockSparkConnectGrpcException,
+    )
+    def test_getattr_resets_reconnect_counter_on_next_successful_call(self):
+        """Test reconnect counter resets on the next successful __getattr__ call."""
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_project = Mock()
+        mock_manager.project = mock_project
+        mock_connection = Mock()
+        mock_project.connection.return_value = mock_connection
+        mock_connection.catalogs = []
+
+        # First access: bad session → stop → _get_spark returns good session for fall-through
+        bad_session = Mock()
+        type(bad_session).version = PropertyMock(side_effect=MockSparkConnectGrpcException)
+
+        good_session = Mock()
+        good_session.version = "3.0.0"
+        good_session.sql = Mock(return_value="result")
+
+        mock_manager.create.side_effect = [bad_session, good_session]
+
+        lazy_session = LazySparkSession(mock_manager)
+        # First call: bad → stop → good (counter=1 after exception, not reset in fall-through)
+        lazy_session.sql
+        assert lazy_session._reconnect_attempts == 1
+
+        # Second call: good session still cached, version succeeds → counter resets to 0
+        result = lazy_session.sql
+        assert result is good_session.sql
+        assert lazy_session._reconnect_attempts == 0

@@ -46,6 +46,7 @@ from .type_defs import (
     CancelUpdateStackInputStackCancelUpdateTypeDef,
     CreateStackInputServiceResourceCreateStackTypeDef,
     DeleteStackInputStackDeleteTypeDef,
+    DeploymentConfigTypeDef,
     ModuleInfoTypeDef,
     OperationEntryTypeDef,
     OutputTypeDef,
@@ -318,6 +319,7 @@ class Stack(ServiceResource):
     stack_status: StackStatusType
     stack_status_reason: str
     disable_rollback: bool
+    deployment_config: DeploymentConfigTypeDef
     notification_arns: list[str]
     timeout_in_minutes: int
     capabilities: list[CapabilityType]

@@ -1,0 +1,56 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, zstd
+      Connection:
+      - keep-alive
+      User-Agent:
+      - Subliminal/2.5
+    method: GET
+    uri: https://www.omdbapi.com/?r=json&v=1&apikey=7a541ee4&s=dallas&page=1&type=series&y=2012
+  response:
+    body:
+      string: "{\"Search\":[{\"Title\":\"Dallas\",\"Year\":\"2012\u20132014\",\"imdbID\":\"tt1723760\",\"Type\":\"series\",\"Poster\":\"https://m.media-amazon.com/images/M/MV5BMjE5NTExNDc5MF5BMl5BanBnXkFtZTcwMjc1NzAwOQ@@._V1_SX300.jpg\"},{\"Title\":\"The
+        Book of Dallas\",\"Year\":\"2012\u2013\",\"imdbID\":\"tt2373244\",\"Type\":\"series\",\"Poster\":\"https://m.media-amazon.com/images/M/MV5BMTU2NzY0MzI2MF5BMl5BanBnXkFtZTcwNzMxMzY0OA@@._V1_SX300.jpg\"},{\"Title\":\"The
+        Underemployed Adventures of Dallas Heck\",\"Year\":\"2012\u2013\",\"imdbID\":\"tt2673024\",\"Type\":\"series\",\"Poster\":\"N/A\"},{\"Title\":\"Dallas
+        Roundup Aftershow\",\"Year\":\"2012\u2013\",\"imdbID\":\"tt2715600\",\"Type\":\"series\",\"Poster\":\"N/A\"},{\"Title\":\"Dallas
+        Live\",\"Year\":\"2012\u20132013\",\"imdbID\":\"tt6872494\",\"Type\":\"series\",\"Poster\":\"N/A\"},{\"Title\":\"John
+        Barrowman's Dallas\",\"Year\":\"2012\",\"imdbID\":\"tt27329542\",\"Type\":\"series\",\"Poster\":\"N/A\"},{\"Title\":\"Luxury
+        Dallas\",\"Year\":\"2012\",\"imdbID\":\"tt2332492\",\"Type\":\"series\",\"Poster\":\"N/A\"}],\"totalResults\":\"7\",\"Response\":\"True\"}"
+    headers:
+      CF-RAY:
+      - 9cd03661c888e3c8-LIS
+      Cache-Control:
+      - public, max-age=3600
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Fri, 13 Feb 2026 00:29:37 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      access-control-allow-origin:
+      - '*'
+      cf-cache-status:
+      - DYNAMIC
+      content-length:
+      - '954'
+      expires:
+      - Fri, 13 Feb 2026 01:29:36 GMT
+      last-modified:
+      - Fri, 13 Feb 2026 00:29:36 GMT
+      vary:
+      - '*'
+      x-aspnet-version:
+      - 4.0.30319
+    status:
+      code: 200
+      message: OK
+version: 1

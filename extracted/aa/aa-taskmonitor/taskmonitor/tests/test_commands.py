@@ -7,8 +7,7 @@ from django.test import TestCase
 from taskmonitor.core.celery_queues import QueuedTaskShort
 from taskmonitor.management.commands import taskmonitorctl
 from taskmonitor.models import TaskLog
-
-from .factories import QueuedTaskRawFactory, TaskLogFactory
+from taskmonitor.tests.factories import QueuedTaskRawFactory, TaskLogFactory
 
 MODULE_PATH = "taskmonitor.management.commands.taskmonitorctl"
 

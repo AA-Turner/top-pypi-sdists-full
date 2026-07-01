@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import MagicMock
 
 from sagemaker_studio.sql_engine.redshift_transformer import RedshiftTransformer
 from sagemaker_studio.sql_engine.resource_fetching_definition import FetchMode
@@ -99,3 +100,34 @@ class TestRedshiftTransformerGetResourcesAction(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             RedshiftTransformer.get_resources_action("VIEW")
         self.assertIn("Unsupported resource type", str(cm.exception))
+
+
+class TestRedshiftTransformerGetExecutionMetadata(unittest.TestCase):
+    """get_execution_metadata delegates to cursor.get_execution_metadata()."""
+
+    def test_delegates_to_cursor(self):
+        cursor = MagicMock()
+        cursor.get_execution_metadata.return_value = {
+            "statement_id": "abc-123",
+            "has_result_set": True,
+            "session_id": "sess-456",
+            "records_updated": 0,
+            "result_rows": 100,
+            "result_size_bytes": 4096,
+        }
+        result = RedshiftTransformer.get_execution_metadata(cursor)
+        self.assertEqual(result["statement_id"], "abc-123")
+        self.assertEqual(result["result_rows"], 100)
+        self.assertEqual(result["result_size_bytes"], 4096)
+        cursor.get_execution_metadata.assert_called_once()
+
+    def test_returns_none_when_cursor_lacks_method(self):
+        cursor = object()
+        result = RedshiftTransformer.get_execution_metadata(cursor)
+        self.assertIsNone(result)
+
+    def test_returns_none_when_cursor_method_returns_none(self):
+        cursor = MagicMock()
+        cursor.get_execution_metadata.return_value = None
+        result = RedshiftTransformer.get_execution_metadata(cursor)
+        self.assertIsNone(result)

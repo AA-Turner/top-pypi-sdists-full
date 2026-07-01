@@ -2451,6 +2451,8 @@ class DataExportNames(sgqlc.types.Enum):
     * `MONITORS`: Export containing all monitors data
     * `MONITOR_LOGS`: Export containing monitor execution logs for the
       past 30 days
+    * `MONITOR_RUNS`: Export containing per-monitor run values and
+      thresholds. (This report is in private preview.)
     """
 
     __schema__ = schema
@@ -2464,6 +2466,7 @@ class DataExportNames(sgqlc.types.Enum):
         "LINEAGE_EDGES",
         "MONITORS",
         "MONITOR_LOGS",
+        "MONITOR_RUNS",
     )
 
 
@@ -4814,6 +4817,7 @@ class JobPerformanceFacet(sgqlc.types.Enum):
 class JobsPerformanceSummarySort(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `ALERTS_COUNT`None
     * `AVG_RUN_DURATION`None
     * `DISPLAY_NAME`None
     * `FAILURE_RATE`None
@@ -4829,6 +4833,7 @@ class JobsPerformanceSummarySort(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "ALERTS_COUNT",
         "AVG_RUN_DURATION",
         "DISPLAY_NAME",
         "FAILURE_RATE",
@@ -6179,6 +6184,28 @@ class PullRequestFilterName(sgqlc.types.Enum):
     __choices__ = ("AUTHOR", "FILE_PATH", "FULL_REPO", "REPO", "TEXT_SEARCH")
 
 
+class PushEventType(sgqlc.types.Enum):
+    """A public push-ingest API event type tracked per resource.
+    Warehouse-targeted (``POST /ingest/v1/*``): ``METADATA``,
+    ``LINEAGE``,     ``QUERY_LOGS``. ETL-container-targeted (``POST
+    /ingest/v1/etl/*``):     ``ETL_METADATA``, ``ETL_RUNS``.      The
+    custom-ETL collection trigger is a webhook, not a push-ingest
+    event, and     is surfaced via ``EtlContainer.webhookStatus``
+    (``last_webhook_received``).
+
+    Enumeration Choices:
+
+    * `ETL_METADATA`None
+    * `ETL_RUNS`None
+    * `LINEAGE`None
+    * `METADATA`None
+    * `QUERY_LOGS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ETL_METADATA", "ETL_RUNS", "LINEAGE", "METADATA", "QUERY_LOGS")
+
+
 class QueryCategory(sgqlc.types.Enum):
     """Possible query categories
 
@@ -7202,18 +7229,6 @@ class SlackAppType(sgqlc.types.Enum):
     __choices__ = ("AGENT", "DISCOVER", "OBSERVE")
 
 
-class SlackCredentialsV2ModelSlackAppType(sgqlc.types.Enum):
-    """Enumeration Choices:
-
-    * `AGENT`: agent
-    * `DISCOVER`: discover
-    * `OBSERVE`: observe
-    """
-
-    __schema__ = schema
-    __choices__ = ("AGENT", "DISCOVER", "OBSERVE")
-
-
 class SlackEngagementEventType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -7259,6 +7274,20 @@ class SloType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("TTA", "TTR")
+
+
+class SnowflakeDataShareMethod(sgqlc.types.Enum):
+    """Which of the two parallel Snowflake share mechanisms an operation
+    targets.
+
+    Enumeration Choices:
+
+    * `LEGACY`None
+    * `PRIVATE_LISTING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("LEGACY", "PRIVATE_LISTING")
 
 
 class SpanPredicateArity(sgqlc.types.Enum):
@@ -10722,18 +10751,26 @@ class DataProfilerWidgetDataInput(sgqlc.types.Input):
 
 class DataShareInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("type", "account", "region", "organization")
+    __field_names__ = ("type", "account", "region", "organization", "account_name")
     type = sgqlc.types.Field(DataShareType, graphql_name="type")
     """Type of data share (default: 'snowflake')"""
 
     account = sgqlc.types.Field(String, graphql_name="account")
-    """Data share account identifier (optional if account has only one)"""
+    """Legacy direct-share account locator (optional if account has only
+    one)
+    """
 
     region = sgqlc.types.Field(String, graphql_name="region")
     """Data share region (optional if account has only one)"""
 
     organization = sgqlc.types.Field(String, graphql_name="organization")
     """Organization identifier"""
+
+    account_name = sgqlc.types.Field(String, graphql_name="accountName")
+    """Account name for the new private-listing share (ORG.ACCOUNT_NAME).
+    Stored alongside the legacy locator so both shares can run in
+    parallel.
+    """
 
 
 class DataSourceSchemaInput(sgqlc.types.Input):
@@ -15681,7 +15718,7 @@ class TransformInput(sgqlc.types.Input):
 
 class TriageAlertsInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("incident_ids", "source", "feed_search_params")
+    __field_names__ = ("incident_ids", "source", "feed_search_params", "post_to_slack")
     incident_ids = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
         graphql_name="incidentIds",
@@ -15702,6 +15739,16 @@ class TriageAlertsInput(sgqlc.types.Input):
     used to reconstruct the original cohort when the completion
     notification is clicked. Only meaningful when ``source == FEED``;
     ignored otherwise. Capped at 2048 characters.
+    """
+
+    post_to_slack = sgqlc.types.Field(Boolean, graphql_name="postToSlack")
+    """Whether to post the triage summary as a Slack thread reply on the
+    alert message when the run completes. Defaults to true. Pass false
+    when the caller already shows the verdict to the user (e.g. the
+    chat agent running in the Slack bot) so the summary isn't
+    duplicated. Does NOT affect the alert message's own triage state —
+    the in-progress status, completed priority dot, and Triage-button
+    removal always sync — nor the in-product completion notification.
     """
 
 
@@ -15756,7 +15803,7 @@ class UpdateDataShareInput(sgqlc.types.Input):
     """Input for updating Snowflake data share configuration"""
 
     __schema__ = schema
-    __field_names__ = ("enabled", "account_id", "account_name", "data_share")
+    __field_names__ = ("enabled", "account_id", "account_name", "data_share", "share_method")
     enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enabled")
     """Whether to enable data sharing"""
 
@@ -15768,6 +15815,12 @@ class UpdateDataShareInput(sgqlc.types.Input):
 
     data_share = sgqlc.types.Field(DataShareInput, graphql_name="dataShare")
     """Input data share attributes"""
+
+    share_method = sgqlc.types.Field(SnowflakeDataShareMethod, graphql_name="shareMethod")
+    """When disabling, which share to turn off — the legacy direct share
+    or the new private listing. Omit to disable both. Ignored when
+    enabling.
+    """
 
 
 class UpdateUserStateInput(sgqlc.types.Input):
@@ -19692,6 +19745,7 @@ class AgentMetadataV2(sgqlc.types.Type):
         "display_name",
         "trace_table_mcon",
         "source_type",
+        "agent_reference",
     )
     account_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="accountUuid")
     """Account UUID"""
@@ -19717,6 +19771,15 @@ class AgentMetadataV2(sgqlc.types.Type):
     )
     """Source type: TRACE_TABLE for user-managed trace tables,
     PLATFORM_AGENT for platform agents
+    """
+
+    agent_reference = sgqlc.types.Field(String, graphql_name="agentReference")
+    """The value to pass as the `agent` field of the
+    createOrUpdateAgent*MonitorFromDefinition mutations. For a
+    PLATFORM_AGENT this is the portable `{database}:{schema}.{name}`
+    reference; for a TRACE_TABLE (OTel) agent it is the
+    `service_name`, which equals `agentName`. Null only when a
+    platform agent's registration could not be resolved.
     """
 
 
@@ -28678,18 +28741,21 @@ class DataShareOutput(sgqlc.types.Type):
     """Data share configuration details"""
 
     __schema__ = schema
-    __field_names__ = ("type", "account", "region", "organization")
+    __field_names__ = ("type", "account", "region", "organization", "account_name")
     type = sgqlc.types.Field(String, graphql_name="type")
     """Type of data share (e.g., 'snowflake')"""
 
     account = sgqlc.types.Field(String, graphql_name="account")
-    """Data share account identifier"""
+    """Legacy direct-share account locator"""
 
     region = sgqlc.types.Field(String, graphql_name="region")
     """Data share region"""
 
     organization = sgqlc.types.Field(String, graphql_name="organization")
     """Data share organization identifier"""
+
+    account_name = sgqlc.types.Field(String, graphql_name="accountName")
+    """Account name for the new private-listing share"""
 
 
 class DataSourceEvaluationResult(sgqlc.types.Type):
@@ -31079,6 +31145,7 @@ class EtlContainer(sgqlc.types.Type):
         "informaticamappingtaskrunmodel_set",
         "job_count",
         "webhook_status",
+        "push_events",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
@@ -31504,6 +31571,15 @@ class EtlContainer(sgqlc.types.Type):
     webhook_status = sgqlc.types.Field("WebhookStatus", graphql_name="webhookStatus")
     """Webhook status info, or null if not applicable for this
     integration type
+    """
+
+    push_events = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("PushEventStatus")), graphql_name="pushEvents"
+    )
+    """Per-event-type public push-ingest API receipt status for this ETL
+    container (custom ETL connectors) — covers ETL_METADATA, ETL_RUNS,
+    and COLLECTION_TRIGGER. Empty for integration types that do not
+    receive push events.
     """
 
 
@@ -37023,7 +37099,7 @@ class LinearIntegrationResult(sgqlc.types.Type):
     """The account's configured Linear integration."""
 
     __schema__ = schema
-    __field_names__ = ("uuid", "webhook_url", "webhook_enabled")
+    __field_names__ = ("uuid", "webhook_url", "webhook_enabled", "default_team_id")
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Integration external ID."""
 
@@ -37039,6 +37115,9 @@ class LinearIntegrationResult(sgqlc.types.Type):
     """Whether inbound webhook sync is active (true once the secret is
     set).
     """
+
+    default_team_id = sgqlc.types.Field(String, graphql_name="defaultTeamId")
+    """Linear team ID new tickets default to."""
 
 
 class LinearTeam(sgqlc.types.Type):
@@ -64818,6 +64897,33 @@ class PruneDeletedTables(sgqlc.types.Type):
     """List of table MCONs that were pruned"""
 
 
+class PushEventStatus(sgqlc.types.Type):
+    """Per-event-type push-ingest receipt status for an integration"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "event_type",
+        "status",
+        "first_received",
+        "last_received",
+        "last_invocation_id",
+    )
+    event_type = sgqlc.types.Field(sgqlc.types.non_null(PushEventType), graphql_name="eventType")
+    """The push-ingest API event type this status describes"""
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(WebhookStatusValue), graphql_name="status")
+    """Receipt status: ACTIVE, STALE, or NEVER_RECEIVED"""
+
+    first_received = sgqlc.types.Field(DateTime, graphql_name="firstReceived")
+    """Timestamp when the first push event of this type was received"""
+
+    last_received = sgqlc.types.Field(DateTime, graphql_name="lastReceived")
+    """Timestamp when the last push event of this type was received"""
+
+    last_invocation_id = sgqlc.types.Field(String, graphql_name="lastInvocationId")
+    """Invocation ID of the last push event of this type, for tracing"""
+
+
 class QPMonitorExplanationType(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("data_points", "breaching_query_logs")
@@ -64892,6 +64998,7 @@ class Query(sgqlc.types.Type):
         "get_latest_agent_health_finding",
         "get_latest_agent_health_finding_summaries",
         "get_linear_teams",
+        "get_linear_integration",
         "get_available_platform_agents",
         "evaluate_platform_agent_data_source",
         "get_node_attributes",
@@ -66165,6 +66272,13 @@ class Query(sgqlc.types.Type):
     (configureLinearIntegration) or teamId
     (createLinearTicketForAgentHealthIssue). Errors if no integration
     is configured.
+    """
+
+    get_linear_integration = sgqlc.types.Field(
+        LinearIntegrationResult, graphql_name="getLinearIntegration"
+    )
+    """(experimental) The account's configured Linear integration.
+    Returns null when Linear is not configured for the account.
     """
 
     get_available_platform_agents = sgqlc.types.Field(
@@ -90965,7 +91079,16 @@ class SlackCredentials(sgqlc.types.Type):
 
 class SlackCredentialsV2(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("id", "account", "installed_by", "slack_app_type", "reply_warning", "config")
+    __field_names__ = (
+        "id",
+        "account",
+        "installed_by",
+        "slack_app_type",
+        "reply_warning",
+        "config",
+        "team_id",
+        "team_name",
+    )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
     account = sgqlc.types.Field(sgqlc.types.non_null(Account), graphql_name="account")
@@ -90974,13 +91097,16 @@ class SlackCredentialsV2(sgqlc.types.Type):
     """User that installed the Slack app"""
 
     slack_app_type = sgqlc.types.Field(
-        sgqlc.types.non_null(SlackCredentialsV2ModelSlackAppType), graphql_name="slackAppType"
+        sgqlc.types.non_null(SlackAppType), graphql_name="slackAppType"
     )
-    """Type of Slack app"""
 
     reply_warning = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="replyWarning")
 
     config = sgqlc.types.Field(JSONString, graphql_name="config")
+
+    team_id = sgqlc.types.Field(String, graphql_name="teamId")
+
+    team_name = sgqlc.types.Field(String, graphql_name="teamName")
 
 
 class SlackEngagementConnection(sgqlc.types.relay.Connection):
@@ -95958,9 +96084,10 @@ class UpdateDataProductSharing(sgqlc.types.Type):
 
 
 class UpdateDataShare(sgqlc.types.Type):
-    """Update data sharing configuration for an account. This allows
-    Customer Success team to enable/disable data sharing without
-    requiring data engineering intervention.
+    """Update Snowflake data sharing configuration for an account.
+    Internal Monte Carlo users may manage any account; customers with
+    the settings-edit permission may enable, reconfigure, or disable
+    sharing for their own account.
     """
 
     __schema__ = schema
@@ -95974,13 +96101,13 @@ class UpdateDataShareOutput(sgqlc.types.Type):
 
     __schema__ = schema
     __field_names__ = ("success", "data_share", "message")
-    success = sgqlc.types.Field(Boolean, graphql_name="success")
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
     """Whether the operation was successful"""
 
     data_share = sgqlc.types.Field(DataShareOutput, graphql_name="dataShare")
     """Updated data share configuration (null if disabled)"""
 
-    message = sgqlc.types.Field(String, graphql_name="message")
+    message = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="message")
     """Success or error message"""
 
 
@@ -97432,6 +97559,7 @@ class Warehouse(sgqlc.types.Type):
         "monitored_table_rules",
         "dashboards",
         "mute_rule",
+        "push_events",
         "user_has_access_to_sample_data",
         "data_sampling_enabled",
         "data_sampling_restricted",
@@ -97711,6 +97839,15 @@ class Warehouse(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(EventMutingRule))),
         graphql_name="muteRule",
     )
+
+    push_events = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(PushEventStatus)), graphql_name="pushEvents"
+    )
+    """Per-event-type public push-ingest API receipt status for this
+    warehouse/resource (metadata, lineage, query logs). Each
+    applicable event type is included; types not yet received report
+    NEVER_RECEIVED.
+    """
 
     user_has_access_to_sample_data = sgqlc.types.Field(
         Boolean, graphql_name="userHasAccessToSampleData"
@@ -98910,11 +99047,13 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         "severity",
         "priority",
         "triage_priority",
+        "triage_result",
         "status",
         "tables",
         "assets",
         "audiences",
         "monitor_tags",
+        "monitor_uuids",
         "notification_status",
         "invalid_rows",
         "domains",
@@ -98968,6 +99107,13 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
     has null/unmapped scores.
     """
 
+    triage_result = sgqlc.types.Field(TriageAgentRunResult, graphql_name="triageResult")
+    """Latest completed triage/assessment result for this alert, or null
+    if never triaged. Always consistent with ``triagePriority``: non-
+    null exactly when ``triagePriority`` is HIGH/MEDIUM/LOW, and null
+    when it is PENDING or NOT_TRIAGED.
+    """
+
     status = sgqlc.types.Field(AlertStatus, graphql_name="status")
 
     tables = sgqlc.types.Field(sgqlc.types.list_of(TableOutput), graphql_name="tables")
@@ -98983,6 +99129,13 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         sgqlc.types.list_of(TagKeyValuePairOutput), graphql_name="monitorTags"
     )
     """Monitor tags associated with the alert"""
+
+    monitor_uuids = sgqlc.types.Field(sgqlc.types.list_of(UUID), graphql_name="monitorUuids")
+    """UUIDs of the monitor(s) whose events produced this alert. An alert
+    can group events from multiple monitors; the list is deduped.
+    Empty for alerts with no monitor-backed events (e.g. pipeline
+    alerts).
+    """
 
     notification_status = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(IncidentNotificationStatusOutput)),
@@ -105673,13 +105826,27 @@ class JobPerformanceSummary(sgqlc.types.Type, IEtlAssetPerformanceSummary):
     """ETL Job performance summary"""
 
     __schema__ = schema
-    __field_names__ = ("object_path",)
+    __field_names__ = ("object_path", "alerts_count", "generates_alerts")
     object_path = sgqlc.types.Field(String, graphql_name="objectPath")
     """Parent-folder hierarchy of the asset within its source system
     (e.g. 'Default / Customer Loads'), with the trailing object name
     stripped. Currently populated for Informatica MTT jobs only; null
     for other integration types or when the path has not yet been
     resolved.
+    """
+
+    alerts_count = sgqlc.types.Field(Int, graphql_name="alertsCount")
+    """Number of alerts the job generated within the selected period,
+    counted by alert creation time. 0 when the job generated no alerts
+    in the period.
+    """
+
+    generates_alerts = sgqlc.types.Field(Boolean, graphql_name="generatesAlerts")
+    """Whether the job is configured to generate alerts (open incidents
+    on failure). true: alerts enabled. false: alerts explicitly
+    disabled (the job runs but is not monitored). null: the
+    integration type does not support this setting — null must not be
+    read as 'not monitored'.
     """
 
 

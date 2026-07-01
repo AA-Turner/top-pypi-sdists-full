@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-acm
-Version: 1.43.29
-Summary: Type annotations for boto3 ACM 1.43.29 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.38
+Summary: Type annotations for boto3 ACM 1.43.38 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 ACM 1.43.29](https://pypi.org/project/boto3/)
+Type annotations for [boto3 ACM 1.43.38](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.29' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.38' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `ACM` service.
 4. Use provided commands to install generated packages.
@@ -337,12 +337,29 @@ client: ACMClient = Session().client("acm")
 from boto3.session import Session
 
 from mypy_boto3_acm import ACMClient
-from mypy_boto3_acm.paginator import ListCertificatesPaginator, SearchCertificatesPaginator
+from mypy_boto3_acm.paginator import (
+    ListAcmeAccountsPaginator,
+    ListAcmeDomainValidationsPaginator,
+    ListAcmeEndpointsPaginator,
+    ListAcmeExternalAccountBindingsPaginator,
+    ListCertificatesPaginator,
+    SearchCertificatesPaginator,
+)
 
 client: ACMClient = Session().client("acm")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
+list_acme_accounts_paginator: ListAcmeAccountsPaginator = client.get_paginator("list_acme_accounts")
+list_acme_domain_validations_paginator: ListAcmeDomainValidationsPaginator = client.get_paginator(
+    "list_acme_domain_validations"
+)
+list_acme_endpoints_paginator: ListAcmeEndpointsPaginator = client.get_paginator(
+    "list_acme_endpoints"
+)
+list_acme_external_account_bindings_paginator: ListAcmeExternalAccountBindingsPaginator = (
+    client.get_paginator("list_acme_external_account_bindings")
+)
 list_certificates_paginator: ListCertificatesPaginator = client.get_paginator("list_certificates")
 search_certificates_paginator: SearchCertificatesPaginator = client.get_paginator(
     "search_certificates"
@@ -359,12 +376,26 @@ search_certificates_paginator: SearchCertificatesPaginator = client.get_paginato
 from boto3.session import Session
 
 from mypy_boto3_acm import ACMClient
-from mypy_boto3_acm.waiter import CertificateValidatedWaiter
+from mypy_boto3_acm.waiter import (
+    AcmeDomainValidationDeletedWaiter,
+    AcmeDomainValidationValidatedWaiter,
+    AcmeEndpointActiveWaiter,
+    AcmeEndpointDeletedWaiter,
+    CertificateValidatedWaiter,
+)
 
 client: ACMClient = Session().client("acm")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
+acme_domain_validation_deleted_waiter: AcmeDomainValidationDeletedWaiter = client.get_waiter(
+    "acme_domain_validation_deleted"
+)
+acme_domain_validation_validated_waiter: AcmeDomainValidationValidatedWaiter = client.get_waiter(
+    "acme_domain_validation_validated"
+)
+acme_endpoint_active_waiter: AcmeEndpointActiveWaiter = client.get_waiter("acme_endpoint_active")
+acme_endpoint_deleted_waiter: AcmeEndpointDeletedWaiter = client.get_waiter("acme_endpoint_deleted")
 certificate_validated_waiter: CertificateValidatedWaiter = client.get_waiter(
     "certificate_validated"
 )
@@ -381,10 +412,10 @@ Full list of `ACM` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/literals/).
 
 ```python
-from mypy_boto3_acm.literals import CertificateExportType
+from mypy_boto3_acm.literals import AcmeAccountStatusType
 
 
-def check_value(value: CertificateExportType) -> bool: ...
+def check_value(value: AcmeAccountStatusType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>

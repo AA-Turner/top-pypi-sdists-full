@@ -1,0 +1,42 @@
+
+[build-system]
+# Minimum requirements for the build system to execute.
+requires = [
+    "setuptools>=47.2.0",
+    "wheel",
+    "setuptools_scm[toml]",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name="pyserial-labgrid"
+description="Python Serial Port Extension (with labgrid RFC2217 fixes)"
+authors = [
+    { name="Chris Liechti", email="cliechti@gmx.net" },
+    { name="Rouven Czerwinski", email="r.czerwinski@pengutronix.de" },
+]
+license = { text = "BSD" }
+readme = "README.rst"
+dynamic = ["version"]
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"
+
+[project.urls]
+"Homepage" = "https://github.com/labgrid-project/pyserial-labgrid"
+"Bug Tracker" = "https://github.com/labgrid-project/labgrid/issues"
+
+[project.scripts]
+pyserial-miniterm = "serial.tools.miniterm:main"
+pyserial-ports = "serial.tools.list_ports:main"
+
+[project.optional-dependencies]
+cp2110 = ['hidapi']
+
+[tool.setuptools]
+packages = [
+    "serial",
+    "serial.threaded",
+    "serial.tools",
+    "serial.urlhandler",
+]

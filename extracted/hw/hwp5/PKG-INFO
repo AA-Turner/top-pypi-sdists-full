@@ -1,0 +1,101 @@
+Metadata-Version: 2.4
+Name: hwp5
+Version: 0.1.0
+Summary: Find hard-work patterns over rolling 5-day windows in calendar export files.
+Project-URL: Homepage, https://github.com/your-username/hwp5
+Project-URL: Repository, https://github.com/your-username/hwp5
+Project-URL: Issues, https://github.com/your-username/hwp5/issues
+Author: hwp5 contributors
+License: MIT
+License-File: LICENSE
+Keywords: analytics,calendar,ics,productivity
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Office/Business :: Scheduling
+Requires-Python: >=3.9
+Provides-Extra: dev
+Requires-Dist: build>=1.2.0; extra == 'dev'
+Requires-Dist: pytest>=8.0.0; extra == 'dev'
+Requires-Dist: twine>=5.0.0; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# hwp5
+
+`hwp5` is a small Python library that scans calendar export files (`.ics`)
+to find hard-work patterns over rolling 5-day windows.
+
+It is useful when you want to answer:
+- "Did I do at least 20 focused work hours over any 5-day period?"
+- "Which calendar periods were my most intense hard-work blocks?"
+
+## Features
+
+- Reads standard ICS calendar exports.
+- Filters events by keyword in `SUMMARY` (default: `hard work`, `deep work`, `focus`).
+- Computes rolling `N`-day windows (default: 5 days).
+- Returns only windows that pass a minimum total-hour threshold.
+- Includes a CLI command (`hwp5`) and importable Python API.
+
+## Installation
+
+```bash
+pip install hwp5
+```
+
+## CLI usage
+
+```bash
+hwp5 calendar.ics
+hwp5 calendar.ics --window-days 5 --min-hours 25
+hwp5 calendar.ics --keyword "hard work" --keyword "coding" --json
+```
+
+Example output:
+
+```text
+Hard-work windows found:
+- 2026-05-01 to 2026-05-05: 21.5h across 7 events
+- 2026-05-02 to 2026-05-06: 24.0h across 8 events
+```
+
+## Python usage
+
+```python
+from hwp5 import load_ics_events, find_hard_work_windows
+
+events = load_ics_events("calendar.ics")
+windows = find_hard_work_windows(events, window_days=5, min_hours=20)
+for w in windows:
+    print(w.start_date, w.end_date, w.total_hours)
+```
+
+## Publish to PyPI
+
+1. Update `version` in `pyproject.toml`.
+2. Build:
+   ```bash
+   python -m pip install --upgrade build twine
+   python -m build
+   ```
+3. Check package:
+   ```bash
+   python -m twine check dist/*
+   ```
+4. Upload:
+   ```bash
+   python -m twine upload dist/*
+   ```
+
+## Development
+
+```bash
+python -m pip install -e ".[dev]"
+pytest
+```

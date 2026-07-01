@@ -63,6 +63,17 @@ from .helpers import (
 _LOGGER = logging.getLogger(__name__)
 
 
+# Ensure http.cookies.Morsel recognizes the Partitioned cookie attribute.
+# Older Python releases do not include the "partitioned" attribute.
+# Newer releases (Python 3.14+) already support it, so this patch is only
+# applied when necessary.
+if "partitioned" not in Morsel._reserved:
+    _LOGGER.debug("Adding partitioned support to http.cookies.Morsel")
+    Morsel._reserved["partitioned"] = "Partitioned"
+
+Morsel._flags.add("partitioned")
+
+
 def create_alexa_context() -> ssl.SSLContext:
     """Create an SSL context for Alexa."""
     context = ssl.create_default_context(
@@ -203,9 +214,12 @@ def _serialize_cookie_jar(cookie_jar: aiohttp.CookieJar) -> dict[str, Any]:
 
 
 def _deserialize_cookie(
-    cookie_jar: aiohttp.CookieJar, cookie: dict[str, Any]
+    cookie_jar: aiohttp.CookieJar,
+    cookie: dict[str, Any],
+    *,
+    fallback_domain: str = "",
 ) -> tuple[str, str] | None:
-    """Restore one cookie entry to an aiohttp CookieJar."""
+    """Restore a serialized cookie into an aiohttp CookieJar."""
     name = str(cookie.get("name") or "")
     value = cookie.get("value")
     domain = str(cookie.get("domain") or "")
@@ -221,12 +235,15 @@ def _deserialize_cookie(
     if not name or value is None:
         return None
 
+    if partitioned:
+        secure = True
+
     cookie_value = _strip_wrapping_quotes(str(value))
     raw_cookie = SimpleCookie()
     raw_cookie[name] = cookie_value
     morsel = raw_cookie[name]
 
-    clean_domain = domain.lstrip(".")
+    clean_domain = domain.lstrip(".") or fallback_domain.lstrip(".")
     clean_path = path
     if not clean_path.startswith("/"):
         clean_path = f"/{clean_path}"
@@ -255,7 +272,6 @@ def _deserialize_cookie(
         with contextlib.suppress(KeyError):
             morsel["samesite"] = samesite
     if partitioned:
-        # Only Python/aiohttp combinations that know the attr should keep it.
         with contextlib.suppress(KeyError):
             morsel["partitioned"] = True
 
@@ -264,7 +280,10 @@ def _deserialize_cookie(
 
 
 def _deserialize_cookie_jar(
-    cookie_jar: aiohttp.CookieJar, serialized: dict[str, Any]
+    cookie_jar: aiohttp.CookieJar,
+    serialized: dict[str, Any],
+    *,
+    fallback_domain: str = "",
 ) -> dict[str, str]:
     """Restore a serialized alexapy cookie jar into an aiohttp CookieJar."""
     return_cookies: dict[str, str] = {}
@@ -277,7 +296,11 @@ def _deserialize_cookie_jar(
     for cookie in serialized.get("cookies", []):
         if not isinstance(cookie, dict):
             continue
-        restored = _deserialize_cookie(cookie_jar, cookie)
+        restored = _deserialize_cookie(
+            cookie_jar,
+            cookie,
+            fallback_domain=fallback_domain,
+        )
         if restored:
             return_cookies[restored[0]] = restored[1]
 
@@ -294,7 +317,10 @@ def _legacy_cookie_value(value: Any) -> Any:
 
 
 def _restore_legacy_aiohttp_cookie_mapping(
-    cookie_jar: aiohttp.CookieJar, cookies: dict[Any, Any]
+    cookie_jar: aiohttp.CookieJar,
+    cookies: dict[Any, Any],
+    *,
+    fallback_domain: str = "",
 ) -> dict[str, str]:
     """Restore old aiohttp.CookieJar.save() mappings.
 
@@ -304,7 +330,7 @@ def _restore_legacy_aiohttp_cookie_mapping(
     restored_count = 0
 
     for bucket_key, bucket in cookies.items():
-        domain = ""
+        domain = fallback_domain
         path = "/"
         if isinstance(bucket_key, tuple):
             domain = str(bucket_key[0] or "") if len(bucket_key) >= 1 else ""
@@ -362,6 +388,7 @@ def _restore_legacy_aiohttp_cookie_mapping(
                     "samesite": samesite,
                     "partitioned": partitioned,
                 },
+                fallback_domain=fallback_domain,
             )
             if restored:
                 restored_count += 1
@@ -718,7 +745,11 @@ class AlexaLogin:
             ):
                 _LOGGER.debug("Loading serialized alexapy cookie jar")
                 cookie_jar = self._session.cookie_jar
-                return_cookies = _deserialize_cookie_jar(cookie_jar, cookies)
+                return_cookies = _deserialize_cookie_jar(
+                    cookie_jar,
+                    cookies,
+                    fallback_domain=self.url,
+                )
                 numcookies = len(return_cookies)
             elif isinstance(cookies, RequestsCookieJar):
                 _LOGGER.debug("Loading RequestsCookieJar")
@@ -726,15 +757,15 @@ class AlexaLogin:
                 for key, value in requests_cookies.items():
                     if self._debug:
                         _LOGGER.debug('Key: "%s", Value: "%s"', key, value)
-                    # Skip "partitioned" so older Python http.cookies does not fail.
-                    if key != "partitioned":
-                        return_cookies[str(key)] = value.strip('"')
+                    return_cookies[str(key)] = value.strip('"')
                 numcookies = len(return_cookies)
             elif isinstance(cookies, defaultdict):
                 _LOGGER.debug("Loading legacy aiohttp cookie mapping")
                 cookie_jar = self._session.cookie_jar
                 return_cookies = _restore_legacy_aiohttp_cookie_mapping(
-                    cookie_jar, cookies
+                    cookie_jar,
+                    cookies,
+                    fallback_domain=self.url,
                 )
                 numcookies = len(return_cookies)
             elif isinstance(cookies, dict):
@@ -743,14 +774,15 @@ class AlexaLogin:
                     return_cookies = {
                         str(key): str(value).strip('"')
                         for key, value in cookies.items()
-                        if key != "partitioned"
                     }
                     numcookies = len(return_cookies)
                 else:
                     _LOGGER.debug("Loading legacy aiohttp cookie dict mapping")
                     cookie_jar = self._session.cookie_jar
                     return_cookies = _restore_legacy_aiohttp_cookie_mapping(
-                        cookie_jar, cookies
+                        cookie_jar,
+                        cookies,
+                        fallback_domain=self.url,
                     )
                     numcookies = len(return_cookies)
             elif isinstance(cookies, http.cookiejar.MozillaCookieJar):
@@ -1219,11 +1251,6 @@ class AlexaLogin:
                         self._cookiefile[0].replace(self.email, hide_email(self.email)),
                         EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
                     )
-        if self._debug:
-            _LOGGER.debug(
-                "Deleted:\n%s",
-                self._cookiefile.replace(self.email, hide_email(self.email))
-            )
 
     async def get_tokens(self) -> bool:
         """Get access and refresh tokens after registering device using cookies.

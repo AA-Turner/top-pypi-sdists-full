@@ -1332,6 +1332,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.use_inline_field_description: bool = config.use_inline_field_description
         self.use_single_line_docstring: bool = config.use_single_line_docstring
         self.use_default_kwarg: bool = config.use_default_kwarg
+        self.use_missing_sentinel: bool = config.use_missing_sentinel
         self.reuse_model: bool = config.reuse_model
         self.reuse_scope: ReuseScope | None = config.reuse_scope
         self.shared_module_name: str = config.shared_module_name
@@ -1383,6 +1384,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.custom_template_dir = config.custom_template_dir
         self.extra_template_data: defaultdict[str, Any] = config.extra_template_data or defaultdict(dict)
         self.validators = config.validators
+        self.generate_schema_validators: bool = config.generate_schema_validators
 
         if self.validators:
             for model_name, model_config in self.validators.items():
@@ -1442,6 +1444,12 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 self.generic_base_class_config["target_pydantic_version"] = config.target_pydantic_version
             else:
                 self.extra_template_data[ALL_MODEL]["target_pydantic_version"] = config.target_pydantic_version
+        if config.schema_validator_base_class_name:
+            self.extra_template_data[ALL_MODEL]["schema_validator_base_class_name"] = (
+                config.schema_validator_base_class_name
+            )
+        if config.generate_schema_validators:
+            self.extra_template_data[ALL_MODEL]["schema_runtime_validation_enabled"] = True
 
         self.model_resolver = ModelResolver(
             base_url=source.geturl() if isinstance(source, ParseResult) else None,
@@ -1519,6 +1527,9 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             config.use_default_factory_for_optional_nested_models
         )
         self.field_type_collision_strategy: FieldTypeCollisionStrategy | None = config.field_type_collision_strategy
+
+    def _data_model_field_common_kwargs(self) -> dict[str, Any]:
+        return {"use_missing_sentinel": self.use_missing_sentinel}
 
     def _should_preserve_explicit_root_class_name(self, class_name: str) -> bool:
         if not self.allow_leading_underscore_class_name:
@@ -2141,6 +2152,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                                     property_name, field_name, discriminator_model.name
                                 ),
                                 use_serialization_alias=self.use_serialization_alias,
+                                **self._data_model_field_common_kwargs(),
                             ),
                         )
             has_imported_literal = any(import_ == IMPORT_LITERAL for import_ in imports)
@@ -3759,6 +3771,10 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                     if m.reference and not m.reference.short_name.startswith("_"):  # pragma: no branch
                         export_imports.add_export(m.reference.short_name)
                 result += [export_imports.dump_all(multiline=True) + "\n"]
+
+            module_code = self.data_model_type.render_module_code(ctx.models)
+            if module_code:
+                result += [module_code, ""]
 
             code = dump_templates(ctx.models)
             result += [code]

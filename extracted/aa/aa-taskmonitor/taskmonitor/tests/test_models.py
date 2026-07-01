@@ -5,13 +5,17 @@ from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.utils.timezone import now
 
 from taskmonitor.core.celery_queues import QueuedTaskShort
 from taskmonitor.models import QueuedTask, TaskLog, TaskReport
-
-from .factories import QueuedTaskRawFactory, TaskLogFactory, TaskStatisticFactory
-from .fake_exceptions import make_fake_exception
+from taskmonitor.tests.factories import (
+    QueuedTaskRawFactory,
+    TaskLogFactory,
+    TaskStatisticFactory,
+)
+from taskmonitor.tests.fake_exceptions import make_fake_exception
 
 MODELS_PATH = "taskmonitor.models"
 MANAGERS_PATH = "taskmonitor.managers"
@@ -53,8 +57,18 @@ class TestTaskLog(TestCase):
         # then
         self.assertIsNone(obj.runtime)
 
+    def test_can_store_result_with_datetime(self):
+        # given
+        v = now()
+        # when
+        log = TaskLogFactory(result=v)
+        # then
+        log.refresh_from_db()
+        got = parse_datetime(log.result)
+        self.assertEqual(got.replace(microsecond=0), v.replace(microsecond=0))
 
-class TestTaskLogQuerySet(TestCase):
+
+class TestTaskLog_QuerySet(TestCase):
     def test_should_return_oldest_date(self):
         # given
         log_1 = TaskLogFactory()
@@ -98,7 +112,7 @@ class TestTaskLogQuerySet(TestCase):
         self.assertSetEqual(pks, {log_2.pk, log_3.pk})
 
 
-class TestManagerCreateFromTask(TestCase):
+class TestTaskLogManager_CreateFromTask(TestCase):
     def test_should_create_from_succeeded_task(self):
         # given
         expected = TaskLogFactory.build(
@@ -337,7 +351,7 @@ class TestManagerCreateFromTask(TestCase):
                 )
 
 
-class TestCalcThroughput(TestCase):
+class TestTaskLogManager_CalcThroughput(TestCase):
     def test_should_calc_max(self):
         # given
         start = timezone.now().replace(second=0)

@@ -4445,20 +4445,13 @@ pub fn plan_joint_spatial_centers_for_term_blocks(
     Ok(planned_blocks)
 }
 
-/// Compute a data-driven initial length scale from the per-axis range of the
-/// feature columns. The heuristic `max_range / sqrt(n)` puts the kernel on
-/// the wiggly side of REML's basin so the optimizer can grow it back if the
-/// signal is smooth, but is small enough that high-frequency truths remain
-/// reachable for smoother kernels (ν ≥ 5/2). Clamped to a tiny positive
-/// floor so degenerate constant-input columns can't produce 0.
-pub fn auto_initial_length_scale(data: ArrayView2<'_, f64>, feature_cols: &[usize]) -> f64 {
-    /// Tiny positive floor for the auto length scale, guarding against a zero
-    /// kernel range when every feature column is (near-)constant.
-    const LENGTH_SCALE_FLOOR: f64 = 1e-6;
-    let n = data.nrows();
-    if n == 0 || feature_cols.is_empty() {
-        return 1.0;
-    }
+/// Tiny positive floor for the auto length scale, guarding against a zero
+/// kernel range when every feature column is (near-)constant.
+const AUTO_LENGTH_SCALE_FLOOR: f64 = 1e-6;
+
+/// Widest per-axis range of the selected feature columns. Returns `None` when
+/// every selected column is constant / non-finite (no usable spatial scale).
+fn feature_columns_max_range(data: ArrayView2<'_, f64>, feature_cols: &[usize]) -> Option<f64> {
     let mut max_range = 0.0_f64;
     for &c in feature_cols {
         if c >= data.ncols() {
@@ -4484,11 +4477,87 @@ pub fn auto_initial_length_scale(data: ArrayView2<'_, f64>, feature_cols: &[usiz
             }
         }
     }
-    if !max_range.is_finite() || max_range <= 0.0 {
+    if max_range.is_finite() && max_range > 0.0 {
+        Some(max_range)
+    } else {
+        None
+    }
+}
+
+/// Compute a data-driven initial length scale from the per-axis range of the
+/// feature columns. The heuristic `max_range / sqrt(n)` puts the kernel on
+/// the wiggly side of REML's basin so the optimizer can grow it back if the
+/// signal is smooth, but is small enough that high-frequency truths remain
+/// reachable for smoother kernels (ν ≥ 5/2). Clamped to a tiny positive
+/// floor so degenerate constant-input columns can't produce 0.
+pub fn auto_initial_length_scale(data: ArrayView2<'_, f64>, feature_cols: &[usize]) -> f64 {
+    let n = data.nrows();
+    if n == 0 || feature_cols.is_empty() {
         return 1.0;
     }
+    let Some(max_range) = feature_columns_max_range(data, feature_cols) else {
+        return 1.0;
+    };
     let init = max_range / (n as f64).sqrt();
-    init.max(LENGTH_SCALE_FLOOR).min(max_range)
+    init.max(AUTO_LENGTH_SCALE_FLOOR).min(max_range)
+}
+
+/// Density-adaptive auto length scale for a kernel basis with `num_centers`
+/// requested centers (#1731).
+///
+/// The plain [`auto_initial_length_scale`] seed `max_range / sqrt(n)` is the
+/// fill distance of the *n data points*; it is independent of the requested
+/// center count `k`. For a radial kernel at a FIXED length scale, packing more
+/// centers into the same cloud makes neighbouring basis functions overlap and
+/// go numerically collinear, so the realized basis saturates in rank (the
+/// `matern_rank_reduce_centers` cap) and a richer `k` becomes a no-op — or even
+/// shrinks the basis. The kernel stays well-conditioned only while the length
+/// scale tracks the *center* spacing, not the data spacing.
+///
+/// We seed the length scale at the fill distance of `max(n, k)` points,
+/// `max_range / sqrt(max(n, k))`. When `n ≥ k` (the usual case) this is exactly
+/// the existing `max_range / sqrt(n)` seed, so every current result and small-`k`
+/// basis size is preserved bit-for-bit (in every covariate dimension). When
+/// `k > n` (a dense center request on a small cloud, the regime where an
+/// `n`-sized seed sits above the center spacing and over-smooths the centers
+/// into collinearity) the seed shrinks with `k` to the center spacing, keeping
+/// the requested centers numerically independent. This is the Matérn analogue of
+/// the Duchon-promotion "length_scale from center spacing" rule
+/// (`hybrid_duchon_promotion_length_scale`).
+pub fn auto_initial_length_scale_for_centers(
+    data: ArrayView2<'_, f64>,
+    feature_cols: &[usize],
+    num_centers: usize,
+) -> f64 {
+    let n = data.nrows();
+    if n == 0 || feature_cols.is_empty() {
+        return 1.0;
+    }
+    let Some(max_range) = feature_columns_max_range(data, feature_cols) else {
+        return 1.0;
+    };
+    // Resolution density: at least the data points, but no coarser than the
+    // center spacing once more centers than data are requested. Using the same
+    // `sqrt` fill-distance law as `auto_initial_length_scale` keeps the seed
+    // bit-identical whenever `n ≥ num_centers` (every dimension), and only
+    // shrinks it — never grows it — when `num_centers > n`.
+    let resolution_points = n.max(num_centers).max(1) as f64;
+    let spacing = max_range / resolution_points.sqrt();
+    spacing.max(AUTO_LENGTH_SCALE_FLOOR).min(max_range)
+}
+
+/// Requested center count encoded by a [`CenterStrategy`], if it carries an
+/// explicit count (used to make the Matérn auto length scale density-adaptive).
+fn center_strategy_requested_count(strategy: &CenterStrategy) -> Option<usize> {
+    match strategy {
+        CenterStrategy::Auto(inner) => center_strategy_requested_count(inner),
+        CenterStrategy::UserProvided(centers) => Some(centers.nrows()),
+        CenterStrategy::EqualMass { num_centers }
+        | CenterStrategy::EqualMassCovarRepresentative { num_centers }
+        | CenterStrategy::FarthestPoint { num_centers }
+        | CenterStrategy::KMeans { num_centers, .. } => Some(*num_centers),
+        CenterStrategy::UniformGrid { .. } => None,
+    }
 }
 
 /// Walk a term and, if it is a Matern or thin-plate smooth whose length_scale
@@ -4516,7 +4585,18 @@ pub fn auto_init_length_scale_in_basis(data: ArrayView2<'_, f64>, basis: &mut Sm
             feature_cols, spec, ..
         } => {
             if spec.length_scale == 0.0 {
-                spec.length_scale = auto_initial_length_scale(data, feature_cols);
+                // Density-adaptive seed (#1731): when the requested center count
+                // is known, scale the auto length scale with the *center*
+                // spacing so a richer `k` stays numerically full-rank instead of
+                // saturating against `matern_rank_reduce_centers`. For `n ≥ k`
+                // (the usual case) this is identical to the plain `max_range /
+                // sqrt(n)` seed in 2-D, so small-`k` results are unchanged. The
+                // unconstrained / non-explicit `UniformGrid` strategy falls back
+                // to the plain seed.
+                spec.length_scale = match center_strategy_requested_count(&spec.center_strategy) {
+                    Some(k) => auto_initial_length_scale_for_centers(data, feature_cols, k),
+                    None => auto_initial_length_scale(data, feature_cols),
+                };
             }
         }
         SmoothBasisSpec::ThinPlate {
@@ -7031,37 +7111,97 @@ pub fn build_single_local_smooth_term(
             // space. With `L-1` free deviation blocks and the reference level
             // `d_L = -Σ_{k<L} d_k`, the marginal penalty summed over ALL `L`
             // levels, `Σ_{k=1}^{L} d_kᵀ S d_k`, expands to the `(I + 11ᵀ) ⊗ S`
-            // contrast form (factor 2 on the diagonal blocks, 1 off-diagonal) —
-            // the exact penalty the zero-sum reparameterization induces.
-            let stz_contrast_penalty = |s_inner: &Array2<f64>| -> Array2<f64> {
+            // contrast form (factor 2 on the diagonal blocks, 1 off-diagonal).
+            //
+            // PER-GROUP SMOOTHING PARAMETERS (#1074). mgcv's `bs="sz"` does NOT
+            // pool that sum under one λ: `smooth.construct.sz` emits ONE penalty
+            // matrix per factor level (here 6 separate `S`s, each with its own
+            // smoothing parameter), so REML can shrink a low-amplitude group's
+            // deviation curve hard while leaving a high-amplitude group nearly
+            // unpenalized. A single shared wiggliness λ (the old construction)
+            // forces every group to the SAME curvature budget, so a group whose
+            // true curve is flat drags curvature into the noise of the busy
+            // groups and vice-versa — systematic truth-recovery loss even when
+            // the pooled total edf matches mgcv's (the observed `sz` 1.23× gap).
+            //
+            // We mirror mgcv exactly by splitting the per-marginal penalty
+            // `Σ_{k=1}^{L} d_kᵀ S d_k` back into its `L` independent
+            // rank-controlled summands BEFORE mapping to the contrast space, each
+            // carrying its own λ:
+            //   * level k < L (free block):  `d_kᵀ S d_k` → block-diagonal
+            //     `(e_k e_kᵀ) ⊗ S`  (only the (k,k) block is `S`).
+            //   * level L (reference):       `d_Lᵀ S d_L = (Σ_{j<L} d_j)ᵀ S (·)`
+            //     → the fully-coupled `(11ᵀ) ⊗ S` block.
+            // Summed at equal λ these `L` blocks recover the old `(I + 11ᵀ) ⊗ S`
+            // exactly (`Σ_k e_k e_kᵀ = I`), so this is a strict generalization:
+            // the pooled fit is still reachable, REML only GAINS the freedom to
+            // spend curvature per group. The zero-sum reparameterization (hence
+            // the `sz` vs `fs` identifiability) is untouched.
+            //
+            // `which_level ∈ 0..=l_minus_one`: `< l_minus_one` selects the single
+            // free deviation block; `== l_minus_one` selects the reference-level
+            // coupling block.
+            let stz_per_group_penalty = |s_inner: &Array2<f64>, which_level: usize| -> Array2<f64> {
                 let mut s_big = Array2::<f64>::zeros((p * l_minus_one, p * l_minus_one));
-                for a in 0..l_minus_one {
-                    for b in 0..l_minus_one {
-                        let factor = if a == b { 2.0 } else { 1.0 };
-                        let mut block = s_big.slice_mut(s![a * p..(a + 1) * p, b * p..(b + 1) * p]);
-                        block.assign(&s_inner.mapv(|v| v * factor));
+                if which_level < l_minus_one {
+                    // (e_k e_kᵀ) ⊗ S: a single diagonal block.
+                    let k = which_level;
+                    let mut block = s_big.slice_mut(s![k * p..(k + 1) * p, k * p..(k + 1) * p]);
+                    block.assign(s_inner);
+                } else {
+                    // (11ᵀ) ⊗ S: every block (diagonal and off-diagonal) is S.
+                    for a in 0..l_minus_one {
+                        for b in 0..l_minus_one {
+                            let mut block =
+                                s_big.slice_mut(s![a * p..(a + 1) * p, b * p..(b + 1) * p]);
+                            block.assign(s_inner);
+                        }
                     }
                 }
                 s_big
             };
             // One nullspace-dim entry per emitted penalty (must stay parallel to
-            // `penalties`); the wiggliness blocks inherit the marginal nullity
-            // scaled by `l_minus_one`, the null ridges record their own nullity.
+            // `penalties`). Each per-group wiggliness block carries the marginal's
+            // OWN nullity (a rank-`p` block touching a single level for the free
+            // blocks; the coupling block is rank-`p` over the diagonal sum), and
+            // the null ridges below record their own nullity.
             let mut nullspaces = Vec::<usize>::with_capacity(penalties.capacity());
             for (penalty_pos, s_inner) in inner_built.penalties.iter().enumerate() {
-                let (s_big, factor_smooth_scale) =
-                    normalize_penalty_in_constrained_space(&stz_contrast_penalty(s_inner));
                 let info_idx = active_penalty_indices[penalty_pos];
-                inner_built.penaltyinfo[info_idx].normalization_scale *= factor_smooth_scale;
-                penalties.push(s_big);
-                nullspaces.push(
-                    inner_built
-                        .nullspaces
-                        .get(penalty_pos)
-                        .copied()
-                        .unwrap_or(0)
-                        .saturating_mul(l_minus_one),
-                );
+                let base_info = inner_built.penaltyinfo[info_idx].clone();
+                let marginal_nullity = inner_built.nullspaces.get(penalty_pos).copied().unwrap_or(0);
+                // Emit `L` independent per-level blocks for this marginal penalty.
+                for which_level in 0..=l_minus_one {
+                    let raw = stz_per_group_penalty(s_inner, which_level);
+                    let (s_big, group_scale) = normalize_penalty_in_constrained_space(&raw);
+                    let block = crate::basis::analyze_penalty_block_with_op(&s_big, None)?;
+                    if block.rank == 0 {
+                        continue;
+                    }
+                    if which_level == 0 {
+                        // Reuse the marginal's own info slot for the first block so
+                        // the existing normalization bookkeeping stays attached.
+                        inner_built.penaltyinfo[info_idx].normalization_scale *= group_scale;
+                        inner_built.penaltyinfo[info_idx].original_index = penalties.len();
+                        inner_built.penaltyinfo[info_idx].effective_rank = block.rank;
+                        inner_built.penaltyinfo[info_idx].nullspace_dim_hint = block.nullity;
+                    } else {
+                        let mut info = base_info.clone();
+                        info.original_index = penalties.len();
+                        info.normalization_scale = base_info.normalization_scale * group_scale;
+                        info.effective_rank = block.rank;
+                        info.nullspace_dim_hint = block.nullity;
+                        info.kronecker_factors = None;
+                        inner_built.penaltyinfo.push(info);
+                    }
+                    penalties.push(block.sym_penalty);
+                    // The coupling block (which_level == l_minus_one) spans the
+                    // marginal range on the diagonal-sum direction; the free
+                    // blocks touch one level. Both leave the marginal null space
+                    // unpenalized, recorded here so the null ridges below complete
+                    // the double penalty.
+                    nullspaces.push(marginal_nullity);
+                }
             }
 
             // Null-space ridge, mirroring the `bs="fs"` double-penalty
@@ -7092,8 +7232,24 @@ pub fn build_single_local_smooth_term(
                             p_k[[a, b]] = zk[a] * zk[b];
                         }
                     }
+                    // Null ridges stay POOLED (the `(I + 11ᵀ) ⊗ z_k z_kᵀ` form):
+                    // they govern the per-group intercept/slope shrinkage, which
+                    // mgcv pools under one variance even for `sz`; only the
+                    // curvature (wiggliness) penalty is split per group above.
+                    let stz_pooled_null = {
+                        let mut s_big = Array2::<f64>::zeros((p * l_minus_one, p * l_minus_one));
+                        for a in 0..l_minus_one {
+                            for b in 0..l_minus_one {
+                                let factor = if a == b { 2.0 } else { 1.0 };
+                                let mut block =
+                                    s_big.slice_mut(s![a * p..(a + 1) * p, b * p..(b + 1) * p]);
+                                block.assign(&p_k.mapv(|v| v * factor));
+                            }
+                        }
+                        s_big
+                    };
                     let (s_null, null_scale) =
-                        normalize_penalty_in_constrained_space(&stz_contrast_penalty(&p_k));
+                        normalize_penalty_in_constrained_space(&stz_pooled_null);
                     let null_block = crate::basis::analyze_penalty_block_with_op(&s_null, None)?;
                     if null_block.rank > 0 {
                         let original_index = penalties.len();
@@ -7217,17 +7373,38 @@ pub fn build_single_local_smooth_term(
                     length_scale,
                     ..
                 } => {
+                    // Auto-promotion (canonical TPS infeasible at this (d, k)).
+                    // Since #1091 the promotion does NOT forward the incoming
+                    // σ_geom-compensated `spec_local.length_scale` to the Duchon
+                    // builder — it DISCARDS it and substitutes the geometric mean
+                    // of the center pairwise distances (`promotion_length_scale`,
+                    // the natural radial-kernel scale where κ·r ≈ O(1)). So the
+                    // realized kernel bandwidth recorded in this metadata bears no
+                    // fixed relation to the user's `spec.length_scale`; clobbering
+                    // it to the user-facing value (the pre-#1091 behavior) makes
+                    // freeze→replay re-derive `compensate(spec.length_scale, σ) ≠
+                    // promotion_length_scale`, evaluating the kernel at the wrong
+                    // bandwidth and corrupting the replayed design (#1091 broke the
+                    // e7ff5ed83 freeze contract for the auto-promoted path).
+                    //
+                    // The freeze→replay round trip rebuilds through the Duchon arm,
+                    // which re-applies σ_geom compensation:
+                    //   replay_eff = compensate(metadata.length_scale, σ)
+                    //              = metadata.length_scale / σ_geom.
+                    // For replay_eff to reproduce the realized `promotion_length_scale`
+                    // we must store the UN-compensated value `promotion_length_scale
+                    // · σ_geom`. `compensate(1.0, σ) = 1/σ_geom`, so divide the
+                    // realized scale by it to multiply back through σ_geom. With no
+                    // standardization (`scales == None`) replay does not compensate,
+                    // so the realized value is kept verbatim.
+                    if let (Some(s), Some(realized)) = (scales.as_ref(), *length_scale) {
+                        let inv_sigma_geom =
+                            compensate_length_scale_for_standardization(1.0, s);
+                        if inv_sigma_geom.is_finite() && inv_sigma_geom > 0.0 {
+                            *length_scale = Some(realized / inv_sigma_geom);
+                        }
+                    }
                     *ms = scales;
-                    // The ThinPlate auto-promotion path delegates to
-                    // `build_duchon_basis` with `Some(spec_local.length_scale)`,
-                    // which is the σ_geom-compensated value. The metadata
-                    // therefore records the compensated kernel range, but the
-                    // freeze→replay round trip plugs that value back into a
-                    // user-facing `DuchonBasisSpec.length_scale` whose builder
-                    // applies the σ_geom compensation a second time. Restore
-                    // the user-facing scale here so replay re-compensates
-                    // exactly once and reproduces the realized fit-time basis.
-                    *length_scale = Some(spec.length_scale);
                 }
                 _ => {}
             }
@@ -7411,6 +7588,26 @@ pub fn build_single_local_smooth_term(
             };
             let mut spec_local = spec.clone();
             spec_local.length_scale = length_scale_eff;
+            // The Duchon input axis is standardized in place above (`x → x/σ`,
+            // scale-only, no centering). A 1-D cyclic boundary `[start, end)`
+            // declared in ORIGINAL covariate units must move into that same
+            // standardized frame, or the modular wrap in
+            // `build_cyclic_duchon_basis_1dwithworkspace` folds the standardized
+            // coordinate against an original-unit period: the seam never closes
+            // and the basis silently degrades to non-periodic (#1074:
+            // `duchon(x, periodic=true)` predictions diverged across the wrap,
+            // f(0) ≠ f(2π)). Rescale by the same 1/σ applied to the data so
+            // training and predict share one periodic geometry.
+            if let (Some(s), crate::basis::OneDimensionalBoundary::Cyclic { start, end }) =
+                (scales.as_ref(), spec_local.boundary.clone())
+                && s.len() == 1
+                && s[0] > 0.0
+            {
+                spec_local.boundary = crate::basis::OneDimensionalBoundary::Cyclic {
+                    start: start / s[0],
+                    end: end / s[0],
+                };
+            }
             if matches!(
                 spec_local.identifiability,
                 SpatialIdentifiability::OrthogonalToParametric

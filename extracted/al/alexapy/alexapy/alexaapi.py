@@ -1475,9 +1475,23 @@ class AlexaAPI:
             "get", login, "/api/devices-v2/device", query=None
         )
         devices, *_ = await get_json_value(response, "devices", list)
-        AlexaAPI.devices[login.email] = (
-            devices if devices else AlexaAPI.devices[login.email]
+
+        if devices is not None:
+            AlexaAPI.devices[login.email] = devices
+            return devices
+
+        if login.email in AlexaAPI.devices:
+            _LOGGER.debug(
+                "%s: Using cached device list because device API returned no data",
+                hide_email(login.email),
+            )
+            return AlexaAPI.devices[login.email]
+
+        _LOGGER.warning(
+            "%s: Device API returned no data and no cached device list is available",
+            hide_email(login.email),
         )
+        AlexaAPI.devices[login.email] = []
         return AlexaAPI.devices[login.email]
 
     @staticmethod

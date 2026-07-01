@@ -1,0 +1,38 @@
+Metadata-Version: 2.4
+Name: web-py
+Version: 0.76
+Summary: web.py: makes web apps
+Author-email: Aaron Swartz <me@aaronsw.com>
+Maintainer-email: Anand Chitipothu <anandology@gmail.com>
+License: Public domain
+Project-URL: Homepage, http://webpy.org/
+Project-URL: Source, https://github.com/webpy/webpy
+Platform: any
+Classifier: License :: Public Domain
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <3.15,>=3.10
+Description-Content-Type: text/plain
+License-File: LICENSE.txt
+Requires-Dist: cheroot>=6.0.0
+Requires-Dist: more_itertools>=2.6
+Requires-Dist: multipart>=0.2.4
+Dynamic: license-file
+
+[![pypi](https://img.shields.io/pypi/v/web.py)](https://pypi.org/project/web.py)
+[![python versions](https://img.shields.io/pypi/pyversions/web.py)](https://devguide.python.org/versions)
+[![build status](https://github.com/webpy/webpy/actions/workflows/lint_python.yml/badge.svg)](https://github.com/webpy/webpy/actions/workflows/lint_python.yml)
+
+web.py is a Python web framework that is as simple as it is powerful.
+
+Visit http://webpy.org for more information.
+
+To install web.py, please run:
+```
+python3 -m pip install web.py
+```

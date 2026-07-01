@@ -1,9 +1,0 @@
-# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
-# SPDX-License-Identifier: MIT
----
-default_handler: "main"
-routes:
-  - path: "/api"
-    handler: "api_handler"
-  - path: "/health"
-    handler: "health_handler"

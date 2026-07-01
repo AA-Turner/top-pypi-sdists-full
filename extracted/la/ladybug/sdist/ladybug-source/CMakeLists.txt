@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(Lbug VERSION 0.17.1 LANGUAGES CXX C)
+project(Lbug VERSION 0.18.0 LANGUAGES CXX C)
 
 option(SINGLE_THREADED "Single-threaded mode" FALSE)
 if(SINGLE_THREADED)
@@ -352,6 +352,11 @@ set(LBUG_NODEJS_PRECOMPILED_LIB_PATH "" CACHE FILEPATH "Deprecated alias for LBU
 option(ENABLE_BACKTRACES "Enable backtrace printing for fatal signals and termination" FALSE)
 option(PREFER_SYSTEM_DEPS "Only download certain deps if not found on the system" TRUE)
 
+if(BUILD_WASM)
+    set(BUILD_SHARED_LBUG FALSE CACHE BOOL "Build the shared liblbug library." FORCE)
+    set(BUILD_STATIC_LBUG TRUE CACHE BOOL "Build the bundled static liblbug archive." FORCE)
+endif()
+
 if(LBUG_NODEJS_USE_PRECOMPILED_LIB)
     set(LBUG_API_USE_PRECOMPILED_LIB TRUE)
 endif()
@@ -431,7 +436,7 @@ function(add_lbug_api_test TEST_NAME)
 endfunction()
 
 # Windows doesn't support dynamic lookup, so we have to link extensions against lbug.
-if (MSVC AND (NOT BUILD_EXTENSIONS EQUAL "") AND NOT LBUG_API_USE_PRECOMPILED_LIB)
+if (MSVC AND (NOT "${BUILD_EXTENSIONS}" STREQUAL "") AND NOT LBUG_API_USE_PRECOMPILED_LIB)
     set(BUILD_LBUG TRUE)
 endif ()
 
@@ -479,12 +484,22 @@ endif()
 if (ENABLE_BACKTRACES)
     list(APPEND LBUG_LINK_LIBRARIES cpptrace::cpptrace)
 endif()
+if (NOT BUILD_WASM)
+    find_package(OpenSSL 3 REQUIRED)
+    # Prefer modern imported targets when available (OpenSSL 3 provides OpenSSL::SSL/OpenSSL::Crypto)
+    if (TARGET OpenSSL::SSL AND TARGET OpenSSL::Crypto)
+        list(APPEND LBUG_LINK_LIBRARIES OpenSSL::SSL OpenSSL::Crypto)
+    else()
+        # Fallback to legacy variables for older CMake/OpenSSL packaging
+        list(APPEND LBUG_LINK_LIBRARIES ${OPENSSL_LIBRARIES})
+    endif()
+endif()
 target_link_libraries(lbug_link_deps INTERFACE ${LBUG_LINK_LIBRARIES})
 unset(LBUG_LINK_LIBRARIES)
 
 add_definitions(-DLBUG_ROOT_DIRECTORY="${PROJECT_SOURCE_DIR}")
 add_definitions(-DLBUG_CMAKE_VERSION="${CMAKE_PROJECT_VERSION}")
-add_definitions(-DLBUG_EXTENSION_VERSION="0.17.0")
+add_definitions(-DLBUG_EXTENSION_VERSION="0.18.0")
 
 if(BUILD_LBUG OR LBUG_API_USE_PRECOMPILED_LIB)
 include_directories(
@@ -513,6 +528,15 @@ foreach(ext IN LISTS STATICALLY_LINKED_EXTENSIONS)
         target_link_libraries(lbug_shared PRIVATE "lbug_${ext}_static_extension")
     endif()
 endforeach()
+
+# Emscripten does not produce a useful native shared lib here; the wasm package
+# and tests link everything into final JS/wasm artifacts. Keep the legacy
+# lbug_shared target name available for existing consumers, but make it resolve
+# to the static wasm library after real library setup and static extension
+# linking are complete.
+if(EMSCRIPTEN AND TARGET lbug AND NOT TARGET lbug_shared)
+    add_library(lbug_shared ALIAS lbug)
+endif()
 
 if (${BUILD_TESTS} OR ${BUILD_EXTENSION_TESTS})
     add_subdirectory(test)

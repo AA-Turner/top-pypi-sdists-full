@@ -2985,19 +2985,27 @@ class SAGEMessageBridge:
                 # Wait for ready — handle empty/invalid frames cleanly. Cloud Run
                 # sometimes closes idle WebSockets mid-handshake; ws.recv() then
                 # returns "" and json.loads("") raises a cryptic JSONDecodeError.
-                raw_ready = ws.recv()
+                try:
+                    raw_ready = ws.recv()
+                except _ws_lib.WebSocketTimeoutException:
+                    self._log("Backend handshake timed out — retrying")
+                    ws.close()
+                    time.sleep(reconnect_delay)
+                    continue
                 if not raw_ready:
                     self._log("Backend closed connection during handshake — retrying")
                     try: ws.close()
                     except Exception: pass
-                    raise RuntimeError("ws-handshake-empty")
+                    time.sleep(reconnect_delay)
+                    continue
                 try:
                     resp = json.loads(raw_ready)
                 except json.JSONDecodeError:
                     self._log(f"Invalid handshake frame: {raw_ready[:120]!r} — retrying")
                     try: ws.close()
                     except Exception: pass
-                    raise RuntimeError("ws-handshake-invalid")
+                    time.sleep(reconnect_delay)
+                    continue
                 if resp.get("type") != "ready":
                     self._log(f"Unexpected auth response: {resp}")
                     ws.close()
@@ -3118,8 +3126,7 @@ class SAGEMessageBridge:
                 break
             except Exception as exc:
                 if not self._stop.is_set():
-                    import traceback
-                    self._log(f"Connection error: {exc} — retrying in {reconnect_delay}s\n{traceback.format_exc()}")
+                    self._log(f"Connection error: {exc} — retrying in {reconnect_delay}s")
                     time.sleep(reconnect_delay)
                     reconnect_delay = min(reconnect_delay * 2, 60)
 

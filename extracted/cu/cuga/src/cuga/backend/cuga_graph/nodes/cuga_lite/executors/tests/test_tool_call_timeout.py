@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, AsyncMock, patch
 
 from cuga.backend.cuga_graph.state.agent_state import AgentState, VariablesManager
 from cuga.backend.cuga_graph.nodes.cuga_lite.executors import CodeExecutor
-from cuga.backend.cuga_graph.nodes.cuga_lite.tool_registry_provider import call_api
+from cuga.backend.cuga_graph.nodes.cuga_lite.providers.registry import call_api
 
 
 @pytest.fixture
@@ -20,17 +20,23 @@ def mock_state():
 
 
 @pytest.mark.asyncio
-async def test_code_execution_timeout(mock_state):
-    """Test that code execution itself times out correctly."""
+async def test_code_execution_timeout(mock_state, monkeypatch):
+    """Test that code execution itself times out correctly.
 
-    # Code that sleeps longer than the execution timeout (30 seconds)
+    Uses a small `advanced_features.sandbox_execution_timeout` (2s) via the
+    configurable setting so the test runs in ~3s rather than waiting on the
+    production default. Sleeps slightly longer than that.
+    """
+    from cuga.config import settings
+
+    monkeypatch.setattr(settings.advanced_features, "sandbox_execution_timeout", 2)
+
     code = """
 import asyncio
-await asyncio.sleep(35)  # Longer than 30 second timeout
+await asyncio.sleep(3)  # Longer than the test's 2-second sandbox timeout
 print("This should not print")
 """
 
-    # Execute code - should timeout at code execution level (30 seconds)
     result, new_vars = await CodeExecutor.eval_with_tools_async(
         code=code,
         _locals={},
@@ -81,7 +87,7 @@ async def test_call_api_timeout():
 
     # Mock the HTTP call to simulate a timeout
     with patch(
-        'cuga.backend.cuga_graph.nodes.cuga_lite.tool_registry_provider.aiohttp.ClientSession'
+        'cuga.backend.cuga_graph.nodes.cuga_lite.providers.registry.aiohttp.ClientSession'
     ) as mock_session_class:
         # Create a mock post context manager that raises TimeoutError
         async def timeout_post_context(*args, **kwargs):

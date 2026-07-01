@@ -1,0 +1,100 @@
+interactions:
+- request:
+    body: '{"apikey": "5EC930FB90DA1ADA", "username": null, "password": null}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Accept-Language:
+      - en
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '66'
+      Content-Type:
+      - application/json
+      User-Agent:
+      - Subliminal/2.2
+    method: POST
+    uri: https://api.thetvdb.com/login
+  response:
+    body:
+      string: '{"token":"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDAwOTQyMTcsImlkIjoic3VibGltaW5hbCIsIm9yaWdfaWF0IjoxNzM5NDg5NDE3fQ.Es455TPGAju2IUoTiXJPoMMAC3nxEZO02xXHTc1QtvIjcaZ_juLlB_Dr6TyoQ-dsICova3PnduVSTGYsLhsISPZhTqu0gBbiZosMcsDODRLl-B8VVrifpu2W0Cmt1FZzcTIGFB1hIxGAO7bJvVwMTyntyNxhK_3GBRVB2fD94zATWaHWN6veiRUXuNfupJQ2omYf9WqCh4R_ZyrqZvs2QM8zmhmUUoV6_bQjtET-16dO8ErMODUl6V_cY1bKYAXI-XSRpVEWwgXXKtDHVfrG5TDMT_wGhw6R4N5aW0aqmnLqlkxGjD4GwsEQpENtU77XmPAuoyNxTkyJ_mgFi7c0sg"}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '470'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 13 Feb 2025 23:30:17 GMT
+      Vary:
+      - Accept-Language
+      Via:
+      - 1.1 508a0f3451a34ff5e6a3963c94ef304c.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - zDGFoR5M8IMS58DRrLYJiFKBUf18M3cLxqOgsJTOpnwYNNqEbnR0Jg==
+      X-Amz-Cf-Pop:
+      - MAD51-C3
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - Thundar!
+      X-Thetvdb-Api-Version:
+      - 3.0.0
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Accept-Language:
+      - en
+      Authorization:
+      - Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDAwOTQyMTcsImlkIjoic3VibGltaW5hbCIsIm9yaWdfaWF0IjoxNzM5NDg5NDE3fQ.Es455TPGAju2IUoTiXJPoMMAC3nxEZO02xXHTc1QtvIjcaZ_juLlB_Dr6TyoQ-dsICova3PnduVSTGYsLhsISPZhTqu0gBbiZosMcsDODRLl-B8VVrifpu2W0Cmt1FZzcTIGFB1hIxGAO7bJvVwMTyntyNxhK_3GBRVB2fD94zATWaHWN6veiRUXuNfupJQ2omYf9WqCh4R_ZyrqZvs2QM8zmhmUUoV6_bQjtET-16dO8ErMODUl6V_cY1bKYAXI-XSRpVEWwgXXKtDHVfrG5TDMT_wGhw6R4N5aW0aqmnLqlkxGjD4GwsEQpENtU77XmPAuoyNxTkyJ_mgFi7c0sg
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      User-Agent:
+      - Subliminal/2.2
+    method: GET
+    uri: https://api.thetvdb.com/series/80379/episodes/query?airedSeason=99&page=1
+  response:
+    body:
+      string: '{"Error":"No results for your query: map[AiredSeason:99]"}'
+    headers:
+      Cache-Control:
+      - private, max-age=86400
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '58'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 13 Feb 2025 23:30:18 GMT
+      Vary:
+      - Accept-Language
+      Via:
+      - 1.1 ac6c61c5795b4bc9c16e9a11b9a19660.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - t951WnGKEXp_lAxp0K4NLKiDPoIHo1zKE8rDtzifP-9lxp1GcxAeVA==
+      X-Amz-Cf-Pop:
+      - MAD51-C3
+      X-Cache:
+      - Error from cloudfront
+      X-Powered-By:
+      - Thundar!
+      X-Thetvdb-Api-Version:
+      - 3.0.0
+    status:
+      code: 404
+      message: Not Found
+version: 1

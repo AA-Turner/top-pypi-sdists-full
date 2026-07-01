@@ -189,8 +189,14 @@ class LSPErrorBuilder:
     _node_map: dict[tuple[FeatureWrapper, str], tuple[ast.AST, types.FrameType]] = {}
 
     @classmethod
-    def has_errors(cls):
-        return cls.lsp and len(cls.all_errors) > 0
+    def has_errors(cls) -> bool:
+        # `all_errors` is a misnomer: add_diagnostic() appends every diagnostic
+        # regardless of severity (Warning/Info/Hint included). Only Error-severity
+        # diagnostics should block graph load, so filter here rather than treating
+        # a non-empty collection as fatal.
+        return cls.lsp and any(
+            d.severity == DiagnosticSeverityGQL.Error for diagnostics in cls.all_errors.values() for d in diagnostics
+        )
 
     @classmethod
     def save_node(cls, wrapper: FeatureWrapper, item: str):

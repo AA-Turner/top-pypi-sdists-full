@@ -175,11 +175,6 @@ def _get_current_workspace_common(
     return next((workspace for workspace in workspaces if workspace["id"] == current_workspace_id), None)
 
 
-async def get_current_environment(client, config):
-    workspaces: List[Dict[str, Any]] = (await client.user_workspaces_and_branches()).get("workspaces", [])
-    return next((workspace for workspace in workspaces if workspace["id"] == config["id"]), None)
-
-
 async def get_current_workspace_branches(config: CLIConfig) -> List[Dict[str, Any]]:
     current_main_workspace: Optional[Dict[str, Any]] = await get_current_main_workspace(config)
     if not current_main_workspace:
@@ -506,12 +501,6 @@ def format_host(host: str, subdomain: Optional[str] = None) -> str:
     elif not host.startswith("http"):
         host = f"https://{host}"
     return host
-
-
-def region_from_host(region_name_or_host, regions):
-    """Returns the region that matches region_name_or_host"""
-
-    return next((r for r in regions if _compare_region_host(region_name_or_host, r)), None)
 
 
 def ask_for_user_token(action: str, ui_host: str) -> str:
@@ -1119,11 +1108,6 @@ def autocomplete_topics(ctx: Context, args, incomplete):
 def validate_datasource_name(name):
     if not isinstance(name, str) or name == "":
         raise CLIException(FeedbackManager.error_datasource_name())
-
-
-def validate_connection_id(connection_id):
-    if not isinstance(connection_id, str) or connection_id == "":
-        raise CLIException(FeedbackManager.error_datasource_connection_id())
 
 
 def validate_kafka_topic(topic):

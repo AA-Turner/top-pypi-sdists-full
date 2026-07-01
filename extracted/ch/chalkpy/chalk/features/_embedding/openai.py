@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import functools
-from typing import Optional, Sequence, Type
+from typing import TYPE_CHECKING, Optional, Sequence, Type
 
 import pyarrow as pa
 
@@ -9,6 +9,13 @@ from chalk.features._embedding.embedding_provider import EmbeddingProvider
 from chalk.features._embedding.utils import ModelSpecs, create_fixedsize_with_nulls
 from chalk.features._vector import Vector
 from chalk.utils.missing_dependency import missing_dependency_exception
+
+if TYPE_CHECKING:
+    import openai
+    import tiktoken
+else:
+    openai = None
+    tiktoken = None
 
 _MAX_INPUT_TOKENS = 8191
 _MAX_BATCH_SIZE = 2048
@@ -35,10 +42,12 @@ _MODEL_SPECS = {
 class OpenAIProvider(EmbeddingProvider):
     def __init__(self, model: str, dimensions: Optional[int] = None) -> None:
         super().__init__()
-        # NOTE: The `openai`/`tiktoken` imports are deferred to the `_async_client`/`_encoding`
-        # properties (execution time) so that graph construction succeeds in environments where
-        # the dependency is absent (e.g. the branch server, which imports user code against the
-        # lightweight base image).
+        try:
+            global openai, tiktoken
+            import openai
+            import tiktoken
+        except ImportError:
+            raise missing_dependency_exception("chalkpy[openai]")
         if model not in _MODEL_SPECS:
             models_str = ", ".join(f"'{model}'" for model in _MODEL_SPECS)
             raise ValueError(f"Unsupported model '{model}' for OpenAI. The supported models are [{models_str}].")
@@ -51,18 +60,12 @@ class OpenAIProvider(EmbeddingProvider):
 
     @functools.cached_property
     def _async_client(self):
-        try:
-            import openai
-        except ImportError:
-            raise missing_dependency_exception("chalkpy[openai]")
+        assert openai is not None
         return openai.AsyncOpenAI()
 
     @functools.cached_property
     def _encoding(self):
-        try:
-            import tiktoken
-        except ImportError:
-            raise missing_dependency_exception("chalkpy[openai]")
+        assert tiktoken is not None
         try:
             return tiktoken.encoding_for_model(self.model)
         except KeyError:

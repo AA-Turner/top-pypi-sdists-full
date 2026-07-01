@@ -1,0 +1,1162 @@
+Metadata-Version: 2.4
+Name: tm-ai
+Version: 3.4.20
+Summary: Time Machine for AI Agents Cognitive Version Control for LLM context
+Project-URL: Homepage, https://jaimeena.com/cvc
+Project-URL: Documentation, https://jaimeena.com/cvc/docs
+Project-URL: Repository, https://github.com/mannuking/cvc
+Project-URL: Issues, https://github.com/mannuking/cvc/issues
+Project-URL: Changelog, https://github.com/mannuking/cvc/blob/main/docs/CHANGELOG.md
+Author: CVC Contributors
+License-Expression: MIT
+Keywords: agents,ai,context,llm,merkle,version-control
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Version Control
+Requires-Python: >=3.11
+Requires-Dist: aiogram>=3.26.0
+Requires-Dist: aiosqlite>=0.20.0
+Requires-Dist: anthropic>=0.39.0
+Requires-Dist: brotlicffi>=1.1.0
+Requires-Dist: chromadb>=1.0.0
+Requires-Dist: click>=8.1.0
+Requires-Dist: concurrent-log-handler>=0.9.20; sys_platform == 'win32'
+Requires-Dist: croniter>=2.0.0
+Requires-Dist: cryptography>=42.0.0
+Requires-Dist: discord-py[voice]>=2.4.0
+Requires-Dist: edge-tts>=6.1.0
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: faster-whisper>=1.0.0
+Requires-Dist: gitpython>=3.1.0
+Requires-Dist: google-genai>=1.0.0
+Requires-Dist: httpx[http2]>=0.27.0
+Requires-Dist: langchain-core>=0.3.0
+Requires-Dist: langgraph>=0.2.0
+Requires-Dist: markdown>=3.5.0
+Requires-Dist: openai>=1.50.0
+Requires-Dist: pathspec>=0.12.0
+Requires-Dist: pillow>=10.0.0
+Requires-Dist: playwright>=1.40.0
+Requires-Dist: prompt-toolkit>=3.0.0
+Requires-Dist: psutil>=5.9.0
+Requires-Dist: pydantic>=2.9.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: python-telegram-bot[webhooks]>=22.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: qrcode>=7.4.2
+Requires-Dist: requests>=2.31.0
+Requires-Dist: rich>=13.0.0
+Requires-Dist: ruamel-yaml>=0.18.0
+Requires-Dist: slack-bolt>=1.18.0
+Requires-Dist: slack-sdk>=3.21.0
+Requires-Dist: tenacity>=8.2.0
+Requires-Dist: uvicorn[standard]>=0.30.0
+Requires-Dist: websockets>=12.0
+Requires-Dist: zstandard>=0.23.0
+Provides-Extra: all
+Requires-Dist: anthropic>=0.39.0; extra == 'all'
+Requires-Dist: edge-tts>=6.1.0; extra == 'all'
+Requires-Dist: faster-whisper>=1.0.0; extra == 'all'
+Requires-Dist: google-auth>=2.0.0; extra == 'all'
+Requires-Dist: google-genai>=1.0.0; extra == 'all'
+Requires-Dist: openai>=1.50.0; extra == 'all'
+Requires-Dist: pillow>=10.0.0; extra == 'all'
+Requires-Dist: playwright>=1.40.0; extra == 'all'
+Provides-Extra: anthropic
+Requires-Dist: anthropic>=0.39.0; extra == 'anthropic'
+Provides-Extra: browser
+Requires-Dist: playwright>=1.40.0; extra == 'browser'
+Provides-Extra: computer-use
+Requires-Dist: pyobjc-framework-quartz; (sys_platform == 'darwin') and extra == 'computer-use'
+Provides-Extra: dev
+Requires-Dist: pytest-asyncio>=0.24.0; extra == 'dev'
+Requires-Dist: pytest>=8.0; extra == 'dev'
+Requires-Dist: ruff>=0.7.0; extra == 'dev'
+Provides-Extra: google
+Requires-Dist: google-genai>=1.0.0; extra == 'google'
+Provides-Extra: ollama
+Provides-Extra: openai
+Requires-Dist: openai>=1.50.0; extra == 'openai'
+Provides-Extra: pageindex
+Requires-Dist: pymupdf>=1.25.0; extra == 'pageindex'
+Provides-Extra: sdk
+Provides-Extra: tts
+Requires-Dist: edge-tts>=6.1.0; extra == 'tts'
+Provides-Extra: vertex
+Requires-Dist: google-auth>=2.0.0; extra == 'vertex'
+Provides-Extra: vision
+Requires-Dist: pillow>=10.0.0; extra == 'vision'
+Provides-Extra: voice
+Requires-Dist: faster-whisper>=1.0.0; extra == 'voice'
+Description-Content-Type: text/markdown
+
+<div align="center">
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                            HEADER & LOGO                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/badge/%E2%8F%B3-CVC-8B0000?style=for-the-badge&labelColor=000000&logoColor=white">
+  <source media="(prefers-color-scheme: light)" srcset="https://img.shields.io/badge/%E2%8F%B3-CVC-8B0000?style=for-the-badge&labelColor=FFFFFF&logoColor=black">
+  <img alt="CVC Logo" src="https://img.shields.io/badge/%E2%8F%B3-CVC-8B0000?style=for-the-badge&labelColor=000000&logoColor=white" width="200">
+</picture>
+
+# 🧠 **CVC** — Cognitive Version Control
+
+### *Time Machine for AI Agents*
+
+> Git for code. **CVC for context.**  
+> Save. Branch. Rewind. Merge. — **Your AI agent just got an undo button.**
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                              QUICK INSTALL                               -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+```bash
+# 🎧 macOS / Linux / WSL
+curl -fsSL https://jaimeena.com/cvc/install.sh | bash
+
+# 🪟 Windows PowerShell
+irm https://jaimeena.com/cvc/install.ps1 | iex
+```
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                                 BADGES                                   -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+[![PyPI version](https://img.shields.io/pypi/v/tm-ai?style=for-the-badge&color=CC3333&labelColor=2C0000)](https://pypi.org/project/tm-ai/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/tm-ai?style=for-the-badge&color=FF4444&labelColor=2C0000)](https://pypi.org/project/tm-ai/)
+![Python 3.11+](https://img.shields.io/badge/Python-3.11+-CC3333?style=for-the-badge&logo=python&logoColor=white&labelColor=2C0000)
+[![License: MIT](https://img.shields.io/badge/License-MIT-FF4444?style=for-the-badge&labelColor=2C0000)](LICENSE)
+![Code Style](https://img.shields.io/badge/Code_Style-Black-000000?style=for-the-badge&labelColor=2C0000)
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                          INTERNAL PROJECT                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+> **� Install via PyPI:** `pip install "tm-ai[all]"` — [Full docs at jaimeena.com/cvc →](https://jaimeena.com/cvc)
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                           LATEST UPDATES                                 -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+## 📢 **Latest Updates**
+
+- **🔁 Claude Code-inspired loop primitives (v2.92.2):** Audited Claude Code's agent loop against CVC's existing primitives (arxiv 2604.14228 + code.claude.com docs). Two P0 gaps closed: `CostBudget` — USD spend cap analog of `max_budget_usd` (thread-safe, refundable, swappable pricing function), and `ToolRiskRegistry` — 4-tier reversibility-weighted permission system (`read_only` / `reversible_write` / `network_write` / `destructive`) with `--accept-network` / `--yes-destroy` CLI flags. CVC now has iteration budget + cost budget + permission tiers — the three legs Claude Code stands on.
+- **🧠 Skill Insights (v2.92.0 + v2.92.1):** The world's first *cognitive* skill analytics. CVC is the only agent runtime that knows which skills the model *sees* (view_count) vs *actually uses* (use_count). `cvc skills insights` shows hot / fading / dead / fresh buckets plus a `[RECOMMENDED ACTIONS]` section with copy-pasteable CLI commands. Add `--apply-archives` to one-shot archive every dead skill (skips pinned + bundled). Available in CLI, dashboard (`/api/skills/insights`), and JSON.
+- **Google Cloud Vertex AI Support:** Added Vertex AI adapter for OpenAI-compatible REST endpoint with Google Cloud Application Default Credentials (ADC) authentication, plus model fetching and enhanced CLI support.
+- **Cognitive Features F1-F10 Testing:** Comprehensive end-to-end tests implemented for all core cognitive features, including the Cognitive Commit Learning Extractor, Versioned User Identity Model, DAG Dreaming, Quantum Branch Tournament, and Predictive Context Preloader.
+- **Version 2.2.1 Released:** Added comprehensive update notes for v2.2.1 covering significant architectural changes and the newest cognitive features.
+- **OpenClaw Integration (Beta):** OpenClaw is now successfully installed on our **Mac Mini** host! We are currently working on a deep integration between **CVC** and **OpenClaw** to enable seamless cognitive versioning for all OpenClaw agents.
+- **Enhanced Agent Tools:** v1.8.50 includes updated prompt instructions for the built-in agent to better handle high-volume token responses and complex JSON structures.
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                           NAVIGATION MENU                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+<table>
+<tr>
+<td align="center"><a href="#-why-cvc"><b>Why CVC?</b></a></td>
+<td align="center"><a href="#-features"><b>Features</b></a></td>
+<td align="center"><a href="#-quick-start"><b>Quick Start</b></a></td>
+<td align="center"><a href="#-documentation"><b>Docs</b></a></td>
+<td align="center"><a href="#-architecture"><b>Architecture</b></a></td>
+</tr>
+<tr>
+<td align="center"><a href="#-integrations"><b>Integrations</b></a></td>
+<td align="center"><a href="#-community"><b>Community</b></a></td>
+<td align="center"><a href="#-development"><b>Development</b></a></td>
+<td align="center"><a href="#-roadmap"><b>Roadmap</b></a></td>
+<td align="center"><a href="#-faq"><b>FAQ</b></a></td>
+</tr>
+<tr>
+<td align="center" colspan="5"><b>� <a href="https://jaimeena.com/cvc">jaimeena.com/cvc</a> — Full Docs & Install Guide</b></td>
+</tr>
+</table>
+
+</div>
+
+<br>
+<br>
+
+---
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                            THE PROBLEM                                   -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+<div align="center">
+
+
+---
+
+## 🚀 CVC 2.0: The Agentic Era
+
+CVC has evolved from a simple context backup tool into a **Cognitive Version Control** system designed for Autonomous Agent Orchestration.
+
+- **Semantic Merging**: Resolve cognitive collisions between branches using ChromaDB vector embeddings. Merges insights, not just logs.
+- **Quantum Branching (Tree of Thoughts)**: Race multiple LangGraph agents down parallel reality branches simultaneously. Merge the winning solution and archive failed attempts as learning data.
+- **Micro-Rollbacks**: Rewind execution histories at the thought-level or tool-call level using the new THOUGHT_STEP and TOOL_CALL commit states.
+- **Context Distillation Checkpoints**: Compress massive timelines dynamically to save LLM tokens while retaining semantic searchability.
+- **Multi-Agent Telepathy**: Pack a branch's exact cognitive state into a portable .cvcpack and beam it over the MCP protocol to another machine.
+- **Claude-style Parallel Tool Execution**: The CVC CLI Agent now supports running multiple destructive/write operations simultaneously via dynamic telepathy branching.
+
+
+## 💥 **The Problem**
+
+<br>
+
+### Your AI coding agent is brilliant — for about 20 minutes.
+
+Then it **forgets** what it already fixed, **contradicts** its own plan,  
+and **loops** on the same error for eternity.
+
+<br>
+
+### ***Sound familiar?***
+
+<br>
+
+</div>
+
+<table align="center">
+<tr>
+<td align="center" width="25%">
+<h3>😵‍💫</h3>
+<b>Context Rot</b><br>
+<sub>After 60% context fill,<br>quality falls off a cliff</sub>
+</td>
+<td align="center" width="25%">
+<h3>🔁</h3>
+<b>Error Loops</b><br>
+<sub>Same mistake,<br>different turn</sub>
+</td>
+<td align="center" width="25%">
+<h3>🧠</h3>
+<b>No Memory</b><br>
+<sub>Can't remember<br>what it just did</sub>
+</td>
+<td align="center" width="25%">
+<h3>💸</h3>
+<b>Token Waste</b><br>
+<sub>Re-processing the<br>same context</sub>
+</td>
+</tr>
+</table>
+
+<br>
+
+<div align="center">
+
+> ### **Bigger context windows don't fix this.**
+> ### **They just give the problem more room to spread.**
+
+<br>
+
+## ✨ **The Solution: CVC**
+
+Give AI agents what they've never had: **memory that actually works.**
+
+</div>
+
+<br>
+
+---
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                            WHY CVC?                                      -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+## 🎯 **Why CVC?**
+
+<div align="center">
+
+**CVC** is Git for the AI's brain.  
+Instead of versioning source code, it versions the agent's **entire cognitive state** — every thought, every decision, every conversation turn — as an immutable, cryptographic **Merkle DAG**.
+
+</div>
+
+<br>
+
+<table>
+<thead>
+<tr>
+<th align="center" width="20%">💾<br><b>Save</b></th>
+<th align="center" width="20%">🌿<br><b>Branch</b></th>
+<th align="center" width="20%">⏪<br><b>Rewind</b></th>
+<th align="center" width="20%">🔀<br><b>Merge</b></th>
+<th align="center" width="20%">🔍<br><b>Search</b></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="center">Checkpoint the agent's brain at any stable moment</td>
+<td align="center">Explore risky ideas in isolation without polluting main context</td>
+<td align="center">Stuck in a loop? Time-travel back instantly</td>
+<td align="center">Merge <em>learnings</em> back — semantic, not syntactic</td>
+<td align="center">Find when the agent solved similar problems before</td>
+</tr>
+</tbody>
+</table>
+
+<br>
+
+### 📊 **Research-Backed Results**
+
+<div align="center">
+
+<table>
+<tr>
+<td align="center" width="25%">
+<h2>58.1%</h2>
+<sub>Context reduction<br>via branching<br><br><a href="https://arxiv.org/abs/2512.13914">ContextBranch paper →</a></sub>
+</td>
+<td align="center" width="25%">
+<h2>3.5×</h2>
+<sub>Success rate improvement<br>with rollback<br><br><a href="https://arxiv.org/abs/2508.00031">GCC paper →</a></sub>
+</td>
+<td align="center" width="25%">
+<h2>~90%</h2>
+<sub>Cost reduction through<br>prompt caching<br><br><a href="https://www.prompthub.us/blog/prompt-caching">Caching study →</a></sub>
+</td>
+<td align="center" width="25%">
+<h2>~85%</h2>
+<sub>Latency reduction<br>on restores<br><br><a href="https://anthropic.com/news/prompt-caching">Anthropic docs →</a></sub>
+</td>
+</tr>
+</table>
+
+</div>
+
+<br>
+
+---
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                              FEATURES                                    -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+## 🚀 **Features**
+
+<div align="center">
+
+<table>
+<thead>
+<tr>
+<th align="center" width="33%">🤖 <b>Built-in Agent</b></th>
+<th align="center" width="33%">🔌 <b>Universal Proxy</b></th>
+<th align="center" width="34%">⏱️ <b>Time Machine</b></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="center">
+Just type <code>cvc</code> for a powerful<br>AI coding assistant with<br><b>17 built-in tools</b> and<br><b>5-provider support</b>
+</td>
+<td align="center">
+Run <b>any AI tool</b> through<br>CVC's time machine via<br><b>API proxy</b> or <b>MCP server</b><br>Zero configuration required
+</td>
+<td align="center">
+<b>Auto-checkpoint</b> every N turns<br><b>Never lose context</b><br><b>Crash recovery</b> built-in<br>Time-travel to any point<br><b>--no-think</b> for faster responses
+</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+<br>
+
+### 🧠 **Skill Insights (new in v2.92.0)**
+
+**The world's first cognitive skill analytics.** CVC is the only agent
+runtime that tracks which skills the model *sees* in the system prompt
+versus which ones it actually uses. The gap between those two numbers
+is **wasted context budget** — every dead skill burns tokens on every
+single turn, forever.
+
+```bash
+$ cvc skills insights
+[CVC Skill Insights] 2026-06-21T17:36:35+00:00
+----------------------------------------------------------------
+95 skills | 95 active | 0 stale | 0 archived | 0 pinned
+avg use/view: 0.253  wasted context share: 0.0%
+
+[HOT (used 3+ in 7d)] 8 skill(s) — cvc-add-new-provider / ...
+[FADING (was used, 30d+ idle)] (none)
+[DEAD (viewed 3+ but never used — wastes context)] (none)
+
+[RECOMMENDED ACTIONS]
+  3 suggested action(s) — ~12100 tokens potentially saved per turn
+
+  [ARCHIVE] totally-dead  (caution)
+    shown to the model 30 times, never picked — wastes ~6600 tokens/turn
+    > cvc skills archive totally-dead
+
+  [UNPIN] pinned-and-dead  (safe)
+    pinned but never used — curator can't manage it
+    > cvc skills unpin pinned-and-dead
+```
+
+Add `--apply-archives` to actually archive every dead skill (skips
+pinned + bundled). Dashboard renders the same data via
+`GET /api/skills/insights`. JSON mode: `cvc skills insights --json`.
+
+### 🆚 **How CVC Compares**
+
+<div align="center">
+
+<table>
+<thead>
+<tr>
+<th width="20%"><b>FEATURE</b></th>
+<th align="center" width="25%"><b>CLAUDE CODE / CODEX</b></th>
+<th align="center" width="30%"><b>ANTIGRAVITY / CURSOR / VS CODE</b></th>
+<th align="center" width="25%"><b>🔥 CVC AGENT</b></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><b>Context Memory</b></td>
+<td align="center">Linear (Lost on restart)</td>
+<td align="center">Session-based / Linear</td>
+<td align="center">✅ <b>Time-Travel (Project Isolated)</b></td>
+</tr>
+<tr>
+<td><b>Branching</b></td>
+<td align="center">No branching / rollback</td>
+<td align="center">Not supported</td>
+<td align="center">✅ <b>Full Branch Support</b></td>
+</tr>
+<tr>
+<td><b>Undo Capability</b></td>
+<td align="center">Single step (maybe)</td>
+<td align="center">Single step / Ctrl+Z</td>
+<td align="center">✅ <b>Instant Rewind (Any State)</b></td>
+</tr>
+<tr>
+<td><b>Search History</b></td>
+<td align="center">Current session only</td>
+<td align="center">Current session only</td>
+<td align="center">✅ <b>Global Semantic Search</b></td>
+</tr>
+<tr>
+<td><b>Providers</b></td>
+<td align="center">Single provider (usually)</td>
+<td align="center">Vendor locked often</td>
+<td align="center">✅ <b>Agnostic (5+ Providers)</b></td>
+</tr>
+<tr>
+<td><b>Cost</b></td>
+<td align="center">Full Re-prompting</td>
+<td align="center">Full Re-prompting</td>
+<td align="center">✅ <b>~90% Cheaper (Cached)</b></td>
+</tr>
+<tr>
+<td><b>Local / Offline</b></td>
+<td align="center">Cloud Dependent</td>
+<td align="center">Cloud Dependent</td>
+<td align="center">✅ <b>100% Local / Offline Capable</b></td>
+</tr>
+<tr>
+<td><b>Context Merging</b></td>
+<td align="center">Not available</td>
+<td align="center">Not available</td>
+<td align="center">✅ <b>Semantic Merge</b></td>
+</tr>
+<tr>
+<td><b>Image Analysis</b></td>
+<td align="center">Limited</td>
+<td align="center">Limited</td>
+<td align="center">✅ <b>Built-in Vision</b></td>
+</tr>
+<tr>
+<td><b>Auto-checkpoint</b></td>
+<td align="center">Not available</td>
+<td align="center">Not available</td>
+<td align="center">✅ <b>Configurable</b></td>
+</tr>
+<tr>
+<td><b>Crash Recovery</b></td>
+<td align="center">Session lost</td>
+<td align="center">Session lost</td>
+<td align="center">✅ <b>Full Restoration</b></td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+<br>
+
+---
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                            QUICK START                                   -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+## ⚡ **Quick Start**
+
+### **Installation**
+
+#### 🎯 **Recommended: One-Line Installer** (Installs Python if needed)
+
+```bash
+# 🎧 macOS / Linux / WSL
+curl -fsSL https://jaimeena.com/cvc/install.sh | bash
+
+# 🪟 Windows PowerShell
+irm https://jaimeena.com/cvc/install.ps1 | iex
+```
+
+<details>
+<summary><b>📦 Alternative: pip / uv</b></summary>
+
+<br>
+
+```bash
+# pip (all providers)
+pip install "tm-ai[all]"
+
+# uv (faster, recommended)
+uv tool install "tm-ai[all]"
+
+# Specific provider only
+pip install "tm-ai[anthropic]"   # Claude
+pip install "tm-ai[openai]"      # GPT
+pip install "tm-ai[google]"      # Gemini
+```
+
+</details>
+
+<br>
+
+### **Usage**
+
+```bash
+# 🤖 Agent Mode - Just type 'cvc'
+cvc
+
+# 🔌 Proxy Mode - Zero-config launch
+cvc launch claude          # Claude Code CLI
+cvc launch aider           # Aider
+cvc launch cursor          # Cursor IDE
+
+# Or manual setup
+cvc up                     # Setup + init + serve
+```
+
+<br>
+
+### **Set API Keys**
+
+```bash
+# Environment variables
+export ANTHROPIC_API_KEY="sk-ant-..."
+export OPENAI_API_KEY="sk-..."
+export GOOGLE_API_KEY="AIza..."
+
+# Or interactive setup
+cvc setup
+```
+
+<br>
+
+**That''s it! 🎉**
+
+<br>
+
+> 🌐 **Full documentation, installation guides, and examples at [jaimeena.com/cvc](https://jaimeena.com/cvc)**
+
+<br>
+
+---
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                           DOCUMENTATION                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+## 📖 **Documentation**
+
+<div align="center">
+
+<table>
+<tr>
+<td align="center" width="25%">
+<h3>🤖</h3>
+<b><a href="docs/CLI_AGENT_GUIDE.md">Agent CLI Guide</a></b><br>
+<sub>Complete guide to the built-in agent</sub>
+</td>
+<td align="center" width="25%">
+<h3>⌨️</h3>
+<b><a href="docs/CLI_SLASH_COMMANDS.md">Slash Commands</a></b><br>
+<sub>All slash commands reference</sub>
+</td>
+<td align="center" width="25%">
+<h3>🔧</h3>
+<b><a href="docs/CVC_TOOLS_REFERENCE.md">Tools Reference</a></b><br>
+<sub>17 built-in tools documentation</sub>
+</td>
+<td align="center" width="25%">
+<h3>🔌</h3>
+<b><a href="docs/MCP_DOCUMENTATION.md">MCP Integration</a></b><br>
+<sub>Model Context Protocol setup</sub>
+</td>
+</tr>
+<tr>
+<td align="center" width="25%">
+<h3>🗺️</h3>
+<b><a href="docs/CROSS_MODE_GUIDE.md">Cross-Mode Guide</a></b><br>
+<sub>Agent + Proxy + MCP workflows</sub>
+</td>
+<td align="center" width="25%">
+<h3>📁</h3>
+<b><a href="docs/MULTI_WORKSPACE.md">Multi-Workspace</a></b><br>
+<sub>Multiple project management</sub>
+</td>
+<td align="center" width="25%">
+<h3>📚</h3>
+<b><a href="docs/documentation.md">Full Docs</a></b><br>
+<sub>Complete documentation</sub>
+</td>
+<td align="center" width="25%">
+<h3>📝</h3>
+<b><a href="docs/CHANGELOG.md">Changelog</a></b><br>
+<sub>Version history</sub>
+</td>
+</tr>
+<tr>
+<td align="center" colspan="4">
+<h3>🌐</h3>
+<b><a href="https://jaimeena.com/cvc">Official Website</a></b><br>
+<sub>Full docs, installation guides, examples & more at <a href="https://jaimeena.com/cvc">jaimeena.com/cvc</a></sub>
+</td>
+</tr>
+</table>
+
+</div>
+
+<br>
+
+---
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                           INTEGRATIONS                                   -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+## 🔌 **Integrations**
+
+<div align="center">
+
+### **Run ANY AI tool through CVC''s Time Machine**
+
+</div>
+
+<br>
+
+<table>
+<thead>
+<tr>
+<th width="25%">Tool</th>
+<th width="40%">How to Connect</th>
+<th width="35%">Command</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><b>💎 Claude Code CLI</b></td><td><code>export ANTHROPIC_BASE_URL=http://127.0.0.1:8000</code></td><td><code>cvc launch claude</code></td></tr>
+<tr><td><b>🛠️ Aider</b></td><td>Standard OpenAI-compatible endpoint</td><td><code>cvc launch aider</code></td></tr>
+<tr><td><b>⌨️ Codex CLI</b></td><td><code>model_provider = "cvc"</code> in config</td><td><code>cvc launch codex</code></td></tr>
+<tr><td><b>🖱️ Cursor</b></td><td>Settings → Override Base URL</td><td><code>cvc launch cursor</code></td></tr>
+<tr><td><b>💎 VS Code + Copilot</b></td><td>BYOK or MCP integration</td><td><code>cvc launch code</code></td></tr>
+<tr><td><b>🏄 Windsurf</b></td><td>MCP integration</td><td><code>cvc launch windsurf</code></td></tr>
+<tr><td><b>🚀 Antigravity</b></td><td>MCP integration</td><td><code>cvc mcp</code></td></tr>
+<tr><td><b>🔄 Continue.dev</b></td><td>Base URL → <code>http://127.0.0.1:8000/v1</code></td><td><code>cvc serve</code></td></tr>
+<tr><td><b>🤖 Cline</b></td><td>Base URL → <code>http://127.0.0.1:8000/v1</code></td><td><code>cvc serve</code></td></tr>
+<tr><td><b>🦜 LangChain</b></td><td>Use CVC''s function-calling tools</td><td><code>cvc serve</code></td></tr>
+<tr><td><b>👥 CrewAI</b></td><td>Use CVC''s function-calling tools</td><td><code>cvc serve</code></td></tr>
+<tr><td><b>🤝 AutoGen</b></td><td>Use CVC''s function-calling tools</td><td><code>cvc serve</code></td></tr>
+<tr><td><b>🌐 Open WebUI</b></td><td>Standard OpenAI-compatible endpoint</td><td><code>cvc serve</code></td></tr>
+</tbody>
+</table>
+
+<br>
+
+> **🔑 Auth pass-through:** External tools can send their own API keys — CVC forwards them to the upstream provider.
+
+<br>
+
+Run `cvc connect` for interactive setup instructions.
+
+<br>
+
+---
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                           ARCHITECTURE                                   -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+## 🗝️ **Architecture**
+
+<div align="center">
+
+### **Three-Tiered Local Storage**
+
+<br>
+
+<table>
+<tr>
+<td align="center" width="33%">
+<h3>🗄️ SQLite</h3>
+<b>Commit graph</b><br>
+<b>Branch pointers</b><br>
+<b>Metadata</b><br>
+<sub>Fast traversal, zero-config</sub>
+</td>
+<td align="center" width="33%">
+<h3>📦 CAS Blobs</h3>
+<b>Context snapshots</b><br>
+<b>Zstandard compression</b><br>
+<b>Content-addressable</b><br>
+<sub>Deduplicated, efficient</sub>
+</td>
+<td align="center" width="34%">
+<h3>🔍 Chroma</h3>
+<b>Semantic embeddings</b><br>
+<b>Vector search</b><br>
+<b>Optional</b><br>
+<sub>"Have I solved this before?"</sub>
+</td>
+</tr>
+</table>
+
+<br>
+
+✨ **Everything stays in `.cvc/` inside your project**  
+🔒 **No cloud • No telemetry • Your agent''s thoughts are yours**
+
+</div>
+
+<br>
+
+### 📦 **Project Structure**
+
+```
+cvc/
+├── agent/          # Built-in AI coding agent
+│   ├── chat.py     # REPL loop, slash commands
+│   ├── llm.py      # Unified LLM client (4 providers)
+│   ├── tools.py    # 17 tool definitions
+│   └── executor.py # Tool execution engine
+├── adapters/       # Provider-specific formatting
+│   ├── anthropic.py # Prompt caching support
+│   ├── openai.py
+│   ├── google.py
+│   └── ollama.py
+├── core/           # Data layer
+│   ├── models.py   # Merkle DAG, Pydantic schemas
+│   └── database.py # SQLite + CAS + Chroma
+├── operations/     # CVC engine
+│   ├── engine.py   # Commit, branch, merge, restore
+│   └── state_machine.py # LangGraph routing
+└── vcs/            # Git bridge
+    └── bridge.py   # Shadow branches, Git notes, hooks
+```
+
+<br>
+
+---
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                              PROVIDERS                                   -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+## 🤖 **Supported Providers**
+
+<table>
+<thead>
+<tr>
+<th width="15%">Provider</th>
+<th width="30%">Default Model</th>
+<th width="35%">Alternatives</th>
+<th width="20%">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><b>🟣 Anthropic</b></td>
+<td><code>claude-opus-4-6</code></td>
+<td><code>claude-opus-4-5</code>, <code>claude-sonnet-4-5</code>, <code>claude-haiku-4-5</code></td>
+<td>Prompt caching</td>
+</tr>
+<tr>
+<td><b>🟢 OpenAI</b></td>
+<td><code>gpt-5.2</code></td>
+<td><code>gpt-5.2-codex</code>, <code>gpt-5-mini</code>, <code>gpt-4.1</code></td>
+<td>Auto prefix caching</td>
+</tr>
+<tr>
+<td><b>🔵 Google</b></td>
+<td><code>gemini-3.1-pro-preview</code></td>
+<td><code>gemini-3-pro-preview</code>, <code>gemini-3-flash-preview</code></td>
+<td>Multimodal + reasoning</td>
+</tr>
+<tr>
+<td><b>⚪ Ollama</b></td>
+<td><code>qwen2.5-coder:7b</code></td>
+<td><code>qwen3-coder:30b</code>, <code>devstral:24b</code>, <code>deepseek-r1:8b</code></td>
+<td>100% local, no API key</td>
+</tr>
+<tr>
+<td><b>🟤 LM Studio</b></td>
+<td><code>qwen2.5-coder-32b-instruct</code></td>
+<td><code>devstral-small-2505</code>, <code>deepseek-r1-distill-qwen-32b</code>, <code>gemma-3-27b-it</code></td>
+<td>100% local, OpenAI-compat</td>
+</tr>
+</tbody>
+</table>
+
+<br>
+
+---
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                              COMMUNITY                                   -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+## 💬 **Community**
+
+<div align="center">
+
+### **Join the CVC community**
+
+<br>
+
+<table>
+<tr>
+<td align="center" width="33%">
+<h3>🐛</h3>
+<b><a href="https://github.com/mannuking/cvc/issues">Issues</a></b><br>
+<sub>Report bugs & request features</sub>
+</td>
+<td align="center" width="33%">
+<h3>💡</h3>
+<b><a href="https://github.com/mannuking/cvc/discussions">Discussions</a></b><br>
+<sub>Ask questions & share ideas</sub>
+</td>
+<td align="center" width="34%">
+<h3>🌐</h3>
+<b><a href="https://jaimeena.com/cvc">Website</a></b><br>
+<sub>Docs, guides & examples</sub>
+</td>
+</tr>
+</table>
+
+</div>
+
+<br>
+
+---
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                            CONTRIBUTING                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+## 🛠️ **Development**
+
+<div align="center">
+
+**Contributions welcome! See below for setup instructions.**
+
+All contributions go through code review via Pull Requests.
+
+<br>
+
+**Fork** → **Branch** → **Commit** → **Pull Request**
+
+</div>
+
+<br>
+
+### 🛠️ **Dev Setup**
+
+```bash
+# Clone the repository
+git clone https://github.com/mannuking/cvc.git
+cd cvc
+uv sync --extra dev
+```
+
+<br>
+
+---
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                              ROADMAP                                     -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+## 🗺️ **Roadmap**
+
+<table>
+<thead>
+<tr>
+<th width="60%">Feature</th>
+<th width="40%">Status</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>🤖 Built-in Agent CLI</td><td>✅ <b>Shipped v1.6.2</b> — 17 tools, 5 providers, <code>--no-think</code></td></tr>
+<tr><td>☁️ All 5 Provider Adapters</td><td>✅ <b>Shipped</b> — Anthropic, OpenAI, Google, Ollama, LM Studio</td></tr>
+<tr><td>🔌 MCP Server</td><td>✅ <b>Shipped</b> — stdio + SSE transports</td></tr>
+<tr><td>🚀 Zero-config Launch</td><td>✅ <b>Shipped</b> — <code>cvc launch</code> for all tools</td></tr>
+<tr><td>🔗 Git Bridge</td><td>✅ <b>Shipped</b> — Shadow branches, hooks, notes</td></tr>
+<tr><td>🎨 VS Code Extension</td><td>📜 <b>Q2 2026</b> — Visual commit graph, time-travel</td></tr>
+<tr><td>🌐 Web UI</td><td>📜 <b>Q2 2026</b> — Browser visualization & management</td></tr>
+<tr><td>👥 Multi-agent support</td><td>📜 <b>Q3 2026</b> — Shared DB with conflict resolution</td></tr>
+<tr><td>☁️ Cloud sync</td><td>📜 <b>Q3 2026</b> — S3/MinIO for teams</td></tr>
+<tr><td>📊 Metrics dashboard</td><td>📜 <b>Q4 2026</b> — Cache hits, context utilization, analytics</td></tr>
+</tbody>
+</table>
+
+<br>
+
+---
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                                FAQ                                       -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+## ❓ **FAQ**
+
+<details>
+<summary><b>What is CVC?</b></summary>
+
+<br>
+
+CVC (Cognitive Version Control) is Git for AI agent context. It versions the agent''s entire cognitive state as an immutable Merkle DAG, enabling time-travel, branching, and merging for AI conversations.
+
+</details>
+
+<details>
+<summary><b>How is CVC different from Claude Code or Cursor?</b></summary>
+
+<br>
+
+CVC adds: ⏪ Time-travel • 🌿 Branching • 🔍 Semantic search • 🔀 Context merging • 💾 Auto-checkpoint • 🔄 Crash recovery • 🤖 Multi-provider support (5 vs 1)
+
+</details>
+
+<details>
+<summary><b>Does CVC work with my existing AI tools?</b></summary>
+
+<br>
+
+**Yes!** CVC works in two modes:  
+1. **Agent mode** — built-in AI assistant  
+2. **Proxy mode** — transparent proxy for Claude Code, Aider, Cursor, VS Code, Windsurf, Continue, Cline, LangChain, CrewAI, AutoGen, and more
+
+</details>
+
+<details>
+<summary><b>Is my data sent to the cloud?</b></summary>
+
+<br>
+
+**No.** Everything stays local in `.cvc/`. CVC has:  
+🔒 No telemetry • 🔒 No cloud sync • 🔒 No data collection  
+Your agent''s thoughts are **yours**.
+
+</details>
+
+<details>
+<summary><b>How much does it cost?</b></summary>
+
+<br>
+
+**CVC is free and open-source (MIT license).** You only pay for LLM API calls (Anthropic/OpenAI/Google), and CVC makes them **~90% cheaper** via prompt caching and **58.1% less context** via branching. Use Ollama for 100% free local operation.
+
+</details>
+
+<details>
+<summary><b>Can I use CVC offline?</b></summary>
+
+<br>
+
+**Yes!** Use Ollama with local models like `qwen2.5-coder:7b`, `deepseek-r1:8b`, etc. 100% local, no API key needed.
+
+</details>
+
+<details>
+<summary><b>What providers are supported?</b></summary>
+
+<br>
+
+- 🟣 **Anthropic** (Claude Opus 4.6, Sonnet 4.5, Haiku 4.5)  
+- 🟢 **OpenAI** (GPT-5.2, GPT-5.2-Codex, GPT-5-mini)  
+- 🔵 **Google** (Gemini 3 Pro/Flash Preview, Gemini 2.5 Pro/Flash — with thinking level control)  
+- ⚪ **Ollama** (Qwen, DeepSeek, Devstral, etc.)  
+- 🟤 **LM Studio** (any locally loaded model — OpenAI-compatible)
+
+</details>
+
+<details>
+<summary><b>Is there a GUI?</b></summary>
+
+<br>
+
+Not yet! But coming soon:  
+🎨 **VS Code extension** (Q2 2026)  
+🌐 **Web UI** (Q2 2026)  
+
+For now, use the beautiful terminal UI with Rich formatting.
+
+</details>
+
+<details>
+<summary><b>Can I use CVC in production?</b></summary>
+
+<br>
+
+**Yes!** CVC is production-ready (v1.8.50) with crash-resistant local storage, used by solo developers, teams, and enterprises.
+
+</details>
+
+<br>
+
+---
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                              RESEARCH                                    -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+## 📚 **Research**
+
+<div align="center">
+
+**CVC is grounded in published research**
+
+</div>
+
+<br>
+
+<table>
+<thead>
+<tr>
+<th width="35%">Paper</th>
+<th width="65%">Key Finding</th>
+</tr>
+</thead>
+<tbody>
+<tr><td><a href="https://arxiv.org/abs/2512.13914"><b>ContextBranch</b></a></td><td>58.1% context reduction via branching</td></tr>
+<tr><td><a href="https://arxiv.org/abs/2508.00031"><b>GCC</b></a></td><td>11.7% → 40.7% success with rollback (3.5× improvement)</td></tr>
+<tr><td><a href="https://research.protocol.ai/publications/merkle-crdts-merkle-dags-meet-crdts/psaras2020.pdf"><b>Merkle-CRDTs</b></a></td><td>Structural deduplication for content-addressable DAGs</td></tr>
+<tr><td><a href="https://www.prompthub.us/blog/prompt-caching-with-openai-anthropic-and-google-models"><b>Prompt Caching</b></a></td><td>Anthropic/OpenAI/Google token reuse patterns</td></tr>
+</tbody>
+</table>
+
+<br>
+
+---
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                              LICENSE                                     -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+## 📜 **License**
+
+<div align="center">
+
+**MIT License** — See [LICENSE](LICENSE) for details.
+
+Free and open-source. Contributions welcome!
+
+</div>
+
+<br>
+
+---
+
+<br>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--                              FOOTER                                      -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+<div align="center">
+
+<br>
+
+## ✨ **Because AI agents deserve an undo button** ✨
+
+<br>
+
+**Made with ❤️ by developers who got tired of AI agents forgetting what they just did.**
+
+<br>
+
+---
+
+<br>
+
+### **Open Source — MIT License**
+
+<br>
+
+---
+
+<br>
+
+<sub>Built with Python 🐍 • FastAPI ⚡ • SQLite 🗄️ • LangGraph 🦜 • Rich 🎨</sub>
+
+<br>
+
+</div>
+
+- **2026-03-24:** Addressed rich text markdown editing in HydroMain's Venture Dashboard and proposed Project Aegis (native macOS sandbox for OpenClaw).
+
+I love you 🤍

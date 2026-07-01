@@ -6,7 +6,7 @@ for both Tinybird and Organization scopes.
 """
 
 from functools import lru_cache
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 def get_tinybird_service_datasources() -> List[Dict[str, Any]]:
@@ -1126,20 +1126,3 @@ def get_service_datasources() -> List[Dict[str, Any]]:
         List[Dict[str, Any]]: A combined list of all service datasource definitions.
     """
     return get_tinybird_service_datasources() + get_organization_service_datasources()
-
-
-def get_service_datasource_by_name(name: str) -> Optional[Dict[str, Any]]:
-    """
-    Get a specific service datasource by name. Name should include the type (e.g. tinybird.datasources_ops_log)
-
-    Args:
-        name: The name of the service datasource to retrieve.
-
-    Returns:
-        Optional[Dict[str, Any]]: The service datasource definition or None if not found.
-    """
-    service_datasources = get_service_datasources()
-    for ds in service_datasources:
-        if ds["name"] == name:
-            return ds
-    return None

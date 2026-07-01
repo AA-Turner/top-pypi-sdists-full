@@ -70,6 +70,12 @@ class DankefuerslesenChapterExtractor(DankefuerslesenBase, ChapterExtractor):
             "date"      : self.parse_timestamp(data["release_date"][group_id]),
             "lang"      : util.NONE,
             "language"  : util.NONE,
+            "_http_headers": {
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "none",
+                "Sec-Fetch-User": "?1",
+            },
         }
 
     def images(self, page):

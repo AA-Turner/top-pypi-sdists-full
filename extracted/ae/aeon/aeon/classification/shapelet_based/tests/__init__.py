@@ -1,1 +1,0 @@
-"""Shapelet based tests."""

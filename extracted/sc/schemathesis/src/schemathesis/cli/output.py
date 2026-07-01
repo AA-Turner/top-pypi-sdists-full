@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import time
 from collections.abc import Iterable
 from dataclasses import dataclass
 from types import GeneratorType
@@ -14,7 +13,14 @@ import click
 from schemathesis.cli.constants import ISSUE_TRACKER_URL
 from schemathesis.cli.core import get_terminal_width
 from schemathesis.core.errors import LoaderErrorKind
-from schemathesis.core.failures import MessageBlock, Severity, format_failures
+from schemathesis.core.failures import (
+    RUN_CHECKS_LABEL,
+    MessageBlock,
+    Severity,
+    format_failures,
+    is_reproducible_failure,
+)
+from schemathesis.core.timing import Instant
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -97,7 +103,8 @@ def display_final_line(
         message = f"No issues found in {running_time:.2f}s"
         color = "green"
 
-    display_section_name(message, fg=color)
+    banner = format_summary_banner(message, width=get_terminal_width())
+    click.echo(_style(banner, bold=True, fg=color))
 
 
 def display_header(version: str) -> None:
@@ -108,9 +115,33 @@ def display_header(version: str) -> None:
     click.echo()
 
 
+def format_summary_banner(message: str, *, width: int) -> str:
+    return f" {message} ".center(width, "=")
+
+
+def append_replay_command(code_sample: str | None, case_id: str | None) -> str | None:
+    """Reproduce snippet with the `st replay <case_id>` line appended, when both parts are present."""
+    if code_sample is None or not case_id:
+        return code_sample
+    return f"{code_sample}\n\nst replay {case_id}"
+
+
 def format_duration(duration_ms: int) -> str:
     """Format duration in milliseconds to seconds with 2 decimal places."""
     return f"{duration_ms / 1000:.2f}s"
+
+
+def make_progress_bar(console: Console, *, indent: str = "", transient: bool = True) -> Progress:
+    from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
+
+    return Progress(
+        TextColumn(indent),
+        TimeElapsedColumn(),
+        BarColumn(bar_width=None),
+        TextColumn("{task.percentage:.0f}% ({task.completed}/{task.total})"),
+        console=console,
+        transient=transient,
+    )
 
 
 def make_console(**kwargs: Any) -> Console:
@@ -131,7 +162,7 @@ class LoadingProgressManager:
 
     console: Console
     location: str
-    start_time: float
+    started_at: Instant
     progress: Progress
     progress_task_id: TaskID | None
     is_interrupted: bool
@@ -143,7 +174,7 @@ class LoadingProgressManager:
 
         self.console = console
         self.location = location
-        self.start_time = time.monotonic()
+        self.started_at = Instant()
         progress_message = Text.assemble(
             ("Loading specification from ", Style(color="white")),
             (location, Style(color="cyan")),
@@ -179,7 +210,7 @@ class LoadingProgressManager:
         from rich.style import Style
         from rich.text import Text
 
-        duration = format_duration(int((time.monotonic() - self.start_time) * 1000))
+        duration = format_duration(self.started_at.elapsed_ms)
         if self.is_interrupted:
             return Text.assemble(
                 ("⚡  ", Style(color="yellow")),
@@ -198,7 +229,7 @@ class LoadingProgressManager:
         from rich.style import Style
         from rich.text import Text
 
-        duration = format_duration(int((time.monotonic() - self.start_time) * 1000))
+        duration = format_duration(self.started_at.elapsed_ms)
 
         attempted = Text.assemble(
             ("❌  ", Style(color="red")),
@@ -237,16 +268,24 @@ def failure_formatter(block: MessageBlock, content: str) -> str:
     return _style(content.replace("Reproduce with", click.style("Reproduce with", bold=True)))
 
 
-def display_failures_for_single_test(config: OutputConfig, label: str, checks: Iterable[GroupedFailures]) -> None:
+def display_failures_for_single_test(
+    config: OutputConfig, label: str, checks: Iterable[GroupedFailures], *, record_crashes: bool
+) -> None:
     """Display failures for a single operation."""
     display_section_name(label, "_", fg="red")
     for idx, group in enumerate(checks, 1):
+        case_id = f"{idx}. Test Case ID: {group.case_id}" if group.case_id is not None else None
+        # Only hint `st replay` when a crash file was actually recorded for this case.
+        if record_crashes and any(is_reproducible_failure(failure) for failure in group.failures):
+            reproduce = append_replay_command(group.code_sample, group.case_id)
+        else:
+            reproduce = group.code_sample
         click.echo(
             format_failures(
-                case_id=f"{idx}. Test Case ID: {group.case_id}",
+                case_id=case_id,
                 response=group.response,
                 failures=group.failures,
-                curl=group.code_sample,
+                curl=reproduce,
                 formatter=failure_formatter,
                 config=config,
             )
@@ -254,13 +293,15 @@ def display_failures_for_single_test(config: OutputConfig, label: str, checks: I
         click.echo()
 
 
-def display_failures(statistic: Statistic, config: OutputConfig) -> None:
+def display_failures(statistic: Statistic, config: OutputConfig, *, record_crashes: bool) -> None:
     """Display all failures in the test run."""
     if not statistic.failures:
         return
     display_section_name("FAILURES")
     for label in sorted(statistic.failures):
-        display_failures_for_single_test(config, label, statistic.failures[label].values())
+        display_failures_for_single_test(
+            config, label, statistic.failures[label].values(), record_crashes=record_crashes
+        )
 
 
 def display_api_operations(
@@ -305,7 +346,13 @@ def display_test_cases(statistic: Statistic) -> None:
         click.echo("  No test cases were generated\n")
         return
 
-    unique_failures = sum(len(group.failures) for grouped in statistic.failures.values() for group in grouped.values())
+    # `after_run` checks are not tied to cases, so they are counted in the "Failures" block, not here.
+    unique_failures = sum(
+        len(group.failures)
+        for label, grouped in statistic.failures.items()
+        if label != RUN_CHECKS_LABEL
+        for group in grouped.values()
+    )
     click.echo(_style("Test cases:", bold=True))
     parts = [f"  {click.style(str(statistic.total_cases), bold=True)} generated"]
 

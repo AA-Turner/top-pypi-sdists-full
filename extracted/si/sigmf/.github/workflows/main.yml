@@ -1,0 +1,28 @@
+name: Python package
+
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize]
+  schedule:
+    - cron: "5 5 * * 5" # test every friday @ 0505
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        python-version: ["3.7", "3.9", "3.11", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[test]
+      - name: Test with pytest
+        run: |
+          coverage run

@@ -106,12 +106,15 @@ def mock_internal_utils():
     ) as mock_utils, patch(
         "sagemaker_studio.utils.spark.session.glue.glue_spark_session_manager._ensure_project"
     ) as mock_ensure_project, patch(
-        "sagemaker_studio.utils.spark.session.spark_config_builder.Project"
+        "sagemaker_studio.utils.spark.session.spark_config_builder._ensure_project"
     ), patch(
         "sagemaker_studio.utils.spark.session.spark_config_builder._generate_s3tables_spark_configs",
         return_value={},
     ), patch(
-        "sagemaker_studio.utils.spark.session.spark_config_builder._generate_irc_connection_spark_configs",
+        "sagemaker_studio.utils.spark.session.spark_config_builder._generate_glue_catalog_spark_configs",
+        return_value={},
+    ), patch(
+        "sagemaker_studio.utils.spark.session.spark_config_builder._generate_workday_irc_spark_configs",
         return_value={},
     ):
         mock_utils.return_value._get_domain_region.return_value = "us-east-2"
@@ -689,12 +692,15 @@ def test_start_glue_session_scheduled_run_request_origin(mock_session_cls, mock_
     ) as mock_utils, patch(
         "sagemaker_studio.utils.spark.session.glue.glue_spark_session_manager._ensure_project"
     ) as mock_ensure_project, patch(
-        "sagemaker_studio.utils.spark.session.spark_config_builder.Project"
+        "sagemaker_studio.utils.spark.session.spark_config_builder._ensure_project"
     ), patch(
         "sagemaker_studio.utils.spark.session.spark_config_builder._generate_s3tables_spark_configs",
         return_value={},
     ), patch(
-        "sagemaker_studio.utils.spark.session.spark_config_builder._generate_irc_connection_spark_configs",
+        "sagemaker_studio.utils.spark.session.spark_config_builder._generate_glue_catalog_spark_configs",
+        return_value={},
+    ), patch(
+        "sagemaker_studio.utils.spark.session.spark_config_builder._generate_workday_irc_spark_configs",
         return_value={},
     ):
         mock_utils.return_value._get_domain_region.return_value = "us-east-2"
@@ -1464,6 +1470,308 @@ def test_start_glue_session_exception_propagates(
 
     with pytest.raises(Exception, match="CreateSession failed"):
         mgr._start_glue_session()
+
+
+# ---------------------------------------------------------------------------
+# User-configurable CreateSession fields via ClientConfig.overrides["glue"]
+# ---------------------------------------------------------------------------
+
+
+@patch("boto3.client")
+@patch("boto3.Session")
+def test_lazy_init_extracts_session_overrides(
+    mock_session_cls, mock_boto_client, mock_internal_utils
+):
+    """Ensure _lazy_init picks up only recognized session fields from overrides['glue']."""
+    conn = MagicMock()
+    conn._Connection__connection_data = {
+        "props": {"sparkGlueProperties": {"glueVersion": "5.1"}},
+        "configurations": [],
+        "physicalEndpoints": [],
+    }
+    mock_session_cls.return_value.client.return_value = MagicMock()
+
+    mgr = GlueSparkSessionManager(
+        connection=conn,
+        config=ClientConfig(
+            overrides={
+                "glue": {
+                    "endpoint_url": "https://glue.us-east-2.amazonaws.com",
+                    "workerType": "G.2X",
+                    "numberOfWorkers": 25,
+                    "idleTimeout": 10,
+                    "glueVersion": "5.2",
+                    "unrecognizedKey": "ignored",
+                }
+            }
+        ),
+    )
+    mgr._lazy_init()
+
+    # Only the recognized sizing keys are captured; endpoint_url and unknown keys excluded.
+    assert mgr._glue_session_overrides == {
+        "workerType": "G.2X",
+        "numberOfWorkers": 25,
+        "idleTimeout": 10,
+        "glueVersion": "5.2",
+    }
+
+
+@patch("boto3.client")
+@patch("boto3.Session")
+def test_start_glue_session_user_overrides_take_precedence(
+    mock_session_cls, mock_boto_client, mock_internal_utils
+):
+    """Ensure user overrides win over connection sparkGlueProperties in CreateSession."""
+    conn = MagicMock()
+    conn._Connection__connection_data = {
+        "props": {
+            "sparkGlueProperties": {
+                "glueVersion": "5.1",
+                "workerType": "G.1X",
+                "numberOfWorkers": 10,
+                "idleTimeout": 15,
+            }
+        },
+        "configurations": [],
+        "physicalEndpoints": [],
+    }
+
+    mock_glue_client = MagicMock()
+    mock_session_cls.return_value.client.return_value = mock_glue_client
+    mock_glue_client.create_session.return_value = {"Session": {"Id": "sess-ovr"}}
+    mock_glue_client.get_session.return_value = {"Session": {"Status": "READY"}}
+    mock_glue_client.get_session_endpoint.return_value = {
+        "SparkConnect": {"Url": "sc://ep", "AuthToken": "t", "AuthTokenExpirationTime": 123}
+    }
+
+    mgr = GlueSparkSessionManager(
+        connection=conn,
+        config=ClientConfig(
+            overrides={
+                "glue": {
+                    "workerType": "G.2X",
+                    "numberOfWorkers": 30,
+                    "glueVersion": "5.2",
+                    "idleTimeout": 12,
+                }
+            }
+        ),
+    )
+    mgr._lazy_init()
+    mgr._start_glue_session()
+
+    create_call = mock_glue_client.create_session.call_args
+    assert create_call[1]["WorkerType"] == "G.2X"
+    assert create_call[1]["NumberOfWorkers"] == 30
+    assert create_call[1]["GlueVersion"] == "5.2"
+    assert create_call[1]["IdleTimeout"] == 12
+
+
+@patch("boto3.client")
+@patch("boto3.Session")
+def test_start_glue_session_falls_back_to_connection_when_no_override(
+    mock_session_cls, mock_boto_client, mock_internal_utils
+):
+    """Ensure connection props are used for fields not present in user overrides."""
+    conn = MagicMock()
+    conn._Connection__connection_data = {
+        "props": {
+            "sparkGlueProperties": {
+                "glueVersion": "5.1",
+                "workerType": "G.4X",
+                "numberOfWorkers": 7,
+            }
+        },
+        "configurations": [],
+        "physicalEndpoints": [],
+    }
+
+    mock_glue_client = MagicMock()
+    mock_session_cls.return_value.client.return_value = mock_glue_client
+    mock_glue_client.create_session.return_value = {"Session": {"Id": "sess-mix"}}
+    mock_glue_client.get_session.return_value = {"Session": {"Status": "READY"}}
+    mock_glue_client.get_session_endpoint.return_value = {
+        "SparkConnect": {"Url": "sc://ep", "AuthToken": "t", "AuthTokenExpirationTime": 123}
+    }
+
+    # Only override numberOfWorkers; workerType/glueVersion should come from connection.
+    mgr = GlueSparkSessionManager(
+        connection=conn,
+        config=ClientConfig(overrides={"glue": {"numberOfWorkers": 50}}),
+    )
+    mgr._lazy_init()
+    mgr._start_glue_session()
+
+    create_call = mock_glue_client.create_session.call_args
+    assert create_call[1]["NumberOfWorkers"] == 50  # user override
+    assert create_call[1]["WorkerType"] == "G.4X"  # from connection
+    assert create_call[1]["GlueVersion"] == "5.1"  # from connection
+
+
+@patch("boto3.client")
+@patch("boto3.Session")
+def test_start_glue_session_override_guards_still_apply(
+    mock_session_cls, mock_boto_client, mock_internal_utils
+):
+    """Ensure version floor (5.1) and idle-timeout cap (15) apply to user overrides too."""
+    conn = MagicMock()
+    conn._Connection__connection_data = {
+        "props": {"sparkGlueProperties": {"glueVersion": "5.1"}},
+        "configurations": [],
+        "physicalEndpoints": [],
+    }
+
+    mock_glue_client = MagicMock()
+    mock_session_cls.return_value.client.return_value = mock_glue_client
+    mock_glue_client.create_session.return_value = {"Session": {"Id": "sess-guard"}}
+    mock_glue_client.get_session.return_value = {"Session": {"Status": "READY"}}
+    mock_glue_client.get_session_endpoint.return_value = {
+        "SparkConnect": {"Url": "sc://ep", "AuthToken": "t", "AuthTokenExpirationTime": 123}
+    }
+
+    # User asks for an unsupported version and an over-long idle timeout.
+    mgr = GlueSparkSessionManager(
+        connection=conn,
+        config=ClientConfig(overrides={"glue": {"glueVersion": "4.0", "idleTimeout": 120}}),
+    )
+    mgr._lazy_init()
+    mgr._start_glue_session()
+
+    create_call = mock_glue_client.create_session.call_args
+    # Version floored to 5.1, idle timeout capped at 15.
+    assert create_call[1]["GlueVersion"] == "5.1"
+    assert create_call[1]["IdleTimeout"] == 15
+
+
+@patch("boto3.client")
+@patch("boto3.Session")
+def test_start_glue_session_optional_fields_omitted_by_default(
+    mock_session_cls, mock_boto_client, mock_internal_utils
+):
+    """maxCapacity/securityConfiguration/timeout are absent from CreateSession when unset."""
+    conn = MagicMock()
+    conn._Connection__connection_data = {
+        "props": {"sparkGlueProperties": {"glueVersion": "5.1"}},
+        "configurations": [],
+        "physicalEndpoints": [],
+    }
+
+    mock_glue_client = MagicMock()
+    mock_session_cls.return_value.client.return_value = mock_glue_client
+    mock_glue_client.create_session.return_value = {"Session": {"Id": "sess-def"}}
+    mock_glue_client.get_session.return_value = {"Session": {"Status": "READY"}}
+    mock_glue_client.get_session_endpoint.return_value = {
+        "SparkConnect": {"Url": "sc://ep", "AuthToken": "t", "AuthTokenExpirationTime": 123}
+    }
+
+    mgr = GlueSparkSessionManager(connection=conn)
+    mgr._lazy_init()
+    mgr._start_glue_session()
+
+    create_call = mock_glue_client.create_session.call_args
+    assert "MaxCapacity" not in create_call[1]
+    assert "SecurityConfiguration" not in create_call[1]
+    assert "Timeout" not in create_call[1]
+    # Worker-based sizing still present when maxCapacity is unset.
+    assert create_call[1]["WorkerType"] == "G.1X"
+    assert create_call[1]["NumberOfWorkers"] == 10
+
+
+@patch("boto3.client")
+@patch("boto3.Session")
+def test_start_glue_session_passes_security_config_and_timeout(
+    mock_session_cls, mock_boto_client, mock_internal_utils
+):
+    """securityConfiguration and timeout overrides flow into CreateSession."""
+    conn = MagicMock()
+    conn._Connection__connection_data = {
+        "props": {"sparkGlueProperties": {"glueVersion": "5.1"}},
+        "configurations": [],
+        "physicalEndpoints": [],
+    }
+
+    mock_glue_client = MagicMock()
+    mock_session_cls.return_value.client.return_value = mock_glue_client
+    mock_glue_client.create_session.return_value = {"Session": {"Id": "sess-sec"}}
+    mock_glue_client.get_session.return_value = {"Session": {"Status": "READY"}}
+    mock_glue_client.get_session_endpoint.return_value = {
+        "SparkConnect": {"Url": "sc://ep", "AuthToken": "t", "AuthTokenExpirationTime": 123}
+    }
+
+    mgr = GlueSparkSessionManager(
+        connection=conn,
+        config=ClientConfig(
+            overrides={
+                "glue": {
+                    "securityConfiguration": "my-sec-config",
+                    "timeout": 480,
+                }
+            }
+        ),
+    )
+    mgr._lazy_init()
+    mgr._start_glue_session()
+
+    create_call = mock_glue_client.create_session.call_args
+    assert create_call[1]["SecurityConfiguration"] == "my-sec-config"
+    assert create_call[1]["Timeout"] == 480
+    # Worker sizing untouched when maxCapacity not set.
+    assert create_call[1]["WorkerType"] == "G.1X"
+    assert create_call[1]["NumberOfWorkers"] == 10
+
+
+@patch("boto3.client")
+@patch("boto3.Session")
+def test_start_glue_session_max_capacity_excludes_worker_fields(
+    mock_session_cls, mock_boto_client, mock_internal_utils
+):
+    """maxCapacity is mutually exclusive with WorkerType/NumberOfWorkers in CreateSession."""
+    conn = MagicMock()
+    conn._Connection__connection_data = {
+        "props": {
+            "sparkGlueProperties": {
+                "glueVersion": "5.1",
+                "workerType": "G.1X",
+                "numberOfWorkers": 10,
+            }
+        },
+        "configurations": [],
+        "physicalEndpoints": [],
+    }
+
+    mock_glue_client = MagicMock()
+    mock_session_cls.return_value.client.return_value = mock_glue_client
+    mock_glue_client.create_session.return_value = {"Session": {"Id": "sess-cap"}}
+    mock_glue_client.get_session.return_value = {"Session": {"Status": "READY"}}
+    mock_glue_client.get_session_endpoint.return_value = {
+        "SparkConnect": {"Url": "sc://ep", "AuthToken": "t", "AuthTokenExpirationTime": 123}
+    }
+
+    mgr = GlueSparkSessionManager(
+        connection=conn,
+        config=ClientConfig(overrides={"glue": {"maxCapacity": 8}}),
+    )
+    mgr._lazy_init()
+    mgr._start_glue_session()
+
+    create_call = mock_glue_client.create_session.call_args
+    assert create_call[1]["MaxCapacity"] == 8.0
+    assert "WorkerType" not in create_call[1]
+    assert "NumberOfWorkers" not in create_call[1]
+
+
+def test_resolve_session_field_precedence(manager):
+    """Ensure _resolve_session_field honors user > connection > default ordering."""
+    manager._glue_session_overrides = {"workerType": "G.8X"}
+    manager._glue_props = {"workerType": "G.1X", "numberOfWorkers": 4}
+
+    # User override wins.
+    assert manager._resolve_session_field("workerType", "G.025X") == "G.8X"
+    # Falls back to connection prop.
+    assert manager._resolve_session_field("numberOfWorkers", 10) == 4
+    # Falls back to default when neither present.
+    assert manager._resolve_session_field("idleTimeout", 15) == 15
 
 
 @patch("boto3.client")

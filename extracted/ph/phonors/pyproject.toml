@@ -1,0 +1,38 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "phonors"
+version = "0.3.0"
+description = "Rust kernels for phonopy and phono3py"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.10"
+authors = [{ name = "Atsushi Togo", email = "atztogo@gmail.com" }]
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+[project.urls]
+Homepage = "https://github.com/phonopy/phonors"
+Repository = "https://github.com/phonopy/phonors"
+Issues = "https://github.com/phonopy/phonors/issues"
+Changelog = "https://github.com/phonopy/phonors/blob/main/CHANGELOG.md"
+
+[tool.maturin]
+manifest-path = "Cargo.toml"
+module-name = "phonors"
+features = ["extension-module"]

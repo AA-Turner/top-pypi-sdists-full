@@ -1,1 +1,0 @@
-"""sklearn regressor test code."""

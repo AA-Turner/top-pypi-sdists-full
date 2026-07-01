@@ -3686,6 +3686,18 @@ impl SaeManifoldTerm {
                 self.k_atoms()
             ));
         }
+        // `lambda_smooth` is indexed per-atom in the smoothness gradient/curvature
+        // assembly (`lambda_smooth[atom_idx]`); a too-short vector (e.g. a growth
+        // move that grew `k_atoms()` without extending ρ — #1556) would panic deep
+        // in the assembly loop with an opaque index-out-of-bounds. Validate it here
+        // alongside `log_ard` so the contract violation surfaces as a clear Err.
+        if rho.log_lambda_smooth.len() != self.k_atoms() {
+            return Err(format!(
+                "SaeManifoldTerm::assemble_arrow_schur: log_lambda_smooth length {} != K {}",
+                rho.log_lambda_smooth.len(),
+                self.k_atoms()
+            ));
+        }
         for (atom_idx, coord) in self.assignment.coords.iter().enumerate() {
             let ard_len = rho.log_ard[atom_idx].len();
             let d = coord.latent_dim();
@@ -4506,33 +4518,35 @@ impl SaeManifoldTerm {
                         // For compact layout: position `j` = active_atoms index.
                         // For dense layout: position `atom_idx` directly.
                         //
-                        // H-consistency note (#1006 audit). This `assignment_hdiag` is the
-                        // assignment channel's raw diagonal curvature, added un-majorized. It
-                        // is exact for JumpReLU and exact within each IBP row/column diagonal,
-                        // but it is a deliberate diagonal approximation for two full-Hessian
-                        // structures that the current factorization does not yet carry (#1038):
+                        // H-consistency note (#1006 audit / #1416 update). This
+                        // `assignment_hdiag` is the assignment channel's raw diagonal
+                        // curvature, added un-majorized. It is exact for JumpReLU and exact
+                        // within each IBP row/column diagonal, and stores ONLY the diagonal of
+                        // two full-Hessian structures — but those off-diagonal structures are
+                        // now carried elsewhere, not dropped:
                         //
                         //   * softmax entropy has dense within-row Hessian
                         //     H_kj = (λ/τ²) a_k[δ_kj(m-L_k-1) + a_j(L_k+L_j+1-2m)];
-                        //     this block stores only its diagonal.
+                        //     this diagonal stores its Gershgorin Loewner majorizer (#1419).
                         //   * IBP empirical-π has cross-row rank-one terms per column
-                        //     H_(i,k),(j,k) = w score_derivative_k z'_ik z'_jk for i != j;
-                        //     this row-local block stores only the diagonal/self-row part.
-                        //     The exact scalar `D`-coefficient `d_k = w·s'_k` is now
-                        //     surfaced as `IbpHessianDiagThirdChannels::cross_row_d`
-                        //     (FD-verified against ∂²value/∂ℓ_ik∂ℓ_jk in
+                        //     H_(i,k),(j,k) = w score_derivative_k z'_ik z'_jk for i != j.
+                        //     This per-row diagonal stores only the diagonal/self-row part;
+                        //     the FULL rank-one cross-row block `U D Uᵀ` is now INSTALLED as a
+                        //     separate Woodbury source by `set_ibp_cross_row_source` (#1038),
+                        //     so the assembled operator is `H_full = H₀' + U D Uᵀ` on the
+                        //     NO-SELF base `H₀' = H₀ − Σ_k d_k diag(z'_ik²)` (self term
+                        //     downdated, see `IbpCrossRowSource::self_term_downdate`). The
+                        //     scalar `D`-coefficient `d_k = w·s'_k` is
+                        //     `IbpHessianDiagThirdChannels::cross_row_d` (FD-verified against
+                        //     ∂²value/∂ℓ_ik∂ℓ_jk in
                         //     `ibp_cross_row_woodbury_d_matches_full_off_diagonal_hessian`),
-                        //     and `z_jac` carries `u_k`'s entries `z'_ik`. The exact
-                        //     determinant-lemma consumer is
-                        //     log det(I_K + D UᵀH₀'⁻¹U) on the NO-SELF base
-                        //     H₀' = H₀ − Σ_k d_k diag(z'_ik²) — which requires re-factoring
-                        //     the per-row logit-slot diagonal (a factorization-side change
-                        //     in `solver::arrow_schur`, outside this assembly chokepoint).
+                        //     and `z_jac` carries `u_k`'s entries `z'_ik`.
                         //
-                        // The criterion's log|H| and Γ adjoint differentiate this same
-                        // assembled diagonal/quasi-Laplace Hessian, so value and gradient stay
-                        // on one branch. A future dense-row softmax or IBP Woodbury correction
-                        // must update both assembly and the θ-adjoint together.
+                        // The criterion's log|H| and Γ adjoint differentiate this SAME
+                        // `H_full`: the ρ-trace adds the cross-row off-diagonal in
+                        // `assignment_log_strength_hessian_trace` (#1416, dense AND compact
+                        // layouts) and the θ-adjoint adds it in `logdet_theta_adjoint`
+                        // (#1416/#1641), so value and gradient stay on one operator.
                         let assignment_base = row * k_atoms;
                         if let Some(layout) = row_layout.as_ref() {
                             let active = &layout.active_atoms[row];
@@ -6236,7 +6250,29 @@ impl SaeManifoldTerm {
                 let is_reversal = self.evidence_gauge_deflation_last_delta_sign != 0
                     && delta_sign != self.evidence_gauge_deflation_last_delta_sign;
                 self.evidence_gauge_deflation_last_delta_sign = delta_sign;
-                if is_reversal {
+                // A reversal alone is NOT the pathology — a BOUNDED flicker of a
+                // few rows crossing the near-null deflation floor reverses
+                // direction every step yet is the discretization jitter of a
+                // continuous evidence spectrum, fully evidence-neutral (each
+                // deflated direction contributes `log 1 = 0` either way). The
+                // genuine "quotient dimension not stabilizing" pathology is a
+                // WIDE-amplitude oscillation: a substantial FRACTION of the
+                // dimension flipping back and forth. The count is an O(N) per-row
+                // sum, so the discriminator must be the reversal AMPLITUDE
+                // relative to the dimension level, not the bare reversal. Charge
+                // the reversal budget only when a reversal's step exceeds a
+                // relative jitter band; a converged-but-flickering fit (e.g.
+                // 150<->147 on N=200, ~2% of the level) re-anchors freely while a
+                // true runaway (e.g. 9<->2, ~80% of the level) still trips every
+                // reversal and exhausts the budget. This was the second #795 root
+                // cause: the single-planted-circle fit's per-row count flickers
+                // 150<->147 near the deflation floor, so the bare-reversal guard
+                // refused the simplest possible fit — with the isometry gauge ON
+                // *or* OFF — long before the gauge magnitude mattered.
+                let amplitude = expected.abs_diff(count);
+                let level = expected.max(count);
+                let jitter_band = (level / 4).max(2);
+                if is_reversal && amplitude > jitter_band {
                     self.evidence_gauge_deflation_reanchors += 1;
                 }
                 let reversal_budget = self
@@ -7833,11 +7869,17 @@ impl SaeManifoldTerm {
         // mis-attributes the (un-deflated) Woodbury self curvature's derivative to
         // the deflated subspace. For non-IBP modes there is no Woodbury source and
         // the self term is `0` (the deflated block IS the full block).
-        let cross_channels = if self.last_row_layout.is_none() {
-            ibp_assignment_third_channels(&self.assignment, rho)?
-        } else {
-            None
-        };
+        // #1416 (compact-layout completion): the IBP cross-row Woodbury source is
+        // installed for BOTH the dense and the compact (#1420 top-`k`) layouts (see
+        // `set_ibp_cross_row_source`, which emits `(g_base + pos, atom, z'_ik)` for
+        // the active set under a compact layout), so the deflated base `H₀'` is the
+        // no-self block in BOTH layouts. The self-curvature downdate below must
+        // therefore run regardless of layout — gating it to the dense path (the
+        // pre-fix bug) left the compact deflation correction differentiating the
+        // un-downdated full block. For non-IBP modes `ibp_assignment_third_channels`
+        // returns `None`, there is no Woodbury source, and `self_curv` is
+        // identically 0 (the deflated block IS the full block).
+        let cross_channels = ibp_assignment_third_channels(&self.assignment, rho)?;
         let learnable_alpha = matches!(
             self.assignment.mode,
             AssignmentMode::IBPMap {
@@ -7931,72 +7973,93 @@ impl SaeManifoldTerm {
         // #1416: the IBP prior Hessian is `H_p = d·J Jᵀ + diag(s, c)`, where the
         // rank-one `d·J Jᵀ` couples EVERY row pair `(i, j)` in a column `k`
         // through the shared empirical mass `M_k`. The assembled `H` carries the
-        // full `H_full = H₀' + U D Uᵀ` (Woodbury, construction.rs:4710-4752), and
+        // full `H_full = H₀' + U D Uᵀ` (Woodbury, `set_ibp_cross_row_source`), and
         // for fixed alpha the entire IBP prior scales with `λ = eᵖ`, so
         // `∂H_p/∂ρ = H_p`. The diagonal loop above already captures the `i = j`
         // self terms (the `d·J_ik²` summand lives in `hdiag`); this pass adds the
         // omitted off-diagonal `½·d_k·Σ_{i≠j}(H⁻¹)_{ik,jk}·J_ik·J_jk`. Only IBP
         // has the cross-row rank-one source; for other diagonal modes
         // `ibp_assignment_third_channels` returns `None` and the trace stays the
-        // pure diagonal contraction. (IBP fixed-alpha uses the dense `None`
-        // layout, so atom `k`'s logit slot is local position `k`.)
-        if self.last_row_layout.is_none() {
-            if let Some(channels) = ibp_assignment_third_channels(&self.assignment, rho)? {
-                let n = self.n_obs();
-                let total_t = cache.delta_t_len();
-                // This trace is ½ ∂log|H|/∂ρ. For FIXED-α IBP the whole prior
-                // scales with λ=eᵖ so ∂H_p/∂ρ = H_p and the rank-one coefficient
-                // is the VALUE `cross_row_d[k] = w·s'_k`. For LEARNABLE-α this trace
-                // is ½ ∂log|H|/∂logα, and the rank-one block's logα-derivative is
-                // `∂d_k/∂logα = w·∂s'_k/∂logα` (`cross_row_d_logalpha[k]`) — the same
-                // α-derivative the DIAGONAL channel (`hessian_diag_log_alpha_derivative`)
-                // already uses. Using the value `s'_k` here (the pre-fix bug) made the
-                // off-diagonal inconsistent with the diagonal and the α-gradient wrong.
-                let learnable_alpha = matches!(
-                    self.assignment.mode,
-                    AssignmentMode::IBPMap {
-                        learnable_alpha: true,
-                        ..
-                    }
-                );
-                let mut cross = 0.0_f64;
-                for k in 0..k_atoms {
-                    let d_k = if learnable_alpha {
-                        channels.cross_row_d_logalpha[k]
-                    } else {
-                        channels.cross_row_d[k]
-                    };
-                    if d_k == 0.0 {
-                        continue;
-                    }
-                    for i in 0..n {
-                        let j_ik = channels.z_jac[i * k_atoms + k];
-                        if j_ik == 0.0 {
-                            continue;
-                        }
-                        // (H⁻¹) column at row `i`'s logit-`k` slot.
-                        let mut rhs_t = Array1::<f64>::zeros(total_t);
-                        let rhs_beta = Array1::<f64>::zeros(cache.k);
-                        rhs_t[cache.row_offsets[i] + k] = 1.0;
-                        let solved =
-                            solver.solve(rhs_t.view(), rhs_beta.view()).map_err(|err| {
-                                format!("assignment_log_strength_hessian_trace: {err}")
-                            })?;
-                        for j in 0..n {
-                            if j == i {
-                                continue;
-                            }
-                            let j_jk = channels.z_jac[j * k_atoms + k];
-                            if j_jk == 0.0 {
-                                continue;
-                            }
-                            let inv_ij = solved.t[cache.row_offsets[j] + k];
-                            cross += d_k * inv_ij * j_ik * j_jk;
+        // pure diagonal contraction.
+        //
+        // #1416 (compact completion): this pass is LAYOUT-AGNOSTIC. Under the dense
+        // layout atom `k`'s logit slot is local position `k`
+        // (`row_offsets[i] + k`); under the compact (#1420 top-`k`) layout only the
+        // row's active atoms carry coordinates and atom `k` lives at local position
+        // `pos` of `active_atoms[row]` (`row_offsets[i] + pos`). The Woodbury source
+        // and the θ-adjoint already use this active-slot mapping, so gating the
+        // cross-row pass to the dense layout (the pre-fix bug) dropped the
+        // off-diagonal term from `∂log|H|/∂ρ` whenever the budget/`top_k` engaged
+        // the compact layout. We build per-column active sites `(row, t_index)` once
+        // — exactly the θ-adjoint `col_sites` construction — then contract the
+        // off-diagonal `i ≠ j` remainder with one solve per active site.
+        if let Some(channels) = cross_channels.as_ref() {
+            let n = self.n_obs();
+            let total_t = cache.delta_t_len();
+            // This trace is ½ ∂log|H|/∂ρ. For FIXED-α IBP the whole prior
+            // scales with λ=eᵖ so ∂H_p/∂ρ = H_p and the rank-one coefficient
+            // is the VALUE `cross_row_d[k] = w·s'_k`. For LEARNABLE-α this trace
+            // is ½ ∂log|H|/∂logα, and the rank-one block's logα-derivative is
+            // `∂d_k/∂logα = w·∂s'_k/∂logα` (`cross_row_d_logalpha[k]`) — the same
+            // α-derivative the DIAGONAL channel (`hessian_diag_log_alpha_derivative`)
+            // already uses. Using the value `s'_k` here (the pre-fix bug) made the
+            // off-diagonal inconsistent with the diagonal and the α-gradient wrong.
+            // (`learnable_alpha` is the same flag the self-curvature downdate uses.)
+            // Per-column active sites `(row, global t-index)`. Layout-agnostic.
+            let mut col_sites: Vec<Vec<(usize, usize)>> = vec![Vec::new(); k_atoms];
+            match self.last_row_layout {
+                Some(ref layout) => {
+                    for row in 0..n {
+                        let base = cache.row_offsets[row];
+                        for (pos, &atom) in layout.active_atoms[row].iter().enumerate() {
+                            col_sites[atom].push((row, base + pos));
                         }
                     }
                 }
-                trace += cross;
+                None => {
+                    for row in 0..n {
+                        let base = cache.row_offsets[row];
+                        for k in 0..k_atoms {
+                            col_sites[k].push((row, base + k));
+                        }
+                    }
+                }
             }
+            let mut cross = 0.0_f64;
+            for k in 0..k_atoms {
+                let d_k = if learnable_alpha {
+                    channels.cross_row_d_logalpha[k]
+                } else {
+                    channels.cross_row_d[k]
+                };
+                if d_k == 0.0 || col_sites[k].len() < 2 {
+                    continue;
+                }
+                for &(i, t_i) in &col_sites[k] {
+                    let j_ik = channels.z_jac[i * k_atoms + k];
+                    if j_ik == 0.0 {
+                        continue;
+                    }
+                    // (H⁻¹) column at row `i`'s active logit-`k` slot.
+                    let mut rhs_t = Array1::<f64>::zeros(total_t);
+                    let rhs_beta = Array1::<f64>::zeros(cache.k);
+                    rhs_t[t_i] = 1.0;
+                    let solved = solver.solve(rhs_t.view(), rhs_beta.view()).map_err(|err| {
+                        format!("assignment_log_strength_hessian_trace: {err}")
+                    })?;
+                    for &(j, t_j) in &col_sites[k] {
+                        if j == i {
+                            continue;
+                        }
+                        let j_jk = channels.z_jac[j * k_atoms + k];
+                        if j_jk == 0.0 {
+                            continue;
+                        }
+                        cross += d_k * solved.t[t_j] * j_ik * j_jk;
+                    }
+                }
+            }
+            trace += cross;
         }
         Ok(0.5 * trace)
     }
@@ -9172,30 +9235,68 @@ impl SaeManifoldTerm {
                 gamma_t[t_index] += col_coeff[atom] * channels.z_jac[row * k_atoms + atom];
             }
 
-            // #1416: the EXACT cross-row Woodbury derivative of Γ. The assembled
-            // `H` carries the per-column rank-one block `W_k = d_k·u_k u_kᵀ` with
-            // `u_k` the J-weighted column indicator (`u_k[slot(i,k)] = J_ik`) and
-            // `d_k = w·s'_k` (`cross_row_d[k]`). Both `d_k` (through `M_k`) and the
-            // `u_k` entries (through `ℓ_ik`) depend on the logits, so
+            // #1416 / #1641: the EXACT cross-row Woodbury derivative of Γ. The
+            // assembled `H` carries the per-column rank-one block
+            // `W_k = d_k·u_k u_kᵀ` with `u_k` the J-weighted column indicator
+            // (`u_k[slot(i,k)] = J_ik`) and `d_k = w·s'_k` (`cross_row_d[k]`). Both
+            // `d_k` (through `M_k`) and the `u_k` entries (through `ℓ_ik`) depend on
+            // the logits, so
             //   ∂W_k/∂ℓ_wk = dd_k·J_wk·u_k u_kᵀ
             //               + d_k·c_wk·(e_w u_kᵀ + u_k e_wᵀ),
             // where `dd_k = ∂d_k/∂M_k = w·s''_k` (`cross_row_dd[k]`),
             // `c_wk = ∂J_wk/∂ℓ_wk` (`logit_curvature`), and `e_w` is the unit
-            // vector at row `w`'s logit-`k` slot. Contracting `½ tr(H⁻¹ ∂W_k/∂ℓ_wk)`:
-            //   Γ_wk += ½·dd_k·J_wk·(u_kᵀ H⁻¹ u_k)        (term A: e·J_w·(JᵀH⁻¹J))
-            //         +    d_k·c_wk·(H⁻¹ u_k)_{slot(w,k)}  (term B: 2d·c_w·(H⁻¹J)_w).
-            // Both `u_kᵀ H⁻¹ u_k = (JᵀH⁻¹J)_k` and the vector `(H⁻¹ u_k) = (H⁻¹J)_·k`
-            // come from ONE solve per column, `x_k = H⁻¹ u_k` — so the adjoint
-            // differentiates the SAME `H = H₀ + Σ_k W_k` the value/logdet use,
-            // closing the one-operator contract on the rank-one block too.
+            // vector at row `w`'s logit-`k` slot.
+            //
+            // The θ-adjoint contracts the FULL trace `Γ_wk = tr(H⁻¹ ∂H/∂ℓ_wk)`
+            // (NOT the `½ tr` the ρ-trace uses — `fixed_state_logdet` differentiates
+            // the full `log|H|`, and the per-row blocks above contract `inv_vv·dh`
+            // with no ½). Critically, the `i=j` self curvature `w·s'_k·J_ik²` of the
+            // rank-one block lives on the assembled `htt` DIAGONAL `H_ik`, so its
+            // derivative is ALREADY differentiated by the row-local
+            // `local_logit_third` channel (direct-z, `i=w`) and the `m_channel`
+            // column pass (via `M_k`) above. This Woodbury pass must therefore add
+            // ONLY the off-diagonal `i≠j` remainder — otherwise the self term is
+            // double-counted (the #1641 defect: the pre-fix pass summed the full
+            // `u_k u_kᵀ` including `i=j`, AND carried the ρ-trace ½, AND dropped the
+            // factor 2 on the symmetric `e_w u_kᵀ + u_k e_wᵀ` term). Excluding `i=j`
+            // is also why this pass needs no deflation correction: it contracts only
+            // DISTINCT rows, off any single-row `vᵢ`'s support (matching the
+            // #1416 ρ-trace cross-row pass).
+            //
+            // Contracting `tr(H⁻¹ ∂W_k/∂ℓ_wk)` over `i≠j` only:
+            //   Γ_wk += dd_k·J_wk·( u_kᵀ H⁻¹ u_k − Σ_i P_ii·J_ik² )       (term A)
+            //         + 2·d_k·c_wk·( (H⁻¹ u_k)_{slot(w,k)} − P_ww·J_wk )  (term B),
+            // where `P_ii = (H⁻¹)_{slot(i,k),slot(i,k)}` is the selected-inverse
+            // diagonal recorded in `ibp_logit_sites`. The subtracted self pieces are
+            // exactly the `i=j` terms the diagonal channels own. Both `u_kᵀ H⁻¹ u_k`
+            // and `(H⁻¹ u_k)` come from ONE solve per column, `x_k = H⁻¹ u_k` — so
+            // the adjoint differentiates the SAME `H = H₀ + Σ_k W_k` the
+            // value/logdet use, closing the one-operator contract on the rank-one
+            // block too.
             //
             // Group the column sites once (the layout is mode-agnostic: dense or
             // compact, `ibp_logit_sites` already carries each active logit's
-            // global t-index), then per column build `u_k`, solve, and distribute.
+            // global t-index AND its selected-inverse diagonal `G_ii`), then per
+            // column build `u_k`, solve, and distribute the OFF-DIAGONAL remainder.
+            //
+            // #1416 FIX: the diagonal (`i = w`) parts of term A and term B are
+            // ALREADY supplied — `diag(term A) = dd_k·J_w·Σ_i G_ii·J_i²` by the
+            // `m_channel` column pass above (whose `m_channel = w·(s''·J² + s'·c)`
+            // carries the `s''·J²` self piece), and `diag(term B) = 2·d_k·c_w·G_ww·J_w`
+            // by the inline `local_logit_third` self channel (whose
+            // `s'·2J·∂_z J` piece is exactly that). So this pass must add ONLY the
+            // cross-row off-diagonal remainder; double-counting the diagonal here
+            // (the pre-fix `0.5·dd·J·uᵀGu + d·c·x_w` form, which is neither the
+            // full nor the off-diagonal value) desynced the θ-adjoint from the FD
+            // of `log|H|`. The exact `tr(H⁻¹ ∂W_k/∂ℓ_wk)` is
+            //   Γ_wk += dd_k·J_wk·(uᵀ G u − Σ_i G_ii·J_ik²)   (term A, off-diagonal)
+            //         + 2·d_k·c_wk·((G u)_w − G_ww·J_wk)        (term B, off-diagonal),
+            // with `uᵀGu = Σ_i J_ik·(Gu)_i`, `(Gu) = x_k = H⁻¹ u_k` from one solve,
+            // and `G_ii` the per-site selected-inverse diagonal.
             let total_t = cache.delta_t_len();
-            let mut col_sites: Vec<Vec<(usize, usize)>> = vec![Vec::new(); k_atoms];
-            for &(row, atom, t_index, _inv_diag) in &ibp_logit_sites {
-                col_sites[atom].push((row, t_index));
+            let mut col_sites: Vec<Vec<(usize, usize, f64)>> = vec![Vec::new(); k_atoms];
+            for &(row, atom, t_index, inv_diag) in &ibp_logit_sites {
+                col_sites[atom].push((row, t_index, inv_diag));
             }
             for atom in 0..k_atoms {
                 let d_k = channels.cross_row_d[atom];
@@ -9206,22 +9307,30 @@ impl SaeManifoldTerm {
                 // u_k as a full t-RHS: J at each active logit-k slot.
                 let mut rhs_t = Array1::<f64>::zeros(total_t);
                 let rhs_beta = Array1::<f64>::zeros(cache.k);
-                for &(row, t_index) in &col_sites[atom] {
+                for &(row, t_index, _g) in &col_sites[atom] {
                     rhs_t[t_index] = channels.z_jac[row * k_atoms + atom];
                 }
                 let x_k = solver.solve(rhs_t.view(), rhs_beta.view()).map_err(|err| {
                     format!("logdet_theta_adjoint: IBP cross-row Woodbury solve: {err}")
                 })?;
-                // (JᵀH⁻¹J)_k = u_kᵀ x_k.
+                // (JᵀH⁻¹J)_k = u_kᵀ x_k, and the diagonal `Σ_i G_ii·J_ik²` that the
+                // `m_channel` pass already counted (subtract it from term A so this
+                // pass holds only the off-diagonal `i ≠ j` remainder).
                 let mut jt_hinv_j = 0.0_f64;
-                for &(row, t_index) in &col_sites[atom] {
-                    jt_hinv_j += channels.z_jac[row * k_atoms + atom] * x_k.t[t_index];
+                let mut diag_jt_g_j = 0.0_f64;
+                for &(row, t_index, g_ii) in &col_sites[atom] {
+                    let j = channels.z_jac[row * k_atoms + atom];
+                    jt_hinv_j += j * x_k.t[t_index];
+                    diag_jt_g_j += g_ii * j * j;
                 }
-                for &(row, t_index) in &col_sites[atom] {
+                let off_diag_a = jt_hinv_j - diag_jt_g_j;
+                for &(row, t_index, g_ii) in &col_sites[atom] {
                     let j_wk = channels.z_jac[row * k_atoms + atom];
                     let c_wk = channels.logit_curvature[row * k_atoms + atom];
-                    // term A + term B.
-                    gamma_t[t_index] += 0.5 * dd_k * j_wk * jt_hinv_j + d_k * c_wk * x_k.t[t_index];
+                    // term A (off-diagonal) + term B (off-diagonal); the inline /
+                    // `m_channel` passes already added the diagonal parts.
+                    let off_diag_b = x_k.t[t_index] - g_ii * j_wk;
+                    gamma_t[t_index] += dd_k * j_wk * off_diag_a + 2.0 * d_k * c_wk * off_diag_b;
                 }
             }
         }

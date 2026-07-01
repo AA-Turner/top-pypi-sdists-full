@@ -1513,6 +1513,8 @@ from .type_defs import (
     ModifyVpcEncryptionControlResultTypeDef,
     ModifyVpcEndpointConnectionNotificationRequestTypeDef,
     ModifyVpcEndpointConnectionNotificationResultTypeDef,
+    ModifyVpcEndpointPayerResponsibilityRequestTypeDef,
+    ModifyVpcEndpointPayerResponsibilityResultTypeDef,
     ModifyVpcEndpointRequestTypeDef,
     ModifyVpcEndpointResultTypeDef,
     ModifyVpcEndpointServiceConfigurationRequestTypeDef,
@@ -8768,6 +8770,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_vpc_endpoint_connection_notification.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_vpc_endpoint_connection_notification)
+        """
+
+    def modify_vpc_endpoint_payer_responsibility(
+        self, **kwargs: Unpack[ModifyVpcEndpointPayerResponsibilityRequestTypeDef]
+    ) -> ModifyVpcEndpointPayerResponsibilityResultTypeDef:
+        """
+        Modifies the billing account for VPC endpoint usage/charges.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_vpc_endpoint_payer_responsibility.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_vpc_endpoint_payer_responsibility)
         """
 
     def modify_vpc_endpoint_service_configuration(

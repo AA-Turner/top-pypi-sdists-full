@@ -1,4 +1,4 @@
-"""Auto-generated file (content hash 544695dbf71e867b) -- do not modify"""
+"""Auto-generated file (content hash adad84b723c4d072) -- do not modify"""
 
 from ._generated_types import (
     Acl,
@@ -71,6 +71,7 @@ from ._generated_types import (
     ProjectScore,
     ProjectScoreCategories,
     ProjectScoreCategory,
+    ProjectScoreCondition,
     ProjectScoreConfig,
     ProjectScoreType,
     ProjectSettings,
@@ -104,6 +105,7 @@ from ._generated_types import (
     TopicAutomationConfig,
     TopicAutomationDataScope,
     TopicAutomationFacetModel,
+    TopicDigestAutomationConfig,
     TopicMapData,
     TopicMapFunctionAutomation,
     TopicMapGenerationSettings,
@@ -189,6 +191,7 @@ __all__ = [
     "ProjectScore",
     "ProjectScoreCategories",
     "ProjectScoreCategory",
+    "ProjectScoreCondition",
     "ProjectScoreConfig",
     "ProjectScoreType",
     "ProjectSettings",
@@ -222,6 +225,7 @@ __all__ = [
     "TopicAutomationConfig",
     "TopicAutomationDataScope",
     "TopicAutomationFacetModel",
+    "TopicDigestAutomationConfig",
     "TopicMapData",
     "TopicMapFunctionAutomation",
     "TopicMapGenerationSettings",

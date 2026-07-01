@@ -48,6 +48,105 @@ def _seed_guard_cloud(store, *, workspace_id=None, sync_url=None, token="demo-to
 WORKSPACE_ID = "2de4fcb4-a5b2-447a-a67f-21c6eb4c5f3c"
 
 
+def test_normalized_supply_chain_batch_url_preserves_sync_prefix() -> None:
+    assert local_supply_chain_module._normalized_supply_chain_batch_url(
+        "https://guard.example/api/guard/receipts/sync", WORKSPACE_ID
+    ) == f"https://guard.example/api/guard/supply-chain/evaluate/batch?workspaceId={WORKSPACE_ID}"
+    assert local_supply_chain_module._normalized_supply_chain_batch_url(
+        "https://guard.example/registry/api/v1/guard/receipts/sync?workspaceId=old", WORKSPACE_ID
+    ) == f"https://guard.example/registry/api/v1/guard/supply-chain/evaluate/batch?workspaceId={WORKSPACE_ID}"
+
+
+def test_cloud_workspace_audit_renews_dpop_proof_for_each_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    runner = local_supply_chain_module._runtime_runner_module()
+    signed_proofs: list[str] = []
+    request_bodies: list[dict[str, object]] = []
+
+    def _fake_guard_sync_headers(
+        auth_context: dict[str, object],
+        *,
+        request_url: str,
+        method: str,
+    ) -> dict[str, str]:
+        del auth_context, request_url, method
+        proof = f"proof-{len(signed_proofs) + 1}"
+        signed_proofs.append(proof)
+        return {
+            "Authorization": "Bearer token",
+            "Content-Type": "application/json",
+            "DPoP": proof,
+        }
+
+    class _JsonResponse(io.StringIO):
+        def __enter__(self) -> _JsonResponse:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            self.close()
+
+    def _fake_urlopen(request: object, timeout: int) -> _JsonResponse:
+        del timeout
+        assert isinstance(request, local_supply_chain_module.urllib.request.Request)
+        dpop_header = dict(request.header_items()).get("Dpop")
+        assert dpop_header == f"proof-{len(request_bodies) + 1}"
+        body = request.data
+        assert isinstance(body, bytes)
+        request_bodies.append(json.loads(body.decode("utf-8")))
+        if len(request_bodies) == 1:
+            return _JsonResponse(
+                json.dumps(
+                    {
+                        "decision": "monitor",
+                        "packages": [{"ecosystem": "npm", "name": "react"}],
+                        "reasons": [],
+                        "nextCursor": "cursor-1",
+                        "processedCount": 2,
+                        "totalPackages": 3,
+                    }
+                )
+            )
+        return _JsonResponse(
+            json.dumps(
+                {
+                    "decision": "monitor",
+                    "packages": [{"ecosystem": "npm", "name": "scheduler"}],
+                    "processedCount": 1,
+                    "reasons": [],
+                    "totalPackages": 2,
+                }
+            )
+        )
+
+    monkeypatch.setattr(runner, "_guard_sync_headers", _fake_guard_sync_headers)
+    monkeypatch.setattr(local_supply_chain_module.urllib.request, "urlopen", _fake_urlopen)
+
+    response, fallback = local_supply_chain_module._run_cloud_workspace_audit(
+        auth_context={
+            "access_token": "token",
+            "sync_url": "https://guard.example/api/guard/receipts/sync",
+        },
+        request_payload={
+            "mode": "paged",
+            "packages": [
+                {"ecosystem": "npm", "name": "react"},
+                {"ecosystem": "npm", "name": "scheduler"},
+            ],
+            "pageSize": 1,
+            "workspaceFingerprint": "fingerprint-1",
+        },
+        workspace_id=WORKSPACE_ID,
+    )
+
+    assert fallback is None
+    assert response is not None
+    assert [item["name"] for item in response["packages"]] == ["react", "scheduler"]
+    assert response["processedCount"] == 3
+    assert response["totalPackages"] == 3
+    assert signed_proofs == ["proof-1", "proof-2"]
+    assert request_bodies[0].get("cursor") is None
+    assert request_bodies[1]["cursor"] == "cursor-1"
+
+
 def _write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
@@ -235,6 +334,71 @@ def test_sync_managed_workspace_audits_enqueues_persisted_job_mode_for_managed_w
     assert summary["failed_jobs"] == 0
     assert summary["workspaces"][0]["job_id"] == "job-1"
     assert summary["workspaces"][0]["package_count"] == 1
+
+
+def test_sync_managed_workspace_audits_reports_partial_when_cloud_visible_count_is_lower(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    home_dir = tmp_path / "guard-home"
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir()
+    _write_text(
+        workspace_dir / "package.json",
+        json.dumps({"name": "demo", "dependencies": {"react": "18.2.0"}}, sort_keys=True) + "\n",
+    )
+    _write_text(
+        workspace_dir / "package-lock.json",
+        json.dumps(
+            {
+                "name": "demo",
+                "lockfileVersion": 3,
+                "packages": {
+                    "": {"dependencies": {"react": "18.2.0"}},
+                    "node_modules/react": {"version": "18.2.0"},
+                    "node_modules/scheduler": {"version": "0.23.2"},
+                    "node_modules/loose-envify": {"version": "1.4.0"},
+                },
+            },
+            sort_keys=True,
+        )
+        + "\n",
+    )
+    store = GuardStore(home_dir)
+    _seed_premium_pairing(store, now="2026-05-25T10:00:00+00:00")
+    store.set_managed_install("codex", True, str(workspace_dir), {}, "2026-05-25T10:00:00+00:00")
+
+    monkeypatch.setattr(
+        local_supply_chain_module,
+        "_enqueue_cloud_workspace_audit_job",
+        lambda **_kwargs: {"jobId": "job-1", "status": "queued"},
+    )
+    monkeypatch.setattr(
+        local_supply_chain_module,
+        "_poll_cloud_workspace_audit_job",
+        lambda **_kwargs: {
+            "jobId": "job-1",
+            "status": "completed",
+            "processedCount": 2,
+            "totalPackages": 2,
+        },
+    )
+
+    summary = local_supply_chain_module.sync_managed_workspace_audits(
+        store,
+        auth_context={
+            "access_token": "token",
+            "sync_url": "https://guard.example/api/guard/receipts/sync",
+        },
+    )
+
+    workspace = summary["workspaces"][0]
+    assert summary["status"] == "partial"
+    assert summary["incomplete_jobs"] == 1
+    assert workspace["status"] == "partial"
+    assert workspace["package_count"] == 3
+    assert workspace["cloud_visible_count"] == 2
+    assert "2 of 3 visible" in str(workspace["message"])
 
 
 def test_guard_supply_chain_audit_alias_accepts_sbom_input(
@@ -638,6 +802,75 @@ def test_read_sbom_text_rejects_oversized_files(tmp_path: Path) -> None:
     sbom_path.write_text("x" * ((10 * 1024 * 1024) + 1), encoding="utf-8")
 
     assert local_supply_chain_module._read_sbom_text(sbom_path) is None
+
+
+def test_build_cloud_audit_payload_includes_workspace_context(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    workspace_dir = tmp_path / "workspace"
+    (workspace_dir / ".git").mkdir(parents=True)
+    _write_text(
+        workspace_dir / ".git" / "config",
+        '[remote "origin"]\n\turl = git@github.com:hashgraph-online/hol-points-portal.git\n',
+    )
+    _write_text(workspace_dir / "package.json", '{"name":"demo"}\n')
+    _write_text(workspace_dir / "pnpm-lock.yaml", "lockfileVersion: '9.0'\n")
+    monkeypatch.setattr(local_supply_chain_module.socket, "gethostname", lambda: "macbook-pro")
+
+    class _Store:
+        def get_sync_payload(self, _key: str) -> dict[str, str]:
+            return {"policy_hash": "policy-hash-1"}
+
+    payload = local_supply_chain_module._build_cloud_audit_payload(
+        workspace_dir=workspace_dir,
+        workspace_id=WORKSPACE_ID,
+        store=_Store(),
+        manifest_paths=("package.json",),
+        lockfile_paths=("pnpm-lock.yaml",),
+        inventory=(
+            {
+                "direct": True,
+                "ecosystem": "npm",
+                "name": "minimist",
+                "version": "1.2.5",
+            },
+        ),
+    )
+
+    assert payload["workspaceContext"] == {
+        "agent": "guard-cli",
+        "codebase": "hashgraph-online/hol-points-portal",
+        "folderPath": local_supply_chain_module._redacted_workspace_folder_path(workspace_dir),
+        "lockfilePaths": ["pnpm-lock.yaml"],
+        "machine": "macbook-pro",
+        "manifestPaths": ["package.json"],
+        "packageManager": "npm",
+        "workspaceName": "workspace",
+    }
+
+
+def test_workspace_context_redacts_path_and_handles_hostname_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _raise_os_error() -> str:
+        raise OSError("hostname unavailable")
+
+    monkeypatch.setattr(local_supply_chain_module.socket, "gethostname", _raise_os_error)
+
+    payload = local_supply_chain_module._build_workspace_context_payload(
+        Path("/Users/alice/projects/app"),
+        ("package.json",),
+        ("package-lock.json",),
+    )
+
+    assert payload["codebase"] == "app"
+    assert payload["folderPath"] == "~/projects/app"
+    assert payload["machine"] is None
+    assert local_supply_chain_module._redacted_workspace_folder_path(Path("/workspace/app")) == "…/workspace/app"
+    assert local_supply_chain_module._codebase_label_from_remote(
+        "git@gitlab.com:team/backend/service.git",
+    ) == "team/backend/service"
 
 
 def test_run_cloud_workspace_audit_falls_back_after_page_limit(monkeypatch: pytest.MonkeyPatch) -> None:

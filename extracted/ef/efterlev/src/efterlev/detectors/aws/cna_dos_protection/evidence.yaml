@@ -1,8 +1,0 @@
-detector_id: aws.cna_dos_protection
-
-evidence_shape:
-  resource_type: string         # aws_wafv2_web_acl | aws_wafv2_web_acl_association | aws_waf_web_acl | aws_shield_protection
-  resource_name: string
-  protection_state: enum        # configured
-  pattern: enum                 # waf_acl | waf_classic_acl | waf_attached | shield_protection
-  detail: string?               # short detail (e.g. rate_based_rules=2 or target_arn)

@@ -229,15 +229,28 @@ def test_create_session_manager_emr_eks_raises():
         _create_session_manager(conn, "my-conn", None, MagicMock())
 
 
-def test_create_session_manager_emr_ec2_raises():
-    """Ensure RuntimeError is raised for EMR_EC2 connections."""
+def test_create_session_manager_emr_ec2(monkeypatch):
+    """Ensure EMR on EC2 session manager is created for EMR_EC2 service."""
     conn = _make_connection(
         {"sparkEmrProperties": {"computeArn": "arn:aws:elasticmapreduce:us-west-2:123:cluster/j-1"}}
     )
     conn.type = "SPARK_CONNECT"
 
-    with pytest.raises(RuntimeError, match="not yet supported for EMR_EC2"):
-        _create_session_manager(conn, "my-conn", None, MagicMock())
+    # Mock the EMR EC2 interceptors module
+    mock_emr_ec2_interceptors = Mock()
+    mock_emr_ec2_interceptors.EmrEc2ChannelBuilder = Mock()
+    monkeypatch.setitem(
+        sys.modules,
+        "sagemaker_studio.utils.spark.session.emr_ec2.interceptors",
+        mock_emr_ec2_interceptors,
+    )
+
+    from sagemaker_studio.utils.spark.session.emr_ec2.emr_ec2_spark_session_manager import (
+        EmrEc2SparkSessionManager,
+    )
+
+    mgr = _create_session_manager(conn, "my-conn", None, MagicMock())
+    assert isinstance(mgr, EmrEc2SparkSessionManager)
 
 
 def test_create_session_manager_unknown_props_raises():
@@ -498,7 +511,7 @@ def test_create_session_manager_emr_serverless_receives_spark_conf():
 
     mgr = _create_session_manager(conn, "my-conn", None, MagicMock(), spark_conf=user_conf)
     assert isinstance(mgr, EMRServerlessSparkSessionManager)
-    assert mgr.spark_conf == user_conf
+    assert mgr._user_spark_conf == user_conf
 
 
 def test_create_session_manager_athena_receives_spark_conf():
@@ -513,4 +526,4 @@ def test_create_session_manager_athena_receives_spark_conf():
 
     mgr = _create_session_manager(conn, "my-conn", "conn-id", MagicMock(), spark_conf=user_conf)
     assert isinstance(mgr, AthenaSparkSessionManager)
-    assert mgr.spark_conf == user_conf
+    assert mgr._user_spark_conf == user_conf

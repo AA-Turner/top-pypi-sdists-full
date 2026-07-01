@@ -1,0 +1,130 @@
+# Copyright 2025 Cisco Systems, Inc. and its affiliates
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""
+Centralized logging configuration for MCP Scanner SDK.
+
+This module provides consistent logging setup across all components.
+"""
+
+import logging
+import sys
+from typing import Optional
+
+from ..config.constants import CONSTANTS
+
+
+def setup_logger(
+    name: str, level: Optional[str] = None, format_string: Optional[str] = None
+) -> logging.Logger:
+    """
+    Set up a logger with consistent configuration.
+
+    Args:
+        name: Logger name (typically __name__)
+        level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        format_string: Custom format string, uses default if None
+
+    Returns:
+        Configured logger instance
+    """
+    logger = logging.getLogger(name)
+
+    # Avoid adding multiple handlers to the same logger
+    if logger.handlers:
+        return logger
+
+    mcpscanner_root = logging.getLogger("mcpscanner")
+    if mcpscanner_root.level != logging.NOTSET and name.startswith("mcpscanner"):
+        logger.setLevel(mcpscanner_root.level)
+    elif level:
+        logger.setLevel(getattr(logging, level.upper()))
+    else:
+        logger.setLevel(logging.INFO)
+
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setLevel(logger.level)
+
+    # Set formatter
+    formatter = logging.Formatter(format_string or CONSTANTS.LOG_FORMAT)
+    handler.setFormatter(formatter)
+
+    # Add handler to logger
+    logger.addHandler(handler)
+
+    # Prevent propagation to avoid duplicate logs
+    logger.propagate = False
+
+    return logger
+
+
+def get_logger(name: str, level: Optional[str] = None) -> logging.Logger:
+    """
+    Get a logger with standard configuration.
+
+    Args:
+        name: Logger name (typically __name__)
+        level: Optional logging level override
+
+    Returns:
+        Configured logger instance
+    """
+    return setup_logger(name, level)
+
+
+def set_log_level(level: int) -> None:
+    """
+    Set the log level for the entire mcpscanner library.
+
+    This updates the ``mcpscanner`` root logger **and** every child logger
+    (plus their handlers), so it works regardless of whether child loggers
+    were created with explicit levels or ``propagate = False``.
+
+    Can be called at any time — it affects loggers that already exist as
+    well as new ones created later (via the root logger level check in
+    ``setup_logger``).
+
+    Args:
+        level: A ``logging`` level constant, e.g. ``logging.ERROR``,
+               ``logging.WARNING``, ``logging.DEBUG``.
+
+    Example::
+
+        import logging
+        from mcpscanner.utils.logging_config import set_log_level
+
+        set_log_level(logging.ERROR)   # suppress everything below ERROR
+        set_log_level(logging.DEBUG)   # show all debug output
+    """
+    root_logger = logging.getLogger("mcpscanner")
+    root_logger.setLevel(level)
+
+    for name in list(logging.Logger.manager.loggerDict.keys()):
+        if name.startswith("mcpscanner"):
+            child = logging.getLogger(name)
+            child.setLevel(level)
+            for handler in child.handlers:
+                handler.setLevel(level)
+
+
+def set_verbose_logging(verbose: bool = False) -> None:
+    """
+    Enable or disable verbose logging for all mcpscanner loggers.
+
+    Args:
+        verbose: If True, set all existing mcpscanner loggers to DEBUG level
+    """
+    set_log_level(logging.DEBUG if verbose else logging.INFO)

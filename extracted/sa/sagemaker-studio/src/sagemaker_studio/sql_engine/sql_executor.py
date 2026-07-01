@@ -24,6 +24,8 @@ from .snowflake_transformer import SnowflakeTransformer
 from .vertica_transformer import VerticaTransformer
 from .workday_transformer import WorkdayTransformer
 
+logger = logging.getLogger(__name__)
+
 
 class ErrorStrategy(Enum):
     """Strategy for handling errors during multi-statement execution."""
@@ -55,6 +57,11 @@ class ExecutionResult:
         status: Execution status (SUCCESS or ERROR).
         rows_affected: Number of rows affected by DML operations.
         execution_time: Execution time in seconds (if measured).
+        execution_metadata: Engine-specific metadata returned by the database API.
+            Each engine provides different fields. Examples:
+            - Redshift: {"statement_id": "...", "session_id": "...", "records_updated": N}
+            - Athena: {"query_execution_id": "...", "data_scanned_bytes": N, "execution_time_ms": N}
+            - Other engines: None or {} until support is added.
     """
 
     statement_index: int
@@ -65,6 +72,19 @@ class ExecutionResult:
     status: str = ExecutionStatus.SUCCESS.value
     rows_affected: Optional[int] = None
     execution_time: Optional[float] = None
+    execution_metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class SingleStatementResult:
+    """Internal result from _execute_single with data and metadata separated.
+
+    This is the structured return type from _execute_single() that feeds into
+    execute_statements() to build the public ExecutionResult.
+    """
+
+    result: Any  # DataFrame or int (rowcount)
+    execution_metadata: Optional[Dict[str, Any]] = None
 
 
 class SqlExecutor:
@@ -92,7 +112,12 @@ class SqlExecutor:
         executor_func,
         error_strategy: str = ErrorStrategy.STOP_ON_ERROR,
     ) -> Generator[ExecutionResult, None, None]:
-        """Execute multiple statements with error handling."""
+        """Execute multiple statements with error handling.
+
+        The executor_func can return either:
+        - A plain result (DataFrame, int, etc.) for simple engines (Spark, DuckDB)
+        - A SingleStatementResult for engines that provide metadata (Redshift, Athena)
+        """
         if len(statements) > SqlExecutor.MAX_STATEMENTS:
             raise ValueError(
                 f"Too many statements: {len(statements)}. Maximum allowed: {SqlExecutor.MAX_STATEMENTS}"
@@ -100,13 +125,23 @@ class SqlExecutor:
 
         for i, stmt in enumerate(statements):
             try:
-                result = executor_func(stmt.statement)
+                raw_result = executor_func(stmt.statement)
+
+                # Support both plain results and structured SingleStatementResult
+                if isinstance(raw_result, SingleStatementResult):
+                    result = raw_result.result
+                    execution_metadata = raw_result.execution_metadata
+                else:
+                    result = raw_result
+                    execution_metadata = None
+
                 yield ExecutionResult(
                     statement_index=i,
                     statement=stmt.statement,
                     statement_type=stmt.statement_type,
                     result=result,
                     status=ExecutionStatus.SUCCESS.value,
+                    execution_metadata=execution_metadata,
                 )
             except Exception as e:
                 yield ExecutionResult(
@@ -235,16 +270,36 @@ class SqlExecutor:
         connection: Connection,
         statement: str,
         parameters: Optional[Union[Dict[str, Any], List[str]]] = None,
-    ) -> Union[DataFrame, int]:
+    ) -> SingleStatementResult:
+        """Execute a single SQL statement and return result with metadata.
 
+        Returns:
+            SingleStatementResult containing the query data and engine-specific metadata.
+        """
         result = connection.execute(text(statement), parameters or {})
+
+        # Extract metadata BEFORE fetching data — cursor is released after fetchall()
+        execution_metadata = None
+        connection_type = "UNKNOWN"
+        try:
+            connection_type = connection.engine.get_execution_options().get(
+                "connection_type", "UNKNOWN"
+            )
+            transformer = self._get_transformer(connection_type)
+            execution_metadata = transformer.get_execution_metadata(result.cursor)
+        except Exception:
+            logger.debug(
+                "Failed to extract execution metadata for %s", connection_type, exc_info=True
+            )
 
         # Check if query returns results (SELECT, SHOW, DESCRIBE, etc.)
         if result.returns_rows:
-            return DataFrame(result.fetchall(), columns=result.keys())
+            data = DataFrame(result.fetchall(), columns=result.keys())
         else:
             # For INSERT, UPDATE, DELETE, etc. - return affected row count
-            return result.rowcount
+            data = result.rowcount
+
+        return SingleStatementResult(result=data, execution_metadata=execution_metadata)
 
     def get_resources(
         self,

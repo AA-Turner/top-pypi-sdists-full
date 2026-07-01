@@ -1,5 +1,0 @@
-# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
-# SPDX-License-Identifier: MIT
----
-name: "A"
-ref: !include circular_b.yaml

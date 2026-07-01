@@ -3,7 +3,7 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-use prek_consts::env_vars::EnvVars;
+use prek_consts::env_vars::{EnvVars, EnvVarsRead};
 
 use crate::cli::run::HookRunReporter;
 use crate::hook::{Hook, Repo};
@@ -16,7 +16,7 @@ mod builtin_hooks;
 mod meta_hooks;
 mod pre_commit_hooks;
 
-static NO_FAST_PATH: LazyLock<bool> = LazyLock::new(|| EnvVars::is_set(EnvVars::PREK_NO_FAST_PATH));
+static NO_FAST_PATH: LazyLock<bool> = LazyLock::new(|| EnvVars.is_set(EnvVars::PREK_NO_FAST_PATH));
 
 /// Returns true if the hook has a builtin Rust implementation.
 pub fn check_fast_path(hook: &Hook) -> bool {
@@ -83,9 +83,9 @@ where
     F: Fn(&'a Path) -> Fut,
     Fut: Future<Output = anyhow::Result<(i32, Vec<u8>)>>,
 {
-    use futures::StreamExt;
+    use futures_util::StreamExt;
 
-    let mut tasks = futures::stream::iter(filenames)
+    let mut tasks = futures_util::stream::iter(filenames)
         .map(check)
         .buffered(concurrency);
 

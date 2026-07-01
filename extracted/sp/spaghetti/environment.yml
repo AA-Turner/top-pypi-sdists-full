@@ -1,0 +1,24 @@
+name: notebooks-environment
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - esda
+  - geopandas
+  - libspatialindex
+  - matplotlib
+  - matplotlib-scalebar
+  - numpy
+  - pandas
+  - pulp
+  - rtree
+  - scipy
+  - seaborn
+  - shapely
+  - splot
+  - watermark
+  - pip
+  - pip:
+    - mip
+    - ortools
+    - git+https://github.com/pysal/spaghetti.git@main

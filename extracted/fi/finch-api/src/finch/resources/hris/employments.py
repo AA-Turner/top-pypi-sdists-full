@@ -1,0 +1,190 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing import Iterable
+
+import httpx
+
+from ... import _legacy_response
+from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ..._utils import maybe_transform
+from ..._compat import cached_property
+from ..._resource import SyncAPIResource, AsyncAPIResource
+from ..._response import to_streamed_response_wrapper, async_to_streamed_response_wrapper
+from ...pagination import SyncResponsesPage, AsyncResponsesPage
+from ...types.hris import employment_retrieve_many_params
+from ..._base_client import AsyncPaginator, make_request_options
+from ...types.hris.employment_data_response import EmploymentDataResponse
+
+__all__ = ["Employments", "AsyncEmployments"]
+
+
+class Employments(SyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> EmploymentsWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Finch-API/finch-api-python#accessing-raw-response-data-eg-headers
+        """
+        return EmploymentsWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> EmploymentsWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Finch-API/finch-api-python#with_streaming_response
+        """
+        return EmploymentsWithStreamingResponse(self)
+
+    def retrieve_many(
+        self,
+        *,
+        requests: Iterable[employment_retrieve_many_params.Request],
+        entity_ids: SequenceNotStr[str] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncResponsesPage[EmploymentDataResponse]:
+        """
+        Read individual employment and income data
+
+        Args:
+          requests: The array of batch requests.
+
+          entity_ids: The entity IDs to specify which entities' data to access.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/employer/employment",
+            page=SyncResponsesPage[EmploymentDataResponse],
+            body=maybe_transform({"requests": requests}, employment_retrieve_many_params.EmploymentRetrieveManyParams),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {"entity_ids": entity_ids}, employment_retrieve_many_params.EmploymentRetrieveManyParams
+                ),
+                security={"bearer_auth": True},
+            ),
+            model=EmploymentDataResponse,
+            method="post",
+        )
+
+
+class AsyncEmployments(AsyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> AsyncEmploymentsWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/Finch-API/finch-api-python#accessing-raw-response-data-eg-headers
+        """
+        return AsyncEmploymentsWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> AsyncEmploymentsWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/Finch-API/finch-api-python#with_streaming_response
+        """
+        return AsyncEmploymentsWithStreamingResponse(self)
+
+    def retrieve_many(
+        self,
+        *,
+        requests: Iterable[employment_retrieve_many_params.Request],
+        entity_ids: SequenceNotStr[str] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[EmploymentDataResponse, AsyncResponsesPage[EmploymentDataResponse]]:
+        """
+        Read individual employment and income data
+
+        Args:
+          requests: The array of batch requests.
+
+          entity_ids: The entity IDs to specify which entities' data to access.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/employer/employment",
+            page=AsyncResponsesPage[EmploymentDataResponse],
+            body=maybe_transform({"requests": requests}, employment_retrieve_many_params.EmploymentRetrieveManyParams),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {"entity_ids": entity_ids}, employment_retrieve_many_params.EmploymentRetrieveManyParams
+                ),
+                security={"bearer_auth": True},
+            ),
+            model=EmploymentDataResponse,
+            method="post",
+        )
+
+
+class EmploymentsWithRawResponse:
+    def __init__(self, employments: Employments) -> None:
+        self._employments = employments
+
+        self.retrieve_many = _legacy_response.to_raw_response_wrapper(
+            employments.retrieve_many,
+        )
+
+
+class AsyncEmploymentsWithRawResponse:
+    def __init__(self, employments: AsyncEmployments) -> None:
+        self._employments = employments
+
+        self.retrieve_many = _legacy_response.async_to_raw_response_wrapper(
+            employments.retrieve_many,
+        )
+
+
+class EmploymentsWithStreamingResponse:
+    def __init__(self, employments: Employments) -> None:
+        self._employments = employments
+
+        self.retrieve_many = to_streamed_response_wrapper(
+            employments.retrieve_many,
+        )
+
+
+class AsyncEmploymentsWithStreamingResponse:
+    def __init__(self, employments: AsyncEmployments) -> None:
+        self._employments = employments
+
+        self.retrieve_many = async_to_streamed_response_wrapper(
+            employments.retrieve_many,
+        )

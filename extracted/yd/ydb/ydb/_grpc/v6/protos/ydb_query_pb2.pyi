@@ -1,5 +1,3 @@
-import datetime
-
 from google.protobuf import duration_pb2 as _duration_pb2
 from protos.annotations import validation_pb2 as _validation_pb2
 from protos import ydb_issue_message_pb2 as _ydb_issue_message_pb2
@@ -112,13 +110,25 @@ class AttachSessionRequest(_message.Message):
     session_id: str
     def __init__(self, session_id: _Optional[str] = ...) -> None: ...
 
+class SessionShutdownHint(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class NodeShutdownHint(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class SessionState(_message.Message):
-    __slots__ = ("status", "issues")
+    __slots__ = ("status", "issues", "session_shutdown", "node_shutdown")
     STATUS_FIELD_NUMBER: _ClassVar[int]
     ISSUES_FIELD_NUMBER: _ClassVar[int]
+    SESSION_SHUTDOWN_FIELD_NUMBER: _ClassVar[int]
+    NODE_SHUTDOWN_FIELD_NUMBER: _ClassVar[int]
     status: _ydb_status_codes_pb2.StatusIds.StatusCode
     issues: _containers.RepeatedCompositeFieldContainer[_ydb_issue_message_pb2.IssueMessage]
-    def __init__(self, status: _Optional[_Union[_ydb_status_codes_pb2.StatusIds.StatusCode, str]] = ..., issues: _Optional[_Iterable[_Union[_ydb_issue_message_pb2.IssueMessage, _Mapping]]] = ...) -> None: ...
+    session_shutdown: SessionShutdownHint
+    node_shutdown: NodeShutdownHint
+    def __init__(self, status: _Optional[_Union[_ydb_status_codes_pb2.StatusIds.StatusCode, str]] = ..., issues: _Optional[_Iterable[_Union[_ydb_issue_message_pb2.IssueMessage, _Mapping]]] = ..., session_shutdown: _Optional[_Union[SessionShutdownHint, _Mapping]] = ..., node_shutdown: _Optional[_Union[NodeShutdownHint, _Mapping]] = ...) -> None: ...
 
 class SerializableModeSettings(_message.Message):
     __slots__ = ()
@@ -312,7 +322,7 @@ class ExecuteScriptRequest(_message.Message):
     stats_mode: StatsMode
     results_ttl: _duration_pb2.Duration
     pool_id: str
-    def __init__(self, operation_params: _Optional[_Union[_ydb_operation_pb2.OperationParams, _Mapping]] = ..., exec_mode: _Optional[_Union[ExecMode, str]] = ..., script_content: _Optional[_Union[QueryContent, _Mapping]] = ..., parameters: _Optional[_Mapping[str, _ydb_value_pb2.TypedValue]] = ..., stats_mode: _Optional[_Union[StatsMode, str]] = ..., results_ttl: _Optional[_Union[datetime.timedelta, _duration_pb2.Duration, _Mapping]] = ..., pool_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, operation_params: _Optional[_Union[_ydb_operation_pb2.OperationParams, _Mapping]] = ..., exec_mode: _Optional[_Union[ExecMode, str]] = ..., script_content: _Optional[_Union[QueryContent, _Mapping]] = ..., parameters: _Optional[_Mapping[str, _ydb_value_pb2.TypedValue]] = ..., stats_mode: _Optional[_Union[StatsMode, str]] = ..., results_ttl: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., pool_id: _Optional[str] = ...) -> None: ...
 
 class ExecuteScriptMetadata(_message.Message):
     __slots__ = ("execution_id", "exec_status", "script_content", "result_sets_meta", "exec_mode", "exec_stats")

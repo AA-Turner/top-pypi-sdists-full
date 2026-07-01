@@ -1,0 +1,17 @@
+name: test
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  # required
+  - libpysal
+  - matplotlib>=3.6
+  - numpy
+  - scipy
+  # testing
+  - codecov
+  - mapclassify
+  - pytest
+  - pytest-cov
+  - pytest-xdist
+  - seaborn

@@ -4,10 +4,10 @@
 
 [project]
 name = "types-boto3"
-version = "1.43.37"
+version = "1.43.38"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 1.43.37 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 1.43.38 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "types-boto3-full>=1.43.0, <1.44.0",
 ]
 boto3 = [
-    "boto3==1.43.37",
+    "boto3==1.43.38",
 ]
 all = [
     "types-boto3-accessanalyzer>=1.43.0, <1.44.0",
@@ -264,8 +264,6 @@ all = [
     "types-boto3-iot-jobs-data>=1.43.0, <1.44.0",
     "types-boto3-iot-managed-integrations>=1.43.0, <1.44.0",
     "types-boto3-iotdeviceadvisor>=1.43.0, <1.44.0",
-    "types-boto3-iotevents>=1.43.0, <1.44.0",
-    "types-boto3-iotevents-data>=1.43.0, <1.44.0",
     "types-boto3-iotfleetwise>=1.43.0, <1.44.0",
     "types-boto3-iotsecuretunneling>=1.43.0, <1.44.0",
     "types-boto3-iotsitewise>=1.43.0, <1.44.0",
@@ -361,7 +359,6 @@ all = [
     "types-boto3-organizations>=1.43.0, <1.44.0",
     "types-boto3-osis>=1.43.0, <1.44.0",
     "types-boto3-outposts>=1.43.0, <1.44.0",
-    "types-boto3-panorama>=1.43.0, <1.44.0",
     "types-boto3-partnercentral-account>=1.43.0, <1.44.0",
     "types-boto3-partnercentral-benefits>=1.43.0, <1.44.0",
     "types-boto3-partnercentral-channel>=1.43.0, <1.44.0",
@@ -447,7 +444,6 @@ all = [
     "types-boto3-signer-data>=1.43.0, <1.44.0",
     "types-boto3-signin>=1.43.0, <1.44.0",
     "types-boto3-simpledbv2>=1.43.0, <1.44.0",
-    "types-boto3-simspaceweaver>=1.43.0, <1.44.0",
     "types-boto3-snow-device-management>=1.43.0, <1.44.0",
     "types-boto3-snowball>=1.43.0, <1.44.0",
     "types-boto3-sns>=1.43.0, <1.44.0",
@@ -468,6 +464,7 @@ all = [
     "types-boto3-supplychain>=1.43.0, <1.44.0",
     "types-boto3-support>=1.43.0, <1.44.0",
     "types-boto3-support-app>=1.43.0, <1.44.0",
+    "types-boto3-supportauthz>=1.43.0, <1.44.0",
     "types-boto3-sustainability>=1.43.0, <1.44.0",
     "types-boto3-swf>=1.43.0, <1.44.0",
     "types-boto3-synthetics>=1.43.0, <1.44.0",
@@ -1085,12 +1082,6 @@ iot-managed-integrations = [
 iotdeviceadvisor = [
     "types-boto3-iotdeviceadvisor>=1.43.0, <1.44.0",
 ]
-iotevents = [
-    "types-boto3-iotevents>=1.43.0, <1.44.0",
-]
-iotevents-data = [
-    "types-boto3-iotevents-data>=1.43.0, <1.44.0",
-]
 iotfleetwise = [
     "types-boto3-iotfleetwise>=1.43.0, <1.44.0",
 ]
@@ -1376,9 +1367,6 @@ osis = [
 outposts = [
     "types-boto3-outposts>=1.43.0, <1.44.0",
 ]
-panorama = [
-    "types-boto3-panorama>=1.43.0, <1.44.0",
-]
 partnercentral-account = [
     "types-boto3-partnercentral-account>=1.43.0, <1.44.0",
 ]
@@ -1634,9 +1622,6 @@ signin = [
 simpledbv2 = [
     "types-boto3-simpledbv2>=1.43.0, <1.44.0",
 ]
-simspaceweaver = [
-    "types-boto3-simspaceweaver>=1.43.0, <1.44.0",
-]
 snow-device-management = [
     "types-boto3-snow-device-management>=1.43.0, <1.44.0",
 ]
@@ -1696,6 +1681,9 @@ support = [
 ]
 support-app = [
     "types-boto3-support-app>=1.43.0, <1.44.0",
+]
+supportauthz = [
+    "types-boto3-supportauthz>=1.43.0, <1.44.0",
 ]
 sustainability = [
     "types-boto3-sustainability>=1.43.0, <1.44.0",

@@ -670,13 +670,18 @@ class HTTPGitApplication:
             "GET",
             re.compile("/objects/([0-9a-f]{2})/([0-9a-f]{38})$"),
         ): get_loose_object,
+        # Match any "<prefix>-<hash>" pack basename, not just "pack-". ``git
+        # maintenance`` writes "loose-<hash>" packs, which get_info_packs
+        # advertises. The prefix is restricted to word characters and the
+        # hash to hex so the matched name can never contain a path separator
+        # (get_named_file joins it under the control dir unsanitised).
         (
             "GET",
-            re.compile("/objects/pack/pack-([0-9a-f]{40})\\.pack$"),
+            re.compile("/objects/pack/\\w+-([0-9a-f]{40}|[0-9a-f]{64})\\.pack$"),
         ): get_pack_file,
         (
             "GET",
-            re.compile("/objects/pack/pack-([0-9a-f]{40})\\.idx$"),
+            re.compile("/objects/pack/\\w+-([0-9a-f]{40}|[0-9a-f]{64})\\.idx$"),
         ): get_idx_file,
         ("POST", re.compile("/git-upload-pack$")): handle_service_request,
         ("POST", re.compile("/git-receive-pack$")): handle_service_request,
@@ -823,9 +828,9 @@ class ServerHandlerLogger(ServerHandler):
         """Log message using dulwich logger."""
         logger.info(format, *args)
 
-    def log_error(self, *args: object) -> None:
+    def log_error(self, format: str, *args: object) -> None:
         """Log error using dulwich logger."""
-        logger.error(*args)
+        logger.error(format, *args)
 
 
 class WSGIRequestHandlerLogger(WSGIRequestHandler):
@@ -847,9 +852,9 @@ class WSGIRequestHandlerLogger(WSGIRequestHandler):
         """Log message using dulwich logger."""
         logger.info(format, *args)
 
-    def log_error(self, *args: object) -> None:
+    def log_error(self, format: str, *args: object) -> None:
         """Log error using dulwich logger."""
-        logger.error(*args)
+        logger.error(format, *args)
 
     def handle(self) -> None:
         """Handle a single HTTP request."""

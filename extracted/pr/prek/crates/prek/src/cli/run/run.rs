@@ -6,14 +6,12 @@ use std::rc::Rc;
 use std::sync::{Arc, LazyLock};
 
 use anyhow::{Context, Result};
-use futures::stream::{FuturesUnordered, StreamExt};
+use futures_util::stream::{FuturesUnordered, StreamExt};
 use mea::semaphore::Semaphore;
 use owo_colors::OwoColorize;
-use prek_consts::env_vars::EnvVars;
+use prek_consts::env_vars::{EnvVars, EnvVarsRead};
 use prek_consts::{PRE_COMMIT_CONFIG_YAML, PREK_TOML};
 use prek_identify::{TagSet, tags_from_path};
-use rand::SeedableRng;
-use rand::prelude::{SliceRandom, StdRng};
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use tracing::{debug, error, trace};
 use unicode_width::UnicodeWidthStr;
@@ -33,7 +31,7 @@ use crate::fs::CWD;
 use crate::git::GIT_ROOT;
 use crate::hook::{Hook, InstalledHook};
 use crate::printer::Printer;
-use crate::run::{CONCURRENCY, USE_COLOR};
+use crate::run::{HOOK_CONCURRENCY, USE_COLOR};
 use crate::store::Store;
 use crate::workspace::{HookInitFilters, Project, Workspace};
 use crate::{fs, git, hooks, warn_user};
@@ -70,7 +68,7 @@ pub(crate) async fn run(
 
     // Prevent recursive post-checkout hooks.
     if hook_stage == Some(Stage::PostCheckout)
-        && EnvVars::is_set(EnvVars::PREK_INTERNAL__SKIP_POST_CHECKOUT)
+        && EnvVars.is_set(EnvVars::PREK_INTERNAL__SKIP_POST_CHECKOUT)
     {
         return Ok(ExitStatus::Success);
     }
@@ -731,7 +729,7 @@ impl<'a> HookRunSession<'a> {
         tag_cache: &FileTagCache<'paths>,
         clean_baseline: bool,
     ) -> Result<Vec<ProjectRunResult<'project, 'paths>>> {
-        let semaphore = Rc::new(Semaphore::new(*CONCURRENCY));
+        let semaphore = Rc::new(Semaphore::new(*HOOK_CONCURRENCY));
         let mut runs = FuturesUnordered::new();
         for (idx, project_run) in project_runs.into_iter().enumerate() {
             let semaphore = Rc::clone(&semaphore);
@@ -848,9 +846,8 @@ impl<'a> HookRunSession<'a> {
         semaphore: Rc<Semaphore>,
     ) -> Result<Vec<RunResult>> {
         debug!(
-            "Running priority group with priority {} with concurrency {}: {:?}",
+            "Running priority group with priority {}: {:?}",
             group_hooks[0].priority,
-            *CONCURRENCY,
             group_hooks.iter().map(|hook| &hook.id).collect::<Vec<_>>()
         );
 
@@ -1100,10 +1097,10 @@ impl<'a> HookRunSession<'a> {
             } else {
                 "--color=never"
             };
-            git::git_cmd("git diff")?
+            git::git_cmd()?
                 .arg("--no-pager")
                 .arg("diff")
-                .arg("--no-ext-diff")
+                .hidden_args(["--no-ext-diff"])
                 .arg(color)
                 .arg("--")
                 .arg(workspace.root())
@@ -1276,8 +1273,8 @@ impl<'a> HookRunInput<'a> {
         // partitions, but do it deterministically in case a hook cares about ordering.
         const SEED: u64 = 1_542_676_187;
         if let Self::Filenames(filenames) = self {
-            let mut rng = StdRng::seed_from_u64(SEED);
-            filenames.shuffle(&mut rng);
+            let mut rng = fastrand::Rng::with_seed(SEED);
+            rng.shuffle(filenames);
         }
     }
 }

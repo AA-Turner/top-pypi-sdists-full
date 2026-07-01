@@ -15,6 +15,71 @@ import System
 QuantConnect_Data_Fundamental_MultiPeriodField_T = typing.TypeVar("QuantConnect_Data_Fundamental_MultiPeriodField_T")
 
 
+class MultiPeriodFieldLong(QuantConnect.Data.Fundamental.MultiPeriodField[int], metaclass=abc.ABCMeta):
+    """Abstract class for multi-period fields long"""
+
+    def __add__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        ...
+
+    def __iadd__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        ...
+
+    def __imod__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Computes the remainder of dividing the left field's default value by the right field's default value"""
+        ...
+
+    def __imul__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Multiplies the default values of two fields"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Creates an empty instance
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """
+        Creates a new instance
+        
+        
+        This Class is protected.
+        
+        :param time_provider: 
+        :param security_identifier: 
+        """
+        ...
+
+    def __isub__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Subtracts the right field's default value from the left field's default value"""
+        ...
+
+    def __itruediv__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Divides the left field's default value by the right field's default value"""
+        ...
+
+    def __mod__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Computes the remainder of dividing the left field's default value by the right field's default value"""
+        ...
+
+    def __mul__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Multiplies the default values of two fields"""
+        ...
+
+    def __sub__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Subtracts the right field's default value from the left field's default value"""
+        ...
+
+    def __truediv__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Divides the left field's default value by the right field's default value"""
+        ...
+
+
 class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodField_T], metaclass=abc.ABCMeta):
     """Abstract base class for multi-period fields"""
 
@@ -68,6 +133,64 @@ class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodF
         ...
 
     @overload
+    def __add__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        ...
+
+    @overload
+    def __add__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Adds the default values of a double and a long backed field"""
+        ...
+
+    @overload
+    def __add__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Adds the default values of a long and a double backed field"""
+        ...
+
+    @overload
+    def __iadd__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        ...
+
+    @overload
+    def __iadd__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Adds the default values of a double and a long backed field"""
+        ...
+
+    @overload
+    def __iadd__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Adds the default values of a long and a double backed field"""
+        ...
+
+    @overload
+    def __imod__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Computes the remainder of dividing the left field's default value by the right field's default value"""
+        ...
+
+    @overload
+    def __imod__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Computes the remainder of dividing the left field's default value by the right field's default value"""
+        ...
+
+    @overload
+    def __imod__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Computes the remainder of dividing the left field's default value by the right field's default value"""
+        ...
+
+    @overload
+    def __imul__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Multiplies the default values of two fields"""
+        ...
+
+    @overload
+    def __imul__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Multiplies the default values of a double and a long backed field"""
+        ...
+
+    @overload
+    def __imul__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Multiplies the default values of a long and a double backed field"""
+        ...
+
+    @overload
     def __init__(self) -> None:
         """
         Creates an empty instance
@@ -88,6 +211,96 @@ class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodF
         :param time_provider: 
         :param security_identifier: 
         """
+        ...
+
+    @overload
+    def __isub__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Subtracts the right field's default value from the left field's default value"""
+        ...
+
+    @overload
+    def __isub__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Subtracts the right field's default value from the left field's default value"""
+        ...
+
+    @overload
+    def __isub__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Subtracts the right field's default value from the left field's default value"""
+        ...
+
+    @overload
+    def __itruediv__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Divides the left field's default value by the right field's default value"""
+        ...
+
+    @overload
+    def __itruediv__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Divides the left field's default value by the right field's default value"""
+        ...
+
+    @overload
+    def __itruediv__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Divides the left field's default value by the right field's default value"""
+        ...
+
+    @overload
+    def __mod__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Computes the remainder of dividing the left field's default value by the right field's default value"""
+        ...
+
+    @overload
+    def __mod__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Computes the remainder of dividing the left field's default value by the right field's default value"""
+        ...
+
+    @overload
+    def __mod__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Computes the remainder of dividing the left field's default value by the right field's default value"""
+        ...
+
+    @overload
+    def __mul__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Multiplies the default values of two fields"""
+        ...
+
+    @overload
+    def __mul__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Multiplies the default values of a double and a long backed field"""
+        ...
+
+    @overload
+    def __mul__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Multiplies the default values of a long and a double backed field"""
+        ...
+
+    @overload
+    def __sub__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Subtracts the right field's default value from the left field's default value"""
+        ...
+
+    @overload
+    def __sub__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Subtracts the right field's default value from the left field's default value"""
+        ...
+
+    @overload
+    def __sub__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Subtracts the right field's default value from the left field's default value"""
+        ...
+
+    @overload
+    def __truediv__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Divides the left field's default value by the right field's default value"""
+        ...
+
+    @overload
+    def __truediv__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
+        """Divides the left field's default value by the right field's default value"""
+        ...
+
+    @overload
+    def __truediv__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
+        """Divides the left field's default value by the right field's default value"""
         ...
 
     def convert_period(self, period: str) -> str:
@@ -130,33 +343,6 @@ class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodF
 
     def to_string(self) -> str:
         """Returns a string that represents the current object."""
-        ...
-
-
-class MultiPeriodFieldLong(QuantConnect.Data.Fundamental.MultiPeriodField[int], metaclass=abc.ABCMeta):
-    """Abstract class for multi-period fields long"""
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Creates an empty instance
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """
-        Creates a new instance
-        
-        
-        This Class is protected.
-        
-        :param time_provider: 
-        :param security_identifier: 
-        """
         ...
 
 

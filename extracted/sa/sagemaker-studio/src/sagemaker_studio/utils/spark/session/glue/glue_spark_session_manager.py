@@ -39,6 +39,20 @@ class GlueSparkSessionManager(SparkSessionManager):
     and returns a configured SparkSession that can be used directly for Spark operations.
     """
 
+    # CreateSession fields a user may override via ClientConfig.overrides["glue"].
+    # Keys match the sparkGlueProperties names so a user override and the connection
+    # default resolve through the same lookup. maxCapacity, securityConfiguration and
+    # timeout are optional — they are only sent to CreateSession when configured.
+    _CONFIGURABLE_SESSION_FIELDS = (
+        "glueVersion",
+        "workerType",
+        "numberOfWorkers",
+        "idleTimeout",
+        "maxCapacity",
+        "securityConfiguration",
+        "timeout",
+    )
+
     def __init__(
         self,
         connection_name=None,
@@ -52,7 +66,14 @@ class GlueSparkSessionManager(SparkSessionManager):
 
         Args:
             connection_name (str): The connection name (backward compat, used if connection not provided).
-            config (ClientConfig): Configuration for the client.
+            config (ClientConfig): Configuration for the client. CreateSession fields
+                (glueVersion, workerType, numberOfWorkers, idleTimeout, maxCapacity,
+                securityConfiguration, timeout) may be overridden via config.overrides["glue"];
+                these take precedence over the connection's sparkGlueProperties. Spark Connect
+                guards still apply (glueVersion floored to 5.1, idleTimeout capped at 15 minutes).
+                maxCapacity is mutually exclusive with workerType/numberOfWorkers in the Glue
+                CreateSession API — when maxCapacity is configured, workerType and numberOfWorkers
+                are omitted from the request.
             connection: Pre-resolved Connection object (from sparkutils routing). Keyword-only.
             spark_conf (dict): Optional custom Spark configuration. Values override defaults.
         """
@@ -72,6 +93,19 @@ class GlueSparkSessionManager(SparkSessionManager):
 
         glue_override_config = self.config.overrides.get("glue", {})
         glue_endpoint_url = glue_override_config.get("endpoint_url")
+
+        # User-configurable CreateSession sizing fields, supplied via
+        # ClientConfig.overrides["glue"]. These take precedence over the values
+        # derived from the connection's sparkGlueProperties. Only the recognized
+        # keys are picked up; everything else in the "glue" override (e.g.
+        # endpoint_url) is ignored here.
+        self._glue_session_overrides = {
+            key: glue_override_config[key]
+            for key in self._CONFIGURABLE_SESSION_FIELDS
+            if key in glue_override_config
+        }
+        if self._glue_session_overrides:
+            logger.info(f"User-supplied Glue session overrides: {self._glue_session_overrides}")
 
         # Load custom Glue service model (includes GetSessionEndpoint API
         # not yet in the public botocore model).
@@ -281,12 +315,15 @@ class GlueSparkSessionManager(SparkSessionManager):
             user_id = self.project.user_id
             account_id = self._get_account_id()
 
-            # Build CreateSession request from connection props.
+            # Build CreateSession request from connection props, allowing the user to
+            # override the sizing fields via ClientConfig.overrides["glue"].
+            # Resolution per field: user override > connection prop > built-in default.
             # Defaults align with sessions package where applicable.
             # glueVersion default is 5.1 — Spark Connect is only supported from Glue 5.1+.
-            # number_of_workers=10, idle_timeout=60 (minutes) match sessions package.
-            glue_version = self._glue_props.get("glueVersion", "5.1")
-            # Spark Connect requires Glue 5.1+. Silently bump if connection has an older version.
+            # number_of_workers=10, idle_timeout=15 (minutes) match sessions package.
+            glue_version = self._resolve_session_field("glueVersion", "5.1")
+            # Spark Connect requires Glue 5.1+. Silently bump if the resolved version
+            # (connection or user-supplied) is older.
             _glue_version_bumped = False
             try:
                 if float(glue_version) < 5.1:
@@ -297,13 +334,25 @@ class GlueSparkSessionManager(SparkSessionManager):
                     glue_version = "5.1"
             except (ValueError, TypeError):
                 pass
-            worker_type = self._glue_props.get("workerType", "G.1X")
-            number_of_workers = self._glue_props.get("numberOfWorkers", 10)
-            idle_timeout = self._glue_props.get("idleTimeout", 15)
+            worker_type = self._resolve_session_field("workerType", "G.1X")
+            number_of_workers = self._resolve_session_field("numberOfWorkers", 10)
+            idle_timeout = self._resolve_session_field("idleTimeout", 15)
             # Cap idle timeout to 15 min for interactive Spark Connect sessions
-            # (consistent with EMR-S and Athena Spark Connect behavior).
+            # (consistent with EMR-S and Athena Spark Connect behavior). Applies to
+            # user-supplied values too.
             if int(idle_timeout) > 15:
                 idle_timeout = 15
+
+            # Optional CreateSession fields — only sent when configured (user override
+            # or connection prop). Default is None so unset fields are omitted from the
+            # request rather than forcing a value.
+            # - maxCapacity: DPU count; mutually exclusive with workerType/numberOfWorkers
+            #   in the Glue CreateSession API, so those are dropped when this is set.
+            # - securityConfiguration: name of a Glue security configuration (encryption).
+            # - timeout: total session lifetime in minutes (distinct from idleTimeout).
+            max_capacity = self._resolve_session_field("maxCapacity", None)
+            security_configuration = self._resolve_session_field("securityConfiguration", None)
+            session_timeout = self._resolve_session_field("timeout", None)
 
             # Build Glue service-specific configs
             service_configs = {}
@@ -442,8 +491,6 @@ class GlueSparkSessionManager(SparkSessionManager):
                 "Role": self._get_execution_role_arn(),
                 "Command": {"Name": "glueetl"},
                 "GlueVersion": str(glue_version),
-                "WorkerType": worker_type,
-                "NumberOfWorkers": int(number_of_workers),
                 "IdleTimeout": int(idle_timeout),
                 # Spark Connect only: SessionType field not used by Livy sessions
                 "SessionType": "SPARK_CONNECT",
@@ -454,6 +501,25 @@ class GlueSparkSessionManager(SparkSessionManager):
                     "AmazonDataZoneProject": self.project.id,
                 },
             }
+
+            # MaxCapacity is mutually exclusive with WorkerType/NumberOfWorkers in the
+            # Glue CreateSession API. When the user/connection sets maxCapacity, send it
+            # and omit the worker fields; otherwise use the worker-based sizing.
+            if max_capacity is not None:
+                create_params["MaxCapacity"] = float(max_capacity)
+                logger.info(
+                    f"Using MaxCapacity={create_params['MaxCapacity']} "
+                    f"(WorkerType/NumberOfWorkers omitted)"
+                )
+            else:
+                create_params["WorkerType"] = worker_type
+                create_params["NumberOfWorkers"] = int(number_of_workers)
+
+            # Optional pass-through fields — only included when configured.
+            if security_configuration is not None:
+                create_params["SecurityConfiguration"] = security_configuration
+            if session_timeout is not None:
+                create_params["Timeout"] = int(session_timeout)
 
             if connections_list:
                 create_params["Connections"] = {"Connections": connections_list}
@@ -496,6 +562,20 @@ class GlueSparkSessionManager(SparkSessionManager):
             logger.error(f"Failed to create Glue Spark session: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
             raise
+
+    def _resolve_session_field(self, key, default):
+        """Resolve a CreateSession sizing field with user override precedence.
+
+        Resolution order: ClientConfig.overrides["glue"][key] (user)
+        > connection sparkGlueProperties[key] > built-in default.
+
+        Args:
+            key: sparkGlueProperties field name (e.g. "workerType").
+            default: built-in default if neither user nor connection supplies a value.
+        """
+        if key in self._glue_session_overrides:
+            return self._glue_session_overrides[key]
+        return self._glue_props.get(key, default)
 
     def _is_fta_supported(self, glue_version) -> bool:
         """Check if FTA (compatibility mode) is supported for this Glue session.

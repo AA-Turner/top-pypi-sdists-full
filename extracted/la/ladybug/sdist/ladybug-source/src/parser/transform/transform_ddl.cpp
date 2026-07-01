@@ -103,14 +103,19 @@ std::unique_ptr<Statement> Transformer::transformCreateRelGroup(
     if (ctx.iC_Options()) {
         options = transformOptions(*ctx.iC_Options());
     }
-    std::vector<std::pair<std::string, std::string>> fromToPairs;
-    for (auto& fromTo : ctx.iC_FromToConnections()->iC_FromToConnection()) {
+    std::vector<ParsedRelConnection> connections;
+    for (auto& fromTo : ctx.iC_CreateFromToConnections()->iC_CreateFromToConnection()) {
         auto src = transformSchemaName(*fromTo->oC_SchemaName(0));
         auto dst = transformSchemaName(*fromTo->oC_SchemaName(1));
-        fromToPairs.emplace_back(src, dst);
+        std::optional<std::string> perConnectionMultiplicity;
+        if (fromTo->oC_SymbolicName()) {
+            perConnectionMultiplicity = transformSymbolicName(*fromTo->oC_SymbolicName());
+        }
+        connections.emplace_back(std::move(src), std::move(dst),
+            std::move(perConnectionMultiplicity));
     }
     std::unique_ptr<ExtraCreateTableInfo> extraInfo =
-        std::make_unique<ExtraCreateRelTableGroupInfo>(relMultiplicity, std::move(fromToPairs),
+        std::make_unique<ExtraCreateRelTableGroupInfo>(relMultiplicity, std::move(connections),
             std::move(options));
     auto conflictAction = transformConflictAction(ctx.iC_IfNotExists());
     auto createTableInfo = CreateTableInfo(common::TableType::REL, tableName, conflictAction);
@@ -246,11 +251,18 @@ DropType transformDropType(CypherParser::IC_DropContext& ctx) {
 }
 
 std::unique_ptr<Statement> Transformer::transformDrop(CypherParser::IC_DropContext& ctx) {
-    auto name = transformSchemaName(*ctx.oC_SchemaName());
-    auto dropType = transformDropType(ctx);
     auto conflictAction = ctx.iC_IfExists() ? common::ConflictAction::ON_CONFLICT_DO_NOTHING :
                                               common::ConflictAction::ON_CONFLICT_THROW;
-    return std::make_unique<Drop>(DropInfo{std::move(name), dropType, conflictAction});
+    if (ctx.INDEX()) {
+        auto schemaNames = ctx.iC_DropIndexName()->oC_SchemaName();
+        auto tableName = transformSchemaName(*schemaNames[0]);
+        auto indexName = transformSchemaName(*schemaNames[1]);
+        return std::make_unique<Drop>(
+            DropInfo{std::move(tableName), DropType::INDEX, conflictAction, std::move(indexName)});
+    }
+    auto name = transformSchemaName(*ctx.oC_SchemaName());
+    auto dropType = transformDropType(ctx);
+    return std::make_unique<Drop>(DropInfo{std::move(name), dropType, conflictAction, ""});
 }
 
 std::unique_ptr<Statement> Transformer::transformRenameTable(

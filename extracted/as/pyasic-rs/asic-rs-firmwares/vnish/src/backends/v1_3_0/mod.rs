@@ -1,0 +1,1053 @@
+use std::{collections::HashMap, net::IpAddr, str::FromStr, time::Duration};
+
+use anyhow;
+use asic_rs_core::{
+    config::{
+        collector::{ConfigCollector, ConfigExtractor, ConfigField, ConfigLocation},
+        pools::PoolGroupConfig,
+        temperature::TemperatureConfig,
+    },
+    data::{
+        board::{BoardData, ChipData, MinerControlBoard},
+        collector::{
+            DataCollector, DataExtensions, DataExtractor, DataField, DataLocation, get_by_pointer,
+        },
+        command::MinerCommand,
+        device::{DeviceInfo, HashAlgorithm},
+        fan::FanData,
+        hashrate::{HashRate, HashRateUnit},
+        message::{MessageSeverity, MinerMessage},
+        pool::{PoolData, PoolGroupData, PoolURL},
+    },
+    traits::{miner::*, model::MinerModel},
+};
+use asic_rs_makes_antminer::hardware::AntMinerControlBoard;
+use async_trait::async_trait;
+use macaddr::MacAddr;
+use measurements::{AngularVelocity, Frequency, Power, Temperature, Voltage};
+use serde_json::{Value, json};
+use web::VnishWebAPI;
+
+use crate::firmware::VnishFirmware;
+
+mod web;
+
+#[derive(Debug)]
+pub struct VnishV130 {
+    ip: IpAddr,
+    web: VnishWebAPI,
+    device_info: DeviceInfo,
+}
+
+impl VnishV130 {
+    pub fn new(ip: IpAddr, model: impl MinerModel) -> Self {
+        let auth = Self::default_auth();
+        VnishV130 {
+            ip,
+            web: VnishWebAPI::new(ip, 80, auth),
+            device_info: DeviceInfo::new(model, VnishFirmware::default(), HashAlgorithm::SHA256),
+        }
+    }
+}
+
+#[async_trait]
+impl APIClient for VnishV130 {
+    async fn get_api_result(&self, command: &MinerCommand) -> anyhow::Result<Value> {
+        match command {
+            MinerCommand::WebAPI { .. } => self.web.get_api_result(command).await,
+            _ => Err(anyhow::anyhow!("Unsupported command type for Vnish API")),
+        }
+    }
+}
+
+impl GetConfigsLocations for VnishV130 {
+    fn get_configs_locations(&self, data_field: ConfigField) -> Vec<ConfigLocation> {
+        const WEB_SUMMARY: MinerCommand = MinerCommand::WebAPI {
+            command: "summary",
+            parameters: None,
+        };
+        match data_field {
+            ConfigField::Temperature => vec![(
+                WEB_SUMMARY,
+                ConfigExtractor {
+                    func: get_by_pointer,
+                    key: Some("/miner"),
+                    tag: None,
+                },
+            )],
+            _ => vec![],
+        }
+    }
+}
+
+impl CollectConfigs for VnishV130 {
+    fn get_config_collector(&self) -> ConfigCollector<'_> {
+        ConfigCollector::new(self)
+    }
+}
+
+impl GetDataLocations for VnishV130 {
+    fn get_locations(&self, data_field: DataField) -> Vec<DataLocation> {
+        const WEB_INFO: MinerCommand = MinerCommand::WebAPI {
+            command: "info",
+            parameters: None,
+        };
+        const WEB_STATUS: MinerCommand = MinerCommand::WebAPI {
+            command: "status",
+            parameters: None,
+        };
+        const WEB_SUMMARY: MinerCommand = MinerCommand::WebAPI {
+            command: "summary",
+            parameters: None,
+        };
+        const WEB_CHAINS: MinerCommand = MinerCommand::WebAPI {
+            command: "chains",
+            parameters: None,
+        };
+        const WEB_FACTORY_INFO: MinerCommand = MinerCommand::WebAPI {
+            command: "chains/factory-info",
+            parameters: None,
+        };
+
+        match data_field {
+            DataField::Mac => vec![(
+                WEB_INFO,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/system/network_status/mac"),
+                    tag: None,
+                },
+            )],
+            DataField::SerialNumber => vec![
+                (
+                    WEB_FACTORY_INFO,
+                    DataExtractor {
+                        func: get_by_pointer,
+                        key: Some("/psu_serial"),
+                        tag: None,
+                    },
+                ),
+                (
+                    WEB_INFO,
+                    DataExtractor {
+                        func: get_by_pointer,
+                        key: Some("/serial"),
+                        tag: None,
+                    },
+                ),
+            ],
+            DataField::Hostname => vec![(
+                WEB_INFO,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/system/network_status/hostname"),
+                    tag: None,
+                },
+            )],
+            DataField::ApiVersion => vec![(
+                WEB_INFO,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/fw_version"),
+                    tag: None,
+                },
+            )],
+            DataField::FirmwareVersion => vec![(
+                WEB_INFO,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/fw_version"),
+                    tag: None,
+                },
+            )],
+            DataField::ControlBoardVersion => vec![(
+                WEB_INFO,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/platform"),
+                    tag: None,
+                },
+            )],
+            DataField::Uptime => vec![(
+                WEB_INFO,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/system/uptime"),
+                    tag: None,
+                },
+            )],
+            DataField::Hashrate => vec![(
+                WEB_SUMMARY,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/miner/hr_realtime"),
+                    tag: None,
+                },
+            )],
+            DataField::ExpectedHashrate => vec![
+                (
+                    WEB_FACTORY_INFO,
+                    DataExtractor {
+                        func: get_by_pointer,
+                        key: Some("/hr_stock"),
+                        tag: None,
+                    },
+                ),
+                (
+                    WEB_SUMMARY,
+                    DataExtractor {
+                        func: get_by_pointer,
+                        key: Some("/miner/hr_stock"),
+                        tag: None,
+                    },
+                ),
+            ],
+            DataField::Wattage => vec![(
+                WEB_SUMMARY,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/miner/power_consumption"),
+                    tag: None,
+                },
+            )],
+            DataField::Fans => vec![(
+                WEB_SUMMARY,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/miner/cooling/fans"),
+                    tag: None,
+                },
+            )],
+            DataField::Hashboards => vec![
+                (
+                    WEB_SUMMARY,
+                    DataExtractor {
+                        func: get_by_pointer,
+                        key: Some("/miner/chains"),
+                        tag: None,
+                    },
+                ),
+                (
+                    WEB_CHAINS,
+                    DataExtractor {
+                        func: get_by_pointer,
+                        key: Some(""),
+                        tag: None,
+                    },
+                ),
+            ],
+            DataField::Chips => vec![(
+                WEB_CHAINS,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some(""),
+                    tag: None,
+                },
+            )],
+            DataField::Pools => vec![(
+                WEB_SUMMARY,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/miner/pools"),
+                    tag: None,
+                },
+            )],
+            DataField::IsMining => vec![(
+                WEB_STATUS,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/miner_state"),
+                    tag: None,
+                },
+            )],
+            DataField::LightFlashing => vec![(
+                WEB_STATUS,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/find_miner"),
+                    tag: None,
+                },
+            )],
+            DataField::FluidTemperature => vec![(
+                WEB_SUMMARY,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/miner/chains"),
+                    tag: None,
+                },
+            )],
+            DataField::OutletFluidTemperature => vec![(
+                WEB_SUMMARY,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/miner/chains"),
+                    tag: None,
+                },
+            )],
+            DataField::Messages => vec![(
+                WEB_SUMMARY,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/miner/miner_status"),
+                    tag: None,
+                },
+            )],
+            DataField::TuningPercent => vec![(
+                WEB_SUMMARY,
+                DataExtractor {
+                    func: get_by_pointer,
+                    key: Some("/miner/miner_status/throttled"),
+                    tag: None,
+                },
+            )],
+            _ => vec![],
+        }
+    }
+}
+
+impl GetIP for VnishV130 {
+    fn get_ip(&self) -> IpAddr {
+        self.ip
+    }
+}
+
+impl GetDeviceInfo for VnishV130 {
+    fn get_device_info(&self) -> DeviceInfo {
+        self.device_info.clone()
+    }
+}
+
+impl CollectData for VnishV130 {
+    fn get_collector(&self) -> DataCollector<'_> {
+        DataCollector::new(self)
+    }
+}
+
+impl GetMAC for VnishV130 {
+    fn parse_mac(&self, data: &HashMap<DataField, Value>) -> Option<MacAddr> {
+        data.extract::<String>(DataField::Mac)
+            .and_then(|s| MacAddr::from_str(&s).ok())
+    }
+}
+
+impl GetSerialNumber for VnishV130 {
+    fn parse_serial_number(&self, data: &HashMap<DataField, Value>) -> Option<String> {
+        data.extract::<String>(DataField::SerialNumber)
+    }
+}
+
+impl GetHostname for VnishV130 {
+    fn parse_hostname(&self, data: &HashMap<DataField, Value>) -> Option<String> {
+        data.extract::<String>(DataField::Hostname)
+    }
+}
+
+impl GetApiVersion for VnishV130 {
+    fn parse_api_version(&self, data: &HashMap<DataField, Value>) -> Option<String> {
+        data.extract::<String>(DataField::ApiVersion)
+    }
+}
+
+impl GetFirmwareVersion for VnishV130 {
+    fn parse_firmware_version(&self, data: &HashMap<DataField, Value>) -> Option<String> {
+        data.extract::<String>(DataField::FirmwareVersion)
+    }
+}
+
+impl GetControlBoardVersion for VnishV130 {
+    fn parse_control_board_version(
+        &self,
+        data: &HashMap<DataField, Value>,
+    ) -> Option<MinerControlBoard> {
+        data.extract::<String>(DataField::ControlBoardVersion)
+            .and_then(|s| AntMinerControlBoard::parse(&s).map(|cb| cb.into()))
+    }
+}
+
+impl GetHashboards for VnishV130 {
+    fn parse_hashboards(&self, data: &HashMap<DataField, Value>) -> Vec<BoardData> {
+        let Some(all_chains) = data.get(&DataField::Hashboards).and_then(|v| v.as_array()) else {
+            return Vec::new();
+        };
+        let chip_chains = data.get(&DataField::Chips).and_then(|v| v.as_array());
+
+        let mut hashboards: Vec<BoardData> =
+            (0..self.device_info.hardware.board_count().unwrap_or(0) as usize)
+                .map(|idx| {
+                    BoardData::new(idx as u8, self.device_info.hardware.chips_for_board(idx))
+                })
+                .collect();
+
+        // Both /summary and /chains endpoints are concatenated into all_chains.
+        // Vnish chain IDs are 1-based; map to 0-based position by adding 1 when matching.
+        for board in hashboards.iter_mut() {
+            let id = board.position as u64 + 1;
+            let mut merged = serde_json::Map::new();
+            for entry in all_chains
+                .iter()
+                .filter(|c| c.pointer("/id").and_then(|v| v.as_u64()) == Some(id))
+            {
+                if let Value::Object(obj) = entry {
+                    for (k, v) in obj {
+                        merged.entry(k.clone()).or_insert_with(|| v.clone());
+                    }
+                }
+            }
+
+            if merged.is_empty() {
+                continue;
+            }
+
+            let chain = Value::Object(merged);
+            board.hashrate = ["/hashrate_rt", "/hr_realtime"]
+                .iter()
+                .find_map(|&p| chain.pointer(p).and_then(|v| v.as_f64()))
+                .map(|f| {
+                    HashRate {
+                        value: f,
+                        unit: HashRateUnit::GigaHash,
+                        algo: "SHA256".to_string(),
+                    }
+                    .as_unit(HashRateUnit::default())
+                });
+            board.expected_hashrate = ["/hashrate_ideal", "/hr_nominal"]
+                .iter()
+                .find_map(|&p| chain.pointer(p).and_then(|v| v.as_f64()))
+                .map(|f| {
+                    HashRate {
+                        value: f,
+                        unit: HashRateUnit::GigaHash,
+                        algo: "SHA256".to_string(),
+                    }
+                    .as_unit(HashRateUnit::default())
+                });
+            board.board_temperature = chain
+                .pointer("/pcb_temp/max")
+                .and_then(|v| v.as_i64())
+                .map(|t| Temperature::from_celsius(t as f64));
+            // Per-board chip temperatures: coolest chip -> inlet, hottest -> outlet.
+            // Coolant (water) temperatures are reported separately as
+            // fluid / outlet_fluid temperatures on the miner, not here.
+            let chip_min = chain.pointer("/chip_temp/min").and_then(|v| v.as_i64());
+            let chip_max = chain.pointer("/chip_temp/max").and_then(|v| v.as_i64());
+            board.inlet_chip_temperature = chip_min.map(|t| Temperature::from_celsius(t as f64));
+            board.outlet_chip_temperature = chip_max.map(|t| Temperature::from_celsius(t as f64));
+            board.working_chips = chain
+                .pointer("/chips")
+                .and_then(|v| v.as_array())
+                .map(|chips| {
+                    chips
+                        .iter()
+                        .filter(|c| c.pointer("/hr").and_then(|v| v.as_f64()).unwrap_or(0.0) > 0.0)
+                        .count() as u16
+                });
+            board.serial_number = chain
+                .pointer("/serial")
+                .and_then(|v| v.as_str())
+                .map(String::from)
+                .or_else(|| data.extract::<String>(DataField::SerialNumber));
+            if let Some(chip_chain) = chip_chains.and_then(|chains| {
+                chains
+                    .iter()
+                    .find(|c| c.pointer("/id").and_then(|v| v.as_u64()) == Some(id))
+            }) {
+                board.chips = chip_chain
+                    .pointer("/chips")
+                    .and_then(|v| v.as_array())
+                    .map(|chips_arr| {
+                        chips_arr
+                            .iter()
+                            .enumerate()
+                            .map(|(idx, chip)| {
+                                let hashrate =
+                                    chip.pointer("/hr").and_then(|v| v.as_f64()).map(|f| {
+                                        {
+                                            HashRate {
+                                                value: f,
+                                                unit: HashRateUnit::GigaHash,
+                                                algo: "SHA256".to_string(),
+                                            }
+                                        }
+                                        .as_unit(HashRateUnit::default())
+                                    });
+                                let working = hashrate.as_ref().map(|hr| hr.value > 0.0);
+                                ChipData {
+                                    position: chip
+                                        .pointer("/id")
+                                        .and_then(|v| v.as_u64())
+                                        .unwrap_or(idx as u64)
+                                        as u16,
+                                    hashrate,
+                                    temperature: chip
+                                        .pointer("/temp")
+                                        .and_then(|v| v.as_f64())
+                                        .map(Temperature::from_celsius),
+                                    voltage: chip
+                                        .pointer("/volt")
+                                        .and_then(|v| v.as_i64())
+                                        .map(|v| Voltage::from_millivolts(v as f64)),
+                                    frequency: chip
+                                        .pointer("/freq")
+                                        .and_then(|v| v.as_i64())
+                                        .map(|f| Frequency::from_megahertz(f as f64)),
+                                    tuned: None,
+                                    working,
+                                }
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+            }
+            board.voltage = chain
+                .pointer("/voltage")
+                .and_then(|v| v.as_i64())
+                .map(|v| Voltage::from_millivolts(v as f64));
+            board.frequency = chain
+                .pointer("/frequency")
+                .or_else(|| chain.pointer("/freq"))
+                .and_then(|v| v.as_f64())
+                .map(Frequency::from_megahertz);
+            board.tuned =
+                data.extract::<String>(DataField::IsMining)
+                    .and_then(|s| match s.as_str() {
+                        "auto-tuning" => Some(false),
+                        "mining" => Some(true),
+                        _ => None,
+                    });
+            board.active = chain
+                .pointer("/status/state")
+                .and_then(|v| v.as_str())
+                .map(|s| s == "mining")
+                .or_else(|| board.hashrate.as_ref().map(|h| h.value > 0.0));
+        }
+
+        hashboards
+    }
+}
+
+impl GetHashrate for VnishV130 {
+    fn parse_hashrate(&self, data: &HashMap<DataField, Value>) -> Option<HashRate> {
+        data.extract_map::<f64, _>(DataField::Hashrate, |f| {
+            HashRate {
+                value: f,
+                unit: HashRateUnit::GigaHash,
+                algo: "SHA256".to_string(),
+            }
+            .as_unit(HashRateUnit::default())
+        })
+    }
+}
+
+impl GetExpectedHashrate for VnishV130 {
+    fn parse_expected_hashrate(&self, data: &HashMap<DataField, Value>) -> Option<HashRate> {
+        data.extract_map::<f64, _>(DataField::ExpectedHashrate, |f| {
+            HashRate {
+                value: f,
+                unit: HashRateUnit::GigaHash,
+                algo: "SHA256".to_string(),
+            }
+            .as_unit(HashRateUnit::default())
+        })
+    }
+}
+
+impl GetFans for VnishV130 {
+    fn parse_fans(&self, data: &HashMap<DataField, Value>) -> Vec<FanData> {
+        let mut fans: Vec<FanData> = Vec::new();
+
+        if let Some(fans_data) = data.get(&DataField::Fans)
+            && let Some(fans_array) = fans_data.as_array()
+        {
+            for (idx, fan) in fans_array.iter().enumerate() {
+                if let Some(rpm) = fan.pointer("/rpm").and_then(|v| v.as_i64()) {
+                    fans.push(FanData {
+                        position: idx as i16,
+                        rpm: Some(AngularVelocity::from_rpm(rpm as f64)),
+                    });
+                }
+            }
+        }
+
+        fans
+    }
+}
+
+impl GetPsuFans for VnishV130 {}
+
+impl GetFluidTemperature for VnishV130 {
+    fn parse_fluid_temperature(&self, data: &HashMap<DataField, Value>) -> Option<Temperature> {
+        // Fluid temperature mirrors other firmwares' "environment temperature":
+        // the coolant entering the machine. For hydro miners that's the
+        // per-board inlet water temperature.
+        let chains = data
+            .get(&DataField::FluidTemperature)
+            .and_then(|v| v.as_array())?;
+        chains
+            .iter()
+            .filter_map(|c| c.pointer("/inlet_water_temp").and_then(|v| v.as_i64()))
+            .max()
+            .map(|t| Temperature::from_celsius(t as f64))
+    }
+    fn parse_outlet_fluid_temperature(
+        &self,
+        data: &HashMap<DataField, Value>,
+    ) -> Option<Temperature> {
+        // Coolant exhaust: the per-board outlet water temperature on hydro
+        // miners. Air-cooled models do not report it, yielding None.
+        let chains = data
+            .get(&DataField::OutletFluidTemperature)
+            .and_then(|v| v.as_array())?;
+        chains
+            .iter()
+            .filter_map(|c| c.pointer("/outlet_water_temp").and_then(|v| v.as_i64()))
+            .max()
+            .map(|t| Temperature::from_celsius(t as f64))
+    }
+}
+
+impl GetWattage for VnishV130 {
+    fn parse_wattage(&self, data: &HashMap<DataField, Value>) -> Option<Power> {
+        data.extract_map::<i64, _>(DataField::Wattage, |w| Power::from_watts(w as f64))
+    }
+}
+
+impl GetTuningPercent for VnishV130 {
+    fn parse_tuning_percent(&self, data: &HashMap<DataField, Value>) -> Option<u8> {
+        // `/miner/miner_status/throttled`: 100 = full power, <100 = throttled.
+        data.extract_map::<i64, _>(DataField::TuningPercent, |t| t.clamp(0, 100) as u8)
+    }
+}
+
+impl GetTuningTarget for VnishV130 {}
+
+impl GetScaledTuningTarget for VnishV130 {}
+impl GetTuningCapabilities for VnishV130 {}
+impl GetLightFlashing for VnishV130 {
+    fn parse_light_flashing(&self, data: &HashMap<DataField, Value>) -> Option<bool> {
+        data.extract::<bool>(DataField::LightFlashing)
+    }
+}
+
+impl GetMessages for VnishV130 {
+    /// Surface the miner's own state verdict as a message. VNish self-manages
+    /// (won't start mining below the configured `min_startup_water_temp`, and
+    /// protects itself above `restart_temp`), so any non-operating state is
+    /// reported here rather than computed from invented thresholds.
+    fn parse_messages(&self, data: &HashMap<DataField, Value>) -> Vec<MinerMessage> {
+        let mut messages = Vec::new();
+
+        if let Some(status) = data.get(&DataField::Messages)
+            && let Some(state) = status.pointer("/miner_state").and_then(|v| v.as_str())
+        {
+            let normal = matches!(
+                state.to_lowercase().as_str(),
+                "mining" | "auto-tuning" | "auto_tuning" | "tuning"
+            );
+            if !normal {
+                let severity = match state.to_lowercase().as_str() {
+                    "failure" | "failed" | "error" | "broken" | "stopped" => MessageSeverity::Error,
+                    _ => MessageSeverity::Warning,
+                };
+                messages.push(MinerMessage::new(
+                    0,
+                    0,
+                    format!("Miner state: {state}"),
+                    severity,
+                ));
+            }
+        }
+
+        messages
+    }
+}
+
+impl GetUptime for VnishV130 {
+    fn parse_uptime(&self, data: &HashMap<DataField, Value>) -> Option<Duration> {
+        data.extract::<String>(DataField::Uptime)
+            .and_then(|uptime_str| {
+                // Parse uptime strings like "10 days, 18:00"
+                let trimmed = uptime_str.trim();
+
+                // Try to parse format like "X days, HH:MM" or "X days"
+                if trimmed.contains("days") {
+                    let mut total_seconds = 0u64;
+
+                    // Extract days
+                    if let Some(days_part) = trimmed.split("days").next()
+                        && let Ok(days) = days_part.trim().parse::<u64>()
+                    {
+                        total_seconds += days * 24 * 60 * 60;
+                    }
+
+                    // Extract hours and minutes if present (after comma)
+                    if let Some(time_part) = trimmed.split(',').nth(1) {
+                        let time_part = time_part.trim();
+                        if let Some((hours_str, minutes_str)) = time_part.split_once(':')
+                            && let (Ok(hours), Ok(minutes)) = (
+                                hours_str.trim().parse::<u64>(),
+                                minutes_str.trim().parse::<u64>(),
+                            )
+                        {
+                            total_seconds += hours * 60 * 60 + minutes * 60;
+                        }
+                    }
+
+                    return Some(Duration::from_secs(total_seconds));
+                }
+
+                // Handle "H:MM" or "HH:MM" format (uptime < 1 day)
+                if let Some((hours_str, minutes_str)) = trimmed.split_once(':')
+                    && let (Ok(hours), Ok(minutes)) = (
+                        hours_str.trim().parse::<u64>(),
+                        minutes_str.trim().parse::<u64>(),
+                    )
+                {
+                    return Some(Duration::from_secs(hours * 3600 + minutes * 60));
+                }
+
+                None
+            })
+    }
+}
+
+impl GetIsMining for VnishV130 {
+    fn parse_is_mining(&self, data: &HashMap<DataField, Value>) -> bool {
+        data.extract::<String>(DataField::IsMining)
+            .map(|state| state == "mining" || state == "auto-tuning")
+            .unwrap_or(true)
+    }
+}
+
+impl GetPools for VnishV130 {
+    fn parse_pools(&self, data: &HashMap<DataField, Value>) -> Vec<PoolGroupData> {
+        let mut pools: Vec<PoolData> = Vec::new();
+
+        if let Some(pools_data) = data.get(&DataField::Pools)
+            && let Some(pools_array) = pools_data.as_array()
+        {
+            for (idx, pool) in pools_array.iter().enumerate() {
+                let url = pool
+                    .pointer("/url")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)
+                    .map(PoolURL::from);
+
+                let user = pool
+                    .pointer("/user")
+                    .and_then(|v| v.as_str())
+                    .map(String::from);
+
+                let accepted_shares = pool.pointer("/accepted").and_then(|v| v.as_u64());
+                let rejected_shares = pool.pointer("/rejected").and_then(|v| v.as_u64());
+                let pool_status = pool.pointer("/status").and_then(|v| v.as_str());
+                let (active, alive) = Self::parse_pool_status(pool_status);
+
+                pools.push(PoolData {
+                    position: Some(idx as u16),
+                    url,
+                    accepted_shares,
+                    rejected_shares,
+                    active,
+                    alive,
+                    user,
+                });
+            }
+        }
+
+        vec![PoolGroupData {
+            name: String::new(),
+            quota: 1,
+            pools,
+        }]
+    }
+}
+
+impl VnishV130 {
+    fn parse_pool_status(status: Option<&str>) -> (Option<bool>, Option<bool>) {
+        match status {
+            Some("active" | "working") => (Some(true), Some(true)),
+            Some("offline" | "disabled") => (Some(false), Some(false)),
+            Some("rejecting") => (Some(false), Some(true)),
+            _ => (None, None),
+        }
+    }
+}
+
+#[async_trait]
+impl SetFaultLight for VnishV130 {
+    fn supports_set_fault_light(&self) -> bool {
+        true
+    }
+
+    async fn set_fault_light(&self, fault: bool) -> anyhow::Result<bool> {
+        if self.get_light_flashing().await == Some(fault) {
+            return Ok(true);
+        }
+
+        let response = self.web.find_miner(fault).await?;
+        Ok(response
+            .pointer("/on")
+            .and_then(|v| v.as_bool())
+            .map(|on| on == fault)
+            .unwrap_or(true))
+    }
+}
+
+#[async_trait]
+impl SetPowerLimit for VnishV130 {
+    fn supports_set_power_limit(&self) -> bool {
+        true
+    }
+
+    /// VNish sets power by selecting a tuned autotune preset, not an arbitrary
+    /// wattage (mirrors pyasic's behaviour). Pick the highest tuned preset whose
+    /// power is <= the requested limit, set `overclock.preset` to it and verify.
+    async fn set_power_limit(&self, limit: Power) -> anyhow::Result<bool> {
+        let target_watts = limit.as_watts() as i64;
+
+        let presets = self.web.autotune_presets().await?;
+        let preset_list = presets
+            .as_array()
+            .or_else(|| presets.get("presets").and_then(|p| p.as_array()))
+            .ok_or_else(|| anyhow::anyhow!("unexpected /autotune/presets response"))?;
+
+        // Each preset: { "name": "3495", "pretty": "3495 watt ~ 132 TH",
+        //               "status": "tuned", ... }.
+        // Consider ALL presets (tuned and un-tuned): an un-tuned preset is a
+        // valid target, it just triggers a tuning cycle (effectively a restart)
+        // before it settles — same behaviour as e.g. Whatsminer rebooting on a
+        // power-limit change. Watts come from the preset `name` (the bare number,
+        // present for tuned and un-tuned alike); non-numeric names like
+        // "disabled" are skipped by the parse.
+        let best = preset_list
+            .iter()
+            .filter_map(|p| {
+                let name = p.get("name")?.as_str()?;
+                name.trim().parse::<i64>().ok()
+            })
+            .filter(|&w| w <= target_watts)
+            .max();
+
+        let Some(preset_watts) = best else {
+            return Ok(false);
+        };
+
+        let mut settings = self.web.settings().await?;
+        {
+            let overclock = settings
+                .pointer_mut("/miner/overclock")
+                .ok_or_else(|| anyhow::anyhow!("settings missing miner.overclock"))?;
+            overclock["preset"] = json!(preset_watts.to_string());
+        }
+        let overclock = settings
+            .pointer("/miner/overclock")
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("settings missing miner.overclock"))?;
+
+        self.web
+            .set_settings(json!({ "miner": { "overclock": overclock } }))
+            .await?;
+
+        // Verify the preset was accepted.
+        let updated = self.web.settings().await?;
+        let applied = updated.pointer("/miner/overclock/preset").and_then(|p| {
+            p.as_i64()
+                .or_else(|| p.as_str().and_then(|s| s.parse().ok()))
+        });
+        Ok(applied == Some(preset_watts))
+    }
+}
+
+#[async_trait]
+impl SetTuningPercent for VnishV130 {
+    fn supports_set_tuning_percent(&self) -> bool {
+        true
+    }
+
+    /// VNish throttles to a percent of full power via `POST /mining/throttle`
+    /// (100 = unthrottled). The firmware accepts 20..=100.
+    async fn set_tuning_percent(&self, percent: u8) -> anyhow::Result<bool> {
+        let percent = percent.clamp(20, 100);
+        self.web.throttle(percent).await?;
+        Ok(true)
+    }
+}
+
+#[async_trait]
+impl SupportsPoolsConfig for VnishV130 {
+    async fn get_pools_config(&self) -> anyhow::Result<Vec<PoolGroupConfig>> {
+        Ok(self
+            .get_pools()
+            .await
+            .iter()
+            .map(|g| g.clone().into())
+            .collect())
+    }
+
+    async fn set_pools_config(&self, config: Vec<PoolGroupConfig>) -> anyhow::Result<bool> {
+        let pools: Vec<Value> = config
+            .iter()
+            .flat_map(|group| group.pools.iter())
+            .enumerate()
+            .map(|(idx, pool)| {
+                json!({
+                    "url": format!("{}:{}", pool.url.host, pool.url.port),
+                    "user": pool.username.as_str(),
+                    "pass": pool.password.as_str(),
+                    "order": idx,
+                    "id": idx,
+                })
+            })
+            .collect();
+
+        Ok(self
+            .web
+            .set_settings(json!({ "miner": { "pools": pools } }))
+            .await
+            .is_ok())
+    }
+
+    fn supports_pools_config(&self) -> bool {
+        true
+    }
+}
+
+#[async_trait]
+impl Restart for VnishV130 {
+    async fn restart(&self) -> anyhow::Result<bool> {
+        Ok(self.web.restart().await.is_ok())
+    }
+
+    fn supports_restart(&self) -> bool {
+        true
+    }
+}
+
+#[async_trait]
+impl Pause for VnishV130 {
+    #[allow(unused_variables)]
+    async fn pause(&self, at_time: Option<Duration>) -> anyhow::Result<bool> {
+        Ok(self.web.stop().await.is_ok())
+    }
+
+    fn supports_pause(&self) -> bool {
+        true
+    }
+}
+
+#[async_trait]
+impl Resume for VnishV130 {
+    #[allow(unused_variables)]
+    async fn resume(&self, at_time: Option<Duration>) -> anyhow::Result<bool> {
+        Ok(self.web.start().await.is_ok())
+    }
+
+    fn supports_resume(&self) -> bool {
+        true
+    }
+}
+
+#[async_trait]
+impl ChangePassword for VnishV130 {
+    async fn change_password(&mut self, password: &str) -> anyhow::Result<bool> {
+        let success = self.web.change_password(password).await?;
+        if success {
+            let username = self.web.username().to_string();
+            self.set_auth(MinerAuth::new(username, password));
+        }
+        Ok(success)
+    }
+
+    fn supports_change_password(&self) -> bool {
+        true
+    }
+}
+
+#[async_trait]
+impl ReadLogs for VnishV130 {
+    async fn read_logs(&self) -> anyhow::Result<String> {
+        self.web.read_logs().await
+    }
+
+    fn supports_read_logs(&self) -> bool {
+        true
+    }
+}
+
+#[async_trait]
+impl FactoryReset for VnishV130 {
+    async fn factory_reset(&self) -> anyhow::Result<bool> {
+        self.web.factory_reset().await
+    }
+
+    fn supports_factory_reset(&self) -> bool {
+        true
+    }
+}
+
+#[async_trait]
+impl SupportsScalingConfig for VnishV130 {
+    fn supports_scaling_config(&self) -> bool {
+        false
+    }
+}
+
+#[async_trait]
+impl SupportsTemperatureConfig for VnishV130 {
+    fn supports_temperature_config(&self) -> bool {
+        true
+    }
+
+    /// VNish reports configured thermal limits in `/summary`: the minimum
+    /// startup water temperature and the self-protection restart temperature.
+    /// `hot` is not exposed via `/summary` (left `None` = not reported, not
+    /// "no limit").
+    fn parse_temperature_config(
+        &self,
+        data: &HashMap<ConfigField, Value>,
+    ) -> anyhow::Result<TemperatureConfig> {
+        let miner = data
+            .get(&ConfigField::Temperature)
+            .ok_or_else(|| anyhow::anyhow!("No temperature config returned by miner"))?;
+        Ok(TemperatureConfig {
+            hot: None,
+            danger: miner.pointer("/misc/restart_temp").and_then(|v| v.as_f64()),
+            minimum: miner
+                .pointer("/cooling/min_startup_water_temp")
+                .and_then(|v| v.as_f64()),
+        })
+    }
+}
+
+#[async_trait]
+impl UpgradeFirmware for VnishV130 {
+    fn supports_upgrade_firmware(&self) -> bool {
+        false
+    }
+}
+
+impl HasDefaultAuth for VnishV130 {
+    fn default_auth() -> MinerAuth {
+        MinerAuth::new("", "admin")
+    }
+}
+
+impl HasAuth for VnishV130 {
+    fn set_auth(&mut self, auth: MinerAuth) {
+        self.web.set_auth(auth);
+    }
+}
+
+#[async_trait]
+impl SupportsTuningConfig for VnishV130 {
+    fn supports_tuning_config(&self) -> bool {
+        false
+    }
+}
+
+#[async_trait]
+impl SupportsFanConfig for VnishV130 {
+    fn supports_fan_config(&self) -> bool {
+        false
+    }
+}

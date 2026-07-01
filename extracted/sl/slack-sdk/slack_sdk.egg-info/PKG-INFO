@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: slack_sdk
-Version: 3.42.0
+Version: 3.43.0
 Summary: The Slack API Platform SDK for Python
 Home-page: https://github.com/slackapi/python-slack-sdk
 Author: Slack Technologies, LLC
 Author-email: opensource@slack.com
 License: MIT
 Project-URL: Documentation, https://docs.slack.dev/tools/python-slack-sdk/
+Project-URL: Source, https://github.com/slackapi/python-slack-sdk
 Keywords: slack,slack-api,web-api,slack-rtm,websocket,chat,chatbot,chatops
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -31,9 +32,11 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: optional
 Requires-Dist: aiodns>1.0; extra == "optional"
-Requires-Dist: aiohttp<4,>=3.7.3; extra == "optional"
+Requires-Dist: aiohttp<3.9,>=3.7.3; python_version == "3.7" and extra == "optional"
+Requires-Dist: aiohttp<3.11,>=3.7.3; python_version == "3.8" and extra == "optional"
+Requires-Dist: aiohttp<4,>=3.13.5; python_version >= "3.9" and extra == "optional"
 Requires-Dist: boto3<=2; extra == "optional"
-Requires-Dist: SQLAlchemy<3,>=1.4; extra == "optional"
+Requires-Dist: SQLAlchemy<3,>=2.0.49; extra == "optional"
 Requires-Dist: websockets<16,>=9.1; extra == "optional"
 Requires-Dist: websocket-client<2,>=1; extra == "optional"
 Dynamic: license-file

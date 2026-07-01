@@ -1538,7 +1538,7 @@ advanced_instance_config: # (Optional) Defaults to no advanced configurations.
         default=False,
         repr=False,
         metadata={
-            "docstring": "Allow worker groups to be automatically configured based on the workload's logical resource requests. When false, worker groups must be explicitly configured.",
+            "docstring": "Allow worker groups to be automatically configured based on the workload's logical resource requests. When false, worker groups must be explicitly configured. Auto-select only chooses from predefined instance types and isn't compatible with declarative worker groups that use `required_resources`. On Kubernetes, auto-select is further limited to the pod shapes configured in the Helm chart for the Anyscale operator.",
         },
     )
 

@@ -1,3 +1,0 @@
-display_name: "Stata Results"
-short_description: "Show stored Stata results from the most recent command."
-default_prompt: "Use the stata-results skill to fetch and summarize stored Stata results."

@@ -1,0 +1,234 @@
+# Build & Scan — reusable security scanning template.
+#
+# Builds a Docker image and runs Trivy.
+# Checks results against .security/allowlist.json in the caller repo.
+# Fails if any CRITICAL/HIGH CVE is not in the allowlist.
+#
+# Used in two places:
+#   1. Directly by app repos on PR (blocks merge on new vulnerabilities)
+#   2. By build-and-publish-app.yaml on merge (reconfirms before publish)
+#
+# Usage (PR check):
+#   jobs:
+#     scan:
+#       uses: atlanhq/application-sdk/.github/workflows/build-and-scan.yaml@main
+#       secrets: inherit
+#
+name: Build & Scan
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Branch or SHA to checkout and build (default: caller's ref)"
+        required: false
+        type: string
+      image:
+        description: "Pre-built image to scan (skip build if provided)"
+        required: false
+        type: string
+      fail_on_findings:
+        description: "Exit 1 if new non-allowlisted vulnerabilities found (true for PR gate, false for merge path)"
+        required: false
+        type: boolean
+        default: true
+      lfs:
+        description: "Check out git-LFS objects before building the image (default false). Set true for apps that vendor LFS-tracked assets (e.g. large parser jars) into the Docker build context — without it the build copies the LFS pointer, not the real file. Mirrors the same input on build-and-publish-app.yaml; only applied to the image-build checkout."
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      ORG_PAT_GITHUB:
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+  # Needed for the Security Gate's "Comment on PR" step to post the gate
+  # result summary using GITHUB_TOKEN. Adds capability only — no other
+  # behaviour changes.
+  pull-requests: write
+
+jobs:
+  # ── Build Docker image (single-arch, no push) ──────────────────────────────
+  build:
+    name: Build Image
+    if: inputs.image == ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      scan_image: ${{ steps.meta.outputs.scan_image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          lfs: ${{ inputs.lfs }}
+
+      - name: Read Dockerfile path
+        id: meta
+        run: |
+          if [ -f atlan.yaml ]; then
+            DOCKERFILE=$(python3 -c "import yaml; d=yaml.safe_load(open('atlan.yaml')); print(d.get('dockerfile', './Dockerfile'))")
+          else
+            DOCKERFILE="./Dockerfile"
+          fi
+          SHA=$(git rev-parse --short HEAD)
+          echo "dockerfile=${DOCKERFILE}" >> "$GITHUB_OUTPUT"
+          echo "scan_image=scan-target:${SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.ORG_PAT_GITHUB }}
+
+      - name: Build image
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+        with:
+          context: .
+          file: ${{ steps.meta.outputs.dockerfile }}
+          push: false
+          tags: ${{ steps.meta.outputs.scan_image }}
+          outputs: type=docker,dest=/tmp/image.tar
+          cache-from: type=gha,scope=scan
+          cache-to: type=gha,mode=max,scope=scan
+          provenance: false
+          build-args: |
+            ACCESS_TOKEN_USR=${{ github.actor }}
+            ACCESS_TOKEN_PWD=${{ secrets.ORG_PAT_GITHUB }}
+          # Forward the org PAT as a BuildKit secret too, so Dockerfiles that clone a
+          # private git dependency via `--mount=type=secret,id=git_token` (e.g. apps
+          # pulling atlan-query-redaction) can authenticate during the scan build.
+          # Ignored by Dockerfiles that don't mount it, so it's a no-op for every other
+          # app. Mirrors the token the deploy/publish workflow already provides.
+          secrets: |
+            git_token=${{ secrets.ORG_PAT_GITHUB }}
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: docker-image
+          path: /tmp/image.tar
+          retention-days: 7
+
+  # ── Trivy scan ──────────────────────────────────────────────────────────────
+  trivy-scan:
+    name: Trivy Scan
+    needs: build
+    if: always() && (needs.build.result == 'success' || inputs.image != '')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download image artifact
+        if: inputs.image == ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load local image
+        if: inputs.image == ''
+        run: docker load -i /tmp/image.tar
+
+      - name: Log in to GHCR
+        if: inputs.image != ''
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.ORG_PAT_GITHUB }}
+
+      - name: Install Trivy
+        env:
+          GITHUB_TOKEN: ${{ secrets.ORG_PAT_GITHUB }}
+        run: |
+          TRIVY_VERSION=$(curl -s -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            https://api.github.com/repos/aquasecurity/trivy/releases/latest \
+            | grep '"tag_name"' | cut -d'"' -f4 | sed 's/^v//')
+          curl -sL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            -o /tmp/trivy.tar.gz
+          tar -xzf /tmp/trivy.tar.gz -C /tmp trivy
+          sudo mv /tmp/trivy /usr/local/bin/trivy
+
+      - name: Run Trivy scan
+        env:
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
+          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
+        run: |
+          IMAGE="${{ inputs.image || needs.build.outputs.scan_image }}"
+          trivy image \
+            --scanners vuln \
+            --severity CRITICAL,HIGH \
+            --format json \
+            --quiet \
+            --output /tmp/trivy_results.json \
+            "$IMAGE"
+
+      - name: Upload Trivy results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: trivy-results
+          path: /tmp/trivy_results.json
+          retention-days: 7
+
+  # ── Security Gate — check Trivy results against allowlist ───────────────────
+  security-gate:
+    name: Security Gate
+    needs: [trivy-scan]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout base allowlist from SDK
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: atlanhq/application-sdk
+          ref: main
+          sparse-checkout: |
+            .security
+            .github/scripts
+          path: _sdk
+          token: ${{ secrets.ORG_PAT_GITHUB }}
+
+      - name: Download Trivy results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        continue-on-error: true
+        with:
+          name: trivy-results
+          path: /tmp
+
+      - name: Check against allowlist
+        env:
+          FAIL_ON_FINDINGS: ${{ inputs.fail_on_findings }}
+        run: python3 _sdk/.github/scripts/check_allowlist.py --trivy-results /tmp/trivy_results.json --write-comment
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          # Same-repo PR comment — use the workflow's built-in token instead
+          # of the fine-grained PAT (which has to be manually granted to each
+          # repo and 404s on any repo not on its allowlist).
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let body;
+            try {
+              body = fs.readFileSync('/tmp/scan_comment.md', 'utf8');
+            } catch {
+              return;
+            }
+            if (!body || !body.trim()) return;
+            const time = new Date().toUTCString();
+            body += `\n\n<sub>Run: ${context.runId} | ${time}</sub>`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body,
+            });

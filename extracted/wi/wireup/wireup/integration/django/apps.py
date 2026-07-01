@@ -1,0 +1,190 @@
+import functools
+import importlib
+import inspect
+import warnings
+from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
+from dataclasses import dataclass
+from types import ModuleType
+from typing import Any
+
+import django
+import django.urls
+from django.apps import AppConfig, apps
+from django.conf import settings
+from django.http import HttpRequest, HttpResponse
+from django.urls import URLPattern, URLResolver
+from django.utils.decorators import sync_and_async_middleware
+
+import wireup
+from wireup import injectable
+from wireup._decorators import inject_from_container
+from wireup.errors import WireupError
+from wireup.ioc.container.async_container import AsyncContainer, ScopedAsyncContainer, async_container_force_sync_scope
+from wireup.ioc.container.base_container import BaseContainer
+from wireup.ioc.container.sync_container import ScopedSyncContainer
+from wireup.ioc.types import ConfigInjectionRequest
+from wireup.ioc.util import get_valid_injection_annotated_parameters
+
+_request_container: ContextVar[BaseContainer] = ContextVar("_wireup_request_container")
+
+
+@sync_and_async_middleware
+def wireup_middleware(
+    get_response: Callable[[HttpRequest], HttpResponse],
+) -> Callable[[HttpRequest], HttpResponse | Awaitable[HttpResponse]]:
+    container = get_app_container()
+
+    if inspect.iscoroutinefunction(get_response):
+
+        async def async_inner(request: HttpRequest) -> HttpResponse:
+            async with container.enter_scope({HttpRequest: request}) as scoped:
+                container_token = _request_container.set(scoped)
+                try:
+                    return await get_response(request)
+                finally:
+                    _request_container.reset(container_token)
+
+        return async_inner
+
+    def sync_inner(request: HttpRequest) -> HttpResponse:
+        with async_container_force_sync_scope(container, {HttpRequest: request}) as scoped:
+            container_token = _request_container.set(scoped)
+            try:
+                return get_response(request)
+            finally:
+                _request_container.reset(container_token)
+
+    return sync_inner
+
+
+@injectable(lifetime="scoped")
+def _django_request_factory() -> HttpRequest:
+    msg = (
+        "django.http.HttpRequest in wireup is only available during a request. "
+        "Did you forget to add 'wireup.integration.django.wireup_middleware' to your list of middlewares?"
+    )
+    raise WireupError(msg)
+
+
+def get_request_container() -> ScopedSyncContainer | ScopedAsyncContainer:
+    """When inside a request, returns the scoped container instance handling the current request."""
+    try:
+        return _request_container.get()  # type:ignore[reportReturnType]
+    except LookupError as e:
+        msg = (
+            "Wireup request container is unavailable in the current execution context.\n"
+            "Common causes:\n"
+            "1) The code is running outside an active Django request lifecycle.\n"
+            "2) wireup.integration.django.wireup_middleware is missing or is not the outermost one.\n"
+            "For non-request code (commands, signals, checks, scripts), use @inject_app. "
+        )
+        raise WireupError(msg) from e
+
+
+def get_app_container() -> AsyncContainer:
+    """Return the container instance associated with the current django application."""
+    return apps.get_app_config(WireupConfig.name).container  # type: ignore[reportAttributeAccessIssue]
+
+
+class WireupConfig(AppConfig):
+    """Integrate wireup with Django."""
+
+    name = "wireup"
+
+    def __init__(self, app_name: str, app_module: Any) -> None:
+        super().__init__(app_name, app_module)
+
+    def ready(self) -> None:
+        integration_settings: WireupSettings = settings.WIREUP
+
+        injectables = integration_settings.injectables
+
+        if integration_settings.service_modules:
+            warnings.warn(
+                "WireupSettings.service_modules is deprecated. Use WireupSettings.injectables instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            if integration_settings.injectables:
+                msg = "WireupSettings.service_modules and WireupSettings.injectables are mutually exclusive."
+                raise ValueError(msg)
+            injectables = integration_settings.service_modules
+
+        self.container = wireup.create_async_container(
+            injectables=[
+                *[importlib.import_module(m) if isinstance(m, str) else m for m in injectables],
+                _django_request_factory,
+            ],
+            config={
+                entry: getattr(settings, entry)
+                for entry in dir(settings)
+                if not entry.startswith("__") and hasattr(settings, entry)
+            },
+        )
+        self.inject_scoped = inject_from_container(self.container, get_request_container)
+
+        if integration_settings.auto_inject_views:
+            self._inject(django.urls.get_resolver())
+
+    def _inject(self, resolver: URLResolver) -> None:
+        for p in resolver.url_patterns:
+            if isinstance(p, URLResolver):
+                self._inject(p)
+                continue
+
+            if isinstance(p, URLPattern) and p.callback:  # type: ignore[reportUnnecessaryComparison]
+                # Skip auto-injection if the view is already marked by @inject decorator
+                if getattr(p.callback, "__wireup_marked__", False):
+                    continue
+
+                if hasattr(p.callback, "view_class") and hasattr(p.callback, "view_initkwargs"):
+                    p.callback = self._inject_class_based_view(p.callback)
+                else:
+                    p.callback = self.inject_scoped(p.callback)
+
+    def _inject_class_based_view(self, callback: Any) -> Any:
+        names_to_inject = get_valid_injection_annotated_parameters(self.container, callback.view_class)
+
+        # This is taken from the django .as_view() method.
+        @functools.wraps(callback)
+        def view(request: HttpRequest, *args: Any, **kwargs: Any) -> Any:
+            injected_names = {
+                name: self.container.config.get(param.annotation.config_key)
+                if isinstance(param.annotation, ConfigInjectionRequest)
+                else get_request_container()._synchronous_get(param.klass, qualifier=param.qualifier_value)
+                for name, param in names_to_inject.items()
+                if param.annotation
+            }
+
+            this = callback.view_class(**callback.view_initkwargs, **injected_names)
+            this.setup(request, *args, **kwargs)
+            if not hasattr(this, "request"):
+                raise AttributeError(
+                    "{} instance has no 'request' attribute. Did you override "  # noqa: EM103, UP032
+                    "setup() and forget to call super()?".format(callback.view_class.__name__)
+                )
+            return this.dispatch(request, *args, **kwargs)
+
+        return view
+
+
+@dataclass(frozen=True)
+class WireupSettings:
+    """Class containing Wireup settings specific to Django."""
+
+    service_modules: list[str | ModuleType] | None = None
+    """List of modules containing wireup injectable registrations."""
+
+    injectables: list[str | ModuleType] | None = None
+    """List of modules containing wireup injectable registrations."""
+
+    auto_inject_views: bool = True
+    """Whether to automatically inject dependencies into Django views.
+
+    When True (default), Wireup will automatically inject dependencies into all Django views.
+    When False, you must use the @inject decorator explicitly on views that need injection.
+
+    Set this to False if you want to use @inject explicitly across all views (useful when mixing
+    core Django views with third-party views like Django REST framework).
+    """

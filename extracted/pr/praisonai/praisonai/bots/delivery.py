@@ -393,9 +393,12 @@ class DeliveryRouter:
     - "<alias>" - friendly name from the channel directory
     """
     
-    def __init__(self, botos: BotOS):
+    def __init__(self, botos: BotOS, dead_targets: Optional[Any] = None):
         self._botos = botos
         self.directory = ChannelDirectory()
+        # Optional self-healing dead-target registry (issue #2486). Default OFF:
+        # when None, delivery behaves exactly as before (no suppression).
+        self._dead_targets = dead_targets
     
     def refresh_directory(self) -> None:
         """Refresh the channel directory from the registered bots.
@@ -483,7 +486,62 @@ class DeliveryRouter:
                 logger.warning(f"DeliveryRouter: platform '{platform}' not available")
                 return False
             
-            await bot.send_message(channel_id, text)
+            # Short-circuit known-dead targets (issue #2486): the bot was
+            # kicked/blocked or the chat no longer exists, so skip the doomed
+            # API call instead of burning rate-limit budget and flooding logs.
+            # Self-healing: once the re-probe interval elapses we let a single
+            # send through so a recovered target (bot re-added, group restored)
+            # can clear itself far sooner than the long TTL would allow.
+            if self._dead_targets is not None and self._dead_targets.is_dead(
+                platform, channel_id
+            ):
+                if self._dead_targets.should_reprobe(platform, channel_id):
+                    logger.info(
+                        "DeliveryRouter: re-probing dead target %s:%s "
+                        "(target_reprobe_attempt)",
+                        platform,
+                        channel_id,
+                    )
+                else:
+                    logger.info(
+                        "DeliveryRouter: suppressing send to dead target %s:%s "
+                        "(target_unreachable_suppressed)",
+                        platform,
+                        channel_id,
+                    )
+                    return False
+            
+            try:
+                await bot.send_message(channel_id, text)
+            except Exception as send_err:
+                # On a *confirmed permanent* failure, mark the whole target dead
+                # so future cycles short-circuit. Transient errors and
+                # message-scoped 404s stay on the existing retry path.
+                if self._dead_targets is not None:
+                    try:
+                        from ._resilience import is_permanent_target_failure
+
+                        if is_permanent_target_failure(send_err, platform):
+                            self._dead_targets.mark_dead(
+                                platform, channel_id, reason=str(send_err)
+                            )
+                    except Exception:
+                        logger.debug(
+                            "DeliveryRouter: dead-target classification failed",
+                            exc_info=True,
+                        )
+                raise
+
+            # Success self-heals: any earlier dead flag is cleared so a recovered
+            # target (user re-added the bot, group restored) resumes delivery.
+            if self._dead_targets is not None:
+                try:
+                    self._dead_targets.clear(platform, channel_id)
+                except Exception:
+                    logger.debug(
+                        "DeliveryRouter: dead-target clear failed", exc_info=True
+                    )
+
             logger.info(f"DeliveryRouter: delivered to {platform}:{channel_id}")
             return True
             
@@ -494,6 +552,67 @@ class DeliveryRouter:
             logger.error(f"DeliveryRouter: delivery failed for '{target}': {e}")
             return False
     
+    async def send_media(
+        self,
+        target: str,
+        path: str,
+        *,
+        caption: Optional[str] = None,
+        origin: Optional[SessionSource] = None,
+    ) -> bool:
+        """Upload a local file ``path`` to a resolved ``target``.
+
+        Resolves the symbolic target to a concrete (platform, channel_id) and
+        dispatches the upload through the live adapter's native file primitive
+        (see :func:`praisonai.bots._outbound_media.deliver_media_to_adapter`).
+        The path is expected to have already passed the outbound-path guard.
+
+        Returns:
+            True if the adapter attached the file, False otherwise.
+        """
+        try:
+            platform, channel_id = self.resolve(target, origin)
+            bot = self._botos.get_bot(platform)
+            if not bot:
+                logger.warning(
+                    "DeliveryRouter: platform '%s' not available for media", platform
+                )
+                return False
+
+            from ._outbound_media import (
+                deliver_media_to_adapter,
+                validate_media_delivery_path,
+            )
+
+            # Final trusted boundary: re-run the baseline path guard here so a
+            # direct caller of this public router method cannot bypass the
+            # denylist (strict-mode policy is applied by the caller).
+            safe_path = validate_media_delivery_path(path)
+
+            # ``get_bot`` returns the user-facing ``Bot`` wrapper; the native
+            # upload primitives (``_application``/``_client``) live on the
+            # underlying adapter, so unwrap it before dispatch.
+            media_target = getattr(bot, "adapter", None) or bot
+
+            ok = await deliver_media_to_adapter(
+                media_target, channel_id, safe_path, caption=caption
+            )
+            if ok:
+                logger.info(
+                    "DeliveryRouter: delivered media to %s:%s", platform, channel_id
+                )
+            return ok
+        except ValueError as e:
+            logger.error(
+                "DeliveryRouter: failed to resolve media target '%s': %s", target, e
+            )
+            return False
+        except Exception as e:
+            logger.error(
+                "DeliveryRouter: media delivery failed for '%s': %s", target, e
+            )
+            return False
+
     def configure_from_dict(self, config: Dict) -> None:
         """
         Configure the directory from a configuration dictionary.

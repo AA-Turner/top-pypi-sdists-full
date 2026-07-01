@@ -269,6 +269,11 @@ tags:
       Unified inbox API for managing reviews on Facebook Pages and Google Business accounts.
       All endpoints aggregate data from multiple social accounts in a single API call.
       Requires Inbox addon.
+  - name: Mentions
+    description: |
+      Unified inbox API for managing mentions across connected accounts.
+      Currently supports LinkedIn organization mentions.
+      Requires Inbox addon.
   - name: Twitter Engagement
     description: |
       X/Twitter-specific engagement endpoints for retweeting, bookmarking, and following.
@@ -5036,6 +5041,18 @@ components:
           type: number
           description: "Return on ad spend — derived as `purchaseValue / spend`. 0 when `spend` is 0. Equivalent to Meta's `purchase_roas` under default attribution. At ad-set and campaign levels this is recomputed from summed purchaseValue + spend (NOT averaged across children) so it's mathematically correct at every rollup level."
         lastSyncedAt: { type: string, format: date-time, description: "Present on individual ads only, not on campaign aggregations" }
+    AdDailyMetrics:
+      description: |
+        One day of metrics. Same fields as `AdMetrics` plus the `date` they
+        apply to. Returned inside a node's `daily[]` when `GET /v1/ads/tree` is
+        called with `timeIncrement=1`. Rate metrics (ctr/cpc/cpm/costPerConversion/
+        roas) are recomputed per day from that day's sums, so summing the additive
+        fields across a node's `daily[]` reproduces its aggregated `metrics` total.
+      allOf:
+        - $ref: '#/components/schemas/AdMetrics'
+        - type: object
+          properties:
+            date: { type: string, format: date, description: "Calendar day (YYYY-MM-DD) these metrics apply to." }
     AdStatus:
       type: string
       enum: [active, paused, pending_review, rejected, completed, cancelled, error]
@@ -5422,7 +5439,11 @@ components:
         ads:
           type: array
           items: { $ref: '#/components/schemas/Ad' }
-          description: Individual ads within this ad set (capped at 100). Returns a subset of Ad fields from the aggregation (core fields like _id, name, platform, status, budget, metrics, creative, goal are included; targeting and schedule may be absent).
+          description: Individual ads within this ad set (capped at 100). Returns a subset of Ad fields from the aggregation (core fields like _id, name, platform, status, budget, metrics, creative, goal are included; targeting and schedule may be absent). When `timeIncrement=1&dailyLevel=ad`, each entry also carries a `daily[]` array of `AdDailyMetrics`.
+        daily:
+          type: array
+          items: { $ref: '#/components/schemas/AdDailyMetrics' }
+          description: "Per-day metric series for this ad set. Present only when `GET /v1/ads/tree` is called with `timeIncrement=1` and `dailyLevel` is `adset` or `ad`."
     AdTreeCampaign:
       type: object
       description: Campaign with nested ad sets and rolled-up metrics
@@ -5503,6 +5524,10 @@ components:
         adSets:
           type: array
           items: { $ref: '#/components/schemas/AdTreeAdSet' }
+        daily:
+          type: array
+          items: { $ref: '#/components/schemas/AdDailyMetrics' }
+          description: "Per-day metric series for this campaign. Present only when `GET /v1/ads/tree` is called with `timeIncrement=1` (any `dailyLevel`). This is the per-campaign daily trend — summing its additive fields reproduces the campaign `metrics` total."
     AdCampaign:
       type: object
       properties:
@@ -11577,7 +11602,11 @@ paths:
       operationId: deleteProfile
       tags: [Profiles]
       summary: Delete profile
-      description: Permanently deletes a profile by ID.
+      description: >-
+        Permanently deletes a profile. Active connected accounts block deletion
+        (returns 400) - disconnect them first. Any remaining disconnected
+        accounts and provisioned WhatsApp numbers are moved to another of your
+        profiles (a new one is created only if needed), never deleted.
       parameters:
         - name: profileId
           in: path
@@ -11592,7 +11621,7 @@ paths:
                 $ref: '#/components/schemas/ProfileDeleteResponse'
               example:
                 message: "Profile deleted successfully"
-        '400': { description: Has connected accounts }
+        '400': { description: Profile has active connected accounts; disconnect them first }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: Forbidden }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -21289,6 +21318,99 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Account not found }
 
+  /v1/inbox/mentions:
+    get:
+      operationId: listInboxMentions
+      summary: List mentions
+      description: |
+        Returns mentions of your connected organization accounts, delivered via platform webhooks.
+        Currently supports LinkedIn organization mentions.
+
+        Requires Inbox addon.
+      tags: [Mentions]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: accountId
+          in: query
+          schema: { type: string }
+          description: Filter by social account ID
+        - name: profileId
+          in: query
+          schema: { type: string }
+          description: Filter by profile ID
+        - name: sortOrder
+          in: query
+          schema: { type: string, enum: [asc, desc], default: desc }
+          description: Sort order by publishedAt
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+          description: Cursor for pagination (ID of the last item from the previous page)
+      responses:
+        '200':
+          description: Paginated list of mentions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          description: Mention document ID
+                        platform:
+                          type: string
+                          enum: [linkedin]
+                        accountId:
+                          type: string
+                        accountUsername:
+                          type: string
+                        content:
+                          type: string
+                          description: Text of the post that mentioned you
+                        permalink:
+                          type: string
+                          nullable: true
+                          description: URL to the source post on LinkedIn
+                        authorUrn:
+                          type: string
+                          nullable: true
+                          description: LinkedIn URN of the person who mentioned you
+                        organizationalEntity:
+                          type: string
+                          description: URN of the organization that was mentioned
+                        publishedAt:
+                          type: string
+                          format: date-time
+                        createdAt:
+                          type: string
+                          format: date-time
+                  pagination:
+                    type: object
+                    properties:
+                      hasMore:
+                        type: boolean
+                      cursor:
+                        type: string
+                        nullable: true
+                  meta:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      sortOrder:
+                        type: string
+                        enum: [asc, desc]
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Inbox addon required }
+
   /v1/inbox/reviews:
     get:
       operationId: listInboxReviews
@@ -22445,6 +22567,179 @@ paths:
                       name: { type: string }
                       status: { type: string, enum: [PENDING_REVIEW] }
         '400': { description: "Invalid display name (too short, too long, or missing)" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: WhatsApp account not found }
+
+  /v1/whatsapp/business-profile/username:
+    get:
+      operationId: getWhatsappBusinessUsername
+      tags: [WhatsApp]
+      summary: Get business username
+      description: |
+        Fetch the current WhatsApp Business username and its approval status.
+        Username status can be `approved` (active), `reserved` (pending activation), or `none` (no username set).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: accountId
+          in: query
+          required: true
+          description: WhatsApp social account ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Business username retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  username:
+                    type: string
+                    nullable: true
+                    description: The current username, or null if none is set
+                  status:
+                    type: string
+                    enum: [approved, reserved, none]
+                    description: Approval state of the username
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: WhatsApp account not found }
+    post:
+      operationId: setWhatsappBusinessUsername
+      tags: [WhatsApp]
+      summary: Set business username
+      description: |
+        Claim or transfer a WhatsApp Business username for the account.
+
+        Username rules: 3-35 characters, letters/digits/period/underscore only, must contain at least one letter,
+        no leading or trailing periods, no consecutive periods, no `www` prefix, no domain TLD suffix (e.g. `.com`).
+
+        If the desired username is currently held by another account, pass `transferAction: "force_transfer"` to
+        request a transfer. On failure the API returns a standard error envelope with one of these codes:
+        `whatsapp_username_unavailable` (already taken and transfer not requested),
+        `whatsapp_username_ineligible` (account not eligible to claim a username), or
+        `whatsapp_username_transfer_required` (username is held elsewhere; retry with `force_transfer`).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, username]
+              properties:
+                accountId:
+                  type: string
+                  description: WhatsApp social account ID
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 35
+                  description: >
+                    Desired username. Letters, digits, period, and underscore only.
+                    Must contain at least one letter. No leading, trailing, or consecutive periods.
+                    No www prefix. No domain TLD suffix.
+                transferAction:
+                  type: string
+                  enum: [none, force_transfer]
+                  default: none
+                  description: Pass `force_transfer` to request a transfer if the username is held by another account
+            example:
+              accountId: "507f1f77bcf86cd799439011"
+              username: "mybusiness"
+              transferAction: "none"
+      responses:
+        '200':
+          description: Username claimed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  username: { type: string }
+                  status:
+                    type: string
+                    enum: [approved, reserved, none]
+              example:
+                success: true
+                username: "mybusiness"
+                status: "approved"
+        '400': { description: "Validation error or username unavailable (see error code in response)" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: WhatsApp account not found }
+    delete:
+      operationId: deleteWhatsappBusinessUsername
+      tags: [WhatsApp]
+      summary: Delete business username
+      description: |
+        Release the currently claimed WhatsApp Business username from the account.
+        After deletion the username becomes available for other accounts to claim.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId]
+              properties:
+                accountId:
+                  type: string
+                  description: WhatsApp social account ID
+            example:
+              accountId: "507f1f77bcf86cd799439011"
+      responses:
+        '200':
+          description: Username deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+              example:
+                success: true
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: WhatsApp account not found }
+
+  /v1/whatsapp/business-profile/username/suggestions:
+    get:
+      operationId: getWhatsappBusinessUsernameSuggestions
+      tags: [WhatsApp]
+      summary: Get username suggestions
+      description: |
+        Retrieve a list of available WhatsApp Business username suggestions based on the account's
+        business profile name. Use these to help users discover valid, unclaimed usernames.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: accountId
+          in: query
+          required: true
+          description: WhatsApp social account ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Username suggestions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  suggestions:
+                    type: array
+                    items: { type: string }
+                    description: List of available username suggestions
+              example:
+                success: true
+                suggestions: ["mybusiness", "mybusiness_official", "mybiz"]
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: WhatsApp account not found }
 
@@ -27203,6 +27498,11 @@ paths:
         and campaign levels. Pagination is at the campaign level. Ads without a campaign or ad set
         ID are grouped into synthetic "Ungrouped" buckets.
         If no date range is provided, defaults to the last 90 days. Date range is capped at 730 days max.
+
+        Pass `timeIncrement=1` to also get a daily breakdown: each node gains a `daily[]` array of
+        per-day metrics (same fields as the aggregated `metrics`) in the same call. Use `dailyLevel`
+        (`campaign` default, or `adset` / `ad`) to choose which levels carry the series. This replaces
+        calling the tree once per day for per-campaign daily trends.
       security:
         - bearerAuth: []
       parameters:
@@ -27218,6 +27518,8 @@ paths:
         - { name: fromDate, in: query, schema: { type: string, format: date }, description: "Start of the METRICS date range (YYYY-MM-DD). Affects only the spend/impression numbers overlaid on each node, NOT which campaigns are returned. Defaults to 90 days ago." }
         - { name: toDate, in: query, schema: { type: string, format: date }, description: "End of metrics date range (YYYY-MM-DD). Defaults to today. Max 730-day range." }
         - { name: sort, in: query, schema: { type: string, enum: [newest, oldest, spend_desc, spend_asc], default: newest }, description: "Campaign-level sort order. `newest` (default) / `oldest` order by the campaign's newest-ad createdAt. `spend_desc` / `spend_asc` order by aggregated spend in the requested date range; campaigns with no spend land at the end." }
+        - { name: timeIncrement, in: query, schema: { type: integer, enum: [1] }, description: "Set to `1` to also return a daily breakdown. Mirrors Meta Insights' `time_increment=1`: each node gains a `daily[]` array of per-day metrics (same fields as the aggregated `metrics`) alongside the range total, so you get per-entity daily trends in ONE call instead of calling the tree once per day. Only `1` (daily) is supported. The daily series covers the same date range and uses the same source data as `metrics`. See `dailyLevel` to control which levels carry it." }
+        - { name: dailyLevel, in: query, schema: { type: string, enum: [campaign, adset, ad], default: campaign }, description: "Which tree levels get the `daily[]` series when `timeIncrement=1`. `campaign` (default) attaches it on campaign nodes only — the common per-campaign-trend case, and the smallest payload. `adset` adds it on ad sets too; `ad` adds it on every ad in `ads[]` as well (heaviest — a long range × up to 100 ads per ad set). Scope with `campaignId` to keep `ad`-level responses small. Ignored when `timeIncrement` is unset." }
       responses:
         '200':
           description: Nested campaign tree with pagination
@@ -27435,6 +27737,70 @@ paths:
                 properties:
                   message: { type: string }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/ads/campaigns/{campaignId}/analytics:
+    get:
+      operationId: getCampaignAnalytics
+      tags: [Ads]
+      summary: Get campaign analytics
+      description: |
+        Returns performance analytics for a whole campaign in one call: summary metrics, a daily
+        timeline over the requested date range (summed across the campaign's ads), and optional
+        demographic breakdowns. Breakdowns are fetched live from Meta at the campaign level (one call
+        per dimension, no per-ad fan-out), so an agency dashboard gets campaign-level age/gender/etc.
+        without summing thousands of per-ad reads. `campaignId` is the platform campaign id; pass
+        `platform` when a campaign id could be ambiguous across platforms. If no date range is provided,
+        defaults to the last 90 days. Date range is capped at 730 days max.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string }, description: "Platform campaign id (platformCampaignId)." }
+        - { name: platform, in: query, schema: { type: string }, description: "Disambiguate when the campaign id exists across platforms (e.g. facebook, instagram)." }
+        - { name: fromDate, in: query, schema: { type: string, format: date }, description: "Start of date range (YYYY-MM-DD). Defaults to 90 days ago." }
+        - { name: toDate, in: query, schema: { type: string, format: date }, description: "End of date range (YYYY-MM-DD). Defaults to today. Max 730-day range." }
+        - name: breakdowns
+          in: query
+          schema: { type: string }
+          description: "Comma-separated breakdown dimensions (Meta only): age, gender, country, publisher_platform, device_platform, region, platform_position, impression_device, video_asset, image_asset, body_asset, title_asset."
+      responses:
+        '200':
+          description: Campaign analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  campaign:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      name: { type: [string, "null"] }
+                      platform: { type: string }
+                      status: { type: [string, "null"], description: "Effective campaign status (ACTIVE when any child ad is active)." }
+                      currency:
+                        type: [string, "null"]
+                        description: "ISO 4217 code of the ad account (e.g. USD, THB). All money values in `summary` and `daily` are in this currency."
+                  analytics:
+                    type: object
+                    properties:
+                      summary: { $ref: '#/components/schemas/AdMetrics' }
+                      daily:
+                        type: array
+                        items:
+                          allOf:
+                            - { $ref: '#/components/schemas/AdMetrics' }
+                            - type: object
+                              properties:
+                                date: { type: string, format: date }
+                      breakdowns:
+                        type: object
+                        additionalProperties:
+                          type: array
+                          items: { type: object }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
         '404': { $ref: '#/components/responses/NotFound' }
 
   /v1/ads/{adId}/analytics:

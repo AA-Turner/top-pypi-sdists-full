@@ -1,5 +1,0 @@
-definitions:
-  name:
-    type: string
-    descrition: |
-      name of something

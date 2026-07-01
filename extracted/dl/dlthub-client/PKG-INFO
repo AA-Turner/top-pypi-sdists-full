@@ -1,0 +1,67 @@
+Metadata-Version: 2.4
+Name: dlthub-client
+Version: 0.28.0
+Summary: CLI tool for accessing dltHub runtime
+Author-email: "dltHub Inc." <services@dlthub.com>
+Maintainer-email: Marcin Rudolf <marcin@dlthub.com>, David Sharf <dave@dlthub.com>
+License-Expression: Apache-2.0
+License-File: LICENSE.txt
+Keywords: etl
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Typing :: Typed
+Requires-Python: <3.15,>=3.10
+Requires-Dist: attrs>=23.2.0
+Requires-Dist: cron-descriptor>=1.2.32
+Requires-Dist: croniter>=6.0.0
+Requires-Dist: httpx>=0.26.0
+Requires-Dist: pathspec>=0.11.2
+Requires-Dist: pyjwt>=2.13.0
+Requires-Dist: tabulate>=0.9.0
+Description-Content-Type: text/markdown
+
+<h1 align="center">
+    <strong>dlthub-client</strong>
+</h1>
+
+<div align="center">
+  <a target="_blank" href="https://dlthub.com/community" style="background:none">
+    <img src="https://img.shields.io/badge/slack-join-dlt.svg?labelColor=191937&color=6F6FF7&logo=slack" style="width: 260px;"  />
+  </a>
+</div>
+<div align="center">
+  <a target="_blank" href="https://pypi.org/project/dlthub-client/" style="background:none">
+    <img src="https://img.shields.io/pypi/v/dlthub-client?labelColor=191937&color=6F6FF7">
+  </a>
+  <a target="_blank" href="https://pypi.org/project/dlthub-client/" style="background:none">
+    <img src="https://img.shields.io/pypi/pyversions/dlthub-client?labelColor=191937&color=6F6FF7">
+  </a>
+</div>
+
+`dlthub-client` is an extension to the open source data load tool ([dlt]((https://dlthub.com/docs/))) that implements
+**dltHub Runtime** API Client and extends the `dlt` command line with `dlt runtime` command. Overall it enables `dlt` users
+to quickly deploy and run their pipelines, datasets, notebooks and mcp servers.
+
+
+## Installation
+
+`dlthub-client` supports Python 3.10 and above and is a plugin (based on [pluggy](https://github.com/pytest-dev/pluggy)) Use `hub` extra on `dlt` to pick the matching plugin version:
+
+```sh
+pip install "dlt[hub]"
+```
+
+
+## Documentation
+
+Learn more in the [dltHub docs](https://dlthub.com/docs/hub/introduction).

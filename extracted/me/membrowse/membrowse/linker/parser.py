@@ -1,0 +1,1452 @@
+#!/usr/bin/env python3
+# pylint: disable=too-many-lines
+
+"""
+memory_regions.py - Refactored modular linker script parser
+
+This module provides a clean, modular approach to parsing GNU LD linker scripts
+to extract memory region information including:
+- Region names (FLASH, RAM, etc.)
+- Start addresses (ORIGIN)
+- Sizes (LENGTH)
+- Attributes (rx, rw, etc.)
+
+The module is split into focused classes with clear responsibilities:
+- LinkerScriptParser: Main parsing orchestrator
+- ScriptContentCleaner: Handles preprocessing and cleanup
+- ExpressionEvaluator: Evaluates linker script expressions
+- MemoryRegionBuilder: Constructs memory region objects
+"""
+
+import os
+import re
+import logging
+from typing import Dict, List, Any, Optional, Set
+from dataclasses import dataclass
+from pathlib import Path
+
+# Import ELF parser for architecture detection
+from .elf_info import get_architecture_info, get_linker_parsing_strategy
+
+# Import format detector for ICF support
+from .base import LinkerFormatDetector
+
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class MemoryRegion:  # pylint: disable=too-few-public-methods
+    """Memory region data structure"""
+
+    name: str
+    attributes: str
+    address: int
+    limit_size: int
+
+    @property
+    def end_address(self) -> int:
+        """Calculate end address"""
+        return self.address + self.limit_size - 1
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary format"""
+        return {
+            "attributes": self.attributes,
+            "address": self.address,
+            "end_address": self.end_address,
+            "limit_size": self.limit_size,
+        }
+
+
+class LinkerScriptError(Exception):
+    """Base exception for linker script parsing errors"""
+
+
+class ExpressionEvaluationError(LinkerScriptError):
+    """Exception raised when expression evaluation fails"""
+
+
+class RegionParsingError(LinkerScriptError):
+    """Exception raised when memory region parsing fails"""
+
+
+class VariableResolutionError(LinkerScriptError):
+    """Exception raised when variable resolution fails"""
+
+
+class ScriptContentCleaner:  # pylint: disable=too-few-public-methods
+    """Handles preprocessing and cleanup of linker script content"""
+
+    # GNU LD documents a nesting limit of 10 for INCLUDE.
+    MAX_INCLUDE_DEPTH = 10
+
+    @staticmethod
+    def resolve_includes(
+        content: str,
+        base_dir: str,
+        visited: Optional[Set[str]] = None,
+        depth: int = 0,
+    ) -> str:
+        """Inline GNU LD ``INCLUDE filename`` directives.
+
+        Paths are resolved relative to the including script's directory, then
+        the current working directory. Cycles are guarded via ``visited`` and
+        depth is capped at ``MAX_INCLUDE_DEPTH``. Unresolvable includes log a
+        warning and are dropped so parsing can continue.
+        """
+        if visited is None:
+            visited = set()
+
+        if depth >= ScriptContentCleaner.MAX_INCLUDE_DEPTH:
+            logger.warning(
+                "INCLUDE nesting depth exceeds %d, skipping further includes",
+                ScriptContentCleaner.MAX_INCLUDE_DEPTH)
+            return content
+
+        # Strip comments so INCLUDE directives inside comments aren't matched.
+        # clean_content re-runs these regexes; the operation is idempotent.
+        scan = re.sub(r"/\*.*?\*/", "", content, flags=re.DOTALL)
+        scan = re.sub(r"//.*", "", scan)
+
+        # GNU LD syntax: `INCLUDE filename` with optional quoting.
+        include_pattern = re.compile(
+            r'\bINCLUDE\s+"([^"]+)"|\bINCLUDE\s+(\S+?)\s*;?(?=\s|$)')
+
+        def replace_include(match: re.Match) -> str:
+            filename = (match.group(1) or match.group(2)).strip().rstrip(';')
+            resolved = ScriptContentCleaner._resolve_include_path(
+                filename, base_dir)
+            if resolved is None:
+                logger.warning(
+                    "INCLUDE '%s' not found (searched %s and cwd)",
+                    filename, base_dir)
+                return ""
+            if resolved in visited:
+                logger.debug("Skipping already-included file: %s", resolved)
+                return ""
+            visited.add(resolved)
+            try:
+                with open(resolved, "r", encoding="utf-8") as f:
+                    inner = f.read()
+            except OSError as exc:
+                logger.warning("Failed to read INCLUDE %s: %s", resolved, exc)
+                return ""
+            return ScriptContentCleaner.resolve_includes(
+                inner, os.path.dirname(resolved), visited, depth + 1)
+
+        return include_pattern.sub(replace_include, scan)
+
+    @staticmethod
+    def _resolve_include_path(filename: str, base_dir: str) -> Optional[str]:
+        """Resolve an INCLUDE filename to an absolute path or None."""
+        if os.path.isabs(filename):
+            return filename if os.path.exists(filename) else None
+
+        candidate = os.path.join(base_dir, filename)
+        if os.path.exists(candidate):
+            return os.path.abspath(candidate)
+
+        if os.path.exists(filename):
+            return os.path.abspath(filename)
+
+        return None
+
+    @staticmethod
+    def clean_content(content: str) -> str:
+        """Remove comments and normalize whitespace from linker script content"""
+        # Remove C-style comments /* ... */
+        content = re.sub(r"/\*.*?\*/", "", content, flags=re.DOTALL)
+        # Remove C++-style comments // ...
+        content = re.sub(r"//.*", "", content)
+
+        # Handle preprocessor directives - remove them and their content
+        content = ScriptContentCleaner._remove_preprocessor_blocks(content)
+
+        # Remove remaining single-line preprocessor directives
+        content = re.sub(
+            r"#[a-zA-Z_][a-zA-Z0-9_]*\b.*$", "", content, flags=re.MULTILINE
+        )
+
+        # Normalize whitespace
+        content = re.sub(r"\s+", " ", content)
+        return content
+
+    @staticmethod
+    def _remove_preprocessor_blocks(content: str) -> str:
+        """Remove preprocessor conditional blocks"""
+        # Handle nested #if/#endif blocks more carefully
+        # Remove preprocessor directives but preserve variable definitions
+
+        # Handle #if blocks with only preprocessor directives
+        # Find blocks without variable assignments (no '=' followed by ';')
+        if_blocks_to_remove = []
+
+        # Find all #if...#endif blocks
+        if_pattern = r"#if[^#]*?(?:#(?:elif|else)[^#]*?)*?#endif"
+
+        for match in re.finditer(if_pattern, content, re.DOTALL):
+            block_content = match.group(0)
+            # If the block doesn't contain variable assignments, mark it for
+            # removal
+            if "=" not in block_content or ";" not in block_content:
+                if_blocks_to_remove.append(match.group(0))
+
+        # Remove the identified blocks
+        for block in if_blocks_to_remove:
+            content = content.replace(block, " ")
+
+        # For remaining #if blocks, remove preprocessor lines but keep content
+        # Remove #if, #elif, #else, #endif lines but preserve content
+        lines = content.split("\n")
+        filtered_lines = []
+
+        for line in lines:
+            stripped = line.strip()
+            if (
+                stripped.startswith("#if")
+                or stripped.startswith("#elif")
+                or stripped.startswith("#else")
+                or stripped.startswith("#endif")
+            ):
+                # Skip preprocessor directives
+                continue
+            if stripped.startswith("#error"):
+                # Skip error directives
+                continue
+            filtered_lines.append(line)
+
+        return "\n".join(filtered_lines)
+
+    @staticmethod
+    def strip_sections_content(content: str) -> str:
+        """Remove SECTIONS { ... } block content from cleaned linker script text.
+
+        Uses brace-depth counting to handle nested braces correctly.
+        Config variables live outside SECTIONS blocks; linker symbols live inside.
+        """
+        # Find all SECTIONS block starts using word boundary to avoid matching
+        # variable names that happen to contain "SECTIONS"
+        sections_starts = [
+            m.start() for m in re.finditer(r"\bSECTIONS\b", content)
+        ]
+
+        if not sections_starts:
+            return content
+
+        # Process in reverse order to preserve indices
+        result = content
+        for start in reversed(sections_starts):
+            # Find the opening brace after SECTIONS
+            brace_pos = result.find("{", start)
+            if brace_pos == -1:
+                continue
+
+            # Count braces to find matching close
+            depth = 1
+            pos = brace_pos + 1
+            while pos < len(result) and depth > 0:
+                if result[pos] == "{":
+                    depth += 1
+                elif result[pos] == "}":
+                    depth -= 1
+                pos += 1
+
+            if depth == 0:
+                # Remove from SECTIONS keyword through closing brace
+                result = result[:start] + result[pos:]
+            else:
+                logger.warning(
+                    "Unclosed SECTIONS block at position %d "
+                    "(brace depth %d) - linker symbols may be "
+                    "incorrectly extracted as variables",
+                    start, depth
+                )
+
+        return result
+
+
+class _ArithmeticParser:  # pylint: disable=too-few-public-methods
+    """Recursive descent parser for safe integer arithmetic expressions.
+
+    Operator precedence (lowest to highest, matching C):
+    1. | (bitwise OR)
+    2. ^ (bitwise XOR)
+    3. & (bitwise AND)
+    4. << >> (bitshift)
+    5. + - (addition, subtraction)
+    6. * / (multiplication, division)
+    7. unary +/-/~, parentheses
+    """
+
+    def __init__(self, expr: str):
+        self._expr = expr
+        self._pos = 0
+
+    def parse(self) -> int:
+        """Parse the full expression and ensure no trailing characters."""
+        result = self._parse_or()
+        if self._pos < len(self._expr):
+            raise ValueError(
+                f"Unexpected character at position {self._pos}: "
+                f"{self._expr[self._pos]}")
+        return result
+
+    def _peek(self, length: int = 1) -> str:
+        """Return up to ``length`` characters at the current position."""
+        return self._expr[self._pos:self._pos + length]
+
+    def _parse_number(self) -> int:
+        start = self._pos
+        while self._pos < len(self._expr) and self._expr[self._pos].isdigit():
+            self._pos += 1
+        if start == self._pos:
+            raise ValueError(f"Expected number at position {self._pos}")
+        return int(self._expr[start:self._pos])
+
+    def _parse_factor(self) -> int:
+        char = self._peek()
+        if char == "(":
+            self._pos += 1  # Skip '('
+            result = self._parse_or()
+            if self._peek() != ")":
+                raise ValueError("Missing closing parenthesis")
+            self._pos += 1  # Skip ')'
+            return result
+        if char == "-":
+            self._pos += 1  # Skip '-'
+            return -self._parse_factor()
+        if char == "+":
+            self._pos += 1  # Skip '+'
+            return self._parse_factor()
+        if char == "~":
+            self._pos += 1  # Skip '~'
+            return ~self._parse_factor()
+        return self._parse_number()
+
+    def _parse_term(self) -> int:
+        result = self._parse_factor()
+        while self._peek() in ("*", "/"):
+            op = self._peek()
+            self._pos += 1
+            right = self._parse_factor()
+            if op == "*":
+                result *= right
+            elif right == 0:
+                raise ArithmeticError("Division by zero")
+            else:
+                result //= right  # Integer division
+        return result
+
+    def _parse_addition(self) -> int:
+        result = self._parse_term()
+        while self._peek() in ("+", "-"):
+            op = self._peek()
+            self._pos += 1
+            right = self._parse_term()
+            result = result + right if op == "+" else result - right
+        return result
+
+    def _parse_shift(self) -> int:
+        """Parse bitshift operators (<< and >>)."""
+        result = self._parse_addition()
+        while self._peek(2) in ("<<", ">>"):
+            op = self._peek(2)
+            self._pos += 2
+            right = self._parse_addition()
+            result = result << right if op == "<<" else result >> right
+        return result
+
+    def _parse_and(self) -> int:
+        """Parse bitwise AND (&), but not && which never appears here."""
+        result = self._parse_shift()
+        while self._peek() == "&" and self._peek(2) != "&&":
+            self._pos += 1  # Skip '&'
+            result &= self._parse_shift()
+        return result
+
+    def _parse_xor(self) -> int:
+        """Parse bitwise XOR (^)."""
+        result = self._parse_and()
+        while self._peek() == "^":
+            self._pos += 1  # Skip '^'
+            result ^= self._parse_and()
+        return result
+
+    def _parse_or(self) -> int:
+        """Parse bitwise OR (|), but not || which never appears here."""
+        result = self._parse_xor()
+        while self._peek() == "|" and self._peek(2) != "||":
+            self._pos += 1  # Skip '|'
+            result |= self._parse_xor()
+        return result
+
+
+class ExpressionEvaluator:
+    """Evaluates linker script expressions and variables"""
+
+    def __init__(self):
+        self.variables: Dict[str, Any] = {}
+        self._memory_regions: Dict[str, MemoryRegion] = {}
+
+    def set_variables(self, variables: Dict[str, Any]) -> None:
+        """Set variables for expression evaluation"""
+        self.variables = variables.copy()
+
+    def add_variables(self, variables: Dict[str, Any]) -> None:
+        """Add variables to existing variables dictionary"""
+        self.variables.update(variables)
+
+    def set_memory_regions(self,
+                           memory_regions: Dict[str,
+                                                MemoryRegion]) -> None:
+        """Set memory regions for ORIGIN/LENGTH function resolution"""
+        self._memory_regions = memory_regions.copy()
+
+    def get_memory_regions(self) -> Dict[str, MemoryRegion]:
+        """Get copy of current memory regions"""
+        return self._memory_regions.copy()
+
+    def evaluate_expression(
+        self, expr: str, resolving_vars: Optional[Set[str]] = None
+    ) -> int:
+        """Evaluate linker script expression with variables and arithmetic"""
+        expr = expr.strip()
+
+        # Initialize set to track variables being resolved (cycle detection)
+        if resolving_vars is None:
+            resolving_vars = set()
+
+        # Handle linker script functions first
+        expr = self._handle_linker_functions(expr)
+
+        # Replace variables with their values
+        expr = self._substitute_variables(expr, resolving_vars)
+
+        # Handle size suffixes before arithmetic evaluation
+        expr = self._resolve_size_suffixes(expr)
+
+        # Handle simple arithmetic expressions
+        return self._evaluate_arithmetic(expr)
+
+    def _substitute_variables(
+            self,
+            expr: str,
+            resolving_vars: Set[str]) -> str:
+        """Substitute variables in expression with their values"""
+        for var_name, var_value in self.variables.items():
+            # Quick substring check first (fast)
+            if var_name not in expr:
+                continue
+
+            # Use word boundary regex to check if variable is in expression
+            # This avoids matching _ram_start when looking for _app_ram_start
+            var_pattern = r'\b' + re.escape(var_name) + r'\b'
+            if not re.search(var_pattern, expr):
+                continue  # Variable not in expression (was substring), skip
+
+            if isinstance(var_value, (int, float)):
+                # Substitute numeric values
+                expr = re.sub(var_pattern, str(var_value), expr)
+            elif isinstance(var_value, str) and var_name not in resolving_vars:
+                # Try to recursively evaluate string variables with cycle
+                # detection
+                try:
+                    resolving_vars.add(var_name)
+                    resolved_value = self.evaluate_expression(
+                        var_value, resolving_vars
+                    )
+                    resolving_vars.remove(var_name)
+                    self.variables[var_name] = (
+                        resolved_value  # Cache the resolved value
+                    )
+                    expr = re.sub(var_pattern, str(resolved_value), expr)
+                except (ExpressionEvaluationError, VariableResolutionError):
+                    if var_name in resolving_vars:
+                        resolving_vars.remove(var_name)
+                    # Skip unresolvable variables - part of iterative
+                    # resolution
+        return expr
+
+    def _handle_linker_functions(self, expr: str) -> str:
+        """Handle linker script functions like DEFINED(), ORIGIN(), LENGTH(), etc."""
+        # Handle ABSOLUTE() function - simply extracts the inner expression
+        # ABSOLUTE() ensures a value is treated as an absolute address,
+        # but for our purposes it's a no-op that just returns the inner value
+        expr = self._replace_absolute(expr)
+
+        # Handle DEFINED() function
+        expr = re.sub(
+            r"DEFINED\s*\(\s*([^)]+)\s*\)",
+            self._replace_defined,
+            expr)
+
+        # Handle conditional expressions (ternary) with proper nesting support
+        expr = self._evaluate_ternary(expr)
+
+        # Handle ORIGIN() and LENGTH() functions
+        expr = re.sub(
+            r"ORIGIN\s*\(\s*([^)]+)\s*\)",
+            self._replace_origin,
+            expr)
+        expr = re.sub(
+            r"LENGTH\s*\(\s*([^)]+)\s*\)",
+            self._replace_length,
+            expr)
+
+        # Handle ADDR() and SIZEOF() functions (aliases for ORIGIN/LENGTH)
+        expr = re.sub(
+            r"ADDR\s*\(\s*([^)]+)\s*\)",
+            self._replace_addr,
+            expr)
+        expr = re.sub(
+            r"SIZEOF\s*\(\s*([^)]+)\s*\)",
+            self._replace_sizeof,
+            expr)
+
+        # Handle parenthesized expressions
+        expr = self._resolve_parenthesized_expressions(expr)
+
+        return expr
+
+    # Maximum nesting depth for ternary expressions (security limit)
+    MAX_TERNARY_DEPTH = 50
+
+    def _evaluate_ternary(self, expr: str, depth: int = 0) -> str:
+        """Evaluate ternary expressions with proper nesting support.
+
+        Handles patterns like:
+        - Simple: DEFINED(X) ? A : B
+        - Nested: DEFINED(X) ? A : DEFINED(Y) ? B : C
+        - Chained: !DEFINED(X) ? A : Y == 1 ? B : C
+
+        Ternary operators are right-associative, so:
+        a ? b : c ? d : e  is parsed as  a ? b : (c ? d : e)
+        """
+        if depth > self.MAX_TERNARY_DEPTH:
+            raise ExpressionEvaluationError(
+                f"Ternary nesting depth exceeds limit ({self.MAX_TERNARY_DEPTH})")
+
+        expr = expr.strip()
+
+        # Find the first '?' that's not inside parentheses
+        question_pos = self._find_operator_outside_parens(expr, '?')
+        if question_pos == -1:
+            return expr  # No ternary operator
+
+        # Extract condition (everything before '?')
+        condition = expr[:question_pos].strip()
+
+        # Find the matching ':' for this '?'
+        # We need to count nested '?' and ':' pairs
+        rest = expr[question_pos + 1:]
+        colon_pos = self._find_matching_colon(rest)
+
+        if colon_pos == -1:
+            return expr  # Malformed ternary, return as-is
+
+        true_value = rest[:colon_pos].strip()
+        false_value = rest[colon_pos + 1:].strip()
+
+        # Recursively evaluate nested ternaries in the false branch
+        # (ternary is right-associative)
+        false_value = self._evaluate_ternary(false_value, depth + 1)
+
+        # Evaluate the condition
+        cond_result = self._evaluate_condition(condition)
+
+        # Return the appropriate branch
+        if cond_result:
+            return true_value
+        return false_value
+
+    def _find_operator_outside_parens(self, expr: str, op: str) -> int:
+        """Find the position of an operator that's not inside parentheses."""
+        paren_depth = 0
+        for i, char in enumerate(expr):
+            if char == '(':
+                paren_depth += 1
+            elif char == ')':
+                paren_depth -= 1
+            elif char == op and paren_depth == 0:
+                return i
+        return -1
+
+    def _find_matching_colon(self, expr: str) -> int:
+        """Find the colon that matches the current ternary level.
+
+        For nested ternaries like "A : B ? C : D", we need to find the first ':'
+        at depth 0 (not counting nested ternaries).
+        """
+        paren_depth = 0
+        ternary_depth = 0
+
+        for i, char in enumerate(expr):
+            if char == '(':
+                paren_depth += 1
+            elif char == ')':
+                paren_depth -= 1
+            elif char == '?' and paren_depth == 0:
+                ternary_depth += 1
+            elif char == ':' and paren_depth == 0:
+                if ternary_depth == 0:
+                    return i
+                ternary_depth -= 1
+
+        return -1
+
+    def _evaluate_condition(self, condition: str) -> bool:
+        """Evaluate a ternary condition to a boolean result."""
+        condition, negated = self._strip_negation(condition.strip())
+
+        handlers = [
+            self._eval_numeric_literal,
+            self._eval_defined,
+            self._eval_comparison,
+            self._eval_variable,
+        ]
+
+        for handler in handlers:
+            result = handler(condition)
+            if result is not None:
+                return not result if negated else result
+
+        return negated  # Unknown condition = false
+
+    def _strip_negation(self, condition: str) -> tuple:
+        """Strip leading ! and return (condition, is_negated)."""
+        if condition.startswith('!'):
+            return condition[1:].strip(), True
+        return condition, False
+
+    def _eval_numeric_literal(self, condition: str) -> Optional[bool]:
+        """Evaluate numeric literals 0 and 1."""
+        if condition in ["0", "1"]:
+            return int(condition) != 0
+        return None
+
+    def _eval_defined(self, condition: str) -> Optional[bool]:
+        """Evaluate DEFINED() function."""
+        if "DEFINED(" not in condition:
+            return None
+        match = re.search(r"DEFINED\s*\(\s*([^)]+)\s*\)", condition)
+        if match:
+            symbol = match.group(1).strip()
+            return symbol in self.variables
+        return None
+
+    def _eval_comparison(self, condition: str) -> Optional[bool]:
+        """Evaluate == and != comparisons."""
+        for op, func in [("==", lambda a, b: a == b), ("!=", lambda a, b: a != b)]:
+            if op in condition:
+                match = re.match(rf"(.+?)\s*{op}\s*(.+)", condition)
+                if match:
+                    try:
+                        left_val = self._get_value(match.group(1).strip())
+                        right_val = self._get_value(match.group(2).strip())
+                        return func(left_val, right_val)
+                    except (ValueError, ExpressionEvaluationError):
+                        pass
+        return None
+
+    def _eval_variable(self, condition: str) -> Optional[bool]:
+        """Evaluate variable lookup or numeric expression."""
+        # Direct variable lookup
+        if condition in self.variables:
+            var_val = self.variables[condition]
+            if isinstance(var_val, (int, float)):
+                return var_val != 0
+
+        # Try as numeric expression
+        try:
+            return self._get_value(condition) != 0
+        except (ValueError, ExpressionEvaluationError):
+            return None
+
+    def _get_value(self, expr: str) -> int:
+        """Get numeric value from expression or variable."""
+        expr = expr.strip()
+
+        # Try as variable
+        if expr in self.variables:
+            val = self.variables[expr]
+            if isinstance(val, (int, float)):
+                return int(val)
+
+        # Try as hex literal
+        if expr.startswith('0x') or expr.startswith('0X'):
+            return int(expr, 16)
+
+        # Try as decimal literal
+        try:
+            return int(expr)
+        except ValueError:
+            pass
+
+        raise ValueError(f"Cannot evaluate: {expr}")
+
+    def _replace_defined(self, match: re.Match) -> str:
+        """Replace DEFINED() function with 1 or 0"""
+        symbol = match.group(1).strip()
+        return "1" if symbol in self.variables else "0"
+
+    def _replace_origin(self, match: re.Match) -> str:
+        """Replace ORIGIN() function with actual address"""
+        region_name = match.group(1).strip()
+        # Check if we have this region in our parsed data
+        if region_name in self._memory_regions:
+            return str(self._memory_regions[region_name].address)
+        # Cannot resolve - raise error
+        raise ExpressionEvaluationError(
+            f"ORIGIN({region_name}): region '{region_name}' not found")
+
+    def _replace_length(self, match: re.Match) -> str:
+        """Replace LENGTH() function with actual size"""
+        region_name = match.group(1).strip()
+        # Check if we have this region in our parsed data
+        if region_name in self._memory_regions:
+            return str(self._memory_regions[region_name].limit_size)
+        # Cannot resolve - raise error
+        raise ExpressionEvaluationError(
+            f"LENGTH({region_name}): region '{region_name}' not found")
+
+    def _replace_addr(self, match: re.Match) -> str:
+        """Replace ADDR() function with actual address (alias for ORIGIN)"""
+        region_name = match.group(1).strip()
+        # Check if we have this region in our parsed data
+        if region_name in self._memory_regions:
+            return str(self._memory_regions[region_name].address)
+        # Cannot resolve - raise error
+        raise ExpressionEvaluationError(
+            f"ADDR({region_name}): region '{region_name}' not found")
+
+    def _replace_sizeof(self, match: re.Match) -> str:
+        """Replace SIZEOF() function with actual size (alias for LENGTH)"""
+        region_name = match.group(1).strip()
+        # Check if we have this region in our parsed data
+        if region_name in self._memory_regions:
+            return str(self._memory_regions[region_name].limit_size)
+        # Cannot resolve - raise error
+        raise ExpressionEvaluationError(
+            f"SIZEOF({region_name}): region '{region_name}' not found")
+
+    def _replace_absolute(self, expr: str) -> str:
+        """Replace ABSOLUTE() function calls with their inner expressions.
+
+        ABSOLUTE() in linker scripts ensures a value is treated as an absolute
+        address rather than relative. For our parsing purposes, it's essentially
+        a no-op - we just extract and return the inner expression.
+
+        Handles nested ABSOLUTE() calls and complex inner expressions with
+        nested parentheses.
+        """
+        max_iterations = 10  # Prevent infinite loops
+
+        for _ in range(max_iterations):
+            # Find ABSOLUTE( and then match the balanced parentheses
+            match = re.search(r'ABSOLUTE\s*\(', expr)
+            if not match:
+                break
+
+            inner_start = match.end()
+
+            # Find matching closing parenthesis
+            paren_depth = 1
+            pos = inner_start
+            while pos < len(expr) and paren_depth > 0:
+                if expr[pos] == '(':
+                    paren_depth += 1
+                elif expr[pos] == ')':
+                    paren_depth -= 1
+                pos += 1
+
+            if paren_depth != 0:
+                # Unbalanced parentheses, stop processing
+                break
+
+            # Extract the inner expression (excluding the closing paren)
+            inner_expr = expr[inner_start:pos - 1].strip()
+
+            # Replace ABSOLUTE(...) with just the inner expression
+            expr = expr[:match.start()] + inner_expr + expr[pos:]
+
+        return expr
+
+    def _resolve_parenthesized_expressions(self, expr: str) -> str:
+        """Resolve parenthesized arithmetic expressions"""
+        max_iterations = 5
+
+        for _ in range(max_iterations):
+            # Find innermost parentheses (no nested parens inside)
+            paren_pattern = r"\(\s*([^()]+)\s*\)"
+
+            def resolve_paren_expr(match):
+                inner_expr = match.group(1).strip()
+                try:
+                    # Try to evaluate the inner expression
+                    result = self._evaluate_simple_arithmetic(inner_expr)
+                    return str(result)
+                except (ExpressionEvaluationError, ValueError, ArithmeticError):
+                    # If we can't evaluate, keep the original expression
+                    return match.group(0)
+
+            new_expr = re.sub(paren_pattern, resolve_paren_expr, expr)
+
+            # If no more changes, break
+            if new_expr == expr:
+                break
+            expr = new_expr
+
+        return expr
+
+    def _evaluate_simple_arithmetic(self, expr: str) -> int:
+        """Evaluate simple arithmetic expressions with variables"""
+        # Replace known variables with their values
+        for var_name, var_value in self.variables.items():
+            if var_name in expr and isinstance(var_value, (int, float)):
+                # Use word boundary regex to avoid substring matches
+                expr = re.sub(r'\b' + re.escape(var_name) + r'\b',
+                              str(var_value), expr)
+
+        # Handle hex and octal literals
+        expr = re.sub(r"0[xX]([0-9a-fA-F]+)",
+                      lambda m: str(int(m.group(1), 16)), expr)
+
+        # Handle octal literals
+        expr = re.sub(r"\b0([0-7]+)\b",
+                      lambda m: str(int(m.group(1), 8)), expr)
+
+        # Handle size suffixes
+        expr = self._resolve_size_suffixes(expr)
+
+        # Use safe arithmetic evaluation instead of eval
+        try:
+            return self._safe_arithmetic_eval(expr)
+        except (ValueError, ArithmeticError) as exc:
+            raise ExpressionEvaluationError(
+                f"Cannot evaluate expression: {expr}") from exc
+
+    def _evaluate_arithmetic(self, expr: str) -> int:
+        """Evaluate arithmetic expressions"""
+        # Replace hex and octal literals
+        expr = re.sub(r"0[xX]([0-9a-fA-F]+)",
+                      lambda m: str(int(m.group(1), 16)), expr)
+
+        # Replace octal literals (0 followed by digits, but not 0x)
+        expr = re.sub(r"\b0([0-7]+)\b",
+                      lambda m: str(int(m.group(1), 8)), expr)
+
+        # Use safe arithmetic evaluation instead of eval
+        try:
+            return self._safe_arithmetic_eval(expr)
+        except (ValueError, ArithmeticError):
+            pass
+
+        # Try to parse as single number
+        if expr.startswith("0x") or expr.startswith("0X"):
+            return int(expr, 16)
+        if expr.startswith("0") and len(expr) > 1:
+            return int(expr, 8)
+        return int(expr, 10)
+
+    def _safe_arithmetic_eval(self, expr: str) -> int:
+        """Safely evaluate arithmetic expressions without using eval"""
+        # Only allow safe arithmetic characters (<< >> bitshift and & | ^ ~
+        # bitwise ops — ESP-IDF memory.ld sizes segments with the alignment
+        # idiom (x + 7) & ~7).
+        if not re.match(r"^[0-9+\-*/<>()&|^~ \t]+$", expr):
+            raise ValueError(f"Invalid characters in expression: {expr}")
+
+        # Use a simple recursive descent parser for arithmetic
+        return self._parse_expression(expr.replace(" ", "").replace("\t", ""))
+
+    def _parse_expression(self, expr: str) -> int:
+        """Parse arithmetic expression using recursive descent"""
+        return _ArithmeticParser(expr).parse()
+
+    def _resolve_size_suffixes(self, expr: str) -> str:
+        """Resolve size suffixes (K, M, G) in expressions"""
+        # Handle size multipliers in expressions
+        multipliers = {
+            "K": 1024,
+            "M": 1024 * 1024,
+            "G": 1024 * 1024 * 1024,
+            "KB": 1024,
+            "MB": 1024 * 1024,
+            "GB": 1024 * 1024 * 1024,
+        }
+
+        # Pattern to match numbers with suffixes: 256K, 1M, etc.
+        pattern = r"(\d+)\s*([KMG]B?)\b"
+
+        def replace_suffix(match):
+            number = int(match.group(1))
+            suffix = match.group(2).upper()
+            return str(number * multipliers[suffix])
+
+        return re.sub(pattern, replace_suffix, expr, flags=re.IGNORECASE)
+
+
+class VariableExtractor:  # pylint: disable=too-few-public-methods
+    """Extracts and manages variables from linker scripts"""
+
+    def __init__(self, evaluator: ExpressionEvaluator):
+        self.evaluator = evaluator
+        self.variables: Dict[str, Any] = {}
+
+    def extract_from_script(self, script_path: str) -> None:
+        """Extract variable definitions from a linker script"""
+        with open(script_path, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read()
+
+        # Inline INCLUDE directives before any other preprocessing
+        content = ScriptContentCleaner.resolve_includes(
+            content, os.path.dirname(os.path.abspath(script_path)))
+
+        # Remove comments and preprocessor directives
+        content = ScriptContentCleaner.clean_content(content)
+
+        # Strip SECTIONS blocks so we only extract config variables
+        # (not linker symbols like __bss_start__ defined inside SECTIONS)
+        content = ScriptContentCleaner.strip_sections_content(content)
+
+        # Find variable assignments: var_name = value;
+        var_pattern = r"([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^;]+);"
+
+        # First pass: extract simple variables and store complex ones
+        simple_vars = {}
+        complex_vars = {}
+
+        for match in re.finditer(var_pattern, content):
+            var_name = match.group(1).strip()
+            var_value = match.group(2).strip()
+
+            try:
+                # Try to evaluate simple expressions immediately
+                if self._is_simple_expression(var_value):
+                    evaluated_value = self.evaluator.evaluate_expression(
+                        var_value, set()
+                    )
+                    simple_vars[var_name] = evaluated_value
+                else:
+                    # Store complex expressions for later resolution
+                    complex_vars[var_name] = var_value
+            except (ExpressionEvaluationError, ValueError):
+                # Store as string for potential later resolution
+                complex_vars[var_name] = var_value
+
+        # Add simple variables to our variables dict
+        self.variables.update(simple_vars)
+        self.evaluator.add_variables(self.variables)
+
+        # Multiple passes to resolve complex variables that depend on other
+        # variables
+        max_iterations = 10  # Increased for more complex dependencies
+        for _ in range(max_iterations):
+            resolved_any = False
+            unresolved_vars = {}
+
+            for var_name, var_value in complex_vars.items():
+                try:
+                    evaluated_value = self.evaluator.evaluate_expression(
+                        var_value, set()
+                    )
+                    self.variables[var_name] = evaluated_value
+                    self.evaluator.add_variables({var_name: evaluated_value})
+                    resolved_any = True
+                except (ExpressionEvaluationError, ValueError):
+                    unresolved_vars[var_name] = var_value
+
+            complex_vars = unresolved_vars
+
+            # If we didn't resolve any variables in this iteration, break
+            if not resolved_any:
+                break
+
+        # Store any remaining unresolved variables as strings
+        for var_name, var_value in complex_vars.items():
+            if var_name not in self.variables:
+                self.variables[var_name] = var_value
+
+    def _is_simple_expression(self, expr: str) -> bool:
+        """Check if an expression is simple enough to evaluate immediately"""
+        expr = expr.strip()
+
+        # Simple numeric literals
+        if re.match(
+                r"^0[xX][0-9a-fA-F]+$",
+                expr) or re.match(
+                r"^\d+[kKmMgG]?$",
+                expr):
+            return True
+
+        # Simple arithmetic with only literals
+        if re.match(r"^[0-9a-fA-Fx+\-*/() \t]+$", expr):
+            return True
+
+        return False
+
+
+class MemoryRegionBuilder:  # pylint: disable=too-few-public-methods
+    """Builds memory region objects from parsed data"""
+
+    def __init__(self, evaluator: ExpressionEvaluator):
+        self.evaluator = evaluator
+
+    def parse_memory_block(  # pylint: disable=too-many-branches
+            self, memory_content: str, deferred_matches: Optional[List[tuple]] = None
+    ) -> tuple:
+        """Parse individual memory regions from MEMORY block content
+
+        Returns:
+            Tuple of (successfully_parsed_regions, failed_matches_for_retry)
+        """
+        memory_regions = {}
+        failed_matches = []
+
+        # Shared lookahead: matches start of next region definition or end of block
+        _region_lookahead = (
+            r"(?=\s+\w+\s*(?:\([^)]*\)\s*)?:\s*(?:ORIGIN|origin|org)\s*=|$|\s*})"
+        )
+
+        # Try standard format first (with attributes in parentheses)
+        standard_pattern = (
+            r"(\w+)\s*\(([^)]+)\)\s*:\s*(?:ORIGIN|origin|org)\s*=\s*([^,]+),\s*"
+            r"(?:LENGTH|length|len)\s*=\s*([^,}]+?)" + _region_lookahead)
+
+        # Try ESP8266/alternative format (no attributes in parentheses)
+        alt_pattern = (
+            r"(\w+)\s*:\s*(?:ORIGIN|origin|org)\s*=\s*([^,]+),\s*"
+            r"(?:LENGTH|length|len)\s*=\s*([^,}]+?)" + _region_lookahead
+        )
+
+        # Try no-comma format (whitespace separator, used in some Intel/embedded scripts)
+        # Pattern must handle expressions with spaces (e.g., "ADDR(x) -
+        # ADDR(y)")
+        no_comma_pattern = (
+            r"(\w+)\s*:\s*(?:ORIGIN|origin|org)\s*=\s*([^\s]+(?:\s*[-+*/]\s*[^\s]+)*)\s+"
+            r"(?:LENGTH|length|len)\s*=\s*([^/\n]+?)"
+            r"(?=\s*(?://|$|\n|\w+\s*(?:\([^)]*\)\s*)?:\s*(?:ORIGIN|origin|org)\s*=))")
+
+        # First try standard pattern
+        for match in re.finditer(standard_pattern, memory_content):
+            region = self._build_region_from_match(match, has_attributes=True)
+            if region:
+                memory_regions[region.name] = region
+                # Update evaluator immediately so subsequent regions can
+                # reference this one
+                self.evaluator.set_memory_regions({
+                    **self.evaluator.get_memory_regions(),
+                    region.name: region
+                })
+            else:
+                failed_matches.append((match, True))
+
+        # Also try alternative pattern (no attributes) for regions not yet matched
+        matched_names = set(memory_regions.keys())
+        for match in re.finditer(alt_pattern, memory_content):
+            name = match.group(1)
+            if name in matched_names:
+                continue
+            region = self._build_region_from_match(
+                match, has_attributes=False)
+            if region:
+                memory_regions[region.name] = region
+                matched_names.add(region.name)
+                # Update evaluator immediately
+                self.evaluator.set_memory_regions({
+                    **self.evaluator.get_memory_regions(),
+                    region.name: region
+                })
+            else:
+                failed_matches.append((match, False))
+
+        # Also try no-comma format for regions not yet matched
+        if not memory_regions and not failed_matches:
+            for match in re.finditer(no_comma_pattern, memory_content):
+                region = self._build_region_from_match(
+                    match, has_attributes=False)
+                if region:
+                    memory_regions[region.name] = region
+                    # Update evaluator immediately
+                    self.evaluator.set_memory_regions({
+                        **self.evaluator.get_memory_regions(),
+                        region.name: region
+                    })
+                else:
+                    failed_matches.append((match, False))
+
+        # Process deferred matches from previous iteration (after parsing new
+        # ones)
+        if deferred_matches:
+            for match, has_attributes in deferred_matches:
+                region = self._build_region_from_match(match, has_attributes)
+                if region:
+                    memory_regions[region.name] = region
+                    # Update evaluator
+                    self.evaluator.set_memory_regions({
+                        **self.evaluator.get_memory_regions(),
+                        region.name: region
+                    })
+                else:
+                    # Still can't parse, defer again
+                    failed_matches.append((match, has_attributes))
+
+        return memory_regions, failed_matches
+
+    def _build_region_from_match(
+        self, match: re.Match, has_attributes: bool
+    ) -> Optional[MemoryRegion]:
+        """Build a memory region from a regex match"""
+        # Save current state in case we need to restore
+        saved_regions = self.evaluator.get_memory_regions()
+
+        try:
+            if has_attributes:
+                name = match.group(1).strip()
+                attributes = match.group(2).strip()
+                origin_str = match.group(3).strip()
+                length_str = match.group(4).strip()
+            else:
+                name = match.group(1).strip()
+                attributes = ""  # No attributes in alternative format
+                origin_str = match.group(2).strip()
+                length_str = match.group(3).strip()
+
+            origin = self._parse_address(origin_str)
+
+            # For self-referential LENGTH expressions (e.g., ADDR(dccm) when parsing dccm),
+            # temporarily add the region with a placeholder size so ADDR() can
+            # resolve
+            temp_region = MemoryRegion(
+                name=name,
+                attributes=attributes,
+                address=origin,
+                limit_size=0,  # Placeholder
+            )
+            self.evaluator.set_memory_regions({
+                **self.evaluator.get_memory_regions(),
+                name: temp_region
+            })
+
+            length = self._parse_size(length_str)
+
+            return MemoryRegion(
+                name=name,
+                attributes=attributes,
+                address=origin,
+                limit_size=length,
+            )
+
+        except (ExpressionEvaluationError, ValueError, KeyError):
+            # Restore previous state on failure
+            self.evaluator.set_memory_regions(saved_regions)
+            # Don't log here - region will be retried in subsequent iterations
+            return None
+
+    def _parse_address(self, addr_str: str) -> int:
+        """Parse address string (supports hex, decimal, variables, and expressions)"""
+        addr_str = addr_str.strip()
+
+        # Evaluate as expression (handles variables and arithmetic)
+        # This will raise ExpressionEvaluationError if it fails
+        return self.evaluator.evaluate_expression(addr_str, set())
+
+    def _parse_size(self, size_str: str) -> int:
+        """Parse size string (supports K, M, G suffixes, variables, and expressions)"""
+        size_str = size_str.strip()
+
+        # Evaluate as expression (handles variables, arithmetic, and size
+        # suffixes)
+        return self.evaluator.evaluate_expression(size_str, set())
+
+
+class LinkerScriptParser:  # pylint: disable=too-few-public-methods,too-many-instance-attributes
+    """Main parser orchestrator for linker script files"""
+
+    def __init__(self, ld_scripts: List[str], elf_file: Optional[str] = None,
+                 user_variables: Optional[Dict[str, Any]] = None):
+        """Initialize the parser with linker script paths and optional ELF file
+
+        Args:
+            ld_scripts: List of linker script file paths
+            elf_file: Optional path to ELF file for architecture detection
+            user_variables: Optional dict of user-defined variables to use during parsing
+                          (e.g., {'__micropy_flash_size__': '4096K', 'RAM_START': '0x20000000'})
+        """
+        self.ld_scripts = [str(Path(script).resolve())
+                           for script in ld_scripts]
+        self.elf_file = str(Path(elf_file).resolve()) if elf_file else None
+        self._validate_scripts()
+
+        # Get architecture information from ELF file if provided
+        self.elf_info = None
+        self.parsing_strategy = {}
+        if self.elf_file:
+            self.elf_info = get_architecture_info(self.elf_file)
+            if self.elf_info:
+                self.parsing_strategy = get_linker_parsing_strategy(
+                    self.elf_info)
+                logger.debug("Detected architecture: %s, platform: %s",
+                            self.elf_info.architecture.value,
+                            self.elf_info.platform.value)
+            else:
+                logger.warning(
+                    "Could not extract architecture info from ELF file: %s",
+                    self.elf_file)
+
+        # Initialize components
+        self.evaluator = ExpressionEvaluator()
+        self.variable_extractor = VariableExtractor(self.evaluator)
+        self.region_builder = MemoryRegionBuilder(self.evaluator)
+
+        # Apply architecture-specific default variables
+        if self.parsing_strategy.get('default_variables'):
+            self.evaluator.add_variables(
+                self.parsing_strategy['default_variables'])
+
+        # Per-format script caches (populated during variable extraction).
+        # ICF, .emProject and Keil scatter files are routed to their own
+        # parsers and excluded from the GNU LD variable scan.
+        self._icf_scripts: set = set()
+        self._emproject_scripts: set = set()
+        self._keil_scripts: set = set()
+
+        # Apply user-defined variables (override architecture defaults)
+        self._user_variables = user_variables or {}
+        if self._user_variables:
+            self.evaluator.add_variables(self._user_variables)
+
+    def _validate_scripts(self) -> None:
+        """Validate that all linker scripts exist"""
+        for script in self.ld_scripts:
+            if not os.path.exists(script):
+                raise FileNotFoundError(f"Linker script not found: {script}")
+
+    def parse_memory_regions(self) -> Dict[str, Dict[str, Any]]:
+        """Parse memory regions from linker scripts"""
+        # First pass: extract variables from all scripts
+        self._extract_all_variables()
+
+        # Second pass: parse memory regions using variables
+        memory_regions = self._parse_all_memory_regions()
+
+        # Convert to dictionary format for backward compatibility
+        return {name: region.to_dict()
+                for name, region in memory_regions.items()}
+
+    def _extract_all_variables(self) -> None:
+        """Extract variables from all linker scripts"""
+        # Skip ICF, .emProject and Keil scatter files — the GNU LD variable
+        # extractor would pollute evaluator.variables with unparseable
+        # strings. Caching the set lets _parse_all_memory_regions skip them
+        # on retries (their parsers produce no deferred matches).
+        self._icf_scripts = set()
+        self._emproject_scripts = set()
+        self._keil_scripts = set()
+        gnu_scripts = []
+        for script_path in self.ld_scripts:
+            with open(script_path, "r", encoding="utf-8", errors="replace") as f:
+                content = f.read()
+            if LinkerFormatDetector.is_emproject(content):
+                self._emproject_scripts.add(script_path)
+            elif LinkerFormatDetector.is_icf(content):
+                self._icf_scripts.add(script_path)
+            elif LinkerFormatDetector.is_keil(content):
+                self._keil_scripts.add(script_path)
+            else:
+                gnu_scripts.append(script_path)
+
+        # Process scripts in reverse order for proper dependency resolution
+        for script_path in reversed(gnu_scripts):
+            self.variable_extractor.extract_from_script(script_path)
+
+        # Additional pass: extract variables in forward order for dependencies
+        for script_path in gnu_scripts:
+            self.variable_extractor.extract_from_script(script_path)
+
+        # Merge extracted variables with existing default variables (preserve
+        # architecture defaults)
+        self.evaluator.add_variables(self.variable_extractor.variables)
+
+    def _parse_all_memory_regions(  # pylint: disable=too-many-locals
+            self) -> Dict[str, MemoryRegion]:
+        """Parse memory regions from all scripts with iterative dependency resolution"""
+        memory_regions = {}
+        deferred_matches = []
+
+        # ICF files can reference regions defined elsewhere (e.g. an SES
+        # .emProject or a sibling GNU LD script). Parse non-ICF scripts
+        # first so their regions are available to seed the ICF parser,
+        # regardless of CLI argument order.
+        non_icf_scripts = [s for s in self.ld_scripts
+                           if s not in self._icf_scripts]
+        icf_scripts = [s for s in self.ld_scripts
+                       if s in self._icf_scripts]
+        ordered_scripts = non_icf_scripts + icf_scripts
+
+        # Parse regions iteratively to handle ORIGIN/LENGTH dependencies
+        max_iterations = 3
+        for iteration in range(max_iterations):
+            old_count = len(memory_regions)
+            new_deferred = []
+
+            for script_path in ordered_scripts:
+                # ICF, .emProject and Keil scatter files never produce
+                # deferred matches; skip them on retries.
+                if iteration > 0 and (
+                    script_path in self._icf_scripts
+                    or script_path in self._emproject_scripts
+                    or script_path in self._keil_scripts
+                ):
+                    continue
+                script_regions, script_deferred = self._parse_single_script(
+                    script_path,
+                    deferred_matches if iteration > 0 else None,
+                    external_regions=memory_regions
+                    if script_path in self._icf_scripts else None,
+                )
+                memory_regions.update(script_regions)
+                new_deferred.extend(script_deferred)
+                # Update evaluator with current regions for ORIGIN/LENGTH
+                # resolution
+                self.evaluator.set_memory_regions(memory_regions)
+
+            # Update deferred list for next iteration
+            deferred_matches = new_deferred
+
+            # If no new regions were added and no deferred matches remain,
+            # we're done
+            if len(memory_regions) == old_count and not deferred_matches:
+                break
+
+        # Fail if any regions remain unresolved
+        if deferred_matches:
+            failed_regions = set()
+            for match, _ in deferred_matches:
+                region_name = match.group(1) if match.groups() else 'unknown'
+                failed_regions.add(region_name)
+
+            raise RegionParsingError(
+                f"Could not resolve memory regions after {max_iterations} iterations: "
+                f"{', '.join(sorted(failed_regions))}")
+
+        return memory_regions
+
+    def _parse_single_script(
+            self, script_path: str,
+            deferred_matches: Optional[List[tuple]] = None,
+            external_regions: Optional[Dict[str, MemoryRegion]] = None,
+    ) -> tuple:
+        """Parse memory regions from a single linker script file
+
+        Detects format from content and delegates to the appropriate parser.
+
+        Args:
+            script_path: linker script file to parse
+            deferred_matches: GNU LD deferred matches to retry (ignored for
+                ICF / .emProject which never defer)
+            external_regions: regions already parsed from sibling scripts.
+                Currently only the ICF parser consumes these, to resolve
+                cross-file region references (e.g. an .icf that aliases
+                regions defined in an .emProject).
+
+        Returns:
+            Tuple of (parsed_regions, failed_matches)
+            ICF and .emProject files always return an empty failed_matches list.
+        """
+        with open(script_path, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read()
+
+        # Auto-detect SEGGER ES .emProject XML and delegate
+        if LinkerFormatDetector.is_emproject(content):
+            return self._parse_emproject_script(script_path), []
+
+        # Auto-detect IAR ICF format and delegate
+        if LinkerFormatDetector.is_icf(content):
+            return self._parse_icf_script(script_path, external_regions), []
+
+        # Auto-detect Keil/Arm scatter file format and delegate
+        if LinkerFormatDetector.is_keil(content):
+            return self._parse_keil_script(script_path), []
+
+        # GNU LD path (existing logic)
+        # Inline INCLUDE directives before cleaning/scanning
+        content = ScriptContentCleaner.resolve_includes(
+            content, os.path.dirname(os.path.abspath(script_path)))
+
+        # Remove comments and normalize whitespace
+        content = ScriptContentCleaner.clean_content(content)
+
+        # Find all MEMORY blocks (case insensitive). Multiple blocks arise from
+        # INCLUDE chains where an outer script overrides / augments an included
+        # MEMORY definition. Later definitions win for duplicate region names
+        # (see parse_memory_block's dict-assignment behavior).
+        memory_blocks = re.findall(
+            r"MEMORY\s*\{([^}]+)\}", content, re.IGNORECASE)
+        if not memory_blocks:
+            return {}, []
+
+        memory_content = " ".join(memory_blocks)
+        return self.region_builder.parse_memory_block(
+            memory_content, deferred_matches)
+
+    def _parse_icf_script(
+            self,
+            script_path: str,
+            external_regions: Optional[Dict[str, MemoryRegion]] = None,
+    ) -> Dict[str, MemoryRegion]:
+        """Delegate ICF file parsing to IARLinkerScriptParser."""
+        from .icf_parser import IARLinkerScriptParser  # pylint: disable=import-outside-toplevel
+        logger.debug("Detected IAR ICF format in %s, delegating to IARLinkerScriptParser",
+                     script_path)
+        icf_parser = IARLinkerScriptParser(
+            user_variables=dict(self.evaluator.variables),
+            user_overrides=set(self._user_variables) if self._user_variables else None,
+            external_regions=external_regions,
+        )
+        return icf_parser.parse(script_path)
+
+    def _parse_keil_script(
+            self, script_path: str) -> Dict[str, MemoryRegion]:
+        """Delegate Keil scatter file parsing to KeilScatterParser."""
+        # Local import: keeps keil_parser out of the import graph when
+        # no scatter file is involved.
+        from .keil_parser import KeilScatterParser  # pylint: disable=import-outside-toplevel
+        logger.debug(
+            "Detected Keil scatter file format in %s, delegating to "
+            "KeilScatterParser", script_path)
+        return KeilScatterParser().parse(script_path)
+
+    def _parse_emproject_script(
+            self, script_path: str) -> Dict[str, MemoryRegion]:
+        """Delegate .emProject XML parsing to SEGGEREmProjectParser."""
+        # Local import: keeps emproject_parser out of the import graph when
+        # no .emProject file is involved.
+        from .emproject_parser import SEGGEREmProjectParser  # pylint: disable=import-outside-toplevel
+        logger.debug(
+            "Detected SEGGER .emProject in %s, delegating to "
+            "SEGGEREmProjectParser", script_path)
+        return SEGGEREmProjectParser().parse(script_path)
+
+
+# Convenience functions for backward compatibility
+def parse_linker_scripts(
+    ld_scripts: List[str], elf_file: Optional[str] = None
+) -> Dict[str, Dict[str, Any]]:
+    """Convenience function to parse memory regions from linker scripts
+
+    Args:
+        ld_scripts: List of paths to linker script files
+        elf_file: Optional path to ELF file for architecture detection
+
+    Returns:
+        Dictionary mapping region names to region information
+
+    Raises:
+        FileNotFoundError: If any linker script file is not found
+        LinkerScriptError: If parsing fails for critical regions
+    """
+    parser = LinkerScriptParser(ld_scripts, elf_file)
+    return parser.parse_memory_regions()

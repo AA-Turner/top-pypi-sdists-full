@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cutlet
-Version: 0.5.0
+Version: 0.5.2
 Summary: Romaji converter
 Home-page: https://github.com/polm/cutlet
 Author: Paul O'Leary McCann
@@ -13,6 +13,16 @@ License-File: LICENSE
 Requires-Dist: jaconv
 Requires-Dist: fugashi
 Requires-Dist: mojimoji
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://polm-cutlet-demo-demo-0tur8v.streamlit.app/)
 [![Current PyPI packages](https://badge.fury.io/py/cutlet.svg)](https://pypi.org/project/cutlet/)
@@ -107,7 +117,5 @@ nkatu.romaji(sent)
 ## Alternatives
 
 - [kakasi](http://kakasi.namazu.org/index.html.ja): Historically important, but not updated since 2014. 
-- [pykakasi](https://github.com/miurahr/pykakasi): self contained, it does segmentation on its own and uses its own dictionary.
-- [kuroshiro](https://github.com/hexenq/kuroshiro): Javascript based.
-- [kana](https://github.com/gojp/kana): Go based.
+- [pykakasi](https://codeberg.org/miurahr/pykakasi): self contained, it does segmentation on its own and uses its own dictionary.
 

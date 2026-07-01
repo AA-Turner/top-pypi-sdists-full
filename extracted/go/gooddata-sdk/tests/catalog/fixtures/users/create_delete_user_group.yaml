@@ -1,0 +1,332 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/userGroups?include=userGroups&page=0&size=500
+    response:
+      body:
+        string:
+          data:
+            - attributes: {}
+              id: adminGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/adminGroup
+              type: userGroup
+            - attributes: {}
+              id: adminQA1Group
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/adminQA1Group
+              relationships:
+                parents:
+                  data:
+                    - id: adminGroup
+                      type: userGroup
+              type: userGroup
+            - attributes:
+                name: demo group
+              id: demoGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/demoGroup
+              type: userGroup
+            - attributes:
+                name: visitors
+              id: visitorsGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/visitorsGroup
+              relationships:
+                parents:
+                  data:
+                    - id: demoGroup
+                      type: userGroup
+              type: userGroup
+          included:
+            - attributes: {}
+              id: adminGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/adminGroup
+              type: userGroup
+            - attributes:
+                name: demo group
+              id: demoGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/demoGroup
+              type: userGroup
+          links:
+            next: http://localhost:3000/api/v1/entities/userGroups?include=userGroups&page=1&size=500
+            self: http://localhost:3000/api/v1/entities/userGroups?include=userGroups&page=0&size=500
+      headers:
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/userGroups/newUserGroup?include=ALL
+    response:
+      body:
+        string:
+          detail: The requested endpoint does not exist or you do not have permission
+            to access it.
+          status: 404
+          title: Not Found
+          traceId: NORMALIZED_TRACE_ID_000000000000
+      headers:
+        Content-Type:
+          - application/problem+json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 404
+        message: Not Found
+  - request:
+      body:
+        data:
+          attributes:
+            name: NEWUSERGROUP
+          id: newUserGroup
+          relationships:
+            parents:
+              data:
+                - id: demoGroup
+                  type: userGroup
+          type: userGroup
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/entities/userGroups
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              name: NEWUSERGROUP
+            id: newUserGroup
+            type: userGroup
+          links:
+            self: http://localhost:3000/api/v1/entities/userGroups/newUserGroup
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 201
+        message: Created
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/userGroups/newUserGroup?include=ALL
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              name: NEWUSERGROUP
+            id: newUserGroup
+            relationships:
+              parents:
+                data:
+                  - id: demoGroup
+                    type: userGroup
+            type: userGroup
+          included:
+            - attributes:
+                name: demo group
+              id: demoGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/demoGroup
+              type: userGroup
+          links:
+            self: http://localhost:3000/api/v1/entities/userGroups/newUserGroup?include=ALL
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/userGroups?include=userGroups&page=0&size=500
+    response:
+      body:
+        string:
+          data:
+            - attributes: {}
+              id: adminGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/adminGroup
+              type: userGroup
+            - attributes: {}
+              id: adminQA1Group
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/adminQA1Group
+              relationships:
+                parents:
+                  data:
+                    - id: adminGroup
+                      type: userGroup
+              type: userGroup
+            - attributes:
+                name: demo group
+              id: demoGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/demoGroup
+              type: userGroup
+            - attributes:
+                name: NEWUSERGROUP
+              id: newUserGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/newUserGroup
+              relationships:
+                parents:
+                  data:
+                    - id: demoGroup
+                      type: userGroup
+              type: userGroup
+            - attributes:
+                name: visitors
+              id: visitorsGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/visitorsGroup
+              relationships:
+                parents:
+                  data:
+                    - id: demoGroup
+                      type: userGroup
+              type: userGroup
+          included:
+            - attributes: {}
+              id: adminGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/adminGroup
+              type: userGroup
+            - attributes:
+                name: demo group
+              id: demoGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/demoGroup
+              type: userGroup
+          links:
+            next: http://localhost:3000/api/v1/entities/userGroups?include=userGroups&page=1&size=500
+            self: http://localhost:3000/api/v1/entities/userGroups?include=userGroups&page=0&size=500
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: DELETE
+      uri: http://localhost:3000/api/v1/entities/userGroups/newUserGroup
+    response:
+      body:
+        string: ''
+      headers:
+        Content-Type:
+          - application/vnd.gooddata.api+json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 204
+        message: No Content
+version: 1

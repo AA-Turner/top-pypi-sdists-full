@@ -26,11 +26,11 @@
 import datetime
 import importlib.metadata
 import logging
-from pprint import pprint
 
 from lxml import etree, objectify
+from stdnum.iban import is_valid as iban_is_valid
 
-from .facturx import XML_NAMESPACES, xml_check_schematron, xml_check_xsd
+from .facturx import get_xml_namespaces, xml_check_schematron, xml_check_xsd
 
 FACTURX_DATE_FORMAT = "%Y%m%d"
 UBL_DATE_FORMAT = "%Y-%m-%d"
@@ -56,10 +56,7 @@ BT_8toUBL = {
 
 
 VERSION = importlib.metadata.version("factur-x")
-FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
-logging.basicConfig(format=FORMAT)
 logger = logging.getLogger("factur-x")
-logger.setLevel(logging.INFO)
 
 EN6931_FIELDS = {
     "BT-1": {
@@ -165,16 +162,7 @@ def _check_data_dict(data_dict, flavor, level):
             )
             data_dict.pop(field)
     if level in ("basicwl", "en16931"):
-        fields_to_remove = []
-        for field in data_dict.keys():
-            if field.startswith("BT-X-"):
-                fields_to_remove.append(field)
-        for field_to_remove in fields_to_remove:
-            logger.warning(
-                f"field {field_to_remove} removed from data_dict because "
-                "level is {level} and minimum level for BT-X-xxx fields is 'extended'"
-            )
-            data_dict.pop(field_to_remove)
+        _remove_extended_keys(data_dict, level)
     # check periods
     if (
         data_dict.get("BT-73")
@@ -203,7 +191,25 @@ def _check_data_dict(data_dict, flavor, level):
             data_dict["BT-8"] = BT_8toCII[data_dict["BT-8"]]
 
 
-def _cii_generate_party_block(node_name, namespaces, **kwargs):
+def _remove_extended_keys(data_dict, level):
+    if isinstance(data_dict, dict):
+        for key in list(data_dict.keys()):
+            if isinstance(key, str) and key.startswith("EXT-FR-FE-"):
+                data_dict.pop(key)  # Supprime la clé
+                logger.warning(
+                    f"field {key} removed from data_dict because "
+                    f"level is {level} and minimum level for EXT-FR-FE-xx fields "
+                    "is 'extended'"
+                )
+            else:
+                _remove_extended_keys(data_dict[key], level)
+
+    elif isinstance(data_dict, list):
+        for item in data_dict:
+            _remove_extended_keys(item, level)
+
+
+def _cii_generate_party(node_name, namespaces, **kwargs):
     if not node_name:
         raise ValueError("node_name arg is required")
     if not kwargs.get("name"):
@@ -453,6 +459,7 @@ def _cii_generate_single_invoice_line(namespaces, line_dict):
         line_dict["BT-127"] = [line_dict["BT-127"]]
     RAM = namespaces["ram"]
     UDT = namespaces["udt"]
+    QDT = namespaces["qdt"]
     return RAM.IncludedSupplyChainTradeLineItem(
         RAM.AssociatedDocumentLineDocument(
             RAM.LineID(line_dict["BT-126"]),
@@ -519,25 +526,25 @@ def _cii_generate_single_invoice_line(namespaces, line_dict):
             *[
                 RAM.SellerOrderReferencedDocument(
                     *[
-                        RAM.IssuerAssignedID(line_dict["BT-X-537"])
+                        RAM.IssuerAssignedID(line_dict["EXT-FR-FE-144"])
                         for _ in [1]
-                        if line_dict.get("BT-X-537")
+                        if line_dict.get("EXT-FR-FE-144")
                     ],
                     *[
-                        RAM.LineID(line_dict["BT-X-538"])
+                        RAM.LineID(line_dict["EXT-FR-FE-145"])
                         for _ in [1]
-                        if line_dict.get("BT-X-538")
+                        if line_dict.get("EXT-FR-FE-145")
                     ],
                 )
                 for _ in [1]
-                if line_dict.get("BT-X-537") or line_dict.get("BT-X-538")
+                if line_dict.get("EXT-FR-FE-144") or line_dict.get("EXT-FR-FE-145")
             ],
             *[
                 RAM.BuyerOrderReferencedDocument(
                     *[
-                        RAM.IssuerAssignedID(line_dict["BT-X-21"])
+                        RAM.IssuerAssignedID(line_dict["EXT-FR-FE-135"])
                         for _ in [1]
-                        if line_dict.get("BT-X-21")
+                        if line_dict.get("EXT-FR-FE-135")
                     ],
                     *[
                         RAM.LineID(line_dict["BT-132"])
@@ -546,7 +553,7 @@ def _cii_generate_single_invoice_line(namespaces, line_dict):
                     ],
                 )
                 for _ in [1]
-                if line_dict.get("BT-X-21") or line_dict.get("BT-132")
+                if line_dict.get("EXT-FR-FE-135") or line_dict.get("BT-132")
             ],
             *[
                 RAM.GrossPriceProductTradePrice(
@@ -589,7 +596,36 @@ def _cii_generate_single_invoice_line(namespaces, line_dict):
             ),
         ),
         RAM.SpecifiedLineTradeDelivery(
-            RAM.BilledQuantity(line_dict["BT-129"], unitCode=line_dict["BT-130"])
+            RAM.BilledQuantity(line_dict["BT-129"], unitCode=line_dict["BT-130"]),
+            _cii_generate_party(  # EXT-FR-FE-BG-10
+                "ShipToTradeParty",
+                namespaces,
+                identifiers=line_dict.get("EXT-FR-FE-146"),
+                name=line_dict.get("EXT-FR-FE-149"),
+                country_code=line_dict.get("EXT-FR-FE-157"),
+                country_subdivision_name=line_dict.get("EXT-FR-FE-156"),
+                postcode=line_dict.get("EXT-FR-FE-155"),
+                city=line_dict.get("EXT-FR-FE-154"),
+                addr_line1=line_dict.get("EXT-FR-FE-151"),
+                addr_line2=line_dict.get("EXT-FR-FE-152"),
+                addr_line3=line_dict.get("EXT-FR-FE-153"),
+            ),
+            *[
+                RAM.DespatchAdviceReferencedDocument(
+                    *[
+                        RAM.IssuerAssignedID(line_dict["EXT-FR-FE-140"])
+                        for _ in [1]
+                        if line_dict.get("EXT-FR-FE-140")
+                    ],
+                    *[
+                        RAM.LineID(line_dict["EXT-FR-FE-141"])
+                        for _ in [1]
+                        if line_dict.get("EXT-FR-FE-141")
+                    ],
+                )
+                for _ in [1]
+                if line_dict.get("EXT-FR-FE-140") or line_dict.get("EXT-FR-FE-141")
+            ],
         ),
         RAM.SpecifiedLineTradeSettlement(
             RAM.ApplicableTradeTax(
@@ -655,6 +691,33 @@ def _cii_generate_single_invoice_line(namespaces, line_dict):
                 RAM.LineTotalAmount(line_dict["BT-131"]),
             ),
             *[
+                RAM.InvoiceReferencedDocument(
+                    RAM.IssuerAssignedID(line_dict["EXT-FR-FE-136"]),
+                    *[
+                        RAM.LineID(line_dict["EXT-FR-FE-139"])
+                        for _ in [1]
+                        if line_dict.get("EXT-FR-FE-139")
+                    ],
+                    *[
+                        RAM.TypeCode(line_dict["EXT-FR-FE-137"])
+                        for _ in [1]
+                        if line_dict.get("EXT-FR-FE-137")
+                    ],
+                    *[
+                        RAM.FormattedIssueDateTime(
+                            QDT.DateTimeString(
+                                _cii_date_to_string(line_dict["EXT-FR-FE-138"]),
+                                format="102",
+                            )
+                        )
+                        for _ in [1]
+                        if line_dict.get("EXT-FR-FE-138")
+                    ],
+                )
+                for _ in [1]
+                if line_dict.get("EXT-FR-FE-136")
+            ],
+            *[
                 RAM.AdditionalReferencedDocument(
                     RAM.IssuerAssignedID(value),
                     RAM.TypeCode("130"),
@@ -678,7 +741,11 @@ def _cii_generate_single_invoice_line(namespaces, line_dict):
 
 
 def generate_cii_xml(
-    data_dict, level="autodetect", check_xsd=True, check_schematron="base"
+    data_dict,
+    level="autodetect",
+    check_xsd=True,
+    check_schematron="base",
+    prefixed_namespaces=True,
 ):
     # in data_dict, the key names use ID CII and not ID Modèle AFNOR FE
     # because we don't want France-specific stuff
@@ -710,13 +777,36 @@ def generate_cii_xml(
         )
 
     _check_data_dict(data_dict, "factur-x", level)
-    FX_NAMESPACES = XML_NAMESPACES["factur-x"]
-    RSM = objectify.ElementMaker(
-        namespace=FX_NAMESPACES["rsm"], nsmap=FX_NAMESPACES, annotate=False
-    )
-    RAM = objectify.ElementMaker(namespace=FX_NAMESPACES["ram"], annotate=False)
-    UDT = objectify.ElementMaker(namespace=FX_NAMESPACES["udt"], annotate=False)
-    QDT = objectify.ElementMaker(namespace=FX_NAMESPACES["qdt"], annotate=False)
+    FX_NAMESPACES = get_xml_namespaces("factur-x")
+    if prefixed_namespaces:
+        RSM = objectify.ElementMaker(
+            namespace=FX_NAMESPACES["rsm"], nsmap=FX_NAMESPACES, annotate=False
+        )
+        RAM = objectify.ElementMaker(namespace=FX_NAMESPACES["ram"], annotate=False)
+        UDT = objectify.ElementMaker(namespace=FX_NAMESPACES["udt"], annotate=False)
+        QDT = objectify.ElementMaker(namespace=FX_NAMESPACES["qdt"], annotate=False)
+    else:
+        RSM = objectify.ElementMaker(
+            namespace=FX_NAMESPACES["rsm"],
+            nsmap={None: FX_NAMESPACES["rsm"]},
+            annotate=False,
+        )
+        RAM = objectify.ElementMaker(
+            namespace=FX_NAMESPACES["ram"],
+            nsmap={None: FX_NAMESPACES["ram"]},
+            annotate=False,
+        )
+        UDT = objectify.ElementMaker(
+            namespace=FX_NAMESPACES["udt"],
+            nsmap={None: FX_NAMESPACES["udt"]},
+            annotate=False,
+        )
+        QDT = objectify.ElementMaker(
+            namespace=FX_NAMESPACES["qdt"],
+            nsmap={None: FX_NAMESPACES["qdt"]},
+            annotate=False,
+        )
+
     namespaces = {
         "ram": RAM,
         "rsm": RSM,
@@ -762,8 +852,8 @@ def generate_cii_xml(
                     for _ in [1]
                     if data_dict.get("BT-10")
                 ],
-                # SELLER
-                _cii_generate_party_block(
+                # SELLER  BG-4
+                _cii_generate_party(
                     "SellerTradeParty",
                     namespaces,
                     identifiers=data_dict.get("BT-29"),
@@ -788,8 +878,8 @@ def generate_cii_xml(
                     tax_id=data_dict.get("BT-31"),
                     local_tax_id=data_dict.get("BT-32"),
                 ),
-                # BUYER
-                _cii_generate_party_block(
+                # BUYER  BG-7
+                _cii_generate_party(
                     "BuyerTradeParty",
                     namespaces,
                     identifiers=data_dict.get("BT-46"),
@@ -812,34 +902,32 @@ def generate_cii_xml(
                     universal_comm_schemeid=data_dict.get("BT-49-1"),
                     tax_id=data_dict.get("BT-48"),
                 ),
-                # Sales Agent
-                _cii_generate_party_block(
+                # Sales Agent  EXT-FR-FE-BG-03
+                _cii_generate_party(
                     "SalesAgentTradeParty",
                     namespaces,
-                    identifiers=data_dict.get("BT-X-338"),
-                    name=data_dict.get("BT-X-335"),
-                    role_code=data_dict.get("BT-X-545"),
-                    legal_org_id=data_dict.get("BT-X-339"),
-                    legal_org_schemeid=data_dict.get("BT-X-339-0"),
-                    biz_name=data_dict.get("BT-X-336"),
-                    contact_name=data_dict.get("BT-X-342"),
-                    contact_department_name=data_dict.get("BT-X-343"),
-                    contact_type_code=data_dict.get("BT-X-347"),
-                    contact_phone=data_dict.get("BT-X-344"),
-                    contact_email=data_dict.get("BT-X-346"),
-                    country_code=data_dict.get("BT-X-353"),
-                    country_subdivision_name=data_dict.get("BT-X-354"),
-                    postcode=data_dict.get("BT-X-348"),
-                    city=data_dict.get("BT-X-352"),
-                    addr_line1=data_dict.get("BT-X-349"),
-                    addr_line2=data_dict.get("BT-X-350"),
-                    addr_line3=data_dict.get("BT-X-351"),
-                    universal_comm_id=data_dict.get("BT-X-341"),
-                    universal_comm_schemeid=data_dict.get("BT-X-341-0"),
-                    tax_id=data_dict.get("BT-X-340"),
+                    identifiers=data_dict.get("EXT-FR-FE-69"),
+                    name=data_dict.get("EXT-FR-FE-66"),
+                    role_code=data_dict.get("EXT-FR-FE-67"),
+                    legal_org_id=data_dict.get("EXT-FR-FE-71"),
+                    legal_org_schemeid=data_dict.get("EXT-FR-FE-72"),
+                    biz_name=data_dict.get("EXT-FR-FE-68"),
+                    contact_name=data_dict.get("EXT-FR-FE-86"),
+                    contact_phone=data_dict.get("EXT-FR-FE-87"),
+                    contact_email=data_dict.get("EXT-FR-FE-88"),
+                    country_code=data_dict.get("EXT-FR-FE-84"),
+                    country_subdivision_name=data_dict.get("EXT-FR-FE-83"),
+                    postcode=data_dict.get("EXT-FR-FE-81"),
+                    city=data_dict.get("EXT-FR-FE-82"),
+                    addr_line1=data_dict.get("EXT-FR-FE-78"),
+                    addr_line2=data_dict.get("EXT-FR-FE-79"),
+                    addr_line3=data_dict.get("EXT-FR-FE-80"),
+                    universal_comm_id=data_dict.get("EXT-FR-FE-75"),
+                    universal_comm_schemeid=data_dict.get("EXT-FR-FE-76"),
+                    tax_id=data_dict.get("EXT-FR-FE-73"),
                 ),
-                # Seller Tax Representative
-                _cii_generate_party_block(
+                # Seller Tax Representative  BG-11
+                _cii_generate_party(
                     "SellerTaxRepresentativeTradeParty",
                     namespaces,
                     name=data_dict.get("BT-62"),
@@ -879,46 +967,41 @@ def generate_cii_xml(
                         data_dict, namespaces
                     )
                 ],
-                # Buyer Agent
-                _cii_generate_party_block(
+                # Buyer Agent  EXT-FR-FE-BG-01
+                _cii_generate_party(
                     "BuyerAgentTradeParty",
                     namespaces,
-                    identifiers=data_dict.get("BT-X-409"),
-                    name=data_dict.get("BT-X-406"),
-                    role_code=data_dict.get("BT-X-549"),
-                    legal_org_id=data_dict.get("BT-X-410"),
-                    legal_org_schemeid=data_dict.get("BT-X-410-0"),
-                    biz_name=data_dict.get("BT-X-407"),
-                    contact_name=data_dict.get("BT-X-413"),
-                    contact_department_name=data_dict.get("BT-X-414"),
-                    contact_phone=data_dict.get("BT-X-416"),
-                    contact_email=data_dict.get("BT-X-418"),
-                    country_code=data_dict.get("BT-X-424"),
-                    country_subdivision_name=data_dict.get("BT-X-425"),
-                    postcode=data_dict.get("BT-X-419"),
-                    city=data_dict.get("BT-X-423"),
-                    addr_line1=data_dict.get("BT-X-420"),
-                    addr_line2=data_dict.get("BT-X-421"),
-                    addr_line3=data_dict.get("BT-X-422"),
-                    universal_comm_id=data_dict.get("BT-X-412"),
-                    universal_comm_schemeid=data_dict.get("BT-X-412-0"),
-                    tax_id=data_dict.get("BT-X-411"),
+                    identifiers=data_dict.get("EXT-FR-FE-06"),
+                    name=data_dict.get("EXT-FR-FE-03"),
+                    role_code=data_dict.get("EXT-FR-FE-04"),
+                    legal_org_id=data_dict.get("EXT-FR-FE-08"),
+                    legal_org_schemeid=data_dict.get("EXT-FR-FE-09"),
+                    biz_name=data_dict.get("EXT-FR-FE-05"),
+                    contact_name=data_dict.get("EXT-FR-FE-23"),
+                    contact_phone=data_dict.get("EXT-FR-FE-24"),
+                    contact_email=data_dict.get("EXT-FR-FE-25"),
+                    country_code=data_dict.get("EXT-FR-FE-21"),
+                    country_subdivision_name=data_dict.get("EXT-FR-FE-20"),
+                    postcode=data_dict.get("EXT-FR-FE-18"),
+                    city=data_dict.get("EXT-FR-FE-19"),
+                    addr_line1=data_dict.get("EXT-FR-FE-15"),
+                    addr_line2=data_dict.get("EXT-FR-FE-16"),
+                    addr_line3=data_dict.get("EXT-FR-FE-17"),
+                    universal_comm_id=data_dict.get("EXT-FR-FE-12"),
+                    universal_comm_schemeid=data_dict.get("EXT-FR-FE-13"),
+                    tax_id=data_dict.get("EXT-FR-FE-10"),
                 ),
                 *[
                     RAM.SpecifiedProcuringProject(
                         RAM.ID(data_dict["BT-11"]),
-                        *[
-                            RAM.Name(data_dict["BT-11-0"])
-                            for _ in [1]
-                            if data_dict.get("BT-11-0")
-                        ],
+                        RAM.Name(data_dict["BT-11-0"]),
                     )
                     for _ in [1]
-                    if data_dict.get("BT-11")
+                    if data_dict.get("BT-11") and data_dict.get("BT-11-0")
                 ],
             ),
             RAM.ApplicableHeaderTradeDelivery(
-                _cii_generate_party_block(
+                _cii_generate_party(
                     "ShipToTradeParty",
                     namespaces,
                     identifiers=data_dict.get("BT-71"),
@@ -974,104 +1057,100 @@ def generate_cii_xml(
                     if data_dict.get("BT-6")
                 ],
                 RAM.InvoiceCurrencyCode(data_dict["BT-5"]),
-                # Invoicer
-                _cii_generate_party_block(
+                # Invoicer  EXT-FR-FE-BG-05
+                _cii_generate_party(
                     "InvoicerTradeParty",
                     namespaces,
-                    identifiers=data_dict.get("BT-X-206"),
-                    name=data_dict.get("BT-X-207"),
-                    role_code=data_dict.get("BT-X-553"),
-                    legal_org_id=data_dict.get("BT-X-208"),
-                    legal_org_schemeid=data_dict.get("BT-X-208-0"),
-                    biz_name=data_dict.get("BT-X-209"),
-                    contact_name=data_dict.get("BT-X-210"),
-                    contact_department_name=data_dict.get("BT-X-211"),
-                    contact_phone=data_dict.get("BT-X-212"),
-                    contact_email=data_dict.get("BT-X-214"),
-                    country_code=data_dict.get("BT-X-220"),
-                    country_subdivision_name=data_dict.get("BT-X-221"),
-                    postcode=data_dict.get("BT-X-215"),
-                    city=data_dict.get("BT-X-219"),
-                    addr_line1=data_dict.get("BT-X-216"),
-                    addr_line2=data_dict.get("BT-X-217"),
-                    addr_line3=data_dict.get("BT-X-218"),
-                    universal_comm_id=data_dict.get("BT-X-222"),
-                    universal_comm_schemeid=data_dict.get("BT-X-222-0"),
-                    tax_id=data_dict.get("BT-X-223"),
+                    identifiers=data_dict.get("EXT-FR-FE-115"),
+                    name=data_dict.get("EXT-FR-FE-112"),
+                    role_code=data_dict.get("EXT-FR-FE-113"),
+                    legal_org_id=data_dict.get("EXT-FR-FE-117"),
+                    legal_org_schemeid=data_dict.get("EXT-FR-FE-118"),
+                    biz_name=data_dict.get("EXT-FR-FE-114"),
+                    contact_name=data_dict.get("EXT-FR-FE-132"),
+                    contact_phone=data_dict.get("EXT-FR-FE-133"),
+                    contact_email=data_dict.get("EXT-FR-FE-134"),
+                    country_code=data_dict.get("EXT-FR-FE-130"),
+                    country_subdivision_name=data_dict.get("EXT-FR-FE-129"),
+                    postcode=data_dict.get("EXT-FR-FE-128"),
+                    city=data_dict.get("EXT-FR-FE-127"),
+                    addr_line1=data_dict.get("EXT-FR-FE-124"),
+                    addr_line2=data_dict.get("EXT-FR-FE-125"),
+                    addr_line3=data_dict.get("EXT-FR-FE-126"),
+                    universal_comm_id=data_dict.get("EXT-FR-FE-121"),
+                    universal_comm_schemeid=data_dict.get("EXT-FR-FE-122"),
+                    tax_id=data_dict.get("EXT-FR-FE-119"),
                 ),
-                # Invoicee
-                _cii_generate_party_block(
+                # Invoicee  EXT-FR-FE-BG-04
+                _cii_generate_party(
                     "InvoiceeTradeParty",
                     namespaces,
-                    identifiers=data_dict.get("BT-X-225"),
-                    name=data_dict.get("BT-X-226"),
-                    role_code=data_dict.get("BT-X-554"),
-                    legal_org_id=data_dict.get("BT-X-227"),
-                    legal_org_schemeid=data_dict.get("BT-X-227-0"),
-                    biz_name=data_dict.get("BT-X-228"),
-                    contact_name=data_dict.get("BT-X-229"),
-                    contact_department_name=data_dict.get("BT-X-230"),
-                    contact_phone=data_dict.get("BT-X-231"),
-                    contact_email=data_dict.get("BT-X-233"),
-                    country_code=data_dict.get("BT-X-239"),
-                    country_subdivision_name=data_dict.get("BT-X-240"),
-                    postcode=data_dict.get("BT-X-234"),
-                    city=data_dict.get("BT-X-238"),
-                    addr_line1=data_dict.get("BT-X-235"),
-                    addr_line2=data_dict.get("BT-X-236"),
-                    addr_line3=data_dict.get("BT-X-237"),
-                    universal_comm_id=data_dict.get("BT-X-241"),
-                    universal_comm_schemeid=data_dict.get("BT-X-241-0"),
-                    tax_id=data_dict.get("BT-X-242"),
+                    identifiers=data_dict.get("EXT-FR-FE-92"),
+                    name=data_dict.get("EXT-FR-FE-89"),
+                    role_code=data_dict.get("EXT-FR-FE-90"),
+                    legal_org_id=data_dict.get("EXT-FR-FE-94"),
+                    legal_org_schemeid=data_dict.get("EXT-FR-FE-95"),
+                    biz_name=data_dict.get("EXT-FR-FE-91"),
+                    contact_name=data_dict.get("EXT-FR-FE-109"),
+                    contact_phone=data_dict.get("EXT-FR-FE-110"),
+                    contact_email=data_dict.get("EXT-FR-FE-111"),
+                    country_code=data_dict.get("EXT-FR-FE-107"),
+                    country_subdivision_name=data_dict.get("EXT-FR-FE-106"),
+                    postcode=data_dict.get("EXT-FR-FE-105"),
+                    city=data_dict.get("EXT-FR-FE-104"),
+                    addr_line1=data_dict.get("EXT-FR-FE-101"),
+                    addr_line2=data_dict.get("EXT-FR-FE-102"),
+                    addr_line3=data_dict.get("EXT-FR-FE-103"),
+                    universal_comm_id=data_dict.get("EXT-FR-FE-98"),
+                    universal_comm_schemeid=data_dict.get("EXT-FR-FE-99"),
+                    tax_id=data_dict.get("EXT-FR-FE-96"),
                 ),
-                # Payee (Basic WL)
-                _cii_generate_party_block(
+                # Payee (Basic WL)  BG-10
+                _cii_generate_party(
                     "PayeeTradeParty",
                     namespaces,
                     identifiers=data_dict.get("BT-60"),
                     name=data_dict.get("BT-59"),
-                    role_code=data_dict.get("BT-X-468"),
+                    role_code=data_dict.get("EXT-FR-FE-26"),
                     legal_org_id=data_dict.get("BT-61"),
                     legal_org_schemeid=data_dict.get("BT-61-1"),
-                    contact_name=data_dict.get("BT-X-244"),
-                    contact_department_name=data_dict.get("BT-X-245"),
-                    contact_phone=data_dict.get("BT-X-246"),
-                    contact_email=data_dict.get("BT-X-248"),
-                    country_code=data_dict.get("BT-X-254"),
-                    country_subdivision_name=data_dict.get("BT-X-255"),
-                    postcode=data_dict.get("BT-X-249"),
-                    city=data_dict.get("BT-X-253"),
-                    addr_line1=data_dict.get("BT-X-250"),
-                    addr_line2=data_dict.get("BT-X-251"),
-                    addr_line3=data_dict.get("BT-X-252"),
-                    universal_comm_id=data_dict.get("BT-X-256"),
-                    universal_comm_schemeid=data_dict.get("BT-X-256-0"),
-                    tax_id=data_dict.get("BT-X-257"),
+                    contact_name=data_dict.get("EXT-FR-FE-40"),
+                    contact_phone=data_dict.get("EXT-FR-FE-41"),
+                    contact_email=data_dict.get("EXT-FR-FE-42"),
+                    country_code=data_dict.get("EXT-FR-FE-38"),
+                    country_subdivision_name=data_dict.get("EXT-FR-FE-37"),
+                    postcode=data_dict.get("EXT-FR-FE-36"),
+                    city=data_dict.get("EXT-FR-FE-35"),
+                    addr_line1=data_dict.get("EXT-FR-FE-32"),
+                    addr_line2=data_dict.get("EXT-FR-FE-33"),
+                    addr_line3=data_dict.get("EXT-FR-FE-34"),
+                    universal_comm_id=data_dict.get("EXT-FR-FE-29"),
+                    universal_comm_schemeid=data_dict.get("EXT-FR-FE-30"),
+                    tax_id=data_dict.get("EXT-FR-FE-27"),
                 ),
-                # Payer
-                _cii_generate_party_block(
+                # Payer  EXT-FR-FE-BG-02
+                _cii_generate_party(
                     "PayerTradeParty",
                     namespaces,
-                    identifiers=data_dict.get("BT-X-479"),
-                    name=data_dict.get("BT-X-476"),
-                    role_code=data_dict.get("BT-X-483"),
-                    legal_org_id=data_dict.get("BT-X-480"),
-                    legal_org_schemeid=data_dict.get("BT-X-480-0"),
-                    biz_name=data_dict.get("BT-X-477"),
-                    contact_name=data_dict.get("BT-X-484"),
-                    contact_department_name=data_dict.get("BT-X-485"),
-                    contact_phone=data_dict.get("BT-X-487"),
-                    contact_email=data_dict.get("BT-X-489"),
-                    country_code=data_dict.get("BT-X-495"),
-                    country_subdivision_name=data_dict.get("BT-X-496"),
-                    postcode=data_dict.get("BT-X-490"),
-                    city=data_dict.get("BT-X-494"),
-                    addr_line1=data_dict.get("BT-X-491"),
-                    addr_line2=data_dict.get("BT-X-492"),
-                    addr_line3=data_dict.get("BT-X-493"),
-                    universal_comm_id=data_dict.get("BT-X-482"),
-                    universal_comm_schemeid=data_dict.get("BT-X-482-0"),
-                    tax_id=data_dict.get("BT-X-481"),
+                    identifiers=data_dict.get("EXT-FR-FE-46"),
+                    name=data_dict.get("EXT-FR-FE-43"),
+                    role_code=data_dict.get("EXT-FR-FE-44"),
+                    legal_org_id=data_dict.get("EXT-FR-FE-48"),
+                    legal_org_schemeid=data_dict.get("EXT-FR-FE-49"),
+                    biz_name=data_dict.get("EXT-FR-FE-45"),
+                    contact_name=data_dict.get("EXT-FR-FE-63"),
+                    contact_phone=data_dict.get("EXT-FR-FE-64"),
+                    contact_email=data_dict.get("EXT-FR-FE-65"),
+                    country_code=data_dict.get("EXT-FR-FE-61"),
+                    country_subdivision_name=data_dict.get("EXT-FR-FE-60"),
+                    postcode=data_dict.get("EXT-FR-FE-59"),
+                    city=data_dict.get("EXT-FR-FE-58"),
+                    addr_line1=data_dict.get("EXT-FR-FE-55"),
+                    addr_line2=data_dict.get("EXT-FR-FE-56"),
+                    addr_line3=data_dict.get("EXT-FR-FE-57"),
+                    universal_comm_id=data_dict.get("EXT-FR-FE-52"),
+                    universal_comm_schemeid=data_dict.get("EXT-FR-FE-53"),
+                    tax_id=data_dict.get("EXT-FR-FE-50"),
                 ),
                 *[
                     RAM.SpecifiedTradeSettlementPaymentMeans(
@@ -1106,6 +1185,7 @@ def generate_cii_xml(
                                     RAM.IBANID(data_dict["BT-84"])
                                     for _ in [1]
                                     if data_dict.get("BT-84")
+                                    and iban_is_valid(data_dict["BT-84"])
                                 ],
                                 *[
                                     RAM.AccountName(data_dict["BT-85"])
@@ -1113,13 +1193,14 @@ def generate_cii_xml(
                                     if data_dict.get("BT-85")
                                 ],
                                 *[
-                                    RAM.ProprietaryID(data_dict["BT-84-0"])
+                                    RAM.ProprietaryID(data_dict["BT-84"])
                                     for _ in [1]
-                                    if data_dict.get("BT-84-0")
+                                    if data_dict.get("BT-84")
+                                    and not iban_is_valid(data_dict["BT-84"])
                                 ],
                             )
                             for _ in [1]
-                            if data_dict.get("BT-84") or data_dict.get("BT-84-0")
+                            if data_dict.get("BT-84")
                         ],
                         *[
                             RAM.PayeeSpecifiedCreditorFinancialInstitution(
@@ -1293,6 +1374,11 @@ def generate_cii_xml(
                     RAM.InvoiceReferencedDocument(
                         RAM.IssuerAssignedID(previnv["BT-25"]),
                         *[
+                            RAM.TypeCode(previnv["EXT-FR-FE-02"])
+                            for _ in [1]
+                            if previnv.get("EXT-FR-FE-02")
+                        ],
+                        *[
                             RAM.FormattedIssueDateTime(
                                 QDT.DateTimeString(
                                     _cii_date_to_string(previnv["BT-26"]), format="102"
@@ -1317,11 +1403,6 @@ def generate_cii_xml(
     xml_bytes = etree.tostring(
         xml_root, pretty_print=True, xml_declaration=True, encoding="UTF-8"
     )
-    # verif schema => faire comme lib fx
-    print("xml_bytes===============")
-    xml_str = xml_bytes.decode("utf-8")
-    print("type(xml_str)", type(xml_str))
-    pprint(xml_str)
     if check_xsd:
         xml_check_xsd(xml_root, flavor="factur-x", level=level)
     if check_schematron:
@@ -1329,10 +1410,6 @@ def generate_cii_xml(
             xml_bytes, flavor="factur-x", level=level, check_option=check_schematron
         )
     return xml_bytes
-
-
-# TODO : BT-X-xxx are CII only references, not used in UBL.
-# It may not be a good thing to use it in data_dict
 
 
 def _ubl_generate_party(node_name, namespaces, **kwargs):
@@ -1355,6 +1432,11 @@ def _ubl_generate_party(node_name, namespaces, **kwargs):
             )
             for _ in [1]
             if kwargs.get("universal_comm_id") and kwargs.get("universal_comm_schemeid")
+        ],
+        *[
+            CBC.IndustryClassificationCode(kwargs["role_code"])
+            for _ in [1]
+            if kwargs.get("role_code")
         ],
         *[
             CAC.PartyIdentification(
@@ -1426,6 +1508,24 @@ def _ubl_generate_party(node_name, namespaces, **kwargs):
             or kwargs.get("contact_type_code")
             or kwargs.get("contact_phone")
             or kwargs.get("contact_email")
+        ],
+        *[
+            _ubl_generate_party("AgentParty", namespaces, **kwargs["agent_party"])
+            for _ in [1]
+            if kwargs.get("agent_party")
+        ],
+        *[
+            CAC.ServiceProviderParty(
+                _ubl_generate_party(
+                    "Party", namespaces, **kwargs["service_provider_party"]
+                )
+            )
+            for _ in [1]
+            if kwargs.get("service_provider_party")
+            and (
+                kwargs["service_provider_party"].get("name")
+                or kwargs["service_provider_party"].get("biz_name")
+            )
         ],
     )
 
@@ -1649,9 +1749,47 @@ def _ubl_generate_single_invoice_line(namespaces, line_dict, invoice_currency):
             if line_dict.get("BT-134") or line_dict.get("BT-135")
         ],
         *[
-            CAC.OrderLineReference(CBC.LineID(line_dict["BT-132"]))
+            CAC.OrderLineReference(
+                CBC.LineID(line_dict["BT-132"]),
+                *[
+                    CAC.OrderReference(CBC.ID(line_dict["EXT-FR-FE-135"]))
+                    for _ in [1]
+                    if line_dict.get("EXT-FR-FE-135")
+                ],
+            )
             for _ in [1]
             if line_dict.get("BT-132")
+        ],
+        *[
+            CAC.DespatchLineReference(
+                CBC.LineID(line_dict["EXT-FR-FE-141"]),
+                *[
+                    CAC.DocumentReference(CBC.ID(line_dict["EXT-FR-FE-140"]))
+                    for _ in [1]
+                    if line_dict.get("EXT-FR-FE-140")
+                ],
+            )
+            for _ in [1]
+            if line_dict.get("EXT-FR-FE-141")
+        ],
+        *[
+            CAC.BillingReference(
+                CAC.InvoiceDocumentReference(
+                    CBC.ID(line_dict["EXT-FR-FE-136"]),
+                    *[
+                        CBC.IssueDate(_ubl_date_to_string(line_dict["EXT-FR-FE-138"]))
+                        for _ in [1]
+                        if line_dict.get("EXT-FR-FE-138")
+                    ],
+                    *[
+                        CBC.DocumentTypeCode(line_dict["EXT-FR-FE-137"])
+                        for _ in [1]
+                        if line_dict.get("EXT-FR-FE-137")
+                    ],
+                )
+            )
+            for _ in [1]
+            if line_dict.get("EXT-FR-FE-136")
         ],
         *[
             CAC.DocumentReference(
@@ -1662,6 +1800,27 @@ def _ubl_generate_single_invoice_line(namespaces, line_dict, invoice_currency):
                 CBC.DocumentTypeCode("130"),
             )
             for schemeid, value in (line_dict.get("BT-128-00") or {}).items()
+        ],
+        *[
+            CAC.Delivery(
+                _ubl_generate_location(
+                    "DeliveryLocation",
+                    namespaces,
+                    identifiers=line_dict.get("EXT-FR-FE-146"),
+                    country_code=line_dict.get("EXT-FR-FE-157"),
+                    country_subdivision_name=line_dict.get("EXT-FR-FE-156"),
+                    postcode=line_dict.get("EXT-FR-FE-155"),
+                    city=line_dict.get("EXT-FR-FE-154"),
+                    addr_line1=line_dict.get("EXT-FR-FE-151"),
+                    addr_line2=line_dict.get("EXT-FR-FE-152"),
+                    addr_line3=line_dict.get("EXT-FR-FE-153"),
+                ),
+                _ubl_generate_party(
+                    "DeliveryParty", namespaces, biz_name=line_dict.get("EXT-FR-FE-149")
+                ),
+            )
+            for _ in [1]
+            if line_dict.get("EXT-FR-FE-149")
         ],
         *[
             _ubl_generate_single_allowance_charge(
@@ -1780,7 +1939,11 @@ def _ubl_generate_single_invoice_line(namespaces, line_dict, invoice_currency):
 
 
 def generate_ubl_xml(
-    data_dict, level="autodetect", check_xsd=True, check_schematron="base"
+    data_dict,
+    level="autodetect",
+    check_xsd=True,
+    check_schematron="base",
+    prefixed_namespaces=True,
 ):
     if not isinstance(data_dict, dict):
         raise ValueError("data_dict must be a dict")
@@ -1809,7 +1972,7 @@ def generate_ubl_xml(
             "'en16931', 'extended-ctc-fr' and 'autodetect'"
         )
 
-    _check_data_dict(data_dict, "ubl-2.1", level=level)
+    _check_data_dict(data_dict, "ubl-2.1", level)
 
     if data_dict.get("BT-90"):
         if data_dict.get("BT-59"):  # if PayeeParty
@@ -1823,26 +1986,37 @@ def generate_ubl_xml(
             else:
                 data_dict["BT-29"]["SEPA"] = data_dict["BT-90"]
 
-    UBL_NAMESPACES = {
-        None: "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2",
-        "cac": "urn:oasis:names:specification:ubl:schema:xsd:"
-        "CommonAggregateComponents-2",
-        "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
-        "xsi": "http://www.w3.org/2001/XMLSchema-instance",
-        "ccts": "urn:un:unece:uncefact:documentation:2",
-        "qdt": "urn:oasis:names:specification:ubl:schema:xsd:QualifiedDatatypes-2",
-        "udt": "urn:oasis:names:specification:ubl:schema:xsd:UnqualifiedDataTypes-2",
-    }
+    UBL_NAMESPACES = get_xml_namespaces("ubl-2.1")
+    default_urn = UBL_NAMESPACES.pop("default")
+    UBL_NAMESPACES[None] = default_urn
 
-    CAC = objectify.ElementMaker(
-        namespace=UBL_NAMESPACES["cac"], nsmap=UBL_NAMESPACES, annotate=False
-    )
-    CBC = objectify.ElementMaker(
-        namespace=UBL_NAMESPACES["cbc"], nsmap=UBL_NAMESPACES, annotate=False
-    )
-    DEFAULT = objectify.ElementMaker(
-        namespace=UBL_NAMESPACES[None], nsmap=UBL_NAMESPACES, annotate=False
-    )
+    if prefixed_namespaces:
+        CAC = objectify.ElementMaker(
+            namespace=UBL_NAMESPACES["cac"], nsmap=UBL_NAMESPACES, annotate=False
+        )
+        CBC = objectify.ElementMaker(
+            namespace=UBL_NAMESPACES["cbc"], nsmap=UBL_NAMESPACES, annotate=False
+        )
+        DEFAULT = objectify.ElementMaker(
+            namespace=UBL_NAMESPACES[None], nsmap=UBL_NAMESPACES, annotate=False
+        )
+    else:
+        CAC = objectify.ElementMaker(
+            namespace=UBL_NAMESPACES["cac"],
+            nsmap={None: UBL_NAMESPACES["cac"]},
+            annotate=False,
+        )
+        CBC = objectify.ElementMaker(
+            namespace=UBL_NAMESPACES["cbc"],
+            nsmap={None: UBL_NAMESPACES["cbc"]},
+            annotate=False,
+        )
+        DEFAULT = objectify.ElementMaker(
+            namespace=UBL_NAMESPACES[None],
+            nsmap={None: UBL_NAMESPACES[None]},
+            annotate=False,
+        )
+
     namespaces = {
         "cac": CAC,
         "cbc": CBC,
@@ -1927,6 +2101,11 @@ def generate_ubl_xml(
                         for _ in [1]
                         if previnv.get("BT-26")
                     ],
+                    *[
+                        CBC.DocumentTypeCode(previnv["EXT-FR-FE-02"])
+                        for _ in [1]
+                        if previnv.get("EXT-FR-FE-02")
+                    ],
                 )
             )
             for previnv in (data_dict.get("BG-3") or [])
@@ -1957,7 +2136,7 @@ def generate_ubl_xml(
             for _ in [1]
             if data_dict.get("BT-11")
         ],
-        # SELLER
+        # SELLER  BG-4
         CAC.AccountingSupplierParty(
             _ubl_generate_party(
                 "Party",
@@ -1982,9 +2161,53 @@ def generate_ubl_xml(
                 universal_comm_schemeid=data_dict.get("BT-34-1"),
                 tax_id=data_dict.get("BT-31"),
                 local_tax_id=data_dict.get("BT-32"),
+                # Sales Agent EXT-FR-FE-BG-03
+                agent_party=dict(
+                    identifiers=data_dict.get("EXT-FR-FE-69"),
+                    name=data_dict.get("EXT-FR-FE-66"),
+                    role_code=data_dict.get("EXT-FR-FE-67"),
+                    legal_org_id=data_dict.get("EXT-FR-FE-71"),
+                    legal_org_schemeid=data_dict.get("EXT-FR-FE-72"),
+                    biz_name=data_dict.get("EXT-FR-FE-68"),
+                    contact_name=data_dict.get("EXT-FR-FE-86"),
+                    contact_phone=data_dict.get("EXT-FR-FE-87"),
+                    contact_email=data_dict.get("EXT-FR-FE-88"),
+                    country_code=data_dict.get("EXT-FR-FE-84"),
+                    country_subdivision_name=data_dict.get("EXT-FR-FE-83"),
+                    postcode=data_dict.get("EXT-FR-FE-81"),
+                    city=data_dict.get("EXT-FR-FE-82"),
+                    addr_line1=data_dict.get("EXT-FR-FE-78"),
+                    addr_line2=data_dict.get("EXT-FR-FE-79"),
+                    addr_line3=data_dict.get("EXT-FR-FE-80"),
+                    universal_comm_id=data_dict.get("EXT-FR-FE-75"),
+                    universal_comm_schemeid=data_dict.get("EXT-FR-FE-76"),
+                    tax_id=data_dict.get("EXT-FR-FE-73"),
+                ),
+                # Invoicer  EXT-FR-FE-BG-05
+                service_provider_party=dict(
+                    identifiers=data_dict.get("EXT-FR-FE-115"),
+                    name=data_dict.get("EXT-FR-FE-112"),
+                    role_code=data_dict.get("EXT-FR-FE-113"),
+                    legal_org_id=data_dict.get("EXT-FR-FE-117"),
+                    legal_org_schemeid=data_dict.get("EXT-FR-FE-118"),
+                    biz_name=data_dict.get("EXT-FR-FE-114"),
+                    contact_name=data_dict.get("EXT-FR-FE-132"),
+                    contact_phone=data_dict.get("EXT-FR-FE-133"),
+                    contact_email=data_dict.get("EXT-FR-FE-134"),
+                    country_code=data_dict.get("EXT-FR-FE-130"),
+                    country_subdivision_name=data_dict.get("EXT-FR-FE-129"),
+                    postcode=data_dict.get("EXT-FR-FE-128"),
+                    city=data_dict.get("EXT-FR-FE-127"),
+                    addr_line1=data_dict.get("EXT-FR-FE-124"),
+                    addr_line2=data_dict.get("EXT-FR-FE-125"),
+                    addr_line3=data_dict.get("EXT-FR-FE-126"),
+                    universal_comm_id=data_dict.get("EXT-FR-FE-121"),
+                    universal_comm_schemeid=data_dict.get("EXT-FR-FE-122"),
+                    tax_id=data_dict.get("EXT-FR-FE-119"),
+                ),
             ),
         ),
-        # BUYER
+        # BUYER  BG-7
         CAC.AccountingCustomerParty(
             _ubl_generate_party(
                 "Party",
@@ -2007,32 +2230,76 @@ def generate_ubl_xml(
                 universal_comm_id=data_dict.get("BT-49"),
                 universal_comm_schemeid=data_dict.get("BT-49-1"),
                 tax_id=data_dict.get("BT-48"),
+                # Buyer Agent EXT-FR-FE-BG-01
+                agent_party=dict(
+                    identifiers=data_dict.get("EXT-FR-FE-06"),
+                    name=data_dict.get("EXT-FR-FE-03"),
+                    role_code=data_dict.get("EXT-FR-FE-04"),
+                    legal_org_id=data_dict.get("EXT-FR-FE-08"),
+                    legal_org_schemeid=data_dict.get("EXT-FR-FE-09"),
+                    biz_name=data_dict.get("EXT-FR-FE-05"),
+                    contact_name=data_dict.get("EXT-FR-FE-23"),
+                    contact_phone=data_dict.get("EXT-FR-FE-24"),
+                    contact_email=data_dict.get("EXT-FR-FE-25"),
+                    country_code=data_dict.get("EXT-FR-FE-21"),
+                    country_subdivision_name=data_dict.get("EXT-FR-FE-20"),
+                    postcode=data_dict.get("EXT-FR-FE-18"),
+                    city=data_dict.get("EXT-FR-FE-19"),
+                    addr_line1=data_dict.get("EXT-FR-FE-15"),
+                    addr_line2=data_dict.get("EXT-FR-FE-16"),
+                    addr_line3=data_dict.get("EXT-FR-FE-17"),
+                    universal_comm_id=data_dict.get("EXT-FR-FE-12"),
+                    universal_comm_schemeid=data_dict.get("EXT-FR-FE-13"),
+                    tax_id=data_dict.get("EXT-FR-FE-10"),
+                ),
+                # Invoicee  EXT-FR-FE-BG-04
+                service_provider_party=dict(
+                    identifiers=data_dict.get("EXT-FR-FE-92"),
+                    name=data_dict.get("EXT-FR-FE-89"),
+                    role_code=data_dict.get("EXT-FR-FE-90"),
+                    legal_org_id=data_dict.get("EXT-FR-FE-94"),
+                    legal_org_schemeid=data_dict.get("EXT-FR-FE-95"),
+                    biz_name=data_dict.get("EXT-FR-FE-91"),
+                    contact_name=data_dict.get("EXT-FR-FE-109"),
+                    contact_phone=data_dict.get("EXT-FR-FE-110"),
+                    contact_email=data_dict.get("EXT-FR-FE-111"),
+                    country_code=data_dict.get("EXT-FR-FE-107"),
+                    country_subdivision_name=data_dict.get("EXT-FR-FE-106"),
+                    postcode=data_dict.get("EXT-FR-FE-105"),
+                    city=data_dict.get("EXT-FR-FE-104"),
+                    addr_line1=data_dict.get("EXT-FR-FE-101"),
+                    addr_line2=data_dict.get("EXT-FR-FE-102"),
+                    addr_line3=data_dict.get("EXT-FR-FE-103"),
+                    universal_comm_id=data_dict.get("EXT-FR-FE-98"),
+                    universal_comm_schemeid=data_dict.get("EXT-FR-FE-99"),
+                    tax_id=data_dict.get("EXT-FR-FE-96"),
+                ),
             ),
         ),
-        # Payee
+        # Payee  BG-10
         _ubl_generate_party(
             "PayeeParty",
             namespaces,
             identifiers=data_dict.get("BT-60"),
             name=data_dict.get("BT-59"),
-            role_code=data_dict.get("BT-X-468"),
+            role_code=data_dict.get("EXT-FR-FE-26"),
             legal_org_id=data_dict.get("BT-61"),
             legal_org_schemeid=data_dict.get("BT-61-1"),
-            contact_name=data_dict.get("BT-X-244"),
-            contact_phone=data_dict.get("BT-X-246"),
-            contact_email=data_dict.get("BT-X-248"),
-            country_code=data_dict.get("BT-X-254"),
-            country_subdivision_name=data_dict.get("BT-X-255"),
-            postcode=data_dict.get("BT-X-249"),
-            city=data_dict.get("BT-X-253"),
-            addr_line1=data_dict.get("BT-X-250"),
-            addr_line2=data_dict.get("BT-X-251"),
-            addr_line3=data_dict.get("BT-X-252"),
-            universal_comm_id=data_dict.get("BT-X-256"),
-            universal_comm_schemeid=data_dict.get("BT-X-256-0"),
-            tax_id=data_dict.get("BT-X-257"),
+            contact_name=data_dict.get("EXT-FR-FE-40"),
+            contact_phone=data_dict.get("EXT-FR-FE-41"),
+            contact_email=data_dict.get("EXT-FR-FE-42"),
+            country_code=data_dict.get("EXT-FR-FE-38"),
+            country_subdivision_name=data_dict.get("EXT-FR-FE-37"),
+            postcode=data_dict.get("EXT-FR-FE-36"),
+            city=data_dict.get("EXT-FR-FE-35"),
+            addr_line1=data_dict.get("EXT-FR-FE-32"),
+            addr_line2=data_dict.get("EXT-FR-FE-33"),
+            addr_line3=data_dict.get("EXT-FR-FE-34"),
+            universal_comm_id=data_dict.get("EXT-FR-FE-29"),
+            universal_comm_schemeid=data_dict.get("EXT-FR-FE-30"),
+            tax_id=data_dict.get("EXT-FR-FE-27"),
         ),
-        # Seller Tax Representative
+        # Seller Tax Representative  BG-11
         _ubl_generate_party(
             "TaxRepresentativeParty",
             namespaces,
@@ -2130,6 +2397,30 @@ def generate_ubl_xml(
                             for _ in [1]
                             if data_dict.get("BT-89")
                         ],
+                        # Payer  EXT-FR-FE-BG-02
+                        _ubl_generate_party(
+                            "PayerParty",
+                            namespaces,
+                            identifiers=data_dict.get("EXT-FR-FE-46"),
+                            name=data_dict.get("EXT-FR-FE-43"),
+                            role_code=data_dict.get("EXT-FR-FE-44"),
+                            legal_org_id=data_dict.get("EXT-FR-FE-48"),
+                            legal_org_schemeid=data_dict.get("EXT-FR-FE-49"),
+                            biz_name=data_dict.get("EXT-FR-FE-45"),
+                            contact_name=data_dict.get("EXT-FR-FE-63"),
+                            contact_phone=data_dict.get("EXT-FR-FE-64"),
+                            contact_email=data_dict.get("EXT-FR-FE-65"),
+                            country_code=data_dict.get("EXT-FR-FE-61"),
+                            country_subdivision_name=data_dict.get("EXT-FR-FE-60"),
+                            postcode=data_dict.get("EXT-FR-FE-59"),
+                            city=data_dict.get("EXT-FR-FE-58"),
+                            addr_line1=data_dict.get("EXT-FR-FE-55"),
+                            addr_line2=data_dict.get("EXT-FR-FE-56"),
+                            addr_line3=data_dict.get("EXT-FR-FE-57"),
+                            universal_comm_id=data_dict.get("EXT-FR-FE-52"),
+                            universal_comm_schemeid=data_dict.get("EXT-FR-FE-53"),
+                            tax_id=data_dict.get("EXT-FR-FE-50"),
+                        ),
                         CAC.PayerFinancialAccount(CBC.ID(data_dict["BT-91"])),
                     )
                     for _ in [1]
@@ -2252,10 +2543,6 @@ def generate_ubl_xml(
     xml_bytes = etree.tostring(
         xml_root, pretty_print=True, xml_declaration=True, encoding="UTF-8"
     )
-    # verif schema => faire comme lib fx
-    print("xml_bytes===============")
-    xml_str = xml_bytes.decode("utf-8")
-    pprint(xml_str)
     if check_xsd:
         xml_check_xsd(xml_root, flavor="ubl-2.1")
     if check_schematron:
@@ -2271,6 +2558,7 @@ def generate_xml(
     level="autodetect",
     check_xsd=True,
     check_schematron="base",
+    prefixed_namespaces=True,
 ):
     if flavor not in ("factur-x", "facturx", "ubl-2.1"):
         raise ValueError("Wrong value for flavor argument")
@@ -2280,6 +2568,7 @@ def generate_xml(
             level=level,
             check_xsd=check_xsd,
             check_schematron=check_schematron,
+            prefixed_namespaces=prefixed_namespaces,
         )
     else:
         return generate_cii_xml(
@@ -2287,4 +2576,5 @@ def generate_xml(
             level=level,
             check_xsd=check_xsd,
             check_schematron=check_schematron,
+            prefixed_namespaces=prefixed_namespaces,
         )

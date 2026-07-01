@@ -20,6 +20,8 @@ from sagemaker_studio.utils.spark.session.spark_session_manager import SparkSess
 
 logger = logging.getLogger("SparkConnect")
 
+_MAX_RECONNECT_ATTEMPTS = 3
+
 
 class LazySparkSession:
     """
@@ -44,10 +46,11 @@ class LazySparkSession:
             session_manager: Pre-resolved session manager (if None, resolved lazily on first access).
             connection_name: Connection name for deferred resolution.
             config: ClientConfig for deferred resolution.
-            spark_conf: Optional custom Spark configuration. Values override defaults.
+            spark_conf: User-supplied Spark config overrides (highest priority in merge order).
         """
         self._spark = None
         self._session_manager = session_manager
+        self._reconnect_attempts = 0
         # Deferred resolution params — used only when session_manager is None.
         self._connection_name = connection_name
         self._config = config
@@ -95,6 +98,9 @@ class LazySparkSession:
                         spark_conf=self._spark_conf,
                     )
 
+                if self._spark_conf:
+                    self._session_manager.set_user_spark_conf(self._spark_conf)
+
                 # Use the session manager to create the session
                 self._spark = self._session_manager.create()
 
@@ -124,20 +130,22 @@ class LazySparkSession:
 
     def __getattr__(self, name):
         """Delegate attribute access to the underlying SparkSession."""
-        # Handle session termination by executing "spark.version" first.
-        # SparkConnectGrpcException is thrown when the gRPC connection fails — typically
-        # because the underlying session was terminated or the connection was lost.
-        # Executing class methods (like "spark.range(5)") will not throw an exception here
-        # even if the session is terminated, but an error will still be displayed.
         try:
             getattr(self._get_spark(), "version")
+            # Reset counter on successful connection
+            self._reconnect_attempts = 0
         except SparkConnectGrpcException:
-            # Stop the Spark session to force the creation of a new session
+            self._reconnect_attempts += 1
+            if self._reconnect_attempts > _MAX_RECONNECT_ATTEMPTS:
+                raise RuntimeError(
+                    f"Spark session reconnection failed after {_MAX_RECONNECT_ATTEMPTS} attempts. "
+                    "Please check your network/VPC endpoint configuration and restart the kernel."
+                )
             import warnings
 
             warnings.warn(
                 "Spark session connection lost (session may have been terminated or timed out). "
-                "Automatically creating a new session — this may take a moment.",
+                f"Automatically creating a new session (attempt {self._reconnect_attempts}/{_MAX_RECONNECT_ATTEMPTS}).",
                 stacklevel=2,
             )
             logger.warning(
@@ -150,10 +158,20 @@ class LazySparkSession:
                 e.response["Error"]["Code"] == "InvalidRequestException"
                 and "STOPPED state" in e.response["Error"]["Message"]
             ):
+                self._reconnect_attempts += 1
+                if self._reconnect_attempts > _MAX_RECONNECT_ATTEMPTS:
+                    raise RuntimeError(
+                        f"Spark session reconnection failed after {_MAX_RECONNECT_ATTEMPTS} attempts."
+                    )
                 logger.warning("Spark session is stopped, creating a new session.")
                 self.stop()
             # EMR Serverless: session terminated (ResourceNotFoundException from get_session_endpoint)
             elif e.response["Error"]["Code"] == "ResourceNotFoundException":
+                self._reconnect_attempts += 1
+                if self._reconnect_attempts > _MAX_RECONNECT_ATTEMPTS:
+                    raise RuntimeError(
+                        f"Spark session reconnection failed after {_MAX_RECONNECT_ATTEMPTS} attempts."
+                    )
                 logger.warning("EMR Serverless session not found, creating a new session.")
                 self.stop()
             # Glue: session not found or in illegal state
@@ -161,6 +179,11 @@ class LazySparkSession:
                 "EntityNotFoundException",
                 "IllegalSessionStateException",
             ):
+                self._reconnect_attempts += 1
+                if self._reconnect_attempts > _MAX_RECONNECT_ATTEMPTS:
+                    raise RuntimeError(
+                        f"Spark session reconnection failed after {_MAX_RECONNECT_ATTEMPTS} attempts."
+                    )
                 logger.warning(
                     f"Glue session error ({e.response['Error']['Code']}), creating a new session."
                 )
@@ -244,6 +267,7 @@ class LazySparkSession:
         "AthenaSparkSessionManager": "ATHENA_SPARK_CONNECT",
         "EMRServerlessSparkSessionManager": "EMR_SERVERLESS_SPARK_CONNECT",
         "GlueSparkSessionManager": "GLUE_SPARK_CONNECT",
+        "EmrEc2SparkSessionManager": "EMR_EC2_SPARK_CONNECT",
     }
 
     def get_session_info(self) -> dict | None:

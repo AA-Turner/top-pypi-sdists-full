@@ -1,17 +1,14 @@
 Metadata-Version: 2.1
 Name: flipt-client
-Version: 1.4.2
+Version: 1.4.3
 Summary: Flipt Client Evaluation SDK
 Home-page: https://github.com/flipt-io/flipt-client-sdks
 License: MIT
 Author: Flipt Devs
 Author-email: dev@flipt.io
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.11,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Dist: packaging (>=24,<27)
@@ -90,7 +87,7 @@ This section is for users who are migrating from a previous (pre-1.0.0) version 
 - Backwards compatibility with Pydantic v1 is now maintained.
 - All errors now inherit from `FliptError` and use specific subclasses like `ValidationError` and `EvaluationError`.
 - The client and models now follow Python naming conventions (snake_case for methods and fields).
-- The minimum supported Python version is now 3.8.
+- The minimum supported Python version is now 3.11.
 
 ## Usage
 

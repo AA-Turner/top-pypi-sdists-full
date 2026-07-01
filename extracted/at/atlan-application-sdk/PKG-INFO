@@ -1,0 +1,163 @@
+Metadata-Version: 2.4
+Name: atlan-application-sdk
+Version: 3.20.2
+Summary: Atlan Application SDK is a Python library for developing applications on the Atlan Platform
+Project-URL: Repository, https://github.com/atlanhq/application-sdk
+Project-URL: Documentation, https://github.com/atlanhq/application-sdk/README.md
+Project-URL: Changelog, https://github.com/atlanhq/application-sdk/blob/main/CHANGELOG.md
+Author-email: Atlan App Team <connect@atlan.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+License-File: NOTICE
+Keywords: app,atlan,development,platform,sdk
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.11
+Requires-Dist: aiohttp<4.0.0,>=3.10.0
+Requires-Dist: azure-identity>=1.15.0
+Requires-Dist: boto3<2.0.0,>=1.38.6
+Requires-Dist: fastapi[standard]<0.140.0,>=0.136.1
+Requires-Dist: google-auth<3.0.0,>=2.0.0
+Requires-Dist: httpx-retries<0.5.0,>=0.4.0
+Requires-Dist: loguru<0.8.0,>=0.7.3
+Requires-Dist: obstore<0.12.0,>=0.11.0
+Requires-Dist: opentelemetry-exporter-otlp<2.0.0,>=1.41.1
+Requires-Dist: opentelemetry-exporter-prometheus<0.63,>=0.62b1
+Requires-Dist: opentelemetry-instrumentation-fastapi<0.63,>=0.62b1
+Requires-Dist: orjson<4.0.0,>=3.11.6
+Requires-Dist: prometheus-client<1.0,>=0.20.0
+Requires-Dist: pyatlan<10,>=9
+Requires-Dist: pydantic<3.0.0,>=2.10.6
+Requires-Dist: python-dotenv<2.0.0,>=1.1.0
+Requires-Dist: pyyaml<7.0.0,>=6.0.2
+Requires-Dist: temporalio<2.0.0,>=1.25.0
+Requires-Dist: uvloop<0.23.0,>=0.21.0; sys_platform != 'win32'
+Provides-Extra: azure
+Requires-Dist: azure-identity>=1.15.0; extra == 'azure'
+Requires-Dist: azure-storage-blob>=12.19.0; extra == 'azure'
+Requires-Dist: azure-storage-file-datalake>=12.19.0; extra == 'azure'
+Provides-Extra: daft
+Provides-Extra: distributed-lock
+Requires-Dist: redis[hiredis]<9.0.0,>=5.2.0; extra == 'distributed-lock'
+Provides-Extra: iam-auth
+Requires-Dist: boto3<2.0.0,>=1.38.6; extra == 'iam-auth'
+Provides-Extra: incremental
+Requires-Dist: duckdb-engine<0.18.0,>=0.17.0; extra == 'incremental'
+Requires-Dist: duckdb<1.6.0,>=1.1.3; extra == 'incremental'
+Requires-Dist: pandas<3.0.0,>=2.2.3; extra == 'incremental'
+Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == 'incremental'
+Requires-Dist: rocksdict>=0.3.0; extra == 'incremental'
+Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.36; extra == 'incremental'
+Provides-Extra: mcp
+Requires-Dist: fastmcp<4.0.0,>=3.2.0; extra == 'mcp'
+Provides-Extra: pandas
+Requires-Dist: pandas<3.0.0,>=2.2.3; extra == 'pandas'
+Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == 'pandas'
+Provides-Extra: scale-data-generator
+Requires-Dist: faker<40.24.0,>=40.23.0; extra == 'scale-data-generator'
+Requires-Dist: numpy<3.0.0,>=1.23.5; extra == 'scale-data-generator'
+Provides-Extra: sql
+Requires-Dist: duckdb-engine<0.18.0,>=0.17.0; extra == 'sql'
+Requires-Dist: duckdb<1.6.0,>=1.1.3; extra == 'sql'
+Requires-Dist: pandas<3.0.0,>=2.2.3; extra == 'sql'
+Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == 'sql'
+Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.36; extra == 'sql'
+Provides-Extra: sqlalchemy
+Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.36; extra == 'sqlalchemy'
+Provides-Extra: storage
+Requires-Dist: rocksdict>=0.3.0; extra == 'storage'
+Provides-Extra: tests
+Requires-Dist: httpx<0.29.0,>=0.27.0; extra == 'tests'
+Requires-Dist: pandera[io]<0.33.0,>=0.32.0; extra == 'tests'
+Requires-Dist: pytest-order<2.0.0,>=1.3.0; extra == 'tests'
+Provides-Extra: workflows
+Requires-Dist: orjson<4.0.0,>=3.11.6; extra == 'workflows'
+Requires-Dist: temporalio<2.0.0,>=1.25.0; extra == 'workflows'
+Description-Content-Type: text/markdown
+
+# Atlan Application SDK
+[![CI](https://github.com/atlanhq/application-sdk/actions/workflows/pull_request.yaml/badge.svg)](https://github.com/atlanhq/application-sdk/actions/workflows/pull_request.yaml) [![Conformance](https://github.com/atlanhq/application-sdk/actions/workflows/conformance.yaml/badge.svg)](https://github.com/atlanhq/application-sdk/actions/workflows/conformance.yaml) [![PyPI version](https://img.shields.io/pypi/v/atlan-application-sdk.svg)](https://pypi.org/project/atlan-application-sdk/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/atlanhq/application-sdk)
+
+The Atlan Application SDK is a Python library designed for building applications on the Atlan platform. It offers a full PaaS (Platform-as-a-Service) toolkit — from local development to deployment and partner collaboration — so you can create integrations and tools that seamlessly extend the Atlan experience for our mutual customers.
+
+
+## Usage
+
+Install `atlan-application-sdk` as a dependency in your project:
+
+- Using uv (recommended):
+```bash
+uv add atlan-application-sdk
+```
+
+- Using pip:
+```bash
+pip install atlan-application-sdk
+```
+
+> [!TIP]
+> **Example apps built with the Application SDK:**
+> - [Hello World](https://github.com/atlanhq/atlan-hello-world-app) — reference app for [tutorial](https://docs.atlan.com/product/capabilities/build-apps/tutorials)
+> - [OpenAPI Spec Loader](https://github.com/atlanhq/atlan-openapi-app) — loads assets from an OpenAPI spec into Atlan
+> - [MySQL](https://github.com/atlanhq/atlan-mysql-app) — MySQL metadata crawler
+> - [Metabase](https://github.com/atlanhq/atlan-metabase-app) — Metabase metadata crawler
+
+## Getting Started
+
+- Want to develop locally or run examples from this repository? Check out our [Getting Started Guide](docs/guides/getting-started.md) for a step-by-step walkthrough!
+- Detailed documentation for the application-sdk is available at [docs](https://github.com/atlanhq/application-sdk/blob/main/docs/) folder.
+
+## 🐳 Docker
+
+### Pre-built Base Image (Harbor)
+
+The `app-runtime-base` image provides the runtime environment (Python, Dapr, OS packages) for Atlan apps. It does **not** include the SDK itself — install `atlan-application-sdk` via pip/uv in your app's Dockerfile.
+
+Images are published to Harbor on every [release](https://github.com/atlanhq/application-sdk/releases):
+
+```bash
+# Major-version alias — tracks the latest v3.x release (recommended for app Dockerfiles)
+docker pull registry.atlan.com/public/app-runtime-base:3
+
+# Minor-version alias (always points to the latest patch release)
+docker pull registry.atlan.com/public/app-runtime-base:3.3
+
+# Specific version (pinned, fully reproducible)
+docker pull registry.atlan.com/public/app-runtime-base:3.3.0
+
+# Immutable commit-pinned tag
+docker pull registry.atlan.com/public/app-runtime-base:sha-49c027f
+```
+
+> [!NOTE]
+> Push-to-`main` CI builds are published to GHCR (`ghcr.io/atlanhq/app-runtime-base-main:sha-<sha7>`) and are intended for internal development use only. Use a versioned Harbor tag for app Dockerfiles.
+
+## Contributing
+
+- We welcome contributions! Please see our [Contributing Guide](https://github.com/atlanhq/application-sdk/blob/main/CONTRIBUTING.md) for guidelines.
+
+## Partner Collaboration
+
+- For information on how to collaborate with Atlan on app development and integrations, please see our [Partner Journey Guide](https://docs.atlan.com/product/capabilities/build-apps/partner-with-us/concepts/partner-journey).
+
+## Need help?
+We’re here whenever you need us:
+
+- Issues: [GitHub Issues](https://github.com/atlanhq/application-sdk/issues)
+
+
+## Security
+
+Have you discovered a vulnerability or have concerns about the SDK? Please read our [SECURITY.md](https://github.com/atlanhq/application-sdk/blob/main/SECURITY.md) document for guidance on responsible disclosure, or please e-mail security@atlan.com and we will respond promptly.
+
+## License and Attribution
+
+- This project is licensed under the Apache License 2.0 - see the [LICENSE](https://github.com/atlanhq/application-sdk/blob/main/LICENSE) file for details.
+- This project includes dependencies with various open-source licenses. See the [NOTICE](https://github.com/atlanhq/application-sdk/blob/main/NOTICE) file for third-party attributions.

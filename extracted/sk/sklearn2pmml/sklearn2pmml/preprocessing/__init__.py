@@ -16,13 +16,12 @@ except ImportError:
 	from sklearn.base import _OneToOneFeatureMixin as OneToOneFeatureMixin
 from sklearn.exceptions import NotFittedError
 from sklearn.pipeline import Pipeline
-from sklearn2pmml import _is_pandas_categorical, _is_proto_pandas_categorical, StatelessTransformerMixin
+from sklearn2pmml import StatelessTransformerMixin
 from sklearn2pmml.preprocessing.regex import make_regex_engine
-from sklearn2pmml.util import cast, check_expression, check_predicate, dt_transform, ensure_def, eval_rows, is_1d, to_1d, to_expr_func, to_numpy, Reshaper
+from sklearn2pmml.util import _copy, _get_column_count, _get_column, _get_columns, _is_pandas_categorical, _is_pandas_proto_categorical, _to_numpy, _set_column, cast, check_expression, check_predicate, dt_transform, eval_rows, is_1d, to_1d, to_expr_func
 
 import numpy
 import pandas
-import types
 
 def _unique(X):
 	nonmissing_mask = pandas.notnull(X)
@@ -82,8 +81,8 @@ def _check_dtype(dtype):
 			raise ValueError("Temporal data type {0} not in {1}".format(dtype, dtypes))
 
 def _fit_dtype(dtype, X):
-	if _is_proto_pandas_categorical(dtype):
-		X = to_numpy(X)
+	if _is_pandas_proto_categorical(dtype):
+		X = _to_numpy(X)
 		return CategoricalDtype(categories = _unique(X), ordered = False)
 	else:
 		return dtype
@@ -97,6 +96,7 @@ class CastTransformer(BaseEstimator, TransformerMixin, OneToOneFeatureMixin):
 
 	def fit(self, X, y = None):
 		self.dtype_ = _fit_dtype(self.dtype, X)
+		self.n_features_in_ = _get_column_count(X)
 		return self
 
 	def transform(self, X):
@@ -113,23 +113,14 @@ class MultiCastTransformer(BaseEstimator, TransformerMixin):
 		rows, columns = X.shape
 		if len(self.dtypes) != columns:
 			raise ValueError("The number of columns {0} is not equal to the number of data types {1}".format(columns, len(self.dtypes)))
-		if isinstance(X, DataFrame):
-			dtypes_ = [_fit_dtype(dtype, X[column]) for dtype, column in zip(self.dtypes, X.columns)]
-		else:
-			dtypes_ = [_fit_dtype(dtype, X[:, column]) for dtype, column in zip(self.dtypes, range(0, columns))]
-		self.dtypes_ = dtypes_
+		self.dtypes_ = [_fit_dtype(dtype, _get_column(X, column)) for dtype, column in zip(self.dtypes, _get_columns(X))]
 		return self
 
 	def transform(self, X):
-		rows, columns = X.shape
-		# XXX
-		X = X.copy()
-		if isinstance(X, DataFrame):
-			for dtype, column in zip(self.dtypes_, X.columns):
-				X[column] = cast(X[column], dtype)
-		else:
-			for dtype, column in zip(self.dtypes_, range(0, columns)):
-				X[:, column] = cast(X[:, column], dtype)
+		X = _copy(X)
+		for dtype, column in zip(self.dtypes_, _get_columns(X)):
+			x = cast(_get_column(X, column), dtype)
+			X = _set_column(X, column, x)
 		return X
 
 class CutTransformer(BaseEstimator, TransformerMixin):
@@ -140,7 +131,7 @@ class CutTransformer(BaseEstimator, TransformerMixin):
 		self.right = right
 		self.labels = labels
 		self.include_lowest = include_lowest
-		if dtype and not _is_proto_pandas_categorical(dtype):
+		if dtype and not _is_pandas_proto_categorical(dtype):
 			raise ValueError("Data type {} is not a proto-categorical data type".format(dtype))
 		self.dtype = dtype
 
@@ -155,7 +146,7 @@ class CutTransformer(BaseEstimator, TransformerMixin):
 			return Xt
 		else:
 			if _is_pandas_categorical(Xt.dtype):
-				Xt = to_numpy(Xt)
+				Xt = _to_numpy(Xt)
 			return Xt.reshape(X.shape)
 
 class DataFrameConstructor(BaseEstimator, StatelessTransformerMixin):
@@ -186,6 +177,7 @@ class SeriesConstructor(BaseEstimator, StatelessTransformerMixin, OneToOneFeatur
 
 	def fit(self, X, y = None):
 		to_1d(X)
+		self.n_features_in_ = 1
 		return self
 
 	def transform(self, X):
@@ -310,7 +302,7 @@ class ExpressionTransformer(BaseEstimator, TransformerMixin):
 		return Xt
 
 	def fit(self, X, y = None):
-		if _is_proto_pandas_categorical(self.dtype):
+		if _is_pandas_proto_categorical(self.dtype):
 			Xt = self._eval(X)
 			Xt = cast(Xt, self.dtype)
 			dtype = Xt.dtype
@@ -324,7 +316,7 @@ class ExpressionTransformer(BaseEstimator, TransformerMixin):
 		if hasattr(self, "dtype_"):
 			dtype = self.dtype_
 		else:
-			if _is_proto_pandas_categorical(self.dtype):
+			if _is_pandas_proto_categorical(self.dtype):
 				raise NotFittedError()
 			dtype = self.dtype
 		if dtype is not None:
@@ -335,7 +327,7 @@ class ExpressionTransformer(BaseEstimator, TransformerMixin):
 		Xt = self._eval(X)
 		if self.dtype is not None:
 			Xt = cast(Xt, self.dtype)
-			if _is_proto_pandas_categorical(self.dtype):
+			if _is_pandas_proto_categorical(self.dtype):
 				dtype = Xt.dtype
 			else:
 				dtype = self.dtype
@@ -448,7 +440,7 @@ class LookupTransformer(BaseEstimator, TransformerMixin):
 				if type(default_value) != v_type:
 					raise TypeError("Default value is not a {0}".format(v_type.__name__))
 		self.default_value = default_value
-		if dtype and not _is_proto_pandas_categorical(dtype):
+		if dtype and not _is_pandas_proto_categorical(dtype):
 			raise ValueError("Data type {} is not a proto-categorical data type".format(dtype))
 		self.dtype = dtype
 
@@ -931,7 +923,7 @@ class WordCountTransformer(StringTransformer):
 	def transform(self, X):
 		X1d = to_1d(X)
 		# The expression "X]0]" assumes a two-dimensional array
-		X1d = to_numpy(X1d).reshape((-1, 1))
+		X1d = _to_numpy(X1d).reshape((-1, 1))
 		return self.pipeline_.transform(X1d)
 
 def _to_sparse(X, step_mask, step_result):

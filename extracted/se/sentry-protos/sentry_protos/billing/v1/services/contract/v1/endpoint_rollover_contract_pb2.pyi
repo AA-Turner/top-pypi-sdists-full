@@ -75,16 +75,19 @@ class RolloverContractResponse(google.protobuf.message.Message):
     INVOICE_ID_FIELD_NUMBER: builtins.int
     NEEDS_CHARGE_FIELD_NUMBER: builtins.int
     AMOUNT_BILLED_FIELD_NUMBER: builtins.int
+    NEW_CONTRACT_ID_FIELD_NUMBER: builtins.int
     invoice_id: builtins.int
     needs_charge: builtins.bool
     amount_billed: builtins.int
+    new_contract_id: builtins.int
     def __init__(
         self,
         *,
         invoice_id: builtins.int = ...,
         needs_charge: builtins.bool = ...,
         amount_billed: builtins.int = ...,
+        new_contract_id: builtins.int = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["amount_billed", b"amount_billed", "invoice_id", b"invoice_id", "needs_charge", b"needs_charge"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["amount_billed", b"amount_billed", "invoice_id", b"invoice_id", "needs_charge", b"needs_charge", "new_contract_id", b"new_contract_id"]) -> None: ...
 
 global___RolloverContractResponse = RolloverContractResponse

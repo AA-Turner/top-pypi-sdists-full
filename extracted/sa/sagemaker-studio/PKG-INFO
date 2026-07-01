@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker_studio
-Version: 1.1.22
+Version: 1.1.24
 Summary: Python library to interact with Amazon SageMaker Unified Studio
 Home-page: https://aws.amazon.com/sagemaker/
 Author: Amazon Web Services
@@ -30,7 +30,7 @@ Requires-Dist: packaging>=24.0
 Requires-Dist: pyathena>=3.18.0
 Requires-Dist: sqlalchemy>=2.0.43
 Requires-Dist: pandas<3.0.0,>=2.3.2
-Requires-Dist: duckdb>=1.4.0
+Requires-Dist: duckdb<1.5.2,>=1.4.0
 Requires-Dist: pymysql>=1.1.2
 Requires-Dist: snowflake-sqlalchemy>=1.7.7
 Requires-Dist: sqlalchemy-bigquery>=0.0.7

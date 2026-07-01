@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Use of DHCPv6 option 59 (bootfile-name) is now supported with OVN.
-    See bug: `2125715 <https://bugs.launchpad.net/neutron/+bug/2125715>`_.

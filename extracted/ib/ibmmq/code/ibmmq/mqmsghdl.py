@@ -1,0 +1,216 @@
+"""Message Handles and Message Properties"""
+
+# Copyright (c) 2025,2026 IBM Corporation and other Contributors. All Rights Reserved.
+# Copyright (c) 2009-2024 Dariusz Suchojad. All Rights Reserved.
+
+from typing import Any, Optional, Union, Tuple
+
+from mqcommon import *
+from mqerrors import *
+from ibmmq import CMQC, ibmmqc
+from mqsub import *
+from mqprops import *
+
+from mqqmgr import *
+import mqlog
+
+class MessageHandle:
+    """ A higher-level wrapper around the MQI's native Message Handle and
+    Property processing.
+    """
+
+    class _Properties:
+        """ Encapsulates access to message properties.
+        """
+
+        def __init__(self, conn_handle: int, msg_handle: int) -> None:
+            self.conn_handle = conn_handle
+            self.msg_handle = msg_handle
+
+            # When accessing message properties, this will be the maximum number
+            # of characters a value will be able to hold. If it's not enough
+            # an exception will be raised and its 'actual_value_length' will be
+            # filled in with the information of how many characters there are actually
+            # so that an application may re-issue the call.
+            self.default_value_length = 64
+
+        def __getitem__(self, name: Union[str, bytes]) -> Any:
+            """ Allows for a dict-like access to properties,
+            handle.properties[name]
+            """
+            value = self.get(name)
+            if not value:
+                raise KeyError('No such property [%s]' % name)
+
+            return value
+
+        def __setitem__(self, name: Union[str, bytes], value: Any) -> None:
+            """ Implements 'handle.properties[name] = value'.
+            """
+            return self.set(name, value)
+
+        def get(self, name: Union[str, bytes], default: Optional[Any] = None, max_value_length: Optional[int] = None,
+                impo_options: int = CMQC.MQIMPO_INQ_FIRST, impo: Optional[IMPO] = None, pd: Optional[Union[int, PD]] = None,
+                property_type: int = CMQC.MQTYPE_AS_SET) -> Union[Any, Tuple[Any, bytes]]:
+            """ Returns the value of message property 'name'. If a wildcard
+            is used in the property name, then the real name is also returned.
+
+            'max_value_length' is the maximum number of characters the underlying
+            C function is allowed to allocate for fetching the value
+            (defaults to default_value_length).
+
+            Either 'impo_options' or 'impo' can be given. If the full IMPO
+            object is used, then its options take preference.
+
+            The 'pd' can be either the options value or the PD class. (The original parameter name
+            did not include "options" so it's easier to repurpose it to take either type of
+            value than it is wth the impo for compatibility.)
+
+            'property_type' points to the expected data type of the property.
+
+            The name can be '%' for a wildcard, and can be preceded by a
+            folder. For example, 'usr.%'. But you cannot use, say, 'ABC%'. The
+            wildcard means all properties within a single folder.
+            """
+            mqlog.trace_entry("msghdl:get")
+            if impo:
+                if not isinstance(impo, IMPO):
+                    mqlog.trace_exit("msghdl:get", ep=1)
+                    raise TypeError("impo must be an instance of IMPO")
+            else:
+                impo = IMPO()
+                impo.Options = impo_options | CMQC.MQIMPO_CONVERT_VALUE
+
+            if pd:
+                pd_val = pd
+                if isinstance(pd_val, int):
+                    pd = PD()
+                    pd.Options = pd
+                if not isinstance(pd, PD):
+                    mqlog.trace_exit("msghdl:get", ep=2)
+                    raise TypeError("pd must be an instance of PD")
+            else:
+                pd = PD()
+
+            name = ensure_strings_are_bytes(name)
+
+            if not max_value_length:
+                max_value_length = self.default_value_length
+
+            value, data_length, returned_name, comp_code, comp_reason = ibmmqc.MQINQMP(
+                self.conn_handle, self.msg_handle, impo.pack(), name, pd.pack(), property_type, max_value_length)
+
+            if comp_code != CMQC.MQCC_OK:
+                mqlog.trace_exit("msghdl:get", ep=2, rc=comp_reason)
+                raise MQMIError(comp_code, comp_reason, value=default, data_length=data_length)
+
+            if returned_name:
+                mqlog.trace_exit("msghdl:get", ep=3)
+                return value, returned_name
+            mqlog.trace_exit("msghdl:get")
+            return value
+
+        def set(self, name: Union[str, bytes], value: Any, property_type: int = CMQC.MQTYPE_STRING,
+                value_length: int = CMQC.MQVL_NULL_TERMINATED, pd: Optional[PD] = None, smpo: Optional[SMPO] = None) -> None:
+            """ Allows for setting arbitrary properties of a message. 'name'
+            and 'value' are mandatory. All other parameters are OK to use as-is
+            if 'value' is a string. If it isn't a string, the 'property_type'
+            and 'value_length' should be set accordingly. For further
+            customization, you can also use 'pd' and 'smpo' parameters for
+            passing in MQPD and MQSMPO structures.
+            """
+            mqlog.trace_entry("msghdl:set")
+
+            name = ensure_strings_are_bytes(name)
+
+            # If the VALUE is of MQTYPE_STRING, then the input is expected to be a real string
+            # (Unicode allowed) and it's converted in the C layer. Unlike the name, we do not convert
+            # it here.
+
+            pd = pd if pd else PD()
+            smpo = smpo if smpo else SMPO()
+
+            comp_code, comp_reason = ibmmqc.MQSETMP(
+                self.conn_handle, self.msg_handle, smpo.pack(), name, pd.pack(), property_type, value, value_length)
+
+            if comp_code != CMQC.MQCC_OK:
+                mqlog.trace_exit("msghdl:set", ep=1, rc=comp_reason)
+                raise MQMIError(comp_code, comp_reason)
+            mqlog.trace_exit("msghdl:set")
+
+        def dlt(self, name: Union[str, bytes], dmpo: Optional[DMPO] = None) -> None:
+            """ Deletes a message property. Only the name is required. For further
+            customization, you can also use the 'dmpo' parameters for
+            passing in the MQDMPO structure.
+            """
+            mqlog.trace_entry("msghdl:dltproperty")
+
+            name = ensure_strings_are_bytes(name)
+
+            dmpo = dmpo if dmpo else DMPO()
+
+            comp_code, comp_reason = ibmmqc.MQDLTMP(
+                self.conn_handle, self.msg_handle, dmpo.pack(), name)
+
+            if comp_code != CMQC.MQCC_OK:
+                mqlog.trace_exit("msghdl:dlt", ep=1, rc=comp_reason)
+                raise MQMIError(comp_code, comp_reason)
+            mqlog.trace_exit("msghdl:dltproperty")
+
+    def __init__(self, qmgr: Optional[QueueManager] = None, cmho: Optional[CMHO] = None, dup_handle: Optional[int] = None) -> None:
+        """There may be times when we need to create a message handle object
+        when all we have is the integer handle value (the PMO/GMO fields are
+        set to the integers, not objects). So we can't use those directly
+        to set/inquire additional properties. The dup_handle field lets us
+        set the properties using this new object that is still the same
+        thing in the underlying C code. We must not delete the duplicated MH.
+        """
+        mqlog.trace_entry(f"msghdl:__init__ Dup:{dup_handle}")
+
+        self.conn_handle = qmgr.get_handle() if qmgr else CMQC.MQHO_NONE
+        self.duplicated = False  # Set to true when this object is a temporary "clone"
+
+        cmho = cmho if cmho else CMHO()
+
+        if dup_handle is None:
+            self.msg_handle, comp_code, comp_reason = ibmmqc.MQCRTMH(self.conn_handle, cmho.pack())
+
+            if comp_code != CMQC.MQCC_OK:
+                mqlog.trace_exit("msghdl:__init__", ep=1, rc=comp_reason)
+                raise MQMIError(comp_code, comp_reason)
+        else:
+            self.msg_handle = dup_handle
+            self.duplicated = True
+
+        self.properties = self._Properties(self.conn_handle, self.msg_handle)
+        mqlog.trace_exit("msghdl:__init__")
+
+    def get_handle(self) -> int:
+        """Get the actual integer value"""
+        return self.msg_handle
+
+    def get_queue_manager(self) -> int:
+        """Get the associated hConn"""
+        return self.conn_handle
+
+    # Note that this deletes a MsgHandle at the MQI level and is not __del__ (the object destructor)
+    def dlt(self, dmho: Optional[DMHO] = None) -> None:
+        """Delete a message handle"""
+        mqlog.trace_entry("msghdl:dlthdl")
+
+        # Don't allow one of the internal "cloned" handles to be deleted
+        if self.duplicated:
+            comp_reason = CMQC.MQRC_HMSG_ERROR
+            mqlog.trace_exit("msghdl:dlthdl", ep=2, rc=comp_reason)
+            raise MQMIError(CMQC.MQCC_FAILED, comp_reason)
+
+        dmho = dmho if dmho else DMHO()
+
+        comp_code, comp_reason = ibmmqc.MQDLTMH(self.conn_handle, self.msg_handle, dmho.pack())
+
+        if comp_code != CMQC.MQCC_OK:
+            mqlog.trace_exit("msghdl:dlthdl", ep=1, rc=comp_reason)
+            raise MQMIError(comp_code, comp_reason)
+
+        self.properties = self._Properties(CMQC.MQHC_UNUSABLE_HCONN, CMQC.MQHM_NONE)
+        mqlog.trace_exit("msghdl:dlthdl")

@@ -1,0 +1,168 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/userManagement/userGroups/demoGroup/permissions
+    response:
+      body:
+        string:
+          dataSources:
+            - id: demo-test-ds
+              name: demo-test-ds
+              permissions:
+                - USE
+          workspaces:
+            - hierarchyPermissions:
+                - ANALYZE
+              id: demo
+              name: Demo
+              permissions:
+                - VIEW
+      headers:
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        dataSources:
+          - id: demo-test-ds
+            name: demo-test-ds
+            permissions:
+              - MANAGE
+        workspaces:
+          - hierarchyPermissions:
+              - ANALYZE
+            id: demo
+            name: Demo
+            permissions:
+              - VIEW
+      headers:
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/userManagement/userGroups/demoGroup/permissions
+    response:
+      body:
+        string: ''
+      headers:
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 204
+        message: No Content
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/userManagement/userGroups/demoGroup/permissions
+    response:
+      body:
+        string:
+          dataSources:
+            - id: demo-test-ds
+              name: demo-test-ds
+              permissions:
+                - MANAGE
+          workspaces:
+            - hierarchyPermissions:
+                - ANALYZE
+              id: demo
+              name: Demo
+              permissions:
+                - VIEW
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        dataSources:
+          - id: demo-test-ds
+            name: demo-test-ds
+            permissions:
+              - USE
+        workspaces:
+          - hierarchyPermissions:
+              - ANALYZE
+            id: demo
+            name: Demo
+            permissions:
+              - VIEW
+      headers:
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/userManagement/userGroups/demoGroup/permissions
+    response:
+      body:
+        string: ''
+      headers:
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 204
+        message: No Content
+version: 1

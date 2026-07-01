@@ -1,0 +1,46 @@
+[build-system]
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "powerlawrs"
+description = "A fast package for analyzing Power-Law distributions in empirical data written in Rust."
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "numpy>=1.24.4",
+    "matplotlib>=3.7.5",
+]
+
+authors = [
+  {email = "aulichny@protonmail.com"},
+  {name = "Adam Ulichny"}
+]
+keywords = ["mathematics", "finance", "science", "powerlaw", "pareto"]
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-APACHE", "LICENSE-MIT"]
+version = "0.0.15"
+
+[project.urls]
+repository = "https://github.com/aulichny3/powerlawrs"
+
+[project.optional-dependencies]
+dev = [
+    "jupyterlab>=4.3.8",
+    "numpy>=1.24.4",
+    "polars>=1.8.2",
+]
+
+[tool.maturin]
+python-source = "python"
+module-name = "powerlawrs._powerlawrs"
+features = ["pyo3/extension-module"]
+sdist-include = ["LICENSE-APACHE", "LICENSE-MIT", "README.md"]
+
+[tool.uv]
+package = false

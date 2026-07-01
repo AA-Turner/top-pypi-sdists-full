@@ -1,0 +1,71 @@
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
+
+[project]
+name = "torchrunx"
+version = "0.3.4"
+authors = [
+  { name = "Apoorv Khandelwal", email = "mail@apoorvkh.com" },
+  { name = "Peter Curtin", email = "peter_curtin@brown.edu" },
+]
+description = "Automatically initialize distributed PyTorch environments"
+readme = "README.md"
+license = { file = "LICENSE" }
+urls = { Repository = "https://github.com/apoorvkh/torchrunx.git", Documentation = "https://torchrun.xyz" }
+requires-python = ">=3.9"
+dependencies = [
+  "cloudpickle>=3.0",
+  "fabric>=3.2",
+  "torch>=2.0",
+  # torch.distributed depends on numpy
+  # torch<=2.2 needs numpy<2
+  "numpy>=1.20",
+  "typing-extensions>=4.9.0",
+]
+[dependency-groups]
+dev = ["ruff==0.9.5", "pyright[nodejs]==1.1.393", "pytest==8.3.4"]
+test-extras = ["submitit", "transformers"]
+docs = [
+  "sphinx==7.4.7",
+  "furo==2024.8.6",
+  "myst-parser==3.0.1",
+  "sphinx-toolbox==3.8.2",
+]
+
+[tool.ruff]
+include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]
+exclude = ["docs"]
+line-length = 100
+src = ["src", "tests"]
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "TC003",   # no type checking blocks for stdlib
+  "D104",    # package docstrings
+  "ANN401",  # self / cls / Any annotations
+  "BLE001",  # blind exceptions
+  "TD",      # todo syntax
+  "FIX002",  # existing todos
+  "PLR0913", # too many arguments
+  "DTZ005",  # datetime timezone
+  "S301",    # bandit: pickle
+  "S603",
+  "S607",    # bandit: subprocess
+  "COM812",
+  "ISC001",  # conflict with formatter
+  "G004"  # f-string in logging
+]
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+  "D",
+  "S101", # allow asserts
+  "T201", # allow prints
+]
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.9"
+pythonPlatform = "Linux"

@@ -54,11 +54,6 @@ def parse_tests(tests_content: str) -> List[Dict[str, Any]]:
     return yaml.safe_load(tests_content)
 
 
-def dump_tests(tests: List[Dict[str, Any]]) -> str:
-    yaml_str = yaml.safe_dump(tests, sort_keys=False)
-    return yaml_str.replace("- name:", "\n- name:")
-
-
 def update_test(pipe: str, project: Project, client: TinyB, config: dict[str, Any]) -> None:
     try:
         folder = project.folder

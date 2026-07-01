@@ -1,4 +1,3 @@
-import time
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
@@ -7,7 +6,6 @@ from urllib.parse import urlencode
 
 import click
 
-from tinybird import context
 from tinybird.datafile.exceptions import ParseException
 from tinybird.datafile.parse_datasource import parse_datasource
 from tinybird.datafile.parse_pipe import parse_pipe
@@ -16,11 +14,10 @@ from tinybird.tb.config import CLOUD_HOSTS
 from tinybird.tb.modules.build_common import process
 from tinybird.tb.modules.cli import cli, get_current_git_branch
 from tinybird.tb.modules.config import CLIConfig
-from tinybird.tb.modules.datafile.playground import folder_playground
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 from tinybird.tb.modules.project import Project
 from tinybird.tb.modules.query_output import print_table_formatted
-from tinybird.tb.modules.watch import watch_files, watch_project
+from tinybird.tb.modules.watch import watch_project
 
 
 def _get_dashboard_url(config: Dict[str, Any], branch_name: str, is_local: bool) -> Optional[str]:
@@ -179,10 +176,6 @@ def is_vendor(f: Path) -> bool:
     return f.parts[0] == "vendor"
 
 
-def get_vendor_workspace(f: Path) -> str:
-    return f.parts[1]
-
-
 def is_endpoint(f: Path) -> bool:
     return f.suffix == ".pipe" and not is_vendor(f) and f.parts[0] == "endpoints"
 
@@ -205,57 +198,6 @@ def check_filenames(filenames: List[str]):
             raise ParseException(FeedbackManager.error_unsupported_datafile(extension=file_suffix))
 
         parser(filename)
-
-
-def dev_cloud(
-    ctx: click.Context,
-) -> None:
-    project: Project = ctx.ensure_object(dict)["project"]
-    config = CLIConfig.get_project_config()
-    tb_client: TinyB = config.get_client()
-    context.disable_template_security_validation.set(True)
-
-    def process(filenames: List[str], watch: bool = False):
-        datafiles = [f for f in filenames if f.endswith((".datasource", ".pipe"))]
-        if len(datafiles) > 0:
-            check_filenames(filenames=datafiles)
-            folder_playground(
-                project, config, tb_client, filenames=datafiles, is_internal=False, current_ws=None, local_ws=None
-            )
-        if len(filenames) > 0 and watch:
-            filename = filenames[0]
-            build_and_print_resource(config, tb_client, filename)
-
-    datafiles = project.get_project_files()
-    filenames = datafiles
-
-    def build_once(filenames: List[str]):
-        ok = False
-        try:
-            click.echo(FeedbackManager.highlight(message="» Building project...\n"))
-            time_start = time.time()
-            process(filenames=filenames, watch=False)
-            time_end = time.time()
-            elapsed_time = time_end - time_start
-
-            click.echo(FeedbackManager.success(message=f"\n✓ Build completed in {elapsed_time:.1f}s"))
-            ok = True
-        except Exception as e:
-            error_path = Path(".tb_error.txt")
-            if error_path.exists():
-                content = error_path.read_text()
-                content += f"\n\n{str(e)}"
-                error_path.write_text(content)
-            else:
-                error_path.write_text(str(e))
-            click.echo(FeedbackManager.error_exception(error=e))
-            ok = False
-        return ok
-
-    build_ok = build_once(filenames)
-
-    click.echo(FeedbackManager.gray(message="\nWatching for changes..."))
-    watch_files(filenames=filenames, process=process, project=project, build_ok=build_ok)
 
 
 def build_and_print_resource(config: CLIConfig, tb_client: TinyB, filename: str):

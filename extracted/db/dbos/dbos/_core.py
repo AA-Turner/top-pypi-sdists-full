@@ -49,6 +49,7 @@ from ._error import (
     DBOSException,
     DBOSMaxStepRetriesExceeded,
     DBOSNonExistentWorkflowError,
+    DBOSNotAuthorizedError,
     DBOSQueueDeduplicatedError,
     DBOSRecoveryError,
     DBOSUnexpectedStepError,
@@ -58,6 +59,7 @@ from ._error import (
 )
 from ._registrations import (
     DEFAULT_MAX_RECOVERY_ATTEMPTS,
+    DBOSFuncInfo,
     DBOSFuncType,
     ValidateArgsCallable,
     get_config_name,
@@ -72,8 +74,10 @@ from ._registrations import (
 from ._roles import check_required_roles
 from ._serialization import (
     DBOSPortableJSON,
+    Serializer,
     WorkflowInputs,
     WorkflowSerializationFormat,
+    _safe_str,
     coerce_portable_args_to_hints,
     deserialize_args,
     deserialize_exception,
@@ -362,12 +366,25 @@ def _init_workflow(
     is_recovery_request: Optional[bool],
     is_dequeued_request: Optional[bool],
     serialization_type: Optional[WorkflowSerializationFormat],
+    child_workflow_id: Optional[str] = None,
 ) -> tuple[WorkflowStatusInternal, bool]:
+    # If launching child, capture ID before to_thread dispatch, so a concurrent end_workflow() on shutdown can't blank the id read here.
     wfid = (
-        ctx.workflow_id
-        if len(ctx.workflow_id) > 0
-        else ctx.id_assigned_for_next_workflow
+        child_workflow_id
+        if child_workflow_id
+        else (
+            ctx.workflow_id
+            if len(ctx.workflow_id) > 0
+            else ctx.id_assigned_for_next_workflow
+        )
     )
+    if not wfid:
+        # An empty id is never valid; fail loudly instead of persisting a row that wedges recovery.
+        raise DBOSException(
+            "Attempted to initialize a workflow with an empty workflow ID. "
+            "The workflow context was likely cleared concurrently (e.g. by "
+            "shutdown) while the workflow was being recorded."
+        )
 
     # If we have a class name, the first arg is the instance and do not serialize
     if class_name is not None and class_name != "":
@@ -512,6 +529,27 @@ def _init_workflow(
     return status, should_execute
 
 
+def _serialize_exception_for_persistence(
+    error: Exception,
+    serialization: Optional[str],
+    serializer: Serializer,
+) -> str:
+    """Serialize an exception for persisting a workflow's ERROR outcome.
+
+    Serializing an arbitrary user exception can itself fail (e.g. an unpicklable
+    attribute, or a broken ``__str__``/``__repr__``). If it does, fall back to a
+    plain, always-serializable Exception so the workflow is still terminalized as
+    ERROR instead of being left PENDING and re-executed on every recovery. The
+    fallback message is built with ``_safe_str`` so a broken ``__str__`` cannot
+    itself raise here and defeat the fallback.
+    """
+    try:
+        return serialize_exception(error, serialization, serializer)[0]
+    except Exception:
+        fallback = Exception(f"{type(error).__name__}: {_safe_str(error)}")
+        return serialize_exception(fallback, serialization, serializer)[0]
+
+
 def _get_wf_invoke_func(
     dbos: "DBOS",
     status: WorkflowStatusInternal,
@@ -558,14 +596,13 @@ def _get_wf_invoke_func(
         except DBOSWorkflowCancelledError as error:
             raise DBOSAwaitedWorkflowCancelledError(status["workflow_uuid"])
         except Exception as error:
+            error_str = _serialize_exception_for_persistence(
+                error, status["serialization"], dbos._serializer
+            )
             dbos._sys_db.update_workflow_outcome(
                 status["workflow_uuid"],
                 WorkflowStatusString.ERROR.value,
-                error=serialize_exception(
-                    error,
-                    status["serialization"],
-                    dbos._serializer,
-                )[0],
+                error=error_str,
             )
             raise
 
@@ -606,7 +643,8 @@ class ActiveWorkflowById:
             del self._m[key]
 
     def activeList(self) -> List[str]:
-        return list(self._m.keys())
+        with self._lock:
+            return list(self._m.keys())
 
     def count_for_queue(
         self, queue_name: str, queue_partition_key: Optional[str] = None
@@ -618,6 +656,34 @@ class ActiveWorkflowById:
         target = (queue_name, queue_partition_key)
         with self._lock:
             return sum(1 for bucket in self._m.values() if bucket == target)
+
+
+def _check_required_roles_or_finalize_error(
+    dbos: "DBOS",
+    status: WorkflowStatusInternal,
+    func: "Callable[..., Any]",
+    fi: Optional[DBOSFuncInfo],
+) -> Optional[str]:
+    """Run the required-role check for a workflow about to execute.
+
+    A required-role denial is terminal: the persisted auth context will never
+    satisfy the check on a subsequent attempt. Finalize the row as ERROR instead
+    of letting the exception escape and leave the workflow stuck PENDING (which,
+    on the queue/recovery paths, would be redequeued forever). Only
+    DBOSNotAuthorizedError is treated this way; any other (non-deterministic)
+    error propagates without finalizing, so it remains retryable.
+    """
+    try:
+        return check_required_roles(func, fi)
+    except DBOSNotAuthorizedError as role_error:
+        dbos._sys_db.update_workflow_outcome(
+            status["workflow_uuid"],
+            WorkflowStatusString.ERROR.value,
+            error=_serialize_exception_for_persistence(
+                role_error, status["serialization"], dbos._serializer
+            ),
+        )
+        raise
 
 
 def _execute_workflow_wthread(
@@ -635,7 +701,9 @@ def _execute_workflow_wthread(
     }
     fi = get_func_info(func)
     with EnterDBOSWorkflow(attributes, ctx):
-        rr: Optional[str] = check_required_roles(func, fi)
+        rr: Optional[str] = _check_required_roles_or_finalize_error(
+            dbos, status, func, fi
+        )
         with DBOSAssumeRole(rr):
             owned = dbos._active_workflows_set.acquire(
                 status["workflow_uuid"],
@@ -678,7 +746,9 @@ async def _execute_workflow_async(
     }
     fi = get_func_info(func)
     with EnterDBOSWorkflow(attributes, ctx):
-        rr: Optional[str] = check_required_roles(func, fi)
+        rr: Optional[str] = _check_required_roles_or_finalize_error(
+            dbos, status, func, fi
+        )
         with DBOSAssumeRole(rr):
             owned = dbos._active_workflows_set.acquire(
                 status["workflow_uuid"],
@@ -722,16 +792,9 @@ def execute_workflow_by_id(
         )
     except Exception as deser_error:
         # Mark workflow as ERROR immediately instead of leaving it PENDING for infinite retry
-        try:
-            error_str = serialize_exception(
-                deser_error, status["serialization"], dbos._serializer
-            )[0]
-        except Exception:
-            # Fallback: create a simple error we know can be serialized
-            fallback = Exception(f"{type(deser_error).__name__}: {deser_error}")
-            error_str = serialize_exception(
-                fallback, status["serialization"], dbos._serializer
-            )[0]
+        error_str = _serialize_exception_for_persistence(
+            deser_error, status["serialization"], dbos._serializer
+        )
         dbos._sys_db.update_workflow_outcome(
             workflow_id,
             WorkflowStatusString.ERROR.value,
@@ -767,16 +830,9 @@ def execute_workflow_by_id(
             )
             inputs = {"args": validated_args, "kwargs": validated_kwargs}
         except Exception as val_error:
-            try:
-                error_str = serialize_exception(
-                    val_error, status["serialization"], dbos._serializer
-                )[0]
-            except Exception:
-                # Fallback: create a simple error we know can be serialized
-                fallback = Exception(f"{type(val_error).__name__}: {val_error}")
-                error_str = serialize_exception(
-                    fallback, status["serialization"], dbos._serializer
-                )[0]
+            error_str = _serialize_exception_for_persistence(
+                val_error, status["serialization"], dbos._serializer
+            )
             dbos._sys_db.update_workflow_outcome(
                 workflow_id,
                 WorkflowStatusString.ERROR.value,
@@ -936,6 +992,7 @@ def start_workflow(
         is_recovery_request=is_recovery,
         is_dequeued_request=is_dequeued,
         serialization_type=serialization_type,
+        child_workflow_id=new_child_workflow_id,
     )
 
     if status["serialization"] == DBOSPortableJSON.name():
@@ -1058,6 +1115,7 @@ async def start_workflow_async(
         is_recovery_request=is_recovery_request,
         is_dequeued_request=is_dequeued_request,
         serialization_type=serialization_type,
+        child_workflow_id=new_child_workflow_id,
     )
 
     if status["serialization"] == DBOSPortableJSON.name():
@@ -1154,6 +1212,10 @@ def workflow_wrapper(
         }
         cctx = get_local_dbos_context()
         newwfctx = DBOSContext.create_start_workflow_child(cctx)
+        # Freeze the child id before to_thread dispatch: a concurrent end_workflow() on shutdown could blank newwfctx.workflow_id mid-registration.
+        child_wfid = newwfctx.id_assigned_for_next_workflow
+        parent_wfid = newwfctx.parent_workflow_id
+        parent_fid = newwfctx.parent_workflow_fid
         resctx: Optional[DBOSContext] = None
         if cctx is not None and cctx.is_workflow():
             resctx = cctx.snapshot_step_ctx(reserve_sleep_id=False)
@@ -1179,12 +1241,12 @@ def workflow_wrapper(
                 return recorded_result_inner
 
             nonlocal workflow_id
-            workflow_id = newwfctx.workflow_id
+            workflow_id = child_wfid
 
-            if newwfctx.has_parent():
+            if parent_wfid:
                 r = dbos._sys_db.check_operation_execution(
-                    newwfctx.parent_workflow_id,
-                    newwfctx.parent_workflow_fid,
+                    parent_wfid,
+                    parent_fid,
                     get_dbos_func_name(func),
                 )
                 if r and r["error"]:
@@ -1210,6 +1272,7 @@ def workflow_wrapper(
                 is_recovery_request=False,
                 is_dequeued_request=False,
                 serialization_type=fi.serialization_type,
+                child_workflow_id=child_wfid,
             )
 
             def get_recorded_result(_func: Callable[[], R]) -> R:
@@ -1223,14 +1286,14 @@ def workflow_wrapper(
 
             # TODO: maybe modify the parameters if they've been changed by `_init_workflow`
             dbos.logger.debug(
-                f"Running workflow, id: {newwfctx.workflow_id}, name: {get_dbos_func_name(func)}"
+                f"Running workflow, id: {child_wfid}, name: {get_dbos_func_name(func)}"
             )
 
-            if newwfctx.has_parent():
+            if parent_wfid:
                 dbos._sys_db.record_child_workflow(
-                    newwfctx.parent_workflow_id,
-                    newwfctx.workflow_id,
-                    newwfctx.parent_workflow_fid,
+                    parent_wfid,
+                    child_wfid,
+                    parent_fid,
                     get_dbos_func_name(func),
                 )
 
@@ -1844,24 +1907,29 @@ async def run_step_async(
     # Otherwise, run it as a normal function.
     options = normalize_step_options(options)
     if step_ctx and step_ctx.is_workflow():
-        outcome = invoke_step(
-            dbos,
-            step_ctx,
-            func,
-            args,
-            kwargs,
-            step_name=options["name"] if options["name"] else func.__qualname__,
-            retries_allowed=options["retries_allowed"],
-            interval_seconds=options["interval_seconds"],
-            max_attempts=options["max_attempts"],
-            backoff_rate=options["backoff_rate"],
-            should_retry=options["should_retry"],
-            preemptible=options["preemptible"],
-        )
+
+        def invoke() -> Union[R, Coroutine[Any, Any, R]]:
+            return invoke_step(
+                dbos,
+                step_ctx,
+                func,
+                args,
+                kwargs,
+                step_name=options["name"] if options["name"] else func.__qualname__,
+                retries_allowed=options["retries_allowed"],
+                interval_seconds=options["interval_seconds"],
+                max_attempts=options["max_attempts"],
+                backoff_rate=options["backoff_rate"],
+                should_retry=options["should_retry"],
+                preemptible=options["preemptible"],
+            )
+
         if inspect.iscoroutinefunction(func):
-            return await cast(Coroutine[Any, Any, R], outcome)
+            # Async step: build the Pending outcome on the loop and await it.
+            return await cast(Coroutine[Any, Any, R], invoke())
         else:
-            return cast(R, outcome)
+            # Sync step: run it off-loop so its DB checkpoints, body, and retry sleep don't block the loop.
+            return await asyncio.to_thread(lambda: cast(R, invoke()))
     else:
         if inspect.iscoroutinefunction(func):
             return await cast(Callable[P, Coroutine[Any, Any, R]], func)(

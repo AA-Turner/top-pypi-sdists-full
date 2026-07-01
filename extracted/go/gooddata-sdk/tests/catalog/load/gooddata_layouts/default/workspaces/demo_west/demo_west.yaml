@@ -1,0 +1,13 @@
+# (C) 2026 GoodData Corporation
+automations: []
+customApplicationSettings: []
+filterViews: []
+hierarchyPermissions: []
+id: demo_west
+name: Demo West
+parent:
+  id: demo
+  type: workspace
+permissions: []
+settings: []
+userDataFilters: []

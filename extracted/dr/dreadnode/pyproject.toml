@@ -1,0 +1,440 @@
+[project]
+name = "dreadnode"
+version = "2.0.30"
+description = "Dreadnode SDK"
+authors = [{ name = "Dreadnode Team", email = "support@dreadnode.io" }]
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+
+dependencies = [
+    "pydantic>=2.9.2,<3.0.0",
+    "pydantic-xml>=2.14.0",
+    "httpx>=0.28.0,<1.0.0",
+    "logfire>=3.5.3,<=3.20.0",
+    "coolname>=2.2.0,<3.0.0",
+    "pandas>=2.2.3,<3.0.0",
+    "fsspec[s3]>=2025.10.0,<=2025.10.0",
+    "optuna>=4.5.0,<5.0.0",
+    "numpy>=2.3.0,<=2.3.5",
+    "pillow>=11.2.1,<12.0.0",
+    "soundfile>=0.13.1,<1.0.0",
+    "moviepy>=2.1.2,<3.0.0",
+    "scipy>=1.11.0,<2.0.0",
+    "loguru>=0.7.3",
+    "art>=6.5,<7.0.0",
+    "pyyaml>=6.0.2",
+    "packaging>=24.0",
+    "cyclopts>=4.2.0",
+    "aiofiles>=24.1.0,<25.0.0",
+    "pyarrow>=4.0.0",
+    "transformers>=4.57.1",
+    "jsonref>=1.1.0",
+    "fastapi>=0.115.0",
+    "starlette>=1.0.1,<1.1.0",
+    "uvicorn>=0.34.0",
+    "websockets>=14.0",
+    "jsonpath-ng>=1.7.0",
+    "xmltodict>=1.0.2",
+    "litellm>=1.83.14,<=1.83.14",
+    "markdownify>=1.1.0,<2.0.0",
+    "fastmcp>=2.14.0",
+    "orjson>=3.11.5",
+    "prompt-toolkit>=3.0.52,<4.0.0",
+    "textual>=8.0.2",
+    "gepa>=0.1.1",
+    "datasets>=4.5.0",
+    "mcp>=1.25.0,<2.0.0",
+    "croniter>=6.0.0,<7.0.0",
+    "ddgs>=9.0.0",
+    "networkx>=3.6.1",
+]
+
+[project.optional-dependencies]
+training = [
+    "ray[default,serve]>=2.10.0,<3.0.0",
+    "torch>=2.9.0",
+    # vllm removed from extras — its dependency chain (numba 0.61) caps numpy<2.3,
+    # forcing a split resolution that breaks pandas on Linux 3.11/3.12.
+    # Install vllm separately on GPU infrastructure: pip install vllm
+]
+
+scoring = [
+    "python-jsonpath>=2.0.1",
+    "sentence-transformers>=5.1.0,<6.0.0",
+    "rapidfuzz>=3.14.1",
+    "presidio-analyzer>=2.2.359,<3.0.0",
+    "scikit-learn>=1.7.1,<2.0.0",
+    "confusables>=1.2.0,<2.0.0",
+    "nltk>=3.9.1,<4.0.0",
+    "textblob>=0.19.0,<1.0.0",
+    "textstat>=0.7.10,<1.0.0",
+]
+
+all = ["dreadnode[scoring,training]"]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.8.0,<2.0.0",
+    "ruff>=0.15,<1.0",
+    "ty>=0.0.24",
+    "pre-commit>=4.0.0,<5.0.0",
+    "pytest>=9.0.3,<9.1.0",
+    "pytest-asyncio>=1.3.0,<1.4.0",
+    "types-protobuf>=5.29.1.20250208",
+    "pandas-stubs>=2.2.3.250308",
+    "types-requests>=2.32.0.20250306",
+    "typer>=0.15.2,<1.0.0",
+    "markdown>=3.8.2,<4.0.0",
+    "mkdocstrings-python>=1.16.12,<2.0.0",
+    "ipykernel>=7.1.0,<7.2.0",
+    "ipywidgets>=8.1.7,<9.0.0",
+    "types-pyyaml>=6.0.12.20250822",
+    "types-tqdm>=4.67.0.20250809",
+    "datasets>=4.4.1",
+    "respx>=0.22.0",
+    "pytest-cov>=7.0.0",
+]
+# Used by packages/docs/scripts/generate_{,cli_}docs.py via the
+# sync_*_reference.sh pre-commit wrappers. Kept self-sufficient so the
+# wrappers can run with `--no-default-groups --group docs` for a lean
+# environment that still resolves under the SDK's
+# [tool.uv] override-dependencies.
+docs = [
+    "markdown>=3.8.2,<4.0.0",
+    "mkdocstrings==0.30.1",
+    "mkdocstrings-python==1.19.0",
+    "ruff>=0.15,<1.0",
+]
+
+[project.scripts]
+dreadnode = "dreadnode.__main__:run"
+dn = "dreadnode.__main__:run"
+
+[tool.poetry.plugins."pipx.run"]
+dreadnode = 'dreadnode.__main__:run'
+
+[project.urls]
+Homepage = "https://dreadnode.io"
+Documentation = "https://docs.dreadnode.io"
+
+# Build
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["dreadnode"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/dreadnode", "/README.md"]
+
+# Dev
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["dreadnode", ".venv", "*.egg-info"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: self-contained integration tests (spawn local subprocesses)",
+    "ray_integration: tests that require a properly configured Ray cluster",
+    "server: tests that require a running server at http://localhost:8000",
+    "rpc: tests for RPC endpoint integration",
+    "deploy: live deploy validation tests for post-deploy CI checks",
+    "deploy_tui: live TUI deploy validation tests",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+exclude = "tests"
+
+[[tool.mypy.overrides]]
+module = [
+    "dreadnode.core.types.*",
+    "dreadnode.scorers.*",
+    "dreadnode.transforms.*",
+]
+disable_error_code = ["unused-ignore", "import-untyped"]
+
+[[tool.mypy.overrides]]
+module = [
+    "coolname",
+    "fsspec.*",
+    "pyarrow.*",
+    "ray.*",
+    "vllm.*",
+    "mcp.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["dreadnode.training.*", "dreadnode.core.training.*"]
+disable_error_code = ["import-untyped", "import-not-found", "no-any-return", "arg-type"]
+
+[[tool.mypy.overrides]]
+module = ["dreadnode.tools.*", "dreadnode.models.*"]
+disable_error_code = ["no-any-return"]
+
+[[tool.mypy.overrides]]
+module = ["dreadnode.core.integrations.serve.*", "dreadnode.core.integrations.mcp.*"]
+disable_error_code = ["arg-type"]
+
+[tool.pyright]
+typeCheckingMode = "off" # we prefer mypy and don't want to deal with small differences
+
+[tool.ty.environment]
+python-version = "3.11"
+
+[tool.ty.src]
+exclude = [".hooks", "tests", "dreadnode/training", "examples"]
+
+# TODO(ty): Protocol callable limitation — ty cannot match concrete functions against
+# `-> Out | Awaitable[Out]` union-return Protocols (TransformCallable, ScorerCallable, etc.).
+# These modules have the pattern on nearly every function — file-level override is appropriate.
+# Revisit when ty gains support for Protocol + optional-kwarg matching.
+[[tool.ty.overrides]]
+include = [
+    "dreadnode/transforms/**",
+    "dreadnode/core/transforms.py",
+    "dreadnode/core/conditions.py",
+    "dreadnode/core/stopping.py",
+    "dreadnode/samplers/**",
+    "dreadnode/scorers/**",
+    "dreadnode/airt/**",
+    "dreadnode/optimization/**",
+]
+[tool.ty.overrides.rules]
+invalid-argument-type = "ignore"
+
+# TODO(ty): Remaining invalid-argument-type violations to fix inline.
+# Each file has a known root cause — see memory/project_ty_violations_audit.md.
+# Fix these one by one and remove from this list.
+[[tool.ty.overrides]]
+include = [
+    # Textual Screen[T] Self-type + Reactive descriptor
+    "dreadnode/app/tui/screens/base.py",
+    "dreadnode/app/tui/screens/environments.py",
+    "dreadnode/app/tui/screens/evaluations.py",
+    "dreadnode/app/tui/screens/sandboxes.py",
+    "dreadnode/app/tui/screens/sessions.py",
+    "dreadnode/app/tui/screens/workspaces.py",
+    "dreadnode/app/tui/app.py",
+    "dreadnode/app/tui/event_contract.py",
+    # _provenance_for return type, model None guard
+    "dreadnode/app/server/app.py",
+    # ArtifactRef optional fields passed to API
+    "dreadnode/app/cli/capability.py",
+    "dreadnode/app/cli/airt.py",
+    # ScorerCallable Protocol
+    "dreadnode/app/main.py",
+    "dreadnode/core/scorer.py",
+    # Third-party type stubs (pydantic_xml, logfire, httpx)
+    "dreadnode/generators/**",
+    "dreadnode/tracing/span.py",
+    "dreadnode/app/api/client.py",
+    # Dict unpacking + async variance
+    "dreadnode/capabilities/**",
+    "dreadnode/core/task.py",
+    "dreadnode/core/log.py",
+    "dreadnode/core/exceptions.py",
+    "dreadnode/evaluations/evaluation.py",
+    "dreadnode/agents/tools.py",
+    "dreadnode/agents/agent.py",
+    "dreadnode/agents/events.py",
+]
+[tool.ty.overrides.rules]
+invalid-argument-type = "ignore"
+
+[tool.ty.analysis]
+# Optional / platform-gated deps that may not be installed in every environment
+allowed-unresolved-imports = [
+    # training stack (optional extra)
+    "torch.**", "vllm.**", "ray.**", "flash_attn.**",
+    # scoring extra
+    "presidio_analyzer.**", "rapidfuzz.**", "sentence_transformers.**",
+    "sklearn.**", "jsonpath.**", "textstat.**", "textblob.**", "nltk.**",
+    "confusables.**",
+    # optional integrations
+    "ddgs.**", "tinker.**", "textual_plot.**",
+    "networkx.**", "reportlab.**", "storage.**",
+    # internal modules that are lazily loaded or conditionally available
+    "dreadnode.training.**",
+    "dreadnode.core.agents.**",
+    "dreadnode.tools.trajectory_search.**",
+    "dreadnode.integrations.**",
+    "dreadnode.agents.loader.**",
+    "dreadnode.agents.scorer_hook.**",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]
+
+[tool.coverage.run]
+branch = true
+source = ["scripts"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [
+    "*.ipynb", # jupyter notebooks
+    "*.as_script.py", # concatenated-from-ipynb scripts for nbclient / direct invocation
+    "dreadnode/training", # training stack is in flux and out of scope for current SDK cleanup
+]
+
+[tool.ruff.lint]
+select = ["ALL"]
+# Temporary global disables are acceptable during the SDK cleanup, but should be
+# treated as revisit candidates once the baseline is under control.
+ignore = [
+    "E501",    # line too long (we make best effort)
+    "TRY003",  # long messages in exception classes
+    "EM",      # picky message construction for exceptions
+    "C90",     # mccabe complexity
+    "A002",    # shadowing built-in
+    "D",       # docstrings
+    "ANN",     # annotations (handled by mypy)
+    "PLR0913", # too many arguments
+    "PLR0911", # return-heavy dispatchers and routers are common in SDK surfaces
+    "ERA001",  # commented out code
+    "FIX002",  # contains todo, consider fixing
+    "COM812",  # disabled for formatting
+    "ISC001",  # disabled for formatting
+    "PLC0415", # import should be at the top of the file
+    "TD003",   # missing issue link on todos
+    "PLR2004", # magic values - too many false positives
+    "PLR0912", # too many branches - noisy
+    "PLR0915", # too many statements - noisy
+    "BLE001",  # temporary: broad exception catches are common at product boundaries
+    "FBT001",  # temporary: boolean positional arg definitions are too noisy for this codebase
+    "FBT002",  # temporary: boolean default positional args are too noisy for this codebase
+    "FBT003",  # temporary: boolean positional call sites are too noisy for this codebase
+    "SLF001",  # internal private-member access is common across SDK internals
+    "S311",    # pseudo-random usage is intentional for sampling/perturbation flows
+    "S101",    # temporary: internal asserts are used as invariants, not security validation
+    "PERF401", # low-signal churn in transform and UI list-building code
+    "SIM108",  # ternary rewrites hurt readability when branches have comments or side effects
+    "SIM102",  # collapsible-if rewrites obscure intent in multi-condition guards
+    "PERF203", # try-except-in-loop is required for per-iteration error handling in IO loops
+    "ASYNC240", # pathlib in async fns — SDK uses sync Path ops intentionally in short-lived calls
+    "PLW0108", # unnecessary lambda — lambdas-as-callbacks are idiomatic in this codebase
+    "FURB171", # single-item container membership — false positives on intentional tuple guards
+    "PYI034",  # `__aenter__` should return Self — requires Self import, low value
+    "RUF005",  # iterable unpacking vs concatenation — concatenation is often clearer
+    "PLE1205", # loguru uses {} formatting, not %s — ruff assumes stdlib logging
+]
+
+[tool.ruff.format]
+skip-magic-trailing-comma = false
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["dreadnode.core.meta.Config", "dreadnode.core.meta.config.Config"]
+
+[tool.ruff.lint.extend-per-file-ignores]
+# Prefer inline `# noqa` for isolated exceptions. File-level ignores are reserved
+# for genuinely file-wide cases like fixture trees, glyph-heavy UI output, or
+# static confusable-character tables.
+"dreadnode/app/tui/theme.py" = [
+    "W291",  # trailing whitespace — ASCII art logos are padded to uniform width for center-justify alignment
+    "W293",  # blank line contains whitespace — same reason
+]
+"dreadnode/app/cli/**/*.py" = [
+    "B008",  # mutable default args — cyclopts requires Config() defaults on dataclass params
+    "T201",  # print is the intended output mechanism for a CLI module
+]
+"dreadnode/app/server/default-agent/**/*.py" = [
+    "INP001",  # dynamically loaded, not a package
+]
+".hooks/**/*.py" = [
+    "ARG001", # temporary for rigging decorators
+    "T201",   # printing is fine for hooks
+]
+"tests/**/*.py" = [
+    "INP001",  # namespace not required for pytest
+    "SLF001",  # allow access to private members
+    "PLR2004", # magic values
+    "S1",      # security issues in tests are not relevant
+    "S324",    # insecure hash - tests may verify non-crypto hash support
+    "PERF",    # performance issues in tests are not relevant
+    "ARG001",  # unused function arguments - common in test fixtures and mocks
+    "ARG002",  # unused method arguments are often part of test doubles
+    "ARG005",  # unused lambda arguments - common in test scorers
+    "DTZ",     # timezone hygiene rarely changes confidence in tests
+    "FBT001",  # boolean positional arg - common in parametrized tests
+    "FBT002",  # boolean default positional arg - test helpers optimize for clarity
+    "FBT003",  # boolean positional values in calls are common in tests
+    "FLY002",  # static joins in tests are style noise
+    "PGH003",  # blanket type ignores are often acceptable in mocks/stubs
+    "PTH",     # pathlib-only style rules do not improve test confidence
+    "PYI036",  # context-manager protocol strictness is noise in tests
+    "RET504",  # return-assignment style noise
+    "RUF001",  # ambiguous unicode may be intentional in test fixtures
+    "RUF003",  # ambiguous unicode comments may be intentional in test fixtures
+    "TC001",   # type-checking import churn is low-value in tests
+    "TC003",   # type-checking import churn is low-value in tests
+    "TRY002",  # custom exception types do not improve test confidence
+    "TRY301",  # abstract raise - acceptable in tests
+    "BLE001",  # catch blind exception - acceptable in test assertions
+    "PT017",   # assertion on exception in except block - sometimes valid in tests
+    "B028",    # no stacklevel in warnings - not important for tests
+    "PT006",   # parametrize tuple vs string - style preference
+    "SIM117",  # nested with statements - sometimes clearer in tests
+    "RUF043",  # pattern metacharacters in match - acceptable for simple error messages
+    "PYI034",  # __enter__ should return Self - test classes don't need this strictness
+    "E731",    # lambda assignment - tests intentionally test lambda behavior
+    "NPY002",  # legacy numpy random - not worth churn in test fixtures
+]
+"examples/**/*.py" = [
+    "INP001", # unused function arguments - common in examples
+    "T201",  # printing is fine for examples
+]
+"dreadnode/transforms/language.py" = [
+    "RUF001", # intentional homoglyph/script swapping data
+]
+"dreadnode/transforms/substitution.py" = [
+    "RUF001", # intentional confusable substitution tables
+]
+"dreadnode/transforms/encoding.py" = [
+    "RUF001", # intentional confusable/homoglyph encoding tables
+]
+"dreadnode/app/repl/render.py" = [
+    "RUF001", # prompt glyphs are intentional UI output
+]
+"dreadnode/app/repl/style.py" = [
+    "RUF001", # prompt glyphs are intentional UI output
+]
+"dreadnode/app/tui/screens/capabilities.py" = [
+    "RUF001", # tree/arrow glyphs are intentional UI output
+]
+"dreadnode/app/tui/screens/runtimes.py" = [
+    "RUF001", "RUF002", # cursor/dot glyphs are intentional UI output
+]
+"dreadnode/app/tui/screens/workspaces.py" = [
+    "RUF001", # cursor/dot glyphs are intentional UI output
+]
+"dreadnode/app/tui/widgets/conversation.py" = [
+    "RUF001", # conversation glyphs are intentional UI output
+]
+"dreadnode/optimization/console.py" = [
+    "RUF001", # sigma/statistical symbols are intentional UI output
+]
+
+[tool.uv]
+index-strategy = "unsafe-best-match"
+environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
+override-dependencies = [
+    "python-dotenv>=1.2.2",
+]

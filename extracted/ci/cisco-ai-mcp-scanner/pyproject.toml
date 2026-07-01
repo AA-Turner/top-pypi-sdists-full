@@ -1,0 +1,188 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cisco-ai-mcp-scanner"
+version = "4.7.5"
+description = "A tool to scan MCP servers and tools for security findings"
+authors = [
+    {name = "Cisco"},
+]
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers"
+]
+dependencies = [
+    "mcp[cli]>=1.25.0",
+    "httpx>=0.28.1",
+    "yara-python>=4.5.4",
+    "fastapi>=0.125.0",
+    "uvicorn>=0.29.0",
+    "pydantic>=2.6.0",
+    "python-dotenv>=1.0.0",
+    # Pinned to 1.83.7 to include the proxy API key verification SQL injection fix while avoiding 1.82.x. BerriAI/litellm#24512.
+    "litellm==1.83.7",
+    "expandvars>=0.12.0",
+    "tree-sitter>=0.21.0",
+    "tree-sitter-python>=0.21.0",
+    "tree-sitter-javascript>=0.21.0",
+    "tree-sitter-typescript>=0.21.0",
+    "tree-sitter-go>=0.21.0",
+    "tree-sitter-java>=0.21.0",
+    "tree-sitter-kotlin>=0.21.0",
+    "tree-sitter-c-sharp>=0.21.0",
+    "tree-sitter-ruby>=0.21.0",
+    "tree-sitter-rust>=0.21.0",
+    "tree-sitter-php>=0.21.0",
+    "puremagic>=1.28",
+    "pip-audit>=2.7.0",
+]
+
+[project.optional-dependencies]
+js = [
+    "tree-sitter>=0.21.0",
+    "tree-sitter-javascript>=0.21.0",
+    "tree-sitter-typescript>=0.21.0",
+]
+go = [
+    "tree-sitter>=0.21.0",
+    "tree-sitter-go>=0.21.0",
+]
+java = [
+    "tree-sitter>=0.21.0",
+    "tree-sitter-java>=0.21.0",
+]
+kotlin = [
+    "tree-sitter>=0.21.0",
+    "tree-sitter-kotlin>=0.21.0",
+]
+csharp = [
+    "tree-sitter>=0.21.0",
+    "tree-sitter-c-sharp>=0.21.0",
+]
+ruby = [
+    "tree-sitter>=0.21.0",
+    "tree-sitter-ruby>=0.21.0",
+]
+rust = [
+    "tree-sitter>=0.21.0",
+    "tree-sitter-rust>=0.21.0",
+]
+php = [
+    "tree-sitter>=0.21.0",
+    "tree-sitter-php>=0.21.0",
+]
+all-languages = [
+    "tree-sitter>=0.21.0",
+    "tree-sitter-javascript>=0.21.0",
+    "tree-sitter-typescript>=0.21.0",
+    "tree-sitter-go>=0.21.0",
+    "tree-sitter-java>=0.21.0",
+    "tree-sitter-kotlin>=0.21.0",
+    "tree-sitter-c-sharp>=0.21.0",
+    "tree-sitter-ruby>=0.21.0",
+    "tree-sitter-rust>=0.21.0",
+    "tree-sitter-php>=0.21.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=6.2.1",
+    "respx>=0.22.0",
+    "black>=24.0.0",
+    "flake8>=7.0.0",
+    "isort>=5.13.0",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/cisco-ai-defense/mcp-scanner"
+Repository = "https://github.com/cisco-ai-defense/mcp-scanner"
+Documentation = "https://github.com/cisco-ai-defense/mcp-scanner#readme"
+Issues = "https://github.com/cisco-ai-defense/mcp-scanner/issues"
+
+[project.scripts]
+mcp-scanner = "mcpscanner.cli:cli_entry_point"
+mcp-scanner-api = "mcpscanner.server:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "--maxfail=1"
+filterwarnings = [
+    # Silence Pydantic deprecation/future warnings across all tests
+    #"ignore::DeprecationWarning:pydantic.*",
+    #"ignore::FutureWarning:pydantic.*",
+    # Silence noisy Pydantic serializer warnings emitted by OpenAI/LiteLLM models
+    "ignore:Pydantic serializer warnings:UserWarning:pydantic.*",
+    # Fallback by message for environments where the category path differs
+    #"ignore:Pydantic V1 style.*:DeprecationWarning",
+    #"ignore:.*Pydantic.*deprecated.*:DeprecationWarning",
+]
+markers = [
+    "integration: mark for tests that hit external services (run with -m integration)",
+]
+
+[tool.setuptools.packages.find]
+include = ["mcpscanner*"]
+exclude = ["examples*", "evals*"]
+
+[tool.setuptools.package-data]
+"mcpscanner" = ["data/prompts/*.md", "data/yara_rules/*.yara", "data/yara_rules/*.yar"]
+
+# Code formatting and linting configuration
+[tool.black]
+line-length = 88
+target-version = ['py311', 'py312', 'py313']
+include = '\.pyi?$'
+extend-exclude = '''
+# A regex preceded by ^/ will apply only to files and directories
+# in the root of the project.
+^/setup.py
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503", "E501"]
+exclude = [".git", "__pycache__", "build", "dist", ".venv", "venv"]
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "yara",
+    "litellm",
+    "mcp.*",
+]
+ignore_missing_imports = true

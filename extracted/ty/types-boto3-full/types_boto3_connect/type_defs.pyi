@@ -28,11 +28,13 @@ from .literals import (
     AgentStatusTypeType,
     AiUseCaseType,
     AllowedUserActionType,
+    AnalyticsModeType,
     AnsweringMachineDetectionStatusType,
     ApplicationTypeType,
     ArtifactStatusType,
     AttachmentScopeType,
     AutoEvaluationStatusType,
+    BehaviorType,
     BehaviorTypeType,
     BooleanComparisonTypeType,
     ChannelType,
@@ -99,6 +101,7 @@ from .literals import (
     LexVersionType,
     ListFlowAssociationResourceTypeType,
     LocaleCodeType,
+    MaskModeType,
     MediaStreamTypeType,
     MediaTypeType,
     MeetingFeatureStatusType,
@@ -122,6 +125,7 @@ from .literals import (
     PhoneNumberTypeType,
     PhoneNumberWorkflowStatusType,
     PhoneTypeType,
+    PolicyType,
     QuestionRuleCategoryAutomationConditionType,
     QueueStatusType,
     QueueTypeType,
@@ -151,6 +155,7 @@ from .literals import (
     StatusType,
     StorageTypeType,
     StringComparisonTypeType,
+    SummaryModeType,
     TaskTemplateFieldTypeType,
     TaskTemplateStatusType,
     TestCaseEntryPointTypeType,
@@ -210,6 +215,7 @@ __all__ = (
     "AliasConfigurationTypeDef",
     "AllowedCapabilitiesTypeDef",
     "AllowedExtensionTypeDef",
+    "AnalyticsConfigurationTypeDef",
     "AnalyticsDataAssociationResultTypeDef",
     "AnalyticsDataSetsResultTypeDef",
     "AnswerMachineDetectionConfigTypeDef",
@@ -352,6 +358,8 @@ __all__ = (
     "ControlPlaneUserAttributeFilterTypeDef",
     "CreateAgentStatusRequestTypeDef",
     "CreateAgentStatusResponseTypeDef",
+    "CreateAttachedFileRequestTypeDef",
+    "CreateAttachedFileResponseTypeDef",
     "CreateCaseActionDefinitionOutputTypeDef",
     "CreateCaseActionDefinitionTypeDef",
     "CreateCaseActionDefinitionUnionTypeDef",
@@ -817,6 +825,7 @@ __all__ = (
     "KinesisFirehoseConfigTypeDef",
     "KinesisStreamConfigTypeDef",
     "KinesisVideoStreamConfigTypeDef",
+    "LanguageConfigurationTypeDef",
     "LexBotConfigTypeDef",
     "LexBotTypeDef",
     "LexV2BotTypeDef",
@@ -1159,6 +1168,7 @@ __all__ = (
     "RecurrenceConfigUnionTypeDef",
     "RecurrencePatternOutputTypeDef",
     "RecurrencePatternTypeDef",
+    "RedactionConfigurationTypeDef",
     "ReferenceSummaryTypeDef",
     "ReferenceTypeDef",
     "ReleasePhoneNumberRequestTypeDef",
@@ -1193,6 +1203,7 @@ __all__ = (
     "RuleSummaryTypeDef",
     "RuleTriggerEventSourceTypeDef",
     "RuleTypeDef",
+    "RulesConfigurationTypeDef",
     "S3ConfigTypeDef",
     "SearchAgentStatusesRequestPaginateTypeDef",
     "SearchAgentStatusesRequestTypeDef",
@@ -1299,6 +1310,7 @@ __all__ = (
     "SendNotificationActionDefinitionTypeDef",
     "SendNotificationActionDefinitionUnionTypeDef",
     "SendOutboundEmailRequestTypeDef",
+    "SentimentConfigurationTypeDef",
     "SignInConfigOutputTypeDef",
     "SignInConfigTypeDef",
     "SignInConfigUnionTypeDef",
@@ -1310,6 +1322,8 @@ __all__ = (
     "StartAttachedFileUploadResponseTypeDef",
     "StartChatContactRequestTypeDef",
     "StartChatContactResponseTypeDef",
+    "StartContactConversationalAnalyticsJobRequestTypeDef",
+    "StartContactConversationalAnalyticsJobResponseTypeDef",
     "StartContactEvaluationRequestTypeDef",
     "StartContactEvaluationResponseTypeDef",
     "StartContactMediaProcessingRequestTypeDef",
@@ -1348,6 +1362,7 @@ __all__ = (
     "SubmitContactEvaluationResponseTypeDef",
     "SuccessfulBatchAssociationSummaryTypeDef",
     "SuccessfulRequestTypeDef",
+    "SummaryConfigurationTypeDef",
     "SuspendContactRecordingRequestTypeDef",
     "TagConditionTypeDef",
     "TagContactRequestTypeDef",
@@ -1658,6 +1673,24 @@ class AliasConfigurationTypeDef(TypedDict):
 
 class AllowedExtensionTypeDef(TypedDict):
     Extension: str
+
+class LanguageConfigurationTypeDef(TypedDict):
+    LanguageLocale: NotRequired[str]
+
+class RedactionConfigurationTypeDef(TypedDict):
+    Behavior: BehaviorType
+    Policy: PolicyType
+    Entities: NotRequired[Sequence[str]]
+    MaskMode: NotRequired[MaskModeType]
+
+class RulesConfigurationTypeDef(TypedDict):
+    Behavior: NotRequired[BehaviorType]
+
+class SentimentConfigurationTypeDef(TypedDict):
+    Behavior: BehaviorType
+
+class SummaryConfigurationTypeDef(TypedDict):
+    SummaryModes: Sequence[SummaryModeType]
 
 class AnalyticsDataAssociationResultTypeDef(TypedDict):
     DataSetId: NotRequired[str]
@@ -2189,6 +2222,14 @@ class CreateAgentStatusRequestTypeDef(TypedDict):
     DisplayOrder: NotRequired[int]
     Tags: NotRequired[Mapping[str, str]]
 
+class CreateAttachedFileRequestTypeDef(TypedDict):
+    InstanceId: str
+    FileUseCaseType: FileUseCaseTypeType
+    FileSourceUri: str
+    AssociatedResourceArn: str
+    ClientToken: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+
 class CreateContactFlowModuleAliasRequestTypeDef(TypedDict):
     InstanceId: str
     ContactFlowModuleId: str
@@ -2392,8 +2433,12 @@ class CredentialsTypeDef(TypedDict):
     RefreshToken: NotRequired[str]
     RefreshTokenExpiration: NotRequired[datetime]
 
-class CrossChannelBehaviorTypeDef(TypedDict):
-    BehaviorType: BehaviorTypeType
+CrossChannelBehaviorTypeDef = TypedDict(
+    "CrossChannelBehaviorTypeDef",
+    {
+        "BehaviorType": BehaviorTypeType,
+    },
+)
 
 class CurrentMetricTypeDef(TypedDict):
     Name: NotRequired[CurrentMetricNameType]
@@ -4567,6 +4612,13 @@ class CreateAgentStatusResponseTypeDef(TypedDict):
     AgentStatusId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateAttachedFileResponseTypeDef(TypedDict):
+    FileArn: str
+    FileId: str
+    CreationTime: str
+    FileStatus: FileStatusTypeType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateContactFlowModuleAliasResponseTypeDef(TypedDict):
     ContactFlowModuleArn: str
     Id: str
@@ -4788,6 +4840,11 @@ class StartChatContactResponseTypeDef(TypedDict):
     ParticipantId: str
     ParticipantToken: str
     ContinuedFromContactId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartContactConversationalAnalyticsJobResponseTypeDef(TypedDict):
+    InstanceId: str
+    ContactId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartContactEvaluationResponseTypeDef(TypedDict):
@@ -5175,6 +5232,13 @@ class ExtensionConfigurationOutputTypeDef(TypedDict):
 
 class ExtensionConfigurationTypeDef(TypedDict):
     AllowedExtensions: Sequence[AllowedExtensionTypeDef]
+
+class AnalyticsConfigurationTypeDef(TypedDict):
+    LanguageConfiguration: LanguageConfigurationTypeDef
+    RedactionConfiguration: RedactionConfigurationTypeDef
+    SentimentConfiguration: SentimentConfigurationTypeDef
+    SummaryConfiguration: SummaryConfigurationTypeDef
+    RulesConfiguration: RulesConfigurationTypeDef
 
 class ListAnalyticsDataAssociationsResponseTypeDef(TypedDict):
     Results: list[AnalyticsDataAssociationResultTypeDef]
@@ -7158,6 +7222,13 @@ class UpdateAttachedFilesConfigurationResponseTypeDef(TypedDict):
 ExtensionConfigurationUnionTypeDef = Union[
     ExtensionConfigurationTypeDef, ExtensionConfigurationOutputTypeDef
 ]
+
+class StartContactConversationalAnalyticsJobRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactId: str
+    AnalyticsModes: Sequence[AnalyticsModeType]
+    AnalyticsConfiguration: AnalyticsConfigurationTypeDef
+    ClientToken: NotRequired[str]
 
 class ListBotsResponseTypeDef(TypedDict):
     LexBots: list[LexBotConfigTypeDef]

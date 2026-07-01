@@ -22,10 +22,12 @@ from prefab_ui.components.control_flow import If
 from prefab_ui.rx import STATE
 
 from airbyte_ops_webapp.app_shell import build_ops_app
+from airbyte_ops_webapp.auth.google_oauth import hydrate_google_oauth_action
 from airbyte_ops_webapp.auth.oauth import hydrate_oauth_action, oauth_config
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     EMPTY_PIN_STATE,
     EMPTY_ROLLOUT_STATE,
+    EMPTY_ROLLOUT_SUMMARY,
     connector_options,
     connector_rows,
     empty_connector,
@@ -138,7 +140,10 @@ def connector_version_manager(
         state=state,
         oauth_issuer=str(current_oauth_config["issuer"]),
     ) as app:
-        with Div(style=_page_style(), onMount=hydrate_oauth_action()):
+        with Div(
+            style=_page_style(),
+            onMount=[hydrate_oauth_action(), hydrate_google_oauth_action()],
+        ):
             with Column(gap=5, css_class=PAGE_CLASS):
                 render_environment_banners()
                 render_breadcrumb_nav(
@@ -192,10 +197,11 @@ def _build_initial_state(
         "progressive_rollout_options": [],
         "progressive_rollout_rows": [],
         "pinned_version_rows": [],
+        "pin_origin_filter": "all",
         "recent_release_rows_loaded": False,
         "progressive_rollout_rows_loaded": False,
         "pinned_version_rows_loaded": False,
-        "selector_tab": "latest-versions",
+        "selector_tab": "active-rollouts",
         "selected_connector_id": selected_connector["id"],
         "selected_connector": selected_connector,
         "scope_type": context["scope_type"],
@@ -212,6 +218,7 @@ def _build_initial_state(
         "auth_bearer_token": "",
         "versions": context["versions"],
         "active_rollouts": context["active_rollouts"],
+        "rollout_summary": context.get("rollout_summary", EMPTY_ROLLOUT_SUMMARY),
         "current_state": context["current_state"],
         "current_state_markdown": context["current_state_markdown"],
         "ancestor_configs": context["ancestor_configs"],
@@ -237,6 +244,10 @@ def _build_initial_state(
         "oauth_authenticated": False,
         "oauth_status": "",
         "oauth_user_email": "",
+        "google_authenticated": False,
+        "google_user_email": "",
+        "google_access_token": "",
+        "google_status": "",
         "pin_modal_open": False,
         "locate_pin_modal_open": False,
         # --- Rollout action state ---

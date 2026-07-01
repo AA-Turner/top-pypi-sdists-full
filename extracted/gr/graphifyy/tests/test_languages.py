@@ -1214,6 +1214,136 @@ def test_objc_alloc_init_unknown_class_no_resolved_edge(tmp_path):
         assert e["target"] not in sourced_ids, f"unexpected resolved ref: {e}"
 
 
+def test_objc_dot_syntax_property_accesses_edge(tmp_path):
+    """self.name dot-syntax resolves to an accesses edge within the same class."""
+    p = tmp_path / "Dog.m"
+    p.write_text(
+        "@implementation Dog\n"
+        "- (NSString *)name { return @\"Rex\"; }\n"
+        "- (void)greet { NSLog(@\"%@\", self.name); }\n"
+        "@end\n"
+    )
+    r = extract_objc(p)
+    accesses = [(e["source"], e["target"]) for e in r["edges"]
+                if e["relation"] == "accesses"]
+    nid2label = {n["id"]: n["label"] for n in r["nodes"]}
+    assert len(accesses) == 1
+    assert nid2label[accesses[0][1]] == "-name"
+
+
+def test_objc_dot_syntax_no_fanout_two_same_named_properties(tmp_path):
+    """Two classes each declaring -name: self.name in A must NOT fan out to B's -name."""
+    p = tmp_path / "AB.m"
+    p.write_text(
+        "@implementation A\n"
+        "- (NSString *)name { return @\"A\"; }\n"
+        "- (void)show { NSLog(@\"%@\", self.name); }\n"
+        "@end\n"
+        "@implementation B\n"
+        "- (NSString *)name { return @\"B\"; }\n"
+        "- (void)show { NSLog(@\"%@\", self.name); }\n"
+        "@end\n"
+    )
+    r = extract_objc(p)
+    accesses = [e for e in r["edges"] if e["relation"] == "accesses"]
+    assert len(accesses) == 2, f"expected 2 scoped accesses, got {len(accesses)}: {accesses}"
+    nid2label = {n["id"]: n["label"] for n in r["nodes"]}
+    for e in accesses:
+        src_label = nid2label[e["source"]]
+        tgt_label = nid2label[e["target"]]
+        assert src_label == "-show" and tgt_label == "-name"
+
+
+def test_objc_dot_syntax_unresolvable_property_zero_edges(tmp_path):
+    """Accessing a property not defined in the current class produces zero accesses edges."""
+    p = tmp_path / "X.m"
+    p.write_text(
+        "@implementation X\n"
+        "- (void)run { NSLog(@\"%@\", self.missing); }\n"
+        "@end\n"
+    )
+    r = extract_objc(p)
+    accesses = [e for e in r["edges"] if e["relation"] == "accesses"]
+    assert len(accesses) == 0
+
+
+def test_objc_selector_expression_calls_edge(tmp_path):
+    """@selector(uniqueMethod) with exactly one match produces a calls edge."""
+    p = tmp_path / "Sched.m"
+    p.write_text(
+        "@implementation Sched\n"
+        "- (void)fetch { }\n"
+        "- (void)schedule { [self performSelector:@selector(fetch)]; }\n"
+        "@end\n"
+    )
+    r = extract_objc(p)
+    nid2label = {n["id"]: n["label"] for n in r["nodes"]}
+    sel_calls = [(nid2label.get(e["source"]), nid2label.get(e["target"]))
+                 for e in r["edges"]
+                 if e["relation"] == "calls" and e.get("context") == "call"]
+    assert ("-schedule", "-fetch") in sel_calls
+
+
+def test_objc_selector_no_fanout_two_same_named_methods(tmp_path):
+    """@selector(doThing) with two doThing methods must emit zero calls edges."""
+    p = tmp_path / "Dual.m"
+    p.write_text(
+        "@implementation A\n"
+        "- (void)doThing { }\n"
+        "- (void)run { [self performSelector:@selector(doThing)]; }\n"
+        "@end\n"
+        "@implementation B\n"
+        "- (void)doThing { }\n"
+        "@end\n"
+    )
+    r = extract_objc(p)
+    nid2label = {n["id"]: n["label"] for n in r["nodes"]}
+    sel_edges = [e for e in r["edges"]
+                 if e["relation"] == "calls"
+                 and nid2label.get(e["target"], "").endswith("doThing")]
+    assert len(sel_edges) == 0, f"expected 0 selector edges with ambiguous name, got {sel_edges}"
+
+
+def test_objc_dot_syntax_substring_sibling_exact_match(tmp_path):
+    """A substring-colliding sibling must neither be falsely matched nor suppress
+    the real match: `self.name` with both `-name` and `-surname` present resolves
+    to `-name` ONLY (exact id, not a `endswith` suffix) (#1475)."""
+    p = tmp_path / "Person.m"
+    p.write_text(
+        "@implementation Person\n"
+        "- (NSString *)name { return @\"n\"; }\n"
+        "- (NSString *)surname { return @\"s\"; }\n"
+        "- (void)show { NSLog(@\"%@\", self.name); }\n"
+        "@end\n"
+    )
+    r = extract_objc(p)
+    nid2label = {n["id"]: n["label"] for n in r["nodes"]}
+    accesses = [(nid2label.get(e["source"]), nid2label.get(e["target"]))
+                for e in r["edges"] if e["relation"] == "accesses"]
+    assert ("-show", "-name") in accesses, f"self.name must resolve to -name: {accesses}"
+    assert ("-show", "-surname") not in accesses, f"self.name must NOT match -surname: {accesses}"
+
+
+def test_objc_selector_substring_method_exact_match(tmp_path):
+    """@selector(doThing) must resolve to `-doThing` exactly, not be suppressed by
+    a substring-colliding `-reallyDoThing` (exact match, not suffix) (#1475)."""
+    p = tmp_path / "Worker.m"
+    p.write_text(
+        "@implementation Worker\n"
+        "- (void)doThing { }\n"
+        "- (void)reallyDoThing { }\n"
+        "- (void)run { [self performSelector:@selector(doThing)]; }\n"
+        "@end\n"
+    )
+    r = extract_objc(p)
+    nid2label = {n["id"]: n["label"] for n in r["nodes"]}
+    sel_calls = [(nid2label.get(e["source"]), nid2label.get(e["target"]))
+                 for e in r["edges"]
+                 if e["relation"] == "calls" and e.get("context") == "call"]
+    assert ("-run", "-doThing") in sel_calls, f"@selector(doThing) must resolve to -doThing: {sel_calls}"
+    assert ("-run", "-reallyDoThing") not in sel_calls
+
+
 # ---------------------------------------------------------------------------
 # Go
 # ---------------------------------------------------------------------------
@@ -1715,6 +1845,154 @@ def test_ts_local_const_does_not_emit_phantom_node(tmp_path):
 
     assert "inner" not in labels, f"phantom TS node for arrow-body local 'inner': {labels}"
     assert "topLevel" in labels, f"module-level TS const 'topLevel' missing: {labels}"
+
+
+def test_ts_constructor_injection_calls_edge(tmp_path):
+    """this.repo.findById() in a class with constructor(private repo: IUserRepository)
+    must produce a calls edge from getUser() to findById() (#1316)."""
+    from graphify.extract import extract
+    repo_ts = tmp_path / "repo.ts"
+    repo_ts.write_text(
+        "export interface IUserRepository {\n"
+        "  findById(id: string): Promise<any>;\n"
+        "  save(user: any): Promise<void>;\n"
+        "}\n"
+    )
+    svc_ts = tmp_path / "service.ts"
+    svc_ts.write_text(
+        "import { IUserRepository } from './repo';\n"
+        "\n"
+        "export class UserService {\n"
+        "  constructor(private repo: IUserRepository) {}\n"
+        "\n"
+        "  getUser(id: string) {\n"
+        "    return this.repo.findById(id);\n"
+        "  }\n"
+        "}\n"
+    )
+    r = extract([repo_ts, svc_ts], cache_root=tmp_path / "cache")
+    edge_triples = {
+        (e["source"], e["relation"], e["target"])
+        for e in r["edges"]
+    }
+    labels_by_id = {n["id"]: n["label"] for n in r["nodes"]}
+    label_triples = {
+        (labels_by_id.get(s, s), rel, labels_by_id.get(t, t))
+        for s, rel, t in edge_triples
+    }
+    calls_from_get_user = [
+        (s, rel, t) for s, rel, t in label_triples
+        if "getUser" in s and rel == "calls"
+    ]
+    assert any("findById" in t for _, _, t in calls_from_get_user), (
+        f"expected getUser()->findById() calls edge, got: {calls_from_get_user}"
+    )
+
+
+def test_ts_this_field_receiver_not_same_file_collision(tmp_path):
+    """this.db.query() should NOT match an unrelated query() in the same file (#1316)."""
+    f = tmp_path / "collision.ts"
+    f.write_text(
+        "function query() { return 'global'; }\n"
+        "\n"
+        "export class Service {\n"
+        "  constructor(private db: Database) {}\n"
+        "\n"
+        "  run() {\n"
+        "    return this.db.query();\n"
+        "  }\n"
+        "}\n"
+    )
+    r = extract_js(f)
+    calls_edges = [
+        e for e in r["edges"]
+        if e["relation"] == "calls"
+    ]
+    caller_labels = {n["id"]: n["label"] for n in r["nodes"]}
+    run_to_query = [
+        e for e in calls_edges
+        if "run" in caller_labels.get(e["source"], "")
+        and "query" in caller_labels.get(e["target"], "")
+    ]
+    assert len(run_to_query) == 0, (
+        f"this.db.query() should NOT resolve to bare query() in same file: {run_to_query}"
+    )
+
+
+def _ts_label_calls(r, src_sub):
+    labels = {n["id"]: n["label"] for n in r["nodes"]}
+    return [
+        labels.get(e["target"], e["target"])
+        for e in r["edges"]
+        if e["relation"] == "calls" and src_sub in labels.get(e["source"], e["source"])
+    ]
+
+
+def test_ts_injected_field_resolves_to_typed_class_not_same_named_collision(tmp_path):
+    """The decisive #1316 guardrail: two classes each define `query`, but the
+    injected field is typed `Database`, so `this.db.query()` must resolve to
+    Database.query ONLY — never HttpClient.query (no global name-match fan-out)."""
+    from graphify.extract import extract
+    (tmp_path / "database.ts").write_text(
+        "export class Database {\n  query(sql: string) { return sql; }\n}\n"
+    )
+    (tmp_path / "http.ts").write_text(
+        "export class HttpClient {\n  query(url: string) { return url; }\n}\n"
+    )
+    (tmp_path / "service.ts").write_text(
+        "import { Database } from './database';\n"
+        "export class Service {\n"
+        "  constructor(private db: Database) {}\n"
+        "  run() { return this.db.query('x'); }\n"
+        "}\n"
+    )
+    r = extract(
+        [tmp_path / "database.ts", tmp_path / "http.ts", tmp_path / "service.ts"],
+        cache_root=tmp_path / "cache",
+    )
+    labels = {n["id"]: n["label"] for n in r["nodes"]}
+    # Find the run()->query calls edge and confirm its target is owned by Database.
+    method_owner = {
+        e["target"]: e["source"]
+        for e in r["edges"] if e["relation"] == "method"
+    }
+    run_query_targets = [
+        e["target"] for e in r["edges"]
+        if e["relation"] == "calls"
+        and "run" in labels.get(e["source"], "")
+        and "query" in labels.get(e["target"], "")
+    ]
+    assert run_query_targets, "expected this.db.query() to resolve to a query method"
+    for tgt in run_query_targets:
+        owner = method_owner.get(tgt)
+        assert owner is not None and labels.get(owner) == "Database", (
+            f"this.db.query() must resolve to Database.query, got owner {labels.get(owner)}"
+        )
+
+
+def test_ts_injected_field_ambiguous_type_emits_no_edge(tmp_path):
+    """If the injected field's type name is ambiguous (two classes named Database),
+    the god-node guard bails — no calls edge rather than a guess (#1316)."""
+    from graphify.extract import extract
+    (tmp_path / "a" ).mkdir()
+    (tmp_path / "b").mkdir()
+    (tmp_path / "a" / "database.ts").write_text(
+        "export class Database {\n  query(sql: string) { return sql; }\n}\n"
+    )
+    (tmp_path / "b" / "database.ts").write_text(
+        "export class Database {\n  query(sql: string) { return sql; }\n}\n"
+    )
+    (tmp_path / "service.ts").write_text(
+        "export class Service {\n"
+        "  constructor(private db: Database) {}\n"
+        "  run() { return this.db.query('x'); }\n"
+        "}\n"
+    )
+    r = extract(sorted(tmp_path.rglob("*.ts")), cache_root=tmp_path / "cache")
+    # `query` resolution must bail (2 Database defs) -> no run()->query calls edge.
+    assert not [t for t in _ts_label_calls(r, "run") if "query" in t], (
+        "ambiguous Database type must not produce a this.db.query() edge"
+    )
 
 
 # ── Markdown ─────────────────────────────────────────────────────────────────
@@ -2304,3 +2582,168 @@ def test_systemverilog_no_dangling_edges():
     for e in r["edges"]:
         assert e["source"] in node_ids, f"dangling source: {e}"
         assert e["target"] in node_ids, f"dangling target: {e}"
+
+
+# ── Header/impl class merge + .h routing (#1547 C++, #1556 ObjC/Swift) ─────────
+from graphify.extract import (
+    extract as _extract_corpus,
+    _get_extractor,
+    _is_cpp_header,
+    _is_objc_header,
+)
+
+
+def _corpus(*relpaths):
+    """Run the full extract() pipeline on fixture files (absolute, resolved
+    paths so the per-file id-remap behaves like real usage), no shared cache."""
+    import tempfile
+    paths = [(FIXTURES / rp).resolve() for rp in relpaths]
+    with tempfile.TemporaryDirectory() as td:
+        return _extract_corpus(paths, cache_root=Path(td))
+
+
+def _nodes_with_label(r, label):
+    return [n for n in r["nodes"] if n["label"] == label]
+
+
+def _assert_no_dangling(r):
+    ids = {n["id"] for n in r["nodes"]}
+    for e in r["edges"]:
+        assert e["source"] in ids, f"dangling source: {e}"
+        assert e["target"] in ids, f"dangling target: {e}"
+
+
+# --- #1547: C++ paired header/impl --------------------------------------------
+
+def test_cpp_header_routes_to_cpp_extractor():
+    """A `.h` with a C++ class must route to extract_cpp, not extract_c (which has
+    no class_specifier and would drop the class entirely)."""
+    p = (FIXTURES / "cpp_paired" / "Foo.h").resolve()
+    assert _get_extractor(p).__name__ == "extract_cpp"
+    assert _is_cpp_header(p)
+
+
+def test_plain_c_header_stays_on_c_extractor():
+    """A plain C header (no C++ signal) must keep its extract_c routing."""
+    p = (FIXTURES / "cpp_samedir" / "plain.h").resolve()
+    assert not _is_cpp_header(p)
+    assert _get_extractor(p).__name__ == "extract_c"
+
+
+def test_cpp_paired_single_class_node():
+    """Foo.h (class) + Foo.cpp (Foo::bar def) + Main.cpp must yield exactly ONE
+    Foo class node — not a foo_h + foo_cpp pair, and no junk `class` stub."""
+    r = _corpus("cpp_paired/Foo.h", "cpp_paired/Foo.cpp", "cpp_paired/Main.cpp")
+    foos = _nodes_with_label(r, "Foo")
+    assert len(foos) == 1, f"expected one Foo, got {[n['id'] for n in foos]}"
+    assert not _nodes_with_label(r, "class"), "no sourceless `class` stub should exist"
+    assert not _nodes_with_label(r, "foo_foo")
+
+
+def test_cpp_paired_method_decl_and_def_are_one_node():
+    """`void bar();` in Foo.h and `void Foo::bar() {}` in Foo.cpp must collapse to
+    ONE method node owned by the single Foo class."""
+    r = _corpus("cpp_paired/Foo.h", "cpp_paired/Foo.cpp", "cpp_paired/Main.cpp")
+    foo = _nodes_with_label(r, "Foo")[0]["id"]
+    method_targets = {
+        e["target"] for e in r["edges"]
+        if e["source"] == foo and e["relation"] in ("method", "defines", "contains")
+    }
+    bar_nodes = [n for n in r["nodes"] if n["id"] in method_targets and n["label"] in ("bar", "Foo::bar()")]
+    # There must be exactly one node representing bar (decl and def merged).
+    bar_ids = {n["id"] for n in r["nodes"] if n["label"] in ("bar", "Foo::bar()")}
+    assert len(bar_ids) == 1, f"bar decl/def should be one node, got {bar_ids}"
+    assert bar_nodes, "the merged bar node should be a member of Foo"
+
+
+def test_cpp_paired_includes_resolve_to_real_header():
+    """Foo.cpp and Main.cpp `#include "Foo.h"` must resolve to the real Foo.h file
+    node (no dangling import)."""
+    r = _corpus("cpp_paired/Foo.h", "cpp_paired/Foo.cpp", "cpp_paired/Main.cpp")
+    ids = {n["id"] for n in r["nodes"]}
+    foo_h = _nodes_with_label(r, "Foo.h")[0]["id"]
+    imports = [e for e in r["edges"] if e["relation"] == "imports"]
+    assert len(imports) >= 2
+    for e in imports:
+        assert e["target"] in ids, f"dangling import target: {e}"
+    assert any(e["target"] == foo_h for e in imports), "includes should target Foo.h"
+
+
+def test_cpp_paired_no_dangling_edges():
+    r = _corpus("cpp_paired/Foo.h", "cpp_paired/Foo.cpp", "cpp_paired/Main.cpp")
+    _assert_no_dangling(r)
+
+
+# --- #1556: ObjC paired header/impl + bridging header -------------------------
+
+def test_objc_header_with_import_routes_to_objc():
+    """A bridging header that is only `#import "X.h"` (no @interface) must route to
+    extract_objc; extract_c parses `#import` as preproc_call and drops the edge."""
+    p = (FIXTURES / "objc_mixed" / "Bridging-Header.h").resolve()
+    assert _is_objc_header(p)
+    assert _get_extractor(p).__name__ == "extract_objc"
+
+
+def test_objc_paired_single_class_methods_not_duplicated():
+    """Widget.h (@interface) + Widget.m (@implementation) -> ONE Widget class node
+    with its methods present once each."""
+    r = _corpus("objc_mixed/Widget.h", "objc_mixed/Widget.m")
+    widgets = _nodes_with_label(r, "Widget")
+    assert len(widgets) == 1, f"expected one Widget, got {[n['id'] for n in widgets]}"
+    render = _nodes_with_label(r, "-render")
+    refresh = _nodes_with_label(r, "-refresh")
+    assert len(render) == 1, f"-render duplicated: {render}"
+    assert len(refresh) == 1, f"-refresh duplicated: {refresh}"
+
+
+def test_objc_bridging_header_not_isolated():
+    """A bridging header of only `#import "Widget.h"` must produce an imports edge
+    to the real Widget.h node (not be an isolated node)."""
+    r = _corpus("objc_mixed/Widget.h", "objc_mixed/Widget.m", "objc_mixed/Bridging-Header.h")
+    bridge = _nodes_with_label(r, "Bridging-Header.h")[0]["id"]
+    widget_h = _nodes_with_label(r, "Widget.h")[0]["id"]
+    out = [e for e in r["edges"] if e["source"] == bridge and e["relation"] == "imports"]
+    assert out, "bridging header should emit an imports edge"
+    assert any(e["target"] == widget_h for e in out), "bridging import should target Widget.h"
+
+
+def test_objc_paired_no_dangling_edges():
+    r = _corpus("objc_mixed/Widget.h", "objc_mixed/Widget.m", "objc_mixed/Bridging-Header.h")
+    _assert_no_dangling(r)
+
+
+# --- #1556: Swift extension folds onto canonical ObjC class -------------------
+
+def test_swift_extension_folds_onto_objc_class():
+    """`extension Widget` in Swift over an ObjC `Widget` must fold onto the single
+    canonical Widget node, with its members anchored there."""
+    r = _corpus("objc_mixed/Widget.h", "objc_mixed/Widget.m", "objc_mixed/WidgetExtras.swift")
+    widgets = _nodes_with_label(r, "Widget")
+    assert len(widgets) == 1, f"expected one Widget, got {[n['id'] for n in widgets]}"
+    wid = widgets[0]["id"]
+    method_targets = {e["target"] for e in r["edges"] if e["relation"] == "method" and e["source"] == wid}
+    labels = {n["label"] for n in r["nodes"] if n["id"] in method_targets}
+    assert any("describe" in l for l in labels), f"Swift extension method should anchor on Widget, got {labels}"
+    _assert_no_dangling(r)
+
+
+# --- god-node guard negatives -------------------------------------------------
+
+def test_decldef_merge_does_not_merge_across_directories():
+    """Two unrelated `class Logger` in DIFFERENT directories (each its own .h/.cpp)
+    must NOT merge — assert TWO distinct Logger nodes."""
+    r = _corpus(
+        "cpp_logger/a/Logger.h", "cpp_logger/a/Logger.cpp",
+        "cpp_logger/b/Logger.h", "cpp_logger/b/Logger.cpp",
+    )
+    loggers = _nodes_with_label(r, "Logger")
+    assert len(loggers) == 2, f"cross-dir Loggers must stay distinct, got {[n['id'] for n in loggers]}"
+    assert len({n["id"] for n in loggers}) == 2
+
+
+def test_decldef_merge_does_not_merge_same_name_same_dir_distinct_files():
+    """Two same-named `class Dup` in the SAME dir but different base stems
+    (Alpha.h, Beta.h) must stay distinct (no unique header/impl sibling pair)."""
+    r = _corpus("cpp_samedir/Alpha.h", "cpp_samedir/Beta.h")
+    dups = _nodes_with_label(r, "Dup")
+    assert len(dups) == 2, f"same-dir distinct Dups must stay distinct, got {[n['id'] for n in dups]}"

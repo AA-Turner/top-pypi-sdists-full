@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-azure-ai-search
-Version: 1.0.0b260521
+Version: 1.0.0b260630
 Summary: Azure AI Search integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,8 +16,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.6.0,<2
-Requires-Dist: azure-search-documents>=11.7.0b2,<11.7.0b3
+Requires-Dist: agent-framework-core>=1.10.0,<2
+Requires-Dist: azure-search-documents>=12.0.0,<13
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true
@@ -37,6 +37,24 @@ The Azure AI Search integration provides context providers for RAG (Retrieval Au
 
 - **Semantic Mode**: Fast hybrid search (vector + keyword) with semantic ranking
 - **Agentic Mode**: Multi-hop reasoning using Knowledge Bases for complex queries
+
+### API versions: stable vs preview
+
+The integration auto-detects which build of `azure-search-documents` is installed — there is
+nothing to configure in code:
+
+| Channel | Install | Data-plane `api-version` (chosen by the SDK) |
+| --- | --- | --- |
+| **Stable** | `pip install azure-search-documents` (`>=12.0.0`) | `2026-04-01` |
+| **Preview** | `pip install --pre azure-search-documents` (e.g. `12.1.0b1`) | `2026-05-01-preview` |
+
+The provider never pins an `api-version`; the installed build selects its own, so newer
+releases work without code changes.
+
+Agentic **output modes** (`answer_synthesis`) and **extended reasoning effort** (`low`/`medium`)
+ship only in the preview build. When a stable build is installed, the provider uses extractive
+output with minimal reasoning effort and raises an actionable error if a preview-only option is
+explicitly requested. Switching channels is a single change — the install — with no code edits.
 
 ### Basic Usage Example
 

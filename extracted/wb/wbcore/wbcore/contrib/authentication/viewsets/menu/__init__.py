@@ -1,6 +1,0 @@
-from .user_activities import (
-    USER_ACTIVITY_CHART_MENUITEM,
-    USER_ACTIVITY_MENUITEM,
-    USER_ACTIVITY_TABLE_MENUITEM,
-)
-from .users import USER_MENUITEM

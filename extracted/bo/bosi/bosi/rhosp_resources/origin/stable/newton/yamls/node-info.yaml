@@ -1,8 +1,0 @@
-parameter_defaults:
-  CloudDomain: <your-domain-name>
-  OvercloudControlFlavor: control
-  OvercloudComputeFlavor: compute
-  OvercloudCephStorageFlavor: ceph-storage
-  ControllerCount: 1
-  ComputeCount: 1
-  CephStorageCount: 0

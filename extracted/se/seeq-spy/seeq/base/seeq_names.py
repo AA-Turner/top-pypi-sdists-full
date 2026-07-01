@@ -663,19 +663,19 @@ class SeeqNames:
         windows_auth = 'Windows Auth'
     
     class LocalDatasources:
-        class Models:
-            datasource_class = 'Seeq Models'
+        class Templates:
+            datasource_class = 'Seeq Templates'
             class Industry:
-                datasource_id = 'Industry Models'
-                datasource_name = 'Industry Models'
+                datasource_id = 'Industry Templates'
+                datasource_name = 'Industry Templates'
             
             class User:
-                datasource_id = 'User Models'
-                datasource_name = 'User Models'
+                datasource_id = 'User Templates'
+                datasource_name = 'User Templates'
             
             class System:
-                datasource_id = 'System Models'
-                datasource_name = 'System Models'
+                datasource_id = 'System Templates'
+                datasource_name = 'System Templates'
             
         
         class MaterializedTables:
@@ -773,6 +773,7 @@ class SeeqNames:
         report_templates = 'ReportTemplates'
         condition_monitors = 'ConditionMonitors'
         condition_monitor_runs = 'ConditionMonitorRuns'
+        item_finder_runs = 'ItemFinderRuns'
         signal_monitors = 'SignalMonitors'
         plugins = 'Plugins'
         displays = 'Displays'
@@ -831,6 +832,7 @@ class SeeqNames:
         networks = '/networks'
         items = '/items'
         item_finders = '/finders'
+        item_finder_runs = '/item-finder-runs'
         reports = '/reports'
         jobs = '/jobs'
         logs = '/logs'

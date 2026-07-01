@@ -1,0 +1,21 @@
+Metadata-Version: 1.1
+Name: codenamize
+Version: 1.2.3
+Summary: Generate consistent easier-to-remember names from strings and numbers
+Home-page: http://github.com/jjmontesl/codenamize
+Author: Jose Juan Montes
+Author-email: jjmontes@gmail.com
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.2
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4

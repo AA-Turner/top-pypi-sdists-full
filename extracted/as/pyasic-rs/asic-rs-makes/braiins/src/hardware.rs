@@ -1,0 +1,49 @@
+use asic_rs_core::data::{board::MinerControlBoard, collector::FromValue, device::MinerHardware};
+use serde::{Deserialize, Serialize};
+use strum::Display;
+
+use crate::models::BraiinsModel;
+
+impl From<BraiinsModel> for MinerHardware {
+    fn from(value: BraiinsModel) -> Self {
+        match value {
+            BraiinsModel::BMM100 => Self {
+                fans: Some(1),
+                boards: Some(vec![None]),
+            },
+            BraiinsModel::BMM101 => Self {
+                fans: Some(1),
+                boards: Some(vec![None]),
+            },
+            BraiinsModel::Unknown(_) => Default::default(),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize, Display)]
+pub enum BraiinsControlBoard {
+    #[serde(rename = "BraiinsCB")]
+    BraiinsCB,
+}
+
+impl BraiinsControlBoard {
+    pub fn parse(s: &str) -> Option<Self> {
+        let cb_model = s.trim().replace(' ', "").to_uppercase();
+        match cb_model.as_ref() {
+            "BRAIINSCB" => Some(Self::BraiinsCB),
+            _ => None,
+        }
+    }
+}
+
+impl FromValue for BraiinsControlBoard {
+    fn from_value(value: &serde_json::Value) -> Option<Self> {
+        Self::parse(value.as_str()?)
+    }
+}
+
+impl From<BraiinsControlBoard> for MinerControlBoard {
+    fn from(cb: BraiinsControlBoard) -> Self {
+        MinerControlBoard::known(cb.to_string())
+    }
+}

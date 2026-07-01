@@ -115,7 +115,7 @@ def studio_create(
 
         Type-specific options:
         - audio: audio_format (deep_dive|brief|critique|debate), audio_length (short|default|long)
-        - video: video_format (explainer|brief|cinematic), visual_style (auto_select|custom|classic|whiteboard|kawaii|anime|watercolor|retro_print|heritage|paper_craft), video_style_prompt
+        - video: video_format (explainer|brief|cinematic|short), visual_style (auto_select|custom|classic|whiteboard|kawaii|anime|watercolor|retro_print|heritage|paper_craft; not for cinematic/short), video_style_prompt
         - infographic: orientation (landscape|portrait|square), detail_level (concise|standard|detailed), infographic_style (auto_select|sketch_note|professional|bento_grid|editorial|instructional|bricks|clay|anime|kawaii|scientific)
         - slide_deck: slide_format (detailed_deck|presenter_slides), slide_length (short|default)
         - report: report_format (Briefing Doc|Study Guide|Blog Post|Create Your Own), custom_prompt
@@ -293,6 +293,7 @@ def studio_status(
                 - status: completed, in_progress, failed
                 - url: URL to view/download (if applicable)
                 - custom_instructions: The custom prompt/focus instructions used to generate the artifact (if any)
+                - source_ids: List of source UUIDs the artifact was generated from
             - summary: Counts of total, completed, in_progress
     """
     try:

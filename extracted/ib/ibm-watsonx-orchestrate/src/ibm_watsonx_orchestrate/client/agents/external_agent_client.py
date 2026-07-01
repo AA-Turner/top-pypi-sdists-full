@@ -1,1 +1,0 @@
-from ibm_watsonx_orchestrate_clients.agents.external_agent_client import *

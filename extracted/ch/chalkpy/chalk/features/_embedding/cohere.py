@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Sequence, Type
+from typing import TYPE_CHECKING, Optional, Sequence, Type
 
 import numpy as np
 import pyarrow as pa
@@ -9,6 +9,11 @@ from chalk.features._embedding.embedding_provider import EmbeddingProvider
 from chalk.features._embedding.utils import ModelSpecs
 from chalk.features._vector import Vector
 from chalk.utils.missing_dependency import missing_dependency_exception
+
+if TYPE_CHECKING:
+    import cohere
+else:
+    cohere = None
 
 _MODEL_SPECS = {
     "embed-english-v3.0": ModelSpecs(
@@ -41,9 +46,12 @@ _MODEL_SPECS = {
 class CohereProvider(EmbeddingProvider):
     def __init__(self, model: str, dimensions: Optional[int] = None) -> None:
         super().__init__()
-        # NOTE: The `cohere` import is deferred to embedding generation (execution time) so that
-        # graph construction succeeds in environments where the dependency is absent (e.g. the
-        # branch server, which imports user code against the lightweight base image).
+        try:
+            global cohere
+            import cohere
+        except ImportError:
+            raise missing_dependency_exception("chalkpy[cohere]")
+
         if model not in _MODEL_SPECS:
             supported_models_str = ", ".join(f"'{model}'" for model in _MODEL_SPECS)
             raise ValueError(
@@ -67,10 +75,6 @@ class CohereProvider(EmbeddingProvider):
         return
 
     async def async_generate_embedding(self, input: pa.Table):
-        try:
-            import cohere
-        except ImportError:
-            raise missing_dependency_exception("chalkpy[cohere]")
         co = cohere.AsyncClient()
         text_input: list[str] = input.column(0).to_pylist()
         response = await co.embed(texts=text_input, model=self.model, input_type="search_document")
@@ -80,10 +84,6 @@ class CohereProvider(EmbeddingProvider):
         yield pa.FixedSizeListArray.from_arrays(vectors.reshape(-1), self.dimensions)
 
     def generate_embedding(self, input: pa.Table) -> pa.FixedSizeListArray:
-        try:
-            import cohere
-        except ImportError:
-            raise missing_dependency_exception("chalkpy[cohere]")
         co = cohere.Client()
         text_input: list[str] = input.column(0).to_pylist()
         response = co.embed(texts=text_input, model=self.model, input_type="search_document")

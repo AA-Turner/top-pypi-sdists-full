@@ -1,0 +1,90 @@
+name: Publish to PyPI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Run required smoke tests
+        run: uv run python scripts/run_required_smoke_tests.py -q
+
+  publish:
+    name: Publish
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Read package metadata
+        id: package
+        run: |
+          uv run python - <<'PY' >> "$GITHUB_OUTPUT"
+          import tomllib
+          from pathlib import Path
+
+          project = tomllib.loads(Path("pyproject.toml").read_text())["project"]
+          print(f"name={project['name']}")
+          print(f"version={project['version']}")
+          PY
+
+      - name: Check PyPI version
+        id: pypi
+        run: |
+          url="https://pypi.org/pypi/${{ steps.package.outputs.name }}/${{ steps.package.outputs.version }}/json"
+          status="$(curl -sS -o /dev/null -w '%{http_code}' "$url")"
+
+          if [ "$status" = "200" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "Version ${{ steps.package.outputs.version }} already exists on PyPI; skipping publish."
+          elif [ "$status" = "404" ]; then
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "Version ${{ steps.package.outputs.version }} is not on PyPI; publishing."
+          else
+            echo "Unexpected PyPI response: $status" >&2
+            exit 1
+          fi
+
+      - name: Build package
+        if: steps.pypi.outputs.published == 'false'
+        run: uv build
+
+      - name: Publish package
+        if: steps.pypi.outputs.published == 'false'
+        uses: pypa/gh-action-pypi-publish@release/v1

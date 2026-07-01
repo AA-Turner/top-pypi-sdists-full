@@ -6,6 +6,7 @@
 #include "common/cast.h"
 #include "common/exception/message.h"
 #include "common/exception/runtime.h"
+#include "common/task_system/progress_bar.h"
 #include "common/type_utils.h"
 #include "common/types/types.h"
 #include "main/client_context.h"
@@ -707,7 +708,7 @@ bool NodeTable::checkpoint(main::ClientContext* context, TableCatalogEntry* tabl
         // TODO: The hash index checkpoint currently operates on live index state rather than
         // a snapshotTxn view. This is a pre-existing limitation; threading snapshotTxn through
         // the full hash-index infrastructure is deferred to a follow-up.
-        index.checkpoint(context, pageAllocator);
+        index.checkpoint(context, pageAllocator, *shadowFile);
     }
     // Checkpoint succeeded. Now vacuum dropped columns and update catalog IDs.
     // Guard under schemaMtx so concurrent readers see a consistent view.
@@ -749,10 +750,22 @@ void NodeTable::rollbackCheckpoint() {
     }
 }
 
+void NodeTable::reclaimDroppedIndexes(PageAllocator& pageAllocator) {
+    for (const auto& index : droppedIndexes) {
+        index.reclaimStorage(pageAllocator);
+    }
+    droppedIndexes.clear();
+}
+
 void NodeTable::reclaimStorage(PageAllocator& pageAllocator) const {
     nodeGroups->reclaimStorage(pageAllocator);
-    if (auto* pkIndex = tryGetPKIndex()) {
-        pkIndex->reclaimStorage(pageAllocator);
+    for (const auto& index : indexes) {
+        index.reclaimStorage(pageAllocator);
+    }
+    // Also reclaim any indexes that were dropped (but not yet checkpointed) before the table
+    // itself was dropped.
+    for (const auto& index : droppedIndexes) {
+        index.reclaimStorage(pageAllocator);
     }
 }
 
@@ -865,6 +878,29 @@ bool NodeTable::lookupPKRange(const Transaction* transaction, ValueVector* lower
         [&](offset_t offset) { return isVisibleNoLock(transaction, offset); });
 }
 
+bool NodeTable::lookupIndexRange(const Transaction* transaction, const std::string& indexName,
+    ValueVector* lowerBoundVector, uint64_t lowerBoundPos, bool lowerInclusive,
+    ValueVector* upperBoundVector, uint64_t upperBoundPos, bool upperInclusive, idx_t maxResults,
+    std::vector<offset_t>& results) const {
+    auto index = getIndex(indexName);
+    if (!index.has_value()) {
+        return false;
+    }
+    return index.value()->scanPrimaryKeyRange(lowerBoundVector, lowerBoundPos, lowerInclusive,
+        upperBoundVector, upperBoundPos, upperInclusive, maxResults, results,
+        [&](offset_t offset) { return isVisibleNoLock(transaction, offset); });
+}
+
+bool NodeTable::lookupIndex(const Transaction* transaction, const std::string& indexName,
+    ValueVector* keyVector, uint64_t keyPos, std::vector<offset_t>& results) const {
+    auto index = getIndex(indexName);
+    if (!index.has_value()) {
+        return false;
+    }
+    return index.value()->lookupAll(transaction, keyVector, keyPos, results,
+        [&](offset_t offset) { return isVisibleNoLock(transaction, offset); });
+}
+
 bool NodeTable::scanPKColumn(const Transaction* transaction, const Value& keyToLookup,
     std::vector<ColumnPredicateSet> columnPredicateSets, offset_t& result) const {
     auto dataChunk = constructDataChunkForColumns({pkColumnID});
@@ -910,12 +946,17 @@ bool NodeTable::scanPKColumn(const Transaction* transaction, const Value& keyToL
 }
 
 void NodeTable::scanIndexColumns(main::ClientContext* context, IndexScanHelper& scanHelper,
-    const NodeGroupCollection& nodeGroups_) const {
+    const NodeGroupCollection& nodeGroups_, std::optional<uint64_t> queryID) const {
     auto dataChunk = constructDataChunkForColumns(scanHelper.index->getIndexInfo().columnIDs);
     const auto scanState =
         scanHelper.initScanState(transaction::Transaction::Get(*context), dataChunk);
 
     const auto numNodeGroups = nodeGroups_.getNumNodeGroups();
+    auto* progressBar = queryID.has_value() ? common::ProgressBar::Get(*context) : nullptr;
+    if (progressBar != nullptr) {
+        progressBar->addPipeline();
+        progressBar->updateProgress(queryID.value(), numNodeGroups == 0 ? 1.0 : 0.01);
+    }
     for (node_group_idx_t nodeGroupToScan = 0u; nodeGroupToScan < numNodeGroups;
          ++nodeGroupToScan) {
         scanState->nodeGroup = nodeGroups_.getNodeGroupNoLock(nodeGroupToScan);
@@ -936,6 +977,10 @@ void NodeTable::scanIndexColumns(main::ClientContext* context, IndexScanHelper& 
                 }
             }
         }
+        if (progressBar != nullptr) {
+            progressBar->updateProgress(queryID.value(),
+                static_cast<double>(nodeGroupToScan + 1) / numNodeGroups);
+        }
     }
 }
 
@@ -947,13 +992,14 @@ void NodeTable::addIndex(std::unique_ptr<Index> index) {
     setHasChanges();
 }
 
-void NodeTable::buildIndexAndAdd(main::ClientContext* context, std::unique_ptr<Index> index) {
+void NodeTable::buildIndexAndAdd(main::ClientContext* context, std::unique_ptr<Index> index,
+    std::optional<uint64_t> queryID) {
     if (getIndex(index->getName()).has_value()) {
         throw RuntimeException("Index with name " + index->getName() + " already exists.");
     }
     CommittedIndexInserter indexInserter{this, index.get(),
         getVisibleFunc(transaction::Transaction::Get(*context))};
-    scanIndexColumns(context, indexInserter, *nodeGroups);
+    scanIndexColumns(context, indexInserter, *nodeGroups, queryID);
     indexes.push_back(IndexHolder{std::move(index)});
     setHasChanges();
 }
@@ -963,6 +1009,10 @@ void NodeTable::dropIndex(const std::string& name) {
     for (auto it = indexes.begin(); it != indexes.end(); ++it) {
         if (StringUtils::caseInsensitiveEquals(it->getName(), name)) {
             DASSERT(it->isLoaded());
+            // Retain the holder so its page range is known; the pages are reclaimed at the
+            // next checkpoint (reclaimDroppedIndexes), not here, since freeing them within the
+            // dropping transaction would be unsafe on rollback.
+            droppedIndexes.push_back(std::move(*it));
             indexes.erase(it);
             setHasChanges();
             return;

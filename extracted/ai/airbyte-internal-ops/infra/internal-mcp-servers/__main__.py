@@ -210,6 +210,11 @@ def define_mcp_cloud_run_service(
         opts=pulumi.ResourceOptions(
             delete_before_replace=False,
             depends_on=depends,
+            ignore_changes=[
+                "client",
+                "clientVersion",
+                "template.containers[0].startupProbe",
+            ],
         ),
     )
 

@@ -55,6 +55,8 @@ from datadog_api_client.v2.api.fleet_automation_api import FleetAutomationApi
 from datadog_api_client.v2.api.forms_api import FormsApi
 from datadog_api_client.v2.api.gcp_integration_api import GCPIntegrationApi
 from datadog_api_client.v2.api.google_chat_integration_api import GoogleChatIntegrationApi
+from datadog_api_client.v2.api.governance_controls_api import GovernanceControlsApi
+from datadog_api_client.v2.api.governance_insights_api import GovernanceInsightsApi
 from datadog_api_client.v2.api.high_availability_multi_region_api import HighAvailabilityMultiRegionApi
 from datadog_api_client.v2.api.ip_allowlist_api import IPAllowlistApi
 from datadog_api_client.v2.api.incidents_api import IncidentsApi
@@ -88,6 +90,7 @@ from datadog_api_client.v2.api.processes_api import ProcessesApi
 from datadog_api_client.v2.api.product_analytics_api import ProductAnalyticsApi
 from datadog_api_client.v2.api.rum_api import RUMApi
 from datadog_api_client.v2.api.rum_insights_api import RUMInsightsApi
+from datadog_api_client.v2.api.rum_remote_config_api import RUMRemoteConfigApi
 from datadog_api_client.v2.api.reference_tables_api import ReferenceTablesApi
 from datadog_api_client.v2.api.report_schedules_api import ReportSchedulesApi
 from datadog_api_client.v2.api.restriction_policies_api import RestrictionPoliciesApi
@@ -189,6 +192,8 @@ __all__ = [
     "FormsApi",
     "GCPIntegrationApi",
     "GoogleChatIntegrationApi",
+    "GovernanceControlsApi",
+    "GovernanceInsightsApi",
     "HighAvailabilityMultiRegionApi",
     "IPAllowlistApi",
     "IncidentsApi",
@@ -222,6 +227,7 @@ __all__ = [
     "ProductAnalyticsApi",
     "RUMApi",
     "RUMInsightsApi",
+    "RUMRemoteConfigApi",
     "ReferenceTablesApi",
     "ReportSchedulesApi",
     "RestrictionPoliciesApi",

@@ -1,0 +1,23 @@
+---
+name: 314-dev
+channels:
+  - conda-forge
+dependencies:
+  - python=3.14
+  - git
+  - pip
+  # testing
+  - pytest
+  - pytest-cov
+  - pytest-xdist
+  - pip:
+    # dev versions of packages
+    - --pre \
+        --index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple  \
+        --extra-index-url https://pypi.org/simple
+    - numpy
+    - pandas
+    - pyogrio
+    - scipy
+    - shapely
+    - git+https://github.com/geopandas/geopandas.git

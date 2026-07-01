@@ -1,0 +1,12 @@
+#
+# Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
+#
+
+from .snowflake_catalog import SnowflakeCatalog
+
+SNOWFLAKE_CATALOG = SnowflakeCatalog()
+
+CATALOGS = {
+    "snowflake_catalog": SNOWFLAKE_CATALOG,
+    "spark_catalog": SNOWFLAKE_CATALOG,
+}

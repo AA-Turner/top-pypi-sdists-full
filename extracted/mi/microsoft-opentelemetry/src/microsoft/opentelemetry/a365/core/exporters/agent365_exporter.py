@@ -1,0 +1,582 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
+
+"""Agent365 span exporter.
+
+Vendored from microsoft-agents-a365-observability-core exporters/agent365_exporter.py.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import threading
+import time
+from collections.abc import Callable, Sequence
+from typing import Any, Optional, final
+
+import requests
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+from opentelemetry.trace import StatusCode
+
+from microsoft.opentelemetry._sdkstats import is_sdkstats_enabled
+from microsoft.opentelemetry.a365.core.exporters.token_resolver_context import (
+    AgentIdentity,
+    TokenResolverContext,
+)
+from microsoft.opentelemetry.a365.core.exporters.utils import (
+    DEFAULT_MAX_PAYLOAD_BYTES,
+    build_export_url,
+    chunk_by_size,
+    estimate_span_bytes,
+    get_validated_domain_override,
+    hex_span_id,
+    hex_trace_id,
+    kind_name,
+    parse_retry_after,
+    filter_and_partition_by_identity,
+    status_name,
+    truncate_span,
+)
+from microsoft.opentelemetry.a365.constants import A365_HTTP_TIMEOUT_SECONDS, GEN_AI_AGENT_AUID_KEY
+
+# mypy: disable-error-code="import-untyped, union-attr"
+
+# Hardcoded constants - not configurable
+DEFAULT_HTTP_TIMEOUT_SECONDS = A365_HTTP_TIMEOUT_SECONDS
+DEFAULT_MAX_RETRIES = 3
+DEFAULT_ENDPOINT_URL = "https://agent365.svc.cloud.microsoft"
+
+# Circuit breaker defaults
+DEFAULT_CB_FAILURE_THRESHOLD = 5
+DEFAULT_CB_RECOVERY_TIMEOUT = 30.0  # seconds
+
+logger = logging.getLogger(__name__)
+
+
+class _CircuitBreaker:
+    """Lightweight circuit breaker for the A365 exporter HTTP path.
+
+    States:
+        CLOSED   – normal operation; requests flow through.
+        OPEN     – failures exceeded threshold; requests are rejected immediately.
+        HALF_OPEN – recovery window elapsed; one probe request is allowed.
+
+    Thread-safe via an internal lock.
+    """
+
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = DEFAULT_CB_FAILURE_THRESHOLD,
+        recovery_timeout: float = DEFAULT_CB_RECOVERY_TIMEOUT,
+    ):
+        self._failure_threshold = failure_threshold
+        self._recovery_timeout = recovery_timeout
+        self._lock = threading.Lock()
+        self._state = self.CLOSED
+        self._consecutive_failures = 0
+        self._last_failure_time: float | None = None
+        self._total_rejected = 0
+        self._probe_in_flight = False
+
+    # -- query --
+
+    @property
+    def state(self) -> str:
+        with self._lock:
+            self._maybe_transition_to_half_open()
+            return self._state
+
+    @property
+    def total_rejected(self) -> int:
+        with self._lock:
+            return self._total_rejected
+
+    def allow_request(self) -> bool:
+        """Return True if a request should be attempted."""
+        with self._lock:
+            self._maybe_transition_to_half_open()
+            if self._state == self.CLOSED:
+                return True
+            if self._state == self.HALF_OPEN and not self._probe_in_flight:
+                self._probe_in_flight = True
+                return True  # allow exactly one probe
+            # OPEN or HALF_OPEN with probe already in flight
+            self._total_rejected += 1
+            return False
+
+    # -- feedback --
+
+    def record_success(self) -> None:
+        with self._lock:
+            if self._state != self.CLOSED:
+                logger.warning(
+                    "Circuit breaker CLOSED (recovered). %d requests were rejected while the circuit was open.",
+                    self._total_rejected,
+                )
+            self._state = self.CLOSED
+            self._consecutive_failures = 0
+            self._last_failure_time = None
+            self._total_rejected = 0
+            self._probe_in_flight = False
+
+    def record_failure(self) -> None:
+        with self._lock:
+            self._consecutive_failures += 1
+            self._last_failure_time = time.monotonic()
+            self._probe_in_flight = False
+            if self._state == self.HALF_OPEN:
+                # Probe failed — re-open
+                self._state = self.OPEN
+                logger.warning(
+                    "Circuit breaker re-OPENED after failed probe. Will retry after %.0fs.",
+                    self._recovery_timeout,
+                )
+            elif self._state == self.CLOSED and self._consecutive_failures >= self._failure_threshold:
+                self._state = self.OPEN
+                logger.warning(
+                    "Circuit breaker OPENED after %d consecutive failures. "
+                    "Requests will be rejected for %.0fs to avoid silent telemetry loss.",
+                    self._consecutive_failures,
+                    self._recovery_timeout,
+                )
+
+    # -- internal --
+
+    def _maybe_transition_to_half_open(self) -> None:
+        """Must be called with self._lock held."""
+        if (
+            self._state == self.OPEN
+            and self._last_failure_time is not None
+            and (time.monotonic() - self._last_failure_time) >= self._recovery_timeout
+        ):
+            self._state = self.HALF_OPEN
+            self._probe_in_flight = False
+            logger.warning("Circuit breaker entering HALF_OPEN state; allowing one probe request.")
+
+
+@final
+# pylint: disable=broad-exception-caught
+class _Agent365Exporter(SpanExporter):
+    """Agent365 span exporter.
+
+    * Partitions spans by (tenantId, agentId)
+    * Builds OTLP-like JSON: resourceSpans -> scopeSpans -> spans
+    * POSTs per group to the Agent365 observability endpoint
+    * Adds Bearer token via contextual_token_resolver(context) when set,
+      otherwise falls back to token_resolver(agentId, tenantId)
+    """
+
+    def __init__(
+        self,
+        token_resolver: Optional[Callable[[str, str], str | None]] = None,
+        contextual_token_resolver: Optional[Callable[[TokenResolverContext], str | None]] = None,
+        cluster_category: str = "prod",
+        use_s2s_endpoint: bool = False,
+        max_payload_bytes: int = DEFAULT_MAX_PAYLOAD_BYTES,
+    ):
+        if token_resolver is None and contextual_token_resolver is None:
+            raise ValueError("token_resolver or contextual_token_resolver must be provided.")
+        if max_payload_bytes <= 0:
+            raise ValueError(f"max_payload_bytes must be positive, got {max_payload_bytes}")
+        self._session = requests.Session()
+        self._closed = False
+        self._lock = threading.Lock()
+        self._token_resolver = token_resolver
+        self._contextual_token_resolver = contextual_token_resolver
+        self._cluster_category = cluster_category
+        self._use_s2s_endpoint = use_s2s_endpoint
+        self._max_payload_bytes = max_payload_bytes
+        self._domain_override = get_validated_domain_override()
+        self._circuit_breaker = _CircuitBreaker()
+        self.record_sdkstats = is_sdkstats_enabled()
+
+    # ------------- SpanExporter API -----------------
+
+    def _resolve_token(self, agent_id: str, tenant_id: str, activities: list[ReadableSpan]) -> Optional[str]:
+        """Resolve auth token, preferring contextual_token_resolver when set."""
+        if self._contextual_token_resolver is not None:
+            agentic_user_id: Optional[str] = None
+            if activities:
+                first_attrs = activities[0].attributes or {}
+                raw_auid = first_attrs.get(GEN_AI_AGENT_AUID_KEY)
+                if raw_auid is not None:
+                    agentic_user_id = str(raw_auid)
+            identity = AgentIdentity(agent_id, agentic_user_id)
+            context = TokenResolverContext(identity, tenant_id)
+            return self._contextual_token_resolver(context)
+        # Constructor guarantees at least one resolver is set.
+        assert self._token_resolver is not None
+        return self._token_resolver(agent_id, tenant_id)
+
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        if self._closed:
+            return SpanExportResult.FAILURE
+
+        try:
+            groups = filter_and_partition_by_identity(spans)
+            if not groups:
+                # No eligible genAI spans to export after filtering/partitioning; treat as success
+                logger.info("No eligible genAI spans to export; nothing exported.")
+                return SpanExportResult.SUCCESS
+
+            total_spans = sum(len(activities) for activities in groups.values())
+            logger.debug(
+                "Found %d identity groups with %d total spans to export",
+                len(groups),
+                total_spans,
+            )
+
+            any_failure = False
+            for (tenant_id, agent_id), activities in groups.items():
+                # Map and truncate spans first, then chunk by estimated byte size
+                mapped_spans = self._map_and_truncate_spans(activities)
+                resource_attrs = self._get_resource_attributes(activities)
+                chunks = chunk_by_size(
+                    mapped_spans,
+                    lambda ms: estimate_span_bytes(ms[0]),
+                    self._max_payload_bytes,
+                )
+
+                if len(chunks) > 1:
+                    logger.debug(
+                        "Split %d spans into %d chunks for tenantId: %s, agentId: %s",
+                        len(activities),
+                        len(chunks),
+                        tenant_id,
+                        agent_id,
+                    )
+
+                endpoint = self._domain_override or DEFAULT_ENDPOINT_URL
+                url = build_export_url(endpoint, agent_id, tenant_id, self._use_s2s_endpoint)
+
+                logger.debug(
+                    "Exporting %d spans to endpoint: %s (tenant: %s, agent: %s)",
+                    len(activities),
+                    url,
+                    tenant_id,
+                    agent_id,
+                )
+
+                headers: dict[str, str | bytes] = {"content-type": "application/json"}
+                try:
+                    token = self._resolve_token(agent_id, tenant_id, activities)
+                    if token:
+                        if not url.lower().startswith("https://"):
+                            logger.warning(
+                                "Bearer token is being sent over a non-HTTPS connection. "
+                                "This may expose credentials in transit."
+                            )
+                        headers["authorization"] = f"Bearer {token}"
+                        logger.debug("Token resolved successfully for agent %s", agent_id)
+                    else:
+                        logger.debug("No token returned for agent %s", agent_id)
+                except Exception as e:
+                    logger.error(
+                        "Token resolution failed for agent %s, tenant %s: %s",
+                        agent_id,
+                        tenant_id,
+                        e,
+                    )
+                    any_failure = True
+                    continue
+
+                # Send each chunk (all-or-nothing: fail group on first chunk failure)
+                group_failed = False
+                for i, chunk in enumerate(chunks):
+                    payload = self._build_envelope(chunk, resource_attrs)
+                    body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+                    body_bytes = len(body.encode("utf-8"))
+                    logger.debug(
+                        "Sending chunk %d of %d (%d spans, %d bytes)",
+                        i + 1,
+                        len(chunks),
+                        len(chunk),
+                        body_bytes,
+                    )
+                    # Defensive check: the estimator covers per-span content but not
+                    # envelope overhead (resource attributes, scope wrappers). Warn if
+                    # the assembled body exceeds the configured limit so operators can
+                    # observe estimator drift before the server starts rejecting requests.
+                    if body_bytes > self._max_payload_bytes:
+                        logger.warning(
+                            "Chunk %d of %d body size (%d bytes) exceeds max_payload_bytes (%d); "
+                            "estimator may be under-counting envelope overhead. "
+                            "Tenant: %s, agent: %s, spans: %d.",
+                            i + 1,
+                            len(chunks),
+                            body_bytes,
+                            self._max_payload_bytes,
+                            tenant_id,
+                            agent_id,
+                            len(chunk),
+                        )
+
+                    ok = self._post_with_retries(url, body, headers)
+                    if not ok:
+                        logger.error(
+                            "Chunk %d of %d failed for tenant %s, agent %s",
+                            i + 1,
+                            len(chunks),
+                            tenant_id,
+                            agent_id,
+                        )
+                        any_failure = True
+                        group_failed = True
+                        break
+
+                if group_failed:
+                    continue
+
+            return SpanExportResult.FAILURE if any_failure else SpanExportResult.SUCCESS
+
+        except Exception as e:
+            logger.error("Export failed with exception: %s", e)
+            return SpanExportResult.FAILURE
+
+    def shutdown(self) -> None:
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            try:
+                self._session.close()
+            except Exception:
+                pass
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        return True
+
+    # ------------- HTTP helper ----------------------
+
+    @staticmethod
+    def _truncate_text(text: str, max_length: int) -> str:
+        if len(text) > max_length:
+            return text[:max_length] + "..."
+        return text
+
+    def _post_with_retries(  # pylint: disable=too-many-statements
+        self, url: str, body: str, headers: dict[str, str | bytes]
+    ) -> bool:
+        if not self._circuit_breaker.allow_request():
+            logger.warning(
+                "Circuit breaker is OPEN \u2014 skipping POST to %s. %d total requests rejected so far.",
+                url,
+                self._circuit_breaker.total_rejected,
+            )
+            return False
+
+        # Local imports to avoid pulling sdkstats into the exporter module's
+        # import graph for consumers that don't use this package.
+        from urllib.parse import urlparse
+        from microsoft.opentelemetry._sdkstats._constants import ENDPOINT_A365
+        from microsoft.opentelemetry._sdkstats._utils import (
+            THROTTLE_STATUS_CODES,
+            record_duration,
+            record_exception,
+            record_failure,
+            record_retry,
+            record_success,
+            record_throttle,
+        )
+
+        host = urlparse(url).hostname or url
+        record_a365_sdkstats = self.record_sdkstats
+
+        for attempt in range(DEFAULT_MAX_RETRIES + 1):
+            start_time = time.time()
+            try:
+                resp = self._session.post(
+                    url,
+                    data=body.encode("utf-8"),
+                    headers=headers,
+                    timeout=DEFAULT_HTTP_TIMEOUT_SECONDS,
+                )
+
+                correlation_id = resp.headers.get("x-ms-correlation-id") or resp.headers.get("request-id") or "N/A"
+
+                if 200 <= resp.status_code < 300:
+                    if record_a365_sdkstats:
+                        record_success(ENDPOINT_A365, host)
+                    logger.debug(
+                        "HTTP %d success on attempt %d. Correlation ID: %s. Response: %s",
+                        resp.status_code,
+                        attempt + 1,
+                        correlation_id,
+                        self._truncate_text(resp.text, 200),
+                    )
+                    self._circuit_breaker.record_success()
+                    return True
+
+                response_text = self._truncate_text(resp.text, 500)
+
+                if resp.status_code in (408, 429) or 500 <= resp.status_code < 600:
+                    retry_after = parse_retry_after(resp.headers)
+                    if attempt < DEFAULT_MAX_RETRIES:
+                        if record_a365_sdkstats:
+                            record_retry(ENDPOINT_A365, host, resp.status_code)
+                        if retry_after is not None:
+                            time.sleep(min(retry_after, 60.0))
+                        else:
+                            time.sleep(0.5 * (2**attempt))
+                        continue
+                    if record_a365_sdkstats:
+                        if resp.status_code in THROTTLE_STATUS_CODES:
+                            record_throttle(ENDPOINT_A365, host, resp.status_code)
+                        else:
+                            record_failure(ENDPOINT_A365, host, resp.status_code)
+                    logger.error(
+                        "HTTP %d final failure after %d attempts. Correlation ID: %s. Response: %s",
+                        resp.status_code,
+                        DEFAULT_MAX_RETRIES + 1,
+                        correlation_id,
+                        response_text,
+                    )
+                    self._circuit_breaker.record_failure()
+                else:
+                    if record_a365_sdkstats:
+                        if resp.status_code in THROTTLE_STATUS_CODES:
+                            record_throttle(ENDPOINT_A365, host, resp.status_code)
+                        else:
+                            record_failure(ENDPOINT_A365, host, resp.status_code)
+                    logger.error(
+                        "HTTP %d non-retryable error. Correlation ID: %s. Response: %s. "
+                        "WWW-Authenticate: %s. Response headers: %s",
+                        resp.status_code,
+                        correlation_id,
+                        response_text,
+                        resp.headers.get("www-authenticate", "N/A"),
+                        dict(resp.headers),
+                    )
+                return False
+
+            except requests.RequestException as e:
+                if record_a365_sdkstats:
+                    record_exception(ENDPOINT_A365, host, type(e).__name__)
+                if attempt < DEFAULT_MAX_RETRIES:
+                    time.sleep(0.5 * (2**attempt))
+                    continue
+                logger.error("Request failed after %d attempts: %s", DEFAULT_MAX_RETRIES + 1, e)
+                self._circuit_breaker.record_failure()
+                return False
+            finally:
+                # Record duration for every status
+                if record_a365_sdkstats:
+                    record_duration(ENDPOINT_A365, host, time.time() - start_time)
+        return False  # pragma: no cover
+
+    # ------------- Payload mapping ------------------
+
+    def _map_and_truncate_spans(self, spans: Sequence[ReadableSpan]) -> list[tuple[dict[str, Any], str, str | None]]:
+        """Map ReadableSpans to OTLP dicts and apply per-span truncation.
+
+        Returns a list of (mapped_span, scope_name, scope_version) tuples so
+        that envelope grouping by instrumentation scope can be performed
+        efficiently after byte-size chunking.
+        """
+        result: list[tuple[dict[str, Any], str, str | None]] = []
+        for sp in spans:
+            scope = sp.instrumentation_scope
+            scope_name = scope.name if scope is not None else "unknown"
+            scope_version = scope.version if scope is not None else None
+            result.append((self._map_span(sp), scope_name, scope_version))
+        return result
+
+    @staticmethod
+    def _get_resource_attributes(spans: Sequence[ReadableSpan]) -> dict[str, Any]:
+        """Extract resource attributes from the first span in the batch."""
+        if spans:
+            return dict(getattr(spans[0].resource, "attributes", {}) or {})
+        return {}
+
+    def _build_envelope(
+        self,
+        mapped_spans: Sequence[tuple[dict[str, Any], str, str | None]],
+        resource_attrs: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Build an OTLP export request envelope from pre-mapped spans."""
+        scope_map: dict[tuple[str, str | None], list[dict[str, Any]]] = {}
+        for mapped_span, scope_name, scope_version in mapped_spans:
+            scope_map.setdefault((scope_name, scope_version), []).append(mapped_span)
+
+        scope_spans: list[dict[str, Any]] = [
+            {
+                "scope": {"name": name, "version": version},
+                "spans": spans,
+            }
+            for (name, version), spans in scope_map.items()
+        ]
+
+        return {
+            "resourceSpans": [
+                {
+                    "resource": {"attributes": resource_attrs or None},
+                    "scopeSpans": scope_spans,
+                }
+            ]
+        }
+
+    def _map_span(self, sp: ReadableSpan) -> dict[str, Any]:
+        ctx = sp.get_span_context()
+
+        parent_span_id = None
+        if sp.parent is not None and sp.parent.span_id != 0:
+            parent_span_id = hex_span_id(sp.parent.span_id)
+
+        attrs = dict(sp.attributes or {})
+
+        events: list[dict[str, Any]] | None = None
+        if sp.events:
+            events = []
+            for ev in sp.events:
+                ev_attrs = dict(ev.attributes or {}) if ev.attributes else None
+                events.append(
+                    {
+                        "timeUnixNano": ev.timestamp,
+                        "name": ev.name,
+                        "attributes": ev_attrs,
+                    }
+                )
+
+        links: list[dict[str, Any]] | None = None
+        if sp.links:
+            links = []
+            for ln in sp.links:
+                ln_attrs = dict(ln.attributes or {}) if ln.attributes else None
+                links.append(
+                    {
+                        "traceId": hex_trace_id(ln.context.trace_id),
+                        "spanId": hex_span_id(ln.context.span_id),
+                        "attributes": ln_attrs,
+                    }
+                )
+
+        status_code = sp.status.status_code if sp.status else StatusCode.UNSET
+        status = {
+            "code": status_name(status_code),
+            "message": getattr(sp.status, "description", "") or "",
+        }
+
+        span_dict: dict[str, Any] = {
+            "traceId": hex_trace_id(ctx.trace_id),
+            "spanId": hex_span_id(ctx.span_id),
+            "parentSpanId": parent_span_id,
+            "name": sp.name,
+            "kind": kind_name(sp.kind),
+            "startTimeUnixNano": sp.start_time,
+            "endTimeUnixNano": sp.end_time,
+            "attributes": attrs or None,
+            "events": events,
+            "links": links,
+            "status": status,
+        }
+
+        return truncate_span(span_dict)

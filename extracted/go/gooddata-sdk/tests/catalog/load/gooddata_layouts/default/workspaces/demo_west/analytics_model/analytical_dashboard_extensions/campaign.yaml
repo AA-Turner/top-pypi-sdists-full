@@ -1,0 +1,6 @@
+# (C) 2026 GoodData Corporation
+id: campaign
+permissions:
+  - assigneeRule:
+      type: allWorkspaceUsers
+    name: VIEW

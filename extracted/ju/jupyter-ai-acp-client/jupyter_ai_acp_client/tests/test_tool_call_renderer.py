@@ -1,0 +1,880 @@
+from acp.schema import FileEditToolCallContent
+
+from jupyter_ai_acp_client.tool_call_renderer import (
+    ToolCallDiff,
+    ToolCallState,
+    _shorten_title,
+    _generate_title,
+    _parse_unified_diff,
+    extract_diffs,
+    extract_diffs_from_raw_input,
+    update_tool_call_from_start,
+    update_tool_call_from_progress,
+)
+
+
+def _serialize(tool_calls: dict[str, ToolCallState]) -> list[dict]:
+    """Helper to serialize tool calls using model_dump."""
+    return [tc.model_dump(exclude_none=True) for tc in tool_calls.values()]
+
+
+class TestUpdateToolCallFromStart:
+    def test_creates_new_tool_call(self):
+        tool_calls = {}
+        update_tool_call_from_start(
+            tool_calls,
+            tool_call_id="tc-1",
+            title="Reading file.py...",
+            kind="read",
+        )
+        assert "tc-1" in tool_calls
+        tc = tool_calls["tc-1"]
+        assert tc.tool_call_id == "tc-1"
+        assert tc.title == "Reading file.py..."
+        assert tc.kind == "read"
+        assert tc.status == "in_progress"
+        assert tc.raw_output is None
+
+    def test_overwrites_existing_tool_call(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Old title",
+                kind="read",
+                status="completed",
+            )
+        }
+        update_tool_call_from_start(
+            tool_calls,
+            tool_call_id="tc-1",
+            title="New title",
+            kind="edit",
+        )
+        tc = tool_calls["tc-1"]
+        assert tc.title == "New title"
+        assert tc.kind == "edit"
+        assert tc.status == "completed"  # status preserved on merge
+
+    def test_without_kind(self):
+        tool_calls = {}
+        update_tool_call_from_start(
+            tool_calls,
+            tool_call_id="tc-1",
+            title="Doing something",
+        )
+        assert tool_calls["tc-1"].kind is None
+
+    def test_empty_title_generates_from_kind_and_locations(self):
+        tool_calls = {}
+        update_tool_call_from_start(
+            tool_calls,
+            tool_call_id="tc-1",
+            title="",
+            kind="read",
+            locations=["/Users/foo/project/justfile"],
+        )
+        assert tool_calls["tc-1"].title == "Reading justfile"
+
+    def test_start_with_diffs(self):
+        diffs = [ToolCallDiff(path="/a/b.py", new_text="new", old_text="old")]
+        tool_calls = {}
+        update_tool_call_from_start(
+            tool_calls,
+            tool_call_id="tc-1",
+            title="Editing b.py",
+            kind="edit",
+            diffs=diffs,
+        )
+        assert tool_calls["tc-1"].diffs == diffs
+
+    def test_start_stores_raw_input(self):
+        tool_calls = {}
+        update_tool_call_from_start(
+            tool_calls,
+            tool_call_id="tc-1",
+            title="Running command...",
+            kind="execute",
+            raw_input={"command": "rm foo.py"},
+        )
+        assert tool_calls["tc-1"].raw_input == {"command": "rm foo.py"}
+
+    def test_start_raw_input_none_by_default(self):
+        tool_calls = {}
+        update_tool_call_from_start(
+            tool_calls,
+            tool_call_id="tc-1",
+            title="Running command...",
+            kind="execute",
+        )
+        assert tool_calls["tc-1"].raw_input is None
+
+
+class TestUpdateToolCallFromProgress:
+    def test_updates_existing_tool_call(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Reading file.py...",
+                kind="read",
+                status="in_progress",
+            )
+        }
+        update_tool_call_from_progress(
+            tool_calls,
+            tool_call_id="tc-1",
+            title="Read file.py (42 lines)",
+            status="completed",
+        )
+        tc = tool_calls["tc-1"]
+        assert tc.title == "Read file.py (42 lines)"
+        assert tc.status == "completed"
+
+    def test_creates_if_not_exists(self):
+        tool_calls = {}
+        update_tool_call_from_progress(
+            tool_calls,
+            tool_call_id="tc-1",
+            title="Some progress",
+            status="in_progress",
+        )
+        assert "tc-1" in tool_calls
+        tc = tool_calls["tc-1"]
+        assert tc.title == "Some progress"
+        assert tc.status == "in_progress"
+
+    def test_updates_raw_output(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Running ls",
+                kind="execute",
+                status="in_progress",
+            )
+        }
+        update_tool_call_from_progress(
+            tool_calls,
+            tool_call_id="tc-1",
+            status="completed",
+            raw_output="file1.py\nfile2.py\n",
+        )
+        tc = tool_calls["tc-1"]
+        assert tc.status == "completed"
+        assert tc.raw_output == "file1.py\nfile2.py\n"
+
+    def test_partial_update_preserves_existing(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Reading file.py...",
+                kind="read",
+                status="in_progress",
+            )
+        }
+        # Only update status, not title
+        update_tool_call_from_progress(
+            tool_calls,
+            tool_call_id="tc-1",
+            status="completed",
+        )
+        tc = tool_calls["tc-1"]
+        assert tc.title == "Reading file.py..."  # preserved
+        assert tc.status == "completed"  # updated
+
+    def test_none_values_dont_overwrite(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Original title",
+                kind="read",
+                status="in_progress",
+            )
+        }
+        update_tool_call_from_progress(
+            tool_calls,
+            tool_call_id="tc-1",
+            title=None,
+            status=None,
+        )
+        tc = tool_calls["tc-1"]
+        assert tc.title == "Original title"
+        assert tc.status == "in_progress"
+
+    def test_updates_raw_input(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Running command...",
+                kind="execute",
+                status="in_progress",
+            )
+        }
+        update_tool_call_from_progress(
+            tool_calls,
+            tool_call_id="tc-1",
+            raw_input={"command": "rm foo.py"},
+        )
+        assert tool_calls["tc-1"].raw_input == {"command": "rm foo.py"}
+
+    def test_none_raw_input_does_not_overwrite(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Running command...",
+                kind="execute",
+                status="in_progress",
+                raw_input={"command": "rm foo.py"},
+            )
+        }
+        update_tool_call_from_progress(
+            tool_calls,
+            tool_call_id="tc-1",
+            raw_input=None,
+        )
+        assert tool_calls["tc-1"].raw_input == {"command": "rm foo.py"}
+
+    def test_diffs_preserved_across_progress(self):
+        diffs = [ToolCallDiff(path="/a/b.py", new_text="new", old_text="old")]
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Editing b.py",
+                kind="edit",
+                status="in_progress",
+                diffs=diffs,
+            )
+        }
+        update_tool_call_from_progress(
+            tool_calls,
+            tool_call_id="tc-1",
+            status="completed",
+        )
+        assert tool_calls["tc-1"].diffs == diffs
+
+    def test_progress_updates_diffs(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Editing b.py",
+                kind="edit",
+                status="in_progress",
+            )
+        }
+        diffs = [ToolCallDiff(path="/a/b.py", new_text="new", old_text="old")]
+        update_tool_call_from_progress(
+            tool_calls,
+            tool_call_id="tc-1",
+            diffs=diffs,
+        )
+        assert tool_calls["tc-1"].diffs == diffs
+
+
+class TestSerializeToolCalls:
+    def test_empty_dict(self):
+        result = _serialize({})
+        assert result == []
+
+    def test_single_tool_call(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Reading file.py...",
+                kind="read",
+                status="in_progress",
+            )
+        }
+        result = _serialize(tool_calls)
+        assert len(result) == 1
+        assert result[0] == {
+            "tool_call_id": "tc-1",
+            "title": "Reading file.py...",
+            "kind": "read",
+            "status": "in_progress",
+        }
+
+    def test_strips_none_values(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Something",
+                kind=None,
+                status=None,
+                raw_output=None,
+            )
+        }
+        result = _serialize(tool_calls)
+        assert len(result) == 1
+        assert result[0] == {
+            "tool_call_id": "tc-1",
+            "title": "Something",
+        }
+
+    def test_preserves_raw_output(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Ran ls",
+                kind="execute",
+                status="completed",
+                raw_output="file1\nfile2\n",
+            )
+        }
+        result = _serialize(tool_calls)
+        assert result[0]["raw_output"] == "file1\nfile2\n"
+
+    def test_includes_raw_input_when_set(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Running command...",
+                kind="execute",
+                status="in_progress",
+                raw_input={"command": "rm foo.py"},
+            )
+        }
+        result = _serialize(tool_calls)
+        assert result[0]["raw_input"] == {"command": "rm foo.py"}
+
+    def test_omits_raw_input_when_none(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Running command...",
+                kind="execute",
+                status="in_progress",
+            )
+        }
+        result = _serialize(tool_calls)
+        assert "raw_input" not in result[0]
+
+    def test_multiple_tool_calls(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Read file.py (42 lines)",
+                kind="read",
+                status="completed",
+            ),
+            "tc-2": ToolCallState(
+                tool_call_id="tc-2",
+                title="Writing output.py...",
+                kind="edit",
+                status="in_progress",
+            ),
+        }
+        result = _serialize(tool_calls)
+        assert len(result) == 2
+        ids = [r["tool_call_id"] for r in result]
+        assert "tc-1" in ids
+        assert "tc-2" in ids
+
+    def test_dict_raw_output(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="API call",
+                status="completed",
+                raw_output={"key": "value"},
+            )
+        }
+        result = _serialize(tool_calls)
+        assert result[0]["raw_output"] == {"key": "value"}
+
+    def test_list_raw_output(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Search",
+                status="completed",
+                raw_output=["item1", "item2"],
+            )
+        }
+        result = _serialize(tool_calls)
+        assert result[0]["raw_output"] == ["item1", "item2"]
+
+    def test_serializes_locations(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Read justfile",
+                kind="read",
+                status="completed",
+                locations=["/Users/foo/project/justfile"],
+            )
+        }
+        result = _serialize(tool_calls)
+        assert result[0]["locations"] == ["/Users/foo/project/justfile"]
+
+    def test_strips_none_locations(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Working...",
+                status="in_progress",
+                locations=None,
+            )
+        }
+        result = _serialize(tool_calls)
+        assert "locations" not in result[0]
+
+    def test_serializes_diffs(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Editing b.py",
+                kind="edit",
+                status="completed",
+                diffs=[ToolCallDiff(path="/a/b.py", new_text="new", old_text="old")],
+            )
+        }
+        result = _serialize(tool_calls)
+        assert result[0]["diffs"] == [
+            {"path": "/a/b.py", "new_text": "new", "old_text": "old"}
+        ]
+
+    def test_strips_none_diffs(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Reading...",
+                status="in_progress",
+                diffs=None,
+            )
+        }
+        result = _serialize(tool_calls)
+        assert "diffs" not in result[0]
+
+
+class TestShortenTitle:
+    def test_absolute_path(self):
+        assert _shorten_title("Read /Users/foo/bar/justfile") == "Read justfile"
+
+    def test_multiple_absolute_paths(self):
+        assert _shorten_title("Moved /a/b/old.py /a/b/new.py") == "Moved old.py new.py"
+
+    def test_no_paths(self):
+        assert _shorten_title("Read File") == "Read File"
+
+    def test_relative_path(self):
+        # Doesn't start with / — not an absolute path, leave as-is
+        assert _shorten_title("Read src/foo.py") == "Read src/foo.py"
+
+    def test_single_component_path(self):
+        # Starts with / but only one component — not shortened
+        assert _shorten_title("Read /justfile") == "Read /justfile"
+
+    def test_empty_string(self):
+        assert _shorten_title("") == ""
+
+    def test_only_path(self):
+        assert _shorten_title("/Users/foo/bar/baz.py") == "baz.py"
+
+    def test_mixed_words_and_paths(self):
+        assert _shorten_title("Editing /a/b/c.py with changes") == "Editing c.py with changes"
+
+
+class TestShortenTitleIntegration:
+    def test_start_shortens_agent_title(self):
+        tool_calls = {}
+        update_tool_call_from_start(
+            tool_calls,
+            tool_call_id="tc-1",
+            title="Read /Users/aieroshe/Documents/project/justfile",
+            kind="read",
+        )
+        assert tool_calls["tc-1"].title == "Read justfile"
+
+    def test_start_preserves_short_title(self):
+        tool_calls = {}
+        update_tool_call_from_start(
+            tool_calls,
+            tool_call_id="tc-1",
+            title="Read File",
+            kind="read",
+        )
+        assert tool_calls["tc-1"].title == "Read File"
+
+    def test_start_stores_locations(self):
+        tool_calls = {}
+        update_tool_call_from_start(
+            tool_calls,
+            tool_call_id="tc-1",
+            title="Read File",
+            kind="read",
+            locations=["/Users/foo/project/justfile"],
+        )
+        assert tool_calls["tc-1"].locations == ["/Users/foo/project/justfile"]
+
+    def test_progress_shortens_title_update(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Read File",
+                kind="read",
+                status="in_progress",
+            )
+        }
+        update_tool_call_from_progress(
+            tool_calls,
+            tool_call_id="tc-1",
+            title="Read /Users/aieroshe/Documents/project/justfile",
+            status="completed",
+        )
+        assert tool_calls["tc-1"].title == "Read justfile"
+
+    def test_progress_creates_with_shortened_title(self):
+        tool_calls = {}
+        update_tool_call_from_progress(
+            tool_calls,
+            tool_call_id="tc-1",
+            title="Read /Users/aieroshe/Documents/project/justfile",
+            status="completed",
+        )
+        assert tool_calls["tc-1"].title == "Read justfile"
+
+    def test_progress_stores_locations(self):
+        tool_calls = {}
+        update_tool_call_from_progress(
+            tool_calls,
+            tool_call_id="tc-1",
+            title="Read File",
+            status="in_progress",
+            locations=["/Users/foo/project/justfile"],
+        )
+        assert tool_calls["tc-1"].locations == ["/Users/foo/project/justfile"]
+
+    def test_progress_updates_locations(self):
+        tool_calls = {
+            "tc-1": ToolCallState(
+                tool_call_id="tc-1",
+                title="Read File",
+                kind="read",
+                status="in_progress",
+            )
+        }
+        update_tool_call_from_progress(
+            tool_calls,
+            tool_call_id="tc-1",
+            locations=["/Users/foo/project/justfile"],
+        )
+        assert tool_calls["tc-1"].locations == ["/Users/foo/project/justfile"]
+
+    def test_full_flow_start_start_progress(self):
+        """Simulate actual agent flow: two starts + completed progress."""
+        tool_calls = {}
+
+        # ToolCallStart #1: generic title, no locations
+        update_tool_call_from_start(
+            tool_calls, tool_call_id="tc-1",
+            title="Read File", kind="read",
+        )
+        assert tool_calls["tc-1"].title == "Read File"
+        assert tool_calls["tc-1"].status == "in_progress"
+
+        # ToolCallStart #2: full path, with locations
+        update_tool_call_from_start(
+            tool_calls, tool_call_id="tc-1",
+            title="Read /Users/aieroshe/Documents/project/justfile",
+            kind="read",
+            locations=["/Users/aieroshe/Documents/project/justfile"],
+        )
+        assert tool_calls["tc-1"].title == "Read justfile"
+        assert tool_calls["tc-1"].locations == ["/Users/aieroshe/Documents/project/justfile"]
+
+        # ToolCallProgress: completed, no title change
+        update_tool_call_from_progress(
+            tool_calls, tool_call_id="tc-1",
+            status="completed",
+        )
+        assert tool_calls["tc-1"].title == "Read justfile"
+        assert tool_calls["tc-1"].status == "completed"
+
+        # Serialize — locations should be included for frontend
+        result = _serialize(tool_calls)
+        assert result[0]["title"] == "Read justfile"
+        assert result[0]["locations"] == ["/Users/aieroshe/Documents/project/justfile"]
+        assert result[0]["status"] == "completed"
+
+    def test_full_flow_with_diffs(self):
+        """Simulate edit flow: start → start-with-diffs → progress-completed."""
+        tool_calls = {}
+        diffs = [ToolCallDiff(path="/a/b.py", new_text="new code", old_text="old code")]
+
+        # ToolCallStart #1: no diffs yet
+        update_tool_call_from_start(
+            tool_calls, tool_call_id="tc-1",
+            title="Editing b.py", kind="edit",
+        )
+        assert tool_calls["tc-1"].diffs is None
+
+        # ToolCallStart #2: diffs arrive
+        update_tool_call_from_start(
+            tool_calls, tool_call_id="tc-1",
+            title="Editing b.py", kind="edit",
+            diffs=diffs,
+        )
+        assert tool_calls["tc-1"].diffs == diffs
+
+        # ToolCallProgress: completed, diffs preserved
+        update_tool_call_from_progress(
+            tool_calls, tool_call_id="tc-1",
+            status="completed",
+        )
+        assert tool_calls["tc-1"].diffs == diffs
+        assert tool_calls["tc-1"].status == "completed"
+
+        # Serialize — diffs should be included for frontend
+        result = _serialize(tool_calls)
+        assert result[0]["diffs"] == [
+            {"path": "/a/b.py", "new_text": "new code", "old_text": "old code"}
+        ]
+
+
+class TestGenerateTitle:
+    def test_kind_with_locations(self):
+        assert _generate_title("read", ["/Users/foo/project/justfile"]) == "Reading justfile"
+
+    def test_kind_without_locations(self):
+        assert _generate_title("read") == "Reading..."
+
+    def test_edit_kind(self):
+        assert _generate_title("edit", ["/a/b/c.py"]) == "Editing c.py"
+
+    def test_execute_kind(self):
+        assert _generate_title("execute") == "Running command..."
+
+    def test_no_kind_no_locations(self):
+        assert _generate_title(None) == "Working..."
+
+    def test_unknown_kind(self):
+        assert _generate_title("unknown_kind") == "Working..."
+
+    def test_location_without_slash(self):
+        assert _generate_title("read", ["justfile"]) == "Reading justfile"
+
+    def test_multiple_locations_uses_first(self):
+        assert _generate_title("read", ["/a/b/first.py", "/a/b/second.py"]) == "Reading first.py"
+
+
+class TestExtractDiffs:
+    def test_extracts_file_edit_content(self):
+        content = [
+            FileEditToolCallContent(
+                path="/a/b.py", newText="new", oldText="old", type="diff"
+            )
+        ]
+        result = extract_diffs(content)
+        assert result is not None
+        assert len(result) == 1
+        assert result[0].path == "/a/b.py"
+        assert result[0].new_text == "new"
+        assert result[0].old_text == "old"
+
+    def test_returns_none_for_empty_content(self):
+        assert extract_diffs([]) is None
+
+    def test_returns_none_for_none(self):
+        assert extract_diffs(None) is None
+
+    def test_skips_non_file_edit_items(self):
+        content = [
+            "not a FileEditToolCallContent",
+            FileEditToolCallContent(
+                path="/a/b.py", newText="new", oldText="old", type="diff"
+            ),
+            42,
+        ]
+        result = extract_diffs(content)
+        assert result is not None
+        assert len(result) == 1
+        assert result[0].path == "/a/b.py"
+
+    def test_new_file_has_none_old_text(self):
+        content = [
+            FileEditToolCallContent(
+                path="/a/new.py", newText="hello", type="diff"
+            )
+        ]
+        result = extract_diffs(content)
+        assert result is not None
+        assert result[0].old_text is None
+
+    def test_relative_path_normalized_with_root_dir(self):
+        content = [
+            FileEditToolCallContent(
+                path="b.py", newText="new", type="diff"
+            )
+        ]
+        result = extract_diffs(content, root_dir="/srv")
+        assert result is not None
+        assert result[0].path == "/srv/b.py"
+
+    def test_absolute_path_unchanged_with_root_dir(self):
+        content = [
+            FileEditToolCallContent(
+                path="/a/b.py", newText="new", type="diff"
+            )
+        ]
+        result = extract_diffs(content, root_dir="/srv")
+        assert result is not None
+        assert result[0].path == "/a/b.py"
+
+    def test_no_root_dir_preserves_relative_path(self):
+        content = [
+            FileEditToolCallContent(
+                path="b.py", newText="new", type="diff"
+            )
+        ]
+        result = extract_diffs(content)
+        assert result is not None
+        assert result[0].path == "b.py"
+
+    def test_tilde_path_expanded_with_root_dir(self):
+        content = [
+            FileEditToolCallContent(
+                path="~/docs/b.py", newText="new", type="diff"
+            )
+        ]
+        result = extract_diffs(content, root_dir="/srv")
+        assert result is not None
+        # expanduser() resolves ~ to actual home dir
+        assert result[0].path.endswith("/docs/b.py")
+        assert not result[0].path.startswith("~")
+        assert result[0].path.startswith("/")
+
+    def test_dotdot_path_resolved_with_root_dir(self):
+        content = [
+            FileEditToolCallContent(
+                path="../nbs/b.py", newText="new", type="diff"
+            )
+        ]
+        result = extract_diffs(content, root_dir="/srv/root")
+        assert result is not None
+        assert result[0].path == "/srv/nbs/b.py"
+
+    def test_dot_relative_path_cleaned_with_root_dir(self):
+        content = [
+            FileEditToolCallContent(
+                path="./dir/b.py", newText="new", type="diff"
+            )
+        ]
+        result = extract_diffs(content, root_dir="/srv")
+        assert result is not None
+        assert result[0].path == "/srv/dir/b.py"
+
+
+class TestParseUnifiedDiff:
+    def test_new_file(self):
+        diff = (
+            "Index: foo.py\n"
+            "===================================================================\n"
+            "--- foo.py\n"
+            "+++ foo.py\n"
+            "@@ -0,0 +1,1 @@\n"
+            "+print('hello')\n"
+        )
+        result = _parse_unified_diff(diff)
+        assert result is not None
+        old, new = result
+        assert old == ""
+        assert new == "print('hello')"
+
+    def test_edit_file(self):
+        diff = (
+            "Index: foo.py\n"
+            "===================================================================\n"
+            "--- foo.py\n"
+            "+++ foo.py\n"
+            "@@ -1,1 +1,2 @@\n"
+            "+# comment\n"
+            " print('hello')\n"
+        )
+        result = _parse_unified_diff(diff)
+        assert result is not None
+        old, new = result
+        assert old == "print('hello')"
+        assert new == "# comment\nprint('hello')"
+
+    def test_delete_lines(self):
+        diff = (
+            "@@ -1,2 +1,1 @@\n"
+            "-# old comment\n"
+            " print('hello')\n"
+        )
+        result = _parse_unified_diff(diff)
+        assert result is not None
+        old, new = result
+        assert old == "# old comment\nprint('hello')"
+        assert new == "print('hello')"
+
+    def test_multiple_hunks(self):
+        diff = (
+            "@@ -1,1 +1,1 @@\n"
+            "-old_a\n"
+            "+new_a\n"
+            "@@ -10,1 +10,1 @@\n"
+            "-old_b\n"
+            "+new_b\n"
+        )
+        result = _parse_unified_diff(diff)
+        assert result is not None
+        old, new = result
+        assert old == "old_a\nold_b"
+        assert new == "new_a\nnew_b"
+
+    def test_not_a_diff(self):
+        assert _parse_unified_diff("just a string") is None
+
+    def test_empty_hunks(self):
+        assert _parse_unified_diff("@@ -0,0 +0,0 @@\n") is None
+
+
+
+class TestExtractDiffsFromRawInput:
+    def test_filepath_and_diff(self):
+        raw = {
+            "filepath": "/tmp/foo.py",
+            "diff": "@@ -0,0 +1,1 @@\n+hello\n",
+        }
+        result = extract_diffs_from_raw_input(raw)
+        assert result is not None
+        assert len(result) == 1
+        assert result[0].path == "/tmp/foo.py"
+        assert result[0].new_text == "hello"
+        assert result[0].old_text is None
+
+    def test_camelCase_filePath(self):
+        raw = {
+            "filePath": "/tmp/foo.py",
+            "diff": "@@ -0,0 +1,1 @@\n+hello\n",
+        }
+        result = extract_diffs_from_raw_input(raw)
+        assert result is not None
+        assert result[0].path == "/tmp/foo.py"
+
+    def test_edit_preserves_old_text(self):
+        raw = {
+            "filepath": "/tmp/foo.py",
+            "diff": "@@ -1,1 +1,2 @@\n+# new\n old\n",
+        }
+        result = extract_diffs_from_raw_input(raw)
+        assert result is not None
+        assert result[0].old_text == "old"
+        assert result[0].new_text == "# new\nold"
+
+    def test_relative_path_resolved(self):
+        raw = {
+            "filepath": "foo.py",
+            "diff": "@@ -0,0 +1,1 @@\n+x\n",
+        }
+        result = extract_diffs_from_raw_input(raw, root_dir="/srv/project")
+        assert result is not None
+        assert result[0].path == "/srv/project/foo.py"
+
+    def test_absolute_path_unchanged(self):
+        raw = {
+            "filepath": "/abs/path/foo.py",
+            "diff": "@@ -0,0 +1,1 @@\n+x\n",
+        }
+        result = extract_diffs_from_raw_input(raw, root_dir="/home/user/project")
+        assert result is not None
+        assert result[0].path == "/abs/path/foo.py"

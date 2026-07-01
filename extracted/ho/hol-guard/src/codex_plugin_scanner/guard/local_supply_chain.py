@@ -7,6 +7,7 @@ import inspect
 import json
 import os
 import shlex
+import socket
 import subprocess
 import threading
 import time
@@ -27,7 +28,7 @@ from .adapters.base import HarnessContext
 from .advisory_model import ProtectTargetIdentity, advisory_matches_target, build_package_url
 from .config import GuardConfig, resolve_risk_action
 from .models import GuardAction, GuardArtifact, GuardReceipt
-from .redaction import redact_text
+from .redaction import redact_local_path, redact_text
 from .runtime.package_intent_common import (
     PackageIntent,
     PackageIntentTarget,
@@ -1417,6 +1418,8 @@ def _apply_stored_package_policy_override(
     )
     if not isinstance(decision, dict):
         return evaluation
+    if _stored_package_policy_is_stale_policy_bundle_family(decision, store=store):
+        return evaluation
     action = decision.get("action")
     if action == "allow":
         return _package_policy_override_evaluation(
@@ -1432,17 +1435,123 @@ def _apply_stored_package_policy_override(
             reason_message="HOL Guard reused your saved approval for this package request.",
         )
     if action == "block":
+        clear_command = _saved_package_policy_clear_command(
+            artifact=artifact,
+            artifact_hash=artifact_hash,
+            matched_policy=decision,
+            workspace_dir=workspace_dir,
+        )
         return _package_policy_override_evaluation(
             evaluation,
             decision="block",
             policy_action="block",
             title="Blocked by saved policy",
             summary="HOL Guard kept this package blocked because a saved package policy already exists.",
-            harness_message="HOL Guard kept this package blocked because a saved package policy already exists.",
+            harness_message=(
+                "HOL Guard kept this package blocked because a saved package policy already exists. "
+                f"To reconsider, run `{clear_command}`, then retry the install."
+            ),
+            next_step=clear_command,
             reason_code="saved_package_block",
             reason_message="HOL Guard kept this package blocked because a saved package policy already exists.",
         )
     return evaluation
+
+
+def _stored_package_policy_is_stale_policy_bundle_family(decision: dict[str, object], *, store: Any) -> bool:
+    """Ignore package family rows only when the current bundle proves they are stale."""
+
+    if not (
+        _string_value(decision.get("source")) == "policy-bundle"
+        and _string_value(decision.get("artifact_id")) == "family:package-request"
+        and decision.get("artifact_hash") is None
+        and _string_value(decision.get("scope")) in {"harness", "global"}
+    ):
+        return False
+    owner = _string_value(decision.get("owner"))
+    if owner is None:
+        return False
+    get_sync_payload = getattr(store, "get_sync_payload", None)
+    if not callable(get_sync_payload):
+        return False
+    bundle = get_sync_payload("policy_bundle")
+    if not isinstance(bundle, dict):
+        return False
+    rules = bundle.get("rules")
+    if not isinstance(rules, list):
+        return False
+    matching_rules = [rule for rule in rules if isinstance(rule, dict) and _string_value(rule.get("ruleId")) == owner]
+    if not matching_rules:
+        return True
+    return not any(_policy_bundle_rule_has_package_scope(rule) for rule in matching_rules)
+
+
+def _stored_package_policy_evaluation_requires_review(evaluation: Any) -> bool:
+    policy_action = _string_value(getattr(evaluation, "policy_action", None))
+    decision = _string_value(getattr(evaluation, "decision", None))
+    return policy_action in {"block", "require-reapproval"} or decision in {"block", "ask"}
+
+
+def _policy_bundle_rule_has_package_scope(rule: dict[str, object]) -> bool:
+    if _string_value(rule.get("artifactType")) == "package_request":
+        return True
+    matcher_families = rule.get("matcherFamilies")
+    scope = rule.get("scope")
+    if _policy_bundle_scope_has_package_scope(scope):
+        return True
+    if isinstance(matcher_families, list) and "package-request" not in matcher_families:
+        return False
+    if not isinstance(scope, dict):
+        return isinstance(matcher_families, list) and "package-request" in matcher_families
+    return False
+
+
+def _policy_bundle_scope_has_package_scope(scope: object) -> bool:
+    if not isinstance(scope, dict):
+        return False
+    for key in ("ecosystems", "packages", "packageNames", "packageManagers", "registries", "sourceUrls"):
+        value = scope.get(key)
+        if isinstance(value, list) and value:
+            return True
+        if _string_value(value) is not None:
+            return True
+    return False
+
+
+def _saved_package_policy_clear_command(
+    *,
+    artifact: GuardArtifact,
+    artifact_hash: str,
+    matched_policy: dict[str, object],
+    workspace_dir: Path,
+) -> str:
+    scope = _string_value(matched_policy.get("scope")) or "artifact"
+    command = [
+        "hol-guard",
+        "policies",
+        "clear",
+    ]
+    decision_id = matched_policy.get("decision_id")
+    if isinstance(decision_id, int):
+        command.extend(("--decision-id", str(decision_id)))
+    command.extend(("--harness", _string_value(matched_policy.get("harness")) or artifact.harness, "--scope", scope))
+    artifact_id = _string_value(matched_policy.get("artifact_id"))
+    if artifact_id is None and scope in {"artifact", "workspace", "harness", "global"}:
+        artifact_id = artifact.artifact_id
+    if artifact_id is not None:
+        command.extend(("--artifact-id", artifact_id))
+    matched_hash = _string_value(matched_policy.get("artifact_hash"))
+    if matched_hash is not None:
+        command.extend(("--artifact-hash", matched_hash))
+    policy_workspace = _string_value(matched_policy.get("workspace"))
+    if policy_workspace is None and scope in {"artifact", "workspace"}:
+        policy_workspace = str(workspace_dir)
+    if policy_workspace is not None:
+        command.extend(("--policy-workspace", policy_workspace))
+    publisher = _string_value(matched_policy.get("publisher"))
+    if publisher is not None:
+        command.extend(("--publisher", publisher))
+    return shlex.join(command)
 
 
 def recompute_package_protect_artifact_hash(
@@ -1619,6 +1728,7 @@ def _package_policy_override_evaluation(
     title: str,
     summary: str,
     harness_message: str,
+    next_step: str | None = None,
     reason_code: str,
     reason_message: str,
 ) -> Any:
@@ -1639,7 +1749,7 @@ def _package_policy_override_evaluation(
         user_copy=_supply_chain_package_eval_module().SupplyChainUserCopy(
             title=title,
             summary=summary,
-            next_step=None,
+            next_step=next_step,
             dashboard_url=None,
             harness_message=harness_message,
         ),
@@ -2188,15 +2298,24 @@ def _run_cloud_workspace_audit(
         }
     else:
         request_url = _normalized_supply_chain_batch_url(str(resolved_auth_context["sync_url"]), workspace_id)
-        request_headers = runner._guard_sync_headers(resolved_auth_context, request_url=request_url, method="POST")
     aggregated_packages: list[dict[str, object]] = []
+    aggregated_processed_count = 0
     aggregated_reasons: list[dict[str, object]] = []
+    aggregated_total_packages = 0
     cursor: str | None = None
     last_response: dict[str, object] | None = None
     for _ in range(_CLOUD_AUDIT_MAX_PAGES):
         page_payload = dict(request_payload)
         if cursor is not None:
             page_payload["cursor"] = cursor
+        request_headers = (
+            {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+            if resolved_auth_context is None
+            else runner._guard_sync_headers(resolved_auth_context, request_url=request_url, method="POST")
+        )
         request = urllib.request.Request(
             request_url,
             data=json.dumps(page_payload).encode("utf-8"),
@@ -2232,6 +2351,14 @@ def _run_cloud_workspace_audit(
             )
         last_response = response_payload
         response_packages = response_payload.get("packages")
+        page_processed_count = _int_value(response_payload.get("processedCount"))
+        page_total_packages = _int_value(response_payload.get("totalPackages"))
+        if page_total_packages is not None:
+            aggregated_total_packages = max(aggregated_total_packages, page_total_packages)
+        if page_processed_count is not None:
+            aggregated_processed_count += page_processed_count
+        elif isinstance(response_packages, list):
+            aggregated_processed_count += len(response_packages)
         if isinstance(response_packages, list):
             aggregated_packages.extend(item for item in response_packages if isinstance(item, dict))
         response_reasons = response_payload.get("reasons")
@@ -2253,8 +2380,83 @@ def _run_cloud_workspace_audit(
         return (None, None)
     merged_response = dict(last_response)
     merged_response["packages"] = aggregated_packages
+    merged_response["processedCount"] = aggregated_processed_count
+    merged_response["totalPackages"] = max(aggregated_total_packages, len(aggregated_packages))
     merged_response["reasons"] = aggregated_reasons
     return (merged_response, None)
+
+
+def _codebase_label_from_remote(remote: str) -> str | None:
+    normalized_remote = remote.strip().rstrip("/")
+    if not normalized_remote:
+        return None
+    if "://" in normalized_remote:
+        parsed = urllib.parse.urlparse(normalized_remote)
+        path = parsed.path.lstrip("/")
+    elif ":" in normalized_remote:
+        path = normalized_remote.split(":", 1)[1]
+    else:
+        path = normalized_remote
+    label = path.strip("/")
+    if not label:
+        return None
+    return label[:-4] if label.endswith(".git") else label
+
+
+def _read_git_origin_codebase(workspace_dir: Path) -> str | None:
+    config_path = workspace_dir / ".git" / "config"
+    try:
+        config_text = config_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    in_origin = False
+    for raw_line in config_text.splitlines():
+        line = raw_line.strip()
+        if line.startswith("[") and line.endswith("]"):
+            in_origin = line == '[remote "origin"]'
+            continue
+        if not in_origin or not line.startswith("url") or "=" not in line:
+            continue
+        _key, _sep, value = line.partition("=")
+        return _codebase_label_from_remote(value)
+    return None
+
+
+def _safe_machine_name() -> str | None:
+    try:
+        machine = socket.gethostname().strip()
+    except OSError:
+        return None
+    return machine or None
+
+
+def _redacted_workspace_folder_path(workspace_dir: Path) -> str:
+    raw_path = str(workspace_dir)
+    redacted = redact_local_path(raw_path)
+    if redacted != raw_path or not workspace_dir.is_absolute():
+        return redacted
+    parts = [part for part in workspace_dir.parts if part not in {"", "/"}]
+    if len(parts) >= 2:
+        return f"…/{parts[-2]}/{parts[-1]}"
+    return f"…/{workspace_dir.name}"
+
+
+def _build_workspace_context_payload(
+    workspace_dir: Path,
+    manifest_paths: tuple[str, ...],
+    lockfile_paths: tuple[str, ...],
+) -> dict[str, object]:
+    codebase = _read_git_origin_codebase(workspace_dir) or workspace_dir.name
+    return {
+        "agent": _LOCAL_SUPPLY_CHAIN_HARNESS,
+        "codebase": codebase,
+        "folderPath": _redacted_workspace_folder_path(workspace_dir),
+        "lockfilePaths": list(lockfile_paths),
+        "machine": _safe_machine_name(),
+        "manifestPaths": list(manifest_paths),
+        "packageManager": _package_manager_for_scan(manifest_paths),
+        "workspaceName": workspace_dir.name,
+    }
 
 
 def _build_cloud_audit_payload(
@@ -2305,6 +2507,11 @@ def _build_cloud_audit_payload(
             for item in inventory
         ],
         "policyVersion": policy_version,
+        "workspaceContext": _build_workspace_context_payload(
+            workspace_dir,
+            manifest_paths,
+            lockfile_paths,
+        ),
         "workspaceFingerprint": workspace_fingerprint,
     }
     if payload["lockfileContext"] is None:
@@ -2556,12 +2763,11 @@ def _inventory_summary(inventory: tuple[dict[str, object], ...]) -> dict[str, in
 
 def _normalized_supply_chain_batch_url(sync_url: str, workspace_id: str) -> str:
     parsed = urllib.parse.urlsplit(sync_url)
-    if parsed.path.rstrip("/") == "/api/guard/receipts/sync":
-        next_path = "/api/guard/supply-chain/evaluate/batch"
-    elif parsed.path.rstrip("/") == "/guard/receipts/sync":
-        next_path = "/guard/supply-chain/evaluate/batch"
+    sync_path = parsed.path.rstrip("/")
+    if sync_path.endswith("/receipts/sync"):
+        next_path = sync_path[: -len("/receipts/sync")] + "/supply-chain/evaluate/batch"
     else:
-        next_path = parsed.path.rstrip("/") + "/supply-chain/evaluate/batch"
+        next_path = sync_path + "/supply-chain/evaluate/batch"
     query_pairs = [
         (key, value)
         for key, value in urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
@@ -2597,6 +2803,7 @@ def sync_managed_workspace_audits(
     workspaces_payload: list[dict[str, object]] = []
     completed_jobs = 0
     failed_jobs = 0
+    incomplete_jobs = 0
     queued_jobs = 0
     skipped_workspaces = 0
     for candidate in _managed_workspace_audit_candidates(store, workspace_dir=workspace_dir):
@@ -2641,22 +2848,40 @@ def sync_managed_workspace_audits(
             final_status = (
                 str(final_response.get("status") or enqueue_response.get("status") or "queued").strip().lower()
             )
-            if final_status == "completed":
-                completed_jobs += 1
-            elif final_status == "failed":
-                failed_jobs += 1
+            cloud_visible_count = _int_value(final_response.get("totalPackages"))
+            cloud_processed_count = _int_value(final_response.get("processedCount"))
+            incomplete_cloud_projection = (
+                final_status == "completed" and cloud_visible_count is not None and cloud_visible_count < len(inventory)
+            )
+            if incomplete_cloud_projection:
+                incomplete_jobs += 1
+                workspace_status = "partial"
             else:
-                queued_jobs += 1
+                workspace_status = final_status
+                if final_status == "completed":
+                    completed_jobs += 1
+                elif final_status == "failed":
+                    failed_jobs += 1
+                else:
+                    queued_jobs += 1
+            message = final_response.get("error")
+            if incomplete_cloud_projection:
+                message = (
+                    "Guard Cloud accepted fewer package rows than hol-guard discovered "
+                    f"({cloud_visible_count} of {len(inventory)} visible)."
+                )
             workspaces_payload.append(
                 {
                     "workspace": workspace_label,
                     "workspace_fingerprint": request_payload.get("workspaceFingerprint"),
                     "job_id": job_id,
-                    "status": final_status,
+                    "status": workspace_status,
                     "package_count": len(inventory),
+                    "cloud_processed_count": cloud_processed_count,
+                    "cloud_visible_count": cloud_visible_count,
                     "manifest_paths": list(manifest_paths),
                     "lockfile_paths": list(lockfile_paths),
-                    "message": final_response.get("error"),
+                    "message": message,
                 }
             )
         except (
@@ -2675,9 +2900,9 @@ def sync_managed_workspace_audits(
                     "package_count": 0,
                 }
             )
-    if failed_jobs > 0 and completed_jobs == 0 and queued_jobs == 0:
+    if failed_jobs > 0 and completed_jobs == 0 and queued_jobs == 0 and incomplete_jobs == 0:
         status = "failed"
-    elif failed_jobs > 0:
+    elif failed_jobs > 0 or incomplete_jobs > 0:
         status = "partial"
     elif completed_jobs > 0 or queued_jobs > 0:
         status = "synced"
@@ -2690,6 +2915,7 @@ def sync_managed_workspace_audits(
         "completed_jobs": completed_jobs,
         "queued_jobs": queued_jobs,
         "failed_jobs": failed_jobs,
+        "incomplete_jobs": incomplete_jobs,
         "skipped_workspaces": skipped_workspaces,
         "workspaces": workspaces_payload,
     }

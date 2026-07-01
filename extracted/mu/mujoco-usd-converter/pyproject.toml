@@ -1,0 +1,182 @@
+[project]
+name = "mujoco-usd-converter"
+dynamic = ["version"]
+description = "A MuJoCo to OpenUSD Data Converter"
+authors = [{name = "Newton Developers"}]
+license = {text = "Apache-2.0"}
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "mujoco>=3.8.1,<3.9",
+    "usd-exchange>=2.2.2", # locked to USD 25.05
+    "newton-usd-schemas>=0.3.1",
+    "numpy-stl>=3.2",
+    "tinyobjloader>=2.0.0rc13",
+]
+
+[project.urls]
+Documentation = "https://github.com/newton-physics/mujoco-usd-converter/#readme"
+Repository = "https://github.com/newton-physics/mujoco-usd-converter"
+Changelog = "https://github.com/newton-physics/mujoco-usd-converter/blob/main/CHANGELOG.md"
+
+[project.scripts]
+mujoco_usd_converter = "mujoco_usd_converter.__main__:cli_main"
+
+[dependency-groups]
+dev = [
+    "poethepoet>=0.34",
+    "ruff>=0.11",
+    "black>=25.1",
+    "coverage>=7.4",
+    "unittest-xml-reporting>=3.2.0",
+    "pyyaml>=6.0",
+    "requests>=2.32.3",
+    "usd-exchange[test]",
+]
+
+[tool.hatch.version]
+path = "mujoco_usd_converter/_version.py"
+
+[tool.uv]
+package = true
+python-preference = "only-managed"
+
+# Dev Tools
+
+[tool.poe.tasks.test]
+help = "Run the unittests"
+cmd = "python -m unittest discover -v -s ./tests"
+
+[tool.poe.tasks.test-ci]
+help = "Run the unittests with results and coverage reporting printed to console (for CI)"
+sequence = ["test-report", "generate-coverage-xml", "show-coverage-report"]
+
+[tool.poe.tasks.test-report]
+help = "Run the unittests with coverage tracking and generate test report"
+cmd = "coverage run --source=mujoco_usd_converter -m xmlrunner discover -v -s ./tests --output-file=.results.xml"
+
+[tool.poe.tasks.generate-coverage-xml]
+help = "Generate coverage XML report"
+cmd = "coverage xml -o .coverage.xml"
+
+[tool.poe.tasks.show-coverage-report]
+help = "Show coverage report in terminal"
+cmd = "coverage report -m"
+
+[tool.poe.tasks.benchmark]
+help = "Run MuJoCo Menagerie benchmark"
+cmd = "python tools/benchmark_menagerie.py"
+
+[tool.poe.tasks.benchmark-publish]
+help = "Run MuJoCo Menagerie benchmark and output the markdown report so it overwrites the committed report"
+cmd = "python tools/benchmark_menagerie.py --report-format md --report-output-dir ."
+
+[tool.poe.tasks.benchmark-csv]
+help = "Run MuJoCo Menagerie benchmark and generate CSV report only"
+cmd = "python tools/benchmark_menagerie.py --report-format csv"
+
+[tool.poe.tasks.annotations]
+help = "Show annotation summary"
+cmd = "python tools/manage_annotations.py"
+
+[tool.poe.tasks.annotations-validate]
+help = "Validate annotation file"
+cmd = "python tools/manage_annotations.py --validate"
+
+[tool.poe.tasks.annotations-update]
+help = "Update annotation file with new assets from Menagerie"
+cmd = "python tools/manage_annotations.py --update"
+
+[tool.poe.tasks.lint]
+help = "Run all lint tools on the code base"
+sequence = ["uv-check", "lint-license", "lint-black", "lint-ruff"]
+ignore_fail = "return_non_zero"
+
+[tool.poe.tasks.uv-check]
+help = "Run uv check on code base"
+cmd  = "uv lock --check"
+
+[tool.poe.tasks.lint-license]
+help = "Run license conformance checks on code base"
+cmd  = "python tools/license_format.py --check"
+
+[tool.poe.tasks.lint-ruff]
+help = "Run ruff check on code base"
+cmd  = "ruff check"
+
+[tool.poe.tasks.lint-black]
+help = "Run black check on the code base"
+cmd  = "black . --check --diff"
+
+[tool.poe.tasks.format]
+help = "Run all formatting tools on the code base"
+sequence = ["format-license", "format-ruff", "format-black"]
+ignore_fail = "return_non_zero"
+
+[tool.poe.tasks.format-license]
+help = "Run license conformance checks on code base"
+cmd  = "python tools/license_format.py --fix"
+
+[tool.poe.tasks.format-ruff]
+help = "Run ruff fixer on code base"
+cmd  = "ruff check . --fix-only"
+
+[tool.poe.tasks.format-black]
+help = "Run black on the code base"
+cmd  = "black ."
+
+[tool.poe.tasks.update-readme]
+help = "Update README.md for PyPI by replacing local links with GitHub URLs"
+cmd  = "python tools/update_markdown_for_pypi.py README.md"
+
+[build-system]
+requires = ["hatchling", "requests"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.hooks.custom]
+path = "tools/install_mjc_schema.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mujoco_usd_converter"]
+# Include all plugin files that are downloaded during build as artifacts
+artifacts = [
+    "mujoco_usd_converter/plugins/**/*",
+]
+
+[tool.ruff]
+line-length = 150
+exclude = [".venv", "dist"]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",     # error
+    "F",     # pyflakes
+    "I",     # isort
+    "W",     # warning
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "YTT",   # flake8-2020
+    "ASYNC", # flake8-async
+    "C4",    # flake8-comprehensions
+    "T10",   # flake8-debugger
+    "G",     # flake8-logging-format
+    "PIE",   # flake8-pie
+    "PYI",   # flake8-pyi
+    "PT",    # flake8-pytest-style
+    "Q",     # flake8-quotes
+    "SIM",   # flake8-simplify
+    "PTH",   # flake8-use-pathlib
+    "PGH",   # pygrep-hooks
+    "PERF",  # perflint
+    "RUF",   # ruff-specific rules
+]
+ignore = [
+    "PT009",  # unittest-style asserts are fine
+    "PT027",  # unittest-style assertRaises is fine
+]
+
+[tool.black]
+line-length = 150
+exclude = "(.venv|dist)"
+target-version = ['py310']

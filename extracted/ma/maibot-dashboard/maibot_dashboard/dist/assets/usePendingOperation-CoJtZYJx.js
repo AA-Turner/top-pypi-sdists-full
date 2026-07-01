@@ -1,0 +1,1 @@
+import{r as t}from"./router-CG6dmpKt.js";function m(a){const{onConfirm:e}=a,[n,s]=t.useState(null),[i,l]=t.useState(!1),o=t.useCallback(c=>{s(c)},[]),r=t.useCallback(()=>{s(null)},[]),u=t.useCallback(async()=>{if(n!==null){l(!0);try{await e(n),s(null)}finally{l(!1)}}},[e,n]);return{pending:n,isWaiting:n!==null,isConfirming:i,submit:o,confirm:u,cancel:r}}export{m as u};

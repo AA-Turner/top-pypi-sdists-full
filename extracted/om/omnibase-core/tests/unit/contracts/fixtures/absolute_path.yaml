@@ -1,5 +1,0 @@
-# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
-# SPDX-License-Identifier: MIT
----
-name: "absolute"
-ref: !include /etc/passwd

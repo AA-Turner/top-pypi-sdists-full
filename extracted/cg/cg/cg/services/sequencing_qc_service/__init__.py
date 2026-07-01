@@ -1,1 +1,0 @@
-from cg.services.sequencing_qc_service.sequencing_qc_service import SequencingQCService

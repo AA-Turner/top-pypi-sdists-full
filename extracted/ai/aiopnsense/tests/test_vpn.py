@@ -1,0 +1,719 @@
+"""Tests for `aiopnsense.vpn`."""
+
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from typing import Any
+from unittest.mock import AsyncMock
+
+import pytest
+
+import aiopnsense as aiopnsense_module
+from aiopnsense import OPNsenseClient, vpn as aiopnsense_vpn
+from tests.conftest import make_mock_session_client
+
+ClientType = Callable[..., OPNsenseClient]
+
+
+@pytest.mark.asyncio
+async def test_get_openvpn_and_fetch_details(monkeypatch, make_client) -> None:
+    """Validate openvpn server/client discovery and fetch details flow."""
+    client, _session = make_mock_session_client(make_client)
+    try:
+        client._use_snake_case = True
+        client._is_get_endpoint_available = AsyncMock(return_value=True)
+        # Prepare fake responses for safe_gets
+        sessions_info = {
+            "rows": [
+                {"type": "server", "id": "1_desc_1", "description": "s1", "status": "connected"}
+            ]
+        }
+        routes_info = {
+            "rows": [
+                {
+                    "id": "1",
+                    "common_name": "c1",
+                    "real_address": "1.2.3.4",
+                    "virtual_address": "10.0.0.1",
+                    "last_ref__time_t_": 0,
+                }
+            ]
+        }
+        providers_info = {"1": {"name": "prov1", "hostname": "host", "local_port": "1194"}}
+        instances_info = {
+            "rows": [
+                {
+                    "role": "server",
+                    "uuid": "uuid1",
+                    "description": "server1",
+                    "enabled": "1",
+                    "dev_type": "tun",
+                }
+            ]
+        }
+
+        async def fake_safe_dict_get(path):
+            """Fake safe dict get.
+
+            Args:
+                path (str): API endpoint path string to request.
+
+            Returns:
+                Any: Response payload coerced to a dictionary.
+            """
+            if "search_sessions" in path:
+                return sessions_info
+            if "search_routes" in path:
+                return routes_info
+            if "providers" in path:
+                return providers_info
+            if "instances/search" in path:
+                return instances_info
+            if "/instances/get/" in path:
+                return {
+                    "instance": {
+                        "server": "10.0.0.2",
+                        "dns_servers": {"1": {"selected": 1, "value": "8.8.8.8"}},
+                    }
+                }
+            return {}
+
+        async def fake_safe_list_get(path):
+            """Fake safe list get.
+
+            Args:
+                path (str): API endpoint path to request.
+
+            Returns:
+                Any: Response payload coerced to a list.
+            """
+            return []
+
+        monkeypatch.setattr(
+            client, "_safe_dict_get", AsyncMock(side_effect=fake_safe_dict_get), raising=False
+        )
+        monkeypatch.setattr(
+            client, "_safe_list_get", AsyncMock(side_effect=fake_safe_list_get), raising=False
+        )
+        openvpn = await client.get_openvpn()
+        assert "servers" in openvpn and "clients" in openvpn
+        # servers should include uuid1
+        assert any(
+            s.get("name") == "server1" or s.get("uuid") == "uuid1"
+            for s in openvpn["servers"].values()
+        )
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+async def test_wireguard_processing_and_updates(make_client) -> None:
+    """Exercise static wireguard status update helpers and peer linking."""
+    # Test static methods for wireguard processing and updates
+    server = {
+        "uuid": "s1",
+        "name": "srv",
+        "pubkey": "pk",
+        "clients": [{"pubkey": "cpk"}],
+        "interface": "wg1",
+        "tunnel_addresses": ["10.0.0.1"],
+        "total_bytes_recv": 0,
+        "total_bytes_sent": 0,
+    }
+    client = {
+        "uuid": "c1",
+        "pubkey": "cpk",
+        "servers": [{"interface": "wg1"}],
+        "tunnel_addresses": ["10.0.0.2"],
+        "total_bytes_recv": 0,
+        "total_bytes_sent": 0,
+    }
+    servers = {"s1": server}
+    clients = {"c1": client}
+
+    # peer entry representing interface update
+    entry_interface = {"type": "interface", "public-key": "pk", "status": "up"}
+    aiopnsense_module.OPNsenseClient._update_wireguard_status([entry_interface], servers, clients)
+    # server status set
+    assert any(s.get("status") == "up" for s in servers.values())
+
+    # peer update representing peer (client) with handshake and transfers
+    entry_peer = {
+        "type": "peer",
+        "public-key": "cpk",
+        "if": "wg1",
+        "endpoint": "1.2.3.4:51820",
+        "transfer-rx": "100",
+        "transfer-tx": "200",
+        "latest-handshake": "0",
+    }
+    aiopnsense_module.OPNsenseClient._update_wireguard_status([entry_peer], servers, clients)
+    # ensure client's server linkage updated: require explicit connected state or measurable traffic
+    srv = clients["c1"]["servers"][0]
+    has_connected_flag = bool(srv.get("connected"))
+    # accept numeric transfer counters set by implementation (bytes_recv/bytes_sent)
+    rx = int(srv.get("bytes_recv") or srv.get("transfer-rx") or 0)
+    tx = int(srv.get("bytes_sent") or srv.get("transfer-tx") or 0)
+    assert has_connected_flag or (rx > 0 or tx > 0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "vpn_type,path,post_resp,expected",
+    [
+        ("openvpn", "servers", {"changed": False}, False),
+        ("openvpn", "servers", [{"changed": True}, {"result": "ok"}], True),
+        ("wireguard", "clients", [{"changed": True}, {"result": "ok"}], True),
+        ("wireguard", "servers", {"changed": False}, False),
+    ],
+)
+async def test_toggle_vpn_instance_variants(
+    make_client: ClientType,
+    vpn_type: str,
+    path: str,
+    post_resp: dict[str, Any] | list[dict[str, Any]],
+    expected: bool,
+) -> None:
+    """Parametrized toggle_vpn_instance covering OpenVPN and WireGuard variants."""
+    client, _session = make_mock_session_client(make_client)
+    client._use_snake_case = True
+    client._is_get_endpoint_available = AsyncMock(return_value=True)
+
+    if isinstance(post_resp, list):
+        client._safe_dict_post = AsyncMock(side_effect=post_resp)
+    else:
+        client._safe_dict_post = AsyncMock(return_value=post_resp)
+
+    res = await client.toggle_vpn_instance(vpn_type, path, "uuid")
+    assert res is expected
+    await client.async_close()
+
+
+@pytest.mark.asyncio
+async def test_openvpn_more_detail_parsing(monkeypatch, make_client) -> None:
+    """Exercise additional OpenVPN parsing branches (no sessions, missing fields)."""
+    client, _session = make_mock_session_client(make_client)
+    client._use_snake_case = True
+    client._is_get_endpoint_available = AsyncMock(return_value=True)
+
+    # prepare responses that exercise missing/partial fields
+    sessions_info: dict[str, list[dict]] = {"rows": []}
+    routes_info: dict[str, list[dict]] = {"rows": []}
+    providers_info: dict[str, dict] = {}
+    instances_info = {"rows": [{"role": "client", "uuid": "c1", "enabled": "0"}]}
+
+    async def fake_safe_dict_get(path):
+        """Fake safe dict get.
+
+        Args:
+            path (str): API endpoint path to request.
+
+        Returns:
+            Any: Response payload coerced to a dictionary.
+        """
+        if "search_sessions" in path:
+            return sessions_info
+        if "search_routes" in path:
+            return routes_info
+        if "providers" in path:
+            return providers_info
+        if "instances/search" in path:
+            return instances_info
+        if "/instances/get/" in path:
+            return {"instance": {}}  # missing details
+        return {}
+
+    monkeypatch.setattr(
+        client, "_safe_dict_get", AsyncMock(side_effect=fake_safe_dict_get), raising=False
+    )
+    res = await client.get_openvpn()
+    assert "servers" in res and "clients" in res
+    await client.async_close()
+
+
+@pytest.mark.asyncio
+async def test_openvpn_processing_and_fetch_details(make_client) -> None:
+    """Test processing of OpenVPN instances/providers/sessions/routes and fetching details."""
+    client, _ = make_mock_session_client(make_client)
+    try:
+        client._use_snake_case = True
+        client._is_get_endpoint_available = AsyncMock(return_value=True)
+
+        # prepare fake responses for _safe_dict_get based on path
+        def fake_safe_dict_get(path):
+            """Fake safe dict get.
+
+            Args:
+                path (str): API endpoint path to request.
+
+            Returns:
+                Any: Response payload coerced to a dictionary.
+            """
+            if "search_sessions" in path:
+                return {
+                    "rows": [
+                        {
+                            "type": "server",
+                            "id": "srv1_1",
+                            "description": "S1",
+                            "status": "connected",
+                        },
+                        "malformed",
+                        {"type": "server"},
+                    ]
+                }
+            if "search_routes" in path:
+                return {
+                    "rows": [
+                        {
+                            "id": "srv1",
+                            "common_name": "cname",
+                            "real_address": "1.2.3.4",
+                            "virtual_address": "10.0.0.1",
+                        },
+                        None,
+                    ]
+                }
+            if "providers" in path:
+                return {"srv1": {"name": "prov1", "hostname": "host.example", "local_port": "1194"}}
+            if "instances/search" in path:
+                return {
+                    "rows": [
+                        {
+                            "role": "server",
+                            "uuid": "srv1",
+                            "description": "Serv1",
+                            "enabled": "1",
+                            "dev_type": "tun",
+                        }
+                    ]
+                }
+            if "/instances/get/" in path:
+                return {
+                    "instance": {
+                        "server": "10.0.0.1",
+                        "dns_servers": {"0": {"selected": "1", "value": "8.8.8.8"}},
+                    }
+                }
+            return {}
+
+        client._safe_dict_get = AsyncMock(side_effect=fake_safe_dict_get)
+
+        openvpn = await client.get_openvpn()
+        assert "servers" in openvpn and "clients" in openvpn
+        servers = openvpn["servers"]
+        assert any(s.get("uuid") == "srv1" for s in servers.values())
+        srv = servers.get("srv1")
+        assert srv is not None
+        assert srv.get("dns_servers") == ["8.8.8.8"]
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+async def test_openvpn_client_session_updates_server_stats() -> None:
+    """Ensure that openvpn session with is_client True updates server/client stats appropriately."""
+    # no client/session needed for this static helper test
+
+    # Build servers and clients structures
+    servers: dict = {
+        "s1": {"uuid": "s1", "clients": [], "total_bytes_recv": 0, "total_bytes_sent": 0}
+    }
+    clients: dict = {"c1": {"uuid": "c1", "pubkey": "pk1", "servers": [{"interface": "wg1"}]}}
+
+    # session entry as a peer will update client/server
+    entry = {
+        "type": "peer",
+        "public-key": "pk1",
+        "if": "wg1",
+        "transfer-rx": "100",
+        "transfer-tx": "200",
+        "latest-handshake": int(datetime.now(tz=UTC).timestamp()),
+    }
+
+    aiopnsense_module.OPNsenseClient._update_wireguard_peer_status(entry, servers, clients)
+
+    # ensure totals updated on either server or client as implementation may update parent
+    server_updated = any(
+        s.get("total_bytes_recv", 0) >= 100 or s.get("total_bytes_sent", 0) >= 200
+        for s in servers.values()
+    )
+    client_updated = any(
+        c.get("total_bytes_recv", 0) >= 100 or c.get("total_bytes_sent", 0) >= 200
+        for c in clients.values()
+    )
+    assert server_updated or client_updated
+
+
+@pytest.mark.asyncio
+async def test_openvpn_processing_helpers_skip_invalid_rows_and_unknown_servers() -> None:
+    """OpenVPN processing helpers should ignore malformed rows and unknown route servers.
+
+    Args:
+        None: This test takes no arguments.
+
+    Returns:
+        None: This test validates helper-level filtering and route association behavior.
+    """
+    openvpn: dict[str, Any] = {"servers": {}, "clients": {}}
+
+    aiopnsense_module.OPNsenseClient._process_openvpn_instances(  # type: ignore[arg-type]
+        {
+            "rows": [
+                None,
+                {"role": "server"},  # missing uuid
+                {"role": "client", "description": "missing-uuid"},
+                {"role": "client", "uuid": "c1", "description": "client1", "enabled": "1"},
+            ]
+        },
+        openvpn,
+    )
+    assert "c1" in openvpn["clients"]
+
+    aiopnsense_module.OPNsenseClient._process_openvpn_providers(  # type: ignore[arg-type]
+        {
+            "": {"name": "skip-empty-uuid"},
+            "srv1": "bad-provider",
+            "srv2": {"name": "provider-two"},
+        },
+        openvpn,
+    )
+    assert "srv1" not in openvpn["servers"]
+    assert openvpn["servers"]["srv2"]["name"] == "provider-two"
+
+    aiopnsense_module.OPNsenseClient._process_openvpn_sessions(  # type: ignore[arg-type]
+        {
+            "rows": [
+                None,
+                {"id": "srv2_1", "type": "client"},  # non-server session
+                {"id": "srv2_1", "type": "server", "status": "failed"},
+            ]
+        },
+        openvpn,
+    )
+    assert openvpn["servers"]["srv2"]["status"] == "failed"
+
+    aiopnsense_module.OPNsenseClient._process_openvpn_routes(  # type: ignore[arg-type]
+        {
+            "rows": [
+                {"id": "unknown", "common_name": "skip"},
+                {
+                    "id": "srv2",
+                    "common_name": "client-a",
+                    "real_address": "1.2.3.4",
+                    "virtual_address": "10.0.0.2",
+                },
+            ]
+        },
+        openvpn,
+    )
+    assert len(openvpn["servers"]["srv2"]["clients"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_fetch_openvpn_server_details_missing_server_field(make_client) -> None:
+    """When instance details lack 'server' key, no tunnel_addresses should be set."""
+    client, _ = make_mock_session_client(make_client)
+    try:
+        client._is_get_endpoint_available = AsyncMock(return_value=True)
+        openvpn: dict[str, Any] = {"servers": {"srv1": {"uuid": "srv1"}}}
+
+        async def fake_safe_dict_get(path):
+            # return instance details with no 'server' key
+            """Fake safe dict get.
+
+            Args:
+                path (str): API endpoint path to request.
+
+            Returns:
+                Any: Response payload coerced to a dictionary.
+            """
+            if "/instances/get/" in path:
+                return {"instance": {}}
+            return {}
+
+        client._safe_dict_get = AsyncMock(side_effect=fake_safe_dict_get)
+        await client._fetch_openvpn_server_details(openvpn)
+        ta = openvpn["servers"]["srv1"].get("tunnel_addresses")
+        assert "tunnel_addresses" not in openvpn["servers"]["srv1"] or (
+            isinstance(ta, list) and ta == []
+        )
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+async def test_fetch_openvpn_server_details_skips_unavailable_endpoint(
+    make_client: ClientType,
+) -> None:
+    """Verify unsupported OpenVPN per-instance endpoints are skipped.
+
+    Args:
+        make_client (ClientType): Fixture factory returning ``OPNsenseClient`` instances.
+
+    Returns:
+        None: This test validates behavior via assertions only.
+    """
+    client, _ = make_mock_session_client(make_client)
+    try:
+        client._is_get_endpoint_available = AsyncMock(return_value=False)
+        client._safe_dict_get = AsyncMock()
+        openvpn: dict[str, Any] = {"servers": {"srv1": {"uuid": "srv1"}}}
+
+        await client._fetch_openvpn_server_details(openvpn)
+
+        assert openvpn["servers"]["srv1"]["connected_clients"] == 0
+        assert openvpn["servers"]["srv1"]["total_bytes_sent"] == 0
+        assert openvpn["servers"]["srv1"]["total_bytes_recv"] == 0
+        client._safe_dict_get.assert_not_awaited()
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+async def test_get_wireguard_full_processing_and_peer_details() -> None:
+    """Ensure the wireguard peer status helper updates server/client transfer counters."""
+    summary = {
+        "peers": [
+            {
+                "public-key": "pk1",
+                "latest-handshake": int(datetime.now(tz=UTC).timestamp()),
+                "transfer-rx": "100",
+                "transfer-tx": "200",
+                "if": "wg1",
+            }
+        ],
+        "servers": {"s1": {"uuid": "s1"}},
+        "clients": {"c1": {"uuid": "c1", "pubkey": "pk1", "servers": [{"interface": "wg1"}]}},
+    }
+    servers: dict = {
+        "s1": {"uuid": "s1", "clients": [], "total_bytes_recv": 0, "total_bytes_sent": 0}
+    }
+    clients_map: dict = {"c1": {"uuid": "c1", "pubkey": "pk1", "servers": [{"interface": "wg1"}]}}
+
+    entry = summary["peers"][0]
+    aiopnsense_module.OPNsenseClient._update_wireguard_peer_status(entry, servers, clients_map)
+    updated = any(
+        s.get("total_bytes_recv", 0) >= 100 or s.get("total_bytes_sent", 0) >= 200
+        for s in servers.values()
+    )
+    assert updated or any(c.get("total_bytes_recv", 0) >= 100 for c in clients_map.values())
+
+
+@pytest.mark.parametrize(
+    "delta_minutes,expected",
+    [
+        (2, True),  # within 3 minutes => connected
+        (3, True),  # exactly at threshold => connected
+        (5, False),  # beyond threshold => not connected
+    ],
+)
+def test__wireguard_is_connected_variants(monkeypatch, delta_minutes: int, expected: bool) -> None:
+    """WireGuard connection considered active when last handshake within threshold.
+
+    Monkeypatch `datetime.now` in the module under test to a fixed value with no
+    microseconds so comparisons at the 3-minute boundary are deterministic.
+    """
+    fixed_now = datetime.now().astimezone().replace(microsecond=0)
+    # create a minimal fake datetime provider with a static now() returning fixed_now
+    FakeDT = type("FakeDT", (), {"now": staticmethod(lambda: fixed_now)})
+    monkeypatch.setattr(aiopnsense_vpn, "datetime", FakeDT)
+    assert (
+        aiopnsense_vpn.VPNMixin._wireguard_is_connected(
+            fixed_now - timedelta(minutes=delta_minutes)
+        )
+        is expected
+    )
+    # None always False
+    if delta_minutes == 5:  # only need to assert once in param set
+        assert aiopnsense_vpn.VPNMixin._wireguard_is_connected(None) is False
+
+
+@pytest.mark.asyncio
+async def test_get_wireguard_success_and_invalid(make_client) -> None:
+    """Exercise get_wireguard success path and invalid structure early return."""
+    client, _session = make_mock_session_client(make_client)
+
+    now = datetime.now().astimezone()
+    old_handshake = int((now - timedelta(minutes=10)).timestamp())  # disconnected
+
+    # Build server/client structures expected by API shape
+    summary_resp = {
+        "rows": [
+            {"type": "interface", "public-key": "spk", "status": "up"},
+            {
+                "type": "peer",
+                "public-key": "cpk",
+                "if": "wg1",
+                "latest-handshake": old_handshake,
+                "transfer-rx": "1",
+                "transfer-tx": "2",
+            },
+        ]
+    }
+    clients_resp = {
+        "client": {
+            "clients": {
+                "client": {
+                    "c1": {
+                        "name": "client1",
+                        "pubkey": "cpk",
+                        "enabled": 1,
+                        "tunneladdress": {},
+                        "servers": {"s1": {"selected": "1", "value": "srv1"}},
+                    }
+                }
+            }
+        }
+    }
+    servers_resp = {
+        "server": {
+            "servers": {
+                "server": {
+                    "s1": {
+                        "name": "srv1",
+                        "pubkey": "spk",
+                        "enabled": 1,
+                        "instance": "1",
+                        "tunneladdress": {"0": {"selected": "1", "value": "10.0.0.1"}},
+                        "peers": {"c1": {"selected": "1", "value": "client1"}},
+                    }
+                }
+            }
+        }
+    }
+
+    # side_effect order matches comprehension iteration order in get_wireguard
+    client._safe_dict_get = AsyncMock(side_effect=[summary_resp, clients_resp, servers_resp])
+    wg = await client.get_wireguard()
+    assert "servers" in wg and "clients" in wg and wg["servers"]["s1"]["uuid"] == "s1"
+    # client peer should reflect disconnected (old handshake)
+    assert wg["clients"]["c1"].get("connected_servers") == 0
+
+    # invalid structure (summary not list) -> empty wireguard structure
+    client._safe_dict_get = AsyncMock(return_value={"rows": {}})
+    assert await client.get_wireguard() == {"servers": {}, "clients": {}}
+    await client.async_close()
+
+
+@pytest.mark.asyncio
+async def test_version_switched_vpn_endpoints_fail_closed(make_client: ClientType) -> None:
+    """Verify switched OpenVPN GET endpoints fail closed when unavailable.
+
+    Args:
+        make_client (ClientType): Fixture factory returning ``OPNsenseClient`` instances.
+
+    Returns:
+        None: This test validates fail-closed behavior for switched OpenVPN endpoints.
+    """
+    client, _session = make_mock_session_client(make_client)
+    try:
+        client._use_snake_case = True
+        client._is_get_endpoint_available = AsyncMock(return_value=False)
+        client._safe_dict_get = AsyncMock()
+
+        openvpn = await client.get_openvpn()
+        assert openvpn == {"servers": {}, "clients": {}}
+        client._is_get_endpoint_available.assert_awaited()
+        client._safe_dict_get.assert_not_awaited()
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("use_snake_case", "expected_sessions", "expected_routes", "expected_client_toggle"),
+    [
+        (
+            True,
+            "/api/openvpn/service/search_sessions",
+            "/api/openvpn/service/search_routes",
+            "/api/wireguard/client/toggle_client/uuid",
+        ),
+        (
+            False,
+            "/api/openvpn/service/searchSessions",
+            "/api/openvpn/service/searchRoutes",
+            "/api/wireguard/client/toggleClient/uuid",
+        ),
+    ],
+)
+async def test_vpn_switched_endpoints_follow_selected_case(
+    make_client: ClientType,
+    use_snake_case: bool,
+    expected_sessions: str,
+    expected_routes: str,
+    expected_client_toggle: str,
+) -> None:
+    """Verify switched VPN endpoints follow the selected endpoint style.
+
+    Args:
+        make_client (ClientType): Fixture factory returning ``OPNsenseClient`` instances.
+        use_snake_case (bool): Whether the client should prefer snake_case endpoints.
+        expected_sessions (str): Expected OpenVPN session-search endpoint path.
+        expected_routes (str): Expected OpenVPN route-search endpoint path.
+        expected_client_toggle (str): Expected WireGuard client-toggle endpoint path.
+
+    Returns:
+        None: This test validates VPN endpoint selection behavior.
+    """
+    client, _session = make_mock_session_client(make_client)
+    try:
+        client._use_snake_case = use_snake_case
+        client._is_get_endpoint_available = AsyncMock(return_value=True)
+        client._safe_dict_get = AsyncMock(return_value={})
+        client._safe_dict_post = AsyncMock(side_effect=[{"changed": True}, {"result": "ok"}])
+
+        await client.get_openvpn()
+        await client.toggle_vpn_instance("wireguard", "clients", "uuid")
+
+        assert client._safe_dict_get.await_args_list[0].args[0] == expected_sessions
+        assert client._safe_dict_get.await_args_list[1].args[0] == expected_routes
+        assert client._safe_dict_post.await_args_list[0].args[0] == expected_client_toggle
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+async def test_update_wireguard_peer_details_endpoint_none_does_not_override() -> None:
+    """When endpoint is '(none)' existing endpoint value should remain unchanged."""
+    server = {
+        "total_bytes_recv": 0,
+        "total_bytes_sent": 0,
+        "connected_servers": 0,
+        "latest_handshake": None,
+    }
+    peer = {"endpoint": "keep"}
+    aiopnsense_module.OPNsenseClient._update_wireguard_peer_details(  # type: ignore[arg-type]
+        peer=peer,
+        server_or_client=server,
+        endpoint="(none)",
+        transfer_rx=0,
+        transfer_tx=0,
+        handshake_time=None,
+        is_connected=False,
+        connection_counter_key="connected_servers",
+    )
+    assert peer.get("endpoint") == "keep"
+
+
+@pytest.mark.asyncio
+async def test_update_wireguard_peer_details_latest_handshake() -> None:
+    """_update_wireguard_peer_details should update latest_handshake when newer."""
+    server: dict = {"total_bytes_recv": 0, "total_bytes_sent": 0, "connected_clients": 0}
+    peer: dict = {}
+    old_time = datetime.now().astimezone() - timedelta(minutes=10)
+    server["latest_handshake"] = old_time
+    new_time = datetime.now().astimezone()
+    aiopnsense_module.OPNsenseClient._update_wireguard_peer_details(  # type: ignore[arg-type]
+        peer=peer,
+        server_or_client=server,
+        endpoint="1.2.3.4:51820",
+        transfer_rx=10,
+        transfer_tx=20,
+        handshake_time=new_time,
+        is_connected=True,
+        connection_counter_key="connected_clients",
+    )
+    assert server.get("latest_handshake") == new_time
+    assert server.get("connected_clients") == 1
+    assert peer.get("connected") is True

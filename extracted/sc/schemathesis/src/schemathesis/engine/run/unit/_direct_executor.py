@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 import uuid
 from typing import TYPE_CHECKING
 
@@ -9,6 +8,7 @@ from requests.structures import CaseInsensitiveDict
 from schemathesis.checks import CheckContext
 from schemathesis.core.errors import AuthenticationError
 from schemathesis.core.failures import Failure, FailureGroup
+from schemathesis.core.timing import Instant
 from schemathesis.engine import Status, events
 from schemathesis.engine.errors import TestingState, UnexpectedError, deduplicate_errors
 from schemathesis.engine.recorder import ScenarioRecorder
@@ -38,7 +38,7 @@ def run_driver(
     operation = generator.operation
     errors: list[Exception] = []
     skip_reason: str | None = None
-    test_start_time = time.monotonic()
+    started_at = Instant()
     recorder = ScenarioRecorder(label=operation.label)
     state = TestingState()
 
@@ -55,7 +55,7 @@ def run_driver(
             label=operation.label,
             recorder=recorder,
             status=status,
-            elapsed_time=time.monotonic() - test_start_time,
+            elapsed_time=started_at.elapsed,
             skip_reason=skip_reason,
             is_final=False,
         )
@@ -67,13 +67,16 @@ def run_driver(
     auth = ctx.config.auth_for(operation=operation)
     headers = ctx.config.headers_for(operation=operation)
     transport_kwargs = ctx.get_transport_kwargs(operation=operation)
+    checks_config = ctx.config.checks_config_for(operation=operation, phase=phase.value.lower())
     check_ctx = CheckContext(
         override=override,
         auth=auth,
         headers=CaseInsensitiveDict(headers) if headers else None,
-        config=ctx.config.checks_config_for(operation=operation, phase=phase.value.lower()),
+        config=checks_config,
         transport_kwargs=transport_kwargs,
         recorder=recorder,
+        response_checks=ctx.checks.for_responses(),
+        phase=phase,
     )
 
     if ctx.error_feedback is not None:

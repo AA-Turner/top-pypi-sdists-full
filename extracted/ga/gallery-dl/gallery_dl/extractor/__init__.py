@@ -85,6 +85,7 @@ modules = [
     "girlsreleased",
     "girlswithmuscle",
     "gofile",
+    "goonbox",
     "harvardlawnuremberg",
     "hatenablog",
     "hdoujin",

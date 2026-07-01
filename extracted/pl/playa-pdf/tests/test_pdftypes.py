@@ -1,0 +1,182 @@
+"""
+Test PDF types and data structures.
+"""
+
+import pytest
+from playa.pdftypes import (
+    LIT,
+    LITERAL_CRYPT,
+    ContentStream,
+    ObjRef,
+    bool_value,
+    decipher_all,
+    decompress_corrupted,
+    dict_value,
+    float_value,
+    keyword_name,
+    list_value,
+    matrix_value,
+    num_value,
+    point_value,
+    rect_value,
+    resolve1,
+    resolve_all,
+    str_value,
+)
+from playa.runlength import rldecode
+from playa.worker import _ref_document
+
+
+def test_rle():
+    large_white_image_encoded = bytes([129, 255] * (3 * 3000 * 4000 // 128))
+    _ = rldecode(large_white_image_encoded)
+
+
+def test_resolve_all():
+    """See if `resolve_all` will really `resolve` them `all`."""
+
+    # Use a mock document, it just needs to suppot __getitem__
+    class MockDoc(dict):
+        pass
+
+    mockdoc = MockDoc({42: b"hello"})
+    mockdoc[41] = ObjRef(_ref_document(mockdoc), 42)
+    mockdoc[40] = ObjRef(_ref_document(mockdoc), 41)
+    assert mockdoc[41].resolve() == b"hello"
+    assert resolve1(mockdoc[41]) == b"hello"
+    assert mockdoc[40].resolve() == mockdoc[41]
+    assert resolve_all(mockdoc[40]) == b"hello"
+    mockdoc[39] = [mockdoc[40], mockdoc[41]]
+    assert resolve_all(mockdoc[39]) == [b"hello", b"hello"]
+    mockdoc[38] = [b"hello", ObjRef(_ref_document(mockdoc), 38)]
+    # This resolves the *list*, not the indirect object, so its second
+    # element will get expanded once into a new list.
+    ouf = resolve_all(mockdoc[38])
+    assert ouf[0] == b"hello"
+    assert ouf[1][1] is mockdoc[38]
+    # Whereas in this case we are expanding the reference itself.
+    fou = resolve_all(mockdoc[38][1])
+    assert fou[1] is mockdoc[38]
+    # Likewise here, we have to dig a bit to see the circular
+    # reference.  Your best option is not to use resolve_all ;-)
+    mockdoc[30] = [b"hello", ObjRef(_ref_document(mockdoc), 31)]
+    mockdoc[31] = [b"hello", ObjRef(_ref_document(mockdoc), 30)]
+    bof = resolve_all(mockdoc[30])
+    assert bof[1][1][1] is mockdoc[31]
+    fob = resolve_all(mockdoc[30][1])
+    assert fob[1][1] is mockdoc[31]
+
+
+def test_errors() -> None:
+    """Verify that we get various errors in pdftypes functions."""
+    with pytest.raises(TypeError):
+        keyword_name("NOT A KEYWORD DO NOT EAT")
+    assert ObjRef(None, 1) == ObjRef(None, 1)
+    assert ObjRef(None, 1) != ObjRef(123, 1)
+    assert ObjRef(None, 1).resolve(123) == 123
+    assert decipher_all(lambda *args: b"SOMETHING", 1, 0, b"") == b""
+    with pytest.raises(TypeError):
+        bool_value(b"Norwegian Blue")
+    with pytest.raises(TypeError):
+        float_value(b"Romanus eunt domus")
+    float_value(123.456)  # just for the coverage
+    with pytest.raises(TypeError):
+        num_value(b"NaN")
+    with pytest.raises(TypeError):
+        str_value(42)
+    with pytest.raises(TypeError):
+        list_value({"not": "a list"})
+    with pytest.raises(TypeError):
+        dict_value(["not", "a dict"])
+    with pytest.raises(ValueError):
+        point_value([1, 2, 3])
+    with pytest.raises(TypeError):
+        point_value([32, "skidoo"])
+    with pytest.raises(ValueError):
+        rect_value([1, 2, 3])
+    with pytest.raises(TypeError):
+        rect_value([32, "skidoo", 4, 5])
+    with pytest.raises(ValueError):
+        matrix_value([1, 2, 3])
+    with pytest.raises(TypeError):
+        matrix_value([32, "skidoo", 4, 5, 6, 7])  # type: ignore[arg-type]
+    broken_image = ContentStream(
+        {"ColorSpace": LIT("NotAColorSpace")},
+        rawdata=b"IRRELEVANT!",
+    )
+    with pytest.raises(ValueError):
+        _ = broken_image.colorspace
+
+
+def test_filters() -> None:
+    """Exercise various filter types in streams"""
+    stream = ContentStream({"Filter": [LITERAL_CRYPT]}, rawdata=b"")
+    with pytest.raises(NotImplementedError):
+        stream.decode()
+    stream = ContentStream({"Filter": [LIT("FlateDecode")]}, rawdata=b"TOTAL NONSENSE")
+    with pytest.raises(ValueError):
+        stream.decode(strict=True)
+    assert stream.buffer == b""
+    stream = ContentStream(
+        {"Filter": [LIT("LZWDecode")]}, rawdata=b"\x80\x0b\x60\x50\x22\x0c\x0c\x85\x01"
+    )
+    assert stream.buffer == b"\x2d\x2d\x2d\x2d\x2d\x41\x2d\x2d\x2d\x42"
+    stream = ContentStream(
+        {"Filter": [LIT("RunLengthDecode")]},
+        rawdata=b"\x05123456\xfa7\x04abcde\x80junk",
+    )
+    assert stream.buffer == b"1234567777777abcde"
+    stream = ContentStream(
+        {"Filter": LIT("FlateDecode"), "DecodeParms": {"Predictor": 3}}, rawdata=b""
+    )
+    with pytest.raises(NotImplementedError):
+        stream.decode()
+
+
+def test_decompress_corrupted(caplog) -> None:
+    """Verify that we can recover from missing CRC, truncated, or
+    corrupted flate streams."""
+    rawdata = (
+        b'x\x9c\x0b\xf1\x0fq\xf4Qp\xf4sQ\x08\r\tq\rR\xf0\xf3\xf7\x0bv\x05"\x00R'
+        b"\xe8\x06\xb5"
+    )
+    # Verify that decompress_corrupted works even on uncorrupted streams
+    assert decompress_corrupted(rawdata) == b"TOTAL AND UTTER NONSENSE"
+    # Or if the CRC is partially missing
+    assert decompress_corrupted(rawdata[:-1]) == b"TOTAL AND UTTER NONSENSE"
+    # Verify that decode will fail if we remove the trailer in strict mode
+    stream = ContentStream({"Filter": LIT("FlateDecode")}, rawdata=rawdata[:-5])
+    with pytest.raises(ValueError):
+        stream.decode(strict=True)
+    # Remove the trailer in non-strict mode
+    stream = ContentStream({"Filter": LIT("FlateDecode")}, rawdata=rawdata[:-5])
+    assert stream.buffer == b"TOTAL AND UTTER NONSENSE"
+    # Remove the CRC in non-strict mode
+    stream = ContentStream({"Filter": LIT("FlateDecode")}, rawdata=rawdata[:-3])
+    assert stream.buffer == b"TOTAL AND UTTER NONSENSE"
+    # Truncate the stream in non-strict mode
+    stream = ContentStream({"Filter": LIT("FlateDecode")}, rawdata=rawdata[:-8])
+    caplog.clear()
+    assert stream.buffer == b"TOTAL AND UTTER NON"
+    assert "incomplete" in caplog.text
+    # Remove some random bytes (no error as the data is still a valid
+    # flate stream, just the CRC is wrong)
+    stream = ContentStream(
+        {"Filter": LIT("FlateDecode")},
+        rawdata=(rawdata[:5] + rawdata[7:10] + rawdata[11:]),
+    )
+    assert stream.buffer == b"TOT AL UTTER NONSENSE"
+    # Insert some random bytes, now we will lose data for real
+    bogusdata = bytearray(rawdata)
+    bogusdata[7:10] = b"HI!"
+    stream = ContentStream({"Filter": LIT("FlateDecode")}, rawdata=bogusdata)
+    caplog.clear()
+    assert stream.buffer == b""
+    assert "Data loss" in caplog.text
+    # Test the adjustible buffer size
+    assert decompress_corrupted(bogusdata) == b""
+    assert decompress_corrupted(bogusdata, 1) == b"TOTAHdd"
+    assert decompress_corrupted(bogusdata, 2) == b"TOTAHdd"
+    assert decompress_corrupted(bogusdata, 4) == b"TOTAHdd"
+    assert decompress_corrupted(bogusdata, 8) == b"TOTAH"
+    assert decompress_corrupted(bogusdata, 16) == b""

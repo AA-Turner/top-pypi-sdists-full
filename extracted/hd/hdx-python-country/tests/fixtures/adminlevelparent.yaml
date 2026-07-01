@@ -1,0 +1,25 @@
+admin_info_with_parent:
+  - {P-Code: AF0101, Name: Kabul, Location: AFG, Parent P-Code: AF01}
+  - {P-Code: AF0102, Name: Paghman, Location: AFG, Parent P-Code: AF01}
+  - {P-Code: AF0201, Name: Kabul, Location: AFG, Parent P-Code: AF02}  # testing purposes
+  - {P-Code: AF0301, Name: Charikar, Location: AFG, Parent P-Code: AF03}
+  - {P-Code: AF0401, Name: Maydan Shahr, Location: AFG, Parent P-Code: AF04}
+  - {P-Code: AF0501, Name: Pul-e-Alam, Location: AFG, Parent P-Code: AF05}
+  - {P-Code: AF0501, Name: Pul-e-Alam, Location: AFG, Parent P-Code: AF05}
+  - {P-Code: CD2013, Name: Mbanza-Ngungu, Location: COD, Parent P-Code: CD20}
+  - {P-Code: CD3102, Name: Kenge, Location: COD, Parent P-Code: CD31}
+  - {P-Code: MW305, Name: Blantyre, Location: MWI, Parent P-Code: MW3}
+
+admin_name_mappings:
+  "MyMapping": "AF0301"
+  "AFG|MyMapping2": "AF0401"
+  "AF05|MyMapping3": "AF0501"
+
+admin_name_replacements:
+  " city": ""
+
+alt1_admin_name_replacements:
+  "COD| city": ""
+
+alt2_admin_name_replacements:
+  "CD20| city": ""

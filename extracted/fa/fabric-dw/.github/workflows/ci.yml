@@ -1,0 +1,174 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+
+  type:
+    name: Type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: uv sync --frozen
+      - run: uv run ty check src tests
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Required by actions/upload-code-coverage@v1 (GitHub Code Quality public preview)
+      code-quality: write
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync --frozen
+      - run: uv run pytest tests/unit --cov --cov-branch --cov-report=xml --cov-report=term --junitxml=junit.xml -o junit_family=legacy
+      - name: Enforce coverage threshold
+        run: uv run coverage report --fail-under=80
+      - uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: coverage.xml
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: unit
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: unit
+          report_type: test_results
+          files: junit.xml
+      # Upload coverage to GitHub Code Quality (public preview).
+      # Only runs on Python 3.14 to avoid duplicate uploads across matrix entries.
+      # Fork-PR guard: skip on PRs from forks (they lack write permissions).
+      # continue-on-error: the feature requires the maintainer to first enable
+      # "Code Quality" in repo Settings → Code security (public preview).
+      # The step must not block CI/merges while that setting is pending.
+      - name: Upload coverage to GitHub Code Quality
+        if: >-
+          matrix.python-version == '3.14' &&
+          (github.event_name != 'pull_request' ||
+           github.event.pull_request.head.repo.full_name == github.repository)
+        uses: actions/upload-code-coverage@v1
+        continue-on-error: true
+        with:
+          file: coverage.xml
+          language: Python
+          label: code-coverage/pytest
+
+  runtime-smoke:
+    name: Runtime smoke (no dev deps)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      # Install only runtime (production) dependencies — no dev group.
+      # This mirrors what `uvx fabric-dw` / `pip install fabric-dw` produces.
+      - run: uv sync --frozen --no-dev
+      # Smoke-test both entry points: a missing runtime dep in either import
+      # chain will exit non-zero and fail the job.
+      - run: uv run --no-dev fabric-dw --help
+      - run: uv run --no-dev fabric-dw-mcp --help
+      # Verify that the vendored html-query-plan assets (including dist/qp.min.js,
+      # which lives under a .gitignore-excluded path) are correctly packaged in the
+      # wheel and accessible via importlib.resources from an INSTALLED copy.
+      #
+      # IMPORTANT: uv sync --no-dev installs the project in editable mode (src/
+      # mounted), so it reads assets straight from the working tree and cannot
+      # detect packaging gaps.  We must build the wheel and install it into a
+      # CLEAN throwaway environment that has no reference to the source tree.
+      # Only then does a missing artifact (e.g. qp.min.js pruned by .gitignore)
+      # cause a FileNotFoundError that fails CI.
+      - name: Build wheel
+        run: uv build --wheel --out-dir /tmp/fabric-dw-wheel
+      - name: Install wheel into clean venv and smoke-test html renderer
+        run: |
+          python -m venv /tmp/smoke-venv
+          /tmp/smoke-venv/bin/pip install --quiet /tmp/fabric-dw-wheel/*.whl
+          /tmp/smoke-venv/bin/python -c "
+          from fabric_dw.cli._plan_html import render_plan_html
+          ns = 'http://schemas.microsoft.com/sqlserver/2004/07/showplan'
+          xml = f'<ShowPlanXML xmlns=\"{ns}\"><BatchSequence/></ShowPlanXML>'
+          html = render_plan_html(xml)
+          assert '<!DOCTYPE html>' in html, 'missing DOCTYPE'
+          assert 'QP.showPlan' in html, 'missing QP.showPlan call'
+          assert 'data:image/png;base64,' in html, 'sprite sheet not inlined'
+          print('html renderer wheel smoke: OK')
+          "
+
+  slow:
+    name: Slow tests (wall-clock timing)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - run: uv sync --frozen
+      - run: uv run pytest tests/unit -m slow -v

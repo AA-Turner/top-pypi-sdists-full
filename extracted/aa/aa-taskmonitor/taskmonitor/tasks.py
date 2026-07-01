@@ -7,10 +7,13 @@ from allianceauth.services.tasks import QueueOnce
 from app_utils.helpers import chunks
 from app_utils.logging import LoggerAddTag
 
-from . import __title__
-from .app_settings import TASKMONITOR_DATA_MAX_AGE, TASKMONITOR_DELETE_STALE_BATCH_SIZE
-from .core import cached_reports
-from .models import TaskLog, TaskStatistic
+from taskmonitor import __title__
+from taskmonitor.app_settings import (
+    TASKMONITOR_DATA_MAX_AGE,
+    TASKMONITOR_DELETE_STALE_BATCH_SIZE,
+)
+from taskmonitor.core import cached_reports
+from taskmonitor.models import TaskLog, TaskStatistic
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 

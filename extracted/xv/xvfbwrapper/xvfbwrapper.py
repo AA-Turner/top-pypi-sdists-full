@@ -1,5 +1,6 @@
-# Corey Goldberg, 2012-2026
-# License: MIT
+# Copyright (c) 2012-2026 Corey Goldberg
+# SPDX-License-Identifier: MIT
+
 
 """Run a headless display inside X virtual framebuffer (Xvfb)."""
 
@@ -16,9 +17,9 @@ from random import randint
 
 try:
     import fcntl
-except ImportError:
+except ImportError as e:
     system = platform.system()
-    raise OSError(f"xvfbwrapper is not supported on this platform: {system}")
+    raise OSError(f"xvfbwrapper is not supported on this platform: {system}") from e
 
 
 class Xvfb:
@@ -60,7 +61,7 @@ class Xvfb:
         if not extra_args:
             extra_args = []
 
-        self.extra_xvfb_args = [
+        self.extra_xvfb_args: list[str] = [
             "-screen",
             "0",
             f"{self.width}x{self.height}x{self.colordepth}",
@@ -134,7 +135,7 @@ class Xvfb:
 
     def _xvfb_exists(self) -> bool:
         """Check that Xvfb is available on PATH and is executable."""
-        return True if shutil.which("Xvfb") is not None else False
+        return shutil.which("Xvfb") is not None
 
     def _cleanup_lock_file(self):
         """Delete lock files when stopping.

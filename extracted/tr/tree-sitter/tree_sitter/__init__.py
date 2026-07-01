@@ -17,13 +17,10 @@ from ._binding import (
     TreeCursor,
     LANGUAGE_VERSION,
     MIN_COMPATIBLE_LANGUAGE_VERSION,
+    __version__
 )
 
 LogType.__doc__ = "The type of a log message."
-
-Point.__doc__ = "A position in a multi-line text document, in terms of rows and columns."
-Point.row.__doc__ = "The zero-based row of the document."
-Point.column.__doc__ = "The zero-based column of the document."
 
 
 class QueryPredicate(_Protocol):
@@ -68,4 +65,5 @@ __all__ = [
     "TreeCursor",
     "LANGUAGE_VERSION",
     "MIN_COMPATIBLE_LANGUAGE_VERSION",
+    "__version__"
 ]

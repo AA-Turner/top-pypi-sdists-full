@@ -1,0 +1,21 @@
+Metadata-Version: 1.1
+Name: py-geohex3
+Version: 1.0.0
+Summary: geohex v3.2 python implementation
+Home-page: https://github.com/uncovertruth/py-geohex3
+Author: UNCOVER TRUTH Inc.
+Author-email: develop@uncovertruth.co.jp
+License: UNKNOWN
+Description: UNKNOWN
+Keywords: gis geohex
+Platform: any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.2
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Scientific/Engineering :: GIS

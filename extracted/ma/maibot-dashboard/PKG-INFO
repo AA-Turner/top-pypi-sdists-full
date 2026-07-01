@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: maibot-dashboard
+Version: 1.5.1
+Summary: MaiBot WebUI static assets
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# MaiBot WebUI Dist
+
+该包仅包含 MaiBot WebUI 的前端构建产物（dist）。

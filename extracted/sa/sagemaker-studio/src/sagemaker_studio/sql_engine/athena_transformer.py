@@ -1,7 +1,10 @@
+import logging
 from typing import Any, Dict, List, Optional
 
 from .database_transformer import DatabaseTransformer
 from .resource_fetching_definition import ResourceFetchingDefinition, SQLAlchemyMetadataAction
+
+logger = logging.getLogger(__name__)
 
 
 class AthenaTransformer(DatabaseTransformer):
@@ -16,6 +19,56 @@ class AthenaTransformer(DatabaseTransformer):
     @classmethod
     def get_dialect(cls) -> Optional[str]:
         return "presto"
+
+    @staticmethod
+    def get_execution_metadata(cursor: Any) -> Optional[Dict[str, Any]]:
+        """Extract Athena execution metadata from the PyAthena cursor."""
+        try:
+            metadata: Dict[str, Any] = {}
+            if hasattr(cursor, "query_id") and cursor.query_id:
+                metadata["query_execution_id"] = cursor.query_id
+            if (
+                hasattr(cursor, "data_scanned_in_bytes")
+                and cursor.data_scanned_in_bytes is not None
+            ):
+                metadata["data_scanned_bytes"] = cursor.data_scanned_in_bytes
+            if (
+                hasattr(cursor, "engine_execution_time_in_millis")
+                and cursor.engine_execution_time_in_millis is not None
+            ):
+                metadata["engine_execution_time_ms"] = cursor.engine_execution_time_in_millis
+            if (
+                hasattr(cursor, "total_execution_time_in_millis")
+                and cursor.total_execution_time_in_millis is not None
+            ):
+                metadata["total_execution_time_ms"] = cursor.total_execution_time_in_millis
+            if (
+                hasattr(cursor, "query_queue_time_in_millis")
+                and cursor.query_queue_time_in_millis is not None
+            ):
+                metadata["query_queue_time_ms"] = cursor.query_queue_time_in_millis
+            if (
+                hasattr(cursor, "query_planning_time_in_millis")
+                and cursor.query_planning_time_in_millis is not None
+            ):
+                metadata["query_planning_time_ms"] = cursor.query_planning_time_in_millis
+            if (
+                hasattr(cursor, "service_processing_time_in_millis")
+                and cursor.service_processing_time_in_millis is not None
+            ):
+                metadata["service_processing_time_ms"] = cursor.service_processing_time_in_millis
+            if hasattr(cursor, "submission_date_time") and cursor.submission_date_time:
+                metadata["submission_time"] = cursor.submission_date_time.isoformat()
+            if hasattr(cursor, "completion_date_time") and cursor.completion_date_time:
+                metadata["completion_time"] = cursor.completion_date_time.isoformat()
+            if hasattr(cursor, "state") and cursor.state:
+                metadata["state"] = cursor.state
+            if hasattr(cursor, "output_location") and cursor.output_location:
+                metadata["output_location"] = cursor.output_location
+            return metadata if metadata else None
+        except Exception:
+            logger.debug("Failed to extract Athena metadata", exc_info=True)
+            return None
 
     @staticmethod
     def get_required_fields() -> List[str]:

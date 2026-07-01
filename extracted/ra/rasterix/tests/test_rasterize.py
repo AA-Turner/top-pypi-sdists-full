@@ -1,0 +1,156 @@
+import dask_geopandas as dgpd
+import geodatasets
+import geopandas as gpd
+import pytest
+import xarray as xr
+import xproj  # noqa
+from xarray.tests import raise_if_dask_computes
+
+from rasterix import RasterIndex, assign_index
+from rasterix.rasterize import geometry_clip, geometry_mask, rasterize
+
+pytestmark = pytest.mark.filterwarnings("ignore:variable '.*' has non-conforming '_FillValue'")
+
+
+@pytest.fixture
+def dataset():
+    with xr.tutorial.open_dataset("eraint_uvz") as ds:
+        ds = ds.load()
+        ds = ds.proj.assign_crs(spatial_ref="epsg:4326")
+        ds["spatial_ref"].attrs = ds.proj.crs.to_cf()
+        return ds
+
+
+@pytest.mark.parametrize("all_touched", [False, True])
+@pytest.mark.parametrize("clip", [False, True])
+def test_rasterize(clip, all_touched, engine, dataset):
+    if engine == "exactextract" and all_touched:
+        pytest.skip("exactextract always behaves as all_touched=True; does not accept the parameter")
+
+    # exactextract inherently matches the all_touched snapshot
+    if all_touched or engine == "exactextract":
+        suffix = "_all_touched"
+    else:
+        suffix = ""
+    fname = f"rasterize_snapshot{suffix}.nc"
+    try:
+        snapshot = xr.load_dataarray(fname)
+    except FileNotFoundError:
+        fname = f"./tests/{fname}"
+        snapshot = xr.load_dataarray(fname)
+    if clip:
+        snapshot = snapshot.sel(latitude=slice(83.25, None))
+
+    world = gpd.read_file(geodatasets.get_path("naturalearth land"))
+    kwargs = dict(xdim="longitude", ydim="latitude", clip=clip, all_touched=all_touched, engine=engine)
+    rasterized = rasterize(dataset, world[["geometry"]], **kwargs)
+    xr.testing.assert_identical(rasterized, snapshot)
+    assert rasterized.dtype == "uint8"
+
+    chunked = dataset.chunk(latitude=119, longitude=-1)
+    with raise_if_dask_computes():
+        drasterized = rasterize(chunked, world[["geometry"]], **kwargs)
+    assert drasterized.chunks is not None, "Output should be chunked when input is dask"
+    if not clip:
+        # When not clipping, chunks should match input exactly
+        expected_chunks = (chunked.chunksizes["latitude"], chunked.chunksizes["longitude"])
+        assert drasterized.chunks == expected_chunks
+    xr.testing.assert_identical(rasterized, drasterized)
+    assert drasterized.dtype == "uint8"
+
+    if not clip:
+        # clipping not supported with dask geometries
+        dask_geoms = dgpd.from_geopandas(world, chunksize=5)
+        with raise_if_dask_computes():
+            drasterized = rasterize(chunked, dask_geoms[["geometry"]], **kwargs)
+        assert drasterized.chunks is not None, "Output should be chunked when input is dask"
+        xr.testing.assert_identical(drasterized, snapshot)
+
+
+@pytest.mark.parametrize("all_touched", [False, True])
+@pytest.mark.parametrize("invert", [False, True])
+@pytest.mark.parametrize("clip", [False, True])
+def test_geometry_mask(clip, invert, all_touched, engine, dataset):
+    if engine == "exactextract" and all_touched:
+        pytest.skip("exactextract always behaves as all_touched=True; does not accept the parameter")
+
+    # exactextract inherently matches the all_touched snapshot
+    if all_touched or engine == "exactextract":
+        suffix = "_all_touched"
+    else:
+        suffix = ""
+    fname = f"geometry_mask_snapshot{suffix}.nc"
+    try:
+        snapshot = xr.load_dataarray(fname)
+    except FileNotFoundError:
+        snapshot = xr.load_dataarray(f"./tests/{fname}")
+    if clip:
+        snapshot = snapshot.sel(latitude=slice(83.25, None))
+    if invert:
+        snapshot = ~snapshot
+
+    world = gpd.read_file(geodatasets.get_path("naturalearth land"))
+
+    kwargs = dict(
+        xdim="longitude", ydim="latitude", clip=clip, invert=invert, all_touched=all_touched, engine=engine
+    )
+    rasterized = geometry_mask(dataset, world[["geometry"]], **kwargs)
+    xr.testing.assert_identical(rasterized, snapshot)
+
+    chunked = dataset.chunk(latitude=119, longitude=-1)
+    with raise_if_dask_computes():
+        drasterized = geometry_mask(chunked, world[["geometry"]], **kwargs)
+    assert drasterized.chunks is not None, "Output should be chunked when input is dask"
+    if not clip:
+        # When not clipping, chunks should match input exactly
+        expected_chunks = (chunked.chunksizes["latitude"], chunked.chunksizes["longitude"])
+        assert drasterized.chunks == expected_chunks
+    xr.testing.assert_identical(drasterized, snapshot)
+
+    if not clip:
+        # clipping not supported with dask geometries
+        dask_geoms = dgpd.from_geopandas(world, chunksize=5)
+        with raise_if_dask_computes():
+            drasterized = geometry_mask(chunked, dask_geoms[["geometry"]], **kwargs)
+        assert drasterized.chunks is not None, "Output should be chunked when input is dask"
+        xr.testing.assert_identical(drasterized, snapshot)
+
+
+def test_geometry_clip(engine, dataset):
+    world = gpd.read_file(geodatasets.get_path("naturalearth land"))
+    clipped = geometry_clip(dataset, world[["geometry"]], xdim="longitude", ydim="latitude", engine=engine)
+    assert clipped is not None
+    # Basic check that clipping worked - masked values outside geometries
+    assert clipped["u"].isnull().any()
+
+
+@pytest.fixture
+def raster_index_dataset(dataset):
+    """Same grid as ``dataset`` but with a RasterIndex on the spatial dims."""
+    ds = assign_index(dataset, x_dim="longitude", y_dim="latitude")
+    assert isinstance(ds.xindexes["longitude"], RasterIndex)
+    return ds
+
+
+def test_rasterize_with_raster_index(engine, raster_index_dataset, dataset):
+    world = gpd.read_file(geodatasets.get_path("naturalearth land"))
+    kwargs = dict(xdim="longitude", ydim="latitude", engine=engine)
+
+    expected = rasterize(dataset, world[["geometry"]], **kwargs)
+    result = rasterize(raster_index_dataset, world[["geometry"]], **kwargs)
+
+    xr.testing.assert_equal(result, expected)
+    assert isinstance(result.xindexes["longitude"], RasterIndex)
+    assert isinstance(result.xindexes["latitude"], RasterIndex)
+
+
+def test_geometry_mask_with_raster_index(engine, raster_index_dataset, dataset):
+    world = gpd.read_file(geodatasets.get_path("naturalearth land"))
+    kwargs = dict(xdim="longitude", ydim="latitude", engine=engine)
+
+    expected = geometry_mask(dataset, world[["geometry"]], **kwargs)
+    result = geometry_mask(raster_index_dataset, world[["geometry"]], **kwargs)
+
+    xr.testing.assert_equal(result, expected)
+    assert isinstance(result.xindexes["longitude"], RasterIndex)
+    assert isinstance(result.xindexes["latitude"], RasterIndex)

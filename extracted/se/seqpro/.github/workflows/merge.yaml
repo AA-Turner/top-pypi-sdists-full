@@ -1,0 +1,50 @@
+name: Merge main -> stable
+
+on:
+  workflow_call:
+    inputs:
+      dry_run:
+        description: 'Compute the rebase but do not push'
+        type: boolean
+        required: false
+        default: false
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Compute the rebase but do not push'
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  merge:
+    environment: pypi
+    permissions:
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          ref: stable
+          fetch-depth: 0
+          token: "${{ secrets.GH_TOKEN }}"
+      - name: Config git
+        run: |
+          git config --global user.name "${GITHUB_ACTOR}"
+          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+      - name: Rebase stable onto main
+        run: git rebase origin/main
+      - name: Push to stable
+        if: inputs.dry_run == false
+        run: git push origin stable
+      - name: Dry-run summary (skipped push)
+        if: inputs.dry_run == true
+        run: |
+          {
+            echo "## Dry-run: would push the following to stable"
+            echo
+            echo '```'
+            git log --oneline origin/stable..HEAD
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

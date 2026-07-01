@@ -1,3 +1,0 @@
-"""
-Organizations Tests initialization module
-"""

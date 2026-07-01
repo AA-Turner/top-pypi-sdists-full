@@ -1,8 +1,0 @@
-description: Majoration plafond pour la majoration du plafond de ressources des Allocation de la mère au foyer (AMF)
-metadata:
-  short_label: Majoration plafond pour la majoration
-  label_en: Ceiling markup for the markup
-  order:
-  - 1_enfant
-  - 2_enfants
-  - par_enfant_supplementaire

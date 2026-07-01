@@ -1,0 +1,553 @@
+Metadata-Version: 2.4
+Name: flashoptim
+Version: 0.1.4
+Summary: Memory-Efficient PyTorch optimizers
+Author: Databricks AI Research
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "[]"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright [yyyy] [name of copyright owner]
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+        
+Project-URL: Homepage, https://github.com/databricks/flashoptim
+Project-URL: Repository, https://github.com/databricks/flashoptim
+Project-URL: Issues, https://github.com/databricks/flashoptim/issues
+Project-URL: Paper, https://arxiv.org/abs/2602.23349
+Keywords: pytorch,optimizer,memory-efficient,deep-learning,training
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: torch>=2.6.0
+Requires-Dist: triton>=3.0.0; sys_platform == "linux"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-xdist>=3.0.0; extra == "dev"
+Requires-Dist: pytest-codeblocks>=0.13.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: prek>=0.3.0; extra == "dev"
+Provides-Extra: all
+Requires-Dist: flashoptim[dev]; extra == "all"
+Dynamic: license-file
+
+<img src="https://raw.githubusercontent.com/databricks/flashoptim/refs/heads/assets/imgs/flashoptim_ithaca_italic.png" alt="FlashOptim" width="650">
+
+This is the official implementation of [FlashOptim: Optimizers for Memory-Efficient Training](https://arxiv.org/abs/2602.23349)
+
+By [Jose Javier Gonzalez Ortiz](https://x.com/jjgort), [Abhay Gupta](https://x.com/gupta__abhay), [Christopher Rinard](https://x.com/ChrisRinard), and [Davis Blalock](https://x.com/davisblalock).
+
+[![CI](https://img.shields.io/github/actions/workflow/status/databricks/flashoptim/ci.yaml?branch=main&label=ci)](https://github.com/databricks/flashoptim/actions/workflows/ci.yaml)
+[![PyPI](https://img.shields.io/pypi/v/flashoptim)](https://pypi.org/project/flashoptim/)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.9-blue)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/pytorch-%3E%3D2.6-ee4c2c)](https://pytorch.org/)
+[![arXiv](https://img.shields.io/badge/arXiv-2602.23349-b31b1b.svg)](https://arxiv.org/abs/2602.23349)
+
+## TL;DR
+
+FlashOptim is a library implementing drop-in replacements for PyTorch optimizers that substantially reduces training memory by **shrinking the footprint of** optimizer states, master weights, and gradients.
+
+For example, for finetuning an 8B model, FlashOptim requires 35% less peak memory and produces checkpoints that are 57% smaller.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/databricks/flashoptim/refs/heads/assets/imgs/finetuning_memory_breakdown.png" width="48%" alt="Memory breakdown comparing a regular optimizer vs FlashOptim">
+  <img src="https://raw.githubusercontent.com/databricks/flashoptim/refs/heads/assets/imgs/convergence_finetuning_adamw.png" width="48%" alt="Convergence comparison between regular AdamW and FlashOptim">
+</p>
+
+Despite operating in reduced precision, FlashOptim does not affect model convergence.
+
+## 1. Quickstart
+
+To get started you can install flashoptim:
+
+```shell
+$ pip install flashoptim
+```
+
+Once installed, you can import `FlashSGD`, `FlashSGDW`, `FlashAdam`, `FlashAdamW` and `FlashLion`, which follow the standard PyTorch optimizer API. For example, to use `FlashAdamW`:
+
+```python
+import torch
+from torch import nn
+
+from flashoptim import FlashAdamW, cast_model
+
+model = nn.Sequential(nn.Linear(128, 256), nn.ReLU(), nn.Linear(256, 10)).cuda()
+# cast parameters to bf16
+cast_model(model, dtype=torch.bfloat16)
+
+# master_weight_bits=24 (default) means we have 24-bit parameter semantics
+optimizer = FlashAdamW(model.parameters(), lr=1e-3)
+
+x = torch.randn(32, 128, device="cuda", dtype=torch.bfloat16)
+loss = model(x).sum()
+loss.backward()
+optimizer.step()
+optimizer.zero_grad()
+```
+
+That's it! You are now training with 50% less per-parameter memory! For more details on the API and advanced features, keep reading.
+
+## 2. Key Features
+
+- **Memory Savings**. By splitting the weight representation and quantizing the optimizer states, FlashOptim reduces per-parameter memory (e.g. 57% for Adam) and peak training memory without degrading convergence.
+- **Fused Triton Kernels**. All compression operations are fused into the update kernel, introducing no practical overhead.
+- **Gradient Release**. Optionally, parameters can be updated as soon as the gradients are computed, further reducing peak memory.
+- **Compressed Checkpoints**. Checkpoints can optionally be stored using quantized optimizer states, producing >50% space savings.
+- **PyTorch API**. The optimizers follow the standard `torch.optim.Optimizer` interface.
+
+## 3. Installation
+
+FlashOptim can be installed using `pip` or `uv`. Note that FlashOptim is only supported on Linux systems with NVIDIA CUDA GPUs.
+
+```bash
+# install stable version
+pip install flashoptim
+
+# install latest version from source
+pip install git+https://github.com/databricks/flashoptim.git
+
+# or install it locally in editable mode for development
+git clone https://github.com/databricks/flashoptim.git
+cd flashoptim
+pip install -e .
+```
+
+## 4. Usage
+
+> [!NOTE]
+> The first optimizer step will be slower than subsequent steps due to Triton kernel JIT compilation. This is a one-time cost per kernel configuration.
+
+### Specifying Precision
+
+The `master_weight_bits` parameter controls the width of the master weights maintained by the optimizer. By default, master weights are 24-bit, narrower than fp32, which saves memory. When training in bf16/fp16, the downcasting is fused into the update kernel, so no separate cast step is needed:
+
+```python
+from flashoptim import FlashAdamW
+
+# Default: 24-bit master weights (bf16 param + 8-bit correction term)
+optimizer = FlashAdamW(model.parameters(), lr=1e-3)
+
+# 32-bit master weights (bf16 param + 16-bit correction term)
+optimizer = FlashAdamW(model.parameters(), lr=1e-3, master_weight_bits=32)
+
+# No master weight correction; parameters stay at native precision
+optimizer = FlashAdamW(model.parameters(), lr=1e-3, master_weight_bits=None)
+```
+
+The exact behavior depends on the dtype of the parameters passed to the optimizer:
+
+- **bf16/fp16 parameters**: Optimizer states (moments) are quantized to 8-bit. The `master_weight_bits` setting controls master weight precision and fuses the downcasting into the update kernel:
+    - `master_weight_bits=24` (default): 8-bit correction terms for 24-bit master weights, narrower than fp32 while preserving convergence
+    - `master_weight_bits=32`: 16-bit correction terms for full 32-bit master weight semantics
+    - `master_weight_bits=None`: no master weight correction; optimizer states are still quantized, but parameters stay at their native precision
+- **fp32 parameters**: Optimizer states (moments) are quantized to 8-bit to reduce memory. Parameters are already full precision, so `master_weight_bits` is not applicable.
+
+To cast a model's parameters and buffers to bf16, use the `cast_model` helper. By default, normalization layers with running statistics are kept in fp32 for training stability. Forward pre-hooks upcast inputs to fp32 modules automatically:
+
+```python
+from flashoptim import cast_model
+
+# Cast all parameters to bf16 (normalization layers kept in fp32 by default)
+cast_model(model, dtype=torch.bfloat16)
+
+# Terminal layers (e.g., lm_head) - kept fp32, output stays fp32
+cast_model(model, dtype=torch.bfloat16, full_precision_layers=["lm_head", "*.head"])
+
+# Middle layers - kept fp32 but output recast to bf16
+cast_model(model, dtype=torch.bfloat16, full_precision_recast_layers=["target"])
+
+# Module references work too
+cast_model(model, full_precision_layers=[model.lm_head])
+```
+
+> [!NOTE]
+> Layer names are matched with `fnmatch` against the full dotted module name, so `"head"` matches a top-level `model.head` but **not** `model.decoder.head`. Use `"*.head"` for nested modules.
+
+### Weight Decay
+
+FlashOptim follows PyTorch's convention of separating L2 regularization from decoupled weight decay via separate classes:
+
+| Optimizer | Weight Decay Style | PyTorch Equivalent |
+|-----------|-------------------|-------------------|
+| `FlashAdam` | L2 regularization (coupled) | `torch.optim.Adam` |
+| `FlashAdamW` | Decoupled | `torch.optim.AdamW` |
+| `FlashSGD` | L2 regularization (coupled) | `torch.optim.SGD` |
+| `FlashSGDW` | Decoupled | - |
+| `FlashLion` | Decoupled | - |
+
+For decoupled optimizers (`FlashAdamW`, `FlashSGDW`, `FlashLion`), weight decay is applied as a multiplicative factor on the parameters, matching PyTorch's `AdamW` semantics:
+
+$$\theta_t \leftarrow \theta_{t-1} \cdot (1 - \eta_t \cdot \lambda)$$
+
+This means `FlashAdamW(params, lr=1e-3, weight_decay=0.01)` is equivalent to `torch.optim.AdamW(params, lr=1e-3, weight_decay=0.01)`.
+
+#### Fully LR-Decoupled Weight Decay
+
+Setting `decouple_lr=True` enables **fully LR-decoupled weight decay**, where $\lambda$ is the *absolute* per-step decay rate, scaled only by the LR ratio to track the schedule:
+
+$$\theta_t \leftarrow \theta_{t-1} \cdot \left(1 - \lambda \cdot \frac{\eta_t}{\eta_0}\right)$$
+
+At initialization $\eta_t = \eta_0$, so the effective decay is simply $\lambda$. This means you should use much smaller `weight_decay` values than with PyTorch. For example, if you were using `torch.optim.AdamW(params, lr=1e-3, weight_decay=0.01)` (effective decay $10^{-3} \times 0.01 = 10^{-5}$), the equivalent FlashOptim call is `FlashAdamW(params, lr=1e-3, weight_decay=1e-5, decouple_lr=True)`.
+
+The LR-decoupled formulation ensures that weight decay remains stable regardless of learning rate schedule changes. See [Loshchilov & Hutter (2019)](https://arxiv.org/abs/1711.05101) and [Schaipp (2024)](https://fabian-sp.github.io/posts/2024/02/decoupling/) for more details on decoupling LR and WD magnitudes.
+
+
+### Loading & Saving Models
+
+FlashOptim represents full-precision parameters using two components:
+
+- **Low precision parameters**. These are stored as `nn.Module` tensors.
+- **Error correction terms**. These are stored as optimizer state tensors under the `"error_bits"` key in `optimizer.state[param]`.
+
+
+FlashOptim provides methods for exporting and importing full-precision (FP32) checkpoints. For loading, the model must have been initialized with the desired precision (e.g. via `cast_model`).
+
+```python
+import torch
+import torchvision
+
+from flashoptim import FlashAdamW, cast_model
+
+model = torchvision.models.resnet18().cuda()
+cast_model(model, dtype=torch.bfloat16, full_precision_layers=["fc"])
+optimizer = FlashAdamW(model.parameters(), lr=1e-3, master_weight_bits=24)
+
+# ... training ...
+
+# Save: reconstruct fp32 from bf16 + error bits
+fp32_state_dict = optimizer.get_fp32_model_state_dict(model)
+torch.save(fp32_state_dict, "checkpoint.pt")
+
+# Load: restore fp32 weights into a bf16 model (error bits recomputed automatically)
+fp32_state_dict = torch.load("checkpoint.pt", weights_only=True)
+optimizer.set_fp32_model_state_dict(model, fp32_state_dict)
+```
+
+### Compressed Checkpoints
+
+By default, optimizer state dicts are saved in compressed form (quantized int8 momentum and variance), producing checkpoints ~50% smaller than fp32. ECC error correction bits are always preserved in the checkpoint regardless of this setting. To disable compression and save optimizer states as fp32 instead, set `compress_state_dict=False`:
+
+```python
+# Default: state_dict() saves states as quantized int8
+optimizer = FlashAdamW(model.parameters(), lr=1e-3)
+torch.save(optimizer.state_dict(), "checkpoint_int8.pt")
+
+# Uncompressed: state_dict() saves states as fp32
+optimizer = FlashAdamW(model.parameters(), lr=1e-3, compress_state_dict=False)
+torch.save(optimizer.state_dict(), "checkpoint_fp32.pt")
+```
+
+> [!WARNING]
+> **Checkpoint precision gotcha.** PyTorch's `Optimizer.load_state_dict()` casts every floating-point state tensor to the parameter's dtype (e.g. fp32 → bf16), which is lossy. FlashOptim works around this, but behavior differs by mode:
+>
+> - **`compress_state_dict=True`** (default) - Optimizer states (momentum, variance) are serialized as int8 + fp16 scales and are **not** loadable by vanilla PyTorch optimizers.
+> - **`compress_state_dict=False`** - Optimizer states are serialized as fp32 and are loadable by vanilla PyTorch optimizers. On load, FlashOptim pre-quantizes them to int8 + scales *before* PyTorch's cast runs, avoiding the lossy bf16 conversion. This recovers most precision but introduces one extra quantization step compared to continuous training.
+>
+> Note: `compress_state_dict` only affects how optimizer states (momentum, variance) are serialized. ECC error correction bits are always included in both modes and are not affected by this setting.
+
+### Distributed Training
+
+FlashOptim is compatible with data parallelism strategies including [DistributedDataParallel (DDP)](https://pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html) and [FSDP2](https://pytorch.org/docs/stable/distributed.fsdp.html). Wrap or shard your model as usual, then pass the resulting parameters to the optimizer:
+
+> [!WARNING]
+> FlashOptim does **not** support FSDP1 (`FullyShardedDataParallel`) due to design limitations in how FSDP1 manages parameter and optimizer state sharding. Please use FSDP2 (`fully_shard`) instead.
+
+```python
+# DDP
+model = DDP(model, device_ids=[device.index])
+optimizer = FlashAdamW(model.parameters(), lr=1e-3, master_weight_bits=24)
+
+# FSDP2
+fully_shard(model)
+optimizer = FlashAdamW(model.parameters(), lr=1e-3, master_weight_bits=24)
+```
+
+### Gradient Release
+
+FlashOptim supports gradient release, which updates parameters during the backward pass as soon as gradients are computed, further reducing memory usage. Gradient release is implemented via post-backward hooks and needs to be enabled explicitly:
+
+```python
+from flashoptim import FlashAdamW, enable_gradient_release
+
+optimizer = FlashAdamW(model.parameters(), lr=1e-3, master_weight_bits=24)
+handle = enable_gradient_release(model, optimizer)
+
+for x, y in dataloader:
+    loss = loss_fn(model(x), y)
+    loss.backward()
+    # step() and zero_grad() are no-ops while gradient release is active;
+    # parameters are updated during backward and gradients are freed immediately
+    optimizer.step()
+    optimizer.zero_grad()
+
+# Call handle.remove() to restore normal optimizer behavior
+handle.remove()
+```
+
+Gradient release is compatible with single-GPU training and FSDP2 (`fully_shard`).
+
+**Limitations**. Since the parameters are updated during the backward pass and gradients are freed immediately, gradient release is incompatible with:
+
+- **DDP**. DDP uses custom communication hooks and buffers that cannot be easily instrumented.
+- **Microbatch Accumulation**. Gradient release steps parameters immediately as gradients arrive, so gradients cannot be accumulated.
+- **Gradient Clipping**. Global gradient clipping (e.g. `torch.nn.utils.clip_grad_norm_`) cannot be applied.
+- **Gradient Scaling**. `torch.amp.GradScaler` is not supported with gradient release.
+
+### Numerics Checking
+
+When training in reduced precision, a learning rate that is too small relative to the parameter magnitudes can produce updates that round to zero, silently stalling training.
+Setting `check_numerics=True` detects this: at each step FlashOptim verifies that `lr` is large enough to actually change the largest values in every tensor (given the parameter dtype and `master_weight_bits`).
+This is useful as a sanity check during early training to catch silent stalls caused by updates that round to zero.
+
+### Distributed Checkpointing (DCP) with FSDP2
+
+FlashOptim supports saving and loading optimizer state via `torch.distributed.checkpoint` helpers:
+
+```python
+import torch.distributed.checkpoint as dcp
+from torch.distributed.checkpoint.state_dict import (
+    get_optimizer_state_dict,
+    set_optimizer_state_dict,
+)
+
+# Save
+osd = get_optimizer_state_dict(model, optimizer)
+dcp.save({"optimizer": osd}, checkpoint_id=ckpt_dir)
+
+# Load
+osd = get_optimizer_state_dict(model, optimizer)  # template
+dcp.load({"optimizer": osd}, checkpoint_id=ckpt_dir)
+set_optimizer_state_dict(model, optimizer, osd)
+```
+
+> [!WARNING]
+> The `flatten_optimizer_state_dict=True)` is **not compatible** with FlashOptim compressed checkpoints (i.e. `compress_state_dict=True`), because of key issues during unflattenning.
+
+## 5. Compatibility
+
+| Requirement | Details |
+|-------------|---------|
+| **Hardware** | NVIDIA GPUs with CUDA support  |
+| **OS** | Linux |
+| **Python** | ≥3.9 |
+| **PyTorch** | ≥2.7 |
+| **Triton** | ≥2.0 |
+| **Distributed** | DDP and FSDP2 supported; FSDP1 **not** supported |
+| **Precision** | bf16, fp16, and fp32 parameters |
+
+## 6. Contributing
+
+For contributing to FlashOptim, please see our [contributing guidelines](CONTRIBUTING.md).
+
+## 7. Citation
+
+If you use FlashOptim in your research, please cite our paper:
+
+```bibtex
+@article{gonzalezblalock2026flashoptim,
+  title={FlashOptim: Optimizers for Memory-Efficient Training},
+  author={Gonzalez Ortiz, Jose Javier and Gupta, Abhay and Rinard, Christopher and Blalock, Davis},
+  journal={arXiv preprint arXiv:2602.23349},
+  year={2026}
+}
+```

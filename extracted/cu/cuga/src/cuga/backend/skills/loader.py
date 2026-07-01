@@ -1,8 +1,9 @@
-"""Discover SKILL.md files under .agents/skills with legacy .cuga/skills fallbacks."""
+"""Discover SKILL.md files from a single configurable skills root."""
 
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Any, Iterable, List, Sequence
 
@@ -10,10 +11,26 @@ from loguru import logger
 
 from cuga.backend.cuga_graph.policy.folder_loader import parse_markdown_with_frontmatter
 from cuga.backend.skills.registry import SkillEntry
-
+from cuga.config import settings
 
 DEFAULT_GLOBAL_SKILLS_ROOT = "~/.config/agents/skills"
 LEGACY_GLOBAL_SKILLS_ROOT = "~/.config/cuga/skills"
+VALID_SKILL_ROOTS = frozenset({"cuga", "agents", "global_agents", "global_cuga"})
+
+# Matches Jinja2 expression/block/comment delimiters used in the system-prompt template.
+# Stripping these at parse time prevents prompt-injection via malicious SKILL.md frontmatter.
+_JINJA_RE = re.compile(r"\{\{.*?\}\}|\{%.*?%\}|\{#.*?#\}", re.DOTALL)
+
+
+def _sanitize_for_prompt(value: str, field: str, source: Path) -> str:
+    """Strip Jinja2 template delimiters from a skill frontmatter string."""
+    sanitized = _JINJA_RE.sub("", value)
+    if sanitized != value:
+        logger.warning(
+            f"Skill {source}: {field!r} contained Jinja2 template syntax and was sanitized. "
+            "This may indicate a malicious or misconfigured SKILL.md."
+        )
+    return sanitized
 
 
 def _resolve_path(path: str | Path) -> Path:
@@ -33,50 +50,44 @@ def _as_list(value: Any) -> list[str]:
     return [str(value)]
 
 
-def _dedupe_paths(paths: Iterable[Path]) -> list[Path]:
-    out: list[Path] = []
-    seen: set[str] = set()
-    for path in paths:
-        key = str(path)
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(path)
-    return out
+def _settings_skill_root() -> str:
+    preset = getattr(settings.skills, "root", None) or "cuga"
+    return str(preset).strip().lower() or "cuga"
 
 
-def get_skill_search_roots(
+def get_skill_root(
     cuga_folder: str | None,
+    *,
+    root: str | None = None,
     global_skills_root: str | None = None,
     legacy_global_skills_root: str | None = None,
-) -> list[Path]:
-    """Return skill roots from lowest to highest priority.
+) -> Path:
+    """Return the single skills directory to scan.
 
-    New Agent-compatible paths override legacy Cuga paths by being scanned later.
-    Project-local paths override global paths.
+    Controlled by ``settings.skills.root`` (default ``cuga`` → ``<CUGA folder>/skills``).
+    Override with ``root=`` in tests or ``DYNACONF_SKILLS__ROOT`` env var.
     """
-    global_legacy_root = Path(
-        legacy_global_skills_root or os.path.expanduser(LEGACY_GLOBAL_SKILLS_ROOT)
-    ).expanduser()
-    global_agents_root = Path(
-        global_skills_root or os.path.expanduser(DEFAULT_GLOBAL_SKILLS_ROOT)
-    ).expanduser()
+    preset = (root or _settings_skill_root()).strip().lower()
+    if preset not in VALID_SKILL_ROOTS:
+        raise ValueError(
+            f"Invalid skills.root {preset!r}; expected one of: {', '.join(sorted(VALID_SKILL_ROOTS))}"
+        )
 
-    roots: list[Path] = [global_legacy_root, global_agents_root]
+    if preset == "global_agents":
+        return Path(global_skills_root or os.path.expanduser(DEFAULT_GLOBAL_SKILLS_ROOT)).expanduser()
+    if preset == "global_cuga":
+        return Path(legacy_global_skills_root or os.path.expanduser(LEGACY_GLOBAL_SKILLS_ROOT)).expanduser()
 
     if cuga_folder:
         cuga_root = _resolve_path(cuga_folder)
         agents_root = cuga_root.parent / ".agents"
     else:
-        cuga_root = None
+        cuga_root = Path(os.getcwd()) / ".cuga"
         agents_root = Path(os.getcwd()) / ".agents"
 
-    # Legacy local roots are fallbacks; .agents/skills is the preferred project-local path.
-    if cuga_root is not None:
-        roots.extend([cuga_root / "skills", cuga_root / ".skills"])
-    roots.append(agents_root / "skills")
-
-    return _dedupe_paths(roots)
+    if preset == "agents":
+        return agents_root / "skills"
+    return cuga_root / "skills"
 
 
 def _iter_skill_files(root: Path) -> List[Path]:
@@ -113,40 +124,54 @@ def _normalize_requirements(value: Any) -> tuple[str, ...]:
 def _parse_skill_file(path: Path) -> SkillEntry | None:
     try:
         frontmatter, body = parse_markdown_with_frontmatter(str(path))
+        name = frontmatter.get("name")
+        description = frontmatter.get("description")
+        if not name or not description:
+            raise ValueError("missing name or description in frontmatter")
+
+        name_str = _sanitize_for_prompt(str(name).strip(), "name", path)
+        if re.search(r'[/\\]|\.\.', name_str):
+            raise ValueError(f"unsafe skill name {name_str!r}: path separators and '..' are not allowed")
+
+        description_str = _sanitize_for_prompt(str(description).strip(), "description", path)
+        return SkillEntry(
+            name=name_str,
+            description=description_str,
+            body=body.strip(),
+            source=str(path),
+            requirements=_normalize_requirements(frontmatter.get("requirements")),
+        )
     except Exception as e:
         logger.warning(f"Skipping invalid skill file {path}: {e}")
         return None
-    name = frontmatter.get("name")
-    description = frontmatter.get("description")
-    if not name or not description:
-        logger.warning(f"Skill {path} missing name or description in frontmatter")
-        return None
-
-    return SkillEntry(
-        name=str(name).strip(),
-        description=str(description).strip(),
-        body=body.strip(),
-        source=str(path),
-        requirements=_normalize_requirements(frontmatter.get("requirements")),
-    )
 
 
 def discover_skills(
     cuga_folder: str | None,
     global_skills_root: str | None = None,
     legacy_global_skills_root: str | None = None,
+    *,
+    root: str | None = None,
 ) -> List[SkillEntry]:
-    """Scan skills so preferred .agents paths override legacy .cuga fallback paths."""
-    by_name: dict[str, SkillEntry] = {}
-
-    for skills_dir in get_skill_search_roots(
+    """Scan a single configured skills root for SKILL.md files."""
+    skills_dir = get_skill_root(
         cuga_folder,
+        root=root,
         global_skills_root=global_skills_root,
         legacy_global_skills_root=legacy_global_skills_root,
-    ):
-        for path in _iter_skill_files(skills_dir):
-            entry = _parse_skill_file(path)
-            if entry:
-                by_name[entry.name] = entry
+    )
+    by_name: dict[str, SkillEntry] = {}
 
-    return list(by_name.values())
+    for path in _iter_skill_files(skills_dir):
+        entry = _parse_skill_file(path)
+        if entry:
+            if entry.name in by_name:
+                logger.debug(
+                    f"Skill '{entry.name}' from {path} overrides earlier entry from {by_name[entry.name].source}"
+                )
+            by_name[entry.name] = entry
+
+    entries = list(by_name.values())
+    if entries:
+        logger.info(f"Loaded {len(entries)} agent skill(s) from {skills_dir}")
+    return entries

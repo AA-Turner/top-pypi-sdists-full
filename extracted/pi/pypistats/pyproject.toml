@@ -40,7 +40,6 @@ dynamic = [ "version" ]
 dependencies = [
   "platformdirs",
   "prettytable>=3.12",
-  "pytablewriter[html]>=0.63",
   "python-slugify",
   "termcolor>=3.2",
   "tomli; python_version<'3.11'",
@@ -65,16 +64,11 @@ scripts.pypistats = "pypistats.cli:main"
 
 [tool.hatch]
 version.source = "vcs"
-
-[tool.hatch.build.hooks.vcs]
-version-file = "src/pypistats/_version.py"
-
-[tool.hatch.version.raw-options]
-local_scheme = "no-local-version"
+version.raw-options.local_scheme = "no-local-version"
+build.hooks.vcs.version-file = "src/pypistats/_version.py"
 
 [tool.ruff]
 fix = true
-
 lint.select = [
   "C4",     # flake8-comprehensions
   "E",      # pycodestyle errors
@@ -112,23 +106,25 @@ lint.future-annotations = true
 [tool.pyproject-fmt]
 max_supported_python = "3.15"
 
-[tool.pytest.ini_options]
-addopts = "--color=yes"
-testpaths = [ "tests" ]
+[tool.mypy]
+pretty = true
+# strict = true
+show_error_codes = true
 
-[tool.coverage.run]
-omit = [
+[tool.pytest]
+ini_options.addopts = "--color=yes"
+ini_options.filterwarnings = [
+  # Pending release of https://github.com/Knio/dominate/pull/211
+  "ignore:There is no current event loop:DeprecationWarning:dominate",
+]
+ini_options.testpaths = [ "tests" ]
+
+[tool.coverage]
+run.omit = [
   "**/__main__.py",
 ]
-
-[tool.coverage.report]
 # Regexes for lines to exclude from consideration
-exclude_also = [
+report.exclude_also = [
   # Don't complain if non-runnable code isn't run:
   "if __name__ == .__main__.:",
 ]
-
-[tool.mypy]
-pretty = true
-#strict = true
-show_error_codes = true

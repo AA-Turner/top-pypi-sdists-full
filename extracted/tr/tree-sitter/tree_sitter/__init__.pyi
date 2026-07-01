@@ -1,14 +1,10 @@
 from enum import IntEnum
 from collections.abc import ByteString, Callable, Iterator, Sequence
-from typing import Annotated, Any, Final, Literal, NamedTuple, Protocol, Self, final, overload
+from typing import Annotated, Any, Final, Literal, Protocol, Self, final, overload
 from typing_extensions import deprecated
 
 class _SupportsFileno(Protocol):
     def fileno(self) -> int: ...
-
-class Point(NamedTuple):
-    row: int
-    column: int
 
 class LogType(IntEnum):
     PARSE: int
@@ -27,9 +23,6 @@ class Language:
     def abi_version(self) -> int: ...
     @property
     def semantic_version(self) -> tuple[int, int, int] | None: ...
-    @deprecated("Use abi_version instead")
-    @property
-    def version(self) -> int: ...
     @property
     def node_kind_count(self) -> int: ...
     @property
@@ -48,8 +41,6 @@ class Language:
     def field_id_for_name(self, name: str, /) -> int | None: ...
     def next_state(self, state: int, id: int, /) -> int: ...
     def lookahead_iterator(self, state: int, /) -> LookaheadIterator | None: ...
-    @deprecated("Use the Query() constructor instead")
-    def query(self, source: str, /) -> Query: ...
     def copy(self) -> Language: ...
     def __repr__(self) -> str: ...
     def __eq__(self, other: Any, /) -> bool: ...
@@ -226,22 +217,11 @@ class TreeCursor:
 
 @final
 class Parser:
-    @overload
     def __init__(
         self,
         language: Language | None = None,
         *,
         included_ranges: Sequence[Range] | None = None,
-        logger: Callable[[LogType, str], None] | None = None,
-    ) -> None: ...
-    @deprecated("timeout_micros is deprecated")
-    @overload
-    def __init__(
-        self,
-        language: Language | None = None,
-        *,
-        included_ranges: Sequence[Range] | None = None,
-        timeout_micros: int | None = None,
         logger: Callable[[LogType, str], None] | None = None,
     ) -> None: ...
     @property
@@ -256,15 +236,6 @@ class Parser:
     def included_ranges(self, ranges: Sequence[Range]) -> None: ...
     @included_ranges.deleter
     def included_ranges(self) -> None: ...
-    @deprecated("Use the progress_callback in parse()")
-    @property
-    def timeout_micros(self) -> int: ...
-    @deprecated("Use the progress_callback in parse()")
-    @timeout_micros.setter
-    def timeout_micros(self, timeout: int) -> None: ...
-    @deprecated("Use the progress_callback in parse()")
-    @timeout_micros.deleter
-    def timeout_micros(self) -> None: ...
     @property
     def logger(self) -> Callable[[LogType, str], None] | None: ...
     @logger.setter
@@ -305,8 +276,11 @@ class QueryPredicate(Protocol):
 @final
 class Query:
     def __new__(cls, language: Language, source: str, /) -> Self: ...
+    @property
     def pattern_count(self) -> int: ...
+    @property
     def capture_count(self) -> int: ...
+    @property
     def string_count(self) -> int: ...
     def start_byte_for_pattern(self, index: int, /) -> int: ...
     def end_byte_for_pattern(self, index: int, /) -> int: ...
@@ -328,34 +302,25 @@ class Query:
 
 @final
 class QueryCursor:
-    @overload
     def __init__(self, query: Query, *, match_limit: int = 0xFFFFFFFF) -> None: ...
-    @deprecated("timeout_micros is deprecated")
-    @overload
-    def __init__(
-        self,
-        query: Query,
-        *,
-        match_limit: int = 0xFFFFFFFF,
-        timeout_micros: int = 0
-    ) -> None: ...
     @property
     def match_limit(self) -> int: ...
     @match_limit.setter
     def match_limit(self, limit: int) -> None: ...
     @match_limit.deleter
     def match_limit(self) -> None: ...
-    @deprecated("Use the progress_callback in matches() or captures()")
-    @property
-    def timeout_micros(self) -> int: ...
-    @deprecated("Use the progress_callback in matches() or captures()")
-    @timeout_micros.setter
-    def timeout_micros(self, timeout: int) -> None: ...
     @property
     def did_exceed_match_limit(self) -> bool: ...
     def set_max_start_depth(self, depth: int, /) -> None: ...
     def set_byte_range(self, start: int, end: int, /) -> None: ...
+    def set_containing_byte_range(self, start: int, end: int, /) -> None: ...
     def set_point_range(
+        self,
+        start: Point | tuple[int, int],
+        end: Point | tuple[int, int],
+        /,
+    ) -> None: ...
+    def set_containing_point_range(
         self,
         start: Point | tuple[int, int],
         end: Point | tuple[int, int],
@@ -390,6 +355,24 @@ class LookaheadIterator(Iterator[tuple[int, str]]):
     def __next__(self) -> tuple[int, str]: ...
 
 @final
+class Point(tuple[int, int]):
+    def __new__(cls, row: int, column: int) -> Self: ...
+    @property
+    def row(self) -> int: ...
+    @property
+    def column(self) -> int: ...
+    def edit(
+        self,
+        start_byte: int,
+        old_end_byte: int,
+        new_end_byte: int,
+        start_point: Point | tuple[int, int],
+        old_end_point: Point | tuple[int, int],
+        new_end_point: Point | tuple[int, int],
+    ) -> tuple[Point, int]: ...
+    def __repr__(self) -> str: ...
+
+@final
 class Range:
     def __init__(
         self,
@@ -406,6 +389,15 @@ class Range:
     def start_byte(self) -> int: ...
     @property
     def end_byte(self) -> int: ...
+    def edit(
+        self,
+        start_byte: int,
+        old_end_byte: int,
+        new_end_byte: int,
+        start_point: Point | tuple[int, int],
+        old_end_point: Point | tuple[int, int],
+        new_end_point: Point | tuple[int, int],
+    ) -> None: ...
     def __eq__(self, other: Any, /) -> bool: ...
     def __ne__(self, other: Any, /) -> bool: ...
     def __repr__(self) -> str: ...
@@ -414,3 +406,5 @@ class Range:
 LANGUAGE_VERSION: Final[int]
 
 MIN_COMPATIBLE_LANGUAGE_VERSION: Final[int]
+
+__version__: Final[str]

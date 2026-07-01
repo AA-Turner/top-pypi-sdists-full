@@ -3,6 +3,7 @@ import logging
 import os
 import ssl
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Union
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit
@@ -18,6 +19,19 @@ HOST = "https://api.tinybird.co"
 LIMIT_RETRIES = 10
 LAST_PARTITION = "last_partition"
 ALL_PARTITIONS = "all_partitions"
+
+
+@dataclass(frozen=True)
+class CLIWarning:
+    message: str
+    code: Optional[str] = None
+    docs_url: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class CLIResourceFile:
+    content: str
+    warnings: list[CLIWarning]
 
 
 class AuthException(Exception):
@@ -376,8 +390,22 @@ class TinyB:
     def pipe_file(self, pipe: str):
         return self._req(f"/v1/pipes/{pipe}.pipe")
 
-    def connection_file(self, connection: str):
-        return self._req(f"/v0/connectors/{connection}.connection")
+    def _parse_cli_warnings(self, warnings: list[dict[str, Any]]) -> list[CLIWarning]:
+        return [
+            CLIWarning(
+                message=warning["message"],
+                code=warning.get("code"),
+                docs_url=warning.get("docs_url"),
+            )
+            for warning in warnings
+        ]
+
+    def connection_file(self, connection: str) -> CLIResourceFile:
+        response = self._req(f"/v0/connectors/{connection}.connection?include_metadata=true")
+        return CLIResourceFile(
+            content=response["content"],
+            warnings=self._parse_cli_warnings(response.get("warnings", [])),
+        )
 
     def datasource_file(self, datasource: str):
         try:

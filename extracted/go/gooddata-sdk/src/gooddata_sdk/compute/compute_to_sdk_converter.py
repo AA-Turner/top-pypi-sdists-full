@@ -1,0 +1,267 @@
+# (C) 2024 GoodData Corporation
+from typing import Any, Union, cast
+
+from gooddata_sdk.compute.model.attribute import Attribute
+from gooddata_sdk.compute.model.base import ObjId
+from gooddata_sdk.compute.model.filter import (
+    AbsoluteDateFilter,
+    AllTimeDateFilter,
+    BoundedFilter,
+    CompoundMetricValueFilter,
+    Filter,
+    InlineFilter,
+    MatchAttributeFilter,
+    MetricValueComparisonCondition,
+    MetricValueFilter,
+    MetricValueRangeCondition,
+    NegativeAttributeFilter,
+    PositiveAttributeFilter,
+    RankingFilter,
+    RelativeDateFilter,
+)
+from gooddata_sdk.compute.model.metric import (
+    ArithmeticMetric,
+    Metric,
+    PopDate,
+    PopDateDataset,
+    PopDateMetric,
+    PopDatesetMetric,
+    SimpleMetric,
+)
+from gooddata_sdk.utils import ref_extract, ref_extract_obj_id
+
+
+def _extract_dimensionality(f: dict[str, Any]) -> list[Union[str, ObjId, Attribute, Metric]] | None:
+    # mypy is unable to automatically convert Union[str, ObjId] to Union[str, ObjId, Attribute, Metric]
+    # so use explicit cast here
+    if "dimensionality" not in f:
+        return None
+    return [cast(Union[str, ObjId, Attribute, Metric], ref_extract(a)) for a in f["dimensionality"]]
+
+
+class ComputeToSdkConverter:
+    """
+    Provides functions to convert Compute API model objects represented as dictionaries to the SDK Compute model.
+    We cannot use the Visualization converter as the Compute API model is different:
+    - there are differences in naming: e.g. "label" vs "displayForm", "dataset" vs "dataSet"
+    - there are differences in structure: e.g. "measure" vs "measureDefinition"
+
+    The inputs to this converter should be dictionaries that come from parsing the JSON payloads
+    used with the backend's /execute API endpoint.
+    """
+
+    @staticmethod
+    def convert_attribute(attribute_dict: dict[str, Any]) -> Attribute:
+        """Convert attribute dictionary to the SDK Compute model.
+
+        Args:
+            attribute_dict: the attribute dictionary to convert
+
+        Returns:
+            the converted attribute
+        """
+        return Attribute(
+            local_id=attribute_dict["localIdentifier"],
+            label=attribute_dict["label"]["identifier"]["id"],
+            show_all_values=attribute_dict["showAllValues"],
+        )
+
+    @staticmethod
+    def convert_filter(filter_dict: dict[str, Any]) -> Filter:
+        """Convert filter dictionary to the SDK Compute model.
+
+        Args:
+            filter_dict: the filter dictionary to convert
+
+        Returns:
+            the converted filter
+        """
+        if "positiveAttributeFilter" in filter_dict:
+            f = filter_dict["positiveAttributeFilter"]
+            return PositiveAttributeFilter(label=ref_extract(f["label"]), values=f["in"]["values"])
+
+        if "negativeAttributeFilter" in filter_dict:
+            f = filter_dict["negativeAttributeFilter"]
+            return NegativeAttributeFilter(label=ref_extract(f["label"]), values=f["notIn"]["values"])
+
+        if "matchAttributeFilter" in filter_dict:
+            f = filter_dict["matchAttributeFilter"]
+            return MatchAttributeFilter(
+                label=ref_extract(f["label"]),
+                match_type=f["matchType"],
+                literal=f["literal"],
+                case_sensitive=f.get("caseSensitive", False),
+                negate=f.get("negate", False),
+            )
+
+        if "relativeDateFilter" in filter_dict:
+            f = filter_dict["relativeDateFilter"]
+
+            # there is a filter present, but means all time
+            if ("from" not in f) or ("to" not in f):
+                return AllTimeDateFilter(
+                    dataset=ref_extract_obj_id(f["dataset"]),
+                    granularity=f.get("granularity"),
+                    empty_value_handling=f.get("emptyValueHandling"),
+                )
+
+            # Extract bounded filter if present
+            bounded_filter = None
+            if "boundedFilter" in f:
+                bf = f["boundedFilter"]
+                bounded_filter = BoundedFilter(
+                    granularity=bf["granularity"],
+                    from_shift=bf.get("from"),
+                    to_shift=bf.get("to"),
+                )
+
+            return RelativeDateFilter(
+                dataset=ref_extract_obj_id(f["dataset"]),
+                granularity=f["granularity"],
+                from_shift=f["from"],
+                to_shift=f["to"],
+                bounded_filter=bounded_filter,
+                empty_value_handling=f.get("emptyValueHandling"),
+            )
+
+        if "allTimeDateFilter" in filter_dict:
+            f = filter_dict["allTimeDateFilter"]
+            return AllTimeDateFilter(
+                dataset=ref_extract_obj_id(f["dataset"]),
+                granularity=f.get("granularity"),
+                empty_value_handling=f.get("emptyValueHandling"),
+            )
+
+        if "absoluteDateFilter" in filter_dict:
+            f = filter_dict["absoluteDateFilter"]
+
+            return AbsoluteDateFilter(
+                dataset=ref_extract_obj_id(f["dataset"]),
+                from_date=f["from"],
+                to_date=f["to"],
+                empty_value_handling=f.get("emptyValueHandling"),
+            )
+
+        if "comparisonMeasureValueFilter" in filter_dict:
+            f = filter_dict["comparisonMeasureValueFilter"]
+
+            return MetricValueFilter(
+                metric=ref_extract(f["measure"]),
+                operator=f["operator"],
+                values=f["value"],
+                treat_nulls_as=f.get("treatNullValuesAs"),
+                dimensionality=_extract_dimensionality(f),
+            )
+
+        if "rangeMeasureValueFilter" in filter_dict:
+            f = filter_dict["rangeMeasureValueFilter"]
+
+            return MetricValueFilter(
+                metric=ref_extract(f["measure"]),
+                operator=f["operator"],
+                values=(f["from"], f["to"]),
+                treat_nulls_as=f.get("treatNullValuesAs"),
+                dimensionality=_extract_dimensionality(f),
+            )
+
+        if "compoundMeasureValueFilter" in filter_dict:
+            f = filter_dict["compoundMeasureValueFilter"]
+
+            conditions: list[Union[MetricValueComparisonCondition, MetricValueRangeCondition]] = []
+            for condition in f.get("conditions", []):
+                if "comparison" in condition:
+                    c = condition["comparison"]
+                    conditions.append(MetricValueComparisonCondition(operator=c["operator"], value=c["value"]))
+                elif "range" in condition:
+                    c = condition["range"]
+                    conditions.append(
+                        MetricValueRangeCondition(operator=c["operator"], from_value=c["from"], to_value=c["to"])
+                    )
+                else:
+                    raise ValueError(f"Unsupported measure value condition type: {condition}")
+
+            return CompoundMetricValueFilter(
+                metric=ref_extract(f["measure"]),
+                conditions=conditions,
+                treat_nulls_as=f.get("treatNullValuesAs"),
+                dimensionality=_extract_dimensionality(f),
+            )
+
+        if "rankingFilter" in filter_dict:
+            f = filter_dict["rankingFilter"]
+
+            return RankingFilter(
+                metrics=[ref_extract(m) for m in f["measures"]],
+                dimensionality=_extract_dimensionality(f),
+                operator=f["operator"],
+                value=f["value"],
+            )
+
+        if "inline" in filter_dict:
+            f = filter_dict["inline"]
+
+            return InlineFilter(maql=f["filter"])
+
+        raise ValueError(f"Unsupported filter definition type: {filter_dict}")
+
+    @staticmethod
+    def convert_metric(metric_dict: dict[str, Any]) -> Metric:
+        """Convert metric dictionary to the SDK Compute model.
+
+        Args:
+            metric_dict: the metric dictionary to convert
+
+        Returns:
+            the converted metric
+        """
+        definition = metric_dict["definition"]
+        local_id = metric_dict["localIdentifier"]
+
+        if "measure" in definition:
+            d = definition["measure"]
+            aggregation = d.get("aggregation", None)
+            compute_ratio = d.get("computeRatio", False)
+
+            filters = [ComputeToSdkConverter.convert_filter(f) for f in d["filters"]] if "filters" in d else None
+
+            return SimpleMetric(
+                local_id=local_id,
+                item=ref_extract_obj_id(d["item"]),
+                aggregation=aggregation,
+                compute_ratio=compute_ratio,
+                filters=filters,
+            )
+
+        if "arithmeticMeasure" in definition:
+            d = definition["arithmeticMeasure"]
+            return ArithmeticMetric(
+                local_id=local_id,
+                operator=d["operator"],
+                operands=[o["localIdentifier"] for o in d["measureIdentifiers"]],
+            )
+
+        if "overPeriodMeasure" in definition:
+            d = definition["overPeriodMeasure"]
+            date_attributes = [
+                PopDate(attribute=ref_extract_obj_id(item["attribute"]), periods_ago=item["periodsAgo"])
+                for item in d["dateAttributes"]
+            ]
+
+            return PopDateMetric(
+                local_id=local_id,
+                metric=d["measureIdentifier"]["localIdentifier"],
+                date_attributes=date_attributes,
+            )
+
+        if "previousPeriodMeasure" in definition:
+            d = definition["previousPeriodMeasure"]
+
+            date_datasets = [PopDateDataset(ref_extract(dd["dataset"]), dd["periodsAgo"]) for dd in d["dateDatasets"]]
+
+            return PopDatesetMetric(
+                local_id=local_id,
+                metric=d["measureIdentifier"]["localIdentifier"],
+                date_datasets=date_datasets,
+            )
+
+        raise ValueError(f"Unsupported metric definition type: {metric_dict}")

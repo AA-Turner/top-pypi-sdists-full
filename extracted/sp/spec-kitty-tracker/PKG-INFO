@@ -1,0 +1,282 @@
+Metadata-Version: 2.4
+Name: spec-kitty-tracker
+Version: 0.4.3
+Summary: Universal tracker interface, connector SDK, and sync engine for Spec Kitty
+Author: Spec Kitty Contributors
+License: MIT License
+        
+        Copyright (c) 2026 Spec Kitty Contributors
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: httpx<1.0.0,>=0.27.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"
+Requires-Dist: mypy>=1.10.0; extra == "dev"
+Requires-Dist: ruff>=0.6.0; extra == "dev"
+Dynamic: license-file
+
+# spec-kitty-tracker
+
+Shared task-tracker abstraction layer for Spec Kitty CLI and SaaS.
+
+## Scope
+
+1. Canonical issue model (`CanonicalIssue`, `ExternalRef`, `CanonicalLink`)
+2. Tracker connector protocol with capability negotiation
+3. Doctrine-style source-of-truth ownership policies
+4. Conflict resolution and deterministic sync engine
+5. Bidirectional mission/issue sync bridge with decision reference traceability
+6. Connector registry and vendor connector implementations
+
+## Included Connectors
+
+### SaaS-Backed (via `create_hosted_connector`)
+1. `LinearConnector`
+2. `JiraConnector`
+3. `GitHubConnector`
+4. `GitLabConnector`
+
+### Out of Scope for Hosted Transport (this release)
+5. `AzureDevOpsConnector`
+
+### Local/Native (direct construction)
+6. `BeadsConnector` — local-first `bd` CLI adapter
+7. `FPConnector` — local-first `fp` CLI adapter
+
+### Test/Reference
+8. `InMemoryConnector` — fully functional reference connector
+
+## Installation
+
+```bash
+pip install -e .
+```
+
+For development tools:
+
+```bash
+pip install -e ".[dev]"
+```
+
+## Quick Example
+
+The primary integration path for SaaS-backed providers (Linear, Jira, GitHub, GitLab) uses `create_hosted_connector` with host-provided transport context. See [Local/Native and Test Connectors](#localnative-and-test-connectors) for direct construction.
+
+```python
+import asyncio
+from spec_kitty_tracker import (
+    create_hosted_connector,
+    HostedConnectorRequest,
+    LinearHostedParams,
+    NangoConnectionContext,
+    InMemoryIssueStore,
+    OwnershipPolicy,
+    OwnershipMode,
+    SyncEngine,
+)
+
+
+async def main() -> None:
+    # SaaS host provides identity context per operation
+    nango_ctx = NangoConnectionContext(
+        connection_id="user-connection-id",
+        provider_config_key="linear",
+        nango_secret_key="nango-secret",
+    )
+
+    # Factory constructs a connector routed through SaaS-owned transport
+    connector = create_hosted_connector(HostedConnectorRequest(
+        provider="linear",
+        nango_context=nango_ctx,
+        params=LinearHostedParams(team_id="TEAM-UUID"),
+    ))
+
+    store = InMemoryIssueStore()
+    policy = OwnershipPolicy(mode=OwnershipMode.EXTERNAL_AUTHORITATIVE)
+    engine = SyncEngine(connector=connector, store=store, policy=policy)
+
+    async with connector:
+        await engine.pull()
+
+
+asyncio.run(main())
+```
+
+## Hosted Discovery
+
+The canonical path for downstream hosts to discover provider workspaces and bindable resources is the function-based public API: `discover_workspaces` and `discover_resources`. Both are exported from the top-level `spec_kitty_tracker` package and return typed dataclasses.
+
+```python
+import asyncio
+
+from spec_kitty_tracker import (
+    create_hosted_connector,
+    discover_resources,
+    discover_workspaces,
+    ConnectorRequestError,
+    DiscoveryContractError,
+    HostedConnectorRequest,
+    NangoConnectionContext,
+)
+from spec_kitty_tracker.discovery.hosted_adapter import (
+    connector_params_to_hosted_params,
+)
+
+
+async def integrate_linear() -> None:
+    # 1. Build the per-user transport context. The host owns identity.
+    nango_ctx = NangoConnectionContext(
+        connection_id="user-connection-id",
+        provider_config_key="linear",
+        nango_secret_key="nango-secret",
+    )
+
+    # 2. Discover workspaces. Catch contract failures separately.
+    try:
+        workspaces = await discover_workspaces("linear", nango_ctx)
+    except DiscoveryContractError as exc:
+        # Provider returned malformed metadata — alert operators.
+        print(f"contract violation: {exc.provider} {exc.field_path}")
+        return
+    except ConnectorRequestError as exc:
+        # Network / auth / API error — retryable based on failure_class.
+        print(f"request failed: {exc}")
+        return
+
+    workspace = workspaces.items[0]
+    print(f"id={workspace.id} display={workspace.display}")
+
+    # Read normalized optional metadata defensively.
+    metadata = workspace.provider_context or {}
+    handle = metadata.get("workspace_handle")  # str | None
+    url = metadata.get("workspace_url")        # str | None
+
+    # 3. Discover bindable resources within the chosen workspace.
+    resources = await discover_resources("linear", workspace, nango_ctx)
+    resource = resources.items[0]
+
+    routing = resource.routing_metadata
+    display_key = routing.get("display_key")     # str | None
+    resource_url = routing.get("resource_url")   # str | None
+
+    # 4. Translate connector_params to typed HostedParams + construct connector.
+    hosted_params = connector_params_to_hosted_params(
+        provider=resource.provider,
+        connector_params=resource.connector_params,
+    )
+    connector = create_hosted_connector(HostedConnectorRequest(
+        provider=resource.provider,
+        nango_context=nango_ctx,
+        params=hosted_params,
+    ))
+
+    async with connector:
+        ...  # Use the connector with SyncEngine, mission_seed_from_issue, etc.
+
+
+asyncio.run(integrate_linear())
+```
+
+The shape above is identical for `linear`, `jira`, `github`, and `gitlab` — only the value of the `provider` argument and the upstream Nango configuration change.
+
+### Hybrid metadata contract
+
+Discovery results carry a hybrid metadata schema. Top-level dataclass fields (`id`, `name`, `display`, `kind`, `provider`, `stable_ref`, `display_name`, etc.) are the canonical source of truth for IDs and labels — they are always present and never duplicated into metadata. The two metadata containers (`provider_context` on workspaces and `routing_metadata` on resources) carry provider-native keys plus four optional normalized keys:
+
+| Container | Key | Type | Semantic |
+|-----------|-----|------|----------|
+| `provider_context` | `workspace_handle` | `str \| None` | Short URL-safe slug for the workspace |
+| `provider_context` | `workspace_url` | `str \| None` | Browser URL pointing to the workspace home |
+| `routing_metadata` | `display_key` | `str \| None` | Short human-readable resource identifier |
+| `routing_metadata` | `resource_url` | `str \| None` | Browser URL pointing to the resource home |
+
+These keys are **optional**: when a provider has no meaningful value, the key is absent. When present, the type is enforced at runtime by `discover_workspaces` / `discover_resources` — a malformed payload raises `DiscoveryContractError`. Hosts that want generic, cross-provider behavior should prefer top-level fields and the four normalized keys over provider-native extras.
+
+See [`kitty-specs/006-hosted-discovery-contract-hardening/contracts/discovery-contract.md`](kitty-specs/006-hosted-discovery-contract-hardening/contracts/discovery-contract.md) for the full contract specification, [`data-model.md`](kitty-specs/006-hosted-discovery-contract-hardening/data-model.md) for the per-provider expected-keys table, and [`quickstart.md`](kitty-specs/006-hosted-discovery-contract-hardening/quickstart.md) for the full host integration walkthrough.
+
+### Deprecated shim modules
+
+The modules `spec_kitty_tracker.workspace_discovery` and `spec_kitty_tracker.resource_discovery` are **compatibility-only shims**. They re-export the canonical symbols (`discover_workspaces`, `discover_resources`, `DiscoveredWorkspace`, `DiscoveredResource`, `DiscoveryResult`) for backward compatibility with older pinned downstream consumers, but they emit a `DeprecationWarning` on import. New code should import from the top-level package:
+
+```python
+# Deprecated — emits DeprecationWarning
+from spec_kitty_tracker.workspace_discovery import discover_workspaces
+from spec_kitty_tracker.resource_discovery import discover_resources
+
+# Canonical
+from spec_kitty_tracker import discover_workspaces, discover_resources
+```
+
+The shim modules will not be removed in a backward-incompatible way without a separate migration mission.
+
+## Local/Native and Test Connectors
+
+For connectors that do not use SaaS-hosted transport, construct them directly.
+
+### Local/Native (Beads)
+
+```python
+from spec_kitty_tracker import BeadsConnector, BeadsConnectorConfig
+
+config = BeadsConnectorConfig(workspace="my-project", cwd="/path/to/beads")
+connector = BeadsConnector(config)
+```
+
+### Test/Reference (InMemory)
+
+```python
+from spec_kitty_tracker import InMemoryConnector
+
+connector = InMemoryConnector(name="test", workspace="test-ws")
+```
+
+### Migration/Advanced (direct SaaS-backed, non-product path)
+
+```python
+# For test, migration, or advanced SDK use cases only.
+# The Spec Kitty CLI/SaaS product path should use create_hosted_connector().
+from spec_kitty_tracker import LinearConnector, LinearConnectorConfig
+
+config = LinearConnectorConfig(api_key="test-key", team_id="TEAM-1")
+connector = LinearConnector(config)
+```
+
+## Design Notes
+
+1. The core contract is intentionally tracker-agnostic.
+2. `OwnershipPolicy` makes source-of-truth behavior explicit and auditable.
+3. `SyncEngine` supports pull, push, and bidirectional sync with conflict records.
+4. Capability flags gate optional features (e.g., hierarchy, dependencies, webhooks).
+5. Mission updates are idempotent and persist decision references back to source issues.
+
+## Docs
+
+1. [Architecture](docs/ARCHITECTURE.md)
+2. [Connector Contract](docs/CONNECTOR_CONTRACT.md)
+3. [Doctrine Policy Modes](docs/DOCTRINE_POLICY.md)
+4. [P0 Provider Matrix](docs/provider-matrix.md)
+5. [WP04 Contract Alignment Notes](docs/wp04-contract-alignment.md)
+6. [WP11 Sync Core Notes](docs/wp11-sync-core-notes.md)

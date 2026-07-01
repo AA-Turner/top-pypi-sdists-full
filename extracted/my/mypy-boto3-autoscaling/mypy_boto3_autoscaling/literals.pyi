@@ -77,7 +77,9 @@ AcceleratorNameType = Literal["a100", "k80", "m60", "radeon-pro-v520", "t4", "v1
 AcceleratorTypeType = Literal["fpga", "gpu", "inference"]
 BareMetalType = Literal["excluded", "included", "required"]
 BurstablePerformanceType = Literal["excluded", "included", "required"]
-CapacityDistributionStrategyType = Literal["balanced-best-effort", "balanced-only"]
+CapacityDistributionStrategyType = Literal[
+    "balanced-best-effort", "balanced-only", "reservations-then-balanced"
+]
 CapacityReservationPreferenceType = Literal[
     "capacity-reservations-first", "capacity-reservations-only", "default", "none"
 ]
@@ -387,8 +389,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -415,6 +415,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -482,7 +484,6 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
@@ -518,6 +519,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -545,6 +547,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -566,7 +569,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -587,6 +589,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

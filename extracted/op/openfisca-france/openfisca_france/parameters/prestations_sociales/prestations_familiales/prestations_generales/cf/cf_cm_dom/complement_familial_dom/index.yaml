@@ -1,7 +1,0 @@
-description: Taux du complément familial dans les DOM (CF)
-metadata:
-  short_label: Taux DOM
-  label_en: DOM Rate
-  order:
-  - taux_base_dom
-  - taux_majore_dom

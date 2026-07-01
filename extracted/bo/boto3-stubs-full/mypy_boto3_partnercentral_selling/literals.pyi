@@ -761,7 +761,12 @@ ReceiverResponsibilityType = Literal[
     "Training Partner",
 ]
 RelatedEntityTypeType = Literal[
-    "AwsMarketplaceOfferSets", "AwsMarketplaceOffers", "AwsProducts", "Solutions"
+    "AwsMarketplaceOfferSets",
+    "AwsMarketplaceOffers",
+    "AwsMarketplaceProducts",
+    "AwsMarketplaceSolutions",
+    "AwsProducts",
+    "Solutions",
 ]
 ResourceSnapshotJobStatusType = Literal["Running", "Stopped"]
 ResourceTypeType = Literal["Opportunity"]
@@ -989,8 +994,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -1086,7 +1089,6 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
@@ -1172,7 +1174,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -1193,6 +1194,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

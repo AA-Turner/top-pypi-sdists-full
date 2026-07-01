@@ -1,5 +1,0 @@
-contracts_folder: ./contracts
-
-compile:
-  exclude:
-    - "*Excl*"

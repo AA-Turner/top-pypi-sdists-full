@@ -21,6 +21,8 @@ std::string PhysicalOperatorUtils::operatorTypeToString(PhysicalOperatorType ope
         return "AGGREGATE_FINALIZE";
     case PhysicalOperatorType::AGGREGATE_SCAN:
         return "AGGREGATE_SCAN";
+    case PhysicalOperatorType::ANALYZE:
+        return "ANALYZE";
     case PhysicalOperatorType::ATTACH_DATABASE:
         return "ATTACH_DATABASE";
     case PhysicalOperatorType::BATCH_INSERT:
@@ -87,6 +89,10 @@ std::string PhysicalOperatorUtils::operatorTypeToString(PhysicalOperatorType ope
         return "MULTIPLICITY_REDUCER";
     case PhysicalOperatorType::PARTITIONER:
         return "PARTITIONER";
+    case PhysicalOperatorType::PACKED_EXTEND:
+        return "PACKED_EXTEND";
+    case PhysicalOperatorType::PACKED_FILTERED_COUNT:
+        return "PACKED_FILTERED_COUNT";
     case PhysicalOperatorType::PATH_PROPERTY_PROBE:
         return "PATH_PROPERTY_PROBE";
     case PhysicalOperatorType::PRIMARY_KEY_SCAN_NODE_TABLE:

@@ -206,10 +206,6 @@ def get_tinybird_branch_name_from_git_branch(branch_name: Optional[str]) -> Opti
     return sanitized or None
 
 
-def get_tinybird_branch_name() -> Optional[str]:
-    return get_tinybird_branch_name_from_git_branch(get_current_git_branch())
-
-
 def is_tinybird_local_running(timeout_seconds: float = 0.2) -> bool:
     try:
         with socket.create_connection((TB_LOCAL_HOST, TB_LOCAL_PORT), timeout=timeout_seconds):

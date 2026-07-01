@@ -34,6 +34,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import time
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -177,6 +178,10 @@ class LLMClient:
         self._temperature = config.temperature
         self._litellm_kwargs = dict(config.litellm_kwargs)
         self._emit_input_span = config.emit_input_span
+        self._aws_access_key_id = config.aws_access_key_id or None
+        self._aws_secret_access_key = config.aws_secret_access_key or None
+        self._aws_session_token = config.aws_session_token or None
+        self._aws_region_name = config.aws_region_name or None
         self._store = store
         self._tracer_name = tracer_name
         self._atif_source = atif_source
@@ -184,6 +189,48 @@ class LLMClient:
         # Register concurrency limit if configured
         if config.concurrency > 0:
             set_concurrency(config.model, config.concurrency, config.api_base)
+
+    def _apply_request_credentials(self, request_kwargs: dict[str, Any]) -> None:
+        """Inject configured credentials into the litellm request kwargs.
+
+        ``setdefault`` is used throughout so a per-call kwarg always wins over the
+        client default. For Bedrock models the AWS credentials are forwarded; when
+        a field is unset litellm resolves it from the standard AWS chain
+        (``AWS_ACCESS_KEY_ID`` / ``AWS_SECRET_ACCESS_KEY`` / ``AWS_SESSION_TOKEN``
+        env vars, ``~/.aws``, or instance profile), so env-var auth keeps working
+        without setting the fields. AWS kwargs are gated on the ``bedrock/`` prefix
+        so they never leak into non-Bedrock provider calls.
+
+        Bedrock auth mode: litellm prefers a Bedrock *bearer token* (the
+        ``AWS_BEARER_TOKEN_BEDROCK`` env var, or an explicit ``api_key``) over
+        SigV4 — so a stale bearer token in the environment would silently shadow
+        explicit AWS keys. To make SigV4 the predictable default, we pass an empty
+        ``api_key`` for Bedrock unless the caller explicitly set one; an empty
+        ``api_key`` disables litellm's bearer path and forces SigV4. Worlds that
+        want bearer-token auth opt in by setting ``LLMConfig.api_key`` to the token.
+        """
+        if self._api_base:
+            request_kwargs.setdefault("api_base", self._api_base)
+        if self._api_key:
+            request_kwargs.setdefault("api_key", self._api_key)
+
+        if not self._model.startswith("bedrock/"):
+            return
+        if self._aws_access_key_id:
+            request_kwargs.setdefault("aws_access_key_id", self._aws_access_key_id)
+        if self._aws_secret_access_key:
+            request_kwargs.setdefault("aws_secret_access_key", self._aws_secret_access_key)
+        if self._aws_session_token:
+            request_kwargs.setdefault("aws_session_token", self._aws_session_token)
+        region = self._aws_region_name or (
+            os.environ.get("AWS_REGION_NAME") or os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
+        )
+        if region:
+            request_kwargs.setdefault("aws_region_name", region)
+        # Force SigV4 unless the caller explicitly opted into bearer-token auth via
+        # api_key. setdefault("api_key", "") is a no-op when api_key is already set
+        # (config or per-call), and an empty string disables litellm's bearer path.
+        request_kwargs.setdefault("api_key", "")
 
     async def __call__(
         self,
@@ -198,10 +245,7 @@ class LLMClient:
         **kwargs: Any,
     ) -> LLMResponse:
         request_kwargs = _merge_litellm_kwargs(self._litellm_kwargs, kwargs)
-        if self._api_base:
-            request_kwargs.setdefault("api_base", self._api_base)
-        if self._api_key:
-            request_kwargs.setdefault("api_key", self._api_key)
+        self._apply_request_credentials(request_kwargs)
 
         # Check cache
         if self._store is not None:
@@ -255,10 +299,7 @@ class LLMClient:
             timeout: Request timeout in seconds.
         """
         request_kwargs = _merge_litellm_kwargs(self._litellm_kwargs, kwargs)
-        if self._api_base:
-            request_kwargs.setdefault("api_base", self._api_base)
-        if self._api_key:
-            request_kwargs.setdefault("api_key", self._api_key)
+        self._apply_request_credentials(request_kwargs)
         return await aimage_generation(
             prompt=prompt,
             model=model or self._model,
@@ -282,10 +323,7 @@ class LLMClient:
         **kwargs: Any,
     ) -> LLMResponse:
         request_kwargs = _merge_litellm_kwargs(self._litellm_kwargs, kwargs)
-        if self._api_base:
-            request_kwargs.setdefault("api_base", self._api_base)
-        if self._api_key:
-            request_kwargs.setdefault("api_key", self._api_key)
+        self._apply_request_credentials(request_kwargs)
         return completion(
             model=self._model,
             messages=messages,

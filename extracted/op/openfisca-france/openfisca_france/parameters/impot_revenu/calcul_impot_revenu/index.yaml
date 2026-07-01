@@ -1,8 +1,0 @@
-description: Calcul de l'impôt sur le revenu
-metadata:
-  label_en: Computation of the income tax
-  order:
-  - plaf_qf
-  - pv
-  - bouclier_fiscal
-  - recouvrement

@@ -1,5 +1,5 @@
 from logging import Logger
-from typing import Callable, Dict, Any, Optional
+from typing import Any, Callable, Dict, Optional
 
 from slack_sdk.signature import SignatureVerifier
 
@@ -20,8 +20,16 @@ class RequestVerification(Middleware):
             signing_secret: The signing secret
             base_logger: The base logger
         """
-        self.verifier = SignatureVerifier(signing_secret=signing_secret)
+        self._signing_secret = signing_secret
+        self._verifier: Optional[SignatureVerifier] = None
         self.logger = get_bolt_logger(RequestVerification, base_logger=base_logger)
+
+    @property
+    def verifier(self) -> SignatureVerifier:
+        # Defer initialization to avoid errors during start up
+        if self._verifier is None:
+            self._verifier = SignatureVerifier(signing_secret=self._signing_secret)
+        return self._verifier
 
     def process(
         self,
@@ -49,7 +57,7 @@ class RequestVerification(Middleware):
 
     @staticmethod
     def _can_skip(mode: str, body: Dict[str, Any]) -> bool:
-        return mode == "socket_mode" or (body is not None and body.get("ssl_check") == "1")
+        return mode == "socket_mode"
 
     @staticmethod
     def _build_error_response() -> BoltResponse:

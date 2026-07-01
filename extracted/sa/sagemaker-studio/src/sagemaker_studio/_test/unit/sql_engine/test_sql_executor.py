@@ -805,3 +805,102 @@ class TestCreateEngine(unittest.TestCase):
             self.executor.create_engine("UNSUPPORTED_DB", {})
 
         self.assertIn("Unsupported connection type", str(cm.exception))
+
+
+class TestExecuteSingleMetadataExtraction(unittest.TestCase):
+    """Tests for _execute_single extracting metadata before fetchall."""
+
+    def setUp(self):
+        self.executor = SqlExecutor()
+
+    def test_extracts_metadata_from_cursor(self):
+        """_execute_single returns SingleStatementResult with metadata."""
+        from sagemaker_studio.sql_engine.sql_executor import SingleStatementResult
+
+        mock_cursor = Mock()
+        mock_cursor.get_execution_metadata.return_value = {"statement_id": "test-123"}
+
+        mock_result = Mock()
+        mock_result.cursor = mock_cursor
+        mock_result.returns_rows = True
+        mock_result.fetchall.return_value = [(1, "a")]
+        mock_result.keys.return_value = ["id", "name"]
+
+        mock_connection = Mock()
+        mock_connection.execute.return_value = mock_result
+        mock_connection.engine.get_execution_options.return_value = {"connection_type": "REDSHIFT"}
+
+        result = self.executor._execute_single(mock_connection, "SELECT 1")
+
+        self.assertIsInstance(result, SingleStatementResult)
+        self.assertEqual(result.execution_metadata, {"statement_id": "test-123"})
+        self.assertEqual(list(result.result.columns), ["id", "name"])
+
+    def test_metadata_none_when_transformer_has_no_support(self):
+        """For engines without get_execution_metadata, returns None metadata."""
+        from sagemaker_studio.sql_engine.sql_executor import SingleStatementResult
+
+        mock_result = Mock()
+        mock_result.cursor = Mock(spec=[])  # no get_execution_metadata
+        mock_result.returns_rows = False
+        mock_result.rowcount = 5
+
+        mock_connection = Mock()
+        mock_connection.execute.return_value = mock_result
+        mock_connection.engine.get_execution_options.return_value = {"connection_type": "MYSQL"}
+
+        result = self.executor._execute_single(mock_connection, "INSERT INTO t VALUES (1)")
+
+        self.assertIsInstance(result, SingleStatementResult)
+        self.assertIsNone(result.execution_metadata)
+        self.assertEqual(result.result, 5)
+
+
+class TestExecuteStatementsMetadata(unittest.TestCase):
+    """Tests for execute_statements passing through metadata from executor_func."""
+
+    def test_passes_metadata_from_single_statement_result(self):
+        from sagemaker_studio.sql_engine.database_transformer import SqlStatement
+        from sagemaker_studio.sql_engine.sql_executor import SingleStatementResult
+
+        statements = [SqlStatement(statement="SELECT 1", statement_type="SELECT")]
+        metadata = {"statement_id": "xyz", "result_rows": 10}
+
+        def executor_func(stmt):
+            return SingleStatementResult(
+                result=pd.DataFrame({"a": [1]}), execution_metadata=metadata
+            )
+
+        results = list(SqlExecutor.execute_statements(statements, executor_func))
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].execution_metadata, metadata)
+        self.assertEqual(results[0].status, "success")
+
+    def test_plain_result_has_none_metadata(self):
+        from sagemaker_studio.sql_engine.database_transformer import SqlStatement
+
+        statements = [SqlStatement(statement="SELECT 1", statement_type="SELECT")]
+
+        def executor_func(stmt):
+            return pd.DataFrame({"a": [1]})  # plain result, no metadata
+
+        results = list(SqlExecutor.execute_statements(statements, executor_func))
+
+        self.assertEqual(len(results), 1)
+        self.assertIsNone(results[0].execution_metadata)
+
+    def test_error_result_has_no_metadata(self):
+        from sagemaker_studio.sql_engine.database_transformer import SqlStatement
+
+        statements = [SqlStatement(statement="BAD SQL", statement_type="SELECT")]
+
+        def executor_func(stmt):
+            raise RuntimeError("syntax error")
+
+        results = list(SqlExecutor.execute_statements(statements, executor_func))
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].status, "error")
+        self.assertEqual(results[0].error, "syntax error")
+        self.assertIsNone(results[0].execution_metadata)

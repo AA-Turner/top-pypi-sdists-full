@@ -1542,35 +1542,6 @@ def generate(self, **kwargs) -> Tuple[str, TemplateExecutionResults]:
         raise e
 
 
-class CodeWriter:
-    def __init__(self, file, template):
-        self.file = file
-        self.current_template = template
-        self.apply_counter = 0
-        self._indent = 0
-
-    def indent_size(self):
-        return self._indent
-
-    def indent(self):
-        class Indenter:
-            def __enter__(_):
-                self._indent += 1
-                return self
-
-            def __exit__(_, *args):
-                assert self._indent > 0
-                self._indent -= 1
-
-        return Indenter()
-
-    def write_line(self, line, line_number, indent=None):
-        if indent is None:
-            indent = self._indent
-        line_comment = "  # %s:%d" % ("<generated>", line_number)
-        print("    " * indent + line + line_comment, file=self.file)
-
-
 def get_var_names(t: Template):
     """
     Extract variable names from a template.

@@ -1,0 +1,201 @@
+name: Semantic Release
+run-name: Semantic Release - ${{ github.ref_name }}
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - CHANGELOG.md
+  workflow_dispatch:
+
+env:
+  PROJECT_NAME: metagit-cli
+  RELEASE_FLOOR: 0.8.0
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  semantic-release:
+    name: Generate Semantic Release Tag
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Set up Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get previous tag
+        id: prev_tag
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
+          echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+
+      - name: Parse commits and determine version bump
+        id: version
+        run: |
+          PREV_TAG=${{ steps.prev_tag.outputs.tag }}
+          PREV_VERSION="${PREV_TAG#v}"
+
+          if git rev-parse "${{ steps.prev_tag.outputs.tag }}" >/dev/null 2>&1; then
+            COMMITS=$(git log "${{ steps.prev_tag.outputs.tag }}..HEAD" --pretty=format:%s)
+          else
+            COMMITS=$(git log --pretty=format:%s)
+          fi
+
+          echo "Commits since last release:"
+          echo "$COMMITS"
+
+          MAJOR_BUMP=0
+          MINOR_BUMP=0
+          PATCH_BUMP=0
+
+          # Support Conventional Commits with optional scope, e.g. fix(web): ...
+          if echo "$COMMITS" | grep -Eq '^(feat|fix|refactor|perf)(\([^)]+\))?!:'; then
+            MAJOR_BUMP=1
+          elif echo "$COMMITS" | grep -Eq '^feat(\([^)]+\))?:'; then
+            MINOR_BUMP=1
+          elif echo "$COMMITS" | grep -Eq '^(fix|refactor|perf)(\([^)]+\))?:'; then
+            PATCH_BUMP=1
+          fi
+
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$PREV_VERSION"
+          MAJOR=${MAJOR:-0}
+          MINOR=${MINOR:-0}
+          PATCH=${PATCH:-0}
+
+          SHOULD_RELEASE=false
+          if [[ $MAJOR_BUMP -eq 1 ]]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            SHOULD_RELEASE=true
+          elif [[ $MINOR_BUMP -eq 1 ]]; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            SHOULD_RELEASE=true
+          elif [[ $PATCH_BUMP -eq 1 ]]; then
+            PATCH=$((PATCH + 1))
+            SHOULD_RELEASE=true
+          fi
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          if [[ "$SHOULD_RELEASE" == "true" ]]; then
+            FLOORED_VERSION=$(printf '%s\n%s\n' "$NEW_VERSION" "${{ env.RELEASE_FLOOR }}" | sort -V | tail -n 1)
+            if [[ "$FLOORED_VERSION" != "$NEW_VERSION" ]]; then
+              NEW_VERSION="$FLOORED_VERSION"
+            fi
+          fi
+
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+          echo "Should release: $SHOULD_RELEASE"
+
+      - name: Check if tag already exists
+        id: check_tag
+        if: steps.version.outputs.should_release == 'true'
+        run: |
+          RELEASE_TAG="${{ steps.version.outputs.new_version }}"
+          echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+          if git rev-parse "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+            echo "Tag $RELEASE_TAG already exists"
+          else
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Enforce non-prefixed release tag policy
+        if: steps.version.outputs.should_release == 'true'
+        run: |
+          RELEASE_TAG="${{ steps.check_tag.outputs.release_tag }}"
+          EXPECTED_TAG="${{ steps.version.outputs.new_version }}"
+          if [[ "$RELEASE_TAG" != "$EXPECTED_TAG" ]]; then
+            echo "::error::Release tag policy violation: expected '$EXPECTED_TAG' (no prefix), got '$RELEASE_TAG'"
+            exit 1
+          fi
+          if [[ "$RELEASE_TAG" =~ ^v[0-9] ]]; then
+            echo "::error::Release tag policy violation: v-prefixed tags are not allowed ($RELEASE_TAG)"
+            exit 1
+          fi
+
+      - name: Install uv
+        if: steps.version.outputs.should_release == 'true' && steps.check_tag.outputs.tag_exists == 'false'
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Promote changelog and write release notes
+        if: steps.version.outputs.should_release == 'true' && steps.check_tag.outputs.tag_exists == 'false'
+        id: changelog
+        run: |
+          PREV_TAG=${{ steps.prev_tag.outputs.tag }}
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          NEW_TAG="${{ steps.check_tag.outputs.release_tag }}"
+          RANGE=""
+          if git rev-parse "$PREV_TAG" >/dev/null 2>&1; then
+            RANGE="$PREV_TAG..HEAD"
+          fi
+
+          uv venv
+          uv pip install -e .
+          uv run python scripts/release_changelog.py \
+            --version "$NEW_VERSION" \
+            --range "$RANGE" \
+            --body-out /tmp/release_body.md
+
+          {
+            echo ""
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${NEW_TAG}"
+          } >> /tmp/release_body.md
+
+      - name: Commit promoted changelog
+        if: steps.version.outputs.should_release == 'true' && steps.check_tag.outputs.tag_exists == 'false'
+        run: |
+          git add CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "No changelog promotion changes to commit"
+          else
+            git commit -m "chore: promote CHANGELOG for ${{ steps.check_tag.outputs.release_tag }}"
+            git push origin main
+          fi
+
+      - name: Create and push tag
+        if: steps.version.outputs.should_release == 'true' && steps.check_tag.outputs.tag_exists == 'false'
+        run: |
+          git tag -a "${{ steps.check_tag.outputs.release_tag }}" -m "Release ${{ steps.check_tag.outputs.release_tag }}"
+          git push origin "${{ steps.check_tag.outputs.release_tag }}"
+          echo "Created and pushed tag: ${{ steps.check_tag.outputs.release_tag }}"
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.should_release == 'true' && steps.check_tag.outputs.tag_exists == 'false'
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          tag_name: ${{ steps.check_tag.outputs.release_tag }}
+          name: Release ${{ steps.check_tag.outputs.release_tag }}
+          body_path: /tmp/release_body.md
+          draft: false
+          prerelease: false
+
+      - name: Log Output
+        run: |
+          echo "Previous tag: ${{ steps.prev_tag.outputs.tag }}"
+          echo "New version: ${{ steps.version.outputs.new_version }}"
+          echo "Release floor: ${{ env.RELEASE_FLOOR }}"
+          echo "Should release: ${{ steps.version.outputs.should_release }}"
+          echo "Release tag: ${{ steps.check_tag.outputs.release_tag }}"
+          echo "Tag exists: ${{ steps.check_tag.outputs.tag_exists }}"

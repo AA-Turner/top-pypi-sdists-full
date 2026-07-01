@@ -1,5 +1,4 @@
 import re
-from typing import List
 
 
 def extract_xml(text: str, tag: str) -> str:
@@ -15,13 +14,6 @@ def extract_xml(text: str, tag: str) -> str:
     """
     match = re.search(f"<{tag}>(.*?)</{tag}>", text, re.DOTALL)
     return match.group(1) if match else ""
-
-
-def parse_xml(text: str, tag: str) -> List[str]:
-    """
-    Parses the text for the specified XML tag and returns a list of the contents of each tag.
-    """
-    return re.findall(f"<{tag}.*?>(.*?)</{tag}>", text, re.DOTALL)
 
 
 def generate(llm_call, task: str, feedback: str = "") -> tuple[str, str]:

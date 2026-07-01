@@ -1,0 +1,590 @@
+import logging
+from typing import Callable, Union, List, Dict, Optional, cast
+import time
+import socket
+from ssl import (
+    CERT_NONE,
+    SSLContext,
+    create_default_context,
+)
+
+import imapclient
+import imapclient.exceptions
+import imaplib
+
+import mailsuite.utils
+
+logger = logging.getLogger(__name__)
+
+
+class MaxRetriesExceeded(RuntimeError):
+    """Raised when the maximum number of retries is exceeded"""
+
+
+def _chunks(list_like_object, n: int):
+    """Yield successive n-sized chunks from list_like_object."""
+    for i in range(0, len(list_like_object), n):
+        yield list_like_object[i : i + n]
+
+
+class IMAPClient(imapclient.IMAPClient):
+    """A simplified IMAP client"""
+
+    def _normalise_folder(
+        self, folder_name: Union[str, bytes, bytearray, memoryview]
+    ) -> str:
+        """
+        Translate a caller's ``/``-delimited folder path to the server's form.
+
+        The point of this method is that callers can always use ``/`` as the
+        hierarchy separator, even on servers whose native separator is
+        something else (e.g. ``.`` on some Dovecot/Courier setups): it maps
+        ``/`` onto the server's native separator and applies the
+        personal-namespace prefix, so the same folder paths work unchanged
+        across servers.
+
+        Args:
+            folder_name: A ``/``-delimited folder path
+
+        Returns:
+            The path using the server's native separator and namespace prefix
+        """
+        if isinstance(folder_name, memoryview):
+            folder_name = folder_name.tobytes()
+
+        if isinstance(folder_name, (bytes, bytearray)):
+            folder_name = bytes(folder_name).decode("utf-8", "replace")
+
+        folder_name = cast(str, folder_name)
+
+        if folder_name in ["", "*", "INBOX"]:
+            result = imapclient.IMAPClient._normalise_folder(self, folder_name)
+            if isinstance(result, bytes):
+                return result.decode("utf-8", "replace")
+            return str(result)
+
+        folder_name = folder_name.rstrip("/")
+
+        # If the path is already inside a non-personal namespace (other-users
+        # or shared per RFC 2342), pass it through without applying the
+        # personal-namespace prefix. Otherwise paths like "user/colleague/Inbox"
+        # would get rewritten to "INBOX/user/colleague/Inbox".
+        if any(folder_name.startswith(p) for p in self._other_namespace_prefixes):
+            result = imapclient.IMAPClient._normalise_folder(self, folder_name)
+            if isinstance(result, bytes):
+                return result.decode("utf-8", "replace")
+            return str(result)
+
+        # Strip only a leading namespace prefix before re-adding it below. An
+        # unanchored replace() would also delete the prefix where it appears
+        # inside the path, relocating the folder: with prefix "INBOX/",
+        # "Projects/INBOX/old" would normalize to "INBOX/Projects/old" instead
+        # of the correct "INBOX/Projects/INBOX/old".
+        if self._path_prefix and folder_name.startswith(self._path_prefix):
+            folder_name = folder_name[len(self._path_prefix):]
+        if not self._hierarchy_separator == "/":
+            # Map the caller's "/" delimiter onto the server's native separator
+            # so "/" works regardless of what the server uses. (Any literal
+            # native-separator characters are dropped first, since "/" is the
+            # delimiter callers are expected to use.)
+            folder_name = folder_name.replace(self._hierarchy_separator, "")
+            folder_name = folder_name.replace("/", self._hierarchy_separator)
+        folder_name = "{0}{1}".format(self._path_prefix, folder_name)
+
+        result = imapclient.IMAPClient._normalise_folder(self, folder_name)
+        if isinstance(result, bytes):
+            return result.decode("utf-8", "replace")
+        return str(result)
+
+    def _start_idle(self, idle_callback, idle_timeout: int = 30, config_reloading=None):
+        """
+        Starts an IMAP IDLE session
+
+        Args:
+            idle_callback: A callback function
+            idle_timeout: Number of seconds to wait for an IDLE response
+            config_reloading: Optional zero-arg callable; when it returns a
+                truthy value the IDLE loop exits cleanly so the caller can
+                reload config or shut down. Checked at the top of each cycle,
+                while IDLE is active, so idle_done() stays valid.
+        """
+        if self._idle_supported is False:
+            raise imapclient.exceptions.IMAPClientError(
+                "IDLE is not supported by the server"
+            )
+        idle_callback(self)
+        idle_start_time = time.monotonic()
+        self.idle()
+        # Mark the loop active so a reconnect (reset_connection -> __init__)
+        # re-arms this loop in place instead of starting a nested IDLE loop.
+        self._idle_running = True
+        while True:
+            if config_reloading and config_reloading():
+                break
+            try:
+                # Refresh the IDLE session every 5 minutes to stay connected
+                if time.monotonic() - idle_start_time > 5 * 60:
+                    logger.info("IMAP: Refreshing IDLE session")
+                    self.idle_done()
+                    idle_start_time = time.monotonic()
+                    self.idle()
+                responses = self.idle_check(timeout=idle_timeout)
+                if responses is not None:
+                    if len(responses) == 0:
+                        # Gmail/G-Suite returns an empty list
+                        self.idle_done()
+                        idle_callback(self)
+                        idle_start_time = time.monotonic()
+                        self.idle()
+                    else:
+                        for r in responses:
+                            # New mail is signalled by an untagged EXISTS (the
+                            # new message count); RECENT is optional and many
+                            # servers never send it, so react to either.
+                            if r[1] == b"EXISTS" or (
+                                r[1] == b"RECENT" and r[0] != 0
+                            ):
+                                self.idle_done()
+                                idle_callback(self)
+                                idle_start_time = time.monotonic()
+                                self.idle()
+                                break
+            except (KeyError, socket.error, BrokenPipeError, ConnectionResetError):
+                logger.debug("IMAP error: Connection reset")
+                self.reset_connection()
+                idle_callback(self)
+                idle_start_time = time.monotonic()
+                self.idle()
+            except imapclient.exceptions.IMAPClientError as error:
+                error = error.__str__().lstrip("b'").rstrip("'").rstrip(".")
+                # Workaround for random Exchange/Microsoft 365 IMAP errors
+                if "unexpected response" in error or "BAD" in error:
+                    self.reset_connection()
+                    idle_callback(self)
+                    idle_start_time = time.monotonic()
+                    self.idle()
+            except KeyboardInterrupt:
+                break
+        self._idle_running = False
+        try:
+            self.idle_done()
+        except BrokenPipeError:
+            pass
+
+    def __init__(
+        self,
+        host: str,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        port: int = 993,
+        ssl: bool = True,
+        ssl_context: Optional[SSLContext] = None,
+        verify: bool = True,
+        timeout: int = 30,
+        max_retries: int = 4,
+        initial_folder: str = "INBOX",
+        idle_callback=None,
+        idle_timeout: int = 30,
+        oauth2_token: Optional[str] = None,
+        oauth2_token_provider: Optional[Callable[[], str]] = None,
+        oauth2_mechanism: str = "XOAUTH2",
+        oauth2_vendor: Optional[str] = None,
+        config_reloading: Optional[Callable[[], bool]] = None,
+    ):
+        """
+        Connects to an IMAP server
+
+        Args:
+            host: The server hostname or IP address
+            username: The username (or OAuth2 identity / email address)
+            password: The password (omit when using OAuth2)
+            port: The port
+            ssl: Use SSL or TLS
+            ssl_context: For more advanced TLS options
+            verify: Verify the SSL/TLS certificate
+            timeout: Number of seconds to wait for an operation
+            max_retries: The maximum number of retries after a timeout
+            initial_folder: The initial folder to select
+            idle_callback: The function to call when new messages are detected
+            idle_timeout: Number of seconds to wait for an IDLE response
+            oauth2_token: A static OAuth2 access token. For long-running
+                connections (IDLE, reconnects after timeouts) prefer
+                ``oauth2_token_provider`` so a fresh token is fetched on
+                reconnect.
+            oauth2_token_provider: A zero-arg callable returning a current
+                OAuth2 access token. Invoked on every (re)connect, so the
+                callable is responsible for refreshing the token when
+                needed.
+            oauth2_mechanism: ``"XOAUTH2"`` (default — Gmail/Yahoo/M365) or
+                ``"OAUTHBEARER"`` (Gmail's standards-track replacement).
+            oauth2_vendor: Optional vendor string required by Yahoo's
+                XOAUTH2 implementation.
+
+        For Google Workspace and Microsoft 365 the higher-level
+        :class:`mailsuite.mailbox.GmailConnection` and
+        :class:`mailsuite.mailbox.MSGraphConnection` backends are usually
+        a better fit — they speak the providers' native APIs and handle
+        token refresh end-to-end. Generic IMAP OAuth2 is intended for
+        other providers (Yahoo, self-hosted, etc.).
+        """
+
+        if ssl_context is None:
+            ssl_context = create_default_context()
+        if verify is False:
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = CERT_NONE
+        using_oauth = (
+            oauth2_token is not None or oauth2_token_provider is not None
+        )
+        if using_oauth and not username:
+            raise ValueError(
+                "username is required when authenticating with OAuth2"
+            )
+        if not using_oauth and (username is None or password is None):
+            raise ValueError(
+                "either password or an OAuth2 token / token_provider must be "
+                "provided"
+            )
+        self._init_args = dict(
+            host=host,
+            username=username,
+            password=password,
+            port=port,
+            ssl=ssl,
+            ssl_context=ssl_context,
+            verify=verify,
+            timeout=timeout,
+            max_retries=max_retries,
+            initial_folder=initial_folder,
+            idle_callback=idle_callback,
+            idle_timeout=idle_timeout,
+            oauth2_token=oauth2_token,
+            oauth2_token_provider=oauth2_token_provider,
+            oauth2_mechanism=oauth2_mechanism,
+            oauth2_vendor=oauth2_vendor,
+        )
+        self.max_retries = max_retries
+        self.idle_callback = idle_callback
+        self.idle_timeout = idle_timeout
+        self._path_prefix = ""
+        self._other_namespace_prefixes: List[str] = []
+        self._hierarchy_separator = ""
+        if not ssl:
+            logger.info("Connecting to IMAP over plain text")
+        imapclient.IMAPClient.__init__(
+            self,
+            host=host,
+            port=port,
+            ssl=ssl,
+            ssl_context=ssl_context,
+            use_uid=True,
+            timeout=timeout,
+        )
+        try:
+            if not ssl and b"STARTTLS" in self.capabilities():
+                logger.info("IMAP server supports STARTTLS ... activating now")
+                self.starttls(ssl_context=ssl_context)
+            if using_oauth:
+                token = (
+                    oauth2_token_provider()
+                    if oauth2_token_provider is not None
+                    else oauth2_token
+                )
+                if oauth2_mechanism.upper() == "OAUTHBEARER":
+                    self.oauthbearer_login(username, token)
+                else:
+                    self.oauth2_login(
+                        cast(str, username),
+                        cast(str, token),
+                        mech=oauth2_mechanism,
+                        vendor=oauth2_vendor,
+                    )
+            else:
+                self.login(cast(str, username), cast(str, password))
+            self.server_capabilities = self.capabilities()
+            self._move_supported = b"MOVE" in self.server_capabilities
+            self._idle_supported = b"IDLE" in self.server_capabilities
+            self._namespace = b"NAMESPACE" in self.server_capabilities
+            self._hierarchy_separator = self.list_folders()[0][1]
+            if not self._hierarchy_separator:
+                self._hierarchy_separator = ""
+            if type(self._hierarchy_separator) is bytes:
+                self._hierarchy_separator = bytes(self._hierarchy_separator).decode(
+                    "utf-8"
+                )
+            if self._namespace:
+                self._namespace = self.namespace()
+                personal_namespace = self._namespace.personal
+                if len(personal_namespace) > 0:
+                    self._hierarchy_separator = personal_namespace[0][1]
+                    if not personal_namespace[0][0] == "":
+                        self._path_prefix = personal_namespace[0][0]
+                        if type(self._path_prefix) is bytes:
+                            self._path_prefix = self._path_prefix.decode("utf-8")
+                # Track non-personal namespace prefixes (other-users, shared)
+                # so _normalise_folder can recognise paths that already live
+                # in a different namespace and leave them alone.
+                for ns in (self._namespace.other, self._namespace.shared):
+                    for entry in ns or ():
+                        prefix = entry[0]
+                        if isinstance(prefix, bytes):
+                            prefix = prefix.decode("utf-8")
+                        if prefix:
+                            self._other_namespace_prefixes.append(prefix)
+            else:
+                self._namespace = None
+            self.select_folder(initial_folder)
+        except (
+            ConnectionResetError,
+            socket.error,
+            TimeoutError,
+            imapclient.exceptions.IMAPClientError,
+        ) as error:
+            error = error.__str__().lstrip("b'").rstrip("'").rstrip(".")
+            raise imapclient.exceptions.IMAPClientError(error)
+        # Skip starting IDLE if a loop is already running on this connection:
+        # reset_connection() re-runs __init__ from inside the loop, and a
+        # nested _start_idle would stack IDLE loops on every reconnect.
+        if idle_callback is not None and not getattr(self, "_idle_running", False):
+            self._start_idle(
+                idle_callback,
+                idle_timeout=idle_timeout,
+                config_reloading=config_reloading,
+            )
+
+    def reset_connection(self):
+        """Resets the connection to the IMAP server"""
+        logger.info("Reconnecting to IMAP")
+        try:
+            self.shutdown()
+        except Exception as e:
+            logger.info("Failed to log out: {0}".format(e.__str__()))
+        self.__init__(
+            self._init_args["host"],  # pyright: ignore[reportArgumentType]
+            self._init_args["username"],  # pyright: ignore[reportArgumentType]
+            self._init_args["password"],  # pyright: ignore[reportArgumentType]
+            port=self._init_args["port"],  # pyright: ignore[reportArgumentType]
+            ssl=self._init_args["ssl"],  # pyright: ignore[reportArgumentType]
+            ssl_context=self._init_args["ssl_context"],  # pyright: ignore[reportArgumentType]
+            verify=self._init_args["verify"],  # pyright: ignore[reportArgumentType]
+            timeout=self._init_args["timeout"],  # pyright: ignore[reportArgumentType]
+            max_retries=self._init_args["max_retries"],  # pyright: ignore[reportArgumentType]
+            initial_folder=self._init_args["initial_folder"],  # pyright: ignore[reportArgumentType]
+            idle_callback=self._init_args["idle_callback"],
+            idle_timeout=self._init_args["idle_timeout"],  # pyright: ignore[reportArgumentType]
+            oauth2_token=self._init_args["oauth2_token"],  # pyright: ignore[reportArgumentType]
+            oauth2_token_provider=self._init_args["oauth2_token_provider"],  # pyright: ignore[reportArgumentType]
+            oauth2_mechanism=self._init_args["oauth2_mechanism"],  # pyright: ignore[reportArgumentType]
+            oauth2_vendor=self._init_args["oauth2_vendor"],  # pyright: ignore[reportArgumentType]
+        )
+
+    def fetch_message(
+        self, msg_uid: int, parse: bool = False, _attempt: int = 1
+    ) -> Union[str, Dict]:
+        """
+        Fetch a message by UID, and optionally parse it
+
+        Args:
+            msg_uid: The message UID
+            parse: Return parsed results from mailparser
+            _attempt: The attempt number
+
+        Returns:
+            str: The raw mail message, including headers
+            dict: A parsed email message
+        """
+        # List of fetch commands to try and their expected response keys
+        fetch_attempts = [
+            (["RFC822"], [b"RFC822"]),
+            (["BODY[]"], [b"BODY[]"]),
+            (["BODY[NULL]"], [b"BODY[NULL]"]),
+        ]
+
+        raw_msg = None
+        msg_key = None
+
+        for fetch_cmd, expected_keys in fetch_attempts:
+            try:
+                raw_msg = self.fetch(msg_uid, fetch_cmd)[msg_uid]
+            except (socket.timeout, imaplib.IMAP4.abort):
+                _attempt = _attempt + 1
+                if _attempt > self.max_retries:
+                    raise MaxRetriesExceeded("Maximum retries exceeded")
+                logger.info(
+                    "Attempt {0} of {1} timed out. Retrying...".format(
+                        _attempt, self.max_retries
+                    )
+                )
+                self.reset_connection()
+                return self.fetch_message(msg_uid, parse=parse, _attempt=_attempt)
+            except (KeyError, imapclient.exceptions.IMAPClientError) as e:
+                # Some IMAP servers may not support certain fetch commands
+                # Log and continue to next fetch attempt
+                logger.debug(f"Fetch with {fetch_cmd} failed: {e}")
+                continue
+
+            # Check if any expected key is in the response
+            for key in expected_keys:
+                if key in raw_msg.keys():
+                    msg_key = key
+                    break
+
+            # If we found a valid key, break out of the fetch attempts loop
+            if msg_key:
+                break
+
+        # If no valid key found after all attempts, raise an informative error
+        if not msg_key or raw_msg is None:
+            if raw_msg:
+                available_keys = list(raw_msg.keys())
+                available_keys_str = [
+                    key.decode("utf-8", "replace")
+                    if isinstance(key, bytes)
+                    else str(key)
+                    for key in available_keys
+                ]
+                raise KeyError(
+                    f"Message UID {msg_uid} does not contain expected message keys after trying all fetch methods. "
+                    f"Last response contained: {available_keys_str}"
+                )
+            else:
+                raise KeyError(
+                    f"Failed to fetch message UID {msg_uid} using any of the supported fetch methods"
+                )
+
+        message = raw_msg[msg_key].decode("utf-8", "replace")  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue, reportArgumentType]
+        if parse:
+            message = mailsuite.utils.parse_email(message)
+        return message
+
+    def delete_messages(
+        self,
+        messages: Union[List[int], List[str], str, int],
+        silent: bool = True,
+        _attempt: int = 1,
+    ):
+        """
+        Deletes the given messages by Message UIDs
+
+        Args:
+            messages: A list of UIDs of messages to delete
+            silent: Do it silently
+            _attempt: The attempt number
+        """
+        if type(messages) is str or type(messages) is int:
+            messages = [int(messages)]
+        logger.info(
+            "Deleting message UID(s) {0}".format(
+                ",".join(str(uid) for uid in messages)  # pyright: ignore[reportGeneralTypeIssues]
+            )
+        )
+        try:
+            imapclient.IMAPClient.delete_messages(self, messages, silent=silent)
+            # Expunging specific UIDs (UID EXPUNGE) requires the UIDPLUS
+            # capability; on servers without it, fall back to a plain EXPUNGE,
+            # which removes all messages flagged \\Deleted in the folder.
+            if self.has_capability("UIDPLUS"):
+                imapclient.IMAPClient.expunge(self, messages)
+            else:
+                imapclient.IMAPClient.expunge(self)
+        except (socket.timeout, imaplib.IMAP4.abort):
+            _attempt = _attempt + 1
+            if _attempt > self.max_retries:
+                raise MaxRetriesExceeded("Maximum retries exceeded")
+            logger.info(
+                "Attempt {0} of {1} timed out. Retrying...".format(
+                    _attempt, self.max_retries
+                )
+            )
+            self.reset_connection()
+            self.delete_messages(messages, silent=silent, _attempt=_attempt)
+
+    def create_folder(self, folder: str, _attempt: int = 1):
+        """
+        Creates an IMAP folder at the given path
+
+        Args:
+            folder: The path of the folder to create
+            _attempt: The attempt number
+        """
+        if not self.folder_exists(folder):
+            logger.info("Creating folder: {0}".format(folder))
+            try:
+                imapclient.IMAPClient.create_folder(self, folder)
+            except (socket.timeout, imaplib.IMAP4.abort):
+                _attempt = _attempt + 1
+                if _attempt > self.max_retries:
+                    raise MaxRetriesExceeded("Maximum retries exceeded")
+                logger.info(
+                    "Attempt {0} of {1} timed out. Retrying...".format(
+                        _attempt, self.max_retries
+                    )
+                )
+                self.reset_connection()
+                self.create_folder(folder, _attempt=_attempt)
+
+    def _move_messages(self, msg_uids: Union[int, List[int]], folder_path: str):
+        """
+        Move the emails with the given UIDs to the given folder
+
+        Args:
+            msg_uids: A UID or list of UIDs of messages to move
+            folder_path: The path of the destination folder
+        """
+        folder_path = folder_path.replace("\\", "/").rstrip("/")
+        if type(msg_uids) is str or type(msg_uids) is int:
+            msg_uids = [int(msg_uids)]
+        for chunk in _chunks(msg_uids, 100):
+            if self._move_supported:
+                logger.info(
+                    "Moving message UID(s) {0} to {1}".format(
+                        ",".join(str(uid) for uid in chunk), folder_path
+                    )
+                )
+                try:
+                    self.move(chunk, folder_path)
+                except imapclient.exceptions.IMAPClientError as e:
+                    e = e.__str__().lstrip("b'").rstrip("'").rstrip(".")
+                    message = "Error moving message UIDs"
+                    e = "{0} {1}: {2}".format(message, msg_uids, e)
+                    logger.info("IMAP error: {0}".format(e))
+                    logger.info(
+                        "Copying message UID(s) {0} to {1} by copy".format(
+                            ",".join(str(uid) for uid in chunk), folder_path
+                        )
+                    )
+                    self.copy(chunk, folder_path)
+                    self.delete_messages(chunk)
+            else:
+                logger.info(
+                    "Moving message UID(s) {0} to {1} by copy".format(
+                        ",".join(str(uid) for uid in chunk), folder_path
+                    )
+                )
+                self.copy(chunk, folder_path)
+                self.delete_messages(chunk)
+
+    def move_messages(
+        self, msg_uids: Union[int, List[int]], folder_path: str, _attempt: int = 1
+    ):
+        """
+        Move the emails with the given UIDs to the given folder
+
+        Args:
+            msg_uids: A UID or list of UIDs of messages to move
+            folder_path: The path of the destination folder
+            _attempt: The attempt number
+        """
+        try:
+            self._move_messages(msg_uids, folder_path)
+        except (socket.timeout, imaplib.IMAP4.abort):
+            _attempt = _attempt + 1
+            if _attempt > self.max_retries:
+                raise MaxRetriesExceeded("Maximum retries exceeded")
+            logger.info(
+                "Attempt {0} of {1} timed out. Retrying...".format(
+                    _attempt, self.max_retries
+                )
+            )
+            self.reset_connection()
+            self._move_messages(msg_uids, folder_path)

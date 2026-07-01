@@ -1,0 +1,69 @@
+dist: noble
+language: python
+
+matrix:
+    include:
+        - python: '3.9'
+          dist: focal
+          env:
+
+        - python: '3.10'
+          dist: jammy
+          env:
+            - COVERAGE="true"
+            - PANDAS="true"
+            - SQLALCHEMY="true"
+            - H5PY="true"
+
+        - python: '3.11'
+          dist: jammy
+          env:
+
+        - python: '3.12'
+          env:
+
+        - python: '3.13'
+          env:
+
+        - python: '3.14'
+          env:
+            - DILL="master"
+
+        - python: '3.15t-dev'
+          env:
+            - DILL="master"
+
+        - python: 'pypy3.9-7.3.15' # at 7.3.16
+          env:
+
+        - python: 'pypy3.10-7.3.19'
+          env:
+
+        - python: 'pypy3.11-7.3.20'
+          env:
+
+    allow_failures:
+        - python: '3.15t-dev' # prerelease
+    fast_finish: true
+
+cache:
+    pip: true
+
+before_install:
+    - set -e  # fail on any error
+    - if [[ $COVERAGE == "true" ]]; then pip install coverage; fi
+    - if [[ $PANDAS == "true" ]]; then pip install pandas; fi
+    - if [[ $SQLALCHEMY == "true" ]]; then pip install "sqlalchemy<2.0.0"; fi
+    - if [[ $H5PY == "true" ]]; then pip install h5py; fi
+    - if [[ $DILL == "master" ]]; then pip install "https://github.com/uqfoundation/dill/archive/master.tar.gz"; fi
+
+install:
+    - python -m pip install .
+
+script:
+    - for test in klepto/tests/__init__.py; do echo $test ; if [[ $COVERAGE == "true" ]]; then coverage run -a $test > /dev/null; else python $test > /dev/null; fi ; done
+    - for test in klepto/tests/test_*.py; do echo $test ; if [[ $COVERAGE == "true" ]]; then coverage run -a $test > /dev/null; else python $test > /dev/null; fi ; done
+
+after_success:
+    - if [[ $COVERAGE == "true" ]]; then bash <(curl -s https://codecov.io/bash); else echo ''; fi
+    - if [[ $COVERAGE == "true" ]]; then coverage report; fi

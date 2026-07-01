@@ -210,6 +210,7 @@ class Database:
                 redacted_header_names=self.api_options.redacted_header_names,
                 event_observers=self.api_options.event_observers,
                 spawner=self,
+                ca_cert_path=self.api_options.ca_cert_path,
             )
             return api_commander
 
@@ -723,9 +724,9 @@ class Database:
             >>>
             >>> collection_definition = (
             ...     CollectionDefinition.builder()
-            ...     .set_vector_dimension(3)
-            ...     .set_vector_metric(VectorMetric.DOT_PRODUCT)
-            ...     .set_indexing("deny", ["annotations", "logs"])
+            ...     .with_vector_dimension(3)
+            ...     .with_vector_metric(VectorMetric.DOT_PRODUCT)
+            ...     .with_indexing("deny", ["annotations", "logs"])
             ...     .build()
             ... )
             >>> my_collection = database.create_collection(
@@ -769,7 +770,7 @@ class Database:
             >>> # Create a collection with 'vectorize' and on-the-fly authentication (by headers)
             >>> collection_definition_vz1 = (
             ...     CollectionDefinition.builder()
-            ...     .set_vector_service(
+            ...     .with_vector_service(
             ...         "openai",
             ...         "text-embedding-3-small",
             ...     )
@@ -785,7 +786,7 @@ class Database:
             >>> # Create a 'vectorize' collection, its secret pre-stored on DB as 'EMB_AUTH_KEY'
             >>> collection_definition_vz2 = (
             ...     CollectionDefinition.builder()
-            ...     .set_vector_service(
+            ...     .with_vector_service(
             ...         "openai",
             ...         "text-embedding-3-small",
             ...         authentication={
@@ -2216,6 +2217,7 @@ class Database:
             redacted_header_names=self.api_options.redacted_header_names,
             event_observers=self.api_options.event_observers,
             spawner=self,
+            ca_cert_path=self.api_options.ca_cert_path,
         )
 
         _cmd_desc = ",".join(sorted(body.keys()))
@@ -2430,6 +2432,7 @@ class AsyncDatabase:
                 redacted_header_names=self.api_options.redacted_header_names,
                 event_observers=self.api_options.event_observers,
                 spawner=self,
+                ca_cert_path=self.api_options.ca_cert_path,
             )
             return api_commander
 
@@ -2973,9 +2976,9 @@ class AsyncDatabase:
             >>>
             >>> collection_definition = (
             ...     CollectionDefinition.builder()
-            ...     .set_vector_dimension(3)
-            ...     .set_vector_metric(VectorMetric.DOT_PRODUCT)
-            ...     .set_indexing("deny", ["annotations", "logs"])
+            ...     .with_vector_dimension(3)
+            ...     .with_vector_metric(VectorMetric.DOT_PRODUCT)
+            ...     .with_indexing("deny", ["annotations", "logs"])
             ...     .build()
             ... )
             >>> my_collection = asyncio.run(async_database.create_collection(
@@ -3019,7 +3022,7 @@ class AsyncDatabase:
             >>> # Create a collection with 'vectorize' and on-the-fly authentication (by headers)
             >>> collection_definition_vz1 = (
             ...     CollectionDefinition.builder()
-            ...     .set_vector_service(
+            ...     .with_vector_service(
             ...         "openai",
             ...         "text-embedding-3-small",
             ...     )
@@ -3035,7 +3038,7 @@ class AsyncDatabase:
             >>> # Create a 'vectorize' collection, its secret pre-stored on DB as 'EMB_AUTH_KEY'
             >>> collection_definition_vz2 = (
             ...     CollectionDefinition.builder()
-            ...     .set_vector_service(
+            ...     .with_vector_service(
             ...         "openai",
             ...         "text-embedding-3-small",
             ...         authentication={
@@ -4500,6 +4503,7 @@ class AsyncDatabase:
             redacted_header_names=self.api_options.redacted_header_names,
             event_observers=self.api_options.event_observers,
             spawner=self,
+            ca_cert_path=self.api_options.ca_cert_path,
         )
 
         _cmd_desc = ",".join(sorted(body.keys()))

@@ -1,0 +1,13 @@
+Metadata-Version: 1.1
+Name: brackettree
+Version: 0.2.5
+Summary: Create tree structure out of a string with brackets.
+Home-page: https://gitlab.com/pacholik1/BracketTree
+Author: Vojtěch Pachol
+Author-email: pacholick@gmail.com
+License: LGPL-3.0
+Description: UNKNOWN
+Keywords: python,parsing
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python :: 3

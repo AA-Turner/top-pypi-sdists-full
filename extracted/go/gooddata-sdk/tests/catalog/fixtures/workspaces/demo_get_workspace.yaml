@@ -1,0 +1,82 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/workspaces/demo?include=workspaces
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              name: Demo
+            id: demo
+            type: workspace
+          links:
+            self: http://localhost:3000/api/v1/entities/workspaces/demo?include=workspaces
+      headers:
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/workspaces/demo_west?include=workspaces
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              name: Demo West
+            id: demo_west
+            relationships:
+              parent:
+                data:
+                  id: demo
+                  type: workspace
+            type: workspace
+          included:
+            - attributes:
+                name: Demo
+              id: demo
+              links:
+                self: http://localhost:3000/api/v1/entities/workspaces/demo
+              type: workspace
+          links:
+            self: http://localhost:3000/api/v1/entities/workspaces/demo_west?include=workspaces
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+version: 1

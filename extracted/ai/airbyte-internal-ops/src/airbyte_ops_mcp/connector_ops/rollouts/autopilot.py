@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections import defaultdict
 from typing import Literal
 
 from airbyte import constants
@@ -18,6 +19,7 @@ from airbyte_connector_models.metadata.v0.connector_registry_v0 import (
 from airbyte_connector_models.metadata.v0.connector_registry_v0 import (
     ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfigurationDefaultRolloutMode as RolloutMode,
 )
+from packaging.version import Version
 
 from airbyte_ops_mcp.cloud_admin import api_client
 from airbyte_ops_mcp.cloud_admin.auth import get_admin_user_id
@@ -1328,4 +1330,185 @@ def run_auto_rollback_failed(
             )
 
     logger.info("auto-rollback-failed: %s", result.summary)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Auto-supersede: cancel older rollouts when a newer RC exists
+# ---------------------------------------------------------------------------
+
+_SUPERSEDE_ELIGIBLE_STATES = frozenset(
+    [
+        "initialized",
+        "workflow_started",
+        "in_progress",
+        "paused",
+    ]
+)
+"""Rollout states eligible for supersession (non-terminal, non-errored)."""
+
+
+def _parse_rc_version(tag: str | None) -> Version | None:
+    """Parse an RC docker image tag into a `Version`, returning `None` on failure."""
+    if not tag:
+        return None
+    try:
+        return Version(tag)
+    except ValueError:
+        return None
+
+
+def run_auto_supersede(
+    *,
+    auth: ResolvedCloudAuth,
+    connector: str | None = None,
+    dry_run: bool = False,
+) -> AutopilotResult:
+    """Cancel older rollouts when a newer RC rollout exists for the same connector.
+
+    When a connector has multiple active rollouts at different RC versions,
+    the older rollouts are superseded: canceled with `retain_pins_on_cancellation=True`
+    so that pinned actors remain on the old version until the new rollout
+    progressively advances to include them.
+
+    The new rollout is left untouched (it will be started by `run_auto_start`).
+    """
+    result = AutopilotResult(command="auto-supersede", dry_run=dry_run)
+
+    raw_rows = query_connector_rollouts(active_only=True, limit=None)
+    rollouts = [ConnectorRolloutRecord.from_db_row(r) for r in raw_rows]
+    rollouts = filter_rollouts_by_connector(rollouts, connector)
+
+    # Only consider rollouts in states eligible for supersession
+    eligible = [r for r in rollouts if r.state in _SUPERSEDE_ELIGIBLE_STATES]
+
+    if not eligible:
+        logger.info("auto-supersede: No eligible rollouts found.")
+        return result
+
+    # Group by actor_definition_id
+    by_connector: dict[str, list[ConnectorRolloutRecord]] = defaultdict(list)
+    for rollout in eligible:
+        by_connector[rollout.actor_definition_id].append(rollout)
+
+    # Find connectors with multiple active rollouts at different versions
+    to_supersede: list[ConnectorRolloutRecord] = []
+    for _actor_def_id, connector_rollouts in by_connector.items():
+        # Parse and sort by version (highest first)
+        versioned: list[tuple[Version, ConnectorRolloutRecord]] = []
+        for r in connector_rollouts:
+            parsed = _parse_rc_version(r.rc_docker_image_tag)
+            if parsed is not None:
+                versioned.append((parsed, r))
+
+        if len(versioned) <= 1:
+            continue
+
+        versioned.sort(reverse=True, key=lambda x: x[0])
+        highest_version = versioned[0][0]
+        # Only supersede rollouts at strictly lower versions
+        for ver, older_rollout in versioned[1:]:
+            if ver < highest_version:
+                to_supersede.append(older_rollout)
+
+    if not to_supersede:
+        logger.info("auto-supersede: No superseded rollouts detected.")
+        return result
+
+    user_id = get_admin_user_id(
+        client_id=auth.client_id,
+        client_secret=auth.client_secret,
+        bearer_token=auth.bearer_token,
+    )
+
+    for rollout in to_supersede:
+        rc_version = rollout.rc_docker_image_tag or "unknown"
+
+        # Gate: only auto-supersede rollouts with autopilot mode enabled
+        rollout_config = get_connector_rollout_config(
+            rollout.actor_definition_id, rc_version=rc_version
+        )
+        if rollout_config.default_rollout_mode != RolloutMode.autopilot:
+            result.skipped.append(
+                AutopilotAction(
+                    rollout_id=rollout.rollout_id,
+                    actor_definition_id=rollout.actor_definition_id,
+                    connector_name=rollout.connector_name,
+                    rc_version=rc_version,
+                    action="supersede",
+                    success=False,
+                    message="Skipped: defaultRolloutMode is not 'autopilot'",
+                    tier=rollout.tier,
+                )
+            )
+            continue
+
+        if dry_run:
+            result.actions.append(
+                AutopilotAction(
+                    rollout_id=rollout.rollout_id,
+                    actor_definition_id=rollout.actor_definition_id,
+                    connector_name=rollout.connector_name,
+                    rc_version=rc_version,
+                    action="supersede",
+                    success=True,
+                    message=(
+                        f"Would cancel superseded rollout (retain pins) "
+                        f"for {rollout.connector_name}@{rc_version}"
+                    ),
+                    tier=rollout.tier,
+                )
+            )
+            continue
+
+        try:
+            api_client.finalize_connector_rollout(
+                docker_repository=rollout.rc_docker_repository or "",
+                docker_image_tag=rc_version,
+                actor_definition_id=rollout.actor_definition_id,
+                rollout_id=rollout.rollout_id,
+                updated_by=user_id,
+                state="canceled",
+                config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+                client_id=auth.client_id,
+                client_secret=auth.client_secret,
+                bearer_token=auth.bearer_token,
+                error_msg=(
+                    "AutoPilot auto-supersede: newer RC version published; "
+                    "retaining pins for progressive migration"
+                ),
+                failed_reason="superseded_by_newer_rc",
+                retain_pins_on_cancellation=True,
+            )
+        except Exception as e:
+            result.errors.append(
+                AutopilotAction(
+                    rollout_id=rollout.rollout_id,
+                    actor_definition_id=rollout.actor_definition_id,
+                    connector_name=rollout.connector_name,
+                    rc_version=rc_version,
+                    action="supersede",
+                    success=False,
+                    message=f"Failed to supersede: {e}",
+                    tier=rollout.tier,
+                )
+            )
+        else:
+            result.actions.append(
+                AutopilotAction(
+                    rollout_id=rollout.rollout_id,
+                    actor_definition_id=rollout.actor_definition_id,
+                    connector_name=rollout.connector_name,
+                    rc_version=rc_version,
+                    action="supersede",
+                    success=True,
+                    message=(
+                        f"Canceled superseded rollout (pins retained) "
+                        f"for {rollout.connector_name}@{rc_version}"
+                    ),
+                    tier=rollout.tier,
+                )
+            )
+
+    logger.info("auto-supersede: %s", result.summary)
     return result

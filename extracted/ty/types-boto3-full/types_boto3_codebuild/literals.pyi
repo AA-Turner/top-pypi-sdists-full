@@ -50,6 +50,7 @@ __all__ = (
     "FleetScalingTypeType",
     "FleetSortByTypeType",
     "FleetStatusCodeType",
+    "HostKernelType",
     "ImagePullCredentialsTypeType",
     "LanguageTypeType",
     "ListBuildBatchesForProjectPaginatorName",
@@ -183,6 +184,7 @@ FleetStatusCodeType = Literal[
     "UPDATE_ROLLBACK_FAILED",
     "UPDATING",
 ]
+HostKernelType = Literal["LINUX_KERNEL_4", "LINUX_KERNEL_6", "LINUX_KERNEL_LATEST"]
 ImagePullCredentialsTypeType = Literal["CODEBUILD", "SERVICE_ROLE"]
 LanguageTypeType = Literal[
     "ANDROID", "BASE", "DOCKER", "DOTNET", "GOLANG", "JAVA", "NODE_JS", "PHP", "PYTHON", "RUBY"
@@ -469,8 +471,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -566,7 +566,6 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
@@ -652,7 +651,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -673,6 +671,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

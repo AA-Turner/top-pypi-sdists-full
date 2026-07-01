@@ -1,0 +1,125 @@
+from decimal import Decimal
+
+from a_sync import a_sync, cgather
+from async_lru import alru_cache
+from web3.exceptions import ContractLogicError
+
+from y import ENVIRONMENT_VARIABLES as ENVS
+from y.classes.common import ERC20
+from y.contracts import Contract, has_method, is_contract
+from y.datatypes import Address, Block
+from y.exceptions import ContractNotVerified
+
+try:
+    oracle = "0x9a9Fa8338dd5E5B2188006f1Cd2Ef26d921650C2"
+    PENDLE_ORACLE = Contract(oracle) if is_contract(oracle) else None
+except ContractNotVerified:
+    PENDLE_ORACLE = None
+
+TWAP_DURATION = 1
+
+
+@a_sync("sync")
+async def is_pendle_lp(token: Address) -> bool:
+    """
+    Determines if the given token address is a Pendle LP token.
+
+    Args:
+        token: The address of the token to check.
+
+    Returns:
+        True if the token is a Pendle LP token, False otherwise.
+
+    Example:
+        >>> is_pendle = is_pendle_lp("0x1b92b5242301ce4a8c73cc3ef0d6dee33a3a5b23")
+        >>> print(is_pendle)
+        True
+    """
+    return (
+        PENDLE_ORACLE is not None
+        # idk why this token is giving a false positive, but it is, at least sometimes
+        and token != "0x00e8Eb340f8AF587EEA6200D2081E31dC87285ac"
+        and await has_method(token, "readTokens()(address,address,address)", sync=False)
+    )
+
+
+@alru_cache(maxsize=None)
+async def get_tokens(lp_token: Address) -> tuple[str, str, str]:
+    """
+    Retrieves the addresses of the tokens in a Pendle LP token.
+
+    This function is cached to improve performance for repeated calls.
+
+    Args:
+        lp_token: The address of the Pendle LP token.
+
+    Returns:
+        A tuple containing the addresses of the SY token, PT token, and YT token.
+
+    Example:
+        >>> tokens = await get_tokens("0x1b92b5242301ce4a8c73cc3ef0d6dee33a3a5b23")
+        >>> print(tokens)
+        ('0x...', '0x...', '0x...')  # Addresses of SY, PT, and YT tokens
+
+    Note:
+        The function returns the result of the `readTokens` method from the Pendle LP contract, which provides the addresses of the underlying tokens.
+
+    See Also:
+        - :func:`is_pendle_lp` for checking if a token is a Pendle LP token.
+    """
+    lp_token = await Contract.coroutine(lp_token)
+    return await lp_token.readTokens
+
+
+@a_sync("sync")
+async def get_lp_price(
+    token: Address, block: Block = None, skip_cache: bool = ENVS.SKIP_CACHE
+) -> Decimal | None:
+    """
+    Calculates the price of a Pendle LP token.
+
+    Args:
+        token: The address of the Pendle LP token.
+        block (optional): The block number to query. Defaults to the latest block.
+        skip_cache (optional): Whether to skip the cache when fetching prices. Defaults to :obj:`ENVS.SKIP_CACHE`.
+
+    Returns:
+        The price of the LP token in USD.
+
+    Example:
+        >>> price = get_lp_price("0x1b92b5242301ce4a8c73cc3ef0d6dee33a3a5b23", block=14_000_000)
+        >>> print(f"{price:.6f}")
+        1.234567  # The price of the Pendle LP token in USD
+
+    Note:
+        This function retrieves the LP to asset rate using the Pendle Oracle contract and calculates the LP token price by multiplying the LP to asset rate by the asset's price in USD.
+
+    See Also:
+        - :func:`get_tokens` for retrieving the tokens in a Pendle LP token.
+    """
+    tokens = await get_tokens(str(token))  # force to string for cache key
+    # NOTE: we might not need this, leave it commented out for now
+    # names = await cgather(*(ERC20(t, asynchronous=True).name for t in tokens))
+    # if any("DAI" in name for name in names):
+    #    use_asset = True
+    #    rate = await PENDLE_ORACLE.getLpToAssetRate.coroutine(token, twap_duration, block_identifier=block)
+    # elif any("crvUSD" in name for name in (ERC20(t) for t in tokens)):
+    #    use_asset = True
+    #    rate = await PENDLE_ORACLE.getLpToAssetRate.coroutine(token, twap_duration, block_identifier=block)
+    # else:
+    #    use_asset = False
+    #    rate = await PENDLE_ORACLE.getLpToAssetRate.coroutine(token, twap_duration, block_identifier=block)
+    sy_token, p_token, y_token = tokens
+    try:
+        sy, rate = await cgather(
+            Contract.coroutine(sy_token),
+            PENDLE_ORACLE.getLpToAssetRate.coroutine(token, TWAP_DURATION, block_identifier=block),
+        )
+    except ContractLogicError:
+        return None
+
+    _, asset, decimals = await sy.assetInfo
+    rate /= Decimal(10**decimals)
+    return rate * Decimal(
+        await ERC20(asset, asynchronous=True).price(block=block, skip_cache=skip_cache)
+    )

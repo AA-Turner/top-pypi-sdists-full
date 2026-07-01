@@ -6,8 +6,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
-from packaging import version
-
 import tinybird.client as tbc
 from tinybird.config import CURRENT_VERSION, DEFAULT_API_HOST, DEFAULT_LOCALHOST
 
@@ -32,12 +30,6 @@ class FeatureFlags:
         if os.environ.get("TB_CLI_TELEMETRY_OPTOUT", "0") == "1":
             return False
         return not ("x.y.z" in CURRENT_VERSION and os.environ.get("TB_CLI_TELEMETRY_SEND_IN_LOCAL", "0") == "0")
-
-
-def compare_versions(a: str, b: str) -> int:
-    va = version.parse(a)
-    vb = version.parse(b)
-    return -1 if va < vb else (1 if va > vb else 0)
 
 
 class ConfigValueOrigin(Enum):

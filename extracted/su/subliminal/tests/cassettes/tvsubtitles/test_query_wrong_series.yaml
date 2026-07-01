@@ -1,0 +1,206 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Referer:
+      - https://www.tvsubtitles.net/
+      User-Agent:
+      - Subliminal/2.2
+      X-Requested-With:
+      - XMLHttpRequest
+    method: GET
+    uri: https://www.tvsubtitles.net/tvshow-155-7.html
+  response:
+    body:
+      string: "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n<html
+        xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n<head>\n\n<meta
+        name=\"viewport\" content=\"width=device-width; initial-scale=1.0\">\n<meta
+        http-equiv=\"content-type\" content=\"text/html; charset=utf-8\" />\n<title>TVsubtitles.net
+        - Subtitles \"John Adams\" season 7</title>\n<link href=\"favicon.ico\" rel=\"shortcut
+        icon\">\n<link rel=\"stylesheet\" href=\"style.css\" type=\"text/css\" />\n<link
+        href=\"media-queries.css\" rel=\"stylesheet\" type=\"text/css\">\n\n</head>\n\n\t<body>\n\t<div
+        id=\"content\">\n      <div id=\"header\">\n         <p id=\"top_info\"><noindex><a
+        href=\"http://www.tvsubtitles.net/tvshow-155-7.html\"><img src=\"images/flag-english.png\"
+        width=\"30\" height=\"16\" alt=\"english\" border=0 hspace=2></a>\n         <a
+        href=\"https://es.tvsubtitles.net/tvshow-155-7.html\"><img src=\"images/flag-spanish.png\"
+        width=\"30\" height=\"16\" alt=\"spanish\" border=0 hspace=2></a>\n         <a
+        href=\"https://fr.tvsubtitles.net/tvshow-155-7.html\"><img src=\"images/flag-french.png\"
+        width=\"30\" height=\"16\" alt=\"french\" border=0 hspace=2></a>\n         <a
+        href=\"https://www.tvsubtitles.ru/tvshow-155-7.html\"><img src=\"images/flag-russian.png\"
+        width=\"30\" height=\"16\" alt=\"russian\" border=0 hspace=2></a><br />\n
+        \        <a><img src=\"images/flag-none.png\" width=\"30\" height=\"16\" alt=\"ukrainian\"
+        border=0 hspace=2></a>\n         <a href=\"https://ua.tvsubtitles.net/tvshow-155-7.html\"><img
+        src=\"images/flag-ukrainian.png\" width=\"30\" height=\"16\" alt=\"ukrainian\"
+        border=0 hspace=2></a>\n         <a href=\"https://hu.tvsubtitles.net/tvshow-155-7.html\"><img
+        src=\"images/flag-hungarian.png\" width=\"30\" height=\"16\" alt=\"hungarian\"
+        border=0 hspace=2></a>\n         <a href=\"https://gr.tvsubtitles.net/tvshow-155-7.html\"><img
+        src=\"images/flag-greek.png\" width=\"30\" height=\"16\" alt=\"greek\" border=0
+        hspace=2></a><br />\n         <a href=\"http://www.moviesubtitles.org\" class=\"othersite\">Movie
+        subtitles</a></noindex></p><div id=\"logo\">\n            <a href=\"/\" title=\"Download
+        latest TV Show and TV Series subtitles\">TVsubtitles<span class=\"title\">.net</span></a>\n
+        \           <p>Download latest TV Show and TV Series subtitles</p>\n         </div><div
+        style=\"float:left\"></div></div><div id=\"tabs\">\n         <ul>\n            <li><a
+        \ href=\"/\" accesskey=\"m\">Home</a></li><li><a class=\"current\" href=\"/tvshows.html\"
+        accesskey=\"v\">TV Shows</a></li><li><a  href=\"/new.html\" accesskey=\"r\">New</a></li><li><a
+        \ href=\"/top.html\" accesskey=\"i\">Top</a></li><li><a  href=\"/add.html\"
+        accesskey=\"d\">Add</a></li><li><a  href=\"/feedback.html\" accesskey=\"a\">Feedback</a></li><li><a
+        \ href=\"http://www.msubs.net/\" accesskey=\"a\">Movies</a></li>\n         </ul>\n\t<span
+        style=\"position: relative; left: -790px;top:67px;\" class=\"selecto\">Show
+        subtitles <select size=\"1\" name=\"setlang\" style=\"font: 0.95em Tahoma,
+        Arial, sans-serif;\" onchange=\"javascript: window.location = 'setlang.php?page=/tvshow-155-7.html&setlang1='
+        + this.value;\">\n\t<option value=\"all\">all</option><option value=\"en\"
+        >english</option><option value=\"es\" >spanish</option><option value=\"fr\"
+        >french</option><option value=\"de\" >german</option><option value=\"br\"
+        >portuguese(br)</option><option value=\"ru\" >russian</option><option value=\"ua\"
+        >ukrainian</option><option value=\"it\" >italian</option><option value=\"gr\"
+        >greek</option><option value=\"ar\" >arabic</option><option value=\"hu\" >hungarian</option><option
+        value=\"pl\" >polish</option><option value=\"tr\" >turkish</option><option
+        value=\"nl\" >dutch </option><option value=\"pt\" >portuguese</option><option
+        value=\"sv\" >swedish</option><option value=\"da\" >danish</option><option
+        value=\"fi\" >finnish</option><option value=\"ko\" >korean</option><option
+        value=\"cn\" >chinese</option><option value=\"jp\" >japanese</option><option
+        value=\"bg\" >bulgarian</option><option value=\"cz\" >czech</option><option
+        value=\"ro\" >romanian</option></select><img src=\"images/spacer.gif\" width=\"18\"
+        height=\"12\" alt=\"\" border=\"0\" style=\"margin:2px 5px;\" align=\"top\">\n</span>\n
+        \        <div id=\"search\">\n            <form method=\"post\" action=\"search.php\">\n
+        \              <p><input type=\"text\" name=\"qs\" class=\"search\" value=\"\"
+        /> <input type=\"submit\" value=\"Search\" class=\"button\" /></p>\n            </form>\n
+        \        </div>\n      </div><div style=\"clear:both\" class=\"littlevspace\"></div>\n
+        \     <div class=\"left\">\n<div class=\"left_articles\">\n<div style=\"float:right;
+        margin: 10px 0;\"><script type=\"text/javascript\" src=\"https://apis.google.com/js/plusone.js\"></script>\n<g:plusone></g:plusone></div>\n\n
+        \     <img src=\"images/tvshows/155.jpg\" class=\"thumbnail1\" width=\"80\"
+        alt=\"\"/>\n            <h2>John Adams</h2>\n            <p class=\"description\"><a
+        href=\"tvshow-155-1.html\"><b>Season 1</b></a>      </p><div class=\"banner468\">\n<script
+        type=\"text/javascript\">\n\tatOptions = {\n\t\t'key' : 'caa12b12d4ccfbb85a3dfc1b650ae647',\n\t\t'format'
+        : 'iframe',\n\t\t'height' : 60,\n\t\t'width' : 468,\n\t\t'params' : {}\n\t};\n</script>\n<script
+        type=\"text/javascript\" src=\"//cognatesyringe.com/caa12b12d4ccfbb85a3dfc1b650ae647/invoke.js\"></script>\n</div><br
+        clear=all><table style=\"text-align: left;\" border=\"0 px\" cellspacing=\"0\"
+        \ cellpadding=\"3\" width=700 class=\"tableauto\">\n   <tr>\n   <td style=\"background-color:
+        rgb(255, 244, 230); \"  class=\"td1\" width=100%>\n   <table cellspacing=\"0\"
+        cellpadding=\"0\" bgcolor=\"#79B048\" border=\"0\" id=\"table4\" align=\"center\"
+        width=100%>\n   <tr>\n      <td>\n         <table cellspacing=\"1\" cellpadding=\"2\"
+        width=\"100%\" border=\"0\" id=\"table5\">\n<tr align=\"middle\"><th bgcolor=\"#111111\"
+        width=\"8%\"><b>#</b></th> \n<th bgcolor=\"#111111\" width=\"40%\"><b>Episode</b></th>
+        \n<th bgcolor=\"#111111\" width=\"7%\"><b>Amount</b></th> \n<th bgcolor=\"#111111\"
+        width=\"45%\"><b>Subtitles</b></th> \n</tr>\n<tr align=\"middle\" bgcolor=\"#ffffff\">\n</tr>\n<tr
+        align=\"middle\" bgcolor=\"#ffffff\">\n<td></td>\n<td align=left style=\"padding:
+        0 4px;\"><a href=\"episode-155-7.html\"><b>All episodes</b></a></td>\n<td>0</td>\n<td><nobr></nobr></td>\n</tr>\n</table>\n
+        \     </td>\n   </tr>\n   </table>\n   </td>\n   </tr>\n   </table>\n</div>\n<div
+        style=\"max-height:270px; overflow:hidden;\"><script async=\"async\" data-cfasync=\"false\"
+        src=\"//cognatesyringe.com/d6d539be7f6db36621d3abc4aec9e6cf/invoke.js\"></script>\n<div
+        id=\"container-d6d539be7f6db36621d3abc4aec9e6cf\"></div></div></div>\n<div
+        id=\"right\"><div style=\"width:300px; height: 250px;\"><script async=\"async\"
+        data-cfasync=\"false\" src=\"//acquaintedpostman.com/984bb3acd60a61f2e29a4c2e9694e6ff/invoke.js\"></script>\n<div
+        id=\"container-984bb3acd60a61f2e29a4c2e9694e6ff\"></div></div>\n\n<div align=\"center\"
+        style=\"font-size:10px; overflow:hidden\"><script type=\"text/javascript\">\n<!--\nvar
+        _acic={dataProvider:10};(function(){var e=document.createElement(\"script\");e.type=\"text/javascript\";e.async=true;e.src=\"https://www.acint.net/aci.js\";var
+        t=document.getElementsByTagName(\"script\")[0];t.parentNode.insertBefore(e,t)})()\n//-->\n</script></div><div
+        class=\"boxtop\"></div>\n         \t<div class=\"box\">\n            <p><img
+        src=\"images/statistics.png\" alt=\"Site statistics\" title=\"Site statistics\"
+        class=\"image\" />\n            <b>Site statistics</b><br /><table cellspacing=0
+        cellpadding=0><tr><td align=right>Total subtitles:</td><td> 294799</td></tr><tr><td
+        align=right>TV Shows:</td><td> 2299</td></tr><tr><td align=right>TV Episodes:</td><td>
+        79784</td></tr><tr><td align=right>Downloads:</td><td> 495 742 327</td></tr></table><p
+        style=\"margin-top:0.5em\"><b>Amount subtitles in languages:</b></p>\n<table
+        cellspacing=0 cellpadding=0 width=100% style=\"margin-top:0.5em\"><td class=\"stat\"><img
+        src=\"images/flags/en.gif\" width=\"18\" height=\"12\" alt=\"english\" title=\"english\"
+        border=0> - 68 121</td><td class=\"stat\"><img src=\"images/flags/fr.gif\"
+        width=\"18\" height=\"12\" alt=\"french\" title=\"french\" border=0> - 39
+        058</td><td class=\"stat\"><img src=\"images/flags/gr.gif\" width=\"18\" height=\"12\"
+        alt=\"greek\" title=\"greek\" border=0> - 35 942</td></tr>\n<tr><td class=\"stat\"><img
+        src=\"images/flags/pt.gif\" width=\"18\" height=\"12\" alt=\"portuguese\"
+        title=\"portuguese\" border=0> - 26 925</td><td class=\"stat\"><img src=\"images/flags/hu.gif\"
+        width=\"18\" height=\"12\" alt=\"hungarian\" title=\"hungarian\" border=0>
+        - 19 241</td><td class=\"stat\"><img src=\"images/flags/br.gif\" width=\"18\"
+        height=\"12\" alt=\"portuguese(br)\" title=\"portuguese(br)\" border=0> -
+        17 332</td></tr>\n<tr><td class=\"stat\"><img src=\"images/flags/ru.gif\"
+        width=\"18\" height=\"12\" alt=\"russian\" title=\"russian\" border=0> - 15
+        506</td><td class=\"stat\"><img src=\"images/flags/es.gif\" width=\"18\" height=\"12\"
+        alt=\"spanish\" title=\"spanish\" border=0> - 14 346</td><td class=\"stat\"><img
+        src=\"images/flags/ro.gif\" width=\"18\" height=\"12\" alt=\"romanian\" title=\"romanian\"
+        border=0> - 13 092</td></tr>\n<tr><td class=\"stat\"><img src=\"images/flags/pl.gif\"
+        width=\"18\" height=\"12\" alt=\"polish\" title=\"polish\" border=0> - 12
+        766</td><td class=\"stat\"><img src=\"images/flags/it.gif\" width=\"18\" height=\"12\"
+        alt=\"italian\" title=\"italian\" border=0> - 7 224</td><td class=\"stat\"><img
+        src=\"images/flags/bg.gif\" width=\"18\" height=\"12\" alt=\"bulgarian\" title=\"bulgarian\"
+        border=0> - 5 701</td></tr>\n<tr><td class=\"stat\"><img src=\"images/flags/nl.gif\"
+        width=\"18\" height=\"12\" alt=\"dutch \" title=\"dutch \" border=0> - 5 234</td><td
+        class=\"stat\"><img src=\"images/flags/tr.gif\" width=\"18\" height=\"12\"
+        alt=\"turkish\" title=\"turkish\" border=0> - 5 113</td><td class=\"stat\"><img
+        src=\"images/flags/de.gif\" width=\"18\" height=\"12\" alt=\"german\" title=\"german\"
+        border=0> - 3 754</td></tr>\n<tr><td class=\"stat\"><img src=\"images/flags/ar.gif\"
+        width=\"18\" height=\"12\" alt=\"arabic\" title=\"arabic\" border=0> - 2 196</td><td
+        class=\"stat\"><img src=\"images/flags/ua.gif\" width=\"18\" height=\"12\"
+        alt=\"ukrainian\" title=\"ukrainian\" border=0> - 1 114</td><td class=\"stat\"><img
+        src=\"images/flags/cz.gif\" width=\"18\" height=\"12\" alt=\"czech\" title=\"czech\"
+        border=0> - 685</td></tr>\n<tr></tr></table></p><p style=\"margin-top:0.5em\"><b>Downloads:</b></p>\n<table
+        cellspacing=0 cellpadding=0 width=90% style=\"margin-top:0.5em\"><td class=\"stat\"><img
+        src=\"images/flags/en.gif\" width=\"18\" height=\"12\" alt=\"english\" title=\"english\"
+        border=0> - 186.9 mil</td><td class=\"stat\"><img src=\"images/flags/fr.gif\"
+        width=\"18\" height=\"12\" alt=\"french\" title=\"french\" border=0> - 118.6
+        mil</td><td class=\"stat\"><img src=\"images/flags/gr.gif\" width=\"18\" height=\"12\"
+        alt=\"greek\" title=\"greek\" border=0> - 55.57 mil</td></tr><tr><td class=\"stat\"><img
+        src=\"images/flags/ru.gif\" width=\"18\" height=\"12\" alt=\"russian\" title=\"russian\"
+        border=0> - 19.07 mil</td><td class=\"stat\"><img src=\"images/flags/br.gif\"
+        width=\"18\" height=\"12\" alt=\"portuguese(br)\" title=\"portuguese(br)\"
+        border=0> - 17.56 mil</td><td class=\"stat\"><img src=\"images/flags/es.gif\"
+        width=\"18\" height=\"12\" alt=\"spanish\" title=\"spanish\" border=0> - 15.09
+        mil</td></tr><tr><td class=\"stat\"><img src=\"images/flags/pt.gif\" width=\"18\"
+        height=\"12\" alt=\"portuguese\" title=\"portuguese\" border=0> - 14.09 mil</td><td
+        class=\"stat\"><img src=\"images/flags/hu.gif\" width=\"18\" height=\"12\"
+        alt=\"hungarian\" title=\"hungarian\" border=0> - 13.67 mil</td><td class=\"stat\"><img
+        src=\"images/flags/pl.gif\" width=\"18\" height=\"12\" alt=\"polish\" title=\"polish\"
+        border=0> - 9.13 mil</td></tr><tr><td class=\"stat\"><img src=\"images/flags/it.gif\"
+        width=\"18\" height=\"12\" alt=\"italian\" title=\"italian\" border=0> - 7.95
+        mil</td><td class=\"stat\"><img src=\"images/flags/ro.gif\" width=\"18\" height=\"12\"
+        alt=\"romanian\" title=\"romanian\" border=0> - 7.71 mil</td><td class=\"stat\"><img
+        src=\"images/flags/bg.gif\" width=\"18\" height=\"12\" alt=\"bulgarian\" title=\"bulgarian\"
+        border=0> - 5.13 mil</td></tr><tr><td class=\"stat\"><img src=\"images/flags/nl.gif\"
+        width=\"18\" height=\"12\" alt=\"dutch \" title=\"dutch \" border=0> - 4.98
+        mil</td><td class=\"stat\"><img src=\"images/flags/tr.gif\" width=\"18\" height=\"12\"
+        alt=\"turkish\" title=\"turkish\" border=0> - 4.8 mil</td><td class=\"stat\"><img
+        src=\"images/flags/de.gif\" width=\"18\" height=\"12\" alt=\"german\" title=\"german\"
+        border=0> - 4.75 mil</td></tr><tr><td class=\"stat\"><img src=\"images/flags/ua.gif\"
+        width=\"18\" height=\"12\" alt=\"ukrainian\" title=\"ukrainian\" border=0>
+        - 4.54 mil</td><td class=\"stat\"><img src=\"images/flags/ar.gif\" width=\"18\"
+        height=\"12\" alt=\"arabic\" title=\"arabic\" border=0> - 2.06 mil</td><td
+        class=\"stat\"><img src=\"images/flags/cz.gif\" width=\"18\" height=\"12\"
+        alt=\"czech\" title=\"czech\" border=0> - 1.37 mil</td></tr><tr></tr></table></p>\n
+        \        </div><center><!--LiveInternet counter--><script type=\"text/javascript\"><!--\ndocument.write(\"<img
+        \ style='border:0' src='https://counter.yadro.ru/hit?t14.5;r\"+\nescape(document.referrer)+((typeof(screen)==\"undefined\")?\"\":\n\";s\"+screen.width+\"*\"+screen.height+\"*\"+(screen.colorDepth?\nscreen.colorDepth:screen.pixelDepth))+\";u\"+escape(document.URL)+\n\";h\"+escape(document.title.substring(0,80))+\";\"+Math.random()+\n\"'
+        alt='' title='' \"+\n\"border=0 width=88 height=31>\")//--></script><!--/LiveInternet-->\n</center></div>\n<div
+        class=\"footer\"><div style=\"font-size:10px; line-height:10px; color:#C0C0C0;
+        height:10px; overflow:hidden \"><a href=\"https://shara-soft.ru/igor-ejdman-po-nisxodyashhej-spirali/\">Toyota
+        Prius My Settings\n</a></div>&copy; Copyright 2025 TVsubtitles.net.<br />
+        Page generation 0.007 seconds.\n      </div>\n   </div>\n\t</body>\n\t</html>\n"
+    headers:
+      Cache-Control:
+      - no-cache
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - text/html; charset=utf-8
+      Date:
+      - Thu, 13 Feb 2025 23:30:11 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache/2.4.6 (CentOS) OpenSSL/1.0.2k-fips mod_fcgid/2.3.9 PHP/5.3.29
+      Set-Cookie:
+      - visited=1; expires=Fri, 14-Feb-2025 11:30:11 GMT
+      Strict-Transport-Security:
+      - max-age=31536000; preload
+      Transfer-Encoding:
+      - chunked
+      X-Powered-By:
+      - PHP/5.3.29
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -62,6 +62,16 @@ class SparkSessionManager(ABC):
     def get_session_id(self):
         pass
 
+    _user_spark_conf: dict | None = None
+
+    def set_user_spark_conf(self, spark_conf: dict | None):
+        """Set user-supplied spark config overrides (from sparkutils.init or sparkutils.configure).
+
+        Called by LazySparkSession before create(). These are the highest-priority
+        configs — they override everything else.
+        """
+        self._user_spark_conf = spark_conf
+
     def _get_execution_role_arn(self):
         """Get the execution role ARN from the project's IAM connection."""
         return self.project.iam_role

@@ -277,6 +277,8 @@ class StatementExecutor:
                     "has_result_set": response.get("HasResultSet", False),
                     "result_metadata": response.get("ResultMetadata"),
                     "records_updated": response.get("RecordsUpdated", 0),
+                    "result_rows": response.get("ResultRows"),
+                    "result_size": response.get("ResultSize"),
                     "sub_statements": response.get("SubStatements", []),
                 }
 
@@ -553,6 +555,8 @@ class Cursor:
         self._next_token = None
         self._all_results_fetched = False
         self._rowcount = -1
+        self._result_rows = None
+        self._result_size = None
         self.arraysize = 1  # DB-API 2.0 default arraysize
 
     def execute(self, sql: str, parameters: Optional[Union[List, Dict]] = None):
@@ -580,6 +584,8 @@ class Cursor:
         self._next_token = None
         self._all_results_fetched = False
         self._rowcount = -1
+        self._result_rows = None
+        self._result_size = None
 
         # Keep parameters as-is to preserve parameter names for Data API
         # Dict parameters will be handled as named parameters (:name style)
@@ -590,6 +596,8 @@ class Cursor:
         self._statement_id = result["statement_id"]
         self._has_result_set = result.get("has_result_set", False)
         self._rowcount = result.get("records_updated", 0) if not self._has_result_set else -1
+        self._result_rows = result.get("result_rows")
+        self._result_size = result.get("result_size")
 
         # Set up column metadata if we have results
         if self._has_result_set:
@@ -767,6 +775,35 @@ class Cursor:
         self._next_token = None
         self._all_results_fetched = False
         self._rowcount = -1
+        self._result_rows = None
+        self._result_size = None
+
+    def get_execution_metadata(self) -> Optional[Dict[str, Any]]:
+        """Return engine-specific execution metadata for query history tracking."""
+        if not self._statement_id:
+            return None
+
+        metadata: Dict[str, Any] = {
+            "statement_id": self._statement_id,
+            "has_result_set": self._has_result_set,
+        }
+
+        # Include session ID if available
+        if hasattr(self, "connection") and hasattr(self.connection, "_session_id"):
+            if self.connection._session_id:
+                metadata["session_id"] = self.connection._session_id
+
+        # Include records updated for DML statements
+        if self._rowcount >= 0:
+            metadata["records_updated"] = self._rowcount
+
+        # Include result rows and size from describe_statement
+        if self._result_rows is not None:
+            metadata["result_rows"] = self._result_rows
+        if self._result_size is not None:
+            metadata["result_size_bytes"] = self._result_size
+
+        return metadata
 
     @property
     def rowcount(self):

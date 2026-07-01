@@ -3,14 +3,15 @@ use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use anyhow::{Context, Result};
-use futures::StreamExt;
-use prek_consts::env_vars::EnvVars;
+use futures_util::StreamExt;
+use prek_consts::env_vars::{EnvVars, EnvVarsRead};
 use semver::Version;
 use target_lexicon::HOST;
 use tracing::{debug, trace, warn};
 
+use crate::checksum::Sha256Digest;
 use crate::fs::LockedFile;
-use crate::http::REQWEST_CLIENT;
+use crate::http::{REQWEST_CLIENT, download_artifact};
 use crate::languages::rust::version::RustVersion;
 use crate::process::Cmd;
 use crate::store::Store;
@@ -29,11 +30,12 @@ pub(crate) struct ToolchainInfo {
 }
 
 static RUSTUP_BINARY_NAME: LazyLock<String> = LazyLock::new(|| {
-    EnvVars::var(EnvVars::PREK_INTERNAL__RUSTUP_BINARY_NAME)
+    EnvVars
+        .var(EnvVars::PREK_INTERNAL__RUSTUP_BINARY_NAME)
         .unwrap_or_else(|_| "rustup".to_string())
 });
 
-#[derive(Clone, Copy, Default, strum::AsRefStr, strum::EnumString)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, strum::AsRefStr, strum::EnumString)]
 #[strum(serialize_all = "lowercase")]
 enum RustupProfile {
     #[default]
@@ -42,15 +44,15 @@ enum RustupProfile {
     Complete,
 }
 
-fn rustup_profile() -> RustupProfile {
-    let Ok(value) = EnvVars::var(EnvVars::PREK_RUST_PROFILE) else {
+fn rustup_profile(env_vars: &impl EnvVarsRead) -> RustupProfile {
+    let Ok(value) = env_vars.var(EnvVars::PREK_RUST_PROFILE) else {
         return RustupProfile::default();
     };
 
     value.parse().unwrap_or_else(|_| {
         let default = RustupProfile::default();
         warn_user!(
-            "Invalid value for {}: {:?}. Expected one of `minimal`, `default`, or `complete`; falling back to `{}`",
+            "Invalid value for {}: {:?}. Expected minimal, default, or complete; using default ({:?})",
             EnvVars::PREK_RUST_PROFILE,
             value,
             default.as_ref(),
@@ -113,28 +115,13 @@ impl Rustup {
         let url = format!("https://static.rust-lang.org/rustup/dist/{triple}/{filename}");
         // Save "rustup-init" as "rustup", this is what "rustup-init" does when setting up.
         let target = rustup_home.join("rustup").with_extension(EXE_EXTENSION);
+        let checksum_url = format!("{url}.sha256");
 
-        let temp_dir = tempfile::tempdir_in(store.scratch_path())?;
-        debug!(url = %url, temp_dir = ?temp_dir.path(), "Downloading");
-
-        let tmp_target = temp_dir.path().join(filename);
-        let response = REQWEST_CLIENT
-            .get(&url)
-            .send()
-            .await
-            .with_context(|| format!("Failed to download file from {url}"))?;
-        if !response.status().is_success() {
-            anyhow::bail!(
-                "Failed to download file from {}: {}",
-                url,
-                response.status()
-            );
-        }
-
-        let bytes = response.bytes().await?;
-        fs_err::tokio::write(&tmp_target, bytes).await?;
-
-        make_executable(&tmp_target)?;
+        let download = download_artifact(&url, filename, store, async || {
+            Self::fetch_checksum(&checksum_url).await
+        })
+        .await?;
+        make_executable(download.path())?;
 
         // Move to final location
         if target.exists() {
@@ -142,7 +129,7 @@ impl Rustup {
             fs_err::tokio::remove_file(&target).await?;
         }
         debug!(path = %target.display(), "Installing rustup");
-        fs_err::tokio::rename(&tmp_target, &target).await?;
+        fs_err::tokio::rename(download.path(), &target).await?;
 
         Ok(Self {
             bin: target,
@@ -150,15 +137,33 @@ impl Rustup {
         })
     }
 
+    async fn fetch_checksum(checksum_url: &str) -> Result<Option<Sha256Digest>> {
+        let response = REQWEST_CLIENT
+            .get(checksum_url)
+            .send()
+            .await
+            .with_context(|| format!("Failed to fetch rustup checksum from {checksum_url}"))?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+
+        let checksum = response
+            .error_for_status()
+            .with_context(|| format!("Failed to fetch rustup checksum from {checksum_url}"))?
+            .text()
+            .await?;
+        digest_from_rustup_checksum(&checksum)
+    }
+
     pub(crate) async fn install_toolchain(&self, toolchain: &str) -> Result<PathBuf> {
-        let output = Cmd::new(&self.bin, "rustup toolchain install")
+        let output = Cmd::new(&self.bin)
             .env(EnvVars::RUSTUP_HOME, &self.rustup_home)
             .env(EnvVars::RUSTUP_AUTO_INSTALL, "0")
             .arg("toolchain")
             .arg("install")
             .arg("--no-self-update")
             .arg("--profile")
-            .arg(rustup_profile().as_ref())
+            .arg(rustup_profile(&EnvVars).as_ref())
             .arg(toolchain)
             .check(true)
             .output()
@@ -190,7 +195,7 @@ impl Rustup {
 
     /// List installed toolchains managed by prek.
     pub(crate) async fn list_installed_toolchains(&self) -> Result<Vec<ToolchainInfo>> {
-        let output = Cmd::new(&self.bin, "rustup list toolchains")
+        let output = Cmd::new(&self.bin)
             .arg("toolchain")
             .arg("list")
             .arg("-v")
@@ -206,7 +211,7 @@ impl Rustup {
             .filter_map(parse_toolchain_line)
             .collect();
 
-        let infos: Vec<ToolchainInfo> = futures::stream::iter(entries)
+        let infos: Vec<ToolchainInfo> = futures_util::stream::iter(entries)
             .map(async move |(name, path)| toolchain_info(name, path).await)
             .buffer_unordered(8)
             .filter_map(async move |result| match result {
@@ -224,7 +229,7 @@ impl Rustup {
 
     /// List system-installed Rust toolchains.
     pub(crate) async fn list_system_toolchains(&self) -> Result<Vec<ToolchainInfo>> {
-        let output = Cmd::new(&self.bin, "rustup toolchain list")
+        let output = Cmd::new(&self.bin)
             .arg("toolchain")
             .arg("list")
             .arg("-v")
@@ -239,7 +244,7 @@ impl Rustup {
             .filter_map(parse_toolchain_line)
             .collect();
 
-        let infos: Vec<ToolchainInfo> = futures::stream::iter(entries)
+        let infos: Vec<ToolchainInfo> = futures_util::stream::iter(entries)
             .map(async move |(name, path)| toolchain_info(name, path).await)
             .buffer_unordered(8)
             .filter_map(async move |result| match result {
@@ -254,6 +259,13 @@ impl Rustup {
 
         Ok(infos)
     }
+}
+
+fn digest_from_rustup_checksum(contents: &str) -> Result<Option<Sha256Digest>> {
+    let Some(digest) = contents.split_whitespace().next() else {
+        return Ok(None);
+    };
+    digest.parse().map(Some)
 }
 
 fn parse_toolchain_line(line: &str) -> Option<(String, PathBuf)> {
@@ -277,7 +289,7 @@ async fn toolchain_info(name: String, toolchain_dir: PathBuf) -> Result<Toolchai
         .join("rustc")
         .with_extension(EXE_EXTENSION);
 
-    let output = Cmd::new(&rustc, "rustc version")
+    let output = Cmd::new(&rustc)
         .arg("--version")
         .check(true)
         .output()
@@ -323,4 +335,39 @@ fn make_executable(path: &Path) -> std::io::Result<()> {
     }
 
     inner(path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const EMPTY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+    #[test]
+    fn parses_rustup_checksum() -> Result<()> {
+        let digest = digest_from_rustup_checksum(EMPTY_SHA256)?;
+        assert_eq!(digest.unwrap().to_string(), EMPTY_SHA256);
+
+        let digest = digest_from_rustup_checksum(&format!("{EMPTY_SHA256}  rustup-init\n"))?;
+        assert_eq!(digest.unwrap().to_string(), EMPTY_SHA256);
+
+        let result = digest_from_rustup_checksum("")?;
+        assert!(result.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn rustup_profile_reads_env() {
+        fn profile_with(value: &str) -> RustupProfile {
+            rustup_profile(&EnvVars::from_map(&[(EnvVars::PREK_RUST_PROFILE, value)]))
+        }
+
+        assert_eq!(
+            rustup_profile(&EnvVars::from_map(&[])),
+            RustupProfile::Minimal
+        );
+        assert_eq!(profile_with("default"), RustupProfile::Default);
+        assert_eq!(profile_with("complete"), RustupProfile::Complete);
+        assert_eq!(profile_with("invalid"), RustupProfile::Minimal);
+    }
 }

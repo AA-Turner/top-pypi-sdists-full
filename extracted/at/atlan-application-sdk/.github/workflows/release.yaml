@@ -1,0 +1,109 @@
+name: Release Version Bump
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+    paths-ignore:
+      - "contract-toolkit/**"
+      - "packages/conformance/**"
+
+jobs:
+  bump-version:
+    # Only run when PR is merged (not when closed without merging)
+    if: github.event.pull_request.merged == true && !startsWith(github.event.pull_request.head.ref, 'bump-version')
+    name: Update version and changelog
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0  # Need full history for changelog
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.14'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          version: "0.11.25"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          uv sync --all-extras --all-groups
+          pip install semver packaging
+
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(uvx --from=toml-cli toml get --toml-path=pyproject.toml project.version)
+          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+
+      - name: Update version
+        id: version_update
+        run: |
+          # Update the version
+          python .github/scripts/release.py main ${{ env.CURRENT_VERSION }}
+          uv lock
+
+          # Get the new version
+          NEW_VERSION=$(uvx --from=toml-cli toml get --toml-path=pyproject.toml project.version)
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+      - name: Update version.py
+        # In-place edit the ``__version__`` line only. The previous block
+        # truncated the file and re-emitted a fixed 5-line template, which
+        # wiped out anything else living alongside ``__version__`` (the
+        # ``__dapr_version`` pin, its docstring, and any future SDK-internal
+        # constants). A targeted ``sed`` keeps the bump working while
+        # preserving everything around it.
+        run: |
+          set -euo pipefail
+          sed -i 's/^__version__ = .*/__version__ = "${{ env.NEW_VERSION }}"/' application_sdk/version.py
+          # Confirm exactly one line changed; bail if the constant moved or
+          # was renamed, so a silent miss doesn't ship a broken bump.
+          new=$(grep '^__version__' application_sdk/version.py | cut -d'"' -f2)
+          if [[ "$new" != "${{ env.NEW_VERSION }}" ]]; then
+            echo "::error::sed did not rewrite __version__ as expected (got '$new', want '${{ env.NEW_VERSION }}')"
+            exit 1
+          fi
+
+      - name: Generate changelog
+        id: changelog
+        env:
+          GH_TOKEN: ${{ secrets.ORG_PAT_GITHUB }}
+        run: python .github/scripts/update_changelog.py "${{ env.CURRENT_VERSION }}" "${{ env.NEW_VERSION }}"
+
+      - name: Commit version bump and changelog
+        env:
+          GH_TOKEN: ${{ secrets.ORG_PAT_GITHUB }}
+        run: |
+          git config --global user.name 'atlan-ci'
+          git config --global user.email 'it@atlan.com'
+
+          branch_name="bump-version-${{ github.ref_name }}"
+          git checkout -b $branch_name
+
+          git add pyproject.toml uv.lock CHANGELOG.md application_sdk/version.py
+          git commit -m "chore: bump version to ${{ env.NEW_VERSION }}"
+          git push origin $branch_name --force
+
+          gh pr create --base ${{ github.ref_name }} --title "Bump version to ${{ env.NEW_VERSION }}" --body "Automated version bump after merge to main.
+
+            This PR updates:
+            - pyproject.toml
+            - application_sdk/version.py
+            - CHANGELOG.md
+
+            Version: ${{ env.CURRENT_VERSION }} → ${{ env.NEW_VERSION }}" --label "release" || \
+            echo "PR already exists for bump-version-${{ github.ref_name }}, skipping creation."
+
+          # gh pr merge --squash --admin

@@ -1,0 +1,97 @@
+[build-system]
+requires = [
+    "hatchling>=1.5.0",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "mailsuite"
+description = "A Python package for retrieving, parsing, and sending emails"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.9"
+authors = [
+    { name = "Sean Whalen", email = "whalenster@gmail.com" },
+]
+keywords = [
+    "IMAP",
+    "SMTP",
+    "email",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
+
+dependencies = [
+    "authres>=1.2.0",
+    "cryptography>=41.0.0",
+    "dkimpy>=1.1.0",
+    "dnspython>=2.0.0",
+    "expiringdict==1.2.2",
+    "html2text>=2020.1.16",
+    "IMAPClient>=3.1.0",
+    "mail-parser>=4.2.1",
+    "publicsuffix2>=2.20190812",
+]
+dynamic = [
+    "version",
+]
+
+[project.optional-dependencies]
+msgraph = [
+    "azure-identity>=1.15.0",
+    "msgraph-sdk>=1.0.0",
+]
+gmail = [
+    "google-api-python-client>=2.0.0",
+    "google-auth>=2.0.0",
+    "google-auth-oauthlib>=1.0.0",
+]
+all = [
+    "mailsuite[msgraph,gmail]",
+]
+
+[project.urls]
+Homepage = "https://github.com/seanthegeek/mailsuite/"
+Documentation = "https://seanthegeek.github.io/mailsuite/"
+Issues = "https://github.com/seanthegeek/mailsuite/issues"
+Changelog = "https://github.com/seanthegeek/mailsuite/blob/master/CHANGELOG.md"
+
+[tool.hatch.version]
+path = "mailsuite/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/mailsuite",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["mailsuite"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra --strict-markers"
+filterwarnings = [
+    "ignore::DeprecationWarning:mailparser",
+    "ignore::DeprecationWarning:imapclient",
+    "ignore::DeprecationWarning:msgraph.*",
+    "ignore::RuntimeWarning",
+]
+
+[tool.coverage.run]
+source = ["mailsuite"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]

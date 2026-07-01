@@ -1,0 +1,407 @@
+name: Integration tests
+
+run-name: ${{ inputs.pr_number != '' && format('Integration tests - PR {0} @ {1}', inputs.pr_number, inputs.head_sha) || 'Integration tests' }}
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      pytest_k:
+        description: "Optional pytest -k expression to run a subset (empty = full suite)"
+        required: false
+        default: ""
+      xdist_workers:
+        description: "Number of parallel pytest-xdist workers (1 = serial, default 8)"
+        required: false
+        default: "8"
+      pr_number:
+        description: "PR number this run was dispatched for (set by dispatcher; leave empty for manual runs)"
+        required: false
+        default: ""
+      head_sha:
+        description: "HEAD SHA of the PR branch at dispatch time (set by dispatcher; for identification only)"
+        required: false
+        default: ""
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: integration-tests
+  cancel-in-progress: false
+
+jobs:
+  integration:
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    environment: integration
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resume Fabric capacity
+        run: |
+          set -e
+          CAPACITY_ID="${{ vars.FABRIC_TEST_CAPACITY_ID }}"
+
+          # Wait for the capacity to leave any transitional state, up to 5 min
+          for i in {1..30}; do
+            STATE=$(az resource show --ids "$CAPACITY_ID" --query 'properties.state' -o tsv 2>/dev/null || echo "Unknown")
+            echo "Pre-resume state: $STATE"
+            case "$STATE" in
+              Active)  echo "Already Active, skipping resume"; exit 0 ;;
+              Paused)  break ;;
+              *)       sleep 10 ;;
+            esac
+          done
+
+          # Issue resume, but tolerate transient BadRequest
+          for attempt in {1..6}; do
+            if az resource invoke-action --ids "$CAPACITY_ID" --action resume; then
+              break
+            fi
+            echo "Resume attempt $attempt failed (likely transient), waiting 15s..."
+            sleep 15
+          done
+
+          # Poll until Active, then sleep 120s for data-plane warm-up (max ~7 min)
+          for i in {1..30}; do
+            STATE=$(az resource show --ids "$CAPACITY_ID" --query 'properties.state' -o tsv)
+            echo "Post-resume state: $STATE"
+            if [[ "$STATE" == "Active" ]]; then
+              echo "Capacity is Active; sleeping 120s for Fabric data-plane to settle..."
+              sleep 120
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "Capacity did not reach Active state within 5 minutes" >&2
+          exit 1
+
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - run: uv sync --frozen
+
+      - name: Pre-test full workspace wipe
+        env:
+          FABRIC_TEST_WORKSPACE_ID: ${{ secrets.FABRIC_TEST_WORKSPACE_ID }}
+          FABRIC_AUTH: default
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          uv run python -c "
+          import anyio, os
+          from fabric_dw.auth import get_credential
+          from fabric_dw.http_client import FabricHttpClient, HttpBase
+
+          CONCURRENCY = 16
+
+          async def purge_recycle_bin(http, ws):
+              limiter = anyio.CapacityLimiter(CONCURRENCY)
+              for pass_num in range(1, 51):
+                  items = [i async for i in http.iter_paginated(HttpBase.FABRIC, f'/workspaces/{ws}/recoverableItems')]
+                  if not items:
+                      print(f'Recoverable pass {pass_num}: recycle bin is empty.')
+                      return
+                  print(f'Recoverable pass {pass_num}: found {len(items)} item(s), deleting with concurrency {CONCURRENCY}.')
+                  deleted = 0
+                  async def _purge_one(item):
+                      nonlocal deleted
+                      item_id = item.get('id', '')
+                      item_type = item.get('type', '')
+                      item_name = item.get('displayName', '')
+                      print(f'  Purging {item_type} {item_name!r} ({item_id})')
+                      async with limiter:
+                          try:
+                              await http.request('DELETE', HttpBase.FABRIC, f'/workspaces/{ws}/recoverableItems/{item_id}')
+                              deleted += 1
+                          except Exception as exc:
+                              print(f'    skip: {exc}')
+                  async with anyio.create_task_group() as tg:
+                      for item in items:
+                          tg.start_soon(_purge_one, item)
+                  print(f'Recoverable pass {pass_num}: deleted {deleted} of {len(items)}.')
+                  if deleted == 0:
+                      print('No progress in this pass, stopping to avoid infinite loop.')
+                      break
+              residual = [i async for i in http.iter_paginated(HttpBase.FABRIC, f'/workspaces/{ws}/recoverableItems')]
+              if residual:
+                  for item in residual:
+                      print(f'  Residual recoverable: {item.get(\"type\")} {item.get(\"displayName\")!r} ({item.get(\"id\")})')
+              else:
+                  print('Recycle bin clean.')
+
+          async def delete_all(http, ws):
+              limiter = anyio.CapacityLimiter(CONCURRENCY)
+              for pass_num in range(1, 51):
+                  items = [i async for i in http.iter_paginated(HttpBase.FABRIC, f'/workspaces/{ws}/items')]
+                  if not items:
+                      print(f'Pass {pass_num}: workspace is empty.')
+                      break
+                  print(f'Pass {pass_num}: found {len(items)} item(s), deleting with concurrency {CONCURRENCY}.')
+                  deleted = 0
+                  async def _delete_one(item):
+                      nonlocal deleted
+                      item_id = item.get('id', '')
+                      item_type = item.get('type', '')
+                      item_name = item.get('displayName', '')
+                      print(f'  Deleting {item_type} {item_name!r} ({item_id})')
+                      async with limiter:
+                          try:
+                              await http.request('DELETE', HttpBase.FABRIC, f'/workspaces/{ws}/items/{item_id}')
+                              deleted += 1
+                          except Exception as exc:
+                              print(f'    skip: {exc}')
+                  async with anyio.create_task_group() as tg:
+                      for item in items:
+                          tg.start_soon(_delete_one, item)
+                  print(f'Pass {pass_num}: deleted {deleted} of {len(items)}.')
+                  if deleted == 0:
+                      print('No progress in this pass, stopping to avoid infinite loop.')
+                      break
+              remaining = [i async for i in http.iter_paginated(HttpBase.FABRIC, f'/workspaces/{ws}/items')]
+              if remaining:
+                  for item in remaining:
+                      print(f'  Residual (undeletable?): {item.get(\"type\")} {item.get(\"displayName\")!r} ({item.get(\"id\")})')
+              else:
+                  print('Workspace is clean.')
+              await purge_recycle_bin(http, ws)
+
+          async def main() -> None:
+              ws = os.environ['FABRIC_TEST_WORKSPACE_ID']
+              cred = get_credential()
+              async with FabricHttpClient(cred) as http:
+                  await delete_all(http, ws)
+
+          anyio.run(main)
+          "
+
+      - name: Run integration tests
+        env:
+          FABRIC_TEST_WORKSPACE_ID: ${{ secrets.FABRIC_TEST_WORKSPACE_ID }}
+          FABRIC_AUTH: default
+          FABRIC_TEST_IS_TENANT_ADMIN: "true"
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          XDIST_WORKERS_INPUT: ${{ inputs.xdist_workers }}
+          PYTEST_K_INPUT: ${{ inputs.pytest_k }}
+          FABRIC_SQL_RETRY_TIMEOUT_S: "300"
+          FABRIC_SQL_RETRY_EXECUTES: "1"
+        run: |
+          # Worker-count rationale
+          # ----------------------
+          # Each xdist worker provisions its own warm warehouse (session-scoped
+          # shared_warehouse fixture, named pytest-<worker>-<uid>-wh).  Fabric
+          # capacity (CU) budget, the per-workspace item limit, and the HTTP 429
+          # rate-limit all constrain how many parallel warehouses are safe.
+          # 8 workers is the default and targets F8+ capacity.  Reduce to 4 if
+          # running on F4 or hitting 429 rate-limit pressure.  Raise above 8 if
+          # the target capacity is F16+ and the workspace item limit allows it.
+          # Reduce to 1 (serial) to debug flaky tests without parallelism noise.
+          #
+          # The xdist_workers workflow_dispatch input lets you tune this without
+          # code changes.  For push events (no input), WORKERS defaults to 8.
+          WORKERS="${XDIST_WORKERS_INPUT:-8}"
+
+          # Validate that WORKERS is a positive integer; reject 0, negatives, and
+          # non-numeric values before they reach pytest (which aborts with a
+          # cryptic error on -n 0 or -n -1).
+          [[ "${WORKERS}" =~ ^[1-9][0-9]*$ ]] || {
+            echo "ERROR: xdist_workers must be a positive integer, got: ${WORKERS}" >&2
+            exit 1
+          }
+
+          # Dist mode is "loadgroup": a work-stealing scheduler (like the default
+          # "load") that keeps all workers busy, with the one extra guarantee that
+          # tests sharing an xdist_group mark run on the SAME worker.  We need this
+          # for the sql_pools tests, which all mutate the single shared workspace's
+          # maxResourcePercentage budget (sum ≤ 100) and would collide if run
+          # concurrently; they carry @pytest.mark.xdist_group("sql_pools").
+          # "loadgroup" keeps the work-stealing behaviour the suite relies on
+          # (test durations vary widely — snapshot/restore tests are 10x slower
+          # than query/schema tests), unlike "loadscope" which would bin every
+          # module onto one worker and starve the rest.
+
+          # --cov-fail-under=0: the 80% fail_under in pyproject.toml is a unit-suite gate;
+          # integration coverage is informational/codecov-only and must not block this run.
+          if [ -n "${PYTEST_K_INPUT}" ]; then
+            echo "Running subset: -k '${PYTEST_K_INPUT}' with ${WORKERS} worker(s)"
+            uv run pytest tests/integration -m integration -v -n "${WORKERS}" --dist loadgroup -k "${PYTEST_K_INPUT}" --cov --cov-report=xml --cov-report=term --cov-fail-under=0 --junitxml=junit.xml -o junit_family=legacy
+          else
+            echo "Running full integration suite with ${WORKERS} worker(s)"
+            uv run pytest tests/integration -m integration -v -n "${WORKERS}" --dist loadgroup --cov --cov-report=xml --cov-report=term --cov-fail-under=0 --junitxml=junit.xml -o junit_family=legacy
+          fi
+
+      - name: Upload coverage reports to Codecov
+        # success() only: do not propagate partial coverage from a failed run via carry_forward
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: integration
+          files: coverage.xml
+      - name: Upload test results to Codecov
+        # !cancelled(): always upload test results so failures appear in Test Analytics
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: integration
+          report_type: test_results
+          files: junit.xml
+
+      - name: Post-test full workspace wipe
+        if: always()
+        env:
+          FABRIC_TEST_WORKSPACE_ID: ${{ secrets.FABRIC_TEST_WORKSPACE_ID }}
+          FABRIC_AUTH: default
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          uv run python -c "
+          import anyio, os
+          from fabric_dw.auth import get_credential
+          from fabric_dw.http_client import FabricHttpClient, HttpBase
+
+          CONCURRENCY = 16
+
+          async def purge_recycle_bin(http, ws):
+              limiter = anyio.CapacityLimiter(CONCURRENCY)
+              for pass_num in range(1, 51):
+                  items = [i async for i in http.iter_paginated(HttpBase.FABRIC, f'/workspaces/{ws}/recoverableItems')]
+                  if not items:
+                      print(f'Recoverable pass {pass_num}: recycle bin is empty.')
+                      return
+                  print(f'Recoverable pass {pass_num}: found {len(items)} item(s), deleting with concurrency {CONCURRENCY}.')
+                  deleted = 0
+                  async def _purge_one(item):
+                      nonlocal deleted
+                      item_id = item.get('id', '')
+                      item_type = item.get('type', '')
+                      item_name = item.get('displayName', '')
+                      print(f'  Purging {item_type} {item_name!r} ({item_id})')
+                      async with limiter:
+                          try:
+                              await http.request('DELETE', HttpBase.FABRIC, f'/workspaces/{ws}/recoverableItems/{item_id}')
+                              deleted += 1
+                          except Exception as exc:
+                              print(f'    skip: {exc}')
+                  async with anyio.create_task_group() as tg:
+                      for item in items:
+                          tg.start_soon(_purge_one, item)
+                  print(f'Recoverable pass {pass_num}: deleted {deleted} of {len(items)}.')
+                  if deleted == 0:
+                      print('No progress in this pass, stopping to avoid infinite loop.')
+                      break
+              residual = [i async for i in http.iter_paginated(HttpBase.FABRIC, f'/workspaces/{ws}/recoverableItems')]
+              if residual:
+                  for item in residual:
+                      print(f'  Residual recoverable: {item.get(\"type\")} {item.get(\"displayName\")!r} ({item.get(\"id\")})')
+              else:
+                  print('Recycle bin clean.')
+
+          async def delete_all(http, ws):
+              limiter = anyio.CapacityLimiter(CONCURRENCY)
+              for pass_num in range(1, 51):
+                  items = [i async for i in http.iter_paginated(HttpBase.FABRIC, f'/workspaces/{ws}/items')]
+                  if not items:
+                      print(f'Pass {pass_num}: workspace is empty.')
+                      break
+                  print(f'Pass {pass_num}: found {len(items)} item(s), deleting with concurrency {CONCURRENCY}.')
+                  deleted = 0
+                  async def _delete_one(item):
+                      nonlocal deleted
+                      item_id = item.get('id', '')
+                      item_type = item.get('type', '')
+                      item_name = item.get('displayName', '')
+                      print(f'  Deleting {item_type} {item_name!r} ({item_id})')
+                      async with limiter:
+                          try:
+                              await http.request('DELETE', HttpBase.FABRIC, f'/workspaces/{ws}/items/{item_id}')
+                              deleted += 1
+                          except Exception as exc:
+                              print(f'    skip: {exc}')
+                  async with anyio.create_task_group() as tg:
+                      for item in items:
+                          tg.start_soon(_delete_one, item)
+                  print(f'Pass {pass_num}: deleted {deleted} of {len(items)}.')
+                  if deleted == 0:
+                      print('No progress in this pass, stopping to avoid infinite loop.')
+                      break
+              remaining = [i async for i in http.iter_paginated(HttpBase.FABRIC, f'/workspaces/{ws}/items')]
+              if remaining:
+                  for item in remaining:
+                      print(f'  Residual (undeletable?): {item.get(\"type\")} {item.get(\"displayName\")!r} ({item.get(\"id\")})')
+              else:
+                  print('Workspace is clean.')
+              await purge_recycle_bin(http, ws)
+
+          async def main() -> None:
+              ws = os.environ['FABRIC_TEST_WORKSPACE_ID']
+              cred = get_credential()
+              async with FabricHttpClient(cred) as http:
+                  await delete_all(http, ws)
+
+          anyio.run(main)
+          "
+
+      - name: Re-authenticate for capacity suspend
+        if: always()
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Suspend Fabric capacity
+        if: always()
+        run: |
+          set -e
+          CAPACITY_ID="${{ vars.FABRIC_TEST_CAPACITY_ID }}"
+
+          # Wait for the capacity to leave any transitional state, up to 5 min
+          for i in {1..30}; do
+            STATE=$(az resource show --ids "$CAPACITY_ID" --query 'properties.state' -o tsv 2>/dev/null || echo "Unknown")
+            echo "Pre-suspend state: $STATE"
+            case "$STATE" in
+              Paused)  echo "Already Paused, skipping suspend"; exit 0 ;;
+              Active)  break ;;
+              *)       sleep 10 ;;
+            esac
+          done
+
+          # Issue suspend, but tolerate transient BadRequest
+          for attempt in {1..6}; do
+            if az resource invoke-action --ids "$CAPACITY_ID" --action suspend; then
+              break
+            fi
+            echo "Suspend attempt $attempt failed (likely transient), waiting 15s..."
+            sleep 15
+          done
+
+          # Poll until Paused, max 5 min
+          for i in {1..30}; do
+            STATE=$(az resource show --ids "$CAPACITY_ID" --query 'properties.state' -o tsv)
+            echo "Post-suspend state: $STATE"
+            [[ "$STATE" == "Paused" ]] && exit 0
+            sleep 10
+          done
+
+          echo "Capacity did not reach Paused state within 5 minutes" >&2
+          exit 1

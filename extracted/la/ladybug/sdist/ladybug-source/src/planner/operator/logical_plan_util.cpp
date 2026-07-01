@@ -51,6 +51,10 @@ void LogicalPlanUtil::encodeRecursive(LogicalOperator* logicalOperator, std::str
         encodeExtend(logicalOperator, encodeString);
         encodeRecursive(logicalOperator->getChild(0).get(), encodeString);
     } break;
+    case LogicalOperatorType::PACKED_EXTEND: {
+        encodeExtend(logicalOperator, encodeString);
+        encodeRecursive(logicalOperator->getChild(0).get(), encodeString);
+    } break;
     case LogicalOperatorType::SCAN_NODE_TABLE: {
         encodeScanNodeTable(logicalOperator, encodeString);
     } break;
@@ -88,7 +92,8 @@ void LogicalPlanUtil::encodeExtend(LogicalOperator* logicalOperator, std::string
 void LogicalPlanUtil::encodeScanNodeTable(LogicalOperator* logicalOperator,
     std::string& encodeString) {
     auto& scan = logicalOperator->constCast<LogicalScanNodeTable>();
-    if (scan.getScanType() == LogicalScanNodeTableType::PRIMARY_KEY_SCAN) {
+    if (scan.getScanType() == LogicalScanNodeTableType::PRIMARY_KEY_SCAN ||
+        scan.getScanType() == LogicalScanNodeTableType::SECONDARY_INDEX_SCAN) {
         encodeString += "IndexScan";
     } else {
         encodeString += "S";

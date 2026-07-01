@@ -1,0 +1,370 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/layout/users
+    response:
+      body:
+        string:
+          users:
+            - id: admin
+              permissions: []
+              settings: []
+              userGroups:
+                - id: adminGroup
+                  type: userGroup
+            - authId: NORMALIZED_AUTH_ID
+              email: demo@example.com
+              firstname: Demo
+              id: demo
+              lastname: User
+              permissions: []
+              settings: []
+              userGroups:
+                - id: adminGroup
+                  type: userGroup
+            - authId: NORMALIZED_AUTH_ID
+              id: demo2
+              permissions: []
+              settings: []
+              userGroups:
+                - id: demoGroup
+                  type: userGroup
+      headers:
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/users?include=userGroups&page=0&size=500
+    response:
+      body:
+        string:
+          data:
+            - attributes: {}
+              id: admin
+              links:
+                self: http://localhost:3000/api/v1/entities/users/admin
+              relationships:
+                userGroups:
+                  data:
+                    - id: adminGroup
+                      type: userGroup
+              type: user
+            - attributes:
+                authenticationId: NORMALIZED_AUTH_ID
+                email: demo@example.com
+                firstname: Demo
+                lastname: User
+              id: demo
+              links:
+                self: http://localhost:3000/api/v1/entities/users/demo
+              relationships:
+                userGroups:
+                  data:
+                    - id: adminGroup
+                      type: userGroup
+              type: user
+            - attributes:
+                authenticationId: NORMALIZED_AUTH_ID
+              id: demo2
+              links:
+                self: http://localhost:3000/api/v1/entities/users/demo2
+              relationships:
+                userGroups:
+                  data:
+                    - id: demoGroup
+                      type: userGroup
+              type: user
+          included:
+            - attributes: {}
+              id: adminGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/adminGroup
+              type: userGroup
+            - attributes:
+                name: demo group
+              id: demoGroup
+              links:
+                self: http://localhost:3000/api/v1/entities/userGroups/demoGroup
+              type: userGroup
+          links:
+            next: http://localhost:3000/api/v1/entities/users?include=userGroups&page=1&size=500
+            self: http://localhost:3000/api/v1/entities/users?include=userGroups&page=0&size=500
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/organization
+    response:
+      body:
+        string: ''
+      headers:
+        Content-Type:
+          - application/vnd.gooddata.api+json
+        DATE: *id001
+        Expires:
+          - '0'
+        Location:
+          - /api/v1/entities/admin/organizations/default
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 302
+        message: Found
+  - request:
+      body: null
+      headers:
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/admin/organizations/default
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              allowedOrigins: []
+              dataCenter: ''
+              earlyAccess: enableAlerting
+              earlyAccessValues:
+                - enableAlerting
+                - enableSmtp
+                - enablePreAggregationDatasets
+                - enableScheduling
+                - enableCompositeGrain
+                - enableUserManagement
+                - enableRawExports
+                - enableFlexibleDashboardLayout
+              hostname: localhost
+              name: Default Organization
+              region: ''
+            id: default
+            type: organization
+          links:
+            self: http://localhost:3000/api/v1/entities/admin/organizations/default
+      headers:
+        Content-Type:
+          - application/vnd.gooddata.api+json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        users:
+          - id: admin
+            permissions: []
+            settings: []
+            userGroups:
+              - id: adminGroup
+                type: userGroup
+          - authId: NORMALIZED_AUTH_ID
+            id: demo
+            permissions: []
+            settings: []
+            userGroups:
+              - id: adminGroup
+                type: userGroup
+          - authId: NORMALIZED_AUTH_ID
+            id: demo2
+            permissions: []
+            settings: []
+            userGroups:
+              - id: demoGroup
+                type: userGroup
+      headers:
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: PUT
+      uri: http://localhost:3000/api/v1/layout/users
+    response:
+      body:
+        string: ''
+      headers:
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 204
+        message: No Content
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/layout/users
+    response:
+      body:
+        string:
+          users:
+            - id: admin
+              permissions: []
+              settings: []
+              userGroups:
+                - id: adminGroup
+                  type: userGroup
+            - authId: NORMALIZED_AUTH_ID
+              id: demo
+              permissions: []
+              settings: []
+              userGroups:
+                - id: adminGroup
+                  type: userGroup
+            - authId: NORMALIZED_AUTH_ID
+              id: demo2
+              permissions: []
+              settings: []
+              userGroups:
+                - id: demoGroup
+                  type: userGroup
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        users:
+          - id: admin
+            permissions: []
+            settings: []
+            userGroups:
+              - id: adminGroup
+                type: userGroup
+          - authId: NORMALIZED_AUTH_ID
+            email: demo@example.com
+            firstname: Demo
+            id: demo
+            lastname: User
+            permissions: []
+            settings: []
+            userGroups:
+              - id: adminGroup
+                type: userGroup
+          - authId: NORMALIZED_AUTH_ID
+            id: demo2
+            permissions: []
+            settings: []
+            userGroups:
+              - id: demoGroup
+                type: userGroup
+      headers:
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: PUT
+      uri: http://localhost:3000/api/v1/layout/users
+    response:
+      body:
+        string: ''
+      headers:
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 204
+        message: No Content
+version: 1

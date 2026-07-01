@@ -236,6 +236,46 @@ def _resolve_public_assignment(assignment: Any, assignment_prior: Any) -> str:
     return canon_assignment
 
 
+# Seed-keyed init jitter for the closed-form fast paths (issue #178). The Rust
+# `sae_manifold_fit_minimal` path perturbs the cold initial assignment logits by
+# `±SAE_RANDOM_STATE_LOGIT_JITTER` using a 64-bit wrapping Lehmer LCG keyed by
+# `random_state`, so distinct seeds explore different Newton trajectories while a
+# fixed seed stays bit-identical. The Python closed-form periodic fast paths
+# (`_fit_disjoint_periodic_top1` / `_fit_dense_periodic_ibp_lsq`) build their
+# init deterministically from an SVD and never reach that Rust code, so they
+# silently ignored `random_state` entirely (every seed produced the same fit).
+# Mirror the EXACT same LCG + jitter here so the two paths honour one seed
+# contract: the jitter perturbs the assignment masses (and, downstream, the
+# decoder LSQ that is weighted by them), which is the closed-form analogue of
+# jittering the assignment logits.
+_LCG_MULT = 6364136223846793005
+_LCG_ADD = 1442695040888963407
+_U64_MASK = (1 << 64) - 1
+# 2**-53, matching the Rust `f64::from_bits(0x3CA0000000000000)` top-53-bit map.
+_TWO_POW_NEG_53 = float.fromhex("0x1.0p-53")
+SAE_RANDOM_STATE_LOGIT_JITTER = 1.0e-3
+
+
+def _seeded_unit_jitter(random_state: int, shape: tuple[int, ...]) -> np.ndarray:
+    """Deterministic ``shape`` array of values in ``[-1, 1)`` keyed by ``random_state``.
+
+    Reproduces the per-element Lehmer LCG stream the Rust SAE init uses
+    (``crates/gam-pyffi/src/latent/latent_basis_and_sae_ffi.rs``): a fixed seed
+    yields a bit-identical stream, distinct seeds yield decorrelated streams.
+    """
+    count = 1
+    for dim in shape:
+        count *= int(dim)
+    out = np.empty(count, dtype=np.float64)
+    state = (int(random_state) & _U64_MASK)
+    state = (state * _LCG_MULT + _LCG_ADD) & _U64_MASK
+    for i in range(count):
+        state = (state * _LCG_MULT + _LCG_ADD) & _U64_MASK
+        u = float(state >> 11) * _TWO_POW_NEG_53
+        out[i] = 2.0 * u - 1.0
+    return out.reshape(shape)
+
+
 def _json_ready(value: Any) -> Any:
     if isinstance(value, np.ndarray):
         return value.tolist()
@@ -365,8 +405,14 @@ def _fit_disjoint_periodic_top1(
             return None
         scores_all = (x[:, cols] - mean) @ vt[:2].T
         phase = np.arctan2(scores_all[:, 1], scores_all[:, 0]) / (2.0 * np.pi)
-        # #178: seed-keyed jitter on the recovered phase init (see top of fn).
-        phase = phase + 1.0e-3 * rng.standard_normal(phase.shape)
+        # Seed-keyed init jitter (issue #178): same deterministic LCG stream as
+        # the Rust init and the dense fast path, applied per-atom to the phase
+        # so distinct `random_state` values diverge and equal seeds stay
+        # bit-identical. The winners/labels (hard top-1 structure) are kept
+        # seed-stable; only the within-atom chart coordinate is perturbed.
+        phase = phase + SAE_RANDOM_STATE_LOGIT_JITTER * _seeded_unit_jitter(
+            random_state * 2 + k + 1, (n_obs,)
+        )
         phase = phase - np.floor(phase)
         coords.append(np.ascontiguousarray(phase.reshape(-1, 1)))
         phi_rows = np.asarray(
@@ -491,27 +537,36 @@ def _fit_dense_periodic_ibp_lsq(
     # matching the Rust closed form `ordered_geometric_shrinkage_prior` (#614).
     ratio = alpha / (alpha + 1.0)
     priors = np.asarray([ratio ** (k + 1) for k in range(k_atoms)], dtype=float)
-    gate_level = 1.0 / (1.0 + np.exp(-6.0))
-    assignments = np.tile(priors * gate_level, (n_obs, 1))
-    logits = np.full((n_obs, k_atoms), 6.0 * tau, dtype=float)
-    # #178: this deterministic fast path was previously seed-independent (pure
-    # SVD + ridge-LSQ), so distinct `random_state` values produced bit-identical
-    # fits. Seed a numpy Generator with `random_state` and add a tiny ~1e-3
-    # jitter to the initial assignment logits and the gate init before the
-    # solve. DISTINCT seeds now perturb `design` -> the LSQ coefficients,
-    # `fitted`, and R² observably differ, while EQUAL seeds stay bit-identical
-    # (the Generator is keyed solely by `random_state`).
-    rng = np.random.default_rng(int(random_state))
-    logits = logits + (1.0e-3 * tau) * rng.standard_normal((n_obs, k_atoms))
-    assignments = assignments + 1.0e-3 * gate_level * rng.standard_normal(
-        (n_obs, k_atoms)
+    # Seed-keyed init jitter on the assignment logits (issue #178), mirroring
+    # the Rust `sae_manifold_fit_minimal` cold-logit jitter: the base logit is
+    # `6*tau` for every (row, atom); add `±SAE_RANDOM_STATE_LOGIT_JITTER` from
+    # the deterministic LCG stream and map back through the sigmoid gate so the
+    # per-row assignment masses (and the masses that weight the decoder LSQ
+    # design below) actually depend on `random_state`. A fixed seed reproduces
+    # the stream exactly, so determinism is preserved.
+    logit_jitter = SAE_RANDOM_STATE_LOGIT_JITTER * _seeded_unit_jitter(
+        random_state, (n_obs, k_atoms)
     )
+    logits = (6.0 * tau) + logit_jitter
+    gate = 1.0 / (1.0 + np.exp(-(6.0 + logit_jitter)))
+    assignments = priors[None, :] * gate
 
+    # Seed-keyed init jitter (issue #178). The SVD-derived phase init is
+    # otherwise seed-independent, so `random_state` was a no-op on this path.
+    # Perturb the latent phase coordinate with the same deterministic LCG the
+    # Rust init uses (in turn units, since this chart parameterizes the circle
+    # by [0, 1)); this propagates through the basis design and the decoder LSQ
+    # so distinct seeds yield observably different fits while a fixed seed stays
+    # bit-identical.
+    phase_jitter = SAE_RANDOM_STATE_LOGIT_JITTER * _seeded_unit_jitter(
+        random_state, (n_obs, k_atoms)
+    )
     coords: list[np.ndarray] = []
     phi_blocks: list[np.ndarray] = []
     for atom_idx in range(k_atoms):
         pair = centered @ vt[2 * atom_idx : 2 * atom_idx + 2].T
         phase = np.arctan2(pair[:, 1], pair[:, 0]) / (2.0 * np.pi)
+        phase = phase + phase_jitter[:, atom_idx]
         phase = phase - np.floor(phase)
         coord = np.ascontiguousarray(phase.reshape(-1, 1))
         coords.append(coord)
@@ -2807,7 +2862,7 @@ _TOPOLOGY_UNSET: Any = object()
 
 def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_topology: Any = _TOPOLOGY_UNSET,
                      assignment: str = "ibp_map", schedule: GumbelTemperatureSchedule | Mapping[str, Any] | None = None,
-                     isometry_weight: float = 0.0, ard_per_atom: bool = True,
+                     isometry_weight: float = 1.0, ard_per_atom: bool = True,
                      decoder_feature_sparsity_groups: list[list[int]] | None = None, n_iter: int = 50, *,
                      assignment_prior: Any = _ASSIGNMENT_PRIOR_UNSET, n_atoms: int | None = None,
                      sparsity_weight: float = 1.0,
@@ -2864,12 +2919,17 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
         IBP/Gumbel assignment path.
     isometry_weight
         Weight for ``IsometryPenalty`` on the latent coordinate block. Defaults
-        to ``0.0`` (off). The Rust core compares ``g / gbar`` with the identity
+        to ``1.0`` (on). The Rust core compares ``g / gbar`` with the identity
         metric, where ``g = JᵀJ`` and ``gbar`` is the mean pullback trace per
         latent dimension, so the pin encourages a unit-average-speed chart
-        without coupling to decoder scale (issue #795). Positive weights remain
-        opt-in until the cold-start continuation accepts the planted-circle
-        default-on chart-pin test. Issue #673 (resolved): the decoder smoothness
+        without coupling to decoder scale (issue #795). The gauge is enabled by
+        default now that both the value/gradient AND the Gauss-Newton curvature
+        the joint solve majorizes with are decoder-scale-invariant (the
+        curvature folds the frozen normalizer ``1 / gbar²`` so the ``‖B‖⁴``
+        Gram block exactly cancels the ``‖B‖⁻⁴`` of the normalizer); the
+        planted-circle default-on fit converges at every decoder scale instead
+        of stalling at the proximal-ridge saturation. Set ``0.0`` to disable.
+        Issue #673 (resolved): the decoder smoothness
         penalty is reparameterized by the pulled-back metric ``g = JᵀJ`` in the
         Rust core, so the roughness — and the ``reml_score`` topology evidence —
         is gauge-invariant under reparameterization of the latent coordinate
@@ -3118,11 +3178,17 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
     # complementary regularizer that drives g -> I for an interpretable
     # near-arc-length chart; turning it off does not make `reml_score`
     # gauge-dependent, so there is nothing to warn about.
-    # NOTE(#795): isometry still defaults OFF. The Rust penalty now normalizes
-    # g = J^T J by the mean trace per latent dimension before comparing to I, so
-    # the chart pin no longer scales as decoder^4; however, the planted-circle
-    # default-on acceptance still fails after the curvature walk bifurcates and
-    # fallback seed validation jumps to the target isometry weight.
+    # NOTE(#795): isometry now defaults ON. The Rust penalty normalizes
+    # g = J^T J by the mean trace per latent dimension (`gbar`) before comparing
+    # to I, so the value and gradient no longer scale as decoder^4. The earlier
+    # curvature-walk bifurcation that forced the stopgap default-off was the
+    # SAE arrow-Schur Gauss-Newton curvature: it was assembled from the raw
+    # weighted Jacobian (∝‖B‖⁴) while the gradient was scale-free, so a large
+    # decoder collapsed the joint Newton step and the proximal ridge saturated
+    # at 1e15. The assembled curvature now folds the frozen normalizer
+    # `1 / gbar² (∝‖B‖⁻⁴)` into htt/htbeta/hbb, exactly cancelling the ‖B‖⁴
+    # Gram block, so the planted-circle default-on fit converges at every decoder
+    # scale (see `sae_isometry_joint_fit_converges_across_decoder_scales`).
     # Eager nuclear_norm_weight validation (issue #672). `0.0` is the canonical
     # "no rank penalty" baseline; reject negative / non-finite values so the
     # descriptor builder does not surface a cryptic Rust error.
@@ -3184,7 +3250,6 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
     # previously these knobs only populated `primitive_names` metadata.
     analytic_penalties_json = _build_analytic_penalties_payload(
         isometry_weight=isometry_weight,
-        ard_per_atom=ard_per_atom,
         gate_sparsity=gate_sparsity_kind,
         sparsity_weight=sparsity,
         scad_mcp_gamma=scad_mcp_gamma_value,
@@ -3306,6 +3371,18 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
         initial_logits=logits_init,
         initial_coords=coords_init,
         jumprelu_threshold=float(jumprelu_threshold),
+        # #240: `ard_per_atom` is the user-facing ARD switch. The ONLY thing that
+        # actually enables/disables ARD in the SAE objective is the native
+        # `ArdAxisPrior`, gated by `native_ard_enabled` (it sizes each atom's
+        # `log_ard` to `d` when on, length-0 when off, adding/removing those
+        # per-atom precisions from the outer ρ search and the inner Arrow-Schur
+        # prior). The registry `{"kind":"ard"}` descriptor is deliberately a
+        # no-op on every SAE path (`AnalyticPenaltyKind::Ard(_)` is skipped in
+        # both the gradient assembly and the value total — the native prior is
+        # the single source of truth, avoiding a double-counted, period-
+        # discontinuous ½λt² energy). So route the flag to the switch that works
+        # instead of leaving it a dead toggle (bit-identical fits on/off).
+        native_ard_enabled=bool(ard_per_atom),
         fisher_factors=None if fisher_shard is None else fisher_shard[0],
         fisher_mass_residual=None if fisher_shard is None else fisher_shard[1],
         fisher_provenance=None if fisher_shard is None else fisher_shard[2],
@@ -3355,7 +3432,6 @@ def _require_sae_row_block_penalty(kind: str, kwarg: str) -> None:
 def _build_analytic_penalties_payload(
     *,
     isometry_weight: float,
-    ard_per_atom: bool,
     decoder_feature_sparsity_groups: list[list[int]] | None,
     block_orthogonality_weight: float,
     d_max: int,
@@ -3371,9 +3447,12 @@ def _build_analytic_penalties_payload(
     """Translate the SAE regularizer knobs into the analytic-penalty JSON
     payload consumed by ``sae_manifold_fit_minimal``.
 
-    The SAE regularizer knobs route through ``src/terms/sae_manifold.rs``.
-    ``ard_per_atom``, ``isometry_weight``, and ``block_orthogonality_weight``
-    target the row-block driver ("t" latent block).
+    The SAE regularizer knobs route through ``crates/gam-sae``.
+    ``isometry_weight`` and ``block_orthogonality_weight`` target the row-block
+    driver ("t" latent block). ``ard_per_atom`` is NOT a registry descriptor:
+    it routes to the native ``ArdAxisPrior`` via the ``native_ard_enabled`` FFI
+    flag (see ``sae_manifold_fit``), since the registry ``ard`` penalty is
+    intentionally skipped on every SAE path.
     ``gate_sparsity="scad"`` or ``"mcp"`` emits the row-block
     ``scad_mcp`` descriptor on the same "t" block, using ``sparsity_weight`` as
     its non-convex sparsity strength. The default ``"l1"`` emits no analytic
@@ -3395,9 +3474,15 @@ def _build_analytic_penalties_payload(
     values penalized.
     """
     items: list[dict[str, Any]] = []
-    if bool(ard_per_atom):
-        _require_sae_row_block_penalty("ard", "ard_per_atom")
-        items.append({"kind": "ard", "target": "t"})
+    # #240: `ard_per_atom` does NOT emit a registry `ard` descriptor. The SAE
+    # objective deliberately skips `AnalyticPenaltyKind::Ard(_)` on every path
+    # (gradient assembly AND value total) because the native `ArdAxisPrior` is
+    # the single source of truth for the per-atom coordinate precision — a
+    # registry `½λt²` ridge would double-count it and is period-discontinuous on
+    # the circular bases. The flag is instead routed to `native_ard_enabled` at
+    # the FFI call (see `sae_manifold_fit`), which sizes / drops each atom's
+    # `log_ard` precisions. Emitting a descriptor here would be a guaranteed
+    # no-op (the exact issue-#240 silent-no-op anti-pattern).
     if gate_sparsity in {"scad", "mcp"} and float(sparsity_weight) > 0.0:
         _require_sae_row_block_penalty("scad_mcp", "gate_sparsity")
         items.append({

@@ -1,0 +1,90 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "conda-package-handling"
+authors = [
+  { name = "Anaconda, Inc. & Contributors", email = "conda@anaconda.com" },
+]
+description = "Create and extract conda packages of various formats."
+license = { file = "LICENSE" }
+readme = "README.md"
+classifiers = [
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+requires-python = ">=3.10"
+dependencies = ["conda-package-streaming >= 0.12.0", "requests", "zstandard >=0.15"]
+
+[project.scripts]
+cph = "conda_package_handling.cli:main"
+
+[project.optional-dependencies]
+test = [
+    "mock",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "bottle",
+]
+docs = [
+    "furo",
+    "sphinx",
+    "sphinx-argparse",
+    "myst-parser",
+    "mdit-py-plugins>=0.3.0",
+]
+
+[project.urls]
+Home = "https://github.com/conda/conda-package-handling"
+Documentation = "https://conda.github.io/conda-package-handling/"
+
+[tool.coverage.run]
+source = [ "src/", ]
+omit = [
+    "src/conda_package_handling/__main__.py",
+    "src/conda_package_handling/_version.py",
+    "versioneer.py",
+    "tests/*",
+]
+
+[tool.pytest.ini_options]
+norecursedirs = [".*", "*.egg*", "build", "dist", "conda.recipe"]
+addopts = [
+    "--junitxml=junit.xml",
+    "--cov-report=term-missing",
+    "--cov-branch",
+    "--tb=native",
+    "--strict-markers",
+    "--durations=20",
+]
+markers = ["serial: execute test serially (to avoid race conditions)"]
+
+[tool.ruff]
+exclude = [
+  "build",
+  "src/conda_package_handling/_version.py",
+  "tests",
+  "conda.recipe",
+  ".git",
+  "versioneer.py",
+  "benchmarks",
+  ".asv",
+  "rever",
+]
+line-length = 99
+show-fixes = true
+
+[tool.ruff.lint]
+ignore = [
+  "E722",  # do not use bare 'except'
+  "E731",  # do not assign a lambda expression, use a def
+]
+select = [
+  "E",  # pycodestyle errors
+  "W",  # pycodestyle warnings
+]

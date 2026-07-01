@@ -43,6 +43,7 @@ __all__ = (
     "CloudFormationServiceName",
     "ConcurrencyModeType",
     "DeletionModeType",
+    "DeploymentConfigModeType",
     "DeploymentModeType",
     "DeprecatedStatusType",
     "DescribeAccountLimitsPaginatorName",
@@ -182,6 +183,7 @@ ChangeSourceType = Literal[
 ChangeTypeType = Literal["Resource"]
 ConcurrencyModeType = Literal["SOFT_FAILURE_TOLERANCE", "STRICT_FAILURE_TOLERANCE"]
 DeletionModeType = Literal["FORCE_DELETE_STACK", "STANDARD"]
+DeploymentConfigModeType = Literal["EXPRESS", "STANDARD"]
 DeploymentModeType = Literal["REVERT_DRIFT"]
 DeprecatedStatusType = Literal["DEPRECATED", "LIVE"]
 DescribeAccountLimitsPaginatorName = Literal["describe_account_limits"]
@@ -628,8 +630,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -725,7 +725,6 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
@@ -811,7 +810,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -832,6 +830,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

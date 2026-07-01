@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "bandwidth"
-version = "23.1.3"
+version = "23.1.4"
 description = "Bandwidth"
 authors = ["Bandwidth <letstalk@bandwidth.com>"]
 license = "NoLicense"

@@ -1,0 +1,69 @@
+Metadata-Version: 2.4
+Name: pulumiverse_grafana
+Version: 2.33.0
+Summary: A Pulumi package for creating and managing grafana.
+License: Apache-2.0
+Project-URL: Homepage, https://grafana.com
+Project-URL: Repository, https://github.com/pulumiverse/pulumi-grafana
+Keywords: pulumi,grafana,pulumiverse
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: parver>=0.2.1
+Requires-Dist: pulumi<4.0.0,>=3.165.0
+Requires-Dist: semver>=2.8.1
+Requires-Dist: typing-extensions<5,>=4.11; python_version < "3.11"
+
+
+# grafana Resource Provider
+
+The grafana resource provider for Pulumi lets you creating resources in [grafana](https://www.grafana.com). To use
+this package, please [install the Pulumi CLI first](https://pulumi.com/).
+
+## Installing
+
+This package is available in many languages in the standard packaging formats.
+
+### Node.js (Java/TypeScript)
+
+To use from JavaScript or TypeScript in Node.js, install using either `npm`:
+
+```
+$ npm install @pulumiverse/grafana
+```
+
+or `yarn`:
+
+```
+$ yarn add @pulumiverse/grafana
+```
+
+### Python
+
+To use from Python, install using `pip`:
+
+```
+$ pip install pulumiverse_grafana
+```
+
+### Go
+
+To use from Go, use `go get` to grab the latest version of the library
+
+```
+$ go get github.com/pulumiverse/pulumi-grafana/sdk/go/...
+```
+
+### .NET
+
+To use from Dotnet, use `dotnet add package` to install into your project. You must specify the version if it is a pre-release version.
+
+
+```
+$ dotnet add package Pulumiverse.Grafana
+```
+
+## Reference
+
+See the Pulumi registry for API docs:
+
+https://www.pulumi.com/registry/packages/grafana/api-docs/

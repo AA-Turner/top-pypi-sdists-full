@@ -15204,7 +15204,6 @@ class DefaultApi(object):
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param str cloud_id:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -15229,7 +15228,6 @@ class DefaultApi(object):
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param str cloud_id:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -15247,7 +15245,6 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'cloud_id'
         ]
         all_params.extend(
             [
@@ -15272,8 +15269,6 @@ class DefaultApi(object):
         path_params = {}
 
         query_params = []
-        if 'cloud_id' in local_var_params and local_var_params['cloud_id'] is not None:  # noqa: E501
-            query_params.append(('cloud_id', local_var_params['cloud_id']))  # noqa: E501
 
         header_params = {}
 
@@ -24980,6 +24975,111 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_overview_api_v2_scheduler_overview_get(self, **kwargs):  # noqa: E501
+        """Get Overview  # noqa: E501
+
+        Get an org-wide scheduler rollup of totals, utilization, clouds, and topology.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_overview_api_v2_scheduler_overview_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: OverviewresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_overview_api_v2_scheduler_overview_get_with_http_info(**kwargs)  # noqa: E501
+
+    def get_overview_api_v2_scheduler_overview_get_with_http_info(self, **kwargs):  # noqa: E501
+        """Get Overview  # noqa: E501
+
+        Get an org-wide scheduler rollup of totals, utilization, clouds, and topology.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_overview_api_v2_scheduler_overview_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(OverviewresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_overview_api_v2_scheduler_overview_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/scheduler/overview', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='OverviewresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_plan_status_api_v2_organization_billing_plan_status_get(self, **kwargs):  # noqa: E501
         """Get Plan Status  # noqa: E501
 
@@ -25302,6 +25402,120 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='ProjectdefaultsessionnameResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_queue_api_v2_scheduler_queues_queue_id_get(self, queue_id, **kwargs):  # noqa: E501
+        """Get Queue  # noqa: E501
+
+        Get one scheduler queue's header and summary counts.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_queue_api_v2_scheduler_queues_queue_id_get(queue_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str queue_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: GetqueueresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_queue_api_v2_scheduler_queues_queue_id_get_with_http_info(queue_id, **kwargs)  # noqa: E501
+
+    def get_queue_api_v2_scheduler_queues_queue_id_get_with_http_info(self, queue_id, **kwargs):  # noqa: E501
+        """Get Queue  # noqa: E501
+
+        Get one scheduler queue's header and summary counts.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_queue_api_v2_scheduler_queues_queue_id_get_with_http_info(queue_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str queue_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(GetqueueresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'queue_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_queue_api_v2_scheduler_queues_queue_id_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'queue_id' is set
+        if self.api_client.client_side_validation and ('queue_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['queue_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `queue_id` when calling `get_queue_api_v2_scheduler_queues_queue_id_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'queue_id' in local_var_params:
+            path_params['queue_id'] = local_var_params['queue_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/scheduler/queues/{queue_id}', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='GetqueueresponseResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -26214,7 +26428,6 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param int version: (required)
-        :param str cloud_id:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -26240,7 +26453,6 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param int version: (required)
-        :param str cloud_id:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -26258,8 +26470,7 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'version',
-            'cloud_id'
+            'version'
         ]
         all_params.extend(
             [
@@ -26290,8 +26501,6 @@ class DefaultApi(object):
             path_params['version'] = local_var_params['version']  # noqa: E501
 
         query_params = []
-        if 'cloud_id' in local_var_params and local_var_params['cloud_id'] is not None:  # noqa: E501
-            query_params.append(('cloud_id', local_var_params['cloud_id']))  # noqa: E501
 
         header_params = {}
 
@@ -32991,6 +33200,120 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def list_cloud_roles_api_v2_clouds_cloud_id_collaborators_roles_get(self, cloud_id, **kwargs):  # noqa: E501
+        """List Cloud Roles  # noqa: E501
+
+        List each user's RBAC roles for the cloud.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_cloud_roles_api_v2_clouds_cloud_id_collaborators_roles_get(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: ClouduserrolesListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_cloud_roles_api_v2_clouds_cloud_id_collaborators_roles_get_with_http_info(cloud_id, **kwargs)  # noqa: E501
+
+    def list_cloud_roles_api_v2_clouds_cloud_id_collaborators_roles_get_with_http_info(self, cloud_id, **kwargs):  # noqa: E501
+        """List Cloud Roles  # noqa: E501
+
+        List each user's RBAC roles for the cloud.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_cloud_roles_api_v2_clouds_cloud_id_collaborators_roles_get_with_http_info(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(ClouduserrolesListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_cloud_roles_api_v2_clouds_cloud_id_collaborators_roles_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `list_cloud_roles_api_v2_clouds_cloud_id_collaborators_roles_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/{cloud_id}/collaborators/roles', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='ClouduserrolesListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def list_clouds_api_v2_clouds_get(self, **kwargs):  # noqa: E501
         """List Clouds  # noqa: E501
 
@@ -36846,6 +37169,257 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def list_queue_workloads_api_v2_scheduler_queues_queue_id_workloads_get(self, queue_id, state, **kwargs):  # noqa: E501
+        """List Queue Workloads  # noqa: E501
+
+        List a scheduler queue's pending or running workloads.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_queue_workloads_api_v2_scheduler_queues_queue_id_workloads_get(queue_id, state, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str queue_id: (required)
+        :param WorkloadState state: Workload state to list. (required)
+        :param int limit: Page size.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: WorkloadresponseListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_queue_workloads_api_v2_scheduler_queues_queue_id_workloads_get_with_http_info(queue_id, state, **kwargs)  # noqa: E501
+
+    def list_queue_workloads_api_v2_scheduler_queues_queue_id_workloads_get_with_http_info(self, queue_id, state, **kwargs):  # noqa: E501
+        """List Queue Workloads  # noqa: E501
+
+        List a scheduler queue's pending or running workloads.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_queue_workloads_api_v2_scheduler_queues_queue_id_workloads_get_with_http_info(queue_id, state, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str queue_id: (required)
+        :param WorkloadState state: Workload state to list. (required)
+        :param int limit: Page size.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(WorkloadresponseListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'queue_id',
+            'state',
+            'limit'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_queue_workloads_api_v2_scheduler_queues_queue_id_workloads_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'queue_id' is set
+        if self.api_client.client_side_validation and ('queue_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['queue_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `queue_id` when calling `list_queue_workloads_api_v2_scheduler_queues_queue_id_workloads_get`")  # noqa: E501
+        # verify the required parameter 'state' is set
+        if self.api_client.client_side_validation and ('state' not in local_var_params or  # noqa: E501
+                                                        local_var_params['state'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `state` when calling `list_queue_workloads_api_v2_scheduler_queues_queue_id_workloads_get`")  # noqa: E501
+
+        if self.api_client.client_side_validation and 'limit' in local_var_params and local_var_params['limit'] > 1000:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `limit` when calling `list_queue_workloads_api_v2_scheduler_queues_queue_id_workloads_get`, must be a value less than or equal to `1000`")  # noqa: E501
+        if self.api_client.client_side_validation and 'limit' in local_var_params and local_var_params['limit'] < 1:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `limit` when calling `list_queue_workloads_api_v2_scheduler_queues_queue_id_workloads_get`, must be a value greater than or equal to `1`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+        if 'queue_id' in local_var_params:
+            path_params['queue_id'] = local_var_params['queue_id']  # noqa: E501
+
+        query_params = []
+        if 'state' in local_var_params and local_var_params['state'] is not None:  # noqa: E501
+            query_params.append(('state', local_var_params['state']))  # noqa: E501
+        if 'limit' in local_var_params and local_var_params['limit'] is not None:  # noqa: E501
+            query_params.append(('limit', local_var_params['limit']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/scheduler/queues/{queue_id}/workloads', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='WorkloadresponseListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def list_queues_api_v2_scheduler_queues_get(self, **kwargs):  # noqa: E501
+        """List Queues  # noqa: E501
+
+        List active scheduler queues with aggregated counts.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_queues_api_v2_scheduler_queues_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str paging_token: Pagination token.
+        :param int limit: Page size.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: QueuerowresponseListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_queues_api_v2_scheduler_queues_get_with_http_info(**kwargs)  # noqa: E501
+
+    def list_queues_api_v2_scheduler_queues_get_with_http_info(self, **kwargs):  # noqa: E501
+        """List Queues  # noqa: E501
+
+        List active scheduler queues with aggregated counts.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_queues_api_v2_scheduler_queues_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str paging_token: Pagination token.
+        :param int limit: Page size.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(QueuerowresponseListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'paging_token',
+            'limit'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_queues_api_v2_scheduler_queues_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        if self.api_client.client_side_validation and 'limit' in local_var_params and local_var_params['limit'] > 200:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `limit` when calling `list_queues_api_v2_scheduler_queues_get`, must be a value less than or equal to `200`")  # noqa: E501
+        if self.api_client.client_side_validation and 'limit' in local_var_params and local_var_params['limit'] < 1:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `limit` when calling `list_queues_api_v2_scheduler_queues_get`, must be a value greater than or equal to `1`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
+            query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
+        if 'limit' in local_var_params and local_var_params['limit'] is not None:  # noqa: E501
+            query_params.append(('limit', local_var_params['limit']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/scheduler/queues', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='QueuerowresponseListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def list_ray_sessions_api_v2_tasks_dashboard_list_ray_sessions_get(self, cluster_id, **kwargs):  # noqa: E501
         """List Ray Sessions  # noqa: E501
 
@@ -37203,7 +37777,6 @@ class DefaultApi(object):
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param str cloud_id:
         :param str paging_token:
         :param int count:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -37230,7 +37803,6 @@ class DefaultApi(object):
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param str cloud_id:
         :param str paging_token:
         :param int count:
         :param _return_http_data_only: response data without head status code
@@ -37250,7 +37822,6 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'cloud_id',
             'paging_token',
             'count'
         ]
@@ -37281,8 +37852,6 @@ class DefaultApi(object):
         path_params = {}
 
         query_params = []
-        if 'cloud_id' in local_var_params and local_var_params['cloud_id'] is not None:  # noqa: E501
-            query_params.append(('cloud_id', local_var_params['cloud_id']))  # noqa: E501
         if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
             query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
         if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
@@ -38465,6 +39034,125 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='WorkspacetemplateListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def list_top_consumers_api_v2_scheduler_top_consumers_get(self, **kwargs):  # noqa: E501
+        """List Top Consumers  # noqa: E501
+
+        List the org's top clusters by node count.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_top_consumers_api_v2_scheduler_top_consumers_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param int limit: Number of consumers.
+        :param str queue_id: Scope to a single queue; omit for org-wide.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: ConsumerresponseListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_top_consumers_api_v2_scheduler_top_consumers_get_with_http_info(**kwargs)  # noqa: E501
+
+    def list_top_consumers_api_v2_scheduler_top_consumers_get_with_http_info(self, **kwargs):  # noqa: E501
+        """List Top Consumers  # noqa: E501
+
+        List the org's top clusters by node count.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_top_consumers_api_v2_scheduler_top_consumers_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param int limit: Number of consumers.
+        :param str queue_id: Scope to a single queue; omit for org-wide.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(ConsumerresponseListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'limit',
+            'queue_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_top_consumers_api_v2_scheduler_top_consumers_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        if self.api_client.client_side_validation and 'limit' in local_var_params and local_var_params['limit'] > 100:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `limit` when calling `list_top_consumers_api_v2_scheduler_top_consumers_get`, must be a value less than or equal to `100`")  # noqa: E501
+        if self.api_client.client_side_validation and 'limit' in local_var_params and local_var_params['limit'] < 1:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `limit` when calling `list_top_consumers_api_v2_scheduler_top_consumers_get`, must be a value greater than or equal to `1`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'limit' in local_var_params and local_var_params['limit'] is not None:  # noqa: E501
+            query_params.append(('limit', local_var_params['limit']))  # noqa: E501
+        if 'queue_id' in local_var_params and local_var_params['queue_id'] is not None:  # noqa: E501
+            query_params.append(('queue_id', local_var_params['queue_id']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/scheduler/top-consumers', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='ConsumerresponseListResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -46255,6 +46943,142 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def set_cloud_role_api_v2_clouds_cloud_id_collaborators_users_user_id_roles_put(self, cloud_id, user_id, set_cloud_roles, **kwargs):  # noqa: E501
+        """Set Cloud Role  # noqa: E501
+
+        Set a user's RBAC roles for the cloud  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.set_cloud_role_api_v2_clouds_cloud_id_collaborators_users_user_id_roles_put(cloud_id, user_id, set_cloud_roles, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str user_id: (required)
+        :param SetCloudRoles set_cloud_roles: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.set_cloud_role_api_v2_clouds_cloud_id_collaborators_users_user_id_roles_put_with_http_info(cloud_id, user_id, set_cloud_roles, **kwargs)  # noqa: E501
+
+    def set_cloud_role_api_v2_clouds_cloud_id_collaborators_users_user_id_roles_put_with_http_info(self, cloud_id, user_id, set_cloud_roles, **kwargs):  # noqa: E501
+        """Set Cloud Role  # noqa: E501
+
+        Set a user's RBAC roles for the cloud  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.set_cloud_role_api_v2_clouds_cloud_id_collaborators_users_user_id_roles_put_with_http_info(cloud_id, user_id, set_cloud_roles, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str user_id: (required)
+        :param SetCloudRoles set_cloud_roles: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id',
+            'user_id',
+            'set_cloud_roles'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method set_cloud_role_api_v2_clouds_cloud_id_collaborators_users_user_id_roles_put" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `set_cloud_role_api_v2_clouds_cloud_id_collaborators_users_user_id_roles_put`")  # noqa: E501
+        # verify the required parameter 'user_id' is set
+        if self.api_client.client_side_validation and ('user_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['user_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `user_id` when calling `set_cloud_role_api_v2_clouds_cloud_id_collaborators_users_user_id_roles_put`")  # noqa: E501
+        # verify the required parameter 'set_cloud_roles' is set
+        if self.api_client.client_side_validation and ('set_cloud_roles' not in local_var_params or  # noqa: E501
+                                                        local_var_params['set_cloud_roles'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `set_cloud_roles` when calling `set_cloud_role_api_v2_clouds_cloud_id_collaborators_users_user_id_roles_put`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+        if 'user_id' in local_var_params:
+            path_params['user_id'] = local_var_params['user_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'set_cloud_roles' in local_var_params:
+            body_params = local_var_params['set_cloud_roles']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/{cloud_id}/collaborators/users/{user_id}/roles', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def set_gateway_canary_weight_api_v2_clouds_cloud_id_gateway_migration_canary_weight_put(self, cloud_id, gateway_canary_weight_request, **kwargs):  # noqa: E501
         """Set Gateway Canary Weight  # noqa: E501
 
@@ -53407,6 +54231,124 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='object',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def validate_scheduler_config_api_v2_scheduler_config_validate_post(self, validate_scheduler_config_request, **kwargs):  # noqa: E501
+        """Validate Scheduler Config  # noqa: E501
+
+        Validate a scheduler config without persisting it.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.validate_scheduler_config_api_v2_scheduler_config_validate_post(validate_scheduler_config_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param ValidateSchedulerConfigRequest validate_scheduler_config_request: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.validate_scheduler_config_api_v2_scheduler_config_validate_post_with_http_info(validate_scheduler_config_request, **kwargs)  # noqa: E501
+
+    def validate_scheduler_config_api_v2_scheduler_config_validate_post_with_http_info(self, validate_scheduler_config_request, **kwargs):  # noqa: E501
+        """Validate Scheduler Config  # noqa: E501
+
+        Validate a scheduler config without persisting it.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.validate_scheduler_config_api_v2_scheduler_config_validate_post_with_http_info(validate_scheduler_config_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param ValidateSchedulerConfigRequest validate_scheduler_config_request: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'validate_scheduler_config_request'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method validate_scheduler_config_api_v2_scheduler_config_validate_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'validate_scheduler_config_request' is set
+        if self.api_client.client_side_validation and ('validate_scheduler_config_request' not in local_var_params or  # noqa: E501
+                                                        local_var_params['validate_scheduler_config_request'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `validate_scheduler_config_request` when calling `validate_scheduler_config_api_v2_scheduler_config_validate_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'validate_scheduler_config_request' in local_var_params:
+            body_params = local_var_params['validate_scheduler_config_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/scheduler/config/validate', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

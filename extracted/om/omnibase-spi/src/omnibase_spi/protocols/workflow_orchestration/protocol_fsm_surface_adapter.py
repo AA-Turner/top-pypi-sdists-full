@@ -1,9 +1,6 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
-
 """Protocol interface for FSM surface adapters in ONEX systems."""
-
-from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
@@ -33,8 +30,8 @@ class ProtocolFSMSurfaceAdapter(Protocol):
 
     async def render(
         self,
-        state: ModelFSMStateDefinition,
-        snapshot: ModelFSMStateSnapshot,
+        state: "ModelFSMStateDefinition",
+        snapshot: "ModelFSMStateSnapshot",
         surface: str,
     ) -> dict[str, object]:
         """Render an FSM state to a surface-specific payload.

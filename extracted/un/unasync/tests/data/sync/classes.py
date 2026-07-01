@@ -1,0 +1,13 @@
+class SyncLock:
+    ...
+
+
+class SyncSocket:
+    def __init__(self, send_lock: SyncLock):
+        ...
+
+    def __enter__(self) -> "SyncSocket":
+        ...
+
+    def send_all(self, data):
+        ...

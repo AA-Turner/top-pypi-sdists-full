@@ -495,6 +495,35 @@ impl SaeManifoldTerm {
     /// O(1) prefactor to the overcompleteness — rather than freezing it at 10 —
     /// removes the magic without losing the barrier near the collapse boundary.
     ///
+    /// #1610 — why the strength is a dimensionless geometry ratio and NOT a
+    /// marginal-likelihood (REML) selection. A REML/evidence-selected penalty
+    /// weight `λ` is, by definition, the data-vs-prior balance `λ ∝ σ²_resid /
+    /// τ²_prior`: its optimum scales with the data/decoder MAGNITUDE (the
+    /// reconstruction Hessian's scale). The separation barrier, by contrast, was
+    /// deliberately made SCALE-INVARIANT in `8381579f2`/`fc20443d2` — it acts on
+    /// the scale-free `c_jk²` (principal-angle cosine) and `q_jk`, and the
+    /// `barrier_norm_floor_sq` abstain set is a pure energy RATIO — so the same
+    /// collapse geometry is penalised identically under a global rescale
+    /// `B_k → s·B_k` (locked by `separation_barrier_collapse_prevention_is_scale_invariant_1610`).
+    /// These two requirements are in direct tension: a fully REML-derived `μ_C`
+    /// would re-introduce the decoder-energy units the scale-invariance work
+    /// removed. Scale-invariance is the requirement that holds (an SAE decoder
+    /// inherits the activations' arbitrary scale; the anti-collapse geometry must
+    /// not), so the strength MUST be a dimensionless quantity read from the
+    /// dictionary geometry, not a scale-bearing REML balance. Among such
+    /// dimensionless invariants, `K / reachable_rank` is the one keyed to the
+    /// DOCUMENTED collapse driver (overcompleteness — see the `term.rs`
+    /// `SaeManifoldTerm` doc: atoms co-collapse "at `K ≥ 4` … as the atom count
+    /// outruns the linear rank the corpus supports"), giving the unit-information
+    /// barrier `μ_C = 1` at exact completeness and `μ_C = q` at `q×`
+    /// overcompleteness. It is therefore principled (collapse-driver-keyed), not
+    /// an arbitrary magic prefactor. The only data-faithful refinement available
+    /// — keying the rank on the realized chart-image ranks `Σ_k rank(Φ_k)` the
+    /// collapse BAR already uses, instead of the nominal coefficient counts — is
+    /// deliberately declined HERE (see `nominal_reachable_rank`) because it costs
+    /// a per-line-search-trial SVD over the `n × M_k` chart designs; it stays a
+    /// coarse overcompleteness scalar while the THRESHOLD pays for the exact rank.
+    ///
     /// The process-global runtime override (`set_sae_barrier_overrides`, used by
     /// the Python FFI to sweep `μ_C` from one compiled wheel) takes precedence:
     /// when set, it is the absolute `μ_C` and the derived value is bypassed.
@@ -1419,7 +1448,30 @@ impl SaeManifoldTerm {
         // rho.exp()` overflows to `inf` for `rho ≳ 709`, and the downstream
         // `inf · jacobian` / `inf · 0.0` then injects NaN into the GN curvature
         // block and β-penalty, poisoning the joint solve (#742, Issue 4).
-        let mu = resolve_learnable_weight(corrected.scalar_weight, rho_local[corrected.rho_index]);
+        //
+        // #795 scale-invariant curvature: the value / gradient paths penalize
+        // the SCALE-INVARIANT residual `R_n = g_n/gbar − g^ref_n` (normalized by
+        // the shared `gbar = mean tr(g)/d`), so the assembled gradient is free
+        // of the decoder magnitude. This Gauss-Newton block, however, is built
+        // below from the RAW weighted Jacobian `wj ∝ ‖B‖`, so `AᵀA ∝ ‖B‖⁴` — it
+        // is the GN block of the UN-normalized `½μ‖g_n − g^ref‖²`. Pairing a
+        // scale-free gradient with a `‖B‖⁴` curvature collapses the joint Newton
+        // step (`H⁻¹g ∝ ‖B‖⁻⁴`) as the decoder grows, the proximal ridge
+        // saturates at 1e15, and every trial step is rejected — the exact #795
+        // failure. The Gauss-Newton block of the NORMALIZED residual is the raw
+        // block times `1/gbar²` (freezing the shared normalizer, the same
+        // convention `normalized_metric_state`'s majorizer uses): a positive
+        // scalar on an already-PSD Gram block, so the Schur complement stays PSD,
+        // and `1/gbar² ∝ ‖B‖⁻⁴` exactly cancels the raw `‖B‖⁴`. Fold it into `mu`
+        // so every `mu * acc` write below carries it. `gbar` is read from the
+        // penalty (the single source of truth shared with the gradient); if it
+        // is unavailable/degenerate we skip the block rather than write a
+        // mis-scaled one.
+        let mu_raw = resolve_learnable_weight(corrected.scalar_weight, rho_local[corrected.rho_index]);
+        let Some(gbar) = corrected.metric_normalizer(d) else {
+            return;
+        };
+        let mu = mu_raw / (gbar * gbar);
         // A negligible (or non-finite) effective isometry weight contributes a
         // zero curvature block; writing zeros would still flip the solver onto
         // the dense-supplement Schur path (and invalidate caches) for no model
@@ -1664,7 +1716,25 @@ impl SaeManifoldTerm {
         // rho.exp()` overflows to `inf` for `rho ≳ 709`, and the downstream
         // `inf · jacobian` / `inf · 0.0` then injects NaN into the GN curvature
         // block and β-penalty, poisoning the joint solve (#742, Issue 4).
-        let mu = resolve_learnable_weight(corrected.scalar_weight, rho_local[corrected.rho_index]);
+        //
+        // #795 scale-invariant curvature (decoder β block): the `gb` gradient
+        // accumulated above routes through the gbar-normalized
+        // `grad_jacobian`, so it is free of the decoder magnitude. This dense
+        // `hbb` Gauss-Newton block is the decoder-side pullback of the SAME raw
+        // `wj`-built block as the coord-side `htt` (`add_sae_isometry_metric_gn_blocks`),
+        // so it scales ∝‖B‖⁴ and would re-introduce the #795 step collapse on
+        // the β tier. Fold the same `1/gbar²` frozen-normalizer factor in here
+        // so the decoder curvature matches its scale-free gradient. PSD-
+        // preserving (positive scalar on a PSD Gram block); skip on a degenerate
+        // normalizer rather than write a mis-scaled block.
+        let mu_raw = resolve_learnable_weight(corrected.scalar_weight, rho_local[corrected.rho_index]);
+        let Some(gbar) = corrected.metric_normalizer(d) else {
+            return;
+        };
+        let mu = mu_raw / (gbar * gbar);
+        if !(mu.is_finite() && mu > 0.0) {
+            return;
+        }
         let mut metric_jvp = Array2::<f64>::zeros((d, d));
         let mut jac_hvp = Array2::<f64>::zeros((p, d));
         let mut beta_hvp = Array2::<f64>::zeros((m, p));

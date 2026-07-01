@@ -6,9 +6,10 @@ import uuid
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 
-from .core import app_names
-from .core.celery_queues import QueuedTaskShort
-from .managers import QueuedTaskManager, TaskLogManager, TaskStatisticManager
+from taskmonitor.core import app_names
+from taskmonitor.core.celery_queues import QueuedTaskShort
+from taskmonitor.core.json_encoders import UniversalJSONEncoder
+from taskmonitor.managers import QueuedTaskManager, TaskLogManager, TaskStatisticManager
 
 CHAR_FIELD_MAX_LENGTH = 255
 
@@ -115,6 +116,7 @@ class TaskLog(models.Model):
     )
     args = models.JSONField(
         default=list,
+        encoder=UniversalJSONEncoder,
         help_text=(
             "Positional arguments the task was called with. Nested items might be truncated to [] or {}."
         ),
@@ -131,6 +133,7 @@ class TaskLog(models.Model):
     )
     kwargs = models.JSONField(
         default=dict,
+        encoder=UniversalJSONEncoder,
         help_text=(
             "Keyword arguments the task was called with. Nested items might be truncated to [] or {}."
         ),
@@ -144,7 +147,12 @@ class TaskLog(models.Model):
         db_index=True,
         help_text="Priority this task was executed with.",
     )
-    result = models.JSONField(default=None, null=True, help_text="Result of the task.")
+    result = models.JSONField(
+        default=None,
+        null=True,
+        encoder=UniversalJSONEncoder,
+        help_text="Result of the task.",
+    )
     retries = models.IntegerField(help_text="Number of retries.")
     received = models.DateTimeField(
         null=True,

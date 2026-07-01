@@ -6,8 +6,7 @@ from django.utils import timezone
 
 from taskmonitor import tasks
 from taskmonitor.models import TaskLog
-
-from .factories import TaskLogFactory
+from taskmonitor.tests.factories import TaskLogFactory
 
 TASKS_PATH = "taskmonitor.tasks"
 

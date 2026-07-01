@@ -1,0 +1,676 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/workspaces/demo/visualizationObjects/customers_trend?include=ALL
+    response:
+      body:
+        string:
+          data:
+            attributes:
+              areRelationsValid: true
+              content:
+                buckets:
+                  - items:
+                      - measure:
+                          alias: Active Customers
+                          definition:
+                            measureDefinition:
+                              computeRatio: false
+                              filters: []
+                              item:
+                                identifier:
+                                  id: amount_of_active_customers
+                                  type: metric
+                          localIdentifier: 2ba0b87b59ca41a4b1530e81a5c1d081
+                          title: '# of Active Customers'
+                    localIdentifier: measures
+                  - items:
+                      - measure:
+                          definition:
+                            measureDefinition:
+                              filters: []
+                              item:
+                                identifier:
+                                  id: revenue_per_customer
+                                  type: metric
+                          localIdentifier: ec0606894b9f4897b7beaf1550608928
+                          title: Revenue per Customer
+                    localIdentifier: secondary_measures
+                  - items:
+                      - attribute:
+                          displayForm:
+                            identifier:
+                              id: date.month
+                              type: label
+                          localIdentifier: 0de7d7f08af7480aa636857a26be72b6
+                    localIdentifier: view
+                filters:
+                  - relativeDateFilter:
+                      dataSet:
+                        identifier:
+                          id: date
+                          type: dataset
+                      from: -12
+                      granularity: GDC.time.month
+                      to: -1
+                properties:
+                  controls:
+                    colorMapping:
+                      - color:
+                          type: guid
+                          value: '20'
+                        id: 2ba0b87b59ca41a4b1530e81a5c1d081
+                      - color:
+                          type: guid
+                          value: '4'
+                        id: ec0606894b9f4897b7beaf1550608928
+                    dualAxis: true
+                    legend:
+                      position: bottom
+                    primaryChartType: column
+                    secondaryChartType: line
+                    secondary_yaxis:
+                      measures:
+                        - ec0606894b9f4897b7beaf1550608928
+                    xaxis:
+                      name:
+                        visible: false
+                      rotation: auto
+                version: '2'
+                visualizationUrl: local:combo2
+              createdAt: 2000-01-01 00:00
+              title: Customers Trend
+            id: customers_trend
+            meta:
+              origin:
+                originId: demo
+                originType: NATIVE
+            relationships:
+              createdBy:
+                data:
+                  id: admin
+                  type: userIdentifier
+              datasets:
+                data:
+                  - id: date
+                    type: dataset
+              labels:
+                data:
+                  - id: date.month
+                    type: label
+              metrics:
+                data:
+                  - id: amount_of_active_customers
+                    type: metric
+                  - id: revenue_per_customer
+                    type: metric
+            type: visualizationObject
+          included:
+            - attributes: {}
+              id: admin
+              links:
+                self: http://localhost:3000/api/v1/entities/workspaces/demo/userIdentifiers/admin
+              type: userIdentifier
+            - attributes:
+                description: ''
+                tags:
+                  - Date
+                title: Date
+                type: DATE
+              id: date
+              links:
+                self: http://localhost:3000/api/v1/entities/workspaces/demo/datasets/date
+              type: dataset
+            - attributes:
+                content:
+                  format: '#,##0'
+                  maql: SELECT COUNT({attribute/customer_id},{attribute/order_line_id})
+                createdAt: 2000-01-01 00:00
+                title: '# of Active Customers'
+              id: amount_of_active_customers
+              links:
+                self: http://localhost:3000/api/v1/entities/workspaces/demo/metrics/amount_of_active_customers
+              type: metric
+            - attributes:
+                content:
+                  format: $#,##0.0
+                  maql: SELECT AVG(SELECT {metric/revenue} BY {attribute/customer_id})
+                createdAt: 2000-01-01 00:00
+                title: Revenue per Customer
+              id: revenue_per_customer
+              links:
+                self: http://localhost:3000/api/v1/entities/workspaces/demo/metrics/revenue_per_customer
+              type: metric
+            - attributes:
+                description: Month and Year (12/2020)
+                primary: true
+                sourceColumn: ''
+                tags:
+                  - Date
+                title: Date - Month/Year
+              id: date.month
+              links:
+                self: http://localhost:3000/api/v1/entities/workspaces/demo/labels/date.month
+              type: label
+          links:
+            self: http://localhost:3000/api/v1/entities/workspaces/demo/visualizationObjects/customers_trend?include=ALL
+      headers:
+        Content-Type:
+          - application/json
+        DATE:
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID:
+          - PLACEHOLDER
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        fileName: Customers Trend
+        format: XLSX
+        visualizationObject: customers_trend
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/export/tabular
+    response:
+      body:
+        string:
+          exportResult: EXPORT_NORMALIZED_XLSX
+      headers:
+        Content-Type:
+          - application/json
+        DATE:
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID:
+          - PLACEHOLDER
+      status:
+        code: 201
+        message: Created
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+            application/zip, text/csv, text/html
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/export/tabular/EXPORT_NORMALIZED_XLSX
+    response:
+      body:
+        string: ''
+      headers:
+        DATE:
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID:
+          - PLACEHOLDER
+      status:
+        code: 202
+        message: Accepted
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+            application/zip, text/csv, text/html
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/export/tabular/EXPORT_NORMALIZED_XLSX
+    response:
+      body:
+        string: ''
+      headers:
+        DATE:
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID:
+          - PLACEHOLDER
+      status:
+        code: 202
+        message: Accepted
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+            application/zip, text/csv, text/html
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/export/tabular/EXPORT_NORMALIZED_XLSX
+    response:
+      body:
+        string: ''
+      headers:
+        DATE:
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID:
+          - PLACEHOLDER
+      status:
+        code: 202
+        message: Accepted
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+            application/zip, text/csv, text/html
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/export/tabular/EXPORT_NORMALIZED_XLSX
+    response:
+      body:
+        string: ''
+      headers:
+        DATE:
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID:
+          - PLACEHOLDER
+      status:
+        code: 202
+        message: Accepted
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+            application/zip, text/csv, text/html
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/export/tabular/EXPORT_NORMALIZED_XLSX
+    response:
+      body:
+        string: ''
+      headers:
+        DATE:
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID:
+          - PLACEHOLDER
+      status:
+        code: 202
+        message: Accepted
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+            application/zip, text/csv, text/html
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/export/tabular/EXPORT_NORMALIZED_XLSX
+    response:
+      body:
+        string: "PK\x03\x04\x14\0\0\0\b\0\0\0?\0a]I:O\x01\0\0\uFFFD\x04\0\0\x13\0\0\
+          \0[Content_Types].xml\uFFFD\uFFFD\uFFFDn\uFFFD0\x10E\uFFFD\uFFFD\uFFFD\uFFFD\
+          \uFFFD*1tQU\x15\uFFFDE\x1F\uFFFD\x16\uFFFD\uFFFD\x03\\{B,\x1C\uFFFD\uFFFD\
+          \f\x14\uFFFD\uFFFD\uFFFD\uFFFDP[Q\uFFFD\uFFFDM\uFFFDd\uFFFD\uFFFDs\u01CE\
+          <\x18-\e\uFFFD- \uFFFD\r\uFFFD\x14\uFFFD\uFFFD'2\uFFFD:\x18\uB9E5x\uFFFD\
+          <\uFFFDw\"CR\uFFFD(\x17<\uFFFDb\x05(F\xEB\uFFFDd\x15\x013n\uFFFDX\uFFFD\uFFFD\
+          (\uFFFDK\uFFFD\uFFFD\uFFFDFa\x11\"x\uFFFDT!5\uFFFD\uFFFD5MeTz\uFFFD\uFFFD\
+          \ oz\uFFFD[\uFFFD\uFFFD'\uFFFDS\uFFFD!\uFFFD\uFFFDG\uFFFD\uFFFD\uFFFDQ\uFFFD\
+          \uFFFD\uFFFD\uFFFD\uFFFD \t\x1C\uFFFD\uFFFDa-lY\uFFFDP1:\uFFFD\x15q].\uFFFD\
+          \uFFFDE\uFFFD7\uFFFD\uFFFD;;\r\uFFFD6\uFFFD5\v\uFFFD\uFFFDKh+\x7F\x036}\uFFFD\
+          \uFFFD3\uFFFD\x1A\uFFFD\uFFFD*\u044BjX%M\uFFFD\uFFFD\x14\"J\uFFFD\x17\uFFFD\
+          ]\uFFFD\uFFFD\fUe5\uFFFD\u01FC\uFFFD\x02\uFFFD@\x06L\x1E\uFFFD\x12\x12Y\uFFFD\
+          e>\uFFFD\uFFFD!\uFFFD\uFFFD\uFFFD\uFFFD=j\uFFFDO$.\uFFFDDZ9\uFFFD\uFFFD\
+          G\u0158@\x19\uFFFD\x01\uFFFDq\uFFFD\uFFFD\uFFFD\b\uFFFD\uFFFD\x7F\uFFFD\uFFFD\
+          \uFFFD\x7F6\uFFFD\uFFFD9\x02\uFFFD\fi\uFFFD\x11\uFFFD\uFFFD\uFFFD\xF6k\uFFFD\
+          (\uFFFDO\uFFFDwb\uFFFD\uFFFDr\uFFFD\uFFFD?\uFFFD\uFFFD\uFFFD\uFFFD\x1Dy\uFFFD\
+          \x12\uFFFD7J|\r\\\uFFFD\uFFFD{os\uFFFD\uFFFD>\x19~\x01PK\x03\x04\x14\0\0\
+          \0\b\0\0\0?\0\uFFFDI\uFFFD\uFFFD\0\0\0K\x02\0\0\v\0\0\0_rels/.rels\uFFFD\
+          \uFFFD\uFFFDN\uFFFD0\f@\uFFFD|E\uFFFD\uFFFD\uFFFDnH\b\uFFFD\uFFFD\uFFFD\
+          \ \uFFFD\uFFFD&4>\uFFFD$n\e\uFFFD\uFFFD\uFFFD\u0103\uFFFD\uF250@\f\uFFFD\
+          i\a\uFFFDq\uFFFD\uFFFDg\uFFFD\uFFFD\uFFFD<\uFFFD\uFFFDR\uFFFD\x1C\f,\uFFFD\
+          \x1A\x14\x05\uFFFD\u0387\uFFFD\uFFFD\uFFFD\uFFFDiq\x0F*\v\x06\uFFFD#\a2p\uFFFD\
+          \f\uFFFD\uFFFDf\uFFFDL#J\uFFFD\u027D\uFFFDY\x15H\uFFFD\x06z\uFFFD\uFFFD\uFFFD\
+          u\uFFFD=M\uFFFD+\uFFFD\x14\uFFFDO\uFFFDiB)\uFFFD\uFFFD\uFFFDv\uFFFD\uFFFD\
+          \uFFFD\uFFFD\uFFFD\uFFFDt\uFFFD\u0240\u6129\uFFFD\uFFFD@\u06BA%\uFFFD\uFFFD\
+          1\uFFFD5ln[o\uFFFD\uFFFDa\uFFFD gZ\uFFFD\uFFFD(dL\x1D\uFFFD\uFFFDy\uFFFD\
+          \uF706W\uFFFD*P\uFFFD\uFFFD]V\u05FB\uFFFD=\uFFFD\uFFFDH\u0421\uFFFD\uFFFD\
+          \uFFFDh\x11S\uFFFDN\uFFFD\uFFFDZ\uFFFDu\x1C\uFFFD]\t\uFFFD\u03CCKB\uFFFD\
+          \uFFFD\uFFFD\x1C\uFFFD\uFFFD\uFFFD#wY\tc\uFFFD2\uFFFD'7\uFFFD|\0PK\x03\x04\
+          \x14\0\0\0\b\0\0\0?\0Du[\uFFFD\uFFFD\0\0\0\uFFFD\x02\0\0\x1A\0\0\0xl/_rels/workbook.xml.rels\uFFFD\
+          \uFFFD\uFFFDj\uFFFD0\x10D\uFFFD\uFFFD\n\uFFFD\uFFFDZv\x12J)\uFFFDs)\uFFFD\
+          \\\uFFFD\uFFFD\x03\uFFFD\uFFFD\uFFFDLlIh\uFFFDi\uFFFD\uFFFD\x11\tM\x1D\b\
+          \uFFFD\a\uFFFD\u010C\u0619\a\uFFFD\uFFFD\uFFFD\uFFFD\u040B\x03&\uFFFDWP\x15\
+          %\b\uFFFD&\uFFFD\u03B7\n>wo\uFFFD\uFFFD \uFFFD\uFFFD\uFFFD\uFFFD\x0F\x1E\
+          \x15\uFFFDH\uFFFD\uFFFD\x1F\uFFFD\uFFFD\uFFFDk\uFFFD3\uFFFDH\"\uFFFDxR\uFFFD\
+          \uFFFD\u32D4d\x1C\x0E\uFFFD\uFFFD\x10\uFFFD\uFFFD&\uFFFDAs\uFFFD\uFFFD\uFFFD\
+          Q\uFFFD\uFFFDnQ.\uFFFD\uFFFDI\uFFFDi\x06\uFFFDW\uFFFDbk\x15\uFFFD\uFFFD\uFFFD\
+          @\uFFFD\u0188\uFFFD\uFFFD\x0EM\uFFFD\x19|\r\uFFFDk@\uFFFD7*\uFFFDwH{r\uFFFD\
+          \uFFFDCuj\uFFFD\x15\\,\uFFFD\uFFFD\uFFFD*r*\uFFFD\uFFFD0\uFFFD9a8\uFFFD\uFFFD\
+          \x1F\uFFFDI\uFFFD\u037B\f\uFFFD9\x19\uFFFD\uFFFD>/\uFFFD\x02q\uFFFD\uFFFD\
+          \uFFFDW\uFFFD\uFFFD;\uFFFD\uFFFD~p\uFFFD\uFFFD6\uFFFD\uFFFD\u06BF0\uFFFD\
+          \uFFFD\uFFFD\uFFFD#PK\x03\x04\x14\0\0\0\b\0\0\0?\0\uFFFDo\uFFFD\x1A\uFFFD\
+          \x02\0\0\uFFFD\a\0\0\x18\0\0\0xl/worksheets/sheet1.xml\uFFFD\uFFFD\uFFFD\
+          n\uFFFD0\x14\uFFFD\uFFFD\uFFFD)\x10\uFFFDc\uFFFD\uFFFDDI\uFFFD\uFFFDi\uFFFD\
+          .\uFFFDF\uFFFD^\uFFFD\uFFFDIP\x01G\uFFFD6\uFFFD\uFFFD\x1F\x03I\uFFFDO\x17\
+          M\"!\uFFFD\uFFFD\uFFFD\uFFFD=>y.\uFFFD\uFFFD\uFFFD\uFFFDMn\uFFFDIL\x10\uFFFD\
+          #S-\uFFFD*\uFFFD6\uFFFD\uFFFD\uFFFD\uFFFD\u02EF:\uFFFD\x1A\uFFFDU\uFFFD\uFFFD\
+          \uFFFD\uFFFD\uFFFD\uFFFD\x7FM\x13\uFFFDL\uFFFD\uFFFD\uFFFD\uFFFD~h\uFFFD\
+          \u01B8\uFFFD\a\uFFFD\uFFFDI\uFFFDun7J\uFFFDf\uFFFD5e\uFFFD \uFFFD3\uFFFD\
+          'k[\uFFFD\uFFFD\uFFFD\uFFFDz\uFFFD4\uFFFD\uFFFDd\uFFFD\u03A9,\x12\uFFFD\uFFFD\
+          L\uFFFD,\uFFFD\uFFFD>\xA8\uFFFD\uFFFD\x18v\uFFFD\u0397ff\uFFFD\uFFFD\uFFFD\
+          \uFFFD\\\x1F\uFFFD6E\uFFFD|\uFFFD\uFFFD6\uFFFD5\uFFFDt\uFFFD\uFFFD=k\uFFFD\
+          \uFFFDj\uFFFD\uFFFD\u0127d\uFFFD`q2\x1Dw\uFFFD\x7F\uFFFDf\uFFFD\f\u0191\uFFFD\
+          \uFFFD\x7F\uFFFD\uFFFD,\uFFFDY\uFFFD\uFFFD\uFFFDm\uFFFD\uFFFD\u0687\x16\
+          ^\uFFFDW\uFFFDuM\uFFFD\uFFFD^vE}\uFFFD\uFFFD\uFFFDYg\uFFFD\uFFFD\uFFFDn\uFFFD\
+          s\uFFFDo\uFFFD\uFFFD\a\x11\uFFFD\uFFFD\uFFFD\x16M\uFFFD\uFFFD\u02BC\uFFFD\
+          \"\uFFFD\uFFFDs\uFFFD!_\uFFFD\uFFFD\x1F)$\x14f\uFFFD\uFFFD8Z>6\u0396\x7F\
+          \x0E\uFFFD\uFFFD\uFFFD;\u04A3#{\uFFFD\uFFFD\uFFFDS\uFFFD\uFFFD\a\uFFFDI\uFFFD\
+          \uFFFD+s\uFFFD\uFFFDl:\uFFFD\uFFFD>\uFFFD\uFFFD\uFFFD\uFFFD.k\uFFFD\"#\x1F\
+          \uFFFD'i\u07DE\uFFFD\uFFFD;\uFFFDko\uFFFD\uFFFDi\uFFFD\uFFFD\uFFFDS\e\uFFFD\
+          `q\uFFFD[\u040Eq\uFFFD\uFFFD\x0E\uFFFD9\uFFFD\n\uFFFDY\uFFFD5NC~\x018\x03\
+          \uFFFD\x12p\x05\uFFFD\ny\uFFFDI\uFFFD\uFFFD3\uFFFD\uFFFD\x01\uFFFD4\uFFFD\
+          7\uFFFD\uFFFD\uFFFD\uFFFD\x06\\b\uFFFDB~\a\uFFFD\uFFFD!_\0\uFFFD_\uFFFD\
+          '^\uFFFD\x17\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\u039B\r\uFFFD\x03\uFFFD\uFFFD\
+          \uFFFD\x16\uFFFDc\x12,\uFFFD\uFFFD\x10\n\uFFFD9\uFFFD\uFFFD\uFFFD\"\uFFFD\
+          \x14@\uFFFD!\uFFFD\x12\b\x16@\uFFFD\uFFFD|\b\x15X\uFFFD\uFFFD '\b{3\uFFFD\
+          )\uFFFD\uFFFD\uFFFD\uFFFDV\uFFFD\x02\b\uFFFD\uFFFD\uFFFDx_\e\uFFFD\uFFFD\
+          6\uFFFD6\uFFFD\uFFFD\uFFFD\uFFFDB\uFFFD\uFFFD\x11\uFFFDR\uFFFD\uFFFD\uFFFD\
+          \x0F\uFFFD\uFFFD|hK9A)\u054A2\uFFFD\uFFFDi \uFFFD\uFFFD\uFFFD\x05\uFFFD\n\
+          \uFFFD\uFFFD0.S\uFFFD\uFFFD\x12P\u52E1mJ\uFFFD\u07E0$}\uFFFD\x01]\uFFFD\uFFFD\
+          \uFFFD I\uFFFD\u051C\x12,\uFFFD\x045\\\x05\uFFFD\uFFFD#\uFFFD\uFFFDb\uFFFD\
+          (E\uFFFD\0\uFFFD0\x0F\uFFFDA+\uFFFD\uFFFDG\x1A\x18H\uFFFDH\uFFFDQ?7\uFFFD\
+          \uFFFD\u0488I\uFFFD\uFFFD\uFFFD\x01\uFFFD\uFFFDm\uFFFDW\uFFFD\uFFFD)\uFFFD\
+          \uFFFD.0\uFFFD\x12I\uFFFD\uFFFD2\uFFFD\uFFFDD\x1DT$Hk\uFFFD)STk\uFFFD$\uFFFD\
+          1\uFFFD\uFFFDd\uFFFDe\e\uFFFD\uFFFD\uFFFDM^5Qa\uFFFD~\uFFFD`\uFFFD\uFFFD\
+          \uFFFDo\uFFFDn\uFFFD\uFFFD\e\uFFFD\uFFFD\uFFFD\uFFFD:\x7F\uFFFD\x1Fg[\x7F\
+          \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFDkk\uFFFDq\uFFFD\uFFFD\x01/\uFFFD\uFFFD\
+          \uFFFD\x1FPK\x03\x04\x14\0\0\0\b\0\0\0?\0\uFFFDm\uFFFD\uFFFDO\x01\0\0/\x02\
+          \0\0\x0F\0\0\0xl/workbook.xml\uFFFDQ\uFFFDN\uFFFD0\x10\uFFFD\uFFFD\x15\uFFFD\
+          \uFFFD4\x0F%\x11\uFFFD\uFFFDT\uFFFD\uFFFD\uFFFD\uFFFD\uFFFDCi\uFFFD&\uFFFD\
+          4V\uFFFD\uFFFDl\uFFFD\uFFFD\x7F\uFFFD:U\n\uFFFD8ygvw4\uFFFD^\uFFFDNJ\uFFFD\
+          /\uFFFDN\x18]\uFFFDd\x16S\x02\uFFFD6\\\uFFFDCI?\uFFFDO\uFFFDw\uFFFD8\uFFFD\
+          4g\uFFFDh(\uFFFD\x19\x1C]U7\uFFFD\uFFFD\uFFFD\uFFFD1G\uFFFD\uFFFD\u0695\uFFFD\
+          \uFFFD\uFFFD[D\uFFFD\uFFFD[P\uFFFD\uFFFDL\a\x1A;\uFFFD\uFFFD\uFFFDy\uFFFD\
+          \uFFFD\x10\uFFFD\uFFFD\x02\uFFFD\x05\uFFFDJFi\x1C\x17\uFFFDbB\u04CB\uFFFD\
+          \uFFFD\uFFFDG\uFFFD4\uFFFD\uFFFD\uFFFD\uFFFD\u053D\x02\uFFFD/\"\x16$\uFFFD\
+          \uFFFD\u07B5\uFFFDs\uFFFDZ6B\uFFFD\uFFFD\x12\uFFFD\uFFFD\uFFFD{e\nm\uFFFD\
+          $%\uFFFD9\uFFFD\u0205\a^\uFFFD\f\uFFFD\x19\uFFFD\x0Fa\uFFFD\uFFFD\x172\uFFFD\
+          <\uFFFDiT]C\uFFFD[\xA1a\uFFFD\uFFFD[\uFFFD6\uFFFD\uFFFD\uFFFD,M\uFFFD0\x19\
+          \uFFFDv\x02\x06\uFFFD\uFFFD\x14 9\uFFFD\uFFFDf(i\uFFFD\uFFFDe\uFFFD\x13\
+          JrJ\uFFFD\uFFFD\uFFFD\v\uFFFD[$\uFFFDx~\uFFFDA\x1CZ_\uFFFDyQ\uFFFDA<\uFFFD\
+          \uFFFD>\uFFFDoz\uFFFD\x1E\xED{\uFFFDBSdkAs\uFFFD\uFFFD\uFFFD\uFFFD`\uFFFD\
+          \x04S-\x04\x16v\xD3Qj\u06AF\uFFFD\uFFFD1Vx\uFFFD\uFFFD4\u02D39%M/\uFFFD\x1A\
+          \uFFFD7\uFFFDb\uFFFD(\x10\uFFFD\uFFFDH\uFFFD7PK\x03\x04\x14\0\0\0\b\0\0\0\
+          ?\0\uFFFD\u0102#\uFFFD\0\0\0\x04\x01\0\0\x14\0\0\0xl/sharedStrings.xml]\uFFFD\
+          1K\x041\x10F{\x7F\uFFFD0\uFFFD\u076C\n\"\uFFFD\uFFFD\x13;\e\uFFFD\uFFFD\
+          2\uC3B7\uFFFD\uFFFDd\uFFFDL\x16\uFFFD\uFFFDFD\x05\uFFFD\uFFFD{_\uFFFD\uFFFD\
+          {^`\u3AA9\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD2\uFFFD)\uFFFD\uFFFD\uFFFD\uFFFD\
+          \uFFFD\uFFFD\uFFFD\x1AA-\uFFFD\x14\uFFFD\"\uFFFD\uFFFD\x15\x0F\uFFFD\u0329\
+          \x1A\uFFFD\uFFFD\uFFFD\uFFFD\uFFFDl\uFFFD!\uFFFDq\uFFFD\x1Cu_V\uFFFDn^K\uFFFD\
+          \uFFFD:\uFFFD\x13\uFFFDZ9N:3[^\uFFFDb\x18\uFFFD(\uFFFD$\bcib\x1E/\x11\uFFFD\
+          \uFFFD\uFFFD\uFFFD\uFFFD\x1F\x0ENSp\x16\uFFFD1\uFFFD\u0848\uFFFD\uFFFD\xB1\
+          :\uFFFD\uFFFD\uFFFDK~\a\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFDJ\uFFFD\
+          7\uFFFD\uFFFDG\uFFFDX\x1A\uFFFD\uFFFD\uFFFD7\uFFFDk\uFFFD\uFFFD\b\uFFFD\
+          PK\x03\x04\x14\0\0\0\b\0\0\0?\0\uFFFDf\uFFFDI\uFFFD\x02\0\0\uFFFD\r\0\0\r\
+          \0\0\0xl/styles.xml\uFFFDW]o\uFFFD0\x14}\uFFFDWX\x1E\uFFFD\t\uFFFD~\uFFFD\
+          U\uFFFD\uFFFD\x13L\uFFFD\uFFFD\x04\x13\uFFFD\x06\uFFFD\u054D\uFFFD\uFFFD\
+          \uFFFD\x1F\uFFFDq\uFFFDv\uFFFD\uFFFDk;m\u0491\uFFFD[7m\uFFFD\x0F\uFFFDo\uFFFD\
+          =\uFFFD\uFFFD^\uFFFD&\uFFFD\uFFFD/\uFFFD@7\u0314\\\uFFFD\x18\uFFFDO{\x18\
+          1\uFFFDj\uFFFDU\x1E\uFFFD\x1F\uFFFD\u027B\tF\uFFFD%\uFFFD\x12\uFFFD\x15\uFFFD\
+          \uFFFD\uFFFD|\uFFFDjZ\u0695`W\v\uFFFD,\x02\x06U\uFFFDxam\uFFFD!\uFFFD\uFFFD\
+          t\uFFFD$)Ou\uFFFD\x14\\\u0274\uFFFD\uFFFD\uFFFD\uFFFD\uFFFDQY\x18Fh\u9724\
+          \uFFFD\x06\uFFFD\uFFFD8\uFFFD\uFFFD+<\uFFFD\uFFFDJ&\u0496(\u0555\uFFFD1\x1E\
+          nL(\f_(h\e\uFFFDa\x14\uFFFD.4\x05)RJ\uFFFD\uFFFD\x1F\uFFFD:\u0463m\uFFFD\
+          \uFFFD\u06D3\uFFFD\uFFFD\x0E\uFFFDx\e\uFFFD\uFFFDO\uFFFD\uFFFD\uFFFD\uFFFD\
+          a\uFFFD~\uFFFD\uFFFD3\uFFFDe\u03A6\uFFFDV\uFFFD\uFFFD3\x1C\f\uFFFDiy\uFFFD\
+          n\uFFFD\0\u01BE\uFFFD\uFFFDZh\uFFFD,\uFFFD\x038\uFFFDE\x11\uFFFD\x02\uFFFD\
+          \b>7\uFFFD\x193\"\uFFFDX\x05\uFFFD\uFFFD\x19|\x06k\uFFFD\uFFFDJ\e\x1F;D\u060E\
+          39\x14\uFFFD'3\uFFFD(\uFFFD\x19\uFFFD\x10\uFFFD\uFFFD\uFFFD1N\uFFFDI\uFFFD\
+          \uFFFD\uFFFD\uFFFD6\uFFFD\x1EL\uFFFD\aW\0.\uFFFDv\x01\uFFFD0\uFFFD\x16\uFFFD\
+          ZfT\x02\vT\u03EFW\x05\uFFFDE\uFFFD\uFFFD\r4\x1Ew\0\uFFFD\e\uFFFD\uFFFD\x0F\
+          F\uFFFDw(\uFFFD\uFFFD\u0529\uFFFD/\uFFFDs7\uFFFD/pE\u0652\uFFFD\uFFFD\uFFFD\
+          \uFFFD\uFFFD\uFFFD[\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\
+          \uFFFD\0\uFFFD\uFFFDkC\uFFFD\t\uFFFD3:\uFFFDk\uFFFDl*Xf\uFFFD\uFFFD\uFFFD\
+          |\uFFFDF\uFFFD\v\x17C[\uFFFD%L('\uFFFDVD\uFFFD\0k\uFFFD.O\uFFFD\eF\uFFFD\
+          \uD0A7\uFFFD\uFFFD\uFFFD0\uFFFD\uFFFD\uFFFD\uFFFD\uFFFDF\x1E\uFFFD\uFFFD\
+          \x7F\uFFFD)\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\u0393~\x7F-\uFFFD\uFFFD>B\uFFFD\
+          Q\uFFFD\u0677\uFFFDc\uFFFDP\x02M\uFFFD\x1E\x10\u04E9\uFFFD\r\x05\uFFFD^\uFFFD\
+          O^\uFFFD\x17\uFFFDYO\uFFFDnJ\uFFFD\x10W\uFFFD\uFFFDW\uFFFD\uFFFD\uFFFD\uFFFD\
+          \uFFFD\uFFFD\uFFFDZ\uFFFD\uFFFD\uFFFD{\uFFFD\uFFFD\x14\uFFFD\uFFFDz\x1A\
+          h\uFFFD\uFFFD\uFFFD\uFFFD\x02w\uFFFDvr\x14-Zf\e\uFFFD]\uFFFD\uFFFD\x1D\uFFFD\
+          \uFFFD\uFFFD\e\uFFFD\uFFFD\x10\uFFFDD\uFFFD\uFFFD\uFFFD\uFFFDg\x0Fl\u059F\
+          \x04\u03D5d\uFFFD\x14\uFFFD\uFFFD\x12-\uFFFD\uFFFD\uFFFD\uFFFDZ\uFFFD+-v\uFFFD\
+          !\uFFFD\uFFFDn\r%\uFFFD[_fw\uFFFD\uFFFD/\x01A\uFFFD`\uFFFD\uFFFD\uFFFD]\uFFFD\
+          \uFFFD\uFFFD\uFFFD3\uFFFD\uFFFDG|\uFFFD\uFFFD9u\uFFFD\uFFFD:lT\x0F\u06AA\
+          \uFFFD\uFFFD\uFFFD\uFFFD\uFFFDv\uFFFD\u06BB\x15\uFFFD_|\uFFFD\uFFFD\uFFFD\
+          \uFFFD\uFFFD2\uFFFD\uFFFD\uFFFDv\uFFFDR@0\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\
+          >\uFFFD_\uFFFD\uFFFD;\uFFFD\x0F\x1F\uFFFD\uFFFD]\uFFFD\x7F\u045D\x1CU\uFFFD\
+          g\uFFFDIT\uFFFD\uFFFDV\x13\uFFFDj\uFFFD\e+r\uFFFD1\uFFFDt\uFFFDEk3\uFFFD\
+          \v\uFFFDUG\uFFFD\x05N\uFFFDl:\uFFFD\uFFFDj\uFFFD\x1C>\uFFFD\uFFFD\uFFFD\0\
+          \ae\x19\uFFFD\uFFFD\uFFFD\uFFFD\\\uFFFDq3\uFFFD\uFFFD(\uFFFD\uFFFD\uFFFD\
+          \r\uFFFD;\uFFFD\u0476F5\uFFFDn\uFFFD\uFFFD\uFFFDW\uFFFD|k\uFFFD\uFFFD\x02\
+          PK\x03\x04\x14\0\0\0\b\0\0\0?\0\x18\uFFFDFT\uFFFD\x05\0\0R\e\0\0\x13\0\0\
+          \0xl/theme/theme1.xml\uFFFDYM\uFFFD\uFFFDD\x18\uFFFD\uFFFD+F\uFFFD\uFFFD\
+          \uFFFD\x13;\u036E\uFFFD\uFFFD6\u0664\uFFFD\uFFFD\uFFFD\uFFFD\u0774\uFFFD\
+          \u01C9=\uFFFD\uFFFD\x19{\uFFFD\uFFFD\uFFFDnsC\uFFFD\x11\t\tQ\x10\x17$n\x1C\
+          \x10P\uFFFD\uFFFD\uFFFD\uFFFD_\uFFFDP\x04E\uFFFD_\uFFFD\uFFFDG\uFFFD\uFFFD\
+          f\uFFFD\u0376\uFFFD\0\uFFFD9$\uFFFD\uFFFD\uFFFD~\x7F\uFFFD\x1D\uFFFD\uFFFD\
+          \a1CGDH\u0293\uFFFD\uFFFD\\\uFFFDY\uFFFD$>\x0Fh\x12\uFFFD\uFFFD;\uFFFD\uFFFD\
+          \uFFFD\uFFFD\uFFFD\uFFFD\uFFFDI\uFFFD\x19OH\u06DA\x12i]\uFFFD\uFFFD\uFFFD\
+          *\uFFFDT\x11\uFFFD\t\x02\uFFFDDn\uFFFD\x15)\uFFFDn\u06B6\uFFFDa\e\uFFFD\uFFFD\
+          <%\t\uFFFD\eq\x11c\x05K\x11\u0681\uFFFD\uFFFD\uFFFD6fv\uFFFDVk\uFFFD1\uFFFD\
+          \uFFFD\uFFFD\x12\x1C\x03\uFFFD\u06E3\x11\uFFFD\t\x1Ad,\uFFFD\uFFFD\x19\uFFFD\
+          \x1E\uFFFD\uFFFDD\uFFFDl\uFFFDg\uFFFD\uFFFD\uFFFD%\uFFFD\x1496\x18;\u064F\
+          \uFFFD\uFFFD.\x13\uFFFD\b\uFFFD\uFFFD\x05r\x02~< \x0F\uFFFD\uFFFD\x18\uFFFD\
+          \nn\uFFFD\uFFFDZ\uFFFD\uFFFD\uCB6B\uFFFD\uFFFD\uFFFD\uFFFD\x15\uFFFD\x1A\
+          ]?\uFFFD\uFFFDt%A0\uFFFD\uFFFDt\"\x1C\uFFFD\t\uFFFD\uFFFD\uFFFDqeg\u03BF\
+          ^\uFFFD_\uFFFD\uFFFDz\uFFFDn\u03D9\uFFFD\uFFFD\x01\uFFFD\uFFFD\uFFFDRg\t\
+          \uFFFD\uFFFD[Ng\uFFFDS\x03\x15\uFFFD\u02FC\uFFFD5\uFFFD\uFFFDV\uFFFD\x1A\
+          \uFFFD\uFFFD\x12~\uFFFD\uFFFD\uFFFDx\e\x15|c\uFFFDw\uFFFD\uFFFDZ\uFFFD\u076E\
+          W\uFFFD\uFFFD\x02\uFFFD-\uFFFD\uFFFD\uFFFD\uFFFDv\uFFFD\x15\uFFFD\uFFFD\uFFFD\
+          7\uFFFD\uFFFD\uFFFD+\eM\uFFFD\uFFFD\uFFFDA\x11\uFFFD\uFFFDx\t\uFFFD\uFFFD\
+          s\x1E\uFFFD9d\uFFFD\uFFFD\r#\uFFFD\x05\uFFFD\uFFFD,\x01\x16([\u02EE\uFFFD\
+          >Q\uFFFDr-\uFFFD\uFFFD\uFFFD\uFFFD\x03 \x0F.V4Aj\uFFFD\uFFFD\x11\uFFFD\x01\
+          \uFFFD\uFFFD\uFFFDPP\uFFFD\t\uFFFD\uFFFD\x04kw\uFFFD-_.me\uFFFD\uFFFD\uFFFD\
+          \x05MU\uFFFD\uFFFD(\uFFFDP\x11\v\u022B\uFFFD?\uFFFDz\uFFFD\x14\uFFFDz\uFFFD\
+          \uFFFD\uFFFD\u1CD3\uFFFD?\uFFFD<zt\uFFFD\uFFFD'\x03\uFFFD\r\uFFFD\uFFFD\
+          :\uFFFD\uFFFD\uFFFD>\uFFFD\uFFFDO\u041FO\uFFFD}\uFFFD\uFFFDK3^\uFFFD\uFFFD\
+          \uFFFD~\uFFFD\uFFFD\uFFFD_\uFFFD0\x03\uFFFD\x0E|\uFFFD\u0553\u07DF=y\uFFFD\
+          \uFFFDg\x7F|\uFFFD\uFFFD\0\uFFFD\x16x\uFFFD\uFFFD\a4&\x12\uFFFD\"\uFFFD\uFFFD\
+          \uFFFD`\uFFFDA\0\x19\uFFFD\uFFFDQ\f\"L+\x148\x02\uFFFD\x01\uFFFDSQ\x05xk\uFFFD\
+          \uFFFD\t\uFFFD!U\uFFFD\uFFFD\x15\uFFFD\0L\uFFFD\uFFFD\uFFFD\x15]\x0F#1Q\uFFFD\
+          \0\u070D\uFFFD\np\uFFFDs\uFFFD\uFFFD\uFFFDh\uFFFDn&K7g\uFFFD\uFFFDf\uFFFD\
+          b\uFFFD\uFFFD\x0E0>2\uFFFD\uFFFD\nmo\uFFFDB&S\x13\uFFFDnD*j\uFFFD3\uFFFD\
+          6\x0EIB\x14\uFFFD\uFFFD\uFFFD1!\x06\uFFFD{\uFFFDV\uFFFD\uFFFDG}\uFFFD%\x1F\
+          )t\uFFFD\uFFFD\x0E\uFFFDF\uFFFD\f\uFFFDP\uFFFD\uFFFDn\uFFFD\x18\uFFFD25)\b\
+          \uFFFD\uFFFD\uFFFDf\uFFFD.\uFFFDpfb\uFFFDC\uFFFD\uFFFDH(\b\uFFFDL,\t\uFFFD\
+          \uFFFD\uFFFD:\uFFFD(\x1C\e5\uFFFD1\u04D17\uFFFD\uFFFDLJ\x1EN\uFFFD_q\uFFFD\
+          T\x10\uFFFD0\uFFFDz\x01\uFFFD\uFFFDDs[L+\uFFFD\uFFFDb\uFFFDD\u01B0\uFFFD\
+          i\\E\nE\uFFFD&\uFFFDM\u0339\uFFFD\uFFFD\uFFFD\uFFFDn\uFFFD\uFFFD\u05283M\"\
+          \x1D\uFFFD\uFFFD\x1CC\uFFFDb\uFFFD\u03D5Q\t^\uFFFD\uFFFDl\rq\uFFFD\uFFFD\
+          \uFFFDp\u07E5D\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD02'Hvg\"\u02AE]\uFFFD1M\uFFFD\
+          j\u018CB7~\u07CCg\uFFFDmx4\uFFFDJ\uFFFDt\v^\uFFFD\uFFFD\x1F6\uFFFD\x1D<I\uFFFD\
+          \t\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFF8B}wU-\uFFFD\uFFFDm\x17\r\uFFFD\
+          \uFFFD\uFFFD\uFFFD_\uFFFDrH\x1EQ\uFFFD\x0E\u0554\uFFFD\uFFFD2o\uFFFD\x12\
+          \uFFFD\x0E\uFFFD\uFFFD\uFFFD/r\uFFFD\uFFFDL\uFFFDFpY\uFFFD\uFFFD\uFFFDB\uFFFD\
+          \uFFFDk$\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD0\uFFFD)\uFFFDqr\t\uFFFD,Y\uFFFD\x12\
+          \uFFFD\\\uFFFDI\uFFFDZ\uFFFD;?NR0>\uFFFD\uFFFDfg@@c\uFFFD\u01C3b\uFFFD\uFFFD\
+          \uFFFD\r\uFFFDl\uFFFDU(uA\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\x1AW\uFFFDN\uFFFD\
+          S\0\u05D4\uFFFDxfi\u0799\uFFFDl\u035BP\r\bg\a\x7F\uFFFDY/DC\uFFFD`F\uFFFD\
+          \uFFFD\uFFFD\x05\uFFFDYX.<D2\uFFFD\x01)c\uFFFD\x18\rq\x1Ak\uFFFD\uFFFD\uFFFD\
+          z\uFFFDi\uFFFD6\x1Ao'm\uFFFD \uFFFD\uFFFD\uFFFD\x15\uFFFD\v\uFFFDRm)J\uFFFD\
+          r9\uFFFD\uFFFD\uFFFDB\u01E0\uFFFDW\uFFFD,\uFFFD\uFFFDm\uFFFD`\uFFFD\uFFFD\
+          \uFFFD8\x05~2k@\uFFFD\uFFFDI\uFFFD\uFFFDUi\uFFFDk\uFFFD\uFFFD\uFFFD\uFFFD\
+          \uFFFDtj+\r\uFFFD\uFFFDH\uFFFDT;XF\x05U~k\uFFFD\uFFFD$Y\uFFFD_\uFFFD\uFFFD\
+          \uFFFD\x0F\x17c\uFFFD\uFFFD\e\uFFFD\uFFFDE\uFFFD\uFFFD\uFFFD\uFFFDZ\u0627\
+          CKF#\uFFFD\x15;\uFFFDey\uFFFDO\x14\x11\uFFFDQp\uFFFD\uFFFDl\"\x0E0\uFFFD\
+          \uFFFD\x16\uFFFD\x15P\t\u03CC\uFFFDl!\uFFFDB\uFFFD2\uFFFD_V\uFFFD\uFFFD\
+          W4eu`\uFFFDF\uFFFD\uFFFDI--\uFFFD\x05<\uFFFD\uFFFD\uB42F4\uFFFD\uFFFD\x15\
+          \uFFFD\uFFFD\uFFFD)\uFFFD\v4\uFFFD{wM\uFFFD2\x17\uFFFD\uFFFDF\uFFFD\x1F\uFFFD\
+          `\f\x10\x18e9\u06B6\uFFFDP\x11\uFFFD.\uFFFDF\uFFFD\uFFFD\v\x18\x1CrY\uFFFD\
+          \x17\uFFFD\uFFFD\uFFFDTB,{\u07DC\uFFFDJ\uFFFD\x16}\uFFFD\uFFFDQ4\uFFFD0R\a\
+          4D\uFFFDB\uFFFDS\uFFFD d_\uFFFDv\uFFFD\uFFFD\uFFFDS\u05DF\uFFFD3Fe\uFFFD\
+          \uFFFD\uFFFD+\uFFFD\uFFFDwH\uFFFD\b\ed\uFFFD\uFFFD\uFFFD\uFFFDP4\uFFFD&\uFFFD\
+          #r\uFFFD\uFFFD\u0666\uFFFD\x1A\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\u3B98|\uFFFD\
+          \x1E\x0F\x16\uFFFD\uFFFD\uFFFD\uFFFD\"\uFFFD\uFFFD\uFFFD\uFFFDG\uFFFD\uFFFD\
+          \u06E9p\uFFFDGm\uFFFDlq\uFFFD[\uFFFDQ\uFFFD\uFFFD\uFFFD\x03e_\u0438\uFFFD\
+          \uFFFD\uFFFDb\uFFFD\x1D\uFFFD\x03\uFFFD>\uFFFDO\uFFFD\b\x12\uFFFDR\uFFFD\
+          ,\uFFFD\uFFFD\uFFFD\x10tni\uFFFDe\uFFFD\uFFFD\uFFFD1j\x11\uFFFD\u058Ax_\uFFFD\
+          \uFFFD9\uFFFD\uFFFD\uFFFD\uFFFDg\uFFFD{sg{\x06_{g\uFFFD\uFFFD^.Q[;\uFFFD\
+          \u4AE5?\uFFFD\uFFFD\uFFFD>\uFFFD\u0781\uFFFD\u0484)Y\uFFFDMz\0G\uFFFD\uFFFD\
+          \uFFFD/\x03\uFFFDc/H\uFFFD\uFFFD\x06PK\x03\x04\x14\0\0\0\b\0\0\0?\0\uFFFD\
+          \uFFFD\uFFFDi&\x01\0\0P\x02\0\0\x11\0\0\0docProps/core.xml\uFFFD\uFFFD\uFFFD\
+          N\uFFFD0\x10\uFFFD\uFFFD<E\uFFFD{\uFFFD$\uFFFD\uFFFDZI*\x01\uFFFDJH\x04\
+          Qq\uFFFD\uFFFDmk\x11\uFFFD\uFFFD6\uFFFD}{\uFFFD4I[)'\uFFFD\uFFFD\uFFFDvv\uFFFD\
+          by\uFFFDM\uFFFD\v\uFFFD\t\uFFFDJ\uFFFD%)\uFFFD@1\u0345\u0695\uFFFD^\u014F\
+          (r\uFFFD*N\e\uFFFD\uFFFDDGphY\uFFFD\x15\uFFFD\x10\uFFFD-\uFFFDYm\uFFFDz\x01\
+          .\n \uFFFD\b3%\uFFFD{o\b\u018E\uFFFDAR\uFFFD\x04\uFFFD\n\uFFFDV[I}(\uFFFD\
+          \x0E\e\u02BE\uFFFD\x0Ep\uFFFD\uFFFDs,\uFFFDSN=\uFFFD'`lF\"\uA45C\uFFFDH\uFFFD\
+          c\uFFFD\x0E\uFFFD\x19\uFFFD\x06$(\uFFFDp\uFFFDd\uFFFD\uFFFD\uFFFD`\uFFFD\
+          \uFFFDl\uFFFD+\uFFFD\x14\uFFFDh`\uFFFD:\uFFFD\uFFFD\uFFFD\uFFFD\uFFFDhl\uFFFD\
+          6ig\uFFFD5\uFFFD\uFFFD\uFFFDf\uFFFD\uFFFD\u07AD\x1A\vu:\x15\x03T\x15\uFFFD\
+          \x11f\uFFFDzm\uFFFD\x02_\x17\uFFFDp\ru~\x1DN\uFFFD\x15\uFFFD\uFFFD\uFFFD\
+          A\uFFFDx\uFFFD\x179\uFFFD\x01\uFFFDB\0r\uFFFD;(\uFFFD\uFFFD\uFFFDz\uFFFD\
+          \uFFFD<\uFFFD\uFFFDqz\x1F\uFFFD\uFFFD:\uFFFDH\uFFFD \x0F\uFFFD\uFFFD\uFFFD\
+          \u021B\uFFFD\vP\uFFFDC\uFFFDM\x1C\0\uFFFD\u0737\uFFFD\uFFFD\uFFFD\x03PK\x03\
+          \x04\x14\0\0\0\b\0\0\0?\0\uFFFD\uFFFD2G~\x01\0\0\x19\x03\0\0\x10\0\0\0docProps/app.xml\uFFFD\
+          R\uFFFDN\uFFFD0\x10\uFFFD\uFFFD\x15\uFFFD\uFFFD\uFFFDi\uFFFD\uFFFDS\uFFFD\
+          \x18\uFFFD\x02\uFFFD\uFFFD\u04EB\uFFFD\0g\uFFFDl\x1A\v\u01F6\uFFFD\u06E8\
+          }_\uFFFD\uFFFD\uFFFD!\x05N\uFFFD4;;\x1AOvW\uFFFD\uFFFD[\uFFFDu\x10\uFFFD\
+          xW\uFFFD\uFFFD,g\x198\uFFFD+\uFFFD\x05{.\x1F.\uFFFD\uFFFD\fI\uFFFDJY\uFFFD\
+          `\a@v#/\uFFFD:\uFFFD\0\uFFFD\f`\uFFFD\x1C\x1C\x16\uFFFD!\nK\uFFFDQ7\uFFFD\
+          *\uFFFD\uFFFD\uFFFDK\uFFFD\uFFFD\uFFFDVQ*\uFFFD\uFFFD\uFFFD6\x1A\uFFFD\u07B5\
+          \uFFFD\uFFFD/\uFFFD\uFFFD\uFFFD\xDE\uFFFDUP]\uFFFD\u0450\x1D\x1D\uFFFD\x1D\
+          \uFFFD\u05B4\uFFFD\u03C7/\uFFFD!$?)nC\uFFFDF+J?)\uFFFD\x1A\x1D=\uFFFD\uFFFD\
+          \uFFFD\uFFFD\uFFFD\x06+\uFFFD\uFFFD)\uFFFD\uFFFD\x06\uFFFD.\x1A:\uFFFD\\\
+          \uFFFDi)6ZYX%cY+\uFFFD \uFFFD'!\x1EA\uFFFD3[+\x13Q\uFFFD\uFFFD\uFFFD\x1D\
+          h\uFFFD1C\uFFFD?Mm\uFFFD\uFFFD7\uFFFD\uFFFD\uFFFD)X\uFFFD\uFFFDQ\uFFFD\uFFFD\
+          Qv,\x06l\x03R\uFFFD\uFFFD>\uFFFDc\x03@(\uFFFDH\x0Ep\uFFFD\uFFFDbs%\uFFFD\
+          \ \uFFFDs!\x1F\uFFFD$|\x1E\uFFFD4d\x01\uFFFD\uFFFDk\x15\uFFFD\uFFFD\uFFFD\
+          i\uFFFD!\x03\uFFFDd\\\uFFFD|\uFFFD\uFFFD&+cZ\u07F7\uFFFD\uFFFD'\uFFFD<\uFFFD\
+          \uFFFDmP.M\uFFFD\uFFFD\uFFFD\u0278w|\x0E\uFFFD\uFFFDS\x04\uFFFD\uFFFD\uFFFD\
+          \uFFFDb\u04E8\bUZ\uFFFD8\uFFFD\uFFFD\x10\uFFFD)`\uFFFD\uFFFD~\uFFFD(\uFFFD\
+          \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFDx\uFFFDr\uFFFD\uFFFD\uFFFD\uFFFD\
+          \e\uFFFD\x7F\uFFFD\x04\uFFFD<j\uFFFD\x01PK\x01\x02\x14\x03\x14\0\0\0\b\0\
+          \0\0?\0a]I:O\x01\0\0\uFFFD\x04\0\0\x13\0\0\0\0\0\0\0\0\0\0\0\uFFFD\uFFFD\
+          \0\0\0\0[Content_Types].xmlPK\x01\x02\x14\x03\x14\0\0\0\b\0\0\0?\0\uFFFD\
+          I\uFFFD\uFFFD\0\0\0K\x02\0\0\v\0\0\0\0\0\0\0\0\0\0\0\uFFFD\uFFFD\uFFFD\x01\
+          \0\0_rels/.relsPK\x01\x02\x14\x03\x14\0\0\0\b\0\0\0?\0Du[\uFFFD\uFFFD\0\0\
+          \0\uFFFD\x02\0\0\x1A\0\0\0\0\0\0\0\0\0\0\0\uFFFD\uFFFD\uFFFD\x02\0\0xl/_rels/workbook.xml.relsPK\x01\
+          \x02\x14\x03\x14\0\0\0\b\0\0\0?\0\uFFFDo\uFFFD\x1A\uFFFD\x02\0\0\uFFFD\a\
+          \0\0\x18\0\0\0\0\0\0\0\0\0\0\0\uFFFD\uFFFD\uFFFD\x03\0\0xl/worksheets/sheet1.xmlPK\x01\
+          \x02\x14\x03\x14\0\0\0\b\0\0\0?\0\uFFFDm\uFFFD\uFFFDO\x01\0\0/\x02\0\0\x0F\
+          \0\0\0\0\0\0\0\0\0\0\0\uFFFD\uFFFD\uFFFD\x06\0\0xl/workbook.xmlPK\x01\x02\
+          \x14\x03\x14\0\0\0\b\0\0\0?\0\uFFFD\u0102#\uFFFD\0\0\0\x04\x01\0\0\x14\0\
+          \0\0\0\0\0\0\0\0\0\0\uFFFD\uFFFD\x16\b\0\0xl/sharedStrings.xmlPK\x01\x02\
+          \x14\x03\x14\0\0\0\b\0\0\0?\0\uFFFDf\uFFFDI\uFFFD\x02\0\0\uFFFD\r\0\0\r\0\
+          \0\0\0\0\0\0\0\0\0\0\uFFFD\uFFFD\x02\t\0\0xl/styles.xmlPK\x01\x02\x14\x03\
+          \x14\0\0\0\b\0\0\0?\0\x18\uFFFDFT\uFFFD\x05\0\0R\e\0\0\x13\0\0\0\0\0\0\0\
+          \0\0\0\0\uFFFD\uFFFD\x1C\f\0\0xl/theme/theme1.xmlPK\x01\x02\x14\x03\x14\0\
+          \0\0\b\0\0\0?\0\uFFFD\uFFFD\uFFFDi&\x01\0\0P\x02\0\0\x11\0\0\0\0\0\0\0\0\
+          \0\0\0\uFFFD\uFFFD\uFFFD\x11\0\0docProps/core.xmlPK\x01\x02\x14\x03\x14\0\
+          \0\0\b\0\0\0?\0\uFFFD\uFFFD2G~\x01\0\0\x19\x03\0\0\x10\0\0\0\0\0\0\0\0\0\
+          \0\0\uFFFD\uFFFDR\x13\0\0docProps/app.xmlPK\x05\x06\0\0\0\0\n\0\n\0\uFFFD\
+          \x02\0\0\uFFFD\x14\0\0\0\0"
+      headers:
+        Content-Disposition:
+          - attachment; filename="=?UTF-8?Q?Customers_Trend.xlsx?="; filename*=UTF-8''Customers%20Trend.xlsx
+        Content-Type:
+          - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+        DATE:
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID:
+          - PLACEHOLDER
+      status:
+        code: 200
+        message: OK
+version: 1

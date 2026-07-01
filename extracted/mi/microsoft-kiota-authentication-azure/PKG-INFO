@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-kiota-authentication-azure
-Version: 1.11.6
+Version: 1.11.7
 Summary: Core abstractions for kiota generated libraries in Python
 Keywords: kiota,openAPI,Microsoft,Graph
 Author-email: Microsoft <graphtooling+python@microsoft.com>

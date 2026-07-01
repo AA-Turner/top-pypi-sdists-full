@@ -1,0 +1,280 @@
+# -*- coding: utf-8 -*-
+import pytest
+import six
+from django import VERSION as DJANGO_VERSION
+from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import CharField
+
+from queryable_properties.properties import InheritanceModelProperty, QueryableProperty, InheritanceObjectProperty
+from queryable_properties.utils import get_queryable_property
+from ..inheritance.models import (
+    Child1, Child2, DisconnectedGrandchild2, Grandchild1, MultipleChild, MultipleParent1, MultipleParent2, Parent,
+    ProxyChild,
+)
+from ..marks import skip_if_no_expressions
+
+
+@skip_if_no_expressions
+class TestInheritanceModelProperty(object):
+
+    @pytest.mark.parametrize('kwargs', [
+        {
+            'value_generator': lambda cls: str(cls),
+            'output_field': CharField(),
+        },
+        {
+            'value_generator': lambda cls: str(cls),
+            'output_field': CharField(),
+            'depth': 1,
+            'cached': True,
+            'verbose_name': 'Test',
+        },
+    ])
+    def test_initializer(self, kwargs):
+        prop = InheritanceModelProperty(**kwargs)
+        assert prop.value_generator is kwargs['value_generator']
+        assert prop._inheritance_output_field is kwargs['output_field']
+        assert prop.depth == kwargs.get('depth')
+        assert prop.cached is kwargs.get('cached', QueryableProperty.cached)
+        assert prop.verbose_name == kwargs.get('verbose_name')
+
+    def test_get_value_for_model(self):
+        prop = InheritanceModelProperty(value_generator=lambda cls: cls.__name__, output_field=CharField())
+        assert prop._get_value_for_model(Parent) == 'Parent'
+
+    @pytest.mark.django_db
+    def test_annotation(self, django_assert_num_queries, inheritance_instances):
+        with django_assert_num_queries(1):
+            instances = Parent.objects.select_properties('plural').in_bulk([
+                inheritance_instances[Parent].pk,
+                inheritance_instances[Child1].pk,
+                inheritance_instances[Child2].pk,
+                inheritance_instances[Grandchild1].pk,
+                inheritance_instances[DisconnectedGrandchild2].pk,
+            ])
+            assert instances[inheritance_instances[Parent].pk].plural == 'parents'
+            assert instances[inheritance_instances[Child1].pk].plural == 'child1s'
+            assert instances[inheritance_instances[Child2].pk].plural == 'child2s'
+            assert instances[inheritance_instances[Grandchild1].pk].plural == 'grandchild1s'
+            assert instances[inheritance_instances[DisconnectedGrandchild2].pk].plural == 'child2s'
+
+        with django_assert_num_queries(1):
+            instances = MultipleParent1.objects.select_properties('plural').in_bulk([
+                inheritance_instances[MultipleParent1].pk,
+                inheritance_instances[MultipleChild].pk,
+            ])
+            assert instances[inheritance_instances[MultipleParent1].pk].plural == 'multiple parent1s'
+            assert instances[inheritance_instances[MultipleChild].pk].plural == 'multiple childs'
+
+        # In Django versions below 1.10, proxy models seemingly can't access
+        # parent links.
+        if DJANGO_VERSION >= (1, 10):
+            with django_assert_num_queries(1):
+                instances = ProxyChild.objects.select_properties('plural').in_bulk([
+                    inheritance_instances[Child1].pk,
+                    inheritance_instances[Grandchild1].pk,
+                ])
+                assert instances[inheritance_instances[Child1].pk].plural == 'proxy childs'
+                assert instances[inheritance_instances[Grandchild1].pk].plural == 'grandchild1s'
+
+        assert Parent.objects.get(plural='parents') == inheritance_instances[Parent]
+        assert Parent.objects.get(plural='grandchild1s').pk == inheritance_instances[Grandchild1].pk
+
+    @pytest.mark.django_db
+    @pytest.mark.parametrize('depth, expected_values', [
+        (
+            None,
+            {
+                Parent: 'parents',
+                Child1: 'child1s',
+                Child2: 'child2s',
+                Grandchild1: 'grandchild1s',
+                DisconnectedGrandchild2: 'child2s',
+            },
+        ),
+        (
+            2,
+            {
+                Parent: 'parents',
+                Child1: 'child1s',
+                Child2: 'child2s',
+                Grandchild1: 'grandchild1s',
+                DisconnectedGrandchild2: 'child2s',
+            },
+        ),
+        (
+            1,
+            {
+                Parent: 'parents',
+                Child1: 'child1s',
+                Child2: 'child2s',
+                Grandchild1: 'child1s',
+                DisconnectedGrandchild2: 'child2s',
+            },
+        ),
+        (
+            0,
+            {
+                Parent: 'parents',
+                Child1: 'parents',
+                Child2: 'parents',
+                Grandchild1: 'parents',
+                DisconnectedGrandchild2: 'parents',
+            },
+        ),
+    ])
+    def test_depth_levels(self, monkeypatch, inheritance_instances, depth, expected_values):
+        prop = get_queryable_property(Parent, 'plural')
+        monkeypatch.setattr(prop, 'depth', depth)
+
+        instances = Parent.objects.select_properties('plural').in_bulk([
+            inheritance_instances[Parent].pk,
+            inheritance_instances[Child1].pk,
+            inheritance_instances[Child2].pk,
+            inheritance_instances[Grandchild1].pk,
+            inheritance_instances[DisconnectedGrandchild2].pk,
+        ])
+        for model, expected_value in expected_values.items():
+            assert instances[inheritance_instances[model].pk].plural == expected_value
+
+
+@skip_if_no_expressions
+class TestInheritanceObjectProperty(object):
+
+    @pytest.fixture
+    def ref(self):
+        return get_queryable_property(Parent, 'subclass_obj')._resolve()[0]
+
+    @pytest.mark.parametrize('kwargs', [
+        {'depth': 1},
+        {'cached': True, 'verbose_name': 'Test'},
+    ])
+    def test_initializer(self, kwargs):
+        prop = InheritanceObjectProperty(**kwargs)
+        assert isinstance(prop._inheritance_output_field, CharField)
+        assert prop.depth == kwargs.get('depth')
+        assert prop.cached is kwargs.get('cached', QueryableProperty.cached)
+        assert prop.verbose_name == kwargs.get('verbose_name')
+
+    def test_get_value_for_model(self):
+        assert InheritanceObjectProperty()._get_value_for_model(Parent) == 'inheritance.Parent'
+
+    @pytest.mark.django_db
+    @pytest.mark.parametrize('cached', [True, False])
+    @pytest.mark.parametrize('model, depth, expected_model', [
+        (Parent, None, Grandchild1),
+        (Parent, 2, Grandchild1),
+        (Parent, 1, Child1),
+        (Parent, 0, Parent),
+        (Child1, None, Grandchild1),
+        (Child1, 2, Grandchild1),
+        (Child1, 1, Grandchild1),
+        (Child1, 0, Child1),
+        (Grandchild1, None, Grandchild1),
+        (Grandchild1, 2, Grandchild1),
+        (Grandchild1, 1, Grandchild1),
+        (Grandchild1, 0, Grandchild1),
+    ])
+    def test_getter_no_cache(self, monkeypatch, django_assert_num_queries, inheritance_instances, ref,
+                             cached, model, depth, expected_model):
+        monkeypatch.setattr(ref.property, 'cached', cached)
+        base_obj = model.objects.get(pk=inheritance_instances[Grandchild1].pk)
+        with django_assert_num_queries(1):
+            child_obj = base_obj.subclass_obj
+        assert isinstance(child_obj, expected_model)
+        assert not child_obj.get_deferred_fields()
+        assert ref.descriptor.has_cached_value(base_obj) is cached
+        if cached:
+            assert ref.descriptor.get_cached_value(base_obj) == child_obj
+        child_obj.parent_field = 'changed'
+        assert base_obj.parent_field == 'parent_field'
+
+    @pytest.mark.django_db
+    @pytest.mark.parametrize('model', [Grandchild1, Child1, Parent])
+    def test_cached_raw_values(self, django_assert_num_queries, inheritance_instances, ref, model):
+        base_obj = model.objects.select_related().get(pk=inheritance_instances[Grandchild1].pk)
+        ref.descriptor.set_cached_value(base_obj, ref.property._get_value_for_model(model))
+        with django_assert_num_queries(0):
+            child_obj = base_obj.subclass_obj
+        assert isinstance(child_obj, model)
+        assert not child_obj.get_deferred_fields()
+        assert ref.descriptor.get_cached_value(base_obj) == child_obj
+        child_obj.parent_field = 'changed'
+        assert base_obj.parent_field == 'parent_field'
+
+    @pytest.mark.django_db
+    def test_getter_cached_final_value(self, django_assert_num_queries, inheritance_instances, ref):
+        child_obj = inheritance_instances[Grandchild1]
+        base_obj = Parent.objects.get(pk=child_obj.pk)
+        ref.descriptor.set_cached_value(base_obj, child_obj)
+        with django_assert_num_queries(0):
+            assert base_obj.subclass_obj is child_obj
+        assert ref.descriptor.get_cached_value(base_obj) is child_obj
+
+    @pytest.mark.django_db
+    @pytest.mark.parametrize('filter_value, filter_model, expected_model', [
+        ('inheritance.Child1', None, Child1),
+        (Grandchild1, None, Grandchild1),
+        (Child1(), Child1, Child1),
+        (Grandchild1(), Child1, None),
+    ])
+    def test_filter(self, inheritance_instances, filter_value, filter_model, expected_model):
+        if isinstance(filter_value, Parent):
+            filter_value = filter_model.objects.get(pk=inheritance_instances[filter_value.__class__].pk)
+        queryset = Parent.objects.filter(subclass_obj=filter_value)
+
+        try:
+            result = queryset.get()
+        except ObjectDoesNotExist:
+            assert expected_model is None
+        else:
+            assert result == inheritance_instances[expected_model].parent_ptr
+
+    @pytest.mark.django_db
+    def test_annotation_model_instance(self, django_assert_num_queries, inheritance_instances):
+        grandchild2_as_child2 = inheritance_instances[DisconnectedGrandchild2]
+        grandchild2_as_child2.__class__ = Child2
+
+        with django_assert_num_queries(1):
+            instances = Parent.objects.select_properties('subclass_obj').in_bulk([
+                inheritance_instances[Parent].pk,
+                inheritance_instances[Child1].pk,
+                inheritance_instances[Child2].pk,
+                inheritance_instances[Grandchild1].pk,
+                grandchild2_as_child2.pk,
+            ])
+            assert instances[inheritance_instances[Parent].pk].subclass_obj == inheritance_instances[Parent]
+            assert instances[inheritance_instances[Child1].pk].subclass_obj == inheritance_instances[Child1]
+            assert instances[inheritance_instances[Child2].pk].subclass_obj == inheritance_instances[Child2]
+            assert instances[inheritance_instances[Grandchild1].pk].subclass_obj == inheritance_instances[Grandchild1]
+            assert instances[grandchild2_as_child2.pk].subclass_obj == grandchild2_as_child2
+
+        with django_assert_num_queries(1):
+            instances = MultipleParent2.objects.select_properties('subclass_obj').in_bulk([
+                inheritance_instances[MultipleParent2].pk,
+                inheritance_instances[MultipleChild].pk,
+            ])
+            assert (instances[inheritance_instances[MultipleParent2].pk].subclass_obj ==
+                    inheritance_instances[MultipleParent2])
+            assert (instances[inheritance_instances[MultipleChild].pk].subclass_obj ==
+                    inheritance_instances[MultipleChild])
+
+    @pytest.mark.django_db
+    @pytest.mark.parametrize('query_model, expected_results', [
+        (Parent, {
+            Parent: 'inheritance.Parent',
+            Child1: 'inheritance.Child1',
+            Child2: 'inheritance.Child2',
+            Grandchild1: 'inheritance.Grandchild1',
+            DisconnectedGrandchild2: 'inheritance.Child2',
+        }),
+        (MultipleParent2, {
+            MultipleParent2: 'inheritance.MultipleParent2',
+            MultipleChild: 'inheritance.MultipleChild',
+        }),
+    ])
+    def test_annotation_values(self, inheritance_instances, query_model, expected_results):
+        results = dict(query_model.objects.select_properties('subclass_obj').values_list('pk', 'subclass_obj'))
+        assert len(results) == len(expected_results)
+        for model, expected_value in six.iteritems(expected_results):
+            assert results[inheritance_instances[model].pk] == expected_value

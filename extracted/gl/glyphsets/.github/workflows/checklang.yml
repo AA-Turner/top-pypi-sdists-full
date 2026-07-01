@@ -1,0 +1,42 @@
+name: Check for changes in gflanguages
+
+on:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron:  '0 23 * * 2'
+  # push:
+  #   paths:
+  #     - '**.yml'
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+    - name: Check for changes in gflanguages
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cd ..
+        echo "pwd: `pwd`"
+        cp -r glyphsets upstream
+        cd upstream
+        pip install .
+        pip install -U git+https://github.com/googlefonts/lang
+        pip freeze
+        sh build.sh
+        cd ..
+        echo "pwd: `pwd`"
+        cd glyphsets
+        echo "pwd: `pwd`"
+        rm -rf ../upstream/Lib/glyphsets/__pycache__
+        rm -f ../upstream/Lib/glyphsets/_version.py
+        rm -rf ../upstream/Lib/glyphsets.egg-info
+        rm -rf ../upstream/build
+        rm -f ./.git/index ../upstream/.git/index
+        diff -r -x BODY . ../upstream || (echo "Diff return value: $?"; echo -e "Recent data changes in **gflanguages** lead to the following glyphset definition changes.\nThis issue serves as an automated reminder that a new **gflanguages** version _may_ want to be released in order for these changes to come down the stream into **gfglyphsets** as well as other QA tools. There is no immediate reason for action otherwise.\n\n" > BODY; echo -e '```diff' >> BODY; echo -e "`diff -r -x BODY . ../upstream`" >> BODY; echo -e '```' >> BODY; echo "BODY:"; cat BODY; gh issue create --title "Changes in gflanguages data" --body-file BODY --label "dependencies")

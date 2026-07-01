@@ -6,7 +6,7 @@ import urllib
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import click
 from toposort import toposort
@@ -819,7 +819,7 @@ def get_processed(
             elif len(warnings) > 1:
                 click.echo(
                     FeedbackManager.warning_pipe_restricted_params(
-                        words=", ".join(["'{}'".format(param) for param in warnings[:-1]]),
+                        words=", ".join([f"'{param}'" for param in warnings[:-1]]),
                         last_word=warnings[-1],
                     )
                 )
@@ -1334,10 +1334,10 @@ def process_file(
         raise click.ClickException(FeedbackManager.error_file_extension(filename=filename))
 
 
-def sizeof_fmt(num: Union[int, float], suffix: str = "b") -> str:
+def sizeof_fmt(num: float, suffix: str = "b") -> str:
     """Readable file size
     :param num: Bytes value
-    :type num: int
+    :type num: float
     :param suffix: Unit suffix (optionnal) default = o
     :type suffix: str
     :rtype: str

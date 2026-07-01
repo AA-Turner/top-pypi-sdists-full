@@ -1,0 +1,253 @@
+"""Base channel interface — all platform adapters implement this."""
+
+from __future__ import annotations
+
+import hashlib
+from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import aiohttp
+from loguru import logger
+
+from echo_agent.bus.events import InboundEvent, OutboundEvent, ContentBlock, ContentType, PollRequest
+from echo_agent.bus.queue import MessageBus
+
+
+@dataclass
+class SendResult:
+    success: bool
+    message_id: str = ""
+    error: str = ""
+    skipped: bool = False
+
+
+class BaseChannel(ABC):
+    """Abstract base for chat channel implementations.
+
+    Each channel (Telegram, Discord, Webhook, CLI, Cron, etc.) implements this
+    to integrate with the message bus.
+    """
+
+    name: str = "base"
+    transcription_api_key: str = ""
+    supports_edit: bool = False
+
+    def __init__(self, config: Any, bus: MessageBus):
+        self.config = config
+        self.bus = bus
+        self._running = False
+        self.transcription_api_key = getattr(config, "transcription_api_key", "") or ""
+
+    @abstractmethod
+    async def start(self) -> None:
+        """Start listening for messages."""
+
+    @abstractmethod
+    async def stop(self) -> None:
+        """Stop and clean up resources."""
+
+    @abstractmethod
+    async def send(self, event: OutboundEvent) -> SendResult | None:
+        """Send a message through this channel."""
+
+    def should_deliver(self, event: OutboundEvent) -> bool:
+        """Return False to silently skip non-final messages on channels that cannot edit.
+
+        Channels that support message editing (Telegram, Discord) can show progress
+        then overwrite it with the final response. Channels without edit support would
+        deliver every intermediate chunk as a separate, irrevocable message — confusing
+        the user with duplicates. This guard prevents that at the base layer.
+        """
+        if self.supports_edit:
+            return True
+        if event.is_final:
+            return True
+        return False
+
+    async def edit_message(
+        self,
+        chat_id: str,
+        message_id: str,
+        text: str,
+        *,
+        metadata: dict[str, Any] | None = None,
+        finalize: bool = False,
+    ) -> SendResult:
+        """Edit an existing platform message when the channel supports it."""
+        return SendResult(success=False, error=f"channel {self.name} does not support message editing")
+
+    async def send_typing(self, chat_id: str, metadata: dict[str, Any] | None = None) -> None:
+        pass
+
+    async def stop_typing(self, chat_id: str) -> None:
+        pass
+
+    async def send_reaction(self, chat_id: str, message_id: str, emoji: str, metadata: dict[str, Any] | None = None) -> SendResult:
+        return SendResult(success=False, error=f"channel {self.name} does not support reactions")
+
+    async def remove_reaction(self, chat_id: str, message_id: str, emoji: str, metadata: dict[str, Any] | None = None) -> SendResult:
+        return SendResult(success=False, error=f"channel {self.name} does not support reactions")
+
+    async def send_poll(self, chat_id: str, poll: PollRequest, metadata: dict[str, Any] | None = None) -> SendResult:
+        return SendResult(success=False, error=f"channel {self.name} does not support polls")
+
+    async def delete_message(self, chat_id: str, message_id: str, metadata: dict[str, Any] | None = None) -> SendResult:
+        return SendResult(success=False, error=f"channel {self.name} does not support message deletion")
+
+    async def send_read_receipt(self, chat_id: str, message_id: str, metadata: dict[str, Any] | None = None) -> None:
+        pass
+
+    async def send_voice(self, chat_id: str, audio_source: str, metadata: dict[str, Any] | None = None) -> SendResult:
+        return SendResult(success=False, error=f"channel {self.name} does not support voice messages")
+
+    def is_allowed(self, sender_id: str) -> bool:
+        allow_list = getattr(self.config, "allow_from", [])
+        if not allow_list:
+            return True
+        if "*" in allow_list:
+            return True
+        return str(sender_id) in allow_list
+
+    def _build_event(
+        self,
+        sender_id: str,
+        chat_id: str,
+        text: str,
+        media: list[dict[str, str]] | None = None,
+        metadata: dict[str, Any] | None = None,
+        session_key: str | None = None,
+        reply_to_id: str | None = None,
+        thread_id: str | None = None,
+    ) -> InboundEvent:
+        if not self.is_allowed(sender_id):
+            logger.warning("Access denied for sender {} on channel {}", sender_id, self.name)
+            raise PermissionError(f"sender {sender_id} is not allowed on channel {self.name}")
+
+        content_blocks = [ContentBlock(type=ContentType.TEXT, text=text)]
+        for item in (media or []):
+            name = item.get("name", "")
+            meta: dict[str, Any] = {}
+            if name:
+                meta["name"] = name
+            if item.get("aes_key"):
+                meta["aes_key"] = item["aes_key"]
+            content_blocks.append(ContentBlock(
+                type=ContentType(item.get("type", "file")),
+                url=item.get("url", ""),
+                mime_type=item.get("mime_type", ""),
+                metadata=meta,
+            ))
+
+        return InboundEvent(
+            channel=self.name,
+            sender_id=str(sender_id),
+            chat_id=str(chat_id),
+            content=content_blocks,
+            reply_to_id=reply_to_id,
+            thread_id=thread_id,
+            session_key_override=session_key,
+            metadata=metadata or {},
+        )
+
+    async def _handle_message(
+        self,
+        sender_id: str,
+        chat_id: str,
+        text: str,
+        media: list[dict[str, str]] | None = None,
+        metadata: dict[str, Any] | None = None,
+        session_key: str | None = None,
+        reply_to_id: str | None = None,
+        thread_id: str | None = None,
+    ) -> InboundEvent | None:
+        try:
+            event = self._build_event(
+                sender_id=sender_id,
+                chat_id=chat_id,
+                text=text,
+                media=media,
+                metadata=metadata,
+                session_key=session_key,
+                reply_to_id=reply_to_id,
+                thread_id=thread_id,
+            )
+        except PermissionError:
+            return None
+        accepted = await self.bus.publish_inbound(event)
+        if not accepted:
+            # Tell the user instead of silently dropping their message.
+            try:
+                await self.bus.publish_outbound(OutboundEvent.text_reply(
+                    channel=event.channel,
+                    chat_id=event.chat_id,
+                    text="系统繁忙，消息暂时无法处理，请稍后重试。",
+                    reply_to_id=event.reply_to_id,
+                ))
+            except Exception as e:
+                logger.warning("Failed to send busy notice on {}: {}", self.name, e)
+            return None
+        return event
+
+    @property
+    def is_running(self) -> bool:
+        return self._running
+
+    _media_cache_root: Path | None = None
+
+    async def _resolve_media_to_cache(
+        self,
+        source_id: str,
+        platform: str,
+        fetch: Callable[[], Awaitable[bytes]],
+        suffix: str = ".jpg",
+    ) -> str | None:
+        """Download media via a channel-provided *fetch* callback and cache locally.
+
+        Returns the absolute path string on success, ``None`` on any failure.
+        The caller decides how to degrade (skip the image, insert a placeholder, etc.).
+        """
+        root = self._media_cache_root or (Path.home() / ".echo-agent" / "data" / "media_cache")
+        cache_dir = root / platform
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        url_hash = hashlib.sha256(source_id.encode()).hexdigest()[:16]
+        target = cache_dir / f"{url_hash}{suffix}"
+        if target.exists():
+            target.touch()
+            return str(target)
+        try:
+            data = await fetch()
+            if not data:
+                logger.warning("Empty media response for {} on {}", source_id[:60], platform)
+                return None
+            target.write_bytes(data)
+            logger.debug("Cached channel media: {} → {}", source_id[:60], target.name)
+            return str(target)
+        except Exception as e:
+            logger.warning("Channel media download failed for {} on {}: {}", source_id[:60], platform, e)
+            return None
+
+    async def transcribe_audio(self, file_path: str | Path) -> str:
+        """Transcribe audio file via Groq Whisper API."""
+        api_key = self.transcription_api_key
+        if not api_key:
+            return ""
+        path = Path(file_path)
+        if not path.exists():
+            return ""
+        try:
+            url = "https://api.groq.com/openai/v1/audio/transcriptions"
+            data = aiohttp.FormData()
+            data.add_field("file", path.open("rb"), filename=path.name)
+            data.add_field("model", "whisper-large-v3")
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, data=data, headers={"Authorization": f"Bearer {api_key}"}) as resp:
+                    if resp.status == 200:
+                        result = await resp.json()
+                        return result.get("text", "")
+                    logger.warning("Transcription failed ({}): {}", resp.status, await resp.text())
+        except Exception as e:
+            logger.error("Audio transcription error: {}", e)
+        return ""

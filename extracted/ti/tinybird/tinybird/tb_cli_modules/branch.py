@@ -590,7 +590,6 @@ async def regression_tests(
 
         if current_main_workspace["id"] == config["id"]:
             raise CLIException(FeedbackManager.error_not_allowed_in_main_branch())
-            return
         try:
             response = await client.branch_regression_tests_file(
                 config["id"], regression_tests_commands, run_in_main=main

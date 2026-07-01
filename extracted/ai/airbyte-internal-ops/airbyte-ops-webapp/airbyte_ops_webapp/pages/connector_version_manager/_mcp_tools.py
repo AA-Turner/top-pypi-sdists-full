@@ -9,12 +9,14 @@ from typing import Any
 
 from airbyte.exceptions import PyAirbyteInputError
 from airbyte_ops_mcp.cloud_admin import api_client as cloud_api
+from airbyte_ops_mcp.connector_ops.rollouts.constants import CustomerTier
 from fastmcp import FastMCPApp
 
 from airbyte_ops_webapp.models import OverridePlan, ScopeType
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     DEFAULT_ADMIN_USER_ID,
     auth_available,
+    build_rollout_summary,
     cloud_scope_url,
     connector_context_placeholder,
     connector_options,
@@ -74,10 +76,10 @@ def _override_plan(
     version: str,
     override_reason: str,
     reference_url: str,
-    approval_comment_url: str,
-    user_email: str | None,
-    customer_tier_filter: str,
-    force: bool,
+    approval_comment_url: str = "",
+    user_email: str | None = None,
+    customer_tier_filter: str = "TIER_2",
+    force: bool = False,
 ) -> OverridePlan:
     organization_id, workspace_id, actor_id = target_ids(
         adapter=adapter,
@@ -123,9 +125,9 @@ def load_active_rollouts_tab() -> dict[str, Any]:
 
 
 @connector_version_manager_app.tool()
-def load_pinned_versions_tab() -> dict[str, Any]:
-    """Load Pinned Versions tab data on demand (lazy)."""
-    return {"rows": pinned_version_rows()}
+def load_pinned_versions_tab(origin_filter: str = "all") -> dict[str, Any]:
+    """Load Pinned Versions tab data, optionally filtered by pin origin type."""
+    return {"rows": pinned_version_rows(origin_filter=origin_filter)}
 
 
 # ---------------------------------------------------------------------------
@@ -263,12 +265,25 @@ def resolve_scope_guid(
 
 
 def _add_description_display(pin_rows: list[dict[str, Any]], max_len: int = 40) -> None:
-    """Add truncated `description_display` to each pin row in place."""
+    """Add truncated `description_display` to each pin row in place.
+
+    For breaking change pins (`origin_type == "breaking_change"`), the description
+    is always empty so we substitute an explanatory label using the origin version.
+    Connector rollout pins similarly get a synthesized label.
+    """
     for row in pin_rows:
-        desc = row.get("description", "")
-        row["description_display"] = (
-            (desc[:max_len] + "\u2026") if len(desc) > max_len else desc
-        )
+        if row.get("origin_type") == "breaking_change":
+            origin = row.get("origin_name", "") or row.get("origin", "")
+            row["description_display"] = (
+                f"Breaking Change ({origin})" if origin else "Breaking Change"
+            )
+        elif row.get("origin_type") == "connector_rollout":
+            row["description_display"] = "[Connector Rollout]"
+        else:
+            desc = row.get("description", "")
+            row["description_display"] = (
+                (desc[:max_len] + "\u2026") if len(desc) > max_len else desc
+            )
 
 
 def _build_context_result(
@@ -294,6 +309,7 @@ def _build_context_result(
         else connector,
         "versions": versions,
         "active_rollouts": active_rollouts,
+        "rollout_summary": build_rollout_summary(active_rollouts),
         "current_state": current_state,
         "current_state_markdown": json_text(current_state),
         "ancestor_configs": ancestor_configs or [],
@@ -594,12 +610,13 @@ def apply_override(
     version: str,
     override_reason: str,
     reference_url: str,
-    approval_comment_url: str,
-    user_email: str | None,
+    approval_comment_url: str = "",
+    user_email: str | None = None,
     auth_bearer_token: str = "",
     actor_workspace_id: str = "",
     customer_tier_filter: str = "TIER_2",
     force: bool = False,
+    google_access_token: str = "",
 ) -> dict[str, Any]:
     """Apply a connector version override after user confirmation."""
     adapter = get_adapter(auth_bearer_token or None)
@@ -620,7 +637,8 @@ def apply_override(
             user_email=user_email,
             customer_tier_filter=customer_tier_filter,
             force=force,
-        )
+        ),
+        google_access_token=google_access_token,
     )
     return {
         "apply_result_json": operation_result_to_json(result),
@@ -643,6 +661,7 @@ def remove_selected_pins(
     approval_comment_url: str = "",
     user_email: str | None = None,
     customer_tier_filter: str = "TIER_2",
+    google_access_token: str = "",
 ) -> dict[str, Any]:
     """Remove (unset) version overrides for each selected pin.
 
@@ -691,7 +710,8 @@ def remove_selected_pins(
                     user_email=user_email,
                     customer_tier_filter=customer_tier_filter,
                     force=False,
-                )
+                ),
+                google_access_token=google_access_token,
             )
             if result.success:
                 removed += 1
@@ -848,6 +868,62 @@ def finalize_rollout(
     return {
         "rollout_action_result": (
             f"Successfully {action_label} rollout for "
+            f"{docker_repository}:{docker_image_tag}."
+        ),
+        "rollout_action_success": True,
+    }
+
+
+@connector_version_manager_app.tool()
+def promote_to_next_stage(
+    connector_id: str,
+    docker_repository: str,
+    docker_image_tag: str,
+    next_tier: str,
+    auth_bearer_token: str = "",
+    user_email: str = "",
+) -> dict[str, Any]:
+    """Start a new rollout at the next tier (promote from current stage to next)."""
+    valid_tiers = {t.value for t in CustomerTier}
+    if next_tier not in valid_tiers:
+        return {
+            "rollout_action_result": (
+                f"Invalid tier '{next_tier}'. "
+                f"Expected one of: {', '.join(sorted(valid_tiers))}."
+            ),
+            "rollout_action_success": False,
+        }
+
+    adapter = get_adapter(auth_bearer_token or None)
+    config_api_root = adapter.config_api_root
+
+    updated_by = _resolve_updated_by(
+        user_email=user_email,
+        bearer_token=auth_bearer_token or None,
+        config_api_root=config_api_root,
+    )
+
+    try:
+        cloud_api.start_connector_rollout(
+            docker_repository=docker_repository,
+            docker_image_tag=docker_image_tag,
+            actor_definition_id=connector_id,
+            updated_by=updated_by,
+            rollout_strategy="manual",
+            config_api_root=config_api_root,
+            bearer_token=auth_bearer_token or None,
+            customer_tier=next_tier,
+        )
+    except PyAirbyteInputError as exc:
+        return {
+            "rollout_action_result": f"Failed to promote to next stage: {exc}",
+            "rollout_action_success": False,
+        }
+
+    tier_label = CustomerTier(next_tier).label
+    return {
+        "rollout_action_result": (
+            f"Successfully started {tier_label} rollout for "
             f"{docker_repository}:{docker_image_tag}."
         ),
         "rollout_action_success": True,

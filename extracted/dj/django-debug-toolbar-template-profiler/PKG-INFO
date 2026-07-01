@@ -1,0 +1,83 @@
+Metadata-Version: 2.1
+Name: django-debug-toolbar-template-profiler
+Version: 2.1.0
+Summary: Displays template rendering time on the timeline
+Home-page: https://github.com/node13h/django-debug-toolbar-template-profiler
+Author: Sergej Alikov
+Author-email: sergej.alikov@gmail.com
+Maintainer: Adam Johnson
+Maintainer-email: me@adamj.eu
+License: Simplified BSD License
+Project-URL: Changelog, https://github.com/node13h/django-debug-toolbar-template-profiler/blob/master/HISTORY.rst
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+
+======================================
+django-debug-toolbar-template-profiler
+======================================
+
+.. image:: https://img.shields.io/pypi/v/django-debug-toolbar-template-profiler.svg
+       :target: https://pypi.python.org/pypi/django-debug-toolbar-template-profiler
+
+An extra panel for
+`django-debug-toolbar <https://django-debug-toolbar.readthedocs.io>`__
+that displays time spent rendering each template.
+
+For example:
+
+.. image:: https://raw.githubusercontent.com/node13h/django-debug-toolbar-template-profiler/master/screenshot.png
+
+Installation
+============
+
+First, you'll need to install and configure django-debug-toolbar as per its
+`installation instructions
+<https://django-debug-toolbar.readthedocs.io/en/latest/installation.html>`__.
+
+Second, install this package:
+
+.. code-block:: sh
+
+    pip install django-debug-toolbar-template-profiler
+
+Third, add it to your installed apps - order doesn't matter but after
+`debug_toolbar` will keep it neatly grouped:
+
+.. code-block:: python
+
+    INSTALLED_APPS = [
+        # ...
+        "debug_toolbar",
+        "template_profiler_panel",
+        # ...
+    ]
+
+Fourth, configure django-debug-toolbar's ``DEBUG_TOOLBAR_PANELS`` setting
+`as per its documentation
+<https://django-debug-toolbar.readthedocs.io/en/latest/configuration.html#debug-toolbar-panels>`__
+to include the panel. You'll need to copy the default and add the panel at the
+end:
+
+.. code-block:: python
+
+    DEBUG_TOOLBAR_PANELS = [
+        # ...
+        "template_profiler_panel.panels.template.TemplateProfilerPanel",
+    ]
+
+After this, you should see the "Template Profiler" panel when you load the
+toolbar. Both Django and Jinja2 template ``render()`` calls will be measured.
+
+

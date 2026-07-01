@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prince
-Version: 0.20.0
+Version: 0.20.1
 Summary: Factor analysis in Python: PCA, CA, MCA, MFA, FAMD, GPA, PGA
 Author-email: Max Halford <maxhalford25@gmail.com>
 License-Expression: MIT
@@ -10,6 +10,7 @@ License-File: LICENSE
 Requires-Dist: scikit-learn>=1.5.1
 Requires-Dist: pandas>=2.2.0
 Requires-Dist: altair>=5.0.0
+Requires-Dist: typing-extensions>=4.6
 Provides-Extra: dev
 Requires-Dist: nbconvert>=7.16.5; extra == "dev"
 Requires-Dist: fbpca>=1.0; extra == "dev"
@@ -44,13 +45,9 @@ Dynamic: license-file
   <a href="https://pepy.tech/project/prince">
     <img src="https://static.pepy.tech/badge/prince/month" alt="pepy_month">
   </a>
-  <!-- Unit tests -->
-  <a href="https://github.com/MaxHalford/prince/actions/workflows/unit-tests.yml">
-    <img src="https://github.com/MaxHalford/prince/actions/workflows/unit-tests.yml/badge.svg" alt="Unit tests" />
-  </a>
-  <!-- Code quality -->
-  <a href="https://github.com/MaxHalford/prince/actions/workflows/code-quality.yml">
-    <img src="https://github.com/MaxHalford/prince/actions/workflows/code-quality.yml/badge.svg" alt="Code quality" />
+  <!-- CI -->
+  <a href="https://github.com/MaxHalford/prince/actions/workflows/ci.yml">
+    <img src="https://github.com/MaxHalford/prince/actions/workflows/ci.yml/badge.svg" alt="CI" />
   </a>
   <!-- License -->
   <a href="https://opensource.org/licenses/MIT">

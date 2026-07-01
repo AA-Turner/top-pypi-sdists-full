@@ -1,8 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: tree-sitter
-Version: 0.25.2
+Version: 0.26.0
 Summary: Python bindings to the Tree-sitter parsing library
 Author-email: Max Brunsfeld <maxbrunsfeld@gmail.com>
+Maintainer-email: ObserverOfTime <chronobserver@disroot.org>
 Project-URL: Homepage, https://tree-sitter.github.io/tree-sitter/
 Project-URL: Source, https://github.com/tree-sitter/py-tree-sitter
 Project-URL: Documentation, https://tree-sitter.github.io/py-tree-sitter/
@@ -19,9 +20,17 @@ Classifier: Topic :: Text Processing :: Linguistic
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Provides-Extra: docs
-Provides-Extra: tests
 License-File: LICENSE
+Provides-Extra: docs
+Requires-Dist: sphinx~=8.2; extra == "docs"
+Requires-Dist: sphinx-book-theme; extra == "docs"
+Provides-Extra: tests
+Requires-Dist: tree-sitter-html==0.23.2; extra == "tests"
+Requires-Dist: tree-sitter-javascript==0.25.0; extra == "tests"
+Requires-Dist: tree-sitter-json==0.24.8; extra == "tests"
+Requires-Dist: tree-sitter-python==0.25.0; extra == "tests"
+Requires-Dist: tree-sitter-rust==0.24.2; extra == "tests"
+Dynamic: license-file
 
 # Python Tree-sitter
 

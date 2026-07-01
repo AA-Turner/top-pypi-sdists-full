@@ -388,13 +388,15 @@ def test_version_flag_not_intercepted_by_yank() -> None:
                 },
             ],
             {
-                "airbyte/source-github": {
-                    "version": "1.1.0-rc.1",
-                    "entry": {
-                        "dockerRepository": "airbyte/source-github",
-                        "dockerImageTag": "1.1.0-rc.1",
+                "airbyte/source-github": [
+                    {
+                        "version": "1.1.0-rc.1",
+                        "entry": {
+                            "dockerRepository": "airbyte/source-github",
+                            "dockerImageTag": "1.1.0-rc.1",
+                        },
                     },
-                },
+                ],
             },
             "1.1.0-rc.1",
             id="single_rc_injected",
@@ -418,13 +420,15 @@ def test_version_flag_not_intercepted_by_yank() -> None:
                 },
             ],
             {
-                "airbyte/source-postgres": {
-                    "version": "2.0.0-rc.1",
-                    "entry": {
-                        "dockerRepository": "airbyte/source-postgres",
-                        "dockerImageTag": "2.0.0-rc.1",
+                "airbyte/source-postgres": [
+                    {
+                        "version": "2.0.0-rc.1",
+                        "entry": {
+                            "dockerRepository": "airbyte/source-postgres",
+                            "dockerImageTag": "2.0.0-rc.1",
+                        },
                     },
-                },
+                ],
             },
             None,
             id="rc_for_different_connector",
@@ -470,14 +474,14 @@ def _metadata_yaml(*, version: str, progressive_rollout: bool | None = None) -> 
             {"source-test": ["1.0.0", "1.1.0-rc.1", "1.1.0-rc.2"]},
             set(),
             {("source-test", "1.1.0-rc.1"), ("source-test", "1.1.0-rc.2")},
-            {"source-test": "1.1.0-rc.2"},
-            id="selects_highest_enabled_rc_ahead_of_ga",
+            {"source-test": ["1.1.0-rc.2", "1.1.0-rc.1"]},
+            id="returns_all_enabled_rcs_highest_first",
         ),
         pytest.param(
             {"source-test": ["1.0.0", "1.1.0-rc.1", "1.1.0-rc.2"]},
             set(),
             {("source-test", "1.1.0-rc.1")},
-            {"source-test": "1.1.0-rc.1"},
+            {"source-test": ["1.1.0-rc.1"]},
             id="skips_disabled_highest_rc",
         ),
         pytest.param(
@@ -491,7 +495,7 @@ def _metadata_yaml(*, version: str, progressive_rollout: bool | None = None) -> 
             {"source-test": ["1.0.0", "1.1.0-rc.1", "1.1.0-rc.2"]},
             {("source-test", "1.1.0-rc.2")},
             {("source-test", "1.1.0-rc.1"), ("source-test", "1.1.0-rc.2")},
-            {"source-test": "1.1.0-rc.1"},
+            {"source-test": ["1.1.0-rc.1"]},
             id="skips_yanked_rc",
         ),
         pytest.param(
@@ -505,28 +509,28 @@ def _metadata_yaml(*, version: str, progressive_rollout: bool | None = None) -> 
             {"source-test": ["1.0.0", "1.1.0", "1.1.0-rc.1"]},
             {("source-test", "1.1.0")},
             {("source-test", "1.1.0-rc.1")},
-            {"source-test": "1.1.0-rc.1"},
+            {"source-test": ["1.1.0-rc.1"]},
             id="yanked_ga_does_not_block_rc",
         ),
         pytest.param(
             {"source-test": ["1.0.0", "1.1.0", "1.1.1-rc.1"]},
             set(),
             {("source-test", "1.1.0"), ("source-test", "1.1.1-rc.1")},
-            {"source-test": "1.1.0"},
+            {"source-test": ["1.1.0"]},
             id="prefers_enabled_ga_over_rc",
         ),
         pytest.param(
             {"source-test": ["1.0.0", "1.1.0"]},
             set(),
             {("source-test", "1.1.0")},
-            {"source-test": "1.1.0"},
+            {"source-test": ["1.1.0"]},
             id="selects_enabled_ga_ahead_of_non_rollout_ga",
         ),
         pytest.param(
             {"source-test": ["1.0.0", "1.1.0-alpha.1", "1.1.0-rc.1"]},
             set(),
             {("source-test", "1.1.0-alpha.1"), ("source-test", "1.1.0-rc.1")},
-            {"source-test": "1.1.0-rc.1"},
+            {"source-test": ["1.1.0-rc.1"]},
             id="skips_non_rc_prerelease",
         ),
     ],
@@ -535,7 +539,7 @@ def test_compute_release_candidates(
     connector_versions: dict[str, list[str]],
     yanked: set[tuple[str, str]],
     progressive_rollouts: set[tuple[str, str]],
-    expected: dict[str, str],
+    expected: dict[str, list[str]],
 ) -> None:
     """Release candidates are derived from versioned marker files."""
     assert (

@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: OpenHowNet
+Version: 2.0
+Summary: OpenHowNet
+Home-page: https://github.com/thunlp/OpenHowNet
+Author: THUNLP
+Author-email: thunlp@gmail.com
+License: UNKNOWN
+Description: OpenHowNet API is developed by [THUNLP](http://thunlp.org/), which provides a convenient way to search information in HowNet, display sememe trees, calculate word similarity via sememes, etc. You can also visit our [website](https://openhownet.thunlp.org) to enjoy searching and exhibiting sememes of words online.
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown

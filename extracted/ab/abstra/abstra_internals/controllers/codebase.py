@@ -285,6 +285,10 @@ class CodebaseController:
         else:
             raise ValueError(f"Invalid new name: {new_name}")
 
+        # Never overwrite an existing file
+        if new_path.exists() and not path.samefile(new_path):
+            raise FileExistsError(f"File already exists: {new_path}")
+
         # Check if the renamed file is a workflow stage
         project = self.repos.project.load(include_disabled_stages=True)
         stages = project.get_stages_by_file_path(path)

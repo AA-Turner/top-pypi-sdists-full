@@ -1,0 +1,63 @@
+name: tests
+
+on:
+  workflow_dispatch:
+  pull_request_target:
+  push:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  style-check:
+    name: "style and type checking"
+    if: (github.event_name != 'pull_request' && ! github.event.pull_request.head.repo.fork) || (github.event_name == 'pull_request' && (github.event.pull_request.head.repo.fork || startsWith(github.head_ref, 'dependabot/')))
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest]
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install the project
+        run: uv sync --all-extras --all-groups
+
+      - name: Style checking
+        continue-on-error: true
+        run: |
+          uv run ruff check src tests
+          uv run ruff format --check src tests
+
+      - name: Type checking
+        continue-on-error: true
+        run: uv run mypy src tests
+
+      - name: Run tests
+        continue-on-error: true
+        run: |
+          uv run pytest tests/ --cov --cov-report xml
+
+      - name: Upload coverage to Codecov
+        if: ${{ always() && github.event_name != 'pull_request_target' }}
+        uses: codecov/codecov-action@v5
+        with:
+          env_vars: ${{ matrix.python-version }}

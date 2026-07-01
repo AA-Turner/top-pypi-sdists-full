@@ -1,0 +1,576 @@
+from typing import List, Optional, TypedDict, Union
+
+from pydantic import BaseModel
+
+from ..core import default_context
+from ..exceptions import RecceException
+from ..models import Check
+from .core import CheckValidator, Task, TaskResultDiffer
+from .dataframe import DataFrame
+from .utils import normalize_boolean_flag_columns, normalize_keys_to_columns
+
+
+class ValueDiffParams(BaseModel):
+    model: str
+    primary_key: Union[str, List[str]]
+    columns: Optional[List[str]] = None
+
+
+class ValueDiffResult(BaseModel):
+    class Summary(BaseModel):
+        total: int
+        added: int
+        removed: int
+
+    summary: Summary
+    data: DataFrame
+
+
+class ValueDiffMixin:
+    @staticmethod
+    def _build_column_case_lookup(dbt_adapter, model: str) -> dict:
+        """Return {lower(physical_name): physical_name} for both base and current relations.
+
+        Snowflake (and other case-folding databases) store unquoted DDL identifiers in
+        uppercase.  User-supplied column names from check params follow the dbt manifest
+        convention (lowercase).  Passing them directly to adapter.quote() produces a
+        case-sensitive quoted identifier that the database cannot resolve.
+
+        This lookup lets callers normalise a user-supplied lowercase name to the physical
+        name before quoting, mirroring the pattern already used by profile_diff.
+        """
+        lookup: dict = {}
+        for base in (True, False):
+            try:
+                for col in dbt_adapter.get_columns(model, base=base):
+                    name = col.column if hasattr(col, "column") else col.name
+                    lookup[name.lower()] = name
+            except Exception:
+                pass
+        return lookup
+
+    def _normalise_identifier(self, identifier: str, lookup: dict) -> str:
+        """Map a user-supplied identifier to its physical catalog name, or return as-is."""
+        return lookup.get(identifier.lower(), identifier)
+
+    def _verify_primary_key(self, dbt_adapter, primary_key: Union[str, List[str]], model: str):
+        self.update_progress(message=f"Verify primary key: {primary_key}")
+        composite = True if isinstance(primary_key, List) else False
+
+        if composite:
+            if len(primary_key) == 0:
+                raise RecceException("Primary key cannot be empty")
+            sql_template = r"""
+            {%- set quoted_cols = [] %}
+            {%- for col in primary_key %}
+                {%- do quoted_cols.append(adapter.quote(col)) %}
+            {%- endfor %}
+            {%- set columns_csv = quoted_cols | join(', ') %}
+
+            with validation_errors as (
+                select
+                    {{ columns_csv }}
+                from {{ relation }}
+                group by {{ columns_csv }}
+                having count(*) > 1
+            )
+
+            select *
+            from validation_errors
+            """
+        else:
+            if primary_key is None or len(primary_key) == 0:
+                raise RecceException("Primary key cannot be empty")
+            sql_template = r"""{{ adapter.dispatch('test_unique', 'dbt')(relation, primary_key) }}"""
+
+        # check primary keys
+        for base in [True, False]:
+            relation = dbt_adapter.create_relation(model, base)
+            context = dict(
+                relation=relation,
+                primary_key=primary_key,
+            )
+
+            sql = dbt_adapter.generate_sql(sql_template, context=context)
+            sql_test = f"""SELECT COUNT(*) AS INVALIDS FROM ({sql}) AS T"""
+
+            response, table = dbt_adapter.execute(sql_test, fetch=True)
+            for row in table.rows:
+                invalids = row[0]
+                if invalids > 0:
+                    raise RecceException(
+                        f"Invalid primary key: \"{primary_key}\". The column should be unique. Please check by this sql: '{sql}'"
+                    )
+                break
+            else:
+                # it will never happen unless we use a wrong check sql
+                raise RecceException("Cannot verify primary key")
+
+
+class ValueDiffTask(Task, ValueDiffMixin):
+    def __init__(self, params):
+        super().__init__()
+        self.params = ValueDiffParams(**params)
+        self.connection = None
+        self.legacy_surrogate_key = True
+
+    def _query_value_diff(
+        self,
+        dbt_adapter,
+        primary_key: Union[str, List[str]],
+        model: str,
+        columns: List[str] = None,
+        case_lookup: dict = None,
+    ):
+        """
+        Query value diff between base and current relations.
+        Compares column values between base and current relations using the primary key.
+        Mutates `self.params.primary_key` to normalize primary key names to match actual column names.
+
+        :param dbt_adapter: The dbt adapter instance.
+        :param primary_key: Single column name or list of column names for composite key.
+        :param model: The model name to compare.
+        :param columns: Optional list of columns to compare. If None, uses common columns.
+        :param case_lookup: Pre-built {lower(name): physical_name} lookup; built here if not provided.
+        :return: ValueDiffResult with summary and per-column match data, or None if invalid.
+        """
+        import agate
+
+        column_groups = {}
+        composite = True if isinstance(primary_key, List) else False
+
+        # Use the caller-supplied lookup when available to avoid redundant get_columns() calls.
+        if case_lookup is None:
+            case_lookup = self._build_column_case_lookup(dbt_adapter, model)
+
+        if columns is None or len(columns) == 0:
+            base_columns = [column.column for column in dbt_adapter.get_columns(model, base=True)]
+            curr_columns = [column.column for column in dbt_adapter.get_columns(model, base=False)]
+            columns = [column for column in base_columns if column in curr_columns]
+        else:
+            columns = [self._normalise_identifier(c, case_lookup) for c in columns]
+        completed = 0
+
+        if composite:
+            primary_key = [self._normalise_identifier(pk, case_lookup) for pk in primary_key]
+            for primary_key_comp in primary_key[::-1]:
+                if primary_key_comp not in columns:
+                    columns.insert(0, primary_key_comp)
+        else:
+            primary_key = self._normalise_identifier(primary_key, case_lookup)
+            if primary_key not in columns:
+                columns.insert(0, primary_key)
+
+        sql_template = r"""
+        {%- set default_null_value = "_recce_surrogate_key_null_" -%}
+        {%- set fields = [] -%}
+
+        {%- for field in primary_keys -%}
+            {%- do fields.append(
+                "coalesce(cast(" ~ adapter.quote(field) ~ " as " ~ dbt.type_string() ~ "), '" ~ default_null_value  ~"')"
+            ) -%}
+
+            {%- if not loop.last %}
+                {%- do fields.append("'-'") -%}
+            {%- endif -%}
+        {%- endfor -%}
+
+        {%- set _pk = dbt.hash(dbt.concat(fields)) -%}
+
+        with a_query as (
+            select {{ _pk }} as _pk, * from {{ base_relation }}
+        ),
+
+        b_query as (
+            select {{ _pk }} as _pk, * from {{ curr_relation }}
+        ),
+
+        {%- set _quoted_col = adapter.quote(column_to_compare) -%}
+
+        joined as (
+            select
+                coalesce(a_query._pk, b_query._pk) as _pk,
+                a_query.{{ _quoted_col }} as a_query_value,
+                b_query.{{ _quoted_col }} as b_query_value,
+                case
+                    when a_query.{{ _quoted_col }} = b_query.{{ _quoted_col }} then 'perfect match'
+                    when a_query.{{ _quoted_col }} is null and b_query.{{ _quoted_col }} is null then 'both are null'
+                    when a_query._pk is null then 'missing from {{ a_relation_name }}'
+                    when b_query._pk is null then 'missing from {{ b_relation_name }}'
+                    when a_query.{{ _quoted_col }} is null then 'value is null in {{ a_relation_name }} only'
+                    when b_query.{{ _quoted_col }} is null then 'value is null in {{ b_relation_name }} only'
+                    when a_query.{{ _quoted_col }} != b_query.{{ _quoted_col }} then 'values do not match'
+                    else 'unknown' -- this should never happen
+                end as match_status
+            from a_query
+            full outer join b_query on a_query._pk = b_query._pk
+        ),
+
+        aggregated as (
+            select
+                '{{ column_to_compare }}' as column_name,
+                match_status,
+                count(*) as count_records
+            from joined
+            group by 1, 2
+        )
+
+        select
+            column_name,
+            match_status,
+            count_records,
+            round(100.0 * count_records / sum(count_records) over (), 2) as percent_of_total
+        from aggregated
+        """
+
+        for column in columns:
+            self.update_progress(message=f"Diff column: {column}", percentage=completed / len(columns))
+
+            sql = dbt_adapter.generate_sql(
+                sql_template,
+                context=dict(
+                    base_relation=dbt_adapter.create_relation(model, base=True),
+                    curr_relation=dbt_adapter.create_relation(model, base=False),
+                    primary_keys=primary_key if composite else [primary_key],
+                    column_to_compare=column,
+                    a_relation_name="a",
+                    b_relation_name="b",
+                ),
+            )
+
+            _, table = dbt_adapter.execute(sql, fetch=True)
+            if column not in column_groups:
+                column_groups[column] = dict(added=0, removed=0, mismatched=0, matched=0)
+            for row in table.rows:
+                # data example:
+                # ('COLUMN_NAME', 'MATCH_STATUS', 'COUNT_RECORDS', 'PERCENT_OF_TOTAL')
+                # ('EVENT_ID', 'perfect match', 158601510, Decimal('100.00'))
+                column_name, column_state, row_count, total_rate = row
+                if "column_name" == row[0].lower():
+                    # skip header row if database adapter returns column names as data
+                    continue
+
+                # sample data like this:
+                #     https://github.com/dbt-labs/dbt-audit-helper/blob/main/macros/compare_column_values.sql
+                #
+                #     'perfect match'            -> matched
+                #     'both are null'            -> matched
+                #     'missing from a'           -> row added
+                #     'missing from b'           -> row removed
+                #     'value is null in a only'  -> mismatched
+                #     'value is null in b only'  -> mismatched
+                #     'values do not match'      -> mismatched
+                #     'unknown'                  -> this should never happen
+                # end as match_status,
+
+                state_mappings = {
+                    "perfect match": "matched",
+                    "both are null": "matched",
+                    "missing from a": "added",
+                    "missing from b": "removed",
+                    "value is null in a only": "mismatched",
+                    "value is null in b only": "mismatched",
+                    "values do not match": "mismatched",
+                }
+
+                # Use exact matching to update counts
+                action = state_mappings.get(column_state)
+                if action:
+                    column_groups[column_name][action] += row_count
+
+            # Cancel as early as possible
+            self.check_cancel()
+
+            completed = completed + 1
+
+        first = list(column_groups.values())[0]
+        added = first["added"]
+        removed = first["removed"]
+        common = first["matched"] + first["mismatched"]
+        total = common + added + removed
+
+        row = []
+        for k, v in column_groups.items():
+            if composite and k.lower() == "_pk":
+                continue
+            # This is incorrect when there are one side null
+            # https://github.com/dbt-labs/dbt-audit-helper/blob/main/macros/compare_column_values.sql#L20-L23
+            # matched = v['matched']
+            matched = common - v["mismatched"]
+            rate = None if common == 0 else matched / common
+            record = [k, matched, rate]
+            row.append(record)
+
+        column_names = ["column", "matched", "matched_p"]
+        column_types = [agate.Text(), agate.Number(), agate.Number()]
+        table = agate.Table(row, column_names=column_names, column_types=column_types)
+
+        # Normalize primary_key to match actual column keys
+        # For ValueDiff, 'columns' refers to the model's column list (from metadata), not a DataFrame result.
+        composite = isinstance(primary_key, list)
+        if composite:
+            self.params.primary_key = normalize_keys_to_columns(primary_key, columns)  # columns list from the model
+        else:
+            normalized = normalize_keys_to_columns([primary_key], columns)
+            if normalized:
+                self.params.primary_key = normalized[0]
+
+        return ValueDiffResult(
+            summary=ValueDiffResult.Summary(total=total, added=added, removed=removed),
+            data=DataFrame.from_agate(table),
+        )
+
+    def execute(self):
+        dbt_adapter = default_context().adapter
+
+        with dbt_adapter.connection_named("value diff"):
+            self.connection = dbt_adapter.get_thread_connection()
+
+            primary_key: Union[str, List[str]] = self.params.primary_key
+            model: str = self.params.model
+            columns: List[str] = self.params.columns
+
+            # Normalise primary_key BEFORE _verify_primary_key so the composite
+            # path's adapter.quote() calls receive physical catalog names (e.g.
+            # "CUSTOMER_ID" on Snowflake, not "customer_id").
+            case_lookup = self._build_column_case_lookup(dbt_adapter, model)
+            if isinstance(primary_key, list):
+                primary_key = [self._normalise_identifier(pk, case_lookup) for pk in primary_key]
+            else:
+                primary_key = self._normalise_identifier(primary_key, case_lookup)
+
+            self._verify_primary_key(dbt_adapter, primary_key, model)
+            self.check_cancel()
+
+            return self._query_value_diff(dbt_adapter, primary_key, model, columns=columns, case_lookup=case_lookup)
+
+    def cancel(self):
+        super().cancel()
+        from recce.adapter.dbt_adapter import DbtAdapter
+
+        if self.connection:
+            adapter: DbtAdapter = default_context().adapter
+            with adapter.connection_named("cancel"):
+                adapter.cancel(self.connection)
+
+
+class ValueDiffTaskResultDiffer(TaskResultDiffer):
+    def _check_result_changed_fn(self, result):
+        is_changed = False
+        summary = result.get("summary", {})
+        added = summary.get("added", 0)
+        removed = summary.get("removed", 0)
+        changes = {"column_changed": []}
+
+        if added > 0:
+            is_changed = True
+            changes["row_added"] = added
+
+        if removed > 0:
+            is_changed = True
+            changes["row_removed"] = removed
+
+        row_data = result.get("data", {}).get("data", [])
+        for row in row_data:
+            column, matched, matched_p = row
+            if float(matched_p) < 1.0:
+                # if there is any mismatched, we consider it as changed
+                is_changed = True
+                changes["column_changed"].append(
+                    {
+                        "column": column,
+                        "matched": matched,
+                        "matched_p": matched_p,
+                    }
+                )
+
+        return changes if is_changed else None
+
+
+class ValueDiffDetailParams(TypedDict):
+    primary_key: str
+    model: str
+    columns: List[str]
+
+
+class ValueDiffDetailResult(DataFrame):
+    pass
+
+
+class ValueDiffDetailTask(Task, ValueDiffMixin):
+    def __init__(self, params):
+        super().__init__()
+        self.params = ValueDiffParams(**params)
+        self.connection = None
+        self.legacy_surrogate_key = True
+
+    def _query_value_diff(
+        self,
+        dbt_adapter,
+        primary_key: Union[str, List[str]],
+        model: str,
+        columns: List[str] = None,
+        case_lookup: dict = None,
+    ):
+        composite = True if isinstance(primary_key, List) else False
+
+        # Use the caller-supplied lookup when available to avoid redundant get_columns() calls.
+        if case_lookup is None:
+            case_lookup = self._build_column_case_lookup(dbt_adapter, model)
+
+        if columns is None or len(columns) == 0:
+            base_columns = [column.column for column in dbt_adapter.get_columns(model, base=True)]
+            curr_columns = [column.column for column in dbt_adapter.get_columns(model, base=False)]
+            columns = [column for column in base_columns if column in curr_columns]
+        else:
+            columns = [self._normalise_identifier(c, case_lookup) for c in columns]
+
+        if composite:
+            primary_key = [self._normalise_identifier(pk, case_lookup) for pk in primary_key]
+            for primary_key_comp in primary_key[::-1]:
+                if primary_key_comp not in columns:
+                    columns.insert(0, primary_key_comp)
+        else:
+            primary_key = self._normalise_identifier(primary_key, case_lookup)
+            if primary_key not in columns:
+                columns.insert(0, primary_key)
+
+        sql_template = r"""
+                       {%- set _quoted_cols = [] -%}
+                       {%- for col in columns -%}
+                           {%- do _quoted_cols.append(adapter.quote(col)) -%}
+                       {%- endfor -%}
+                       {%- set _quoted_pks = [] -%}
+                       {%- for pk in primary_keys -%}
+                           {%- do _quoted_pks.append(adapter.quote(pk)) -%}
+                       {%- endfor -%}
+
+                       with a_query as (select {{ _quoted_cols | join (',\n') }}
+                       from {{ base_relation }}
+                           ), b_query as (
+                       select {{ _quoted_cols | join (',\n') }}
+                       from {{ curr_relation }}
+                           ), a_intersect_b as (
+                       select *
+                       from a_query
+                           {{ dbt.intersect() }}
+                       select *
+                       from b_query
+                           ), a_except_b as (
+                       select *
+                       from a_query
+                           {{ dbt.except() }}
+                       select *
+                       from b_query
+                           ), b_except_a as (
+                       select *
+                       from b_query
+                           {{ dbt.except() }}
+                       select *
+                       from a_query
+                           ), all_records as (
+                       select
+                           *, true as in_a, true as in_b
+                       from a_intersect_b
+
+                       union all
+
+                       select
+                           *, true as in_a, false as in_b
+                       from a_except_b
+
+                       union all
+
+                       select
+                           *, false as in_a, true as in_b
+                       from b_except_a
+                           )
+
+                       select *
+                       from all_records
+                       where not (in_a and in_b)
+                       order by {{ _quoted_pks | join (',\n') }}, in_a desc, in_b desc
+                           limit {{ limit }}
+                       """
+
+        sql = dbt_adapter.generate_sql(
+            sql_template,
+            context=dict(
+                base_relation=dbt_adapter.create_relation(model, base=True),
+                curr_relation=dbt_adapter.create_relation(model, base=False),
+                primary_keys=primary_key if composite else [primary_key],
+                columns=columns,
+                limit=1000,
+            ),
+        )
+
+        _, table = dbt_adapter.execute(sql, fetch=True)
+        self.check_cancel()
+
+        result_df = DataFrame.from_agate(table)
+        # Normalize in_a/in_b columns to lowercase for cross-warehouse consistency
+        result_df = normalize_boolean_flag_columns(result_df)
+
+        # Normalize primary_key to match actual column keys from result
+        column_keys = [col.key for col in result_df.columns]
+        composite = isinstance(primary_key, list)
+        if composite:
+            self.params.primary_key = normalize_keys_to_columns(primary_key, column_keys)
+        else:
+            normalized = normalize_keys_to_columns([primary_key], column_keys)
+            if normalized:
+                self.params.primary_key = normalized[0]
+
+        return result_df
+
+    def execute(self):
+        from recce.adapter.dbt_adapter import DbtAdapter
+
+        dbt_adapter: DbtAdapter = default_context().adapter
+
+        with dbt_adapter.connection_named("value diff"):
+            self.connection = dbt_adapter.get_thread_connection()
+
+            primary_key: Union[str, List[str]] = self.params.primary_key
+            model: str = self.params.model
+            columns: List[str] = self.params.columns
+
+            # Normalise primary_key BEFORE _verify_primary_key (same rationale as
+            # ValueDiffTask.execute — composite path quotes via adapter.quote(col)
+            # directly, so identifiers must already be in physical catalog case).
+            case_lookup = self._build_column_case_lookup(dbt_adapter, model)
+            if isinstance(primary_key, list):
+                primary_key = [self._normalise_identifier(pk, case_lookup) for pk in primary_key]
+            else:
+                primary_key = self._normalise_identifier(primary_key, case_lookup)
+
+            self._verify_primary_key(dbt_adapter, primary_key, model)
+            self.check_cancel()
+
+            return self._query_value_diff(dbt_adapter, primary_key, model, columns, case_lookup=case_lookup)
+
+    def cancel(self):
+        from recce.adapter.dbt_adapter import DbtAdapter
+
+        if self.connection:
+            adapter: DbtAdapter = default_context().adapter
+            with adapter.connection_named("cancel"):
+                adapter.cancel(self.connection)
+
+
+class ValueDiffDetailTaskResultDiffer(TaskResultDiffer):
+    def _check_result_changed_fn(self, result):
+        diff_data = result.get("data")
+        if diff_data is None or len(diff_data) == 0:
+            return None
+
+        # TODO: Implement detailed information of values changed
+        return dict(values_changed={})
+
+
+class ValueDiffCheckValidator(CheckValidator):
+    def validate_check(self, check: Check):
+        try:
+            ValueDiffParams(**check.params)
+        except Exception as e:
+            raise ValueError(f"Invalid check: {str(e)}")

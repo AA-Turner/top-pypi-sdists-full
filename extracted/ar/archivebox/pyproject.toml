@@ -1,0 +1,107 @@
+[project]
+name = "archivebox"
+version = "0.7.4"
+description = "Self-hosted internet archiving solution."
+authors = [
+    { name = "Nick Sweeting", email = "pyproject.toml@archivebox.io" },
+]
+dependencies = [
+    "croniter>=6.2.2",
+    "dateparser>=1.2.2",
+    "django-extensions>=3.0.3",
+    "django>=3.1.3,<3.2",
+    "ipython>5.0.0",
+    "mypy-extensions>=1.1.0",
+    "python-crontab>=3.3.0",
+    "requests>=2.32.5",
+    "w3lib>=2.3.1",
+    "yt-dlp>=2025.10.14",
+]
+requires-python = ">=3.9,<3.12"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Legal Industry",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
+    "Topic :: Sociology :: History",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Archiving",
+    "Topic :: System :: Archiving :: Backup",
+    "Topic :: System :: Recovery Tools",
+    "Topic :: Utilities",
+    "Typing :: Typed",
+]
+
+[project.license]
+text = "MIT"
+
+[project.optional-dependencies]
+sonic = [
+    "sonic-client>=0.0.5",
+]
+ldap = [
+    "python-ldap>=3.4.6",
+    "django-auth-ldap>=4.1.0",
+]
+
+[project.scripts]
+archivebox = "archivebox.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ArchiveBox/ArchiveBox"
+Source = "https://github.com/ArchiveBox/ArchiveBox"
+Documentation = "https://github.com/ArchiveBox/ArchiveBox/wiki"
+"Bug Tracker" = "https://github.com/ArchiveBox/ArchiveBox/issues"
+Changelog = "https://github.com/ArchiveBox/ArchiveBox/releases"
+Roadmap = "https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap"
+Community = "https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community"
+Demo = "https://demo.archivebox.io"
+Donate = "https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "setuptools>=69.0.3",
+    "wheel",
+    "pdm",
+    "homebrew-pypi-poet>=0.10.0",
+    "recommonmark",
+    "sphinx",
+    "sphinx-rtd-theme",
+    "django-debug-toolbar",
+    "djdt_flamegraph",
+    "ipdb",
+    "pytest",
+    "flake8",
+    "mypy",
+    "django-stubs",
+]
+
+[tool.pdm.scripts]
+lint = "./bin/lint.sh"
+test = "./bin/test.sh"
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"

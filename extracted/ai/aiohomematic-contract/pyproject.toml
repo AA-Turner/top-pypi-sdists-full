@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name        = "aiohomematic-contract"
+dynamic     = ["version"]
+license     = {text = "MIT License"}
+description = "Cross-implementation contracts (golden fixtures + reference algorithms) shared by aiohomematic and py-openccu-loom-client."
+readme      = "README.md"
+authors     = [
+    {name = "SukramJ", email = "sukramj@icloud.com"},
+]
+keywords    = ["homematic", "aiohomematic", "openccu", "contract", "fixtures", "golden"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Home Automation",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+requires-python = ">=3.14"
+dependencies = [
+    "python-slugify>=8.0.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0.0"]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.9.0",
+    "mypy>=1.14.0",
+    "build>=1.2.0",
+]
+
+[project.urls]
+"Homepage"    = "https://github.com/sukramj/aiohomematic-contract"
+"Source Code" = "https://github.com/sukramj/aiohomematic-contract"
+"Bug Reports" = "https://github.com/sukramj/aiohomematic-contract/issues"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "aiohomematic_contract.const.VERSION"}
+
+[tool.setuptools.packages.find]
+include = ["aiohomematic_contract", "aiohomematic_contract.*"]
+exclude = ["tests", "tests.*", "dist", "build"]
+
+[tool.setuptools.package-data]
+aiohomematic_contract = ["py.typed", "data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 120
+src = ["aiohomematic_contract", "tests"]
+
+[tool.ruff.lint]
+select = ["A", "B", "C", "D", "E", "F", "I", "PL", "PT", "RET", "RUF", "SIM", "UP", "W"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D100", "D103", "PLR2004"]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_unused_configs = true
+files = ["aiohomematic_contract", "tests"]

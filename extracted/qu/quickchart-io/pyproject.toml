@@ -1,0 +1,56 @@
+[project]
+name = "quickchart.io"
+version = "3.0.0"
+description = "A client for quickchart.io, a service that generates static chart images"
+keywords = ["chart api", "chart image", "charts"]
+authors = [{ name = "Ian Webster", email = "ianw_pypi@ianww.com" }]
+maintainers = [{ name = "Ian Webster", email = "ianw_pypi@ianww.com" }]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = ["requests>=2.28.1"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://quickchart.io/"
+Repository = "https://github.com/typpo/quickchart-python"
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[tool.poetry]
+packages = [{ include = "quickchart" }]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# We still support Python 3.9, where `X | Y` union syntax is not natively
+# available at runtime, so keep the typing.Optional / typing.Union spellings.
+ignore = ["UP007", "UP045"]
+
+[tool.ruff.lint.per-file-ignores]
+# Assertions on URL-encoded strings cannot be reasonably line-wrapped.
+"tests.py" = ["E501"]
+# Example scripts contain long chart strings and illustrative comments.
+"examples/*" = ["E501"]
+
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import os
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 import pandas as pd
 
-from seeq.spy import _common, _datalab
+from seeq.spy import _datalab
 from seeq.spy._errors import *
 from seeq.spy._session import Session
 from seeq.spy._status import Status
@@ -14,18 +14,20 @@ from seeq.spy.jobs import _schedule
 
 @Status.top_level_spy_function(errors='raise')
 def push(
-    jobs_df: pd.DataFrame,
-    spread: Optional[str] = None,
-    datalab_notebook_url: Optional[str] = None,
-    label: Optional[str] = None,
-    user: Optional[str] = None,
-    interactive_index: Union[Optional[int], Optional[str]] = None,
-    suspend: bool = False,
-    notify_on_skipped_execution: bool = True,
-    notify_on_automatic_unschedule: bool = True,
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None,
-    session: Optional[Session] = None
+        jobs_df: pd.DataFrame,
+        spread: Optional[str] = None,
+        datalab_notebook_url: Optional[str] = None,
+        *,
+        label: Optional[str] = None,
+        user: Optional[str] = None,
+        interactive_index: Union[Optional[int], Optional[str]] = None,
+        suspend: bool = False,
+        notify_on_skipped_execution: bool = True,
+        notify_on_automatic_unschedule: bool = True,
+        additional_error_notification_recipients: Optional[Union[str, List[str]]] = None,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None
 ):
     """
     Schedules the automatic execution of a notebook and returns the row
@@ -115,6 +117,12 @@ def push(
         notified, making it possible to investigate the problem and reschedule
         the notebook if needed
 
+    additional_error_notification_recipients: Union of str and List[str], default None
+        This determines the additional recipients who will receive error notifications from
+        notify_on_automatic_unschedule and notify_on_skipped_execution. The original user
+        may not always have access to email or be able to resolve execution issues, so
+        adding other recipients provides greater flexibility.
+
     quiet : bool, default False
         If True, suppresses progress output. Note that when status is
         provided, the quiet setting of the Status object that is passed
@@ -145,6 +153,7 @@ def push(
                               label=label, user=user, suspend=suspend,
                               notify_on_skipped_execution=notify_on_skipped_execution,
                               notify_on_automatic_unschedule=notify_on_automatic_unschedule,
+                              additional_error_notification_recipients=additional_error_notification_recipients,
                               status=status)
     except SchedulePostingError:
         # When the notebook is executed as a job, push will first re-schedule the notebook. If any errors will happen

@@ -1,0 +1,178 @@
+Metadata-Version: 2.1
+Name: freshservice-wrapper
+Version: 1.5
+Summary: An API wrapper for Freshservice
+Home-page: https://bitbucket.org/egym-com/freshservice-wrapper/
+Author: Lennart Weiss
+Author-email: lennart.weiss@egym.de
+License: UNKNOWN
+Description: # lib-freshservice
+        
+        A wrapper for the [Freshservice](https://egym.freshservice.com) API
+        written in python3.
+        
+        Project owner: it-admin@egym.de
+        
+        ## Modules
+        
+        ### api.py
+        
+        To do anything useful with the wrapper, you need to import this module. The
+        Freshservice API offers various sets of functionality, of those Tickets,
+        Tasks, Users, Agents and Assets have been implemented. Here you can find a
+        class for each of them. A lot of the API's functionality was not implemented,
+        because it was not needed. The usage requires basic knowledge about
+        Freshservice API usage, you can find the official documentation
+        [here](https://api.freshservice.com).
+        
+        ### errors.py
+        
+        Passing values to the wrapper, that the API doesn't accept, causes the request
+        to fail. For developers it can be hard to figure out, what exactly was the
+        cause, so this module defines some exceptions and provides logging
+        functionality.
+        
+        ### models.py
+        
+        The API returns JSON, which if it's used in its raw form in code, is not very
+        pretty. Therefore the response is parsed to objects, which makes working
+        with the data more natural. Some properties have been defined to hide magic
+        numbers. You may need to use those values, when writing to the API,
+        so it may be useful to import the constants from this file.
+        
+        ## Examples
+        
+        ### Creating API instances
+        
+        You first need to create the general API object, which stores the key.
+        ```python
+        >>> from freshservice.api import API, TicketAPI
+        >>> api = API(key, 'domain')
+        >>> ticket_api = API(api)
+        ```
+        
+        This can be applied to all other API classes.
+        
+        ### Tickets
+        
+        Here we will create, update and use a ticket.
+        ```python
+        from freshservice.models import Ticket
+        sample = ticket_api.create_ticket('Title', 'requester@domain.com',
+                                          due_by='2100-01-01', manual_dueby=True,
+                                          custom_field='Value')
+        print(sample.status)
+        print(sample.custom_field)
+        ticket_api.update(ticket.display_id, status=Ticket.CLOSED)
+        ```
+        As you can see in the example, you can use any attribute=value pair, that the
+        API allows. You can also use custom fields, that you defined for the ticket.
+        Internally custom fields have names like 'custom_field_123456' and they are
+        in an inner dictionary called 'custom_field'. However this wrapper will rename
+        them and make them directly accessible as seen in the example. This improves
+        code readability a lot.
+        
+        Note, that the creation of a TicketAPI object will make some API calls, to
+        get information about your domain. Therefore it is better to always reuse
+        this object to save API calls.
+        
+        Some hints: You can't update the description. You will need to create a note
+        instead (APIv2 will bring answer functionality). Working with the API, you
+        should never need to use the Ticket.id field, instead you should use
+        Ticket.display_id. When you want to update the due date of a ticket, you also
+        need to pass 'manual_dueby=True'.
+        
+        ### Tasks
+        
+        The usage of tasks is very similar to tickets, altough they have a bit less
+        complexity and functionality. The following example assumes, we already have
+        a ticket object.
+        
+        ```python
+        from freshservice.models import Task
+        task_list = task_api.get_all_tasks(ticket.display_id)
+        for task in task_list:
+             print('{}: {}'.format(task.title, task.description)
+             task.update(ticket.display_id, task.id, due_date='2100-01-01')
+        ```
+        
+        ### Assets
+        
+        These are the most complex objects in Freshservice, but the wrapper attempts
+        to simplify the usage with automation. To do this, it will make an API call,
+        when you create the API object. It will also make an additional API
+        call, evertime you create an Asset object of a CI type, that has not been
+        used before. To save API calls, you should always reuse an object of AssetAPI.
+        
+        This snippet showcases the general usage of the API class:
+        
+        ```python
+        from models import Asset
+        asset = asset_api.search('name', 'pc-123')
+        print(asset)
+        asset_api.update(asset.id, impact=Asset.HIGH)
+        asset = asset_api.get(asset.id)
+        ```
+        
+        The method 'get_all' is especially risky, because a large database will result
+        in a lot of API calls. However it is the only known way, to get all assets
+        assigned to a specific user in APIv1. This is an extremely wasteful way of
+        using API calls, therefore an update here from Freshservice is darely needed.
+        However, this can be done with a relatively small database, so here is an
+        example of how to do this, assuming we only have the email of a user.
+        
+        ```python
+        user = user_api.search('user@domain.com')
+        asset_list = asset_api.get_all()
+        assigned_hardware = []
+        for asset in asset_list:
+            if asset.user_id == user.id:
+                assigned_hardware.append(asset)
+        ```
+        
+        This is necessary, because the search function of the API doesn't take the
+        user's email as a parameter. The support of Freshservice promised a solution
+        with APIv2.
+        
+        ### Agents
+        
+        This API is currently only usable to get information about a specific agent.
+        
+        ```python
+        agent = agent_api.search('agent@domain.com')
+        print(agent)
+        ```
+        
+        If the search fails, the function will raise an Exception.
+        
+        ### Users
+        
+        This is analog to agents.
+        
+        ## Things to come
+        
+        Since this wrapper only implements a subset of the API functionality, there
+        will likely be new API classes introduced, or more methods will be created for
+        the existing classes. Currently Freshservice has released a beta for version 2
+        of their API. It will bring better documentation and more functionality,
+        aswell as more consistency overall.
+        
+        The tests right now are poorly organized and don't cover a lot of cases. This
+        will change in the near future, using tox. To make this package more easily
+        accessible, it will be released as a package and a Changelog will be introduced.
+        
+        Some of the code is currently hard to understand, without some deeper knowledge
+        of the API's data model, so a seperate document is planned, which explains
+        that a bit, since the official documentation is a bit sparse. The code
+        documentation in general is subject for improvement.
+        
+        ## License
+        
+        Apache 2.0 - See LICENSE.txt for more information.
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3
+Description-Content-Type: text/markdown

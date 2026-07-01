@@ -1,0 +1,56 @@
+from __future__ import annotations
+import datetime
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from kiota_abstractions.serialization import Parsable, ParseNode, SerializationWriter
+from typing import Any, Optional, TYPE_CHECKING, Union
+
+@dataclass
+class RegisteredPhone(Parsable):
+    # The label property
+    label: Optional[str] = None
+    # The outbound_opt_in property
+    outbound_opt_in: Optional[bool] = None
+    # The phone_number property
+    phone_number: Optional[str] = None
+    # The verified_at property
+    verified_at: Optional[datetime.datetime] = None
+    
+    @staticmethod
+    def create_from_discriminator_value(parse_node: ParseNode) -> RegisteredPhone:
+        """
+        Creates a new instance of the appropriate class based on discriminator value
+        param parse_node: The parse node to use to read the discriminator value and create the object
+        Returns: RegisteredPhone
+        """
+        if parse_node is None:
+            raise TypeError("parse_node cannot be null.")
+        return RegisteredPhone()
+    
+    def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
+        """
+        The deserialization information for the current model
+        Returns: dict[str, Callable[[ParseNode], None]]
+        """
+        fields: dict[str, Callable[[Any], None]] = {
+            "label": lambda n : setattr(self, 'label', n.get_str_value()),
+            "outbound_opt_in": lambda n : setattr(self, 'outbound_opt_in', n.get_bool_value()),
+            "phone_number": lambda n : setattr(self, 'phone_number', n.get_str_value()),
+            "verified_at": lambda n : setattr(self, 'verified_at', n.get_datetime_value()),
+        }
+        return fields
+    
+    def serialize(self,writer: SerializationWriter) -> None:
+        """
+        Serializes information the current object
+        param writer: Serialization writer to use to serialize this model
+        Returns: None
+        """
+        if writer is None:
+            raise TypeError("writer cannot be null.")
+        writer.write_str_value("label", self.label)
+        writer.write_bool_value("outbound_opt_in", self.outbound_opt_in)
+        writer.write_str_value("phone_number", self.phone_number)
+        writer.write_datetime_value("verified_at", self.verified_at)
+    
+

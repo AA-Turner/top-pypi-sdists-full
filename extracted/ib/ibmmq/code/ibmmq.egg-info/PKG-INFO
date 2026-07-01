@@ -1,0 +1,74 @@
+Metadata-Version: 2.4
+Name: ibmmq
+Version: 2.1.0
+Summary: Python Extension for IBM MQ
+Home-page: https://ibm.com/software/products/en/ibm-mq
+Download-URL: https://github.com/ibm-messaging/mq-mqi-python
+Author: IBM MQ Development
+License: Python-2.0
+Keywords: pymqi IBMMQ MQ WebSphere WMQ MQSeries IBM middleware messaging queueing asynchronous SOA EAI ESB integration
+Platform: OS Independent
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: C
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+License-File: LICENSE.PYMQI_V1
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-python
+Dynamic: summary
+
+
+Python library for IBM MQ
+-------------------------
+
+The "ibmmq" package is an open-source Python extension for IBM MQ.
+
+It gives a full-featured implementation of the MQI programming interface, with additional
+helper functions to assist with system monitoring and management.
+
+Sample code
+-----------
+
+To put a message on a queue:
+
+.. code-block:: python
+
+    import ibmmq
+
+    queue_manager = ibmmq.connect('QM1', 'DEV.APP.SVRCONN', '192.168.1.121(1414)')
+
+    q = ibmmq.Queue(queue_manager, 'DEV.QUEUE.1')
+    q.put('Hello from Python!')
+
+To read the message back from the queue:
+
+.. code-block:: python
+
+    import ibmmq
+
+    queue_manager = ibmmq.connect('QM1', 'DEV.APP.SVRCONN', '192.168.1.121(1414)')
+
+    q = ibmmq.Queue(queue_manager, 'DEV.QUEUE.1')
+    msg = q.get()
+    print('Here is the message:', msg)
+
+Many more examples are in the `project repository
+<https://github.com/ibm-messaging/mq-mqi-python/tree/main/code/examples/>`_
+and in the `dev-patterns repository
+<https://github.com/ibm-messaging/mq-dev-patterns/tree/master/Python/>`_.
+

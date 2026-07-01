@@ -5214,6 +5214,24 @@ pub(crate) struct RemlState<'a> {
     /// Pearson-refreshes `phi` at the converged η. Reset on `reset_surface`.
     pub(crate) frozen_tweedie_phi: Arc<AtomicU64>,
 
+    /// Gamma shape `k = 1/φ` frozen for the smoothing-parameter (λ) search
+    /// (#1074), bit-packed `f64` (`f64::to_bits`). `0` (the default) signals
+    /// "not yet frozen". On the first non-screening λ-search inner solve of an
+    /// estimated-shape Gamma fit, the seed's converged-η MLE `k̂` is captured
+    /// once and stored here; every subsequent λ-search evaluation pins the inner
+    /// solve to this value via
+    /// `GlmLikelihoodSpec::with_gamma_shape_frozen_for_search`, so the REML
+    /// criterion `F(ρ) = REML(ρ, k_frozen)` is a stationary function of ρ. With
+    /// `k` estimated the inner solver re-derives it from each warm-start η, and
+    /// because the Gamma working weight is `W = prior·k` and the
+    /// omitting-constants log-likelihood is `−k·½D`, a `k` swinging with η makes
+    /// BOTH the curvature `H = k·XᵀX + λS` and the data-fit `k·½D` jump with ρ —
+    /// the criterion grows deterministic spikes that floor the projected
+    /// gradient and rail `λ` to the over-smoothed corner (the #1074 te/Gamma
+    /// tensor under-recovery). The single final reported fit still ML-refreshes
+    /// `k` at the converged η. Reset on `reset_surface`.
+    pub(crate) frozen_gamma_shape: Arc<AtomicU64>,
+
     /// Last observed IFT-prediction residual (`‖β_converged − β_predicted‖
     /// / ‖β_converged‖`) from the most recent non-screening solve where
     /// the predictor was actually consumed. Bit-packed `f64` (low 64
@@ -5350,6 +5368,25 @@ pub(crate) struct RemlState<'a> {
     /// for the current surface so the analytic gradient differentiates the
     /// same fixed-weight objective the cost evaluates.
     pub(crate) alo_frozen_nuisance: RwLock<Option<AloFrozenNuisance>>,
+
+    /// ρ-independent certificate that the Gaussian-identity ALO-stabilization
+    /// augmentation can never activate on this surface (#1689).
+    ///
+    /// The augmentation engages only when some row's *penalized* leverage
+    /// `h_i = w_i · xᵢᵀ H_λ⁻¹ xᵢ` reaches `ALO_MAX_LEVERAGE_THRESHOLD`, where
+    /// `H_λ = XᵀWX + S_λ + ridge·I ⪰ XᵀWX`. Because `S_λ + ridge·I ⪰ 0` we have
+    /// `H_λ⁻¹ ⪯ (XᵀWX)⁻¹`, so `h_i ≤ w_i · xᵢᵀ (XᵀWX)⁻¹ xᵢ` — the *unpenalized*
+    /// weighted hat diagonal, which (for Gaussian identity, where W is the fixed
+    /// prior-weight diagonal) is independent of ρ. If the max of that bound is
+    /// below the activation threshold, no ρ can trip the gate, so the entire
+    /// per-outer-evaluation O(n·p²) ALO leverage diagnostic — recomputed and
+    /// discarded on every cost/gradient eval otherwise — is skipped.
+    ///
+    /// `Some(true)`  → provably inactive everywhere, skip the diagnostic.
+    /// `Some(false)` → bound is ≥ threshold or XᵀWX is rank-deficient/ill-
+    ///                 conditioned (bound not certifiable); fall through to the
+    ///                 exact per-eval gate. Computed lazily, at most once.
+    pub(crate) alo_provably_inactive: RwLock<Option<bool>>,
 
     /// Stable disk-cache key for the current realized REML surface. Computed
     /// lazily because it hashes the row-chunked design and data vectors.

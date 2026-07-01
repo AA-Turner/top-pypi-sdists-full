@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plato-sdk-v2
-Version: 2.106.3
+Version: 2.106.6
 Summary: Python SDK for the Plato API
 Author-email: Plato <support@plato.so>
 License-Expression: MIT
@@ -60,7 +60,7 @@ Description-Content-Type: text/markdown
 
 # Plato Python SDK
 
-Python SDK for the Plato platform. Uses [Harbor](https://harborframework.com) for agent execution.
+Python SDK for the Plato platform.
 
 ## Installation
 
@@ -95,67 +95,29 @@ export PLATO_API_KEY=your-api-key
 
 ## Agents
 
-The SDK uses Harbor's agent framework. All agents are `BaseInstalledAgent` subclasses that run in containers.
-
-### Available Agents
-
-**Harbor built-in agents** (code agents):
-| Agent | Description |
-|-------|-------------|
-| `claude-code` | Claude Code CLI |
-| `openhands` | OpenHands/All Hands AI |
-| `codex` | OpenAI Codex CLI |
-| `aider` | Aider pair programming |
-| `gemini-cli` | Google Gemini CLI |
-| `goose` | Block Goose |
-| `swe-agent` | SWE-agent |
-| `mini-swe-agent` | Mini SWE-agent |
-| `cline-cli` | Cline CLI |
-| `cursor-cli` | Cursor CLI |
-| `opencode` | OpenCode |
-| `qwen-coder` | Qwen Coder |
-
-**Plato custom agents** (browser/automation):
-| Agent | Description |
-|-------|-------------|
-| `computer-use` | Browser automation (install: `pip install plato-agent-computer-use`) |
+Agents run inside Plato VMs. The first-party agent is `computer-use` (browser
+automation, install: `pip install plato-agent-computer-use`); custom agents
+subclass `plato.agents.BaseAgent`.
 
 ### Python Usage
 
 ```python
-from plato.agents import ClaudeCode, OpenHands, AgentFactory, AgentName
-from pathlib import Path
+from plato.agents import BaseAgent, AgentTask, run_agent, get_agent_schema, AGENT_SCHEMAS
 
-# Option 1: Use AgentFactory
-agent = AgentFactory.create_agent_from_name(
-    AgentName.CLAUDE_CODE,
-    logs_dir=Path("./logs"),
-    model_name="anthropic/claude-sonnet-4",
-)
-
-# Option 2: Import agent class directly
-agent = ClaudeCode(
-    logs_dir=Path("./logs"),
-    model_name="anthropic/claude-sonnet-4",
-)
-
-# Option 3: Create custom BaseInstalledAgent
-from plato.agents import BaseInstalledAgent
+# List available agent config schemas
+print(list(AGENT_SCHEMAS.keys()))
 ```
 
 ### CLI Usage
 
 ```bash
-# Run an agent
-plato agent run -a claude-code -m anthropic/claude-sonnet-4 -d swe-bench-lite
-
 # List available agents
 plato agent list
 
 # Get agent config schema
-plato agent schema claude-code
+plato agent schema computer-use
 
-# Publish custom agent to Plato PyPI
+# Publish a custom agent to Plato PyPI
 plato agent publish ./my-agent
 ```
 
@@ -176,24 +138,8 @@ print(list(AGENT_SCHEMAS.keys()))
 
 ### Custom Agents
 
-Create a custom agent by extending `BaseInstalledAgent`:
-
-```python
-from harbor.agents.installed.base import BaseInstalledAgent, ExecInput
-from pathlib import Path
-
-class MyAgent(BaseInstalledAgent):
-    @staticmethod
-    def name() -> str:
-        return "my-agent"
-
-    @property
-    def _install_agent_template_path(self) -> Path:
-        return Path(__file__).parent / "install.sh.j2"
-
-    def create_run_agent_commands(self, instruction: str) -> list[ExecInput]:
-        return [ExecInput(command=f"my-agent --task '{instruction}'")]
-```
+Create a custom agent by subclassing `plato.agents.BaseAgent` (see
+`plato/agents/base.py` for the interface).
 
 Publish to Plato PyPI:
 ```bash
@@ -346,7 +292,7 @@ plato.close()
 
 ```
 plato/
-├── agents/          # Harbor agent re-exports + schemas
+├── agents/          # Agent SDK (BaseAgent, AgentTask, run_agent) + schemas
 ├── sims/            # Simulator clients (Spree, Firefly, etc.)
 ├── world/           # World/environment abstractions
 ├── v1/              # Legacy SDK + CLI

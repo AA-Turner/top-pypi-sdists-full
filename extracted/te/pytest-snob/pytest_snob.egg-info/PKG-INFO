@@ -1,0 +1,34 @@
+Metadata-Version: 2.2
+Name: pytest-snob
+Version: 0.1.14
+Summary: A pytest plugin that only selects meaningful python tests to run.
+Author-email: Bertrand Chardon <bertrand.chardon@gmail.com>, Alexandre Pasmantier <alex.pasmant@gmail.com>
+Project-URL: Homepage, https://github.com/alexpasmantier/snob
+Keywords: snob,pytest,testing,rust,rts,maturin,pyo3
+Classifier: Framework :: Pytest
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: snob_lib
+Requires-Dist: pytest
+
+# pytest-snob
+
+`pytest-snob` is a `pytest` plugin that leverages the `snob` library (see https://github.com/alexpasmantier/snob) to filter
+tests to execute in a given application based on the contents of a range of commits
+
+## Rationale
+
+Most of the time, running your full test suite is a waste of time and resources, since only a portion of the files has changed
+since your last CI run / deploy.
+
+By leveraging `snob`, this pytest plugin will accurately determine which tests are relevant for a given changeset and only run those.
+
+## How does it work?
+
+`snob` is a rust library (which we produce a python package from using [Maturin](https://github.com/PyO3/maturin) / [Py03](https://github.com/PyO3))
+that efficiently parses the dependency graph of your python codebase and as such, can accurately determine which files are _impacted_ by your changes.
+
+For more information, see [the snob github repository](https://github.com/alexpasmantier/snob)

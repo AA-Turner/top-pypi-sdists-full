@@ -2,7 +2,7 @@
 
 from django.urls import path
 
-from . import views
+from taskmonitor import views
 
 app_name = "taskmonitor"
 

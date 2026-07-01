@@ -1,0 +1,52 @@
+# Book settings
+# Learn more at https://jupyterbook.org/customize/config.html
+
+title: Demes manual
+author: PopSim Consortium
+copyright: "2021-2023"
+only_build_toc_files: true
+
+execute:
+  execute_notebooks: cache
+
+repository:
+  url: https://github.com/popsim-consortium/demes-python
+  branch: main
+  path_to_book: docs
+
+sphinx:
+    extra_extensions:
+    - sphinx.ext.autodoc
+    - sphinx.ext.todo
+    - sphinx.ext.viewcode
+    - sphinx.ext.intersphinx
+    - sphinx_issues
+    - sphinxcontrib.programoutput
+
+    config:
+      issues_github_path: popsim-consortium/demes-python
+      todo_include_todos: true
+      intersphinx_mapping:
+        python: ["https://docs.python.org/3/", null]
+        spec: ["https://popsim-consortium.github.io/demes-spec-docs/main/", null]
+
+      # It would be nice to enable this, but the warnings are just noise.
+      nitpicky: false
+
+      # Don't use fully-qualified type names. E.g. demes.demes.Graph
+      autodoc_typehints: none
+
+      html_show_sphinx: false
+      # https://piccolo-theme.readthedocs.io/
+      html_theme: "piccolo_theme"
+      # some custom css to fix piccolo/notebook in dark modes
+      html_static_path: ["_static"]
+      html_css_files: ["custom.css"]
+
+      html_theme_options:
+          globaltoc_collapse: false
+          globaltoc_maxdepth: -1
+          globaltoc_includehidden: true
+
+          ## piccolo_theme options
+          source_url: https://github.com/popsim-consortium/demes-python

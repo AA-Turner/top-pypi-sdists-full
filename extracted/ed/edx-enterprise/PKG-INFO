@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 8.2.0
+Version: 8.3.0
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -165,6 +165,10 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[8.3.0] - 2026-06-30
+---------------------
+* feat: add enterprise.use_algolia_index_v2 waffle flag and expose it in the enterprise_features API response
 
 [8.2.0] - 2026-06-22
 ---------------------

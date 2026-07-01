@@ -17,6 +17,7 @@ from anyscale.client.openapi_client.models import (
     CloudAnalyticsEventCommandName,
     CloudAnalyticsEventError,
     CloudAnalyticsEventName,
+    CloudDeployment,
     CloudProviders,
     CreateAnalyticsEvent,
 )
@@ -25,6 +26,25 @@ from anyscale.shared_anyscale_utils.utils.collections import flatten
 
 
 V = TypeVar("V")
+
+
+def _resolve_cloud_provider(cloud_resource: CloudDeployment) -> str:
+    """Return effective provider, inferring from config when provider is GENERIC."""
+    provider = cloud_resource.provider
+    if provider != CloudProviders.GENERIC:
+        return provider
+    has_gcp = cloud_resource.gcp_config is not None
+    has_aws = cloud_resource.aws_config is not None
+    if has_gcp and has_aws:
+        raise ValueError(
+            f"Cloud resource {cloud_resource.cloud_resource_id} has both gcp_config "
+            f"and aws_config set with GENERIC provider; cannot infer provider."
+        )
+    if has_gcp:
+        return CloudProviders.GCP
+    if has_aws:
+        return CloudProviders.AWS
+    return provider
 
 
 def get_organization_default_cloud(api_client: DefaultApi) -> Optional[str]:

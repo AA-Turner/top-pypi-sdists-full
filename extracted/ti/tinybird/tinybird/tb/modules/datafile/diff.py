@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, Generator, Iterable, List, Optional
 
 try:
-    from colorama import Back, Fore, Style, init
+    from colorama import Fore, init
 
     init()
 except ImportError:  # fallback so that the imported classes always exist
@@ -14,7 +14,7 @@ except ImportError:  # fallback so that the imported classes always exist
         def __getattr__(self, name):
             return ""
 
-    Fore = Back = Style = ColorFallback()
+    Fore = ColorFallback()
 
 
 import shutil

@@ -8,6 +8,9 @@ except ImportError:
 with open(join(dirname(abspath(__file__)), 'LICENSE.txt'), encoding='utf8') as f:
     LICENSE = f.read()
 
+with open(join(dirname(abspath(__file__)), 'README.md'), encoding='utf8') as f:
+    LONG_DESCRIPTION = f.read()
+
 # this provides the __version__ attribute at setup.py run time
 exec(open('browserstack_sdk/_version.py').read())
 
@@ -25,8 +28,8 @@ requirements=[
         'pytest-xdist',
         'pytest-rerunfailures',
         'robotframework-retryfailed',
-        "protobuf<6.33.0;python_version<'3.12'",
-        "protobuf>=6.33.0;python_version>='3.12'",
+        "protobuf<6.33.0;python_version<'3.9'",
+        "protobuf>=6.33.0;python_version>='3.9'",
         'watchdog',
         'filelock',
         "grpcio<=1.62.30;python_version<='3.7'",  
@@ -40,7 +43,8 @@ setup(
     packages=['browserstack_sdk', 'browserstack_sdk.sdk_cli', 'pytest_browserstackplugin', 'bstack_utils', 'browserstack_sdk.sdk_cli.utils'],
     version=__version__,
     description='Python SDK for browserstack selenium-webdriver tests',
-    long_description='Python SDK for browserstack selenium-webdriver tests',
+    long_description=LONG_DESCRIPTION,
+    long_description_content_type='text/markdown',
     author='BrowserStack',
     author_email='support@browserstack.com',
     keywords=['browserstack', 'selenium', 'python'],

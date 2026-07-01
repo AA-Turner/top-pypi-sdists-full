@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.12", "3.13", "3.14"]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+
+    - name: Check
+      uses: ./.github/actions/check
+      with:
+        python-version: ${{ matrix.python-version }}
+        run-format: ${{ matrix.python-version == '3.14' }}
+        run-lint: ${{ matrix.python-version == '3.14' }}
+        run-spell-check: ${{ matrix.python-version == '3.14' }}
+        run-types: ${{ matrix.python-version == '3.14' }}
+        run-rich-only: ${{ matrix.python-version == '3.14' }}
+        run-tests: "true"
+
+  commits:
+    name: Conventional commits
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v8.1.0
+
+    - name: Validate commit messages
+      run: |
+        uv sync --locked --no-install-project
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          uv run cz check --rev-range "${{ github.event.pull_request.base.sha }}..${{ github.sha }}"
+        else
+          uv run cz check --rev-range "${{ github.event.before }}..${{ github.sha }}"
+        fi
+
+  pr-title:
+    name: Conventional PR title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: amannn/action-semantic-pull-request@v6
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [check, commits, pr-title]
+    if: >
+      always() &&
+      needs.check.result == 'success' &&
+      needs.commits.result == 'success' &&
+      (needs.pr-title.result == 'success' || needs.pr-title.result == 'skipped')
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+
+    - name: Build
+      uses: ./.github/actions/build

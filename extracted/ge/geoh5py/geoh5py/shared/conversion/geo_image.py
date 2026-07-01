@@ -25,6 +25,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 from PIL import Image
 
+from geoh5py.shared.utils import are_affine, are_coplanar, are_orthogonal
+
 from ... import objects
 from .base import BaseConversion
 
@@ -52,19 +54,17 @@ class GeoImageConversion(BaseConversion):
             dtype=[("x", float), ("y", float), ("z", float)],
         )
 
-        grid2d_attributes["u_count"] = geoimage.default_vertices[1, 0].astype(np.int32)
-        grid2d_attributes["v_count"] = geoimage.default_vertices[0, 1].astype(np.int32)
-
-        # Compute the distances
-        distance_u = np.linalg.norm(geoimage.vertices[2] - geoimage.vertices[3])
-        distance_v = np.linalg.norm(geoimage.vertices[0] - geoimage.vertices[3])
+        grid2d_attributes["u_count"] = geoimage.u_count
+        grid2d_attributes["v_count"] = geoimage.v_count
 
         # Now compute the cell sizes
-        grid2d_attributes["u_cell_size"] = distance_u / grid2d_attributes["u_count"]
-        grid2d_attributes["v_cell_size"] = distance_v / grid2d_attributes["v_count"]
+        grid2d_attributes["u_cell_size"] = geoimage.u_cell_size
+        grid2d_attributes["v_cell_size"] = geoimage.v_cell_size
 
         grid2d_attributes["elevation"] = grid2d_attributes.get("elevation", 0)
 
+        # this will lead to an expected error it the image
+        # cannot be explained by a rotation and dip only
         if geoimage.rotation is not None:
             grid2d_attributes["rotation"] = geoimage.rotation
 
@@ -141,6 +141,7 @@ class GeoImageConversion(BaseConversion):
 
         :return: the new :obj:'geoh5py.objects.grid2d.Grid2D'.
         """
+        GeoImageConversion._validate_geoimage(geoimage)
 
         workspace, grid2d_kwargs = GeoImageConversion.validate_workspace(
             geoimage, **grid2d_kwargs
@@ -165,3 +166,26 @@ class GeoImageConversion(BaseConversion):
                 GeoImageConversion.add_data_2dgrid(image, output)
 
         return output
+
+    @staticmethod
+    def _validate_geoimage(geoimage: GeoImage):
+        """
+        Validate that the GeoImage vertices define a rectangle in 3D space.
+
+        :param geoimage: :obj:'geoh5py.objects.geo_image.GeoImage' object.
+        """
+        vertices = geoimage.vertices
+
+        if not are_coplanar(vertices):
+            raise ValueError("GeoImage vertices are not coplanar.")
+
+        if not are_orthogonal(vertices[3], vertices[2], vertices[0]):
+            raise ValueError("GeoImage vertices are not orthogonal.")
+
+        tie_points = np.array(
+            list(zip(geoimage.default_vertices, vertices, strict=False))
+        )
+        if not are_affine(tie_points):
+            raise ValueError(
+                "GeoImage vertices do not define an affine transformation."
+            )

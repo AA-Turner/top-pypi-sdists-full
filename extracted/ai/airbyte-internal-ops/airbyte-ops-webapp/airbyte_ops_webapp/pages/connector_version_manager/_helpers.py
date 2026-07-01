@@ -9,10 +9,11 @@ from typing import Any
 
 from airbyte.exceptions import PyAirbyteInputError
 from airbyte_ops_mcp.connector_ops.rollouts._helpers import get_connector_rollout_config
-from airbyte_ops_mcp.connector_ops.rollouts.constants import CustomerTier
+from airbyte_ops_mcp.connector_ops.rollouts.constants import TIER_ORDER
 from prefab_ui.actions import AppendState, SetState, ShowToast
+from prefab_ui.actions.mcp import CallTool
 from prefab_ui.components import ComboboxOption, SelectOption
-from prefab_ui.rx import ERROR, RESULT
+from prefab_ui.rx import ERROR, RESULT, STATE
 
 from airbyte_ops_webapp.auth.mock_session import mock_oauth_is_authenticated
 from airbyte_ops_webapp.models import ConnectorOption, ScopeType
@@ -59,12 +60,31 @@ EMPTY_PIN_STATE: dict[str, str] = {
     "origin_type": "",
     "origin_name": "",
     "description": "",
+    "description_display": "",
     "created_at": "",
     "created_at_display": "",
     "expires_at": "",
     "expires_at_display": "",
     "reference_url": "",
     "scope_name": "",
+}
+EMPTY_ROLLOUT_SUMMARY: dict[str, Any] = {
+    "rc_version": "",
+    "tier_summary": "",
+    "highest_tier": "",
+    "next_tier": "",
+    "has_next_stage": False,
+    "autopilot": "",
+    "updated_at": "",
+    "total_rc_pins": "0",
+    "connector_id": "",
+    "connector_name": "",
+    "docker_repository": "",
+    "rc_docker_image_tag": "",
+    "advance_rollout_id": "",
+    "advance_tier": "",
+    "advance_pct": "",
+    "promote_rollout_id": "",
 }
 
 
@@ -178,21 +198,64 @@ def _is_autopilot(connector_id: str, rc_version: str | None) -> bool:
 
 
 def progressive_rollout_rows() -> list[dict[str, Any]]:
-    """Build dashboard table rows for active progressive rollouts."""
+    """Build consolidated dashboard rows for active progressive rollouts.
+
+    Groups rollouts by (connector_id, rc_docker_image_tag) so each RC version
+    appears as a single row with a per-tier status summary.
+    """
     try:
         rollouts = get_adapter().list_progressive_rollouts()
     except Exception:
         return []
-    rows = rows_from_dataclasses(rollouts)
-    for row in rows:
-        connector_id = row.get("connector_id", "")
-        rc_tag = row.get("rc_docker_image_tag")
-        row["autopilot_display"] = (
-            "ON" if _is_autopilot(connector_id, rc_tag) else "OFF"
+    raw_rows = rows_from_dataclasses(rollouts)
+
+    # Group by connector + RC version
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for row in raw_rows:
+        key = (row.get("connector_id", ""), row.get("rc_docker_image_tag", ""))
+        groups.setdefault(key, []).append(row)
+
+    consolidated: list[dict[str, Any]] = []
+    tier_index = {t.value: i for i, t in enumerate(TIER_ORDER)}
+
+    for (_connector_id, _rc_tag), group in groups.items():
+        sorted_group = sorted(
+            group,
+            key=lambda r: tier_index.get(r.get("tier", "TIER_2"), 0),
         )
-        row["rc_pin_count_display"] = str(row.get("rc_pin_count", 0))
-        row["tier_display"] = CustomerTier(row.get("tier", "TIER_2")).label
-    return rows
+
+        # Build per-tier summary string
+        tier_parts: list[str] = []
+        for tier in TIER_ORDER:
+            matching = [r for r in sorted_group if r.get("tier") == tier.value]
+            if matching:
+                pct = matching[0].get("current_target_rollout_pct", "0")
+                tier_parts.append(f"{tier.label}: {pct}%")
+            else:
+                tier_parts.append(f"{tier.label}: \u2014")
+
+        highest = sorted_group[-1]
+        connector_id = highest.get("connector_id", "")
+        rc_tag = highest.get("rc_docker_image_tag")
+        total_pins = max(
+            (int(r.get("rc_pin_count", 0)) for r in sorted_group), default=0
+        )
+
+        consolidated.append(
+            {
+                "connector_id": connector_id,
+                "connector_name": highest.get("connector_name", ""),
+                "rc_docker_image_tag": rc_tag,
+                "tier_summary": " | ".join(tier_parts),
+                "state": highest.get("state", ""),
+                "autopilot_display": (
+                    "ON" if _is_autopilot(connector_id, rc_tag) else "OFF"
+                ),
+                "rc_pin_count_display": f"{total_pins:,}",
+            }
+        )
+
+    return consolidated
 
 
 def latest_version_rows() -> list[dict[str, Any]]:
@@ -218,14 +281,37 @@ def recent_release_rows() -> list[dict[str, Any]]:
     return rows
 
 
-def pinned_version_rows() -> list[dict[str, Any]]:
-    """Build rows for the Pinned Versions tab (cross-connector, versions with pins)."""
+def pinned_version_rows(
+    origin_filter: str = "all",
+) -> list[dict[str, Any]]:
+    """Build rows for the Pinned Versions tab (cross-connector, versions with pins).
+
+    `origin_filter` controls which rows are returned:
+    * `"all"` - no filtering (default)
+    * `"rollout"` - only versions with `rollout_pins > 0`
+    * `"breaking_change"` - only versions with `breaking_change_pins > 0`
+    * `"custom"` - only versions with `actor_pins > 0 OR workspace_pins > 0
+      OR org_pins > 0`
+    """
     try:
         raw = get_adapter().list_versions_with_pins()
     except Exception:
         return []
     rows: list[dict[str, Any]] = []
     for row in raw:
+        bc = int(row.get("breaking_change_pins", 0) or 0)
+        rollout = int(row.get("rollout_pins", 0) or 0)
+        actor = int(row.get("actor_pins", 0) or 0)
+        ws = int(row.get("workspace_pins", 0) or 0)
+        org = int(row.get("org_pins", 0) or 0)
+
+        if origin_filter == "rollout" and rollout == 0:
+            continue
+        if origin_filter == "breaking_change" and bc == 0:
+            continue
+        if origin_filter == "custom" and actor == 0 and ws == 0 and org == 0:
+            continue
+
         docker_repo = row.get("docker_repository", "")
         canonical_name = (
             docker_repo.rsplit("/", 1)[-1]
@@ -237,10 +323,12 @@ def pinned_version_rows() -> list[dict[str, Any]]:
                 **row,
                 "connector_id": row.get("connector_definition_id", ""),
                 "connector_name": canonical_name,
-                "pin_count_display": str(row.get("pin_count", 0)),
-                "actor_pins_display": str(row.get("actor_pins", 0)),
-                "workspace_pins_display": str(row.get("workspace_pins", 0)),
-                "org_pins_display": str(row.get("org_pins", 0)),
+                "custom_pin_count_display": actor + ws + org,
+                "breaking_change_pins_display": bc,
+                "rollout_pins_display": rollout,
+                "actor_pins_display": actor,
+                "workspace_pins_display": ws,
+                "org_pins_display": org,
             }
         )
     return rows
@@ -360,8 +448,13 @@ def rollout_action_success_actions() -> list[Any]:
     """Post-action feedback for successful rollout operations.
 
     Shows a success toast, appends to the notifications panel, marks
-    notifications as unviewed, and clears the stale rollout selection.
+    notifications as unviewed, clears the stale rollout selection, and
+    refreshes the connector context (including active rollouts list).
     """
+    from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
+        load_connector_context,
+    )
+
     return [
         *finish_tool_call(),
         SetState("rollout_action_result", RESULT.rollout_action_result),
@@ -375,6 +468,25 @@ def rollout_action_success_actions() -> list[Any]:
         SetState("has_unviewed_notifications", True),
         SetState("selected_rollout", EMPTY_ROLLOUT_STATE),
         SetState("rollout_action", ""),
+        SetState("active_rollouts", []),
+        SetState("rollout_summary", EMPTY_ROLLOUT_SUMMARY),
+        # Refresh context to reload the active rollouts list from DB.
+        *start_tool_call("Refreshing rollouts\u2026"),
+        CallTool(
+            load_connector_context,
+            arguments={
+                "connector_id": STATE.selected_connector_id,
+                "scope_type": STATE.scope_type,
+                "scope_id": STATE.scope_id,
+                "actor_workspace_id": STATE.actor_workspace_id,
+                "context_guid": STATE.context_guid,
+                "auth_bearer_token": STATE.auth_bearer_token,
+            },
+            on_success=[
+                *context_success_actions(),
+            ],
+            on_error=fail_context_actions(),
+        ),
     ]
 
 
@@ -385,6 +497,7 @@ def context_success_actions() -> list[Any]:
         SetState("target_version", RESULT.connector.latest_version),
         SetState("versions", RESULT.versions),
         SetState("active_rollouts", RESULT.active_rollouts),
+        SetState("rollout_summary", RESULT.rollout_summary),
         SetState("current_state", RESULT.current_state),
         SetState("current_state_markdown", RESULT.current_state_markdown),
         SetState("ancestor_configs", RESULT.ancestor_configs),
@@ -442,6 +555,7 @@ def connector_context_placeholder(message: str) -> dict[str, Any]:
         "connector": empty_connector(),
         "versions": [],
         "active_rollouts": [],
+        "rollout_summary": dict(EMPTY_ROLLOUT_SUMMARY),
         "current_state": current_state,
         "current_state_markdown": json_text(current_state),
         "ancestor_configs": [],
@@ -518,6 +632,76 @@ def rollout_rows_or_empty(
         )
         row["rc_pin_count_display"] = str(row.get("rc_pin_count", 0))
     return rows, ""
+
+
+def build_rollout_summary(active_rollouts: list[dict[str, Any]]) -> dict[str, Any]:
+    """Consolidate multiple tier rollouts into a single summary for the UI."""
+    if not active_rollouts:
+        return dict(EMPTY_ROLLOUT_SUMMARY)
+
+    tier_index = {t.value: i for i, t in enumerate(TIER_ORDER)}
+    sorted_rollouts = sorted(
+        active_rollouts,
+        key=lambda r: tier_index.get(r.get("tier", "TIER_2"), 0),
+    )
+
+    # Build per-tier summary string
+    tier_parts: list[str] = []
+    for tier in TIER_ORDER:
+        matching = [r for r in sorted_rollouts if r.get("tier") == tier.value]
+        if matching:
+            pct = matching[0].get("current_target_rollout_pct", "0")
+            tier_parts.append(f"{tier.label}: {pct}%")
+        else:
+            tier_parts.append(f"{tier.label}: —")
+
+    # Highest tier is the last in sorted order
+    highest_rollout = sorted_rollouts[-1]
+    highest_tier_value = highest_rollout.get("tier", "TIER_2")
+    highest_tier_idx = tier_index.get(highest_tier_value, 0)
+
+    # Determine next tier
+    next_tier = ""
+    has_next_stage = False
+    if highest_tier_idx < len(TIER_ORDER) - 1:
+        next_tier = TIER_ORDER[highest_tier_idx + 1].value
+        has_next_stage = True
+
+    # Autopilot: use highest tier rollout's autopilot display
+    autopilot = highest_rollout.get("autopilot_display", "OFF")
+
+    # Updated at: most recent across all rollouts (formatted for display)
+    raw_updated = max(
+        (r.get("updated_at", "") for r in sorted_rollouts),
+        default="",
+    )
+    updated_at = _fmt_date(raw_updated)
+
+    # Total RC pins (use max, not sum — API returns same total per tier)
+    total_pins = max(
+        (int(r.get("rc_pin_count", 0)) for r in sorted_rollouts), default=0
+    )
+
+    # The "advance" targets the highest tier rollout
+    # The "promote to GA" also targets the highest tier rollout
+    return {
+        "rc_version": highest_rollout.get("rc_docker_image_tag", ""),
+        "tier_summary": " | ".join(tier_parts),
+        "highest_tier": highest_tier_value,
+        "next_tier": next_tier,
+        "has_next_stage": has_next_stage,
+        "autopilot": autopilot,
+        "updated_at": updated_at,
+        "total_rc_pins": str(total_pins),
+        "connector_id": highest_rollout.get("connector_id", ""),
+        "connector_name": highest_rollout.get("connector_name", ""),
+        "docker_repository": highest_rollout.get("docker_repository", ""),
+        "rc_docker_image_tag": highest_rollout.get("rc_docker_image_tag", ""),
+        "advance_rollout_id": highest_rollout.get("rollout_id", ""),
+        "advance_tier": highest_tier_value,
+        "advance_pct": str(highest_rollout.get("current_target_rollout_pct", "0")),
+        "promote_rollout_id": highest_rollout.get("rollout_id", ""),
+    }
 
 
 def target_ids(

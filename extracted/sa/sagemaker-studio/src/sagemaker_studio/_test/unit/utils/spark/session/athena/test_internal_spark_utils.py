@@ -54,7 +54,7 @@ _CONFIG_BUILDER_PATH = "sagemaker_studio.utils.spark.session.spark_config_builde
 
 @pytest.fixture(autouse=True)
 def mock_utils_and_project(monkeypatch):
-    """Fixture to mock InternalUtils and Project setup."""
+    """Fixture to mock InternalUtils and _ensure_project setup."""
     mock_utils = MagicMock()
     mock_utils._get_domain_region.return_value = "us-west-2"
     mock_utils._get_datazone_stage.return_value = "prod"
@@ -63,8 +63,8 @@ def mock_utils_and_project(monkeypatch):
     monkeypatch.setattr(spark_config_builder, "_stage", "prod")
 
     mock_proj = MagicMock()
-    monkeypatch.setattr(f"{_CONFIG_BUILDER_PATH}.Project", mock_proj)
-    return mock_proj.return_value
+    monkeypatch.setattr(f"{_CONFIG_BUILDER_PATH}._ensure_project", lambda: mock_proj)
+    return mock_proj
 
 
 # -------------------------------------------------------------------
@@ -136,7 +136,15 @@ def test_generate_s3tables_spark_configs_ignores_non_federated(mock_utils_and_pr
     f"{_CONFIG_BUILDER_PATH}._generate_s3tables_spark_configs",
     return_value={"c": "d"},
 )
-def test_generate_spark_configs_combines_all(mock_s3, mock_catalog):
+@patch(
+    f"{_CONFIG_BUILDER_PATH}._generate_glue_catalog_spark_configs",
+    return_value={},
+)
+@patch(
+    f"{_CONFIG_BUILDER_PATH}._generate_workday_irc_spark_configs",
+    return_value={},
+)
+def test_generate_spark_configs_combines_all(mock_workday, mock_glue, mock_s3, mock_catalog):
     configs = spark_config_builder.generate_spark_configs("999888777666")
     assert configs["a"] == "b"
     assert configs["c"] == "d"
@@ -144,7 +152,7 @@ def test_generate_spark_configs_combines_all(mock_s3, mock_catalog):
 
 
 # -------------------------------------------------------------------
-# Tests for _generate_irc_connection_spark_configs
+# Tests for _generate_workday_irc_spark_configs
 # -------------------------------------------------------------------
 def test_generate_workday_irc_spark_configs_single_catalog(mock_utils_and_project):
     mock_conn = MagicMock()
@@ -157,7 +165,7 @@ def test_generate_workday_irc_spark_configs_single_catalog(mock_utils_and_projec
     }
     mock_utils_and_project.connections = [mock_conn]
 
-    conf = spark_config_builder._generate_irc_connection_spark_configs(mock_utils_and_project)
+    conf = spark_config_builder._generate_workday_irc_spark_configs(mock_utils_and_project)
 
     assert conf["spark.sql.catalog.wd_catalog"] == "org.apache.iceberg.spark.SparkCatalog"
     assert conf["spark.sql.catalog.wd_catalog.type"] == "rest"
@@ -182,7 +190,7 @@ def test_generate_workday_irc_spark_configs_multiple_catalogs(mock_utils_and_pro
     }
     mock_utils_and_project.connections = [mock_conn]
 
-    conf = spark_config_builder._generate_irc_connection_spark_configs(mock_utils_and_project)
+    conf = spark_config_builder._generate_workday_irc_spark_configs(mock_utils_and_project)
 
     assert conf["spark.sql.catalog.cat_a.uri"] == "https://wd.example.com"
     assert conf["spark.sql.catalog.cat_b.uri"] == "https://wd.example.com"
@@ -195,14 +203,14 @@ def test_generate_workday_irc_spark_configs_no_workday_connections(mock_utils_an
     mock_conn.type = "ATHENA"
     mock_utils_and_project.connections = [mock_conn]
 
-    conf = spark_config_builder._generate_irc_connection_spark_configs(mock_utils_and_project)
+    conf = spark_config_builder._generate_workday_irc_spark_configs(mock_utils_and_project)
     assert conf == {}
 
 
 def test_generate_workday_irc_spark_configs_no_connections(mock_utils_and_project):
     mock_utils_and_project.connections = []
 
-    conf = spark_config_builder._generate_irc_connection_spark_configs(mock_utils_and_project)
+    conf = spark_config_builder._generate_workday_irc_spark_configs(mock_utils_and_project)
     assert conf == {}
 
 
@@ -220,7 +228,7 @@ def test_generate_workday_irc_spark_configs_mixed_connections(mock_utils_and_pro
     }
     mock_utils_and_project.connections = [mock_athena, mock_workday]
 
-    conf = spark_config_builder._generate_irc_connection_spark_configs(mock_utils_and_project)
+    conf = spark_config_builder._generate_workday_irc_spark_configs(mock_utils_and_project)
 
     assert "spark.sql.catalog.wdc" in conf
     assert conf["spark.sql.catalog.wdc.token"] == "t"

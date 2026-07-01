@@ -1,8 +1,0 @@
-description: Aide à la formation au permis de conduire
-metadata:
-  short_label: Aide au permis de conduire
-  label_en: Driver's license training assistance
-  order:
-  - aide_financement_permis_apprenti
-  - aide_permis_demandeur_emploi
-  - pret_formation_permis

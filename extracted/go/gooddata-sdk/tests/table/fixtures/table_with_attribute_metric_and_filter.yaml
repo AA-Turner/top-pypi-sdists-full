@@ -1,0 +1,160 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body:
+        execution:
+          attributes:
+            - label:
+                identifier:
+                  id: region
+                  type: label
+              localIdentifier: attr1
+          filters:
+            - positiveAttributeFilter:
+                in:
+                  values:
+                    - Unknown
+                    - Northeast
+                label:
+                  localIdentifier: attr1
+          measures:
+            - definition:
+                measure:
+                  computeRatio: false
+                  filters: []
+                  item:
+                    identifier:
+                      id: order_amount
+                      type: metric
+              localIdentifier: metric1
+        resultSpec:
+          dimensions:
+            - itemIdentifiers:
+                - attr1
+              localIdentifier: dim_0
+            - itemIdentifiers:
+                - measureGroup
+              localIdentifier: dim_1
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute
+    response:
+      body:
+        string:
+          executionResponse:
+            dimensions:
+              - headers:
+                  - attributeHeader:
+                      attribute:
+                        id: region
+                        type: attribute
+                      attributeName: Region
+                      granularity: null
+                      label:
+                        id: region
+                        type: label
+                      labelName: Region
+                      localIdentifier: attr1
+                      primaryLabel:
+                        id: region
+                        type: label
+                      valueType: TEXT
+                localIdentifier: dim_0
+              - headers:
+                  - measureGroupHeaders:
+                      - format: $#,##0
+                        localIdentifier: metric1
+                        name: Order Amount
+                localIdentifier: dim_1
+            links:
+              executionResult: EXECUTION_NORMALIZED_1
+      headers:
+        Content-Type:
+          - application/json
+        DATE:
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-CANCEL-TOKEN:
+          - PLACEHOLDER
+        X-GDC-TRACE-ID:
+          - PLACEHOLDER
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute/result/EXECUTION_NORMALIZED_1?offset=0%2C0&limit=512%2C256
+    response:
+      body:
+        string:
+          data:
+            - - 56710.83
+            - - 18.7
+          dimensionHeaders:
+            - headerGroups:
+                - headers:
+                    - attributeHeader:
+                        labelValue: Northeast
+                        primaryLabelValue: Northeast
+                    - attributeHeader:
+                        labelValue: Unknown
+                        primaryLabelValue: Unknown
+            - headerGroups:
+                - headers:
+                    - measureHeader:
+                        measureIndex: 0
+          grandTotals: []
+          metadata:
+            dataSourceMessages: []
+          paging:
+            count:
+              - 2
+              - 1
+            offset:
+              - 0
+              - 0
+            total:
+              - 2
+              - 1
+      headers:
+        Content-Type:
+          - application/json
+        DATE:
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID:
+          - PLACEHOLDER
+      status:
+        code: 200
+        message: OK
+version: 1

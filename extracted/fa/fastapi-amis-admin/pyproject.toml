@@ -1,0 +1,112 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "fastapi_amis_admin"
+authors = [
+    { name = "Atomi", email = "1456417373@qq.com" },
+]
+maintainers = [
+    { name = "Atomi", email = "1456417373@qq.com" },
+]
+description = "FastAPI-Amis-Admin is a high-performance, efficient and easily extensible FastAPI admin framework. Inspired by Django-admin, and has as many powerful functions as Django-admin. "
+readme = "README.md"
+requires-python = ">=3.8"
+dynamic = ["version"]
+keywords = [
+    "fastapi",
+    "fastapi-admin",
+    "fastapi-amis-admin",
+    "django-admin",
+    "sqlmodel",
+    "sqlalchemy",
+]
+classifiers = [
+    "Framework :: FastAPI",
+    "Environment :: Web Environment",
+    "Topic :: System :: Systems Administration",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "fastapi>=0.103.2",
+    "sqlmodel>=0.0.14,<0.1.0",
+    "python-multipart>=0.0.5",
+    "sqlalchemy-database>=0.1.1,<0.2.0",
+    "aiofiles>=0.17.0",
+]
+
+
+[project.urls]
+Documentation = "http://docs.amis.work/"
+Source = "https://github.com/amisadmin/fastapi_amis_admin"
+
+[project.optional-dependencies]
+standard = [
+    "uvicorn[standard] >=0.19.0,<1.0",
+    "fastapi-amis-admin-cli>=0.2.1,<0.3.0",
+]
+test = [
+    "uvicorn[standard] >=0.19.0,<1.0",
+    "fastapi-amis-admin-cli>=0.2.1,<0.3.0",
+    "pytest >=6.2.4",
+    "aiosqlite>=0.15.0",
+    "pytest-asyncio>=0.17",
+    "httpx>=0.24.0,<1.0",
+    "jinja2 >=2.11.2,<4.0.0",
+    "ujson>=4.0.1",
+    "requests>=2.28.1",
+    "pydantic-settings>=2.0.0",
+]
+dev = [
+    "pre-commit>=2.20.0",
+    "ruff>=0.0.261",
+]
+cli = [
+    "fastapi-amis-admin-cli>=0.2.1,<0.3.0",
+]
+
+# pytest
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = [
+    "tests",
+]
+# pytest-asyncio
+asyncio_mode = "auto"
+
+[tool.black]
+line-length = 130
+include = '\.pyi?$'
+
+[tool.ruff]
+select = [
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "F", # pyflakes
+    "I", # isort
+    "C", # flake8-comprehensions
+    "B", # flake8-bugbear
+]
+ignore = [
+    "B008", # do not perform function calls in argument defaults
+    "C901", # too complex
+]
+# Same as Black.
+line-length = 130
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.pdm]
+[tool.pdm.dev-dependencies]
+[tool.pdm.scripts]
+lint = "pre-commit run --all-files"
+test = "pytest"

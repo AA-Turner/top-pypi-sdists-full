@@ -19,9 +19,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "cdk-ecr-deployment",
-    "4.2.21",
+    "4.2.26",
     __name__[0:-6],
-    "cdk-ecr-deployment@4.2.21.jsii.tgz",
+    "cdk-ecr-deployment@4.2.26.jsii.tgz",
 )
 
 __all__ = [

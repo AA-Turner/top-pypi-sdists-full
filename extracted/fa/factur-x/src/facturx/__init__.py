@@ -1,6 +1,6 @@
 import logging
 
-__version__ = "5.0"
+__version__ = "5.1"
 from .facturx import (
     generate_from_binary,
     generate_from_file,
@@ -41,8 +41,6 @@ logging.getLogger("factur-x").addHandler(logging.NullHandler())
 def configure_script_logging(level=logging.INFO):
     logger = logging.getLogger("factur-x")
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(message)s"
-    ))
+    handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
     logger.addHandler(handler)
     logger.setLevel(level)

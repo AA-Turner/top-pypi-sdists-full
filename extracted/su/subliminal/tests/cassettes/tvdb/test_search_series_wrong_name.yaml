@@ -1,0 +1,100 @@
+interactions:
+- request:
+    body: '{"apikey": "5EC930FB90DA1ADA", "username": null, "password": null}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Accept-Language:
+      - en
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '66'
+      Content-Type:
+      - application/json
+      User-Agent:
+      - Subliminal/2.2
+    method: POST
+    uri: https://api.thetvdb.com/login
+  response:
+    body:
+      string: '{"token":"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDAwOTQyMjAsImlkIjoic3VibGltaW5hbCIsIm9yaWdfaWF0IjoxNzM5NDg5NDIwfQ.to1lA1te9rHT1Z3WeInLZZBGMgFwE8GrPFFO0pzQGg74-w4oQ_7WCpyyoYKwtEiUx6__OqARhh3Bv4LlyfFzt6ksgNfg13ADpUMH0A8ro4q5dmjLJO4MaMi1reqLvt0uEfWN_DjKT4P_0RAX_tQxultbsCsqsWJxClqSvYO2d2h5Ems7SBTmr-gVvHtqIC-umYTJ7o_0-zptmfjICG1A2Vw0LXOhy_6zq4pRh6ScMKTw7SNQ1KVY_l7LV4dICJJcCJ8chNqf5-U80F8neBO9TxUHNRYlkjpRyUPwzCJKzKkPrkjE99iV_jw7z_cfJwY2B-9CWRJSEr8T-4tkUbSg_w"}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '470'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 13 Feb 2025 23:30:20 GMT
+      Vary:
+      - Accept-Language
+      Via:
+      - 1.1 9d749cb7a21113d40b8187b4b33cf322.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - IubzYzlMBG5m5rPxM6IhEqDTFMW93a2Txp2fNHWj5XCQOdkye--rmg==
+      X-Amz-Cf-Pop:
+      - MAD51-C3
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - Thundar!
+      X-Thetvdb-Api-Version:
+      - 3.0.0
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Accept-Language:
+      - en
+      Authorization:
+      - Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDAwOTQyMjAsImlkIjoic3VibGltaW5hbCIsIm9yaWdfaWF0IjoxNzM5NDg5NDIwfQ.to1lA1te9rHT1Z3WeInLZZBGMgFwE8GrPFFO0pzQGg74-w4oQ_7WCpyyoYKwtEiUx6__OqARhh3Bv4LlyfFzt6ksgNfg13ADpUMH0A8ro4q5dmjLJO4MaMi1reqLvt0uEfWN_DjKT4P_0RAX_tQxultbsCsqsWJxClqSvYO2d2h5Ems7SBTmr-gVvHtqIC-umYTJ7o_0-zptmfjICG1A2Vw0LXOhy_6zq4pRh6ScMKTw7SNQ1KVY_l7LV4dICJJcCJ8chNqf5-U80F8neBO9TxUHNRYlkjpRyUPwzCJKzKkPrkjE99iV_jw7z_cfJwY2B-9CWRJSEr8T-4tkUbSg_w
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      User-Agent:
+      - Subliminal/2.2
+    method: GET
+    uri: https://api.thetvdb.com/search/series?name=The+Bing+Bag+Theory
+  response:
+    body:
+      string: '{"Error":"Resource not found"}'
+    headers:
+      Cache-Control:
+      - private, max-age=86400
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '30'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 13 Feb 2025 23:30:20 GMT
+      Vary:
+      - Accept-Language
+      Via:
+      - 1.1 352ab4fc53db02754a30e59a7814a0d2.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - M58xWsiYyyl1TQVeWI-ELXdojo1glrT0pWJXJd0WpCRg5_qFirHTEw==
+      X-Amz-Cf-Pop:
+      - MAD51-C3
+      X-Cache:
+      - Error from cloudfront
+      X-Powered-By:
+      - Thundar!
+      X-Thetvdb-Api-Version:
+      - 3.0.0
+    status:
+      code: 404
+      message: Not Found
+version: 1

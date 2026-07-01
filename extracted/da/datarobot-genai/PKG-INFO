@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.19.9
+Version: 0.21.1
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -124,6 +124,7 @@ Requires-Dist: nvidia-nat-opentelemetry==1.7.0; extra == "nat"
 Requires-Dist: nvidia-nat-langchain==1.7.0; extra == "nat"
 Requires-Dist: nvidia-nat-mcp==1.7.0; extra == "nat"
 Requires-Dist: anyio==4.11.0; extra == "nat"
+Requires-Dist: mem0ai<2.0.0,>=1.0.4; extra == "nat"
 Provides-Extra: auth
 Requires-Dist: datarobot[auth]<4.0.0,>=3.10.0; extra == "auth"
 Requires-Dist: aiohttp<4.0.0,>=3.13.3; extra == "auth"
@@ -244,9 +245,9 @@ Requires-Dist: nvidia-nat-opentelemetry==1.7.0; extra == "dragent"
 Requires-Dist: nvidia-nat-langchain==1.7.0; extra == "dragent"
 Requires-Dist: nvidia-nat-mcp==1.7.0; extra == "dragent"
 Requires-Dist: anyio==4.11.0; extra == "dragent"
+Requires-Dist: mem0ai<2.0.0,>=1.0.4; extra == "dragent"
 Requires-Dist: starlette>=1.0.1; extra == "dragent"
-Provides-Extra: memory
-Requires-Dist: mem0ai<2.0.0,>=1.0.4; extra == "memory"
+Requires-Dist: opentelemetry-instrumentation-fastapi<1.0.0,>=0.43b0; extra == "dragent"
 Dynamic: license-file
 Dynamic: provides-extra
 
@@ -301,7 +302,6 @@ You can also install:
 * `datarobot-genai[drmcpbase]`&mdash;Base class to derive FastMCP servers.
 * `datarobot-genai[drmcputils]`&mdash;shared MCP utilities consumed by `drmcpbase` and `drtools`.
 * `datarobot-genai[drmcp]`&mdash;host a custom MCP server in DataRobot (includes `drmcpbase`, `drtools`, and template-server dependencies).
-* `datarobot-genai[memory]`&mdash;use the Mem0-backed memory client and NAT memory provider.
 * `datarobot-genai[eval]`&mdash;agent evaluation utilities built on the NeMo Evaluator launcher.
 
 ## Credentials

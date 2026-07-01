@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bedrock-agentcore-starter-toolkit
-Version: 0.3.9
+Version: 0.3.10
 Summary: A starter toolkit for using Bedrock AgentCore
 Project-URL: Homepage, https://github.com/aws/bedrock-agentcore-starter-toolkit
 Project-URL: Bug Tracker, https://github.com/aws/bedrock-agentcore-starter-toolkit/issues
@@ -73,13 +73,18 @@ Description-Content-Type: text/markdown
 
 <br/>
 
-> **⚠️ Recommendation: Use the AgentCore CLI for new projects**
+> **⚠️ Recommendation: The Starter Toolkit CLI is no longer supported. Please use the AgentCore CLI.**
 >
 > The **[AgentCore CLI (`@aws/agentcore`)](https://github.com/aws/agentcore-cli)** is now the recommended way to create, develop, and deploy AI agents on Amazon Bedrock AgentCore. It supports a broader set of frameworks (Strands, LangGraph, LangChain, Google ADK, OpenAI Agents, and BYO), provides local development with hot reload, built-in evaluations, gateway management, and more.
 >
 > **For new projects**, install the AgentCore CLI:
 > ```bash
 > npm install -g @aws/agentcore
+> ```
+>
+> **Already installed this toolkit?** Once you've migrated, uninstall it:
+> ```bash
+> pip uninstall bedrock-agentcore-starter-toolkit
 > ```
 >
 > **Migrating from this toolkit?** See the [Migration Guide](https://github.com/awslabs/amazon-bedrock-agentcore-samples/blob/main/MIGRATION.md) for step-by-step instructions, and the [AgentCore CLI documentation](https://github.com/aws/agentcore-cli/tree/main/docs) for:

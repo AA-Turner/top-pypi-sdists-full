@@ -17,6 +17,9 @@ from schemathesis.core.transport import Response
 if TYPE_CHECKING:
     from schemathesis.config import OutputConfig
 
+# Display label for failures produced by class-based checks' `after_run` (not tied to a case).
+RUN_CHECKS_LABEL = "Run checks"
+
 # Python 3.12 renamed several HTTP phrases per RFC 9110. Use the new names
 # consistently across all Python versions so snapshots don't vary by version.
 _RFC9110_PHRASES: dict[int, str] = {
@@ -25,6 +28,11 @@ _RFC9110_PHRASES: dict[int, str] = {
     416: "Range Not Satisfiable",
     422: "Unprocessable Content",
 }
+
+
+def reason_phrase(status_code: int) -> str:
+    """HTTP reason phrase, preferring RFC 9110 wording over the stdlib default."""
+    return _RFC9110_PHRASES.get(status_code) or http.client.responses.get(status_code, "Unknown")
 
 
 class Severity(Enum):
@@ -51,7 +59,7 @@ class Failure(AssertionError):
     def __init__(
         self,
         *,
-        operation: str,
+        operation: str | None,
         title: str,
         message: str,
         case_id: str | None = None,
@@ -124,10 +132,10 @@ class CustomFailure(Failure):
     def __init__(
         self,
         *,
-        operation: str,
+        operation: str | None,
         title: str,
         message: str,
-        exception: AssertionError,
+        exception: Exception,
         case_id: str | None = None,
         severity: Severity = Severity.MEDIUM,
     ) -> None:
@@ -141,7 +149,8 @@ class CustomFailure(Failure):
 
     @property
     def _unique_key(self) -> Any:
-        return self.origin
+        # Include `title` (the check) so distinct checks raising at the same line don't collapse.
+        return (self.title, self.origin)
 
 
 class ResponseTimeExceeded(Failure):
@@ -170,6 +179,11 @@ class ResponseTimeExceeded(Failure):
     @property
     def _unique_key(self) -> str:
         return self.title
+
+
+def is_reproducible_failure(failure: Failure) -> bool:
+    """Re-sending the request can reproduce this failure; timing-dependent ones cannot."""
+    return not isinstance(failure, ResponseTimeExceeded)
 
 
 class ServerError(Failure):
@@ -320,7 +334,7 @@ def format_failures(
     case_id: str | None,
     response: Response | None,
     failures: Sequence[Failure],
-    curl: str,
+    curl: str | None,
     formatter: BlockFormatter | None = None,
     config: OutputConfig,
 ) -> str:
@@ -346,9 +360,7 @@ def format_failures(
 
     # Response status
     if isinstance(response, Response):
-        reason = _RFC9110_PHRASES.get(response.status_code) or http.client.responses.get(
-            response.status_code, "Unknown"
-        )
+        reason = reason_phrase(response.status_code)
         output += formatter(MessageBlock.STATUS, f"\n[{response.status_code}] {reason}:\n")
         # Response payload
         if response.content is None or not response.content:
@@ -359,11 +371,9 @@ def format_failures(
                 output += textwrap.indent(f"\n`{payload}`", prefix="    ")
             except UnicodeDecodeError:
                 output += "\n    <BINARY>"
-    else:
-        output += "\n    <NO RESPONSE>"
+    # `response`/`curl` are None for failures not tied to a case (e.g. after_run): nothing to show.
+    if curl is not None:
+        _curl = "\n".join(f"    {line}" for line in curl.splitlines())
+        output += "\n" + formatter(MessageBlock.CURL, f"\nReproduce with:\n\n{_curl}")
 
-    # cURL
-    _curl = "\n".join(f"    {line}" for line in curl.splitlines())
-    output += "\n" + formatter(MessageBlock.CURL, f"\nReproduce with:\n\n{_curl}")
-
-    return escape_surrogates(output)
+    return escape_surrogates(output.rstrip("\n"))

@@ -1,0 +1,110 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fr24"
+version = "0.3.1"
+description = "Retrieve Flightradar24 data over gRPC"
+authors = [
+    { name = "Abraham Cheung", email = "abraham@ylcheung.com" },
+    { name = "Xavier Olive", email = "git@xoolive.org" },
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
+dependencies = [
+    "httpx[zstd,http2]>=0.28.1",
+    "orjson>=3.11.0",
+    "platformdirs>=4.3.8",
+    "protobuf>=6.33,<7",
+    "isqx>=0.1.2",
+    "typing_extensions>=4.5.0; python_version < '3.13'", # for soft deprecating json apis
+]
+
+[project.optional-dependencies]
+polars = ["polars>=1.19.0"]
+cli = [
+    "fr24[polars]", # almost all cli commands export to csv or parquet
+    "typer>=0.19", # comes with rich
+]
+tui = ["fr24[cli]", "textual>=1.0.0"]
+
+[project.scripts]
+fr24 = 'fr24.cli:app'
+
+[project.urls]
+Repository = "https://github.com/abc8747/fr24.git"
+Documentation = "https://abc8747.github.io/fr24/"
+Issues = "https://github.com/abc8747/fr24/issues"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+    "textual-dev>=1.8.0",
+    { include-group = "typing" },
+    { include-group = "lint" },
+    { include-group = "test" },
+    { include-group = "docs" },
+]
+typing = ["mypy-protobuf>=3.6.0", "mypy>=1.13.0", "types-protobuf>=6,<7"]
+lint = ["ruff>=0.7.2"]
+test = [
+    "anyio>=4.8.0",
+    "eval-type-backport>=0.2.0", # for pydantic, <3.10 syntax
+    "pydantic>=2.12.0", # >2.12 for extra="forbid", >3.14
+    "pytest>=8.3.3,<9", # pytest>=9 uses 3.10 syntax; mypy targets py39
+    "fr24[polars]",
+]
+docs = [
+    # zensical does not support py39 since v0.0.2, so fallback to mkdocs
+    "mkdocs-material[imaging]>=9.5.43 ; python_full_version == '3.9'",
+    "zensical>=0.0.24 ; python_full_version >= '3.11'",
+    "mkdocstrings-python>=1.13.0",
+    "griffe>=1.11.2",
+]
+
+
+[tool.ruff]
+lint.select = [
+    "E",
+    "W", # pycodestyle
+    "F", # pyflakes
+    "I", # isort
+    "NPY", # numpy
+    "DTZ", # flake8-datetimez
+    "RUF",
+]
+exclude = ["proto"]
+line-length = 80
+target-version = "py39"
+
+[tool.mypy]
+python_version = "3.9"
+exclude = ["proto"]
+platform = "posix"
+
+color_output = true
+pretty = true
+show_column_numbers = true
+strict = true
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true

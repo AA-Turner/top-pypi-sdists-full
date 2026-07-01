@@ -1,6 +1,6 @@
 [package]
 name = "referencing"
-version = "0.46.6"
+version = "0.46.7"
 description = "An implementation-agnostic JSON reference resolution library for Rust."
 readme = "README.md"
 rust-version.workspace = true
@@ -31,10 +31,10 @@ micromap = "0.3.0"
 
 [dev-dependencies]
 benchmark = { path = "../benchmark/" }
-codspeed-criterion-compat = { version = "4.1", default-features = false }
+codspeed-criterion-compat = { version = "5.0", default-features = false }
 criterion = { version = "0.8", default-features = false }
 # This one is to make `wasm32-unknown-unknown` lints happy (codspeed depends on it)
-getrandom = { version = "0.2", features = ["js"] }
+getrandom = { version = "0.4", features = ["wasm_js"] }
 referencing_testsuite = { package = "jsonschema-referencing-testsuite", path = "../jsonschema-referencing-testsuite/" }
 test-case = "3.3.1"
 tokio = { version = "1", features = ["macros", "rt"] }

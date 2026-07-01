@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: cursor-sdk
+Version: 0.1.8
+Summary: cursor-sdk requires a binary wheel - install from PyPI.
+Author-email: Anysphere <support@cursor.com>
+License: Proprietary - see LICENSE.md
+License-File: LICENSE.md
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# cursor-sdk source distribution stub
+
+This sdist exists only as a typo-squatting and integrity guard. Install
+the real package from a binary wheel:
+
+    pip install cursor-sdk
+
+See https://docs.cursor.com/sdk for supported platforms and the
+release notes.

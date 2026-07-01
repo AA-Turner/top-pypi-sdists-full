@@ -284,6 +284,7 @@ from .literals import (
     OperationTypeType,
     OutputFormatType,
     PartitionLoadFrequencyType,
+    PayerResponsibilityTypeType,
     PaymentOptionType,
     PeriodTypeType,
     PhcSupportType,
@@ -2604,6 +2605,8 @@ __all__ = (
     "ModifyVpcEncryptionControlResultTypeDef",
     "ModifyVpcEndpointConnectionNotificationRequestTypeDef",
     "ModifyVpcEndpointConnectionNotificationResultTypeDef",
+    "ModifyVpcEndpointPayerResponsibilityRequestTypeDef",
+    "ModifyVpcEndpointPayerResponsibilityResultTypeDef",
     "ModifyVpcEndpointRequestTypeDef",
     "ModifyVpcEndpointResultTypeDef",
     "ModifyVpcEndpointServiceConfigurationRequestTypeDef",
@@ -2684,6 +2687,7 @@ __all__ = (
     "PathRequestFilterTypeDef",
     "PathStatementRequestTypeDef",
     "PathStatementTypeDef",
+    "PayerResponsibilityEntryTypeDef",
     "PciIdTypeDef",
     "PeeringAttachmentStatusTypeDef",
     "PeeringConnectionOptionsRequestTypeDef",
@@ -8227,6 +8231,23 @@ class ModifyVpcEndpointConnectionNotificationRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     ConnectionNotificationArn: NotRequired[str]
     ConnectionEvents: NotRequired[Sequence[str]]
+
+
+class ModifyVpcEndpointPayerResponsibilityRequestTypeDef(TypedDict):
+    VpcEndpointId: str
+    PayerResponsibility: PayerResponsibilityTypeType
+    Scope: Literal["vpc-endpoint-charges"]
+    DryRun: NotRequired[bool]
+    ServiceId: NotRequired[str]
+
+
+PayerResponsibilityEntryTypeDef = TypedDict(
+    "PayerResponsibilityEntryTypeDef",
+    {
+        "Scope": NotRequired[Literal["vpc-endpoint-charges"]],
+        "PayerResponsibilityType": NotRequired[PayerResponsibilityTypeType],
+    },
+)
 
 
 class ModifyVpcEndpointServiceConfigurationRequestTypeDef(TypedDict):
@@ -15752,21 +15773,6 @@ class VpcEndpointAssociationTypeDef(TypedDict):
     Tags: NotRequired[list[TagTypeDef]]
 
 
-class VpcEndpointConnectionTypeDef(TypedDict):
-    ServiceId: NotRequired[str]
-    VpcEndpointId: NotRequired[str]
-    VpcEndpointOwner: NotRequired[str]
-    VpcEndpointState: NotRequired[StateType]
-    CreationTimestamp: NotRequired[datetime]
-    DnsEntries: NotRequired[list[DnsEntryTypeDef]]
-    NetworkLoadBalancerArns: NotRequired[list[str]]
-    GatewayLoadBalancerArns: NotRequired[list[str]]
-    IpAddressType: NotRequired[IpAddressTypeType]
-    VpcEndpointConnectionId: NotRequired[str]
-    Tags: NotRequired[list[TagTypeDef]]
-    VpcEndpointRegion: NotRequired[str]
-
-
 class ModifyClientVpnEndpointRequestTypeDef(TypedDict):
     ClientVpnEndpointId: str
     ServerCertificateArn: NotRequired[str]
@@ -16816,6 +16822,28 @@ class ModifyVerifiedAccessTrustProviderRequestTypeDef(TypedDict):
     ]
 
 
+class ModifyVpcEndpointPayerResponsibilityResultTypeDef(TypedDict):
+    VpcEndpointId: str
+    PayerResponsibilities: list[PayerResponsibilityEntryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class VpcEndpointConnectionTypeDef(TypedDict):
+    ServiceId: NotRequired[str]
+    VpcEndpointId: NotRequired[str]
+    VpcEndpointOwner: NotRequired[str]
+    VpcEndpointState: NotRequired[StateType]
+    CreationTimestamp: NotRequired[datetime]
+    DnsEntries: NotRequired[list[DnsEntryTypeDef]]
+    NetworkLoadBalancerArns: NotRequired[list[str]]
+    GatewayLoadBalancerArns: NotRequired[list[str]]
+    IpAddressType: NotRequired[IpAddressTypeType]
+    VpcEndpointConnectionId: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+    VpcEndpointRegion: NotRequired[str]
+    PayerResponsibilities: NotRequired[list[PayerResponsibilityEntryTypeDef]]
+
+
 class ModifyVpcPeeringConnectionOptionsRequestTypeDef(TypedDict):
     VpcPeeringConnectionId: str
     AccepterPeeringConnectionOptions: NotRequired[PeeringConnectionOptionsRequestTypeDef]
@@ -17354,6 +17382,7 @@ VpcEndpointTypeDef = TypedDict(
         "ServiceNetworkArn": NotRequired[str],
         "ResourceConfigurationArn": NotRequired[str],
         "ServiceRegion": NotRequired[str],
+        "PayerResponsibilities": NotRequired[list[PayerResponsibilityEntryTypeDef]],
     },
 )
 
@@ -19013,12 +19042,6 @@ class DescribeVpcEndpointAssociationsResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class DescribeVpcEndpointConnectionsResultTypeDef(TypedDict):
-    VpcEndpointConnections: list[VpcEndpointConnectionTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
 class ModifyInstanceAttributeRequestInstanceModifyAttributeTypeDef(TypedDict):
     SourceDestCheck: NotRequired[AttributeBooleanValueTypeDef]
     EnclaveOptions: NotRequired[EnclaveOptionsRequestTypeDef]
@@ -19877,6 +19900,12 @@ class DescribeVerifiedAccessGroupsResultTypeDef(TypedDict):
 class ModifyVerifiedAccessGroupResultTypeDef(TypedDict):
     VerifiedAccessGroup: VerifiedAccessGroupTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeVpcEndpointConnectionsResultTypeDef(TypedDict):
+    VpcEndpointConnections: list[VpcEndpointConnectionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class CreateNatGatewayResultTypeDef(TypedDict):

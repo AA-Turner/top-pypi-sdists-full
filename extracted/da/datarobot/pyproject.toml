@@ -7,7 +7,11 @@ exclude = [
     ".venv",
     "drx",
     # custom.py is test data for Custom Templates
-    "tests/fixtures/custom-templates/custom.py"
+    "tests/fixtures/custom-templates/custom.py",
+    # Vendored upstream covalent / covalent-cloud sources -- populated by
+    # `make vendor` at build time. Never format or lint them; the next
+    # vendor refresh would overwrite the changes anyway.
+    "datarobot/_vendor",
 ]
 # TODO replace with project.requires-python
 target-version = "py37"
@@ -96,8 +100,8 @@ exclude = '''(?x)(
     | docs/*
     | examples/*
     | scripts/*
-    | jarvis/suites/api_client_suite.py
     | pylint_plugin.py
+    | datarobot/_vendor/*
 )'''
 
 check_untyped_defs = true
@@ -123,8 +127,6 @@ warn_unused_ignores = true
 # The strategy moving forward is to delete these ignore config settings one by one and get the errors back to zero on each deletion.
 [[tool.mypy.overrides]]
 module = [
-    "datarobot._experimental.models.idiomatic_project",
-    "datarobot._experimental.models.model",
     "datarobot._experimental.models.project_options",
 
     # Ignore specific files in helpers directory
@@ -133,35 +135,16 @@ module = [
     ### START Models directory
     ### These rules are purposely one file at a time in this directory so any new files added _must_ have annotations
     ### And also we can delete an entry for a file and fix the corresponding errors as we piece-meal annotate the whole repo.
-    "datarobot.models.api_object",
-    "datarobot.models.batch_prediction_job",
-    "datarobot.models.custom_model_test",
-    "datarobot.models.custom_task_version",
-    "datarobot.models.data_engine_query_generator",
-    "datarobot.models.datetime_trend_plots",
     "datarobot.models.feature",
-    "datarobot.models.feature_effect",
     "datarobot.models.job",
-    "datarobot.models.lift_chart",
     "datarobot.models.model",
-    "datarobot.models.modeljob",
-    "datarobot.models.pairwise_statistics",
-    "datarobot.models.pareto_front",
-    "datarobot.models.predict_job",
-    "datarobot.models.prediction_explanations",
     "datarobot.models.project",
     "datarobot.models.project_options",
     "datarobot.models.relationships_configuration",
     "datarobot.models.training_predictions",
 
     ### Sub-directories in models
-    "datarobot.models.external_dataset_scores_insights.external_confusion_chart",
-    "datarobot.models.deployment.data_drift",
     "datarobot.models.user_blueprints.models",
-
-    # Ignore specific files in datarobot sub-directory of repo.
-    "datarobot.client",
-    "datarobot.enums",
 ]
 ignore_errors = true
 

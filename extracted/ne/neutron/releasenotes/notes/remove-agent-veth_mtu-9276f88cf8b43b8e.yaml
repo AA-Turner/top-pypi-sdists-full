@@ -1,6 +1,0 @@
----
-upgrade:
-  - |
-    The ``[agent] veth_mtu`` parameter of ML2 OVS mechanism driver
-    configuration has been removed. This parameter has had no effect since
-    the Wallaby release.

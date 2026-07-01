@@ -1,0 +1,174 @@
+Metadata-Version: 2.4
+Name: metagit-cli
+Version: 0.11.0
+Summary: Metagit multi-repo management tool
+Author-email: Zachary Loeber <zloeber@gmail.com>
+Project-URL: Homepage, https://github.com/metagit-ai/metagit-cli
+Project-URL: Documentation, https://metagit-ai.github.io/metagit-cli/
+Project-URL: Issues, https://github.com/metagit-ai/metagit-cli/issues
+Project-URL: CI, https://github.com/metagit-ai/metagit-cli/actions
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: loguru>=0.7.3
+Requires-Dist: pydantic>=2.11.4
+Requires-Dist: requests>=2.33.0
+Requires-Dist: click>=8.1.7
+Requires-Dist: gitpython>=3.1.50
+Requires-Dist: rich>=14.0.0
+Requires-Dist: pyyaml>=6.0.2
+Requires-Dist: ruamel.yaml>=0.18.10
+Requires-Dist: pygithub>=2.6.1
+Requires-Dist: jsonschema>=4.24.0
+Requires-Dist: python-dotenv>=1.2.2
+Requires-Dist: rapidfuzz>=3.13.0
+Requires-Dist: tqdm>=4.66.4
+Requires-Dist: types-tqdm>=4.67.0.20250516
+Requires-Dist: aiofiles>=23.2.1
+Requires-Dist: setuptools-scm>=8.3.1
+Requires-Dist: litellm>=1.83.7
+Requires-Dist: textual-dev>=1.7.0
+Requires-Dist: python-hcl2>=7.3.1
+Requires-Dist: prompt-toolkit>=3.0.51
+Provides-Extra: standard
+Provides-Extra: test
+Requires-Dist: pytest>=9.0.3; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: mypy; extra == "test"
+Requires-Dist: ruff; extra == "test"
+Requires-Dist: httpx; extra == "test"
+Requires-Dist: pytest-asyncio; extra == "test"
+Requires-Dist: black; extra == "test"
+Provides-Extra: dev
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: mkdocs; extra == "docs"
+Requires-Dist: mkdocs-material; extra == "docs"
+Requires-Dist: mkdocstrings; extra == "docs"
+Requires-Dist: mkdocs-click; extra == "docs"
+Requires-Dist: mdtoc; extra == "docs"
+Requires-Dist: mkdocs-mermaid2-plugin; extra == "docs"
+Provides-Extra: lint
+Requires-Dist: ruff; extra == "lint"
+Requires-Dist: black; extra == "lint"
+Requires-Dist: isort; extra == "lint"
+Requires-Dist: mypy; extra == "lint"
+Provides-Extra: format
+Requires-Dist: black; extra == "format"
+Requires-Dist: isort; extra == "format"
+Provides-Extra: typecheck
+Requires-Dist: mypy; extra == "typecheck"
+Dynamic: license-file
+
+# Metagit™
+
+<!-- agent-entrypoint:
+intent: executable-tool
+primary_workflow: usage-first
+install: uv tool install -U metagit-cli
+
+bootstrap:
+  - export METAGIT_AGENT_MODE=true
+  - metagit context pack --tier 2 --json
+
+authoritative:
+  - ./AGENTS.md
+  - ./docs/agents.md
+  - ./llms.txt
+
+usage:
+  - ./README.md#quick-start
+-->
+<div align="center">
+<a href="https://metagit-ai.github.io/metagit-cli/">
+<img src="docs/inc/metagit_logo_dark.png" width="520" alt="Metagit™ logo">
+</a>
+</div>
+
+<p align="center">
+    <a href="https://github.com/metagit-ai/metagit-cli/releases/latest">
+        <img src="https://img.shields.io/github/v/release/metagit-ai/metagit-cli?color=blue&label=Latest%20Release" alt="Latest Release">
+    </a>
+    <a href="https://github.com/metagit-ai/metagit-cli/blob/main/LICENSE.md">
+        <img src="https://img.shields.io/badge/License-MIT-ffffff?labelColor=d4eaf7&color=2e6cc4" alt="License: Apache 2.0">
+    </a>
+    <a href="https://deepwiki.com/metagit-ai/metagit-cli">
+        <img alt="Ask DeepWiki" src="https://deepwiki.com/badge.svg">
+    </a>
+    <img src="https://img.shields.io/badge/status-stable-green.svg" alt="Status: Stable">
+    <img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="Python 3.12+">
+    <img src="https://github.com/metagit-ai/metagit-cli/actions/workflows/test.yaml/badge.svg" alt="Tests">
+    <img src="https://github.com/metagit-ai/metagit-cli/actions/workflows/docker.yaml/badge.svg" alt="Build">
+</p>
+
+Metagit gives you situational awareness across Git repositories. It helps multi-repo projects feel manageable, discoverable, and cohesive. It captures cross-repository relationships and project knowledge in easy to understand version controlled manifests.
+
+## About
+
+This tool works well for scenarios like:
+
+1. At-a-glance view of a project's technical stacks, languages, external dependencies, and generated artifacts.
+2. Switching between many Git projects during the day without losing context.
+3. Isolating outside dependencies that weaken the security and dependability of your software delivery pipelines.
+4. Automated documentation of a code's provenance.
+5. Helping new contributors get from onboarding to first commit faster.
+
+Metagit is designed for developers, SREs, and AI agents who work across loosely connected repositories. It tracks the dependencies and project relationships that are easy to miss when you only look at one repo at a time.
+
+## Quick start
+
+```bash
+uv tool install -U metagit-cli
+metagit version
+metagit completion install --shell zsh   # optional tab completion
+```
+
+> **NOTE** - Use the PyPI package name **`metagit-cli`** NOT `metagit`!
+
+Inside any Git repository, initialize a metagit manifest:
+
+```bash
+metagit init
+```
+
+That creates `.metagit.yml` and updates or adds a `.gitignore` for `.metagit/` (synced git repos).
+
+
+## Skills
+
+Install bundled agent skills (OpenClaw, Hermes, Claude Code, and others):
+
+```bash
+metagit skills list
+metagit skills install --scope user --target openclaw --target hermes
+
+# or, using vercel's skills registry (preferred)
+npx skills add metagit-ai/metagit-cli
+```
+
+Use `--scope project` when installing into a specific umbrella repository checkout. See [Skills](docs/skills.md) for targets, MCP install, and the project-management skill for agents.
+
+## Agent guides
+
+- [Hermes agents and organization-wide IaC](docs/hermes-iac-workspace-guide.md) — illustrated workflow for using Metagit as a control plane across Terraform, policy, and module repositories (controller + subagents, layered `agent_instructions`, MCP tools).
+
+## Documentation
+
+For installation guidance, detailed usage, including full CLI command surface, local MCP runtime setup, API-oriented flows, and advanced examples, use the documentation site:
+
+- [Documentation](https://metagit-ai.github.io/metagit-cli/)
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE.md) file for details.
+
+## Trademark
+
+MetaGit™ is an open-source project.
+
+MetaGit and the MetaGit logo are trademarks of Zachary Loeber.

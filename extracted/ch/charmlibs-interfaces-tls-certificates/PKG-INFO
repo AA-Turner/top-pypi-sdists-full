@@ -1,0 +1,31 @@
+Metadata-Version: 2.4
+Name: charmlibs-interfaces-tls_certificates
+Version: 1.8.3
+Summary: The charmlibs.interfaces.tls_certificates package.
+Project-URL: Repository, https://github.com/canonical/charmlibs
+Project-URL: Issues, https://github.com/canonical/charmlibs/issues
+Author: The TLS team at Canonical
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Requires-Dist: cryptography>=43.0.0
+Requires-Dist: ops
+Requires-Dist: pydantic
+Description-Content-Type: text/markdown
+
+# charmlibs.interfaces.tls_certificates
+
+The `tls-certificates` interface library.
+
+To install, add `charmlibs-interfaces-tls-certificates` to your Python dependencies. Then in your Python code, import as:
+
+```py
+from charmlibs.interfaces import tls_certificates
+```
+
+See the [reference documentation](https://documentation.ubuntu.com/charmlibs/reference/charmlibs/interfaces/tls-certificates).
+
+Also see the [usage documentation](https://charmhub.io/tls-certificates-interface) on Charmhub. This documentation was written when the library was hosted on Charmhub, so some parts might not be directly applicable.

@@ -7,12 +7,14 @@ use std::sync::LazyLock;
 
 use anyhow::{Context, Result};
 use itertools::Itertools;
-use prek_consts::env_vars::EnvVars;
+use prek_consts::env_vars::{EnvVars, EnvVarsRead};
 use target_lexicon::{Architecture, HOST, OperatingSystem};
 use tracing::{debug, trace, warn};
 
+use crate::archive;
+use crate::checksum::{Sha256Digest, digest_from_sha256sums};
 use crate::fs::LockedFile;
-use crate::http::{REQWEST_CLIENT, download_and_extract};
+use crate::http::{REQWEST_CLIENT, download_artifact};
 use crate::languages::node::NodeRequest;
 use crate::languages::node::version::NodeVersion;
 use crate::process::Cmd;
@@ -34,7 +36,7 @@ impl Display for NodeResult {
 
 /// Override the Node binary name for testing.
 static NODE_BINARY_NAME: LazyLock<String> = LazyLock::new(|| {
-    if let Ok(name) = EnvVars::var(EnvVars::PREK_INTERNAL__NODE_BINARY_NAME) {
+    if let Ok(name) = EnvVars.var(EnvVars::PREK_INTERNAL__NODE_BINARY_NAME) {
         name
     } else {
         "node".to_string()
@@ -65,7 +67,7 @@ impl NodeResult {
 
     pub(crate) async fn fill_version(mut self) -> Result<Self> {
         // https://nodejs.org/api/process.html#processrelease
-        let output = Cmd::new(&self.node, "node -p")
+        let output = Cmd::new(&self.node)
             .arg("-p")
             .arg("JSON.stringify({version: process.version, lts: process.release.lts || false})")
             .check(true)
@@ -215,24 +217,48 @@ impl NodeInstaller {
 
         let filename = format!("node-v{}-{os}-{arch}.{ext}", version.version());
         let url = format!("https://nodejs.org/dist/v{}/{filename}", version.version());
+        let checksum_url = format!(
+            "https://nodejs.org/dist/v{}/SHASUMS256.txt",
+            version.version()
+        );
         let target = self.root.join(version.to_string());
 
-        download_and_extract(&url, &filename, store, async |extracted| {
-            if target.exists() {
-                debug!(target = %target.display(), "Removing existing node");
-                fs_err::tokio::remove_dir_all(&target).await?;
-            }
-
-            debug!(?extracted, target = %target.display(), "Moving node to target");
-            // TODO: retry on Windows
-            fs_err::tokio::rename(extracted, &target).await?;
-
-            anyhow::Ok(())
+        let download = download_artifact(&url, &filename, store, async || {
+            Self::fetch_checksum(&checksum_url, &filename).await
         })
         .await
-        .context("Failed to download and extract node")?;
+        .context("Failed to download node")?;
+        let extracted = archive::extract_archive(download.path())
+            .await
+            .context("Failed to extract node")?;
+        if target.exists() {
+            debug!(target = %target.display(), "Removing existing node");
+            fs_err::tokio::remove_dir_all(&target).await?;
+        }
+
+        debug!(?extracted, target = %target.display(), "Moving node to target");
+        // TODO: retry on Windows
+        fs_err::tokio::rename(&extracted, &target).await?;
 
         Ok(NodeResult::from_dir(&target).with_version(version.clone()))
+    }
+
+    async fn fetch_checksum(url: &str, filename: &str) -> Result<Option<Sha256Digest>> {
+        let response = REQWEST_CLIENT
+            .get(url)
+            .send()
+            .await
+            .with_context(|| format!("Failed to fetch Node.js checksums from {url}"))?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+
+        let checksums = response
+            .error_for_status()
+            .with_context(|| format!("Failed to fetch Node.js checksums from {url}"))?
+            .text()
+            .await?;
+        digest_from_sha256sums(&checksums, filename)
     }
 
     /// Find a suitable system Node.js installation that matches the request.

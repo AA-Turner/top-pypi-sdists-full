@@ -430,7 +430,7 @@ def test_start_session_uses_build_spark_configs(manager, mock_boto3_clients, moc
     manager.project = MagicMock()
     manager.project.id = "proj-1"
     manager.connection_spark_configs = {"spark.conn.key": "conn_val"}
-    manager.spark_conf = {"spark.user.key": "user_val"}
+    manager._user_spark_conf = {"spark.user.key": "user_val"}
 
     athena_client.start_session.return_value = {"SessionId": "sess-cfg"}
     athena_client.get_session.return_value = {"Status": {"State": "CREATED"}}
@@ -469,7 +469,7 @@ def test_start_session_user_config_overrides_connection(
     manager.project = MagicMock()
     manager.project.id = "proj-1"
     manager.connection_spark_configs = {"spark.shared.key": "from_connection"}
-    manager.spark_conf = {"spark.shared.key": "from_user"}
+    manager._user_spark_conf = {"spark.shared.key": "from_user"}
 
     athena_client.start_session.return_value = {"SessionId": "sess-override"}
     athena_client.get_session.return_value = {"Status": {"State": "CREATED"}}

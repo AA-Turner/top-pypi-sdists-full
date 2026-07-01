@@ -7,10 +7,9 @@ from taskmonitor.app_settings import (
     TASKMONITOR_ENABLED,
     TASKMONITOR_HOUSEKEEPING_FREQUENCY,
 )
+from taskmonitor.core import celery_queues, task_records
 from taskmonitor.models import TaskLog
 from taskmonitor.tasks import DEFAULT_TASK_PRIORITY, run_housekeeping
-
-from . import celery_queues, task_records
 
 TASK_RECEIVED = "received"
 TASK_STARTED = "started"

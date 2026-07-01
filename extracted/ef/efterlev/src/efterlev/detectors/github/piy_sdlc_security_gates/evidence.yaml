@@ -1,9 +1,0 @@
-detector_id: github.piy_sdlc_security_gates
-
-evidence_shape:
-  resource_type: string         # github_workflow
-  resource_name: string         # workflow filename or `name:` field
-  gate_state: enum              # configured | absent
-  gates_present: list[string]?  # subset of {codeql, dependency_review, secret_scanning}
-                                # present only when gate_state=configured
-  gap: string?                  # present only when gate_state=absent

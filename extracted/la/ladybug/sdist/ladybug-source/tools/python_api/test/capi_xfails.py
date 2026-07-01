@@ -33,6 +33,12 @@ CAPI_XFAILS = frozenset(
         "test/test_scan_pandas.py::test_scan_py_dict_map_format",
         "test/test_scan_pandas.py::test_scan_py_dict_empty",
         "test/test_scan_pandas.py::test_df_with_struct_cast",
+        "test/test_scan_pandas.py::test_scan_pandas_timedelta_nat",
+        # LOAD FROM subquery not supported
+        "test/test_scan_pandas.py::test_copy_from_datetime_nat",
+        "test/test_scan_pandas.py::test_copy_from_timedelta_nat",
+        "test/test_scan_pandas.py::test_copy_from_datetime_none",
+        #
         "test/test_scan_pandas_pyarrow.py::test_pyarrow_primitive",
         "test/test_scan_pandas_pyarrow.py::test_pyarrow_time",
         "test/test_scan_pandas_pyarrow.py::test_pyarrow_blob",
@@ -69,6 +75,12 @@ CAPI_XFAILS = frozenset(
         "test/test_udf.py::test_udf_null",
         "test/test_udf.py::test_udf_except",
         "test/test_udf.py::test_udf_remove",
+        # C API Arrow export for JSON types is not yet implemented.  get_as_df()
+        # tests that need the pybind NPArrayWrapper path are xfailed.
+        "test/test_json.py::test_get_as_df_json_scalar",
+        "test/test_json.py::test_get_as_df_json_empty_result",
+        "test/test_json.py::test_get_as_df_json_extract",
+        "test/test_json.py::test_get_as_df_json_list",
         # C API temporal conversion still differs from pybind for torch geometric export.
         "test/test_torch_geometric.py::test_to_torch_geometric_homogeneous_graph",
         "test/test_torch_geometric.py::test_to_torch_geometric_heterogeneous_graph",

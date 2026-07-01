@@ -1,0 +1,21 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.metadata]
+module = "nashpy"
+author = "Vince Knight, James Campbell"
+author-email = "vince@vknight.org"
+requires = [
+    "numpy >=1.21.0",
+    "scipy >=0.19.0",
+    "networkx >= 3.0.0",
+    "deprecated >= 1.2.14"
+]
+home-page = "https://github.com/drvinceknight/Nashpy"
+requires-python= ">=3.10"
+description-file = "README.md"
+classifiers = [ "License :: OSI Approved :: MIT License",]
+
+[tool.flit.metadata.requires-extra]
+doc = ["sphinx==6.2.1", "sphinx-rtd-theme", "sphinx-togglebutton", "matplotlib", "sphinxcontrib.mermaid"]

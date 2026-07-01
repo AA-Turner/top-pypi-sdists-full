@@ -1,0 +1,110 @@
+[workspace]
+name = "rasterix-dev"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64"]
+
+[dependencies]
+python = ">=3.11"
+
+[pypi-dependencies]
+rasterix = { path = ".", editable = true }
+
+# ===== Tasks =====
+
+[tasks]
+test = "pytest -nauto --cov-config=pyproject.toml --cov=src --cov-report xml --junitxml=junit.xml -o junit_family=legacy"
+test-no-cov = "pytest -nauto"
+list-env = "pip list"
+type-check = "mypy src"
+
+# ===== Python version features =====
+
+[feature.py311.dependencies]
+python = "3.11.*"
+
+[feature.py314.dependencies]
+python = "3.14.*"
+
+# ===== Test base: shared across all test environments =====
+
+[feature.test-base.dependencies]
+netcdf4 = "*"
+exactextract = "*"
+dask-geopandas = "*"
+pyogrio = "*"
+sparse = "*"
+coverage = "*"
+geodatasets = "*"
+hypothesis = "*"
+pooch = "*"
+pytest = "*"
+pytest-cov = "*"
+pytest-xdist = "*"
+
+# ===== Backend-specific test features =====
+
+[feature.with-rasterio.dependencies]
+rasterio = "*"
+
+[feature.with-rusterize.dependencies]
+# rusterize >=0.8 no longer depends on polars, but needs it for GeoDataFrame input
+polars = "*"
+
+[feature.with-rusterize.pypi-dependencies]
+rusterize = ">=0.7.1"
+
+# ===== Docs feature =====
+
+[feature.docs.dependencies]
+python = "3.12.*"
+netcdf4 = "*"
+rasterio = "*"
+exactextract = "*"
+dask-geopandas = "*"
+rioxarray = "*"
+sparse = "*"
+geodatasets = "*"
+pooch = "*"
+sphinx = "*"
+sphinx-autoapi = "*"
+sphinx-autobuild = ">=2021.3.14"
+sphinx-copybutton = "*"
+sphinx-remove-toctrees = "*"
+sphinx-codeautolink = "*"
+myst-parser = "*"
+myst-nb = "*"
+furo = "*"
+numpydoc = "*"
+sphinxext-opengraph = "*"
+xvec = "*"
+polars = "*"
+
+[feature.docs.pypi-dependencies]
+rusterize = ">=0.7.1"
+
+[feature.docs.tasks]
+docs-build = { cmd = "sphinx-build -b html . _build/html", cwd = "docs" }
+docs-live = { cmd = "sphinx-autobuild -b html . _build/html", cwd = "docs" }
+docs-clean = { cmd = "rm -rf _build/* generated/*", cwd = "docs" }
+
+# ===== Dev feature =====
+
+[feature.dev-tools.dependencies]
+ipykernel = "*"
+snakeviz = "*"
+py-spy = "*"
+memray = "*"
+
+[feature.dev-tools.pypi-dependencies]
+pdbpp = "*"
+watermark = "*"
+
+# ===== Environments =====
+
+[environments]
+test-py311 = ["test-base", "with-rasterio", "py311"]
+test-py314 = ["test-base", "with-rasterio", "py314"]
+test-rusterize-py311 = ["test-base", "with-rusterize", "py311"]
+test-rusterize-py314 = ["test-base", "with-rusterize", "py314"]
+dev = ["test-base", "with-rasterio", "py314", "dev-tools"]
+docs = ["docs"]

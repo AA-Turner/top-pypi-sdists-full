@@ -7,16 +7,16 @@
 # previous versions remain queryable via `config list` and
 # `config get --version N`.
 
-# Resource flavors — named flavors with optional match-expression requirements
+# Resource flavors — named flavors with an optional match-expression selector
 # (against instance labels) and optional advanced cloud-provider overrides.
 resource_flavors:
   - name: spot
-    requirements:
+    selector:
       - key: market
         operator: in
         values: [spot]
   - name: ondemand
-    requirements:
+    selector:
       - key: market
         operator: in
         values: [ondemand]

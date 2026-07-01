@@ -1,0 +1,28 @@
+[project]
+name = "pyocr"
+description = "A Python wrapper for OCR engines (Tesseract, Cuneiform, etc)"
+dynamic = ["version"]
+authors = [
+  {name = "Jerome Flesch", email = "jflesch@openpaper.work" },
+]
+license = {text = "GPL-3.0-or-later"}
+readme = {file = "README.md", content-type = "text/markdown"}
+
+dependencies = [
+  "Pillow",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+]
+lint = [
+  "flake8",
+]
+
+[tool.setuptools_scm]
+write_to = "src/pyocr/_version.py"
+
+[build-system]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"

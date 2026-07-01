@@ -655,6 +655,30 @@ impl PsiGramTensor {
             .unwrap_or(false)
     }
 
+    /// The gauge-invariant subspace distance `‖P(ψ_ref) − P(ψ_new)‖₂ = sin θ_max`
+    /// between the two conditioned-Gram range subspaces — the exact quantity
+    /// [`Self::reduced_basis_equal`] thresholds against `PSI_GRAM_SKIP_PROJ_ATOL`.
+    /// Exposed for #1033 frontier instrumentation so a refused n-free skip can be
+    /// attributed to a genuine in-window basis ROTATION (this distance exceeds the
+    /// tolerance at equal rank) versus a rank change. Returns `None` for an
+    /// off-window ψ, an equal-ψ pair, a rank mismatch, or an eigendecomp failure.
+    /// Purely k-space (O(k³)) — independent of n.
+    pub fn reduced_basis_subspace_distance(&self, psi_ref: f64, psi_new: f64) -> Option<f64> {
+        if !(self.contains(psi_ref) && self.contains(psi_new)) {
+            return None;
+        }
+        if psi_ref == psi_new {
+            return Some(0.0);
+        }
+        let (p_ref, r_ref) = self.range_projector(psi_ref, PSI_GRAM_SKIP_RANK_RTOL)?;
+        let (p_new, r_new) = self.range_projector(psi_new, PSI_GRAM_SKIP_RANK_RTOL)?;
+        if r_ref != r_new {
+            return None;
+        }
+        let diff = &p_ref - &p_new;
+        subspace_spectral_distance(&diff)
+    }
+
     /// Numerical rank of the conditioned Gram `XᵀWX(ψ)` at `psi`, under the same
     /// relative cutoff (`PSI_GRAM_SKIP_RANK_RTOL`·λ_max) the design-revision skip's
     /// `reduced_basis_equal` witness uses. Returns `None` for an off-window /
@@ -728,6 +752,65 @@ impl PsiGramTensor {
             None
         } else {
             Some(psi_at(floor_idx))
+        }
+    }
+
+    /// Upper edge of the contiguous maximal-rank ψ-band, the symmetric twin of
+    /// [`Self::rank_stable_psi_floor`] (#1033). The conditioned Gram `XᵀWX(ψ)` is
+    /// rank-deficient at BOTH window ends — at small ψ the longest-length-scale
+    /// radial mode collapses into the polynomial nullspace, and at very large ψ
+    /// every radial column goes collinear with the low-frequency mode, so the
+    /// maximal-rank region is a middle BAND. The optimizer's line search can
+    /// OVERSHOOT above that band (e.g. ψ≈1.0 on production Duchon geometry), where
+    /// the design-realization skip's `reduced_basis_equal` witness must soundly
+    /// refuse (the range subspace dropped a dimension) → an O(n) `reset_surface`,
+    /// AND the pinning ψ recorded at that reset is itself rank-deficient, so the
+    /// NEXT in-band trial mismatches its reference and resets a SECOND time. Both
+    /// resets vanish once the optimizer's UPPER bound is clamped down to this
+    /// n-free k-space ceiling, keeping every trial inside the maximal-rank band.
+    ///
+    /// Walks UP from the anchor on the same fixed k-space grid as the floor and
+    /// returns the highest ψ still at the window's maximal numerical rank
+    /// (stopping at the first node above that differs). Purely O(nodes·k³) — no
+    /// row access, inherently n-INDEPENDENT (rank is a property of the k×k tensor).
+    ///
+    /// Returns `None` when the band already reaches `psi_hi` (no clamp needed),
+    /// when the anchor is off-window / rank-indeterminate, or when the window is
+    /// empty.
+    pub fn rank_stable_psi_ceiling(&self, psi_anchor: f64) -> Option<f64> {
+        // Same grid + max-rank target + anchor→band snap as `rank_stable_psi_floor`
+        // so the floor and ceiling bracket the SAME contiguous maximal-rank band.
+        const NODES: usize = 96;
+        if !(self.psi_hi > self.psi_lo) {
+            return None;
+        }
+        let span = self.psi_hi - self.psi_lo;
+        let psi_at = |i: usize| self.psi_lo + span * (i as f64) / ((NODES - 1) as f64);
+        let ranks: Vec<Option<usize>> =
+            (0..NODES).map(|i| self.gram_numerical_rank(psi_at(i))).collect();
+        let max_rank = ranks.iter().filter_map(|r| *r).max()?;
+        let anchor = psi_anchor.clamp(self.psi_lo, self.psi_hi);
+        let anchor_idx = (((anchor - self.psi_lo) / span) * ((NODES - 1) as f64))
+            .round()
+            .clamp(0.0, (NODES - 1) as f64) as usize;
+        // Snap to the nearest max-rank node at/below the anchor (the mirror of the
+        // floor's snap-UP), so the band edge is measured from inside the good band.
+        let band_idx = (0..=anchor_idx).rev().find(|&i| ranks[i] == Some(max_rank))?;
+        // Walk UP from the band node; the ceiling is the highest node from which
+        // every node down to it holds `max_rank`. Stop at the first node above.
+        let mut ceil_idx = band_idx;
+        for i in (band_idx + 1)..NODES {
+            if ranks[i] == Some(max_rank) {
+                ceil_idx = i;
+            } else {
+                break;
+            }
+        }
+        if ceil_idx == NODES - 1 {
+            // The maximal-rank band already reaches `psi_hi` — no clamp needed.
+            None
+        } else {
+            Some(psi_at(ceil_idx))
         }
     }
 
@@ -1184,6 +1267,115 @@ mod tests {
         );
     }
 
+    /// #1033 (rank-stable κ-CEILING): the symmetric twin of the floor test. The
+    /// `synth_design` radial columns `(1+s)e^{-s}` with `s = r·e^ψ` collapse at the
+    /// HIGH ψ edge — every column decays toward zero as `s→∞`, so the conditioned
+    /// Gram drops rank near `psi_hi`. `rank_stable_psi_ceiling` must (a) detect that
+    /// the maximal-rank band does NOT reach `psi_hi` and return a ceiling strictly
+    /// inside the window, (b) report that ceiling as the upper edge of the band
+    /// containing the seed (rank at the ceiling = window-maximal, rank just above it
+    /// strictly lower), and (c) be a pure k-space property — IDENTICAL whether built
+    /// from few or many rows (the n-independence the κ outer loop relies on). A
+    /// design full-rank up to `psi_hi` must return `None` (no clamp needed). This is
+    /// the regression guard for the n=16000 fast-ladder resets: the κ line search
+    /// overshot above the band to a rank-deficient ψ and tripped two O(n) resets.
+    #[test]
+    fn rank_stable_psi_ceiling_is_inside_window_and_n_independent() {
+        let k = 7usize;
+        // `synth_design`'s radial Gram rank RISES with ψ (the columns separate as
+        // s = r·e^ψ grows), so it collapses at the LOW edge — the floor's setting.
+        // To exercise the CEILING we feed the ψ-REFLECTED design `synth_design(-ψ)`,
+        // whose rank instead collapses at the HIGH edge (rank 7→3 as ψ→psi_hi),
+        // exactly the high-edge degeneracy the κ-ceiling guards against. Seed at a
+        // window-maximal-rank node (located by a coarse scan, not assumed at an
+        // edge); the ceiling is the upper edge of the maximal-rank band.
+        let (psi_lo, psi_hi) = (-2.6_f64, 1.0_f64);
+        let build_at = |n: usize| {
+            let w = Array1::from_iter((0..n).map(|i| 1.0 + 0.5 * ((i % 3) as f64)));
+            let z = Array1::from_iter((0..n).map(|i| ((i as f64) * 0.41).cos()));
+            PsiGramTensor::build(|psi| synth_design(-psi, n, k), w.view(), z.view(), psi_lo, psi_hi)
+                .expect("analytic synthetic design must certify")
+        };
+
+        let t_small = build_at(120);
+        let rank_at = |psi: f64| t_small.gram_numerical_rank(psi).unwrap();
+        let scan: Vec<(f64, usize)> = (0..96)
+            .map(|i| {
+                let p = psi_lo + (psi_hi - psi_lo) * (i as f64) / 95.0;
+                (p, rank_at(p))
+            })
+            .collect();
+        let window_max_rank = scan.iter().map(|&(_, r)| r).max().unwrap();
+        let seed = scan
+            .iter()
+            .find(|&&(_, r)| r == window_max_rank)
+            .map(|&(p, _)| p)
+            .expect("some node must hold the window-maximal rank");
+        let ceil_small = t_small.rank_stable_psi_ceiling(seed);
+
+        // (a) the band does not reach psi_hi → a ceiling is returned, strictly inside.
+        let ceiling =
+            ceil_small.expect("high-edge-collapsing design must clamp the ceiling off psi_hi");
+        assert!(
+            ceiling < psi_hi && ceiling >= seed,
+            "ceiling {ceiling} must lie in [seed {seed}, psi_hi {psi_hi})"
+        );
+
+        // (b) at/below the ceiling the Gram holds the window-maximal rank; above it
+        // the rank drops. The ceiling is a genuine rank edge, not an interior node.
+        let max_rank = window_max_rank;
+        assert_eq!(
+            rank_at(seed),
+            max_rank,
+            "the seed must sit at the window-maximal rank"
+        );
+        assert_eq!(
+            rank_at(ceiling),
+            max_rank,
+            "the ceiling must sit at the window-maximal rank"
+        );
+        let probe_above = ceiling + 0.25;
+        if t_small.contains(probe_above) {
+            assert!(
+                rank_at(probe_above) < max_rank,
+                "rank just above the ceiling ({}) must drop under the band rank {max_rank}",
+                rank_at(probe_above)
+            );
+        }
+
+        // (c) n-independence: the ceiling from a larger build matches to grid
+        // resolution — the rank cliff is an n-free k-space property.
+        let t_big = build_at(1000);
+        let ceil_big = t_big
+            .rank_stable_psi_ceiling(seed)
+            .expect("the rank cliff is an n-free property; the big build must also clamp");
+        let grid_step = (psi_hi - psi_lo) / 95.0; // NODES - 1 = 95
+        assert!(
+            (ceil_small.unwrap() - ceil_big).abs() <= 1.5 * grid_step,
+            "rank-stable ceiling must be n-independent: n=120 → {}, n=1000 → {ceil_big} \
+             (grid step {grid_step})",
+            ceil_small.unwrap()
+        );
+
+        // A genuinely full-rank design across the window needs no clamp → None.
+        let n = 200usize;
+        let kk = 6usize;
+        let w = Array1::from_iter((0..n).map(|i| 1.0 + 0.5 * ((i % 3) as f64)));
+        let z = Array1::from_iter((0..n).map(|i| ((i as f64) * 0.23).sin()));
+        let full = PsiGramTensor::build(
+            |psi| synth_full_rank_design(psi, n, kk),
+            w.view(),
+            z.view(),
+            psi_lo,
+            psi_hi,
+        )
+        .expect("full-rank design must certify");
+        assert!(
+            full.rank_stable_psi_ceiling(seed).is_none(),
+            "a window-wide full-rank design must not clamp the ceiling"
+        );
+    }
+
     /// #1033 n-independence invariant (structural, build-free, bit-tight):
     /// after the one-time `build` n-pass, EVERY per-trial accessor the certified
     /// κ/ψ outer-loop hot path consumes — the value `(gram_at, rhs_at)`, the
@@ -1239,16 +1431,16 @@ mod tests {
             let psi = lo + (hi - lo) * (i as f64) / (m as f64 - 1.0);
             assert!(tensor.contains(psi));
             // Value lane.
-            let _g = tensor.gram_at(psi);
-            let _r = tensor.rhs_at(psi);
+            tensor.gram_at(psi);
+            tensor.rhs_at(psi);
             // Gradient lane.
-            let _dg = tensor.dgram_dpsi(psi);
-            let _dr = tensor.drhs_dpsi(psi);
+            tensor.dgram_dpsi(psi);
+            tensor.drhs_dpsi(psi);
             // Hessian-channel curvature.
-            let _d2g = tensor.d2gram_dpsi2(psi);
-            let _d2r = tensor.d2rhs_dpsi2(psi);
+            tensor.d2gram_dpsi2(psi);
+            tensor.d2rhs_dpsi2(psi);
             // Inner-solver bridge (the GaussianFixedCache the PLS fast path reads).
-            let _cache = tensor.gaussian_fixed_cache_at(psi);
+            tensor.gaussian_fixed_cache_at(psi);
         }
 
         assert_eq!(

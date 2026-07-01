@@ -1,0 +1,155 @@
+name: Publish
+
+# Publish triggers:
+#   - push to main  → publishes a .devN pre-release to PyPI (continuous dev build;
+#                     no GitHub Release is created)
+#   - v* tag push   → publishes the clean release to PyPI AND creates a GitHub Release
+#   - workflow_dispatch (tag input) → same as tag push (manual release)
+on:
+  push:
+    branches: [main]
+    tags: ["v[0-9]*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (e.g. v2026.6.0)"
+        required: true
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  # contents: write is required by softprops/action-gh-release (the "Create GitHub Release"
+  # step).  GitHub Actions does not support per-step permission overrides, so the only clean
+  # way to scope this down would be to split the job.  The release step is already guarded by
+  # `if: github.ref_type == 'tag' || ...`, so on main-branch pushes the write access is
+  # unused but unavoidable without a job split that would add complexity for minimal gain.
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      # inputs.tag is only set for workflow_dispatch; on branch/tag pushes github.ref is used.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Verify plugin.json version matches tag (stable releases only)
+        # Run only for tag/dispatch releases; skip for dev builds pushed to main.
+        # Prerelease tags (aN/bN/rcN/.devN) are exempt — plugin.json tracks stable only.
+        # Fails fast before uv build if the version bump was not merged before tagging.
+        # The context value is passed via env: to avoid ${{ }} script-injection into the run body.
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        env:
+          EFFECTIVE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          # Strip a leading 'v' from the env-provided tag value.
+          version="${EFFECTIVE_TAG#v}"
+          # Skip prerelease tags (aN/bN/rcN suffixes or .dev in the version string).
+          if echo "$version" | grep -qE '(a|b|rc)[0-9]*$|\.dev'; then
+            echo "Prerelease tag '$version' detected — plugin.json tracks stable only; skipping version check."
+            exit 0
+          fi
+          # Stable tag: read plugin.json version and compare.
+          plugin_version=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
+          if [ "$plugin_version" != "$version" ]; then
+            echo "::error::plugin.json version ('$plugin_version') does not match tag '$version'. Run 'just release $version', open a release-prep PR, merge it, then retag."
+            exit 1
+          fi
+          echo "plugin.json version '$plugin_version' matches tag '$version' — OK."
+
+      - run: uv sync --frozen --no-dev
+
+      - run: uv build
+
+      - name: Generate CycloneDX SBOM
+        # Use `--from cyclonedx-bom` to invoke the real tool (not the unrelated `cyclonedx-py`
+        # package on PyPI, which does not accept --outfile and would fail with exit 2).
+        # Flags: --of JSON (output format), -o <file> (output file) — correct for cyclonedx-bom.
+        # continue-on-error: true so an SBOM failure can never block the PyPI publish.
+        continue-on-error: true
+        run: |
+          uvx --from 'cyclonedx-bom==7.3.0' cyclonedx-py environment --of JSON -o dist/sbom.cdx.json "$(uv python find)"
+          python3 -c "import json,sys; d=json.load(open('dist/sbom.cdx.json')); print(f'SBOM: {len(d.get(\"components\",[]))} components')"
+
+      - name: Upload SBOM artifact
+        # Only upload if the SBOM was actually generated (SBOM step may have been skipped/failed).
+        if: ${{ hashFiles('dist/sbom.cdx.json') != '' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom-cyclonedx
+          path: dist/sbom.cdx.json
+          if-no-files-found: warn
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            dist/*.whl
+            dist/*.tar.gz
+
+      - name: Publish to PyPI (OIDC)
+        # hatch-vcs derives a unique .devN version per commit (distance since last v* tag),
+        # so a re-run would try to upload an already-existing version.  PyPI returns HTTP 400
+        # with "File already exists" in that case.  We treat that specific error as success
+        # (idempotent re-run) while still propagating any other failure.
+        #
+        # GHA runs every `run:` block as `bash --noprofile --norc -eo pipefail {0}`, so `-e`
+        # is already active.  We must disable it around the pipeline so that a non-zero exit
+        # from `uv publish` does not abort the shell before we can inspect the output.
+        run: |
+          set +e
+          uv publish --trusted-publishing always 2>&1 | tee /tmp/uv_publish_output.txt
+          exit_code=${PIPESTATUS[0]}
+          set -eo pipefail
+          if [ "$exit_code" -ne 0 ]; then
+            if grep -qiE 'already been registered|file[^ ]* already exist' /tmp/uv_publish_output.txt; then
+              echo "Version already on PyPI — treating as success (idempotent re-run)."
+            else
+              echo "Publish failed for an unexpected reason:" >&2
+              cat /tmp/uv_publish_output.txt >&2
+              exit "$exit_code"
+            fi
+          fi
+
+      - name: Determine prerelease flag
+        id: prerelease
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        env:
+          EFFECTIVE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          version="${EFFECTIVE_TAG#v}"
+          if echo "$version" | grep -qE '(a|b|rc)[0-9]*$|\.dev'; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release (tag only)
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/sbom.cdx.json
+          fail_on_unmatched_files: false
+          generate_release_notes: true
+          name: ${{ inputs.tag || github.ref_name }}
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          prerelease: ${{ steps.prerelease.outputs.is_prerelease }}

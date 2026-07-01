@@ -131,6 +131,47 @@ class StudioMixin(BaseClient):
 
         return None
 
+    @staticmethod
+    def _coerce_source_ids(raw: Any) -> list[str]:
+        """Coerce a raw source list into UUID strings.
+
+        Entries appear as bare strings (``"uuid"``) or UUIDs wrapped in one
+        or more single-element lists; anything else is ignored.
+        """
+        if not isinstance(raw, list):
+            return []
+        ids: list[str] = []
+        for entry in raw:
+            while isinstance(entry, list) and len(entry) == 1:
+                entry = entry[0]
+            if isinstance(entry, str):
+                ids.append(entry)
+        return ids
+
+    def _extract_artifact_source_ids(self, artifact_data: list[Any], type_code: Any) -> list[str]:
+        """Source UUIDs an artifact was generated from.
+
+        Per the ``gArtLc`` poll response (see ``docs/API_REFERENCE.md``), the
+        source list is carried at the top-level index ``[3]`` for all artifact
+        types. Some audio payloads also nest it inside the options blob at
+        ``[6][1][3]``; fall back to that when the top-level field is empty.
+        """
+        # Top-level source field — documented, type-agnostic.
+        if len(artifact_data) > 3:
+            ids = self._coerce_source_ids(artifact_data[3])
+            if ids:
+                return ids
+
+        # Audio fallback: sources nested in the options blob at [6][1][3].
+        if type_code == self.STUDIO_TYPE_AUDIO and len(artifact_data) > 6:
+            options_data = artifact_data[6]
+            if isinstance(options_data, list) and len(options_data) > 1:
+                inner = options_data[1]
+                if isinstance(inner, list) and len(inner) > 3:
+                    return self._coerce_source_ids(inner[3])
+
+        return []
+
     def _normalize_studio_status(self, artifact_data: Any) -> str:
         """Map raw artifact status codes to stable CLI status labels.
 
@@ -248,15 +289,21 @@ class StudioMixin(BaseClient):
         # Build source IDs in the simpler format: [[id1], [id2], ...]
         sources_simple = [[sid] for sid in source_ids]
 
-        # Build inner options — Cinematic format (code 3) omits visual_style_code
+        # Build inner options — Cinematic (code 3) and Short (code 4) omit visual_style_code
         inner_options = [
             sources_simple,
-            language,
+            None if format_code == constants.VIDEO_FORMAT_SHORT else language,
             focus_prompt,
             None,
             format_code,
         ]
-        if format_code != constants.VIDEO_FORMAT_CINEMATIC:
+        if format_code == constants.VIDEO_FORMAT_SHORT:
+            # Short Video Overviews are English-only for now (language sent as
+            # null; NotebookLM defaults it server-side) and require a trailing
+            # flag — value `1` observed in a live capture on 2026-06-30, exact
+            # meaning undocumented by Google.
+            inner_options.extend([None, None, 1])
+        elif format_code != constants.VIDEO_FORMAT_CINEMATIC:
             inner_options.append(visual_style_code)
             if visual_style_prompt:
                 inner_options.append(visual_style_prompt)
@@ -296,10 +343,12 @@ class StudioMixin(BaseClient):
                 "status": self._normalize_studio_status(artifact_data),
                 "format": constants.VIDEO_FORMATS.get_name(format_code),
                 "visual_style": constants.VIDEO_STYLES.get_name(visual_style_code)
-                if format_code != constants.VIDEO_FORMAT_CINEMATIC and visual_style_code is not None
+                if format_code
+                not in (constants.VIDEO_FORMAT_CINEMATIC, constants.VIDEO_FORMAT_SHORT)
+                and visual_style_code is not None
                 else None,
                 "visual_style_prompt": visual_style_prompt or None,
-                "language": language,
+                "language": "en" if format_code == constants.VIDEO_FORMAT_SHORT else language,
             }
 
         return None
@@ -447,6 +496,7 @@ class StudioMixin(BaseClient):
                 # - Quiz/Flashcards: artifact_data[9][1][1]
                 custom_instructions = None
                 visual_style_prompt = None
+                source_ids = self._extract_artifact_source_ids(artifact_data, type_code)
 
                 if type_code == self.STUDIO_TYPE_AUDIO and len(artifact_data) > 6:
                     options_data = artifact_data[6]
@@ -492,6 +542,7 @@ class StudioMixin(BaseClient):
                         "status": status,
                         "created_at": created_at,
                         "custom_instructions": custom_instructions,
+                        "source_ids": source_ids,
                         "visual_style_prompt": visual_style_prompt,
                         "audio_url": audio_url,
                         "video_url": video_url,

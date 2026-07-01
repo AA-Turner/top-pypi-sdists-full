@@ -21,7 +21,7 @@
 from __future__ import annotations
 
 import hashlib
-import html.entities
+import html
 import logging
 import os
 import re
@@ -34,7 +34,7 @@ import xml.parsers
 from urllib.parse import quote_plus
 from xml.dom import Node, minidom
 
-import httpx
+import httpx2 as httpx
 
 from ._version import __version__
 
@@ -858,7 +858,7 @@ class _Request:
         for key, value in params.items():
             self.params[key] = self._convert_param(value)
 
-        (self.api_key, self.api_secret, self.session_key) = network._get_ws_auth()
+        self.api_key, self.api_secret, self.session_key = network._get_ws_auth()
 
         self.params["api_key"] = self.api_key
         self.params["method"] = method_name
@@ -942,10 +942,11 @@ class _Request:
         if self.network.limit_rate:
             self.network._delay_call()
 
-        username = self.params.pop("username", None)
+        params = self.params.copy()
+        username = params.pop("username", None)
         username = "" if username is None else f"?username={username}"
 
-        (host_name, host_subdir) = self.network.ws_server
+        host_name, host_subdir = self.network.ws_server
         timeout = httpx.Timeout(5, read=20)
 
         with httpx.Client(
@@ -956,7 +957,7 @@ class _Request:
             timeout=timeout,
         ) as client:
             try:
-                response = client.post(f"{host_subdir}{username}", data=self.params)
+                response = client.post(f"{host_subdir}{username}", data=params)
             except Exception as e:
                 raise NetworkError(self.network, e) from e
 
@@ -1142,13 +1143,6 @@ class LovedTrack(typing.NamedTuple):
     track: Track
     date: str | None
     timestamp: str
-
-
-def _string_output(func):
-    def r(*args):
-        return str(func(*args))
-
-    return r
 
 
 class _BaseObject:
@@ -1466,7 +1460,6 @@ class WSError(PyLastError):
         self.details = details
         self.network = network
 
-    @_string_output
     def __str__(self) -> str:
         return self.details
 
@@ -1570,7 +1563,6 @@ class _Opus(_Taggable):
             f"({repr(self.artist.name)}, {repr(self.title)}, {repr(self.network)})"
         )
 
-    @_string_output
     def __str__(self) -> str:
         artist = self.get_artist()
         if TYPE_CHECKING:
@@ -1753,12 +1745,8 @@ class Artist(_Taggable):
     def __repr__(self) -> str:
         return f"pylast.Artist({repr(self.get_name())}, {repr(self.network)})"
 
-    def __unicode__(self):
-        return str(self.get_name())
-
-    @_string_output
     def __str__(self) -> str:
-        return self.__unicode__()
+        return self.get_name()
 
     def __eq__(self, other):
         if type(self) is type(other):
@@ -1933,12 +1921,14 @@ class Country(_BaseObject):
     def __repr__(self) -> str:
         return f"pylast.Country({repr(self.name)}, {repr(self.network)})"
 
-    @_string_output
     def __str__(self) -> str:
         return self.get_name()
 
     def __eq__(self, other):
-        return self.get_name().lower() == other.get_name().lower()
+        if type(self) is type(other):
+            return self.get_name().lower() == other.get_name().lower()
+        else:
+            return False
 
     def __ne__(self, other) -> bool:
         return not self == other
@@ -2011,7 +2001,6 @@ class Library(_BaseObject):
     def __repr__(self) -> str:
         return f"pylast.Library({repr(self.user)}, {repr(self.network)})"
 
-    @_string_output
     def __str__(self) -> str:
         return repr(self.get_user()) + "'s Library"
 
@@ -2059,12 +2048,14 @@ class Tag(_Chartable):
     def __repr__(self) -> str:
         return f"pylast.Tag({repr(self.name)}, {repr(self.network)})"
 
-    @_string_output
     def __str__(self) -> str:
         return self.get_name()
 
     def __eq__(self, other):
-        return self.get_name().lower() == other.get_name().lower()
+        if type(self) is type(other):
+            return self.get_name().lower() == other.get_name().lower()
+        else:
+            return False
 
     def __ne__(self, other) -> bool:
         return not self == other
@@ -2257,7 +2248,6 @@ class User(_Chartable):
     def __repr__(self) -> str:
         return f"pylast.User({repr(self.name)}, {repr(self.network)})"
 
-    @_string_output
     def __str__(self) -> str:
         return self.get_name()
 
@@ -2377,7 +2367,7 @@ class User(_Chartable):
 
     def get_recent_tracks(
         self,
-        limit: int = 10,
+        limit: int | None = 10,
         cacheable: bool = True,
         time_from: int | None = None,
         time_to: int | None = None,
@@ -2390,10 +2380,10 @@ class User(_Chartable):
 
         Parameters:
         limit : If None, it will try to pull all the available data.
-        from (Optional) : Beginning timestamp of a range - only display
+        time_from (Optional) : Beginning timestamp of a range - only display
         scrobbles after this time, in Unix timestamp format (integer
         number of seconds since 00:00:00, January 1st 1970 UTC).
-        to (Optional) : End timestamp of a range - only display scrobbles
+        time_to (Optional) : End timestamp of a range - only display scrobbles
         before this time, in Unix timestamp format (integer number of
         seconds since 00:00:00, January 1st 1970 UTC).
         stream: If True, it will yield tracks as soon as a page has been retrieved.
@@ -2673,7 +2663,15 @@ class AuthenticatedUser(User):
 
     def get_name(self, properly_capitalized: bool = False):
         """Returns the name of the authenticated user."""
-        return super().get_name(properly_capitalized=properly_capitalized)
+        if not self.name or properly_capitalized:
+            # user.getInfo returns the authenticated user when called with a
+            # session key and no `user` param, so we can resolve our own name
+            # even when the network was constructed without a username.
+            doc = _Request(self.network, self.ws_prefix + ".getInfo").execute(
+                cacheable=True
+            )
+            self.name = _extract(doc, "name")
+        return self.name
 
 
 class _Search(_BaseObject):
@@ -2709,7 +2707,10 @@ class _Search(_BaseObject):
         params["page"] = str(page_index)
         doc = self._request(self._ws_prefix + ".search", True, params)
 
-        return doc.getElementsByTagName(self._ws_prefix + "matches")[0]
+        if matches := doc.getElementsByTagName(self._ws_prefix + "matches"):
+            return matches[0]
+
+        return doc.createElement(self._ws_prefix + "matches")
 
     def _retrieve_next_page(self) -> minidom.Element:
         self._last_page_index += 1
@@ -2884,7 +2885,7 @@ def _extract(node, name, index: int = 0):
 
     if len(nodes):
         if nodes[index].firstChild:
-            return _unescape_htmlentity(nodes[index].firstChild.data.strip())
+            return html.unescape(nodes[index].firstChild.data.strip())
     else:
         return None
 
@@ -2973,14 +2974,6 @@ def _number(string: str) -> float:
             return int(string)
         except ValueError:
             return float(string)
-
-
-def _unescape_htmlentity(string: str) -> str:
-    mapping = html.entities.name2codepoint
-    for key in mapping:
-        string = string.replace(f"&{key};", chr(mapping[key]))
-
-    return string
 
 
 def _parse_response(response: str) -> minidom.Document:

@@ -430,11 +430,9 @@ def connection_create_s3(
                 items=items_text,
             )
         )
-        tip_message = """Next steps:
+        tip_message = f"""Next steps:
 - Use this connection in your Data Sources with: EXPORT_CONNECTION_NAME '{connection_name}'
-- Learn more about our S3 Sinks: https://www.tinybird.co/docs/forward/work-with-data/publish-data/s3-sinks""".format(
-            connection_name=connection_name
-        )
+- Learn more about our S3 Sinks: https://www.tinybird.co/docs/forward/work-with-data/publish-data/s3-sinks"""
     else:
         click.echo(
             FeedbackManager.prompt_s3_iamrole_success_read(
@@ -443,11 +441,9 @@ def connection_create_s3(
                 items=items_text,
             )
         )
-        tip_message = """Next steps:
+        tip_message = f"""Next steps:
 - Use this connection in your Data Sources with: IMPORT_CONNECTION_NAME '{connection_name}'
-- Learn more about our S3 Connector: https://www.tinybird.co/docs/forward/get-data-in/connectors/s3""".format(
-            connection_name=connection_name
-        )
+- Learn more about our S3 Connector: https://www.tinybird.co/docs/forward/get-data-in/connectors/s3"""
     click.echo(FeedbackManager.gray(message=tip_message))
 
     return {

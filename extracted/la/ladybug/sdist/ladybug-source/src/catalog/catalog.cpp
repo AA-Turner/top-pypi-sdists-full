@@ -199,9 +199,10 @@ CatalogEntry* Catalog::createRelGroupEntry(Transaction* transaction,
     const BoundCreateTableInfo& info) {
     const auto extraInfo = info.extraInfo->ptrCast<BoundExtraCreateRelTableGroupInfo>();
     std::vector<RelTableCatalogInfo> relTableInfos;
-    DASSERT(extraInfo->nodePairs.size() > 0);
-    for (auto& nodePair : extraInfo->nodePairs) {
-        relTableInfos.emplace_back(nodePair, tables->getNextOID());
+    DASSERT(extraInfo->relTableInfos.size() > 0);
+    for (auto& relTableInfo : extraInfo->relTableInfos) {
+        relTableInfos.emplace_back(relTableInfo.nodePair, tables->getNextOID(),
+            relTableInfo.srcMultiplicity, relTableInfo.dstMultiplicity);
     }
     auto relGroupEntry =
         std::make_unique<RelGroupCatalogEntry>(info.tableName, extraInfo->srcMultiplicity,
@@ -320,10 +321,10 @@ bool Catalog::containsType(const Transaction* transaction, const std::string& ty
     return types->containsEntry(transaction, typeName);
 }
 
-void Catalog::createIndex(Transaction* transaction,
-    std::unique_ptr<CatalogEntry> indexCatalogEntry) {
+void Catalog::createIndex(Transaction* transaction, std::unique_ptr<CatalogEntry> indexCatalogEntry,
+    bool skipLoggingToWAL) {
     DASSERT(indexCatalogEntry->getType() == CatalogEntryType::INDEX_ENTRY);
-    indexes->createEntry(transaction, std::move(indexCatalogEntry));
+    indexes->createEntry(transaction, std::move(indexCatalogEntry), skipLoggingToWAL);
 }
 
 IndexCatalogEntry* Catalog::getIndex(const Transaction* transaction, table_id_t tableID,
@@ -522,7 +523,7 @@ std::vector<std::string> Catalog::getMacroNames(const Transaction* transaction) 
 
 void Catalog::dropMacro(Transaction* transaction, std::string& name) {
     if (!containsMacro(transaction, name)) {
-        throw CatalogException{std::format("Marco {} doesn't exist.", name)};
+        throw CatalogException{std::format("Macro {} doesn't exist.", name)};
     }
     auto entry = getFunctionEntry(transaction, name);
     macros->dropEntry(transaction, name, entry->getOID());

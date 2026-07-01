@@ -1,0 +1,114 @@
+[project]
+name = "pirlygenes"
+requires-python = ">=3.9"
+authors = [ {name="Alex Rubinsteyn", email="alex.rubinsteyn@unc.edu" } ]
+description = "Curated cancer gene sets and reference expression data. Analysis lives in `trufflepig`."
+classifiers = [
+    "Programming Language :: Python :: Implementation :: CPython",
+    'Environment :: Console',
+    'Operating System :: OS Independent',
+    'Intended Audience :: Science/Research',
+    'License :: OSI Approved :: Apache Software License',
+    'Topic :: Scientific/Engineering :: Bio-Informatics',
+]
+readme = "README.md"
+dynamic = ["version"]
+dependencies = [
+    "matplotlib>=3.7.0",
+    "numpy>=2.0.0",
+    "oncoref>=1.8.10",
+    "openpyxl>=3.1.0",
+    "pandas>=2.0",
+    # Parquet engine for the cohort-view / representative / percentile
+    # artifacts (pd.read_parquet). Present transitively today via
+    # pyensembl→gtfparse, but declared directly since pirlygenes reads parquet
+    # in several modules and must not break if that chain changes (#474 review).
+    "pyarrow>=10",
+    "pyensembl>=2.6.0",
+    "PyYAML>=6.0",
+    "tqdm",
+    # tsarina is the single source of truth for CTA curation; pirlygenes
+    # re-exports its evidence/gene-set/partition accessors (no bundled CTA
+    # snapshot to drift). Published on PyPI as of 1.4.x. (#289/#290/#291)
+    "tsarina>=1.4.8",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "pirlygenes.version.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["pirlygenes*"]
+
+# Disable VCS auto-discovery of files. Without this, setuptools defaults
+# to include_package_data=True when git is detected, which auto-ships
+# every git-tracked file and IGNORES the package-data positive list
+# below — that's how the 5.3.0 wheel ballooned to 331 MB before we
+# caught it. Forcing False makes the package-data list authoritative.
+[tool.setuptools]
+include-package-data = false
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-xdist",
+]
+# Optional plotting extras. matplotlib is a core dep; matplotlib_venn is only
+# needed for the CTA source-overlap venn (pirlygenes plot cta-curation), which
+# otherwise degrades to a source-size bar.
+viz = [
+    "matplotlib_venn>=1.0",
+]
+[project.urls]
+"Homepage" = "https://github.com/pirl-unc/pirlygenes"
+"Bug Tracker" = "https://github.com/pirl-unc/pirlygenes"
+
+# Shim that prints a "moved to trufflepig" message and exits 2. Keeps
+# `pirlygenes` on PATH from breaking with `command not found` for users
+# whose CI/batch jobs still invoke the old analyze CLI. See pirlygenes/cli.py.
+[project.scripts]
+pirlygenes = "pirlygenes.cli:main"
+
+[build-system]
+# setuptools-scm was removed in v5.3.0 because it was auto-including
+# every git-tracked file in the wheel, which overrode our explicit
+# exclude-package-data rules and pushed the wheel past PyPI's 100 MiB
+# limit. Version comes from pirlygenes/version.py via the
+# [tool.setuptools.dynamic] attr lookup, so scm isn't needed.
+requires = ["setuptools>=60"]
+
+[tool.setuptools.package-data]
+# Only small curated panels ship in the wheel — the heavy per-cohort
+# expression summaries (cancer-reference-expression/*, pan-cancer-
+# expression.csv, hpa-cell-type-expression.csv; ~340 MB total) are
+# downloaded on first access from the GitHub Release matching the
+# installed version. See pirlygenes/data_bundle.py.
+pirlygenes = [
+    "data/*.csv",            # small curated panels (cancer-key-genes, CTAs, etc.)
+    "data/*.csv.gz",         # samples-manifest + any tiny gzipped panel
+    "data/*.yaml",           # expression_sources.yaml
+]
+
+# What we deliberately DO NOT ship in the wheel (these get fetched
+# lazily by pirlygenes.data_bundle):
+#   data/cancer-reference-expression/*                  ~325 MB
+#   data/cancer-reference-expression-views/*            precomputed views
+#   data/cancer-reference-expression-representatives/*   ~48 MB  (#312)
+#   data/cancer-reference-expression-percentiles/*       percentile vectors
+#   data/pan-cancer-expression.csv                       ~11 MB
+#   data/hpa-cell-type-expression.csv                    ~7 MB
+[tool.setuptools.exclude-package-data]
+pirlygenes = [
+    "data/cancer-reference-expression/*",
+    "data/cancer-reference-expression-views/*",
+    "data/cancer-reference-expression-representatives/*",
+    "data/cancer-reference-expression-percentiles/*",
+    "data/pan-cancer-expression.csv",
+    "data/hpa-cell-type-expression.csv",
+]
+
+[tool.pytest.ini_options]
+addopts = "-n auto"
+markers = [
+    "perf: performance-regression fences",
+]

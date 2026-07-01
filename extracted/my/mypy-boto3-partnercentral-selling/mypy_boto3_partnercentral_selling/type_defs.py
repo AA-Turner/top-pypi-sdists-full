@@ -366,6 +366,8 @@ class ExpectedCustomerSpendTypeDef(TypedDict):
 class AwsOpportunityRelatedEntitiesTypeDef(TypedDict):
     AwsProducts: NotRequired[list[str]]
     Solutions: NotRequired[list[str]]
+    AwsMarketplaceSolutions: NotRequired[list[str]]
+    AwsMarketplaceProducts: NotRequired[list[str]]
 
 
 class AwsTeamMemberTypeDef(TypedDict):
@@ -517,6 +519,8 @@ class RelatedEntityIdentifiersTypeDef(TypedDict):
     AwsMarketplaceOfferSets: NotRequired[list[str]]
     Solutions: NotRequired[list[str]]
     AwsProducts: NotRequired[list[str]]
+    AwsMarketplaceSolutions: NotRequired[list[str]]
+    AwsMarketplaceProducts: NotRequired[list[str]]
 
 
 class GetProspectingFromEngagementTaskRequestTypeDef(TypedDict):
@@ -735,6 +739,7 @@ class SolutionBaseTypeDef(TypedDict):
     Category: str
     CreatedDate: datetime
     Arn: NotRequired[str]
+    AwsMarketplaceSolutionArn: NotRequired[str]
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -1448,6 +1453,7 @@ class ListSolutionsRequestPaginateTypeDef(TypedDict):
     Status: NotRequired[Sequence[SolutionStatusType]]
     Identifier: NotRequired[Sequence[str]]
     Category: NotRequired[Sequence[str]]
+    AwsMarketplaceSolutionArn: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1459,6 +1465,7 @@ class ListSolutionsRequestTypeDef(TypedDict):
     Status: NotRequired[Sequence[SolutionStatusType]]
     Identifier: NotRequired[Sequence[str]]
     Category: NotRequired[Sequence[str]]
+    AwsMarketplaceSolutionArn: NotRequired[Sequence[str]]
 
 
 class ListSolutionsResponseTypeDef(TypedDict):

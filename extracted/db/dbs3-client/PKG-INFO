@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: dbs3-client
+Version: 4.0.19
+Home-page: https://github.com/dmwm/DBSClient
+Download-URL: https://github.com/dmwm/DBSClient/tarball/4.0.19
+Maintainer: CMS DWMWM Group
+Maintainer-email: hn-cms-dmDevelopment@cern.ch
+License: Apache License, Version 2.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: dbs3-pycurl==3.18.3
+
+# DBSClient
+
+* DBS client for CMS DBS system

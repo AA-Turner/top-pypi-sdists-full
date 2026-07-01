@@ -1,1 +1,0 @@
-# OPA Policies Directory

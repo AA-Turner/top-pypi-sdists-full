@@ -25,6 +25,7 @@ from airbyte_ops_mcp.cloud_admin.version_overrides import (
     VersionOverrideTarget,
     set_version_override,
 )
+from airbyte_ops_mcp.gcp_auth import get_gcp_credentials_for_bigquery_ro
 from airbyte_ops_mcp.prod_db_access.queries import (
     query_connector_rollouts,
     query_connector_rollouts_for_connector,
@@ -509,7 +510,12 @@ class OpsMcpAdapter:
             warnings=SAFE_PREVIEW_WARNINGS,
         )
 
-    def apply_override(self, plan: OverridePlan) -> OperationResult:
+    def apply_override(
+        self,
+        plan: OverridePlan,
+        *,
+        google_access_token: str = "",
+    ) -> OperationResult:
         """Apply the matching version override operation."""
         auth = ResolvedCloudAuth(
             bearer_token=self.bearer_token,
@@ -518,6 +524,9 @@ class OpsMcpAdapter:
         )
         payload = build_version_override_payload(plan)
         target = self._target_from_plan(plan)
+        bq_credentials = get_gcp_credentials_for_bigquery_ro(
+            access_token_override=google_access_token or None,
+        )
         result = set_version_override(
             auth=auth,
             target=target,
@@ -532,6 +541,7 @@ class OpsMcpAdapter:
             force=payload.force,
             config_api_root=self.config_api_root,
             user_email=plan.user_email,
+            bq_credentials=bq_credentials,
         )
 
         return OperationResult(

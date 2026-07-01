@@ -4,7 +4,7 @@ description = "Highly scalable, extremely fast, easy-to-use embeddable graph dat
 readme = "README.md"
 license = { text = "MIT" }
 keywords = ["graph", "database"]
-version = "0.17.1"
+version = "0.18.0"
 requires-python = ">=3.10,<3.15"
 
 [project.urls]
@@ -23,11 +23,14 @@ dev = [
     "pybind11~=2.13",
     "pytest",
     "pytest-asyncio~=1.0",
+    "pytest-xdist~=3.0",
     "setuptools~=80.9",
-    "ruff==0.11.12",
+    "black==26.3.0",
+    "ruff==0.15.19",
     "mypy==1.16.0",
     "torch>=2.5.0",
     "torch-geometric>=2.5.0",
+    "pre-commit>=4.6.0",
 ]
 
 [[tool.uv.index]]

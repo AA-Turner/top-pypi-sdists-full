@@ -2,7 +2,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use futures::stream::{FuturesUnordered, StreamExt};
+use futures_util::stream::{FuturesUnordered, StreamExt};
 use mea::once::OnceCell;
 use mea::semaphore::Semaphore;
 use rustc_hash::FxHashMap;
@@ -11,7 +11,7 @@ use tracing::{debug, warn};
 use crate::cli::reporter::HookInstallReporter;
 use crate::config::Language;
 use crate::hook::{Hook, InstallInfo, InstalledHook};
-use crate::run::CONCURRENCY;
+use crate::run::INTERNAL_CONCURRENCY;
 use crate::store::Store;
 
 /// Resolve already-installed hook environments and install the missing ones.
@@ -41,7 +41,7 @@ pub(crate) async fn install_hooks(
         }
     }
 
-    let semaphore = Rc::new(Semaphore::new(*CONCURRENCY));
+    let semaphore = Rc::new(Semaphore::new(*INTERNAL_CONCURRENCY));
     let mut futures = FuturesUnordered::new();
 
     for partition in partition_hooks(hooks_to_install) {
@@ -266,7 +266,7 @@ impl InstallCache {
     async fn load_store_installed_hooks(store: &Store) -> Vec<CachedInstallInfo> {
         match fs_err::read_dir(store.hooks_dir()) {
             Ok(dirs) => {
-                let mut tasks = futures::stream::iter(dirs)
+                let mut tasks = futures_util::stream::iter(dirs)
                     .map(async |entry| {
                         let path = match entry {
                             Ok(entry) => entry.path(),
@@ -284,7 +284,7 @@ impl InstallCache {
                         };
                         Some(CachedInstallInfo::new(Arc::new(info)))
                     })
-                    .buffer_unordered(*CONCURRENCY);
+                    .buffer_unordered(*INTERNAL_CONCURRENCY);
 
                 let mut hooks = Vec::new();
                 while let Some(hook) = tasks.next().await {

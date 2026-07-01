@@ -392,17 +392,19 @@ fn bench_hessian_solve_dense_vs_implicit(c: &mut Criterion) {
                 let xt = xtwx_for_closure.clone();
                 let apply_xtwx = move |v: &Array1<f64>| -> Array1<f64> { xt.dot(v) };
                 let op_pen: &dyn gam::terms::analytic_penalties::PenaltyOp = op_dyn.as_ref();
-                let _ = gam::solver::pirls::solve_newton_direction_implicit(
-                    apply_xtwx,
-                    xtwx_diag.view(),
-                    &[],
-                    &[(lambda, op_pen)],
-                    &gradient,
-                    &mut dir,
-                    /* ridge = */ 0.0,
-                    /* rel_tol = */ 1e-8,
-                    /* max_iter = */ p,
-                );
+                let solved =
+                    std::hint::black_box(gam::solver::pirls::solve_newton_direction_implicit(
+                        apply_xtwx,
+                        xtwx_diag.view(),
+                        &[],
+                        &[(lambda, op_pen)],
+                        &gradient,
+                        &mut dir,
+                        /* ridge = */ 0.0,
+                        /* rel_tol = */ 1e-8,
+                        /* max_iter = */ p,
+                    ));
+                black_box(&solved);
                 black_box(&dir);
             })
         });

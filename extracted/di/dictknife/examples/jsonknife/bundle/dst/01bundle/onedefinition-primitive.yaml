@@ -1,4 +1,0 @@
-definitions:
-  point:
-    type: integer
-    description: value of something

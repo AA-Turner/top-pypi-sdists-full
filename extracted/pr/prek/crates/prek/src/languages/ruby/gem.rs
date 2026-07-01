@@ -3,16 +3,15 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use futures::{StreamExt, TryStreamExt};
-use prek_consts::env_vars::EnvVars;
+use futures_util::{StreamExt, TryStreamExt};
+use prek_consts::env_vars::{EnvVars, EnvVarsRead};
 use prek_consts::prepend_paths;
-use rand::RngExt;
 use rustc_hash::{FxHashMap, FxHashSet};
 use tracing::debug;
 
 use crate::languages::ruby::installer::RubyResult;
 use crate::process::Cmd;
-use crate::run::CONCURRENCY;
+use crate::run::INTERNAL_CONCURRENCY;
 
 /// Build a `PATH` value with the resolved Ruby's bin directory prepended.
 ///
@@ -59,7 +58,7 @@ async fn build_gemspec(ruby: &RubyResult, gemspec_path: &Path) -> Result<PathBuf
 
     // Use `ruby -S gem` instead of calling gem directly to work around Windows
     // issue where gem.cmd/.bat can't be executed directly (os error 193)
-    let output = Cmd::new(ruby.ruby_bin(), "gem build")
+    let output = Cmd::new(ruby.ruby_bin())
         .arg("-S")
         .arg("gem")
         .arg("build")
@@ -115,8 +114,8 @@ fn gem_env<'a>(cmd: &'a mut Cmd, ruby: &RubyResult, gem_home: &Path) -> Result<&
     // Parallelize native extension compilation (e.g. prism's C code).
     // Respect existing MAKEFLAGS if set (user may need to limit parallelism
     // in memory-constrained environments like Docker).
-    if EnvVars::var_os("MAKEFLAGS").is_none() {
-        cmd.env("MAKEFLAGS", format!("-j{}", *CONCURRENCY));
+    if EnvVars.var_os("MAKEFLAGS").is_none() {
+        cmd.env("MAKEFLAGS", format!("-j{}", *INTERNAL_CONCURRENCY));
     }
 
     Ok(cmd)
@@ -197,7 +196,7 @@ async fn resolve_gems(
     gem_files: &[PathBuf],
     additional_dependencies: &FxHashSet<String>,
 ) -> Result<Vec<ResolvedGem>> {
-    let mut cmd = Cmd::new(ruby.ruby_bin(), "gem install --explain");
+    let mut cmd = Cmd::new(ruby.ruby_bin());
     cmd.arg("-S")
         .arg("gem")
         .arg("install")
@@ -225,7 +224,7 @@ async fn install_single_gem(
     gem: &ResolvedGem,
     local_path: Option<&Path>,
 ) -> Result<()> {
-    let mut cmd = Cmd::new(ruby.ruby_bin(), format!("gem install {}", gem.name));
+    let mut cmd = Cmd::new(ruby.ruby_bin());
     cmd.arg("-S")
         .arg("gem")
         .arg("install")
@@ -260,7 +259,7 @@ async fn install_gems_sequential(
     gem_files: &[PathBuf],
     additional_dependencies: &FxHashSet<String>,
 ) -> Result<()> {
-    let mut cmd = Cmd::new(ruby.ruby_bin(), "gem install");
+    let mut cmd = Cmd::new(ruby.ruby_bin());
     cmd.arg("-S")
         .arg("gem")
         .arg("install")
@@ -325,7 +324,7 @@ pub(crate) async fn install_gems(
         Ok(gems) if !gems.is_empty() => {
             debug!("Installing {} gems in parallel", gems.len());
 
-            let result = futures::stream::iter(gems)
+            let result = futures_util::stream::iter(gems)
                 .map(|gem| {
                     let key = gem.key();
                     let local_path = local_gem_map.get(key.as_str()).copied();
@@ -337,7 +336,7 @@ pub(crate) async fn install_gems(
                                 // each other's partially-written gemspec files, causing
                                 // transient failures (especially on Windows/NTFS). Retry
                                 // once after a random delay to let the other process finish.
-                                let delay = rand::rng().random_range(50..=500);
+                                let delay = fastrand::u64(50..=500);
                                 debug!(
                                     "gem install {} failed, retrying in {delay}ms: {first_err:#}",
                                     gem.name
@@ -352,7 +351,7 @@ pub(crate) async fn install_gems(
                         }
                     }
                 })
-                .buffer_unordered(*CONCURRENCY)
+                .buffer_unordered(*INTERNAL_CONCURRENCY)
                 .try_collect::<Vec<()>>()
                 .await;
 

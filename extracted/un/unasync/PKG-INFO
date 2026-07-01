@@ -1,0 +1,117 @@
+Metadata-Version: 2.1
+Name: unasync
+Version: 0.6.0
+Summary: The async transformation code.
+Home-page: https://github.com/python-trio/unasync
+Author: Ratan Kulshreshtha
+Author-email: ratan.shreshtha@gmail.com
+License: MIT OR Apache-2.0
+Keywords: async
+Classifier: License :: OSI Approved :: MIT License
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Framework :: Trio
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+License-File: LICENSE.APACHE2
+License-File: LICENSE.MIT
+Requires-Dist: tokenize_rt
+Requires-Dist: setuptools
+
+unasync
+=======
+
+|documentation| |travis| |appveyor| |codecov|
+
+.. |travis| image:: https://travis-ci.com/python-trio/unasync.svg?branch=master
+    :alt: Travis Build Status
+    :target: https://travis-ci.com/python-trio/unasync
+
+.. |appveyor| image:: https://ci.appveyor.com/api/projects/status/ovhaitunqmdd6n44/branch/master?svg=true
+    :alt: AppVeyor Build Status
+    :target: https://ci.appveyor.com/project/njsmith/unasync
+
+.. |codecov| image:: https://codecov.io/gh/python-trio/unasync/branch/master/graph/badge.svg
+    :alt: Coverage Status
+    :target: https://codecov.io/gh/python-trio/unasync
+
+.. |documentation| image:: https://readthedocs.org/projects/unasync/badge/?version=latest
+    :alt: Documentation Status
+    :target: https://unasync.readthedocs.io/en/latest/?badge=latest
+
+
+Welcome to `unasync <https://pypi.org/project/unasync/>`_, a project that can transform your asynchronous code into synchronous code.
+
+See https://github.com/urllib3/urllib3/issues/1323 for more details about unasync.
+
+Users
+=====
+
+ * The official Elasticsearch Python client: https://github.com/elastic/elasticsearch-py
+ * Hip, a HTTP client: https://github.com/python-trio/hip
+ * httpcore, another low-level HTTP client uses a different implementation of the same idea: https://github.com/encode/httpcore
+ 
+Installation
+============
+
+::
+
+    pip install unasync
+
+Usage
+=====
+
+To use the unasync project you need to install the package and then create a **_async** folder where you will place the asynchronous code that you want to transform into synchronous code.
+
+And then in your :code:`setup.py` place the following code.
+
+.. code-block:: python
+
+    import unasync
+
+    setuptools.setup(
+        ...
+        cmdclass={'build_py': unasync.cmdclass_build_py()},
+        ...
+    )
+
+And when you will build your package you will get your synchronous code in **_sync** folder.
+
+If you'd like to customize where certain rules are applied you can pass
+customized :code:`unasync.Rule` instances to :code:`unasync.cmdclass_build_py()`
+
+.. code-block:: python
+
+    import unasync
+
+    setuptools.setup(
+        ...
+        cmdclass={'build_py': unasync.cmdclass_build_py(rules=[
+            # This rule transforms files within 'ahip' -> 'hip'
+            # instead of the default '_async' -> '_sync'.
+            unasync.Rule("/ahip/", "/hip/"),
+
+            # This rule's 'fromdir' is more specific so will take precedent
+            # over the above rule if the path is within /ahip/tests/...
+            # This rule adds an additional token replacement over the default replacements.
+            unasync.Rule("/ahip/tests/", "/hip/tests/", additional_replacements={"ahip": "hip"}),
+        ])},
+        ...
+    )
+
+Documentation
+=============
+
+https://unasync.readthedocs.io/en/latest/
+
+License: Your choice of MIT or Apache License 2.0

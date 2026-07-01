@@ -1,0 +1,99 @@
+Metadata-Version: 2.4
+Name: durable-agents-sdk
+Version: 1.0.20260624003
+Summary: Python SDK for the Durable Agents public API.
+Author: Graphlit
+License-Expression: MIT
+Project-URL: Homepage, https://www.durableagents.ai
+Project-URL: Documentation, https://www.durableagents.ai
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: httpx>=0.27
+Requires-Dist: microsoft-kiota-abstractions==1.10.2
+Requires-Dist: microsoft-kiota-http==1.10.2
+Requires-Dist: microsoft-kiota-serialization-form==1.10.2
+Requires-Dist: microsoft-kiota-serialization-json==1.10.2
+Requires-Dist: microsoft-kiota-serialization-multipart==1.10.2
+Requires-Dist: microsoft-kiota-serialization-text==1.10.2
+Provides-Extra: dev
+Requires-Dist: build; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: PyYAML; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Dynamic: license-file
+
+# Durable Agents Python SDK
+
+First-party Python SDK for the Durable Agents public API.
+
+## Install
+
+```bash
+pip install durable-agents-sdk
+```
+
+## Quickstart
+
+```python
+import os
+
+from durable_agents import DurableClient
+
+client = DurableClient(api_key=os.environ["DURABLE_API_KEY"])
+models = client.models.list()
+print(models)
+client.close()
+```
+
+## Agents And Runs
+
+```python
+agent = client.agents.create({
+    "name": "SDK smoke agent",
+})
+
+run = client.agents.prompt(agent["id"], {
+    "prompt": "Reply with READY only.",
+})
+```
+
+Stream run events:
+
+```python
+for event in client.runs.watch(run["id"]):
+    print(event.event, event.data)
+```
+
+## Data Sources
+
+```python
+sources = client.sources.list(limit=50)
+print(sources)
+```
+
+## Pagination
+
+```python
+for agent in client.agents.iterate(limit=100):
+    print(agent)
+```
+
+## Errors
+
+```python
+from durable_agents import DurableApiError
+
+try:
+    client.models.list()
+except DurableApiError as error:
+    print(error.status_code, error.code, error.request_id, error.details)
+    raise
+```
+
+## Generated Client
+
+The public compatibility surface is `DurableClient`. Kiota-generated low-level
+code is also available under `durable_agents.generated` for advanced users, but
+it is not the primary ergonomic API.

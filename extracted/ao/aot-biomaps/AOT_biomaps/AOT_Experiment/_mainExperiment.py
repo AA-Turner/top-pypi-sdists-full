@@ -139,16 +139,20 @@ class Experiment(ABC):
         """
         pass
 
-    def reshape_acoustic_fields(self,dx=None, dy=None, dz=None, Nx=None, Ny=None, Nz=None, factorX=None, factorY=None, factorZ=None, reshape_type='NxNyNz', isGPU=None, GPUdevice=None):
+    def reshape_acoustic_fields(self,dx=None, dy=None, dz=None, dt=None, Nx=None, Ny=None, Nz=None, Nt=None, factorX=None, factorY=None, factorZ=None, factorT=None, reshape_type='NxNyNz', isGPU=None, GPUdevice=None, overwrite=False, fieldDataPath=None):
         """
         Reshape the acoustic fields by downsampling them by a given factor.
         Args:
-            factor: Downsampling factor (tuple of 3 integers for Z, Y, X).
+            factor: Downsampling factor (tuple of 4 integers for T, Z, Y, X).
             GPUdevice: GPU device to use for reshaping (if isGPU is True).
             isGPU: Whether to use GPU for reshaping. If None, it will be determined based on configuration.
         """
         for field in tqdm(self.AcousticFields,  desc="Reshaping Acoustic Fields", unit="field"):
-            field.reshape_field(dx=dx, dy=dy, dz=dz, Nx=Nx, Ny=Ny, Nz=Nz, factorX=factorX, factorY=factorY, factorZ=factorZ, reshape_type=reshape_type, isGPU=isGPU, GPUdevice=GPUdevice)
+            field.reshape_field(dx=dx, dy=dy, dz=dz, dt=dt, Nx=Nx, Ny=Ny, Nz=Nz, Nt=Nt, factorX=factorX, factorY=factorY, factorZ=factorZ, factorT=factorT, reshape_type=reshape_type, isGPU=isGPU, GPUdevice=GPUdevice)
+            if overwrite:
+                if fieldDataPath is None:
+                    raise ValueError("fieldDataPath must be provided when overwrite is True.")
+                field.save_field(fieldDataPath, formatSave=self.FormatSave)
 
     def generate_random_absorbers(self,N_min=0, N_max=5, min_radius_mm=0.5, max_radius_mm=5, min_amplitude=0, max_amplitude=1, seed=None):
         if seed is not None:

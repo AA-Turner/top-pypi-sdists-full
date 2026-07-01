@@ -1,8 +1,0 @@
-description: Allocation de salaire unique (ASU)
-metadata:
-  documentation_start: true
-  short_label: ASU
-  label_en: Single earner allowance (ASU)
-  order:
-  - asu_plaf
-  - asu_m

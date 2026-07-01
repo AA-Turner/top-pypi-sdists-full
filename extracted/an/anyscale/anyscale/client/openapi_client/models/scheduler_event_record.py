@@ -43,6 +43,8 @@ class SchedulerEventRecord(object):
         'flavor_name': 'str',
         'project_id': 'str',
         'cloud_resource_id': 'str',
+        'workload_type': 'str',
+        'instance_type': 'str',
         'created_at': 'datetime',
         'event_timestamp': 'datetime',
         'level': 'EventLevel',
@@ -62,6 +64,8 @@ class SchedulerEventRecord(object):
         'flavor_name': 'flavor_name',
         'project_id': 'project_id',
         'cloud_resource_id': 'cloud_resource_id',
+        'workload_type': 'workload_type',
+        'instance_type': 'instance_type',
         'created_at': 'created_at',
         'event_timestamp': 'event_timestamp',
         'level': 'level',
@@ -70,7 +74,7 @@ class SchedulerEventRecord(object):
         'metadata_json': 'metadata_json'
     }
 
-    def __init__(self, id=None, organization_id=None, cloud_id=None, cluster_id=None, scheduler_request_id=None, user_id=None, queue_name=None, flavor_name=None, project_id=None, cloud_resource_id=None, created_at=None, event_timestamp=None, level=None, event_type=None, message=None, metadata_json=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, organization_id=None, cloud_id=None, cluster_id=None, scheduler_request_id=None, user_id=None, queue_name=None, flavor_name=None, project_id=None, cloud_resource_id=None, workload_type=None, instance_type=None, created_at=None, event_timestamp=None, level=None, event_type=None, message=None, metadata_json=None, local_vars_configuration=None):  # noqa: E501
         """SchedulerEventRecord - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -86,6 +90,8 @@ class SchedulerEventRecord(object):
         self._flavor_name = None
         self._project_id = None
         self._cloud_resource_id = None
+        self._workload_type = None
+        self._instance_type = None
         self._created_at = None
         self._event_timestamp = None
         self._level = None
@@ -112,6 +118,10 @@ class SchedulerEventRecord(object):
             self.project_id = project_id
         if cloud_resource_id is not None:
             self.cloud_resource_id = cloud_resource_id
+        if workload_type is not None:
+            self.workload_type = workload_type
+        if instance_type is not None:
+            self.instance_type = instance_type
         if created_at is not None:
             self.created_at = created_at
         self.event_timestamp = event_timestamp
@@ -355,6 +365,52 @@ class SchedulerEventRecord(object):
         """
 
         self._cloud_resource_id = cloud_resource_id
+
+    @property
+    def workload_type(self):
+        """Gets the workload_type of this SchedulerEventRecord.  # noqa: E501
+
+        Workload type (JOB/SERVICE/WORKSPACE/OTHER), derived from request-event identity ids; null for non-request events  # noqa: E501
+
+        :return: The workload_type of this SchedulerEventRecord.  # noqa: E501
+        :rtype: str
+        """
+        return self._workload_type
+
+    @workload_type.setter
+    def workload_type(self, workload_type):
+        """Sets the workload_type of this SchedulerEventRecord.
+
+        Workload type (JOB/SERVICE/WORKSPACE/OTHER), derived from request-event identity ids; null for non-request events  # noqa: E501
+
+        :param workload_type: The workload_type of this SchedulerEventRecord.  # noqa: E501
+        :type: str
+        """
+
+        self._workload_type = workload_type
+
+    @property
+    def instance_type(self):
+        """Gets the instance_type of this SchedulerEventRecord.  # noqa: E501
+
+        Instance type of the workload, when known  # noqa: E501
+
+        :return: The instance_type of this SchedulerEventRecord.  # noqa: E501
+        :rtype: str
+        """
+        return self._instance_type
+
+    @instance_type.setter
+    def instance_type(self, instance_type):
+        """Sets the instance_type of this SchedulerEventRecord.
+
+        Instance type of the workload, when known  # noqa: E501
+
+        :param instance_type: The instance_type of this SchedulerEventRecord.  # noqa: E501
+        :type: str
+        """
+
+        self._instance_type = instance_type
 
     @property
     def created_at(self):

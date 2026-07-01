@@ -63,7 +63,8 @@ class AthenaSparkSessionManager(SparkSessionManager):
         self.connection_name = connection_name
         self.connection_id = connection_id
         self.config = config
-        self.spark_conf = spark_conf
+        if spark_conf:
+            self.set_user_spark_conf(spark_conf)
         self.workgroup_name = None
         self.athena_session_id = None
         self._spark_session = None
@@ -129,7 +130,7 @@ class AthenaSparkSessionManager(SparkSessionManager):
             spark_properties = build_spark_configs(
                 account_id=account_id,
                 connection_configs=self.connection_spark_configs,
-                user_configs=self.spark_conf,
+                user_configs=self._user_spark_conf,
             )
 
             # Get Athena session and Spark Connect URL
@@ -194,6 +195,7 @@ class AthenaSparkSessionManager(SparkSessionManager):
         try:
             # 1. Start Athena session
             logger.debug(f"Creating Athena Spark session for workgroup: {athena_wg_name}")
+
             start_session_response = self.athena_client.start_session(
                 WorkGroup=athena_wg_name,
                 EngineConfiguration={

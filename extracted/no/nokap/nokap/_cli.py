@@ -1,0 +1,474 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import cast
+
+import click
+
+import nokap
+from nokap._browser import find_chrome
+from nokap._errors import ChromeNotFoundError
+from nokap._types import PaperSize
+from nokap._utils import current_platform
+
+
+@click.group(invoke_without_command=True)
+@click.version_option(package_name="nokap", prog_name="nokap")
+@click.pass_context
+def cli(ctx: click.Context) -> None:
+    """Screenshots and PDFs from web pages. Powered by headless Chrome.
+
+    nokap captures web pages and HTML content as PNG, JPEG, WebP, or PDF
+    using a headless Chrome browser. It can target specific elements via CSS
+    selectors, add padding, and produce element-bounded PDFs sized exactly
+    to the content.
+
+    \b
+    Examples:
+      nokap webshot https://example.com screenshot.png
+      nokap from-html table.html table.pdf -s "table" -e 10
+      nokap doctor
+    """
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+
+
+@cli.command()
+@click.argument("url")
+@click.argument("file", default="webshot.png")
+@click.option("--vwidth", default=992, type=int, help="Viewport width in pixels.")
+@click.option("--vheight", default=744, type=int, help="Viewport height in pixels.")
+@click.option("--selector", "-s", default=None, help="CSS selector to capture.")
+@click.option(
+    "--expand", "-e", default=0, type=int, help="Pixels to expand around selector."
+)
+@click.option(
+    "--delay", "-d", default=0.2, type=float, help="Seconds to wait after page load."
+)
+@click.option("--zoom", "-z", default=1.0, type=float, help="Zoom/scale factor.")
+@click.option("--useragent", default=None, help="Custom User-Agent string.")
+@click.option(
+    "--page-size", default="letter", help="Paper size for PDF (e.g., letter, a4)."
+)
+@click.option("--landscape", is_flag=True, help="Use landscape orientation for PDF.")
+@click.option("--print-background", is_flag=True, help="Print CSS backgrounds in PDF.")
+def webshot(
+    url: str,
+    file: str,
+    vwidth: int,
+    vheight: int,
+    selector: str | None,
+    expand: int,
+    delay: float,
+    zoom: float,
+    useragent: str | None,
+    page_size: str,
+    landscape: bool,
+    print_background: bool,
+) -> None:
+    """Take a screenshot or PDF of a URL or local file.
+
+    URL can be an http/https URL or a local file path. `FILE` is the output
+    path (default: `webshot.png`). The output format is determined by the file
+    extension: `.png`, `.jpg`, `.webp` for raster images; `.pdf` for PDF.
+
+    When a selector is provided, only the matching element is captured
+    (cropped to its bounding box). For PDF output with a selector, the
+    paper is sized exactly to the element, producing a tight-fit vector PDF.
+
+    \b
+    Examples:
+      nokap webshot https://example.com page.png
+      nokap webshot https://example.com hero.png -s "h1" -z 2
+      nokap webshot page.html table.png -s "table" -e 10 -z 2
+      nokap webshot https://example.com mobile.png --vwidth 375 --vheight 812
+      nokap webshot https://example.com doc.pdf --page-size a4
+      nokap webshot report.html report.pdf --landscape --print-background
+      nokap webshot https://example.com shot.png -d 2.0
+    """
+    try:
+        result = nokap.webshot(
+            url,
+            file,
+            vwidth=vwidth,
+            vheight=vheight,
+            selector=selector,
+            expand=expand,
+            delay=delay,
+            zoom=zoom,
+            useragent=useragent,
+            page_size=cast(PaperSize, page_size),
+            landscape=landscape,
+            print_background=print_background,
+        )
+        click.echo(result)
+    except nokap.NokapError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    finally:
+        nokap.close()
+
+
+@cli.command("from-html")
+@click.argument("html_file", type=click.Path(exists=True))
+@click.argument("file", default="webshot.png")
+@click.option("--selector", "-s", default="html", help="CSS selector to capture.")
+@click.option("--vwidth", default=992, type=int, help="Viewport width in pixels.")
+@click.option("--vheight", default=744, type=int, help="Viewport height in pixels.")
+@click.option(
+    "--expand", "-e", default=0, type=int, help="Pixels to expand around selector."
+)
+@click.option(
+    "--delay", "-d", default=0.2, type=float, help="Seconds to wait after page load."
+)
+@click.option("--zoom", "-z", default=1.0, type=float, help="Zoom/scale factor.")
+def from_html(
+    html_file: str,
+    file: str,
+    selector: str,
+    vwidth: int,
+    vheight: int,
+    expand: int,
+    delay: float,
+    zoom: float,
+) -> None:
+    """Render an HTML file to an image or PDF.
+
+    `HTML_FILE` is a path to an HTML file to render. `FILE` is the output path
+    (default: `webshot.png`). Unlike 'nokap webshot', this command defaults to
+    `selector="html"` so the entire document is captured regardless of
+    viewport height.
+
+    This is the natural choice for HTML generated by packages like Great
+    Tables, Plotly, or custom report builders. Combine with a selector
+    and `.pdf` extension to produce element-bounded vector PDFs.
+
+    \b
+    Examples:
+      nokap from-html report.html report.png
+      nokap from-html data.html table.png -s "table" -z 2
+      nokap from-html chart.html chart.png -s "#chart" -e 20
+      nokap from-html gt_table.html table.pdf -s "table" -e 5
+      nokap from-html invoice.html invoice.pdf
+    """
+    html_content = Path(html_file).read_text(encoding="utf-8")
+    try:
+        result = nokap.from_html(
+            html_content,
+            file,
+            selector=selector,
+            vwidth=vwidth,
+            vheight=vheight,
+            expand=expand,
+            delay=delay,
+            zoom=zoom,
+        )
+        click.echo(result)
+    except nokap.NokapError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    finally:
+        nokap.close()
+
+
+@cli.command()
+def info() -> None:
+    """Display system info and whether a compatible browser is found.
+
+    Shows the nokap version, Python version, platform, and whether a
+    Chrome/Chromium binary can be located. This is a quick sanity check
+    that does NOT launch Chrome. Use 'nokap doctor' for a full end-to-end
+    diagnostic that actually tests captures.
+
+    \b
+    Examples:
+      nokap info
+    """
+    import platform
+    import subprocess
+    from importlib.metadata import version
+
+    click.echo(f"nokap version: {version('nokap')}")
+    click.echo(f"Python: {sys.version.split()[0]}")
+    click.echo(f"Platform: {current_platform()} ({platform.platform()})")
+    click.echo("")
+
+    try:
+        chrome_path = find_chrome()
+        click.echo(f"Browser found: {chrome_path}")
+
+        # Try to get the version
+        try:
+            result = subprocess.run(
+                [chrome_path, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            version = result.stdout.strip()
+            if version:
+                click.echo(f"Browser version: {version}")
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+
+    except ChromeNotFoundError:
+        click.echo("Browser found: No")
+        click.echo(
+            "Install Chrome, Chromium, or set the CHROME_PATH environment variable."
+        )
+        sys.exit(1)
+
+
+@cli.command()
+def doctor() -> None:
+    """Run a full diagnostic: find Chrome, launch it, and test a capture.
+
+    Goes beyond 'nokap info' by actually launching headless Chrome, creating
+    a tab, rendering a test page, and capturing both a PNG screenshot and an
+    element-bounded PDF. Reports timing for each step so you can identify
+    bottlenecks in CI or slow environments.
+
+    \b
+    Steps performed:
+
+    1. Locate Chrome/Chromium binary
+    2. Launch headless Chrome and connect via WebSocket
+    3. Render test HTML and capture as PNG
+    4. Render test HTML and capture as element-bounded PDF
+
+    \b
+    Examples:
+      nokap doctor              # Run full diagnostic
+      CHROME_PATH=/usr/bin/chromium nokap doctor
+    """
+    import platform
+    import time
+    from importlib.metadata import version
+
+    click.echo("nokap doctor")
+    click.echo("=" * 40)
+    click.echo(f"nokap version: {version('nokap')}")
+    click.echo(f"Python: {sys.version.split()[0]}")
+    click.echo(f"Platform: {current_platform()} ({platform.platform()})")
+    click.echo("")
+
+    # Step 1: Find Chrome
+    click.echo("1. Finding Chrome...", nl=False)
+    t0 = time.perf_counter()
+    try:
+        chrome_path = find_chrome()
+    except ChromeNotFoundError:
+        click.echo(" FAIL")
+        click.echo("   Chrome/Chromium not found. Install it or set CHROME_PATH.")
+        sys.exit(1)
+    elapsed = (time.perf_counter() - t0) * 1000
+    click.echo(f" OK ({elapsed:.0f}ms)")
+    click.echo(f"   Path: {chrome_path}")
+
+    # Step 2: Launch Chrome
+    click.echo("2. Launching headless Chrome...", nl=False)
+    t0 = time.perf_counter()
+    try:
+        _ = nokap.webshot.__module__  # Force module load
+        from nokap._api import _get_browser
+
+        browser = _get_browser()
+    except Exception as e:
+        click.echo(" FAIL")
+        click.echo(f"   {e}")
+        sys.exit(1)
+    elapsed = (time.perf_counter() - t0) * 1000
+    click.echo(f" OK ({elapsed:.0f}ms)")
+    click.echo(f"   WebSocket: {browser.ws_url}")
+
+    # Step 3: Test a capture
+    import tempfile
+
+    click.echo("3. Test capture (HTML → PNG)...", nl=False)
+    t0 = time.perf_counter()
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+            out_path = Path(f.name)
+        nokap.from_html(
+            "<html><body><h1>nokap doctor test</h1></body></html>",
+            out_path,
+            delay=0,
+        )
+        size = out_path.stat().st_size
+        out_path.unlink()
+    except Exception as e:
+        click.echo(" FAIL")
+        click.echo(f"   {e}")
+        sys.exit(1)
+    finally:
+        nokap.close()
+    elapsed = (time.perf_counter() - t0) * 1000
+    click.echo(f" OK ({elapsed:.0f}ms, {size / 1024:.1f} KB)")
+
+    # Step 4: Test element-bounded PDF
+    click.echo("4. Test capture (HTML → element PDF)...", nl=False)
+    t0 = time.perf_counter()
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+            out_path = Path(f.name)
+        nokap.from_html(
+            "<html><body><table><tr><td>A</td><td>B</td></tr></table></body></html>",
+            out_path,
+            selector="table",
+            delay=0,
+        )
+        size = out_path.stat().st_size
+        out_path.unlink()
+    except Exception as e:
+        click.echo(" FAIL")
+        click.echo(f"   {e}")
+        sys.exit(1)
+    finally:
+        nokap.close()
+    elapsed = (time.perf_counter() - t0) * 1000
+    click.echo(f" OK ({elapsed:.0f}ms, {size / 1024:.1f} KB)")
+
+    click.echo("")
+    click.echo("All checks passed.")
+
+
+@cli.command()
+@click.argument("manifest", type=click.Path(exists=True))
+@click.option(
+    "--output-dir",
+    "-o",
+    default=".",
+    type=click.Path(),
+    help="Directory to write output files.",
+)
+@click.option("--delay", "-d", default=0.2, type=float, help="Default delay (seconds).")
+@click.option("--zoom", "-z", default=1.0, type=float, help="Default zoom factor.")
+@click.option(
+    "--selector", "-s", default=None, help="Default CSS selector for all entries."
+)
+@click.option("--expand", "-e", default=0, type=int, help="Default expand (pixels).")
+def batch(
+    manifest: str,
+    output_dir: str,
+    delay: float,
+    zoom: float,
+    selector: str | None,
+    expand: int,
+) -> None:
+    """Capture multiple URLs/files from a JSON manifest.
+
+    `MANIFEST` is a path to a JSON file containing an array of capture jobs.
+    Each job object requires a 'file' key (output filename) and either a
+    'url' or 'html' key (source). All other keys map to `webshot()`
+    parameters and override the command-line defaults.
+
+    Chrome is launched once and reused across all jobs, making batch
+    processing significantly faster than individual 'nokap webshot' calls.
+    Jobs that fail are reported individually without stopping the batch.
+
+    \b
+    Supported job keys:
+
+      'url', 'html', 'file', 'selector', 'expand', 'zoom', 'delay',
+      'vwidth', 'vheight', 'page_size', 'landscape', 'print_background'
+
+    \b
+    Example manifest (captures.json):
+
+    [
+      {"url": "https://example.com", "file": "homepage.png"},
+      {"url": "report.html", "file": "report.pdf", "selector": "table"},
+      {"html": "<h1>Hello</h1>", "file": "hello.png", "zoom": 2}
+    ]
+
+    \b
+    Examples:
+      nokap batch captures.json -o output/
+      nokap batch tables.json -o images/ -s "table" -z 2 -e 5
+      nokap batch pages.json -o out/ -d 0
+    """
+    import json
+
+    manifest_path = Path(manifest)
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        click.echo(f"Error reading manifest: {e}", err=True)
+        sys.exit(1)
+
+    if not isinstance(raw, list):
+        click.echo("Error: Manifest must be a JSON array of objects.", err=True)
+        sys.exit(1)
+
+    jobs = cast(list[dict[str, object]], raw)
+    total = len(jobs)
+    failed = 0
+
+    for i, job in enumerate(jobs, 1):
+        # Determine output file
+        file_name = job.get("file")
+        if not file_name or not isinstance(file_name, str):
+            click.echo(f"  [{i}/{total}] Skipping entry without 'file' key", err=True)
+            failed += 1
+            continue
+
+        out_file = out_dir / file_name
+
+        # Determine source
+        url = job.get("url")
+        html = job.get("html")
+
+        if not url and not html:
+            click.echo(
+                f"  [{i}/{total}] Skipping entry without 'url' or 'html' key",
+                err=True,
+            )
+            failed += 1
+            continue
+
+        # Build kwargs from job + command-line defaults
+        kwargs: dict[str, object] = {
+            "delay": job.get("delay", delay),
+            "zoom": job.get("zoom", zoom),
+            "expand": job.get("expand", expand),
+        }
+        job_selector = job.get("selector", selector)
+        if job_selector is not None:
+            kwargs["selector"] = job_selector
+        if "vwidth" in job:
+            kwargs["vwidth"] = job["vwidth"]
+        if "vheight" in job:
+            kwargs["vheight"] = job["vheight"]
+        if "page_size" in job:
+            kwargs["page_size"] = job["page_size"]
+        if "landscape" in job:
+            kwargs["landscape"] = job["landscape"]
+        if "print_background" in job:
+            kwargs["print_background"] = job["print_background"]
+
+        label = url or "(html string)"
+        click.echo(f"  [{i}/{total}] {label} → {out_file} ...", nl=False)
+
+        try:
+            if html:
+                nokap.from_html(str(html), str(out_file), **kwargs)  # type: ignore[arg-type]
+            else:
+                nokap.webshot(str(url), str(out_file), **kwargs)  # type: ignore[arg-type]
+            click.echo(" OK")
+        except Exception as e:
+            click.echo(" FAIL")
+            click.echo(f"       {e}", err=True)
+            failed += 1
+
+    nokap.close()
+
+    click.echo("")
+    if failed:
+        click.echo(f"Done: {total - failed}/{total} succeeded, {failed} failed.")
+        sys.exit(1)
+    else:
+        click.echo(f"Done: {total}/{total} succeeded.")

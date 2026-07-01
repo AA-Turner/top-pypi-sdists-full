@@ -1,0 +1,136 @@
+from collections.abc import Awaitable, Callable
+
+import pytest
+import wireup
+import wireup.integration
+import wireup.integration.aiohttp
+from aiohttp import web
+from aiohttp.test_utils import TestClient
+from wireup.integration.aiohttp import get_app_container, get_request_container
+
+from test.integration.aiohttp import handler, routes
+from test.integration.aiohttp import services as aio_test_services
+from test.shared import shared_services
+from test.shared.shared_services.greeter import GreeterService
+
+
+class CustomGreeter(GreeterService):
+    def greet(self, name: str) -> str:
+        return f"Hoi, {name}"
+
+
+def _create_app(*, middleware_mode: bool) -> web.Application:
+    app = web.Application()
+
+    app.router.add_routes(routes.router)
+
+    container = wireup.create_async_container(
+        injectables=[shared_services, aio_test_services, wireup.integration.aiohttp]
+    )
+    wireup.integration.aiohttp.setup(
+        container,
+        app,
+        handlers=[handler.WireupTestHandler],
+        middleware_mode=middleware_mode,
+    )
+
+    return app
+
+
+@pytest.fixture(params=[True, False], ids=["middleware_mode=True", "middleware_mode=False"])
+def middleware_mode(request: pytest.FixtureRequest) -> bool:
+    return request.param
+
+
+@pytest.fixture()
+def app(*, middleware_mode: bool) -> web.Application:
+    return _create_app(middleware_mode=middleware_mode)
+
+
+@pytest.fixture()
+async def client(
+    app: web.Application, aiohttp_client: Callable[[web.Application], Awaitable[TestClient]]
+) -> TestClient:
+    return await aiohttp_client(app)
+
+
+async def test_hello(client: TestClient) -> None:
+    res = await client.get("/greeting")
+    body = await res.json()
+    assert body == {"greeting": "Hello world"}
+
+
+async def test_inject_request(client: TestClient) -> None:
+    res = await client.get("/inject_request")
+    assert res.status == 200
+
+
+async def test_request_container_only_in_middleware_mode(client: TestClient, *, middleware_mode: bool) -> None:
+    res = await client.get("/request_container")
+    if middleware_mode:
+        assert res.status == 200
+        body = await res.json()
+        assert body == {"is_same_request": True}
+    else:
+        assert res.status == 500
+
+
+async def test_wireup_middleware_is_outermost_for_existing_middlewares(
+    aiohttp_client: Callable[[web.Application], Awaitable[TestClient]],
+) -> None:
+    @web.middleware
+    async def custom_middleware(
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+    ) -> web.StreamResponse:
+        request["wireup_request_available"] = await get_request_container().get(web.Request) is request
+        return await handler(request)
+
+    app = web.Application(middlewares=[custom_middleware])
+    app.router.add_routes(routes.router)
+
+    container = wireup.create_async_container(
+        injectables=[shared_services, aio_test_services, wireup.integration.aiohttp]
+    )
+    wireup.integration.aiohttp.setup(container, app, handlers=[handler.WireupTestHandler], middleware_mode=True)
+
+    client = await aiohttp_client(app)
+    res = await client.get("/request_container")
+
+    assert res.status == 200
+    assert (await res.json()) == {"is_same_request": True}
+
+
+async def test_webview(client: TestClient) -> None:
+    res = await client.get("/webview")
+    body = await res.json()
+    assert body == {"greeting": "Hello webview"}
+
+
+async def test_override(client: TestClient, app: web.Application) -> None:
+    with get_app_container(app).override.injectable(GreeterService, new=CustomGreeter()):
+        res = await client.get("/webview")
+        body = await res.json()
+        assert body == {"greeting": "Hoi, webview"}
+
+
+async def test_handler(client: TestClient) -> None:
+    res = await client.get("/handler/greet?name=Handler")
+    body = await res.json()
+    assert body == {"greeting": "Hello Handler", "counter": 1}
+
+    res = await client.get("/handler/greet?name=Aio")
+    body = await res.json()
+    assert body == {"greeting": "Hello Aio", "counter": 2}
+
+
+async def test_handler_override(aiohttp_client: Callable[[web.Application], Awaitable[TestClient]]) -> None:
+    app = _create_app(middleware_mode=True)
+    container = get_app_container(app)
+
+    with container.override.injectable(GreeterService, new=CustomGreeter()):
+        client = await aiohttp_client(app())
+
+        res = await client.get("/handler/greet?name=Handler")
+        body = await res.json()
+        assert body == {"greeting": "Hoi, Handler", "counter": 1}

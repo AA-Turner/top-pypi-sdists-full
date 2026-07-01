@@ -1,0 +1,208 @@
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[project]
+name = "pyan3"
+dynamic = []
+description = "Generate approximate call graphs for Python programs"
+requires-python = ">=3.10"
+license = "GPL-2.0-or-later"
+license-files = [
+    "LICENSE.md",
+]
+authors = [
+    { name = "Juha Jeronen", email = "juha.m.jeronen@gmail.com" },
+]
+keywords = [
+    "call-graph",
+    "static-code-analysis",
+    "code-visualization",
+    "dependency-analysis",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "jinja2",
+]
+version = "2.6.1"
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.optional-dependencies]
+sphinx = [
+    "sphinx",
+    "docutils",
+]
+
+[project.urls]
+Homepage = "https://github.com/Technologicat/pyan"
+Documentation = "https://github.com/Technologicat/pyan"
+Repository = "https://github.com/Technologicat/pyan"
+"Bug Tracker" = "https://github.com/Technologicat/pyan/issues"
+
+[project.scripts]
+pyan3 = "pyan.main:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=7.1.0",
+    "sphinx",
+    "docutils",
+    "ruff>=0.14.0",
+    "flake8",
+    "autopep8",
+    "jedi>=0.19.2",
+    "epc",
+    "importmagic",
+    "twine>=6.0.0",
+    "urllib3>=2.6.3",
+    "cryptography>=46.0.5",
+    "build",
+    "pyyaml>=6.0.3",
+]
+
+[tool.pdm.version]
+source = "file"
+path = "pyan/__init__.py"
+
+[tool.pdm.build]
+includes = [
+    "pyan",
+]
+excludes = [
+    "**/tests",
+    "**/__pycache__",
+]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests/",
+]
+addopts = [
+    "-rsxX",
+    "-vv",
+    "--cov=pyan",
+    "--cov-report=html",
+    "--cov-report=term-missing:skip-covered",
+    "--no-cov-on-fail",
+]
+log_cli_level = "ERROR"
+log_format = "%(asctime)s %(levelname)s %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S"
+cache_dir = ".cache"
+
+[tool.coverage.run]
+source = [
+    "pyan",
+]
+omit = [
+    "*/tests/*",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+    "tests/test_code_312",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4",
+    "UP",
+    "ARG",
+    "SIM",
+]
+ignore = [
+    "E203",
+    "E402",
+    "E731",
+    "E741",
+    "E501",
+    "W605",
+    "C408",
+    "C409",
+    "C406",
+    "F401",
+    "UP009",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "pyan",
+]
+force-sort-within-sections = true
+combine-as-imports = true
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+    "F401",
+]
+"tests/test_code/**" = [
+    "F821",
+    "I001",
+    "ARG",
+    "B007",
+    "B008",
+    "C416",
+    "UP009",
+    "UP015",
+]
+"tests/orbital/**" = [
+    "F841",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

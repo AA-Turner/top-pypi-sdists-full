@@ -1,0 +1,760 @@
+"""
+Deployment Reconciliation Service - Simplified Deployment Model
+
+This service implements the simplified deployment model where:
+1. Configuration has explicit lists: agents.enabled and skills.enabled
+2. On startup/sync, reconcile deployed state with configured state
+3. Deploy agents from cache to project .claude/ directories
+4. Remove agents/skills NOT in enabled lists
+
+Key Principles:
+- Explicit configuration over auto-discovery
+- Clear reconciliation view (configured vs deployed)
+- Simple cleanup of unneeded agents/skills
+- Backward compatibility with empty enabled lists
+"""
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from claude_mpm.core.logging_utils import get_logger
+from claude_mpm.core.unified_config import UnifiedConfig
+from claude_mpm.core.unified_paths import get_path_manager
+from claude_mpm.services.agents.compatibility import CompatibilityResult
+from claude_mpm.services.agents.compatibility.deploy_gate import DeploymentVersionGate
+from claude_mpm.services.agents.compatibility.manifest_cache import ManifestCache
+from claude_mpm.services.agents.deployment_utils import deploy_agent_file
+from claude_mpm.utils.agent_filters import (
+    is_local_only,
+    normalize_agent_id,
+    warn_missing_local_only_agents,
+)
+
+logger = get_logger(__name__)
+
+
+@dataclass
+class DeploymentResult:
+    """Result of deployment reconciliation."""
+
+    deployed: list[str]  # Newly deployed
+    removed: list[str]  # Removed (not in config)
+    unchanged: list[str]  # Already deployed and still needed
+    errors: list[str]  # Errors during reconciliation
+
+    @property
+    def success(self) -> bool:
+        """Whether reconciliation succeeded (no errors)."""
+        return len(self.errors) == 0
+
+
+@dataclass
+class ReconciliationState:
+    """Current state of agent/skill deployment."""
+
+    configured: set[str]  # IDs in config enabled list
+    deployed: set[str]  # IDs currently deployed
+    cached: set[str]  # IDs available in cache
+
+    @property
+    def to_deploy(self) -> set[str]:
+        """Agents/skills that need deployment (in config but not deployed)."""
+        return self.configured - self.deployed
+
+    @property
+    def to_remove(self) -> set[str]:
+        """Agents/skills that should be removed (deployed but not in config)."""
+        return self.deployed - self.configured
+
+    @property
+    def unchanged(self) -> set[str]:
+        """Agents/skills already deployed and still needed."""
+        return self.configured & self.deployed
+
+
+class DeploymentReconciler:
+    """
+    Reconciles configured agents/skills with deployed state.
+
+    This service implements the simplified deployment model:
+    1. Read agents.enabled and skills.enabled from config
+    2. Discover what's currently deployed in .claude/agents and .claude/skills
+    3. Deploy missing agents/skills from cache
+    4. Remove agents/skills not in enabled lists
+    """
+
+    def __init__(self, config: UnifiedConfig | None = None):
+        """
+        Initialize reconciler.
+
+        Args:
+            config: UnifiedConfig instance (auto-loads if None)
+        """
+        self.config = config or self._load_config()
+        self.path_manager = get_path_manager()
+
+        # Deploy-time manifest compatibility gate (fail-open on init error)
+        try:
+            self._manifest_cache = ManifestCache()
+            self._deploy_gate = DeploymentVersionGate(
+                manifest_cache=self._manifest_cache
+            )
+        except Exception as e:
+            logger.debug(
+                "ManifestCache initialization failed: %s. Deploy-time checks disabled.",
+                e,
+            )
+            self._manifest_cache = None
+            self._deploy_gate = None
+
+    def _load_config(self) -> UnifiedConfig:
+        """Load configuration from standard locations.
+
+        Search order (first match wins):
+            1. ``<cwd>/.claude-mpm/configuration.yaml`` (project, preferred)
+            2. ``<cwd>/.claude-mpm/configuration.yml``
+            3. ``~/.claude-mpm/config/configuration.yaml`` (user, per CLAUDE.md)
+            4. ``~/.claude-mpm/config/configuration.yml``
+            5. ``~/.claude-mpm/configuration.yaml`` (legacy user location)
+            6. ``~/.claude-mpm/configuration.yml``
+
+        Falls back to ``UnifiedConfig()`` defaults when no file is found or when
+        a file is unreadable / malformed. Errors are logged but never raised so
+        deployment reconciliation always has a usable config.
+        """
+        try:
+            import yaml
+        except ImportError as e:
+            logger.warning(
+                "PyYAML not available (%s); using UnifiedConfig defaults.", e
+            )
+            return UnifiedConfig()
+
+        candidate_paths = [
+            Path.cwd() / ".claude-mpm" / "configuration.yaml",
+            Path.cwd() / ".claude-mpm" / "configuration.yml",
+            Path.home() / ".claude-mpm" / "config" / "configuration.yaml",
+            Path.home() / ".claude-mpm" / "config" / "configuration.yml",
+            Path.home() / ".claude-mpm" / "configuration.yaml",
+            Path.home() / ".claude-mpm" / "configuration.yml",
+        ]
+
+        for config_path in candidate_paths:
+            try:
+                if not config_path.is_file():
+                    continue
+            except OSError as e:
+                # Permission errors on stat — skip and try next candidate
+                logger.debug("Cannot stat config path %s: %s", config_path, e)
+                continue
+
+            try:
+                with config_path.open("r", encoding="utf-8") as f:
+                    file_config = yaml.safe_load(f) or {}
+            except PermissionError as e:
+                logger.warning(
+                    "Permission denied reading config %s: %s. Trying next location.",
+                    config_path,
+                    e,
+                )
+                continue
+            except yaml.YAMLError as e:
+                logger.warning(
+                    "Malformed YAML in %s: %s. Falling back to defaults.",
+                    config_path,
+                    e,
+                )
+                return UnifiedConfig()
+            except OSError as e:
+                logger.warning(
+                    "Failed to read config %s: %s. Trying next location.",
+                    config_path,
+                    e,
+                )
+                continue
+
+            if not isinstance(file_config, dict):
+                logger.warning(
+                    "Config %s did not parse to a mapping (got %s). Using defaults.",
+                    config_path,
+                    type(file_config).__name__,
+                )
+                return UnifiedConfig()
+
+            try:
+                config = UnifiedConfig(**file_config)
+                logger.debug("Loaded reconciler config from %s", config_path)
+                return config
+            except Exception as e:
+                # Pydantic validation error or similar — log and use defaults
+                # rather than crashing deployment reconciliation.
+                logger.warning(
+                    "Invalid config in %s: %s. Falling back to defaults.",
+                    config_path,
+                    e,
+                )
+                return UnifiedConfig()
+
+        logger.debug(
+            "No configuration.yaml found in project or user locations; "
+            "using UnifiedConfig defaults."
+        )
+        return UnifiedConfig()
+
+    def reconcile_agents(self, project_path: Path | None = None) -> DeploymentResult:
+        """
+        Reconcile agent deployment with configuration.
+
+        Args:
+            project_path: Project directory (default: current directory)
+
+        Returns:
+            DeploymentResult with reconciliation summary
+        """
+        project_path = project_path or Path.cwd()
+        cache_dir = self.path_manager.get_cache_dir() / "agents"
+        deploy_dir = project_path / ".claude" / "agents"
+
+        # Get current state
+        state = self._get_agent_state(cache_dir, deploy_dir)
+
+        # [DA-1 FIX] Deploy-time manifest compatibility check
+        # MUST run before auto-discover early return to cover all code paths
+        blocked_sources = self._check_deploy_compatibility()
+        if blocked_sources:
+            error_msgs: list[str] = []
+            for source_id in blocked_sources:
+                error_msgs.append(
+                    f"Agent deployment blocked: source '{source_id}' requires "
+                    f"a newer CLI. Run: pip install --upgrade claude-mpm"
+                )
+            for msg in error_msgs:
+                logger.error(msg)
+            return DeploymentResult(
+                deployed=[], removed=[], unchanged=[], errors=error_msgs
+            )
+
+        # Check backward compatibility
+        if not self.config.agents.enabled and self.config.agents.auto_discover:
+            logger.warning(
+                "agents.enabled is empty and auto_discover is True. "
+                "Consider migrating to explicit agent list. "
+                "Falling back to auto-discovery mode."
+            )
+            # In auto-discovery mode, don't remove anything
+            return DeploymentResult(
+                deployed=[], removed=[], unchanged=list(state.deployed), errors=[]
+            )
+
+        result = DeploymentResult(deployed=[], removed=[], unchanged=[], errors=[])
+
+        # Issue #560: Never deploy/overwrite or remove agents in agents.local_only.
+        # Load once, then gate every deploy and remove operation.
+        local_only_list = list(self.config.agents.local_only)
+        warn_missing_local_only_agents(local_only_list, project_path)
+
+        # Deploy missing agents
+        for agent_id in state.to_deploy:
+            if is_local_only(agent_id, local_only_list):
+                logger.info(
+                    "Skipping deploy/overwrite of local_only agent: %s", agent_id
+                )
+                result.unchanged.append(agent_id)
+                continue
+
+            if agent_id not in state.cached:
+                error_msg = f"Agent '{agent_id}' not found in cache. Run 'claude-mpm agents sync' first."
+                logger.warning(error_msg)
+                result.errors.append(error_msg)
+                continue
+
+            try:
+                self._deploy_agent(agent_id, cache_dir, deploy_dir)
+                result.deployed.append(agent_id)
+                logger.info(f"Deployed agent: {agent_id}")
+            except Exception as e:
+                error_msg = f"Failed to deploy agent '{agent_id}': {e}"
+                logger.error(error_msg)
+                result.errors.append(error_msg)
+
+        # Remove unneeded agents (only MPM agents, not user-created)
+        for agent_id in state.to_remove:
+            if is_local_only(agent_id, local_only_list):
+                logger.info("Skipping removal of local_only agent: %s", agent_id)
+                result.unchanged.append(agent_id)
+                continue
+
+            try:
+                if self._is_mpm_agent(deploy_dir, agent_id):
+                    self._remove_agent(agent_id, deploy_dir)
+                    result.removed.append(agent_id)
+                    logger.info(f"Removed agent: {agent_id}")
+                else:
+                    logger.debug(f"Skipping removal of user agent: {agent_id}")
+                    result.unchanged.append(agent_id)
+            except Exception as e:
+                error_msg = f"Failed to remove agent '{agent_id}': {e}"
+                logger.error(error_msg)
+                result.errors.append(error_msg)
+
+        # Track unchanged agents
+        result.unchanged.extend(list(state.unchanged))
+
+        return result
+
+    def reconcile_skills(self, project_path: Path | None = None) -> DeploymentResult:
+        """
+        Reconcile skill deployment with configuration.
+
+        This includes:
+        1. Skills in skills.enabled list
+        2. Skills required by enabled agents (if auto_detect_dependencies=True)
+
+        Args:
+            project_path: Project directory (default: current directory)
+
+        Returns:
+            DeploymentResult with reconciliation summary
+        """
+        project_path = project_path or Path.cwd()
+        cache_dir = self.path_manager.get_cache_dir() / "skills"
+        deploy_dir = project_path / ".claude" / "skills"
+
+        # Get configured skills (explicit + agent dependencies)
+        configured_skills = set(self.config.skills.enabled)
+
+        if self.config.skills.auto_detect_dependencies:
+            # Add skills required by enabled agents
+            agent_skill_deps = self._get_agent_skill_dependencies(
+                self.config.agents.enabled
+            )
+            configured_skills.update(agent_skill_deps)
+
+        # Get current state
+        state = ReconciliationState(
+            configured=configured_skills,
+            deployed=self._list_deployed_skills(deploy_dir),
+            cached=self._list_cached_skills(cache_dir),
+        )
+
+        result = DeploymentResult(deployed=[], removed=[], unchanged=[], errors=[])
+
+        # Deploy missing skills
+        for skill_id in state.to_deploy:
+            if skill_id not in state.cached:
+                error_msg = (
+                    f"Skill '{skill_id}' not found in cache. Check skill sources."
+                )
+                logger.warning(error_msg)
+                result.errors.append(error_msg)
+                continue
+
+            try:
+                self._deploy_skill(skill_id, cache_dir, deploy_dir)
+                result.deployed.append(skill_id)
+                logger.info(f"Deployed skill: {skill_id}")
+            except Exception as e:
+                error_msg = f"Failed to deploy skill '{skill_id}': {e}"
+                logger.error(error_msg)
+                result.errors.append(error_msg)
+
+        # Remove unneeded skills (only MPM skills)
+        for skill_id in state.to_remove:
+            try:
+                if self._is_mpm_skill(deploy_dir, skill_id):
+                    self._remove_skill(skill_id, deploy_dir)
+                    result.removed.append(skill_id)
+                    logger.info(f"Removed skill: {skill_id}")
+                else:
+                    logger.debug(f"Skipping removal of user skill: {skill_id}")
+                    result.unchanged.append(skill_id)
+            except Exception as e:
+                error_msg = f"Failed to remove skill '{skill_id}': {e}"
+                logger.error(error_msg)
+                result.errors.append(error_msg)
+
+        # Track unchanged skills
+        result.unchanged.extend(list(state.unchanged))
+
+        return result
+
+    def _check_deploy_compatibility(self) -> set[str]:
+        """Check cached manifest compatibility before deploying agents.
+
+        Fail-open: Returns empty set if cache unavailable or version unknown.
+        """
+        if self._deploy_gate is None or self._manifest_cache is None:
+            return set()
+
+        import os
+
+        if os.environ.get("CLAUDE_MPM_SKIP_COMPAT_CHECK", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        ):
+            return set()
+
+        blocked: set[str] = set()
+
+        try:
+            from claude_mpm import __version__
+        except ImportError:
+            return blocked
+
+        if not __version__:
+            return blocked
+
+        try:
+            all_cached = self._manifest_cache.get_all()
+        except Exception as e:
+            logger.debug("ManifestCache read failed: %s. Skipping deploy gate.", e)
+            return blocked
+
+        if not all_cached:
+            return blocked
+
+        for entry in all_cached:
+            source_id = entry.get("source_id", "unknown")
+            raw_content = entry.get("raw_content")
+            try:
+                result = self._deploy_gate.check_before_deploy(
+                    source_id=source_id,
+                    cli_version=__version__,
+                    cached_manifest_content=raw_content,
+                )
+            except Exception as e:
+                logger.debug(
+                    "Deploy gate check failed for source '%s': %s. Skipping.",
+                    source_id,
+                    e,
+                )
+                continue
+
+            if result.status == CompatibilityResult.INCOMPATIBLE_HARD:
+                logger.error(
+                    "Deploy blocked for source '%s': %s",
+                    source_id,
+                    result.message,
+                )
+                blocked.add(source_id)
+            elif result.status == CompatibilityResult.INCOMPATIBLE_WARN:
+                # Warns the user but continues with deployment — agents are
+                # still deployed with the warning displayed.  This can be
+                # tightened to a hard stop in a future release.
+                pass
+
+        return blocked
+
+    def _get_agent_state(
+        self, cache_dir: Path, deploy_dir: Path
+    ) -> ReconciliationState:
+        """Get current agent deployment state."""
+        # Start with enabled agents
+        configured_agents = set(self.config.agents.enabled)
+
+        # Add required agents (cannot be disabled)
+        configured_agents.update(self.config.agents.required)
+
+        # Add universal agents if enabled
+        if self.config.agents.include_universal:
+            universal_agents = self._get_universal_agents(cache_dir)
+            configured_agents.update(universal_agents)
+
+        return ReconciliationState(
+            configured=configured_agents,
+            deployed=self._list_deployed_agents(deploy_dir),
+            cached=self._list_cached_agents(cache_dir),
+        )
+
+    def _get_universal_agents(self, cache_dir: Path) -> set[str]:
+        """Get all agents with 'universal' toolchain/category."""
+        universal_agents = set()
+        if not cache_dir.exists():
+            return universal_agents
+
+        for agent_file in cache_dir.glob("**/*.md"):
+            try:
+                # Read frontmatter to check toolchain/category
+                content = agent_file.read_text(encoding="utf-8")
+
+                # Check for universal markers in frontmatter (within first 1000 chars)
+                frontmatter_section = content[:1000].lower()
+                if (
+                    "toolchain: universal" in frontmatter_section
+                    or "category: universal" in frontmatter_section
+                    or "toolchain:\n  - universal" in frontmatter_section
+                ):
+                    universal_agents.add(agent_file.stem)
+            except Exception as e:
+                logger.debug(
+                    f"Failed to check universal marker for {agent_file.name}: {e}"
+                )
+                continue
+
+        return universal_agents
+
+    def _list_deployed_agents(self, deploy_dir: Path) -> set[str]:
+        """List agent IDs currently deployed."""
+        if not deploy_dir.exists():
+            return set()
+
+        agent_ids = set()
+        for agent_file in deploy_dir.glob("*.md"):
+            # Extract agent ID from filename (remove .md extension)
+            agent_id = agent_file.stem
+            agent_ids.add(agent_id)
+
+        return agent_ids
+
+    def _list_cached_agents(self, cache_dir: Path) -> set[str]:
+        """List agent IDs available in cache."""
+        if not cache_dir.exists():
+            return set()
+
+        agent_ids = set()
+        for agent_file in cache_dir.glob("**/*.md"):
+            # Extract agent ID from filename
+            agent_id = agent_file.stem
+            agent_ids.add(agent_id)
+
+        return agent_ids
+
+    def _list_deployed_skills(self, deploy_dir: Path) -> set[str]:
+        """List skill IDs currently deployed."""
+        if not deploy_dir.exists():
+            return set()
+
+        skill_ids = set()
+        for skill_file in deploy_dir.glob("*.md"):
+            skill_id = skill_file.stem
+            skill_ids.add(skill_id)
+
+        return skill_ids
+
+    def _list_cached_skills(self, cache_dir: Path) -> set[str]:
+        """List skill IDs available in cache."""
+        if not cache_dir.exists():
+            return set()
+
+        skill_ids = set()
+        for skill_file in cache_dir.glob("**/*.md"):
+            skill_id = skill_file.stem
+            skill_ids.add(skill_id)
+
+        return skill_ids
+
+    def _deploy_agent(self, agent_id: str, cache_dir: Path, deploy_dir: Path) -> None:
+        """Deploy agent from cache to project directory."""
+        # Find agent file in cache
+        agent_file = self._find_file_in_cache(agent_id, cache_dir)
+        if not agent_file:
+            raise FileNotFoundError(f"Agent file for '{agent_id}' not found in cache")
+
+        # Deploy using unified deployment function (handles normalization,
+        # frontmatter injection, and legacy cleanup)
+        result = deploy_agent_file(agent_file, deploy_dir)
+        if not result.success:
+            raise RuntimeError(f"Failed to deploy {agent_id}: {result.error}")
+
+    def _deploy_skill(self, skill_id: str, cache_dir: Path, deploy_dir: Path) -> None:
+        """Deploy skill from cache to project directory."""
+        # Find skill file in cache
+        skill_file = self._find_file_in_cache(skill_id, cache_dir)
+        if not skill_file:
+            raise FileNotFoundError(f"Skill file for '{skill_id}' not found in cache")
+
+        # Deploy using unified deployment function (handles normalization,
+        # frontmatter injection, and legacy cleanup)
+        result = deploy_agent_file(skill_file, deploy_dir)
+        if not result.success:
+            raise RuntimeError(f"Failed to deploy skill {skill_id}: {result.error}")
+
+    def _remove_agent(self, agent_id: str, deploy_dir: Path) -> None:
+        """Remove deployed agent."""
+        normalized = normalize_agent_id(agent_id)
+        agent_file = deploy_dir / f"{normalized}.md"
+        if agent_file.exists():
+            agent_file.unlink()
+
+    def _remove_skill(self, skill_id: str, deploy_dir: Path) -> None:
+        """Remove deployed skill."""
+        skill_file = deploy_dir / f"{skill_id}.md"
+        if skill_file.exists():
+            skill_file.unlink()
+
+    def _is_mpm_agent(self, deploy_dir: Path, agent_id: str) -> bool:
+        """Check if agent is managed by MPM (not user-created)."""
+        from claude_mpm.utils.agent_provenance import is_mpm_managed_file
+
+        agent_file = deploy_dir / f"{agent_id}.md"
+        return is_mpm_managed_file(agent_file)
+
+    def _is_mpm_skill(self, deploy_dir: Path, skill_id: str) -> bool:
+        """Check if skill is managed by MPM (not user-created)."""
+        from claude_mpm.utils.agent_provenance import is_mpm_managed_file
+
+        skill_file = deploy_dir / f"{skill_id}.md"
+        return is_mpm_managed_file(skill_file)
+
+    def _find_file_in_cache(self, item_id: str, cache_dir: Path) -> Path | None:
+        """Find file in cache directory by ID pattern."""
+        # Try exact match first
+        exact_match = cache_dir / f"{item_id}.md"
+        if exact_match.exists():
+            return exact_match
+
+        # Search recursively
+        for file_path in cache_dir.glob(f"**/{item_id}.md"):
+            return file_path
+
+        return None
+
+    def _get_agent_skill_dependencies(self, agent_ids: list[str]) -> set[str]:
+        """
+        Get skill dependencies for enabled agents.
+
+        This reads agent frontmatter to find required skills.
+
+        Args:
+            agent_ids: List of enabled agent IDs
+
+        Returns:
+            Set of skill IDs required by these agents
+        """
+        skill_deps = set()
+
+        # Get deployed agents directory
+        project_path = Path.cwd()
+        agents_dir = project_path / ".claude" / "agents"
+
+        if not agents_dir.exists():
+            logger.debug("No agents directory found, cannot extract skill dependencies")
+            return skill_deps
+
+        for agent_id in agent_ids:
+            agent_file = agents_dir / f"{agent_id}.md"
+            if not agent_file.exists():
+                logger.debug(
+                    f"Agent file not found for {agent_id}, skipping skill dependency extraction"
+                )
+                continue
+
+            try:
+                # Parse frontmatter to get skills list
+                skills = self._parse_agent_skills_from_frontmatter(agent_file)
+                if skills:
+                    logger.debug(f"Agent {agent_id} requires skills: {skills}")
+                    skill_deps.update(skills)
+            except Exception as e:
+                logger.warning(f"Failed to parse skills from {agent_id}: {e}")
+
+        return skill_deps
+
+    def _parse_agent_skills_from_frontmatter(self, agent_file: Path) -> list[str]:
+        """
+        Parse skills list from agent frontmatter.
+
+        Expected frontmatter format:
+        ---
+        name: Python Engineer
+        skills:
+          - pytest
+          - git-workflow
+        ---
+
+        Args:
+            agent_file: Path to agent .md file
+
+        Returns:
+            List of skill IDs from frontmatter (empty if none found)
+        """
+        try:
+            import yaml
+        except ImportError:
+            logger.warning("PyYAML not installed, cannot parse agent frontmatter")
+            return []
+
+        try:
+            content = agent_file.read_text(encoding="utf-8")
+
+            # Check for frontmatter delimiters
+            if not content.startswith("---"):
+                return []
+
+            # Find end of frontmatter
+            end_marker = content.find("\n---\n", 4)
+            if end_marker == -1:
+                end_marker = content.find("\n---\r\n", 4)
+
+            if end_marker == -1:
+                logger.debug(
+                    f"No valid frontmatter end marker found in {agent_file.name}"
+                )
+                return []
+
+            # Extract frontmatter YAML
+            frontmatter_yaml = content[4:end_marker]
+
+            # Parse YAML
+            frontmatter = yaml.safe_load(frontmatter_yaml)
+
+            if not frontmatter or not isinstance(frontmatter, dict):
+                return []
+
+            # Get skills list
+            skills = frontmatter.get("skills", [])
+            if isinstance(skills, list):
+                return [str(skill) for skill in skills]
+            logger.debug(
+                f"Skills field in {agent_file.name} is not a list: {type(skills)}"
+            )
+            return []
+
+        except yaml.YAMLError as e:
+            logger.warning(
+                f"Failed to parse YAML frontmatter in {agent_file.name}: {e}"
+            )
+            return []
+        except Exception as e:
+            logger.warning(
+                f"Unexpected error parsing frontmatter in {agent_file.name}: {e}"
+            )
+            return []
+
+    def get_reconciliation_view(
+        self, project_path: Path | None = None
+    ) -> dict[str, ReconciliationState]:
+        """
+        Get reconciliation view for agents and skills.
+
+        Args:
+            project_path: Project directory
+
+        Returns:
+            Dictionary with 'agents' and 'skills' reconciliation states
+        """
+        project_path = project_path or Path.cwd()
+
+        # Get agent state
+        agent_cache = self.path_manager.get_cache_dir() / "agents"
+        agent_deploy = project_path / ".claude" / "agents"
+        agent_state = self._get_agent_state(agent_cache, agent_deploy)
+
+        # Get skill state
+        skill_cache = self.path_manager.get_cache_dir() / "skills"
+        skill_deploy = project_path / ".claude" / "skills"
+
+        configured_skills = set(self.config.skills.enabled)
+        if self.config.skills.auto_detect_dependencies:
+            configured_skills.update(
+                self._get_agent_skill_dependencies(self.config.agents.enabled)
+            )
+
+        skill_state = ReconciliationState(
+            configured=configured_skills,
+            deployed=self._list_deployed_skills(skill_deploy),
+            cached=self._list_cached_skills(skill_cache),
+        )
+
+        return {"agents": agent_state, "skills": skill_state}

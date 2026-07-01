@@ -1,0 +1,358 @@
+"""Pure drift-detection helpers for diff-aware ``apm install``.
+
+These functions are stateless and side-effect-free, making them easy to test
+in isolation and to reuse from multiple call sites in ``install.py`` without
+duplicating logic.
+
+Four kinds of drift are detected:
+
+* **Ref drift** — the ``ref`` pinned in ``apm.yml`` differs from what the
+  lockfile recorded as ``resolved_ref``.  This includes transitions such as
+  ``None → "v1.0.0"`` (user adds a pin), ``"main" → None`` (user removes a
+  pin), ``"v1.0.0" → "v2.0.0"`` (user bumps the pin), and hash-based pins
+  (``None → "abc1234"`` or ``"abc1234" → "def5678"``).
+
+* **Orphan drift** — packages present in the lockfile but absent from the
+  current manifest.  Their deployed files should be removed.
+
+* **Config drift** — an already-installed dependency's serialised configuration
+  differs from the baseline stored in the lockfile.  (Currently only MCP
+  servers; extendable to other integrator types.)
+
+* **Stale-file drift** -- files previously deployed for a still-present
+  package that are no longer produced by the current install (e.g. a
+  rename or removal inside the package).  The now-unused paths should be
+  removed.  See :func:`detect_stale_files`.
+
+Scope / non-goals
+-----------------
+* **Hash-based refs** — handled identically to branch/tag refs: both
+  ``dep_ref.reference`` and ``locked_dep.resolved_ref`` store the raw ref
+  string from ``apm.yml``/lockfile respectively, so a change from
+  ``"abc1234"`` to ``"def5678"`` is detected just like ``"v1.0" → "v2.0"``.
+
+* **URL format changes** — transparent.  ``DependencyReference.parse()``
+  normalises all input formats (HTTPS, SSH, shorthand, FQDN) into the same
+  canonical ``repo_url`` before the lockfile stores them.  Changing
+  ``owner/repo`` to ``https://github.com/owner/repo.git`` in ``apm.yml`` is a
+  formatting-only change that produces the same unique key and is correctly
+  treated as no drift.
+
+* **Host changes** — *not* detected.  If a user changes the host of an otherwise
+  identical package, the unique key may not change and ``detect_ref_change()``
+  will not signal a re-download.  Host-level changes still require the user to
+  ``apm remove`` + ``apm install`` the package, or use ``--update``.
+* **HTTP transport flips** — detected.  Switching between HTTPS and insecure
+  HTTP toggles ``is_insecure`` and forces a re-download even when the package
+  identity and ref are otherwise unchanged.
+"""
+
+from __future__ import annotations
+
+import builtins
+from dataclasses import replace as _dataclass_replace
+from typing import TYPE_CHECKING, Any
+
+from apm_cli.install.phases._skip_logic import _should_use_locked_ref
+
+if TYPE_CHECKING:
+    from apm_cli.deps.lockfile import LockedDependency, LockFile
+    from apm_cli.models.apm_package import DependencyReference
+
+
+# ---------------------------------------------------------------------------
+# Ref drift
+# ---------------------------------------------------------------------------
+
+
+def _registry_range_covers_locked_version(
+    manifest_range: str | None,
+    locked_version: str | None,
+) -> bool:
+    """True when the lockfile's exact registry version still satisfies the manifest range."""
+    if not manifest_range or not locked_version:
+        return False
+    from apm_cli.deps.registry.semver import is_semver_range, match_version
+
+    return bool(is_semver_range(manifest_range) and match_version(manifest_range, locked_version))
+
+
+def _normalize_dep_source(dep: Any) -> str:
+    """Return the resolver source label for *dep*, defaulting to ``git``."""
+    raw = getattr(dep, "source", None)
+    if not isinstance(raw, str) or not raw:
+        return "git"
+    return raw
+
+
+def detect_ref_change(
+    dep_ref: DependencyReference,
+    locked_dep: LockedDependency | None,
+    *,
+    update_refs: bool = False,
+    logger=None,
+) -> bool:
+    """Return ``True`` when the manifest ref differs from the locked resolved_ref.
+
+    Handles all transitions:
+
+    * ref *added*  (``None`` -> ``"v1.0.0"``)
+    * ref *removed* (``"main"`` -> ``None``)
+    * ref *changed* (``"v1.0.0"`` -> ``"v2.0.0"``)
+
+    .. note::
+
+       Host changes (e.g. github.com -> ghes.corp.net) are a known non-goal
+       for this function.  A future enhancement may detect host drift.
+
+    Args:
+        dep_ref: The dependency as declared in the current manifest.
+        locked_dep: The matching entry from the existing lockfile, or ``None``
+                    when the package is brand-new (not yet in the lockfile).
+        update_refs: Pass ``True`` when running in ``--update`` mode.  In that
+                     mode the lockfile is intentionally ignored, so this
+                     function always returns ``False`` to avoid double-action.
+
+    Returns:
+        ``True`` when a re-download is needed due to a ref change; ``False``
+        when the ref is unchanged, when the package is new, or when
+        ``update_refs=True``.
+    """
+    if update_refs:
+        return False
+    if locked_dep is None:
+        return False  # new package — not drift, just a first install
+
+    # Source flip drift: manifest changed resolver between installs (e.g.
+    # was ``- git: ...``, now ``acme/foo@corp#^1.0.0``). The install path,
+    # auth chain, and trust anchor all change — force a re-resolve.
+    # Note: source=None and source="git" are equivalent (legacy default).
+    manifest_source = _normalize_dep_source(dep_ref)
+    locked_source = _normalize_dep_source(locked_dep)
+    if manifest_source != locked_source:
+        return True
+
+    # Registry-sourced deps: the manifest carries a semver range
+    # (e.g. ``^1.2.0``) while the lockfile records an exact version
+    # (e.g. ``1.5.3``). Plain string comparison would be a false
+    # positive — instead, ask whether the locked version still
+    # satisfies the manifest range. If yes, no drift; if no, drift
+    # (the user expanded/contracted the range away from the locked
+    # version and we need to re-resolve).
+    if manifest_source == "registry":
+        from apm_cli.deps.registry.semver import is_semver_range
+
+        ref = dep_ref.reference
+        if not is_semver_range(ref or ""):
+            # Non-semver selector (branch/label/exact tag): the resolver
+            # exact-matches it, so drift is a literal mismatch -- not the
+            # range-coverage test, which only applies to semver ranges.
+            return ref != locked_dep.version
+        return not _registry_range_covers_locked_version(ref, locked_dep.version)
+
+    # Git-source semver-range deps (issue #1488): the manifest carries
+    # a semver range (``^1.2.0``) while the lockfile records the
+    # resolved tag (``v1.5.3``) plus the original constraint. Direct
+    # comparison of the range against the tag is a false positive --
+    # instead, treat the dep as unchanged when the lockfile already
+    # stores the same constraint (and we therefore trust its resolution
+    # until the user runs ``--update``).
+    if getattr(dep_ref, "ref_kind", None) == "semver":
+        return dep_ref.reference != locked_dep.constraint
+
+    # Git/local deps: direct ref comparison. Handles None→value, value→None,
+    # and value→value. No truthiness guard on locked_dep.resolved_ref —
+    # None != "v1.0.0" is True.
+    if dep_ref.reference != locked_dep.resolved_ref:
+        return True
+
+    return (getattr(dep_ref, "is_insecure", False) is True) != (
+        getattr(locked_dep, "is_insecure", False) is True
+    )
+
+
+# ---------------------------------------------------------------------------
+# Orphan drift
+# ---------------------------------------------------------------------------
+
+
+def detect_orphans(
+    existing_lockfile: LockFile | None,
+    intended_dep_keys: builtins.set,
+    *,
+    only_packages: builtins.list,
+    logger=None,
+) -> builtins.set:
+    """Return the set of deployed file paths whose owning package left the manifest.
+
+    Only relevant for *full* installs (``only_packages`` is empty/None).
+    Partial installs (``apm install <pkg>``) preserve all existing lockfile
+    entries unchanged.
+
+    Args:
+        existing_lockfile: The lockfile from the previous install, or ``None``
+                           on first install.
+        intended_dep_keys: Set of unique dependency keys for packages declared
+                           in the updated manifest.
+        only_packages: When non-empty this is a partial install — return an
+                       empty set so no cleanup is performed.
+
+    Returns:
+        A set of workspace-relative path strings that belong to packages which
+        are no longer in the manifest.  The caller is responsible for actually
+        removing the files.
+    """
+    orphaned: builtins.set = builtins.set()
+    if only_packages or not existing_lockfile:
+        return orphaned
+    for dep_key, dep in existing_lockfile.dependencies.items():
+        if dep_key not in intended_dep_keys:
+            orphaned.update(dep.deployed_files)
+    return orphaned
+
+
+# ---------------------------------------------------------------------------
+# File-level stale detection (intra-package)
+# ---------------------------------------------------------------------------
+
+
+def detect_stale_files(
+    old_deployed: builtins.list,
+    new_deployed: builtins.list,
+) -> builtins.set:
+    """Return the set of paths that were deployed previously but are no longer produced.
+
+    Complements :func:`detect_orphans`, which operates at the *package* level
+    (a whole package left the manifest).  This helper operates at the *file*
+    level *inside* a still-present package: if a package renamed or removed a
+    file between installs, the now-unused path is flagged as stale.
+
+    Pure set-difference semantics: ``set(old_deployed) - set(new_deployed)``.
+    The function does not touch the filesystem; the caller is responsible for
+    actually removing the files.
+
+    Args:
+        old_deployed: Paths recorded in the previous lockfile's
+                      ``deployed_files`` for this package.
+        new_deployed: Paths produced by the current install for this package.
+
+    Returns:
+        Workspace-relative path strings that should no longer exist on disk.
+    """
+    return builtins.set(old_deployed) - builtins.set(new_deployed)
+
+
+# ---------------------------------------------------------------------------
+# Config drift (integrator-agnostic)
+# ---------------------------------------------------------------------------
+
+
+def detect_config_drift(
+    current_configs: dict[str, dict],
+    stored_configs: dict[str, dict],
+    logger=None,
+) -> builtins.set:
+    """Return names of entries whose current config differs from the stored baseline.
+
+    Only entries that *have* a stored baseline and whose config has *changed*
+    are returned.  Brand-new entries (not in ``stored_configs``) are excluded
+    because they have never been installed — they are installs, not updates.
+
+    Args:
+        current_configs: Mapping of name → current serialised config (from the
+                         manifest / dependency objects).
+        stored_configs: Mapping of name → previously stored config (from the
+                        lockfile).
+
+    Returns:
+        A set of names (strings) whose configuration has drifted.
+    """
+    drifted: builtins.set = builtins.set()
+    for name, current in current_configs.items():
+        stored = stored_configs.get(name)
+        if stored is not None and stored != current:
+            drifted.add(name)
+    return drifted
+
+
+# ---------------------------------------------------------------------------
+# Download ref construction
+# ---------------------------------------------------------------------------
+
+
+def _registry_replay_overrides_from_lock(locked_dep: Any) -> dict[str, Any] | None:
+    """Fields to merge onto dep_ref so a registry install replays the locked version."""
+    if locked_dep.source == "registry" and locked_dep.version:
+        return {"reference": locked_dep.version, "source": "registry"}
+    return None
+
+
+def build_download_ref(
+    dep_ref: DependencyReference,
+    existing_lockfile: LockFile | None,
+    *,
+    update_refs: bool,
+    ref_changed: bool,
+    logger=None,
+) -> DependencyReference:
+    """Build the dependency reference passed to the package downloader.
+
+    Returns a :class:`DependencyReference` (not a flat string) so that
+    structured fields like ``virtual_path`` survive the trip to
+    ``download_package()`` without a lossy ``str()`` → ``parse()``
+    round-trip.  See :issue:`382`.
+
+    Uses the locked commit SHA for reproducibility, unless:
+    * ``update_refs=True`` — intentional update run; use the manifest ref.
+    * ``ref_changed=True`` — the user changed the pin; use the manifest ref.
+
+    Args:
+        dep_ref: The dependency as declared in the current manifest.
+        existing_lockfile: Existing lockfile, or ``None`` on first install.
+        update_refs: Whether ``--update`` mode is active.
+        ref_changed: Whether :func:`detect_ref_change` returned ``True`` for
+                     this dependency.
+
+    Returns:
+        A :class:`DependencyReference` suitable for
+        ``GitHubPackageDownloader.download_package``.
+    """
+    if existing_lockfile and not update_refs and not ref_changed:
+        locked_dep = existing_lockfile.get_dependency(dep_ref.get_unique_key())
+        if locked_dep:
+            overrides: dict[str, Any] = {}
+
+            # Prefer the lockfile host so re-installs fetch from the exact same
+            # source (proxy host preserved) — fixes air-gapped reproducibility.
+            # When registry_prefix is set, also restore the artifactory_prefix
+            # field on dep_ref so the downloader takes the proxy code-path and
+            # uses PROXY_REGISTRY_TOKEN for auth instead of the GitHub PAT.
+            if locked_dep.registry_prefix and locked_dep.host:
+                overrides["host"] = locked_dep.host
+                overrides["artifactory_prefix"] = locked_dep.registry_prefix
+            elif (
+                isinstance(getattr(locked_dep, "host", None), str)
+                and locked_dep.host != dep_ref.host
+            ):
+                overrides["host"] = locked_dep.host
+
+            if getattr(locked_dep, "is_insecure", False) is True:
+                overrides["is_insecure"] = True
+                overrides["allow_insecure"] = getattr(locked_dep, "allow_insecure", False)
+
+            reg_replay = _registry_replay_overrides_from_lock(locked_dep)
+            if reg_replay is not None:
+                overrides.update(reg_replay)
+            # Use locked commit SHA for byte-for-byte reproducibility
+            # (bypassed during --update, also guarded by the helper itself).
+            elif _should_use_locked_ref(locked_dep.resolved_commit, update_refs):
+                overrides["reference"] = locked_dep.resolved_commit
+            # For proxy deps without a commit SHA (Artifactory zip archives),
+            # preserve the locked ref so we download the same ref on replay.
+            elif locked_dep.registry_prefix and locked_dep.resolved_ref and not dep_ref.reference:
+                overrides["reference"] = locked_dep.resolved_ref
+
+            if overrides:
+                return _dataclass_replace(dep_ref, **overrides)
+
+    return dep_ref

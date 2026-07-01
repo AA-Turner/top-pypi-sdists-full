@@ -1,0 +1,77 @@
+Metadata-Version: 2.1
+Name: pyvad
+Version: 0.2.0
+Summary: 'py-webrtcvad wrapper for trimming speech clips'
+Home-page: https://github.com/F-Tag/python-vad
+License: MIT
+Author: Fumiaki Taguchi
+Requires-Python: >=3.8,<4.0
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Multimedia :: Sound/Audio
+Classifier: Topic :: Multimedia :: Sound/Audio :: Analysis
+Classifier: Topic :: Multimedia :: Sound/Audio :: Speech
+Classifier: Topic :: Scientific/Engineering :: Human Machine Interfaces
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Requires-Dist: librosa (>=0.9.2,<0.10.0)
+Requires-Dist: numpy (>=1.23.0,<2.0.0)
+Requires-Dist: webrtcvad (>=2.0.10,<3.0.0)
+Project-URL: Repository, https://github.com/F-Tag/python-vad
+Description-Content-Type: text/markdown
+
+# [py-webrtcvad](https://github.com/wiseman/py-webrtcvad) wrapper for trimming speech clips
+[![Build](https://github.com/F-Tag/python-vad/actions/workflows/test.yaml/badge.svg)](https://github.com/F-Tag/python-vad/actions/workflows/test.yaml)
+[![PyPI version](https://badge.fury.io/py/pyvad.svg)](https://badge.fury.io/py/pyvad)
+[![Python Versions](https://img.shields.io/pypi/pyversions/pyvad.svg)](https://pypi.org/project/pyvad/)
+
+## Requirement
+[numpy](https://github.com/numpy/numpy), 
+[librosa](https://github.com/librosa/librosa) and 
+[py-webrtcvad](https://github.com/wiseman/py-webrtcvad).
+
+## Installation
+via pip
+```sh
+$ pip install pyvad
+```
+
+or
+
+from github repository
+```sh
+$ pip install git+https://github.com/F-Tag/python-vad.git
+```
+
+## Usage
+```python
+from pyvad import vad
+vact = vad(speech_data, speech_data_fs)
+```
+
+
+## Example
+Please see `example.ipynb` jupyter notebook.
+
+## License
+MIT License (see `LICENSE` file).
+
+## Announcement
+The version 0.1.0 update break backward compatibility.
+
+The changes are as follows:
+1. The `hoplength` argument has been changed to `hop_length`.
+2. The `trim` returns (start_index, end_index) (`return_sec` argument is abolished).
+3. Slightly changed the method of preprocessing a waveform in `vad`.
+4. End of support for python 2.x.
+
+You can see the new API in the `example.ipynb`.
+
+The previous version is 0.0.8.
+```sh
+$ pip install pyvad==0.0.8
+```

@@ -1,0 +1,1133 @@
+from __future__ import annotations
+
+import enum
+import logging
+import types
+from collections.abc import Callable, Coroutine, Sequence
+from functools import cache, lru_cache
+from typing import Annotated, Any, Literal, TypeVar, Union, get_args, get_origin
+
+from packaging.version import Version as BaseVersion
+from pydantic import BaseModel, Field
+from pydantic.types import StringConstraints
+from pydantic_extra_types.color import Color  # noqa: F401
+
+from .._compat import cached_property
+
+_LOGGER = logging.getLogger(__name__)
+
+KT = TypeVar("KT")
+VT = TypeVar("VT")
+
+
+@lru_cache(maxsize=512)
+def get_field_type(annotation: type[Any] | None) -> tuple[type | None, Any]:
+    """Extract the origin and type from an annotation."""
+    if annotation is None:
+        raise ValueError("Type annotation cannot be None")
+    origin = get_origin(annotation)
+    args: Sequence[Any]
+    if origin in (list, set):
+        if not (args := get_args(annotation)):
+            raise ValueError(f"Unable to determine args of type: {annotation}")
+        return origin, args[0]
+    if origin is dict:
+        if not (args := get_args(annotation)):
+            raise ValueError(f"Unable to determine args of type: {annotation}")
+        return origin, args[1]
+    if origin is Annotated:
+        if not (args := get_args(annotation)):
+            raise ValueError(f"Unable to determine args of type: {annotation}")
+        return None, args[0]
+    if origin is Union or origin is types.UnionType:
+        if not (args := get_args(annotation)):
+            raise ValueError(f"Unable to determine args of type: {annotation}")
+        args = [get_field_type(arg) for arg in args]
+        if len(args) == 2 and type(None) in list(zip(*args, strict=False))[1]:
+            # Strip '| None' type from Union
+            return next(arg for arg in args if arg[1] is not type(None))
+        return None, annotation
+    return origin, annotation
+
+
+DEFAULT: Literal["DEFAULT_VALUE"] = "DEFAULT_VALUE"
+DEFAULT_TYPE = Literal["DEFAULT_VALUE"]
+EventCategories = Literal[
+    "critical",
+    "update",
+    "admin",
+    "ring",
+    "motion",
+    "smart",
+    "iot",
+]
+
+ProgressCallback = Callable[[int, int, int], Coroutine[Any, Any, None]]
+IteratorCallback = Callable[[int, bytes | None], Coroutine[Any, Any, None]]
+
+
+class FixSizeOrderedDict(dict[KT, VT]):
+    """A fixed size ordered dict."""
+
+    def __init__(self, *args: Any, max_size: int = 0, **kwargs: Any) -> None:
+        """Create the FixSizeOrderedDict."""
+        self._max_size = max_size
+        super().__init__(*args, **kwargs)
+
+    def __setitem__(self, key: KT, value: VT) -> None:
+        """Set an update up to the max size."""
+        dict.__setitem__(self, key, value)
+        if self._max_size > 0 and len(self) > 0 and len(self) > self._max_size:
+            del self[next(iter(self))]
+
+
+class ValuesEnumMixin:
+    _values: list[str] | None = None
+    _values_normalized: dict[str, str] | None = None
+
+    @classmethod
+    @cache
+    def from_string(cls, value: str) -> Any:
+        return cls(value)  # type: ignore[call-arg]
+
+    @classmethod
+    @cache
+    def values(cls) -> list[str]:
+        if cls._values is None:
+            cls._values = [e.value for e in cls]  # type: ignore[attr-defined]
+        return cls._values
+
+    @classmethod
+    @cache
+    def values_set(cls) -> set[str]:
+        return set(cls.values())
+
+    @classmethod
+    def _missing_(cls, value: Any) -> Any | None:
+        if cls._values_normalized is None:
+            cls._values_normalized = {e.value.lower(): e for e in cls}  # type: ignore[attr-defined]
+
+        value_normal = value
+        if isinstance(value, str):
+            value_normal = value.lower()
+        return cls._values_normalized.get(value_normal)
+
+
+class UnknownValuesEnumMixin(ValuesEnumMixin):
+    @classmethod
+    def _missing_(cls, value: Any) -> Any | None:
+        result = super()._missing_(value)
+        if result is None:
+            _LOGGER.debug("Unknown %s value: %s", cls.__name__, value)
+            result = cls._values_normalized.get("unknown")  # type: ignore[union-attr]
+        return result
+
+
+@enum.unique
+class ModelType(UnknownValuesEnumMixin, enum.StrEnum):
+    CAMERA = "camera"
+    CLOUD_IDENTITY = "cloudIdentity"
+    EVENT = "event"
+    GROUP = "group"
+    LIGHT = "light"
+    LIVEVIEW = "liveview"
+    NVR = "nvr"
+    USER = "user"
+    USER_LOCATION = "userLocation"
+    VIEWPORT = "viewer"
+    BRIDGE = "bridge"
+    SENSOR = "sensor"
+    SCHEDULE = "schedule"
+    CHIME = "chime"
+    AIPORT = "aiport"
+    DEVICE_GROUP = "deviceGroup"
+    RECORDING_SCHEDULE = "recordingSchedule"
+    ULP_USER = "ulpUser"
+    RINGTONE = "ringtone"
+    KEYRING = "keyring"
+    # Public API only. Intentionally NOT part of
+    # `_bootstrap_model_types` so the private bootstrap path is unchanged.
+    SIREN = "siren"
+    RELAY = "relay"
+    FOB = "fob"
+    SPEAKER = "speaker"
+    LINK_STATION = "linkstation"
+    UNKNOWN = "unknown"
+
+    bootstrap_model_types: tuple[ModelType, ...]
+    bootstrap_models: tuple[str, ...]
+    bootstrap_models_set: set[str]
+    bootstrap_models_types_set: set[ModelType]
+    bootstrap_models_types_and_event_set: set[ModelType]
+
+    @cached_property
+    def devices_key(self) -> str:
+        """Return the devices key."""
+        return f"{self.value}s"
+
+    @cached_property
+    def name(self) -> str:
+        """Return the name."""
+        return self._name_
+
+    @cached_property
+    def value(self) -> str:
+        """Return the value."""
+        return self._value_
+
+    @classmethod
+    @cache
+    def from_string(cls, value: str) -> ModelType:
+        return cls(value)
+
+    @classmethod
+    def _bootstrap_model_types(cls) -> tuple[ModelType, ...]:
+        """Return the bootstrap models as a tuple."""
+        return (
+            ModelType.CAMERA,
+            ModelType.USER,
+            ModelType.GROUP,
+            ModelType.LIVEVIEW,
+            ModelType.VIEWPORT,
+            ModelType.LIGHT,
+            ModelType.BRIDGE,
+            ModelType.SENSOR,
+            ModelType.CHIME,
+            ModelType.AIPORT,
+        )
+
+    @classmethod
+    def _bootstrap_models(cls) -> tuple[str, ...]:
+        """Return the bootstrap models strings as a tuple."""
+        return tuple(
+            model_type.value for model_type in ModelType._bootstrap_model_types()
+        )
+
+    @classmethod
+    def _bootstrap_models_set(cls) -> set[str]:
+        """Return the set of bootstrap models strings as a set."""
+        return set(ModelType._bootstrap_models())
+
+    @classmethod
+    def _bootstrap_models_types_set(cls) -> set[ModelType]:
+        """Return the set of bootstrap models as a set."""
+        return set(ModelType._bootstrap_model_types())
+
+    @classmethod
+    def _bootstrap_models_types_and_event_set(cls) -> set[ModelType]:
+        """Return the set of bootstrap models and the event model as a set."""
+        return ModelType._bootstrap_models_types_set() | {ModelType.EVENT}
+
+    def _immutable(self, name: str, value: Any) -> None:
+        raise AttributeError("Cannot modify ModelType")
+
+
+ModelType.bootstrap_model_types = ModelType._bootstrap_model_types()
+ModelType.bootstrap_models = ModelType._bootstrap_models()
+ModelType.bootstrap_models_set = ModelType._bootstrap_models_set()
+ModelType.bootstrap_models_types_set = ModelType._bootstrap_models_types_set()
+ModelType.bootstrap_models_types_and_event_set = (
+    ModelType._bootstrap_models_types_and_event_set()
+)
+ModelType.__setattr__ = ModelType._immutable  # type: ignore[method-assign, assignment]
+
+
+@enum.unique
+class EventType(ValuesEnumMixin, enum.StrEnum):
+    DISCONNECT = "disconnect"
+    FACTORY_RESET = "factoryReset"
+    PROVISION = "provision"
+    UPDATE = "update"
+    CAMERA_POWER_CYCLE = "cameraPowerCycling"
+    RING = "ring"
+    DOOR_ACCESS = "doorAccess"
+    RESOLUTION_LOWERED = "resolutionLowered"
+    POOR_CONNECTION = "poorConnection"
+    STREAM_RECOVERY = "streamRecovery"
+    MOTION = "motion"
+    NFC_CARD_SCANNED = "nfcCardScanned"
+    FINGERPRINT_IDENTIFIED = "fingerprintIdentified"
+    RECORDING_DELETED = "recordingDeleted"
+    SMART_AUDIO_DETECT = "smartAudioDetect"
+    SMART_DETECT = "smartDetectZone"
+    SMART_DETECT_LINE = "smartDetectLine"
+    NO_SCHEDULE = "nonScheduledRecording"
+    RECORDING_MODE_CHANGED = "recordingModeChanged"
+    HOTPLUG = "hotplug"
+    FACE_GROUP_DETECTED = "faceGroupDetected"
+    CONSOLIDATED_RESOLUTION_LOWERED = "consolidatedResolutionLowered"
+    CONSOLIDATED_POOR_CONNECTION = "consolidatedPoorConnection"
+    CAMERA_CONNECTED = "cameraConnected"
+    CAMERA_REBOOTED = "cameraRebooted"
+    CAMERA_DISCONNECTED = "cameraDisconnected"
+    # ---
+    INSTALLED_DISK = "installed"
+    CORRUPTED_DB_RECOVERED = "corruptedDbRecovered"
+    OFFLINE = "offline"
+    OFF = "off"
+    REBOOT = "reboot"
+    FIRMWARE_UPDATE = "fwUpdate"
+    APP_UPDATE = "applicationUpdate"
+    APPLICATION_UPDATABLE = "applicationUpdatable"
+    ACCESS = "access"
+    DRIVE_FAILED = "driveFailed"
+    CAMERA_UTILIZATION_LIMIT_REACHED = "cameraUtilizationLimitReached"
+    CAMERA_UTILIZATION_LIMIT_EXCEEDED = "cameraUtilizationLimitExceeded"
+    DRIVE_SLOW = "driveSlow"
+    GLOBAL_RECORDING_MODE_CHANGED = "globalRecordingModeChanged"
+    NVR_SETTINGS_CHANGED = "nvrSettingsChanged"
+    # ---
+    UNADOPTED_DEVICE_DISCOVERED = "unadoptedDeviceDiscovered"
+    MULTIPLE_UNADOPTED_DEVICE_DISCOVERED = "multipleUnadoptedDeviceDiscovered"
+    DEVICE_ADOPTED = "deviceAdopted"
+    DEVICE_UNADOPTED = "deviceUnadopted"
+    UVF_DISCOVERED = "ufvDiscovered"
+    DEVICE_PASSWORD_UPDATE = "devicesPasswordUpdated"  # noqa: S105
+    DEVICE_UPDATABLE = "deviceUpdatable"
+    MULTIPLE_DEVICE_UPDATABLE = "multipleDeviceUpdatable"
+    DEVICE_CONNECTED = "deviceConnected"
+    DEVICE_REBOOTED = "deviceRebooted"
+    DEVICE_DISCONNECTED = "deviceDisconnected"
+    NETWORK_DEVICE_OFFLINE = "networkDeviceOffline"
+    # ---
+    USER_LEFT = "userLeft"
+    USER_ARRIVED = "userArrived"
+    VIDEO_EXPORTED = "videoExported"
+    MIC_DISABLED = "microphoneDisabled"
+    VIDEO_DELETED = "videoDeleted"
+    SCHEDULE_CHANGED = "recordingScheduleChanged"
+    # ---
+    MOTION_SENSOR = "sensorMotion"
+    SENSOR_BUTTON_PRESSED = "sensorButtonPressed"
+    SENSOR_OPENED = "sensorOpened"
+    SENSOR_CLOSED = "sensorClosed"
+    SENSOR_ALARM = "sensorAlarm"
+    SENSOR_EXTREME_VALUE = "sensorExtremeValues"
+    SENSOR_WATER_LEAK = "sensorWaterLeak"
+    SENSOR_BATTERY_LOW = "sensorBatteryLow"
+    SENSOR_SMOKE_TEST = "sensorSmokeTest"
+    SENSOR_TAMPER = "sensorTamper"
+    SENSOR_VAPE = "sensorVape"
+    SENSOR_SMOKE_BATTERY_LOW = "sensorSmokeBatteryLow"
+    SENSOR_SMOKE_NEEDS_CLEANING = "sensorSmokeNeedsCleaning"
+    SENSOR_SMOKE_FAULT = "sensorSmokeFault"
+    SENSOR_CO_FAULT = "sensorCoFault"
+    SENSOR_SMOKE_END_OF_LIFE = "sensorSmokeEndOfLife"
+    RELAY_INPUT_CHANGED = "relayInputChanged"
+    ALARM_HUB_MOTION = "alarmHubMotion"
+    ALARM_HUB_ENTRY_OPENED = "alarmHubEntryOpened"
+    ALARM_HUB_ENTRY_CLOSED = "alarmHubEntryClosed"
+    ALARM_HUB_RELAY_SWITCHED = "alarmHubRelaySwitched"
+    ALARM_HUB_BUTTON_PRESS = "alarmHubButtonPress"
+    ALARM_HUB_SMOKE = "alarmHubSmoke"
+    ALARM_HUB_GLASS_BREAK = "alarmHubGlassBreak"
+    ALARM_HUB_TAMPER = "alarmHubTamper"
+    ALARM_HUB_BATTERY_CONNECTED = "alarmHubBatteryConnected"
+    ALARM_HUB_BATTERY_LOW = "alarmHubBatteryLow"
+    SMART_DETECT_LOITER = "smartDetectLoiterZone"
+    # ---
+    MOTION_LIGHT = "lightMotion"
+    # ---
+    DISRUPTED_CONDITIONS = "ringDisruptedConditions"
+    # ---
+    RECORDING_OFF = "recordingOff"
+
+    @staticmethod
+    @cache
+    def device_events() -> list[str]:
+        return [
+            EventType.MOTION.value,
+            EventType.NFC_CARD_SCANNED.value,
+            EventType.FINGERPRINT_IDENTIFIED.value,
+            EventType.RING.value,
+            EventType.SMART_DETECT.value,
+            EventType.SMART_AUDIO_DETECT.value,
+            EventType.SMART_DETECT_LINE.value,
+        ]
+
+    @staticmethod
+    @cache
+    def device_events_set() -> set[str]:
+        return set(EventType.device_events())
+
+    @staticmethod
+    @cache
+    def motion_events() -> list[str]:
+        return [EventType.MOTION.value, EventType.SMART_DETECT.value]
+
+
+@enum.unique
+class StateType(ValuesEnumMixin, enum.StrEnum):
+    CONNECTED = "CONNECTED"
+    CONNECTING = "CONNECTING"
+    DISCONNECTED = "DISCONNECTED"
+
+
+@enum.unique
+class ProtectWSPayloadFormat(int, enum.Enum):
+    """Websocket Payload formats."""
+
+    JSON = 1
+    UTF8String = 2
+    NodeBuffer = 3
+
+
+@enum.unique
+class SmartDetectObjectType(ValuesEnumMixin, enum.StrEnum):
+    PERSON = "person"
+    ANIMAL = "animal"
+    VEHICLE = "vehicle"
+    LICENSE_PLATE = "licensePlate"
+    PACKAGE = "package"
+    SMOKE = "alrmSmoke"
+    CMONX = "alrmCmonx"
+    SIREN = "alrmSiren"
+    BABY_CRY = "alrmBabyCry"
+    SPEAK = "alrmSpeak"
+    BARK = "alrmBark"
+    BURGLAR = "alrmBurglar"
+    CAR_HORN = "alrmCarHorn"
+    GLASS_BREAK = "alrmGlassBreak"
+    FACE = "face"
+    # old?
+    CAR = "car"
+    PET = "pet"
+
+    @cached_property
+    def audio_type(self) -> SmartDetectAudioType | None:
+        return OBJECT_TO_AUDIO_MAP.get(self)
+
+
+@enum.unique
+class SmartDetectAudioType(ValuesEnumMixin, enum.StrEnum):
+    SMOKE = "alrmSmoke"
+    CMONX = "alrmCmonx"
+    SMOKE_CMONX = "smoke_cmonx"
+    SIREN = "alrmSiren"
+    BABY_CRY = "alrmBabyCry"
+    SPEAK = "alrmSpeak"
+    BARK = "alrmBark"
+    BURGLAR = "alrmBurglar"
+    CAR_HORN = "alrmCarHorn"
+    GLASS_BREAK = "alrmGlassBreak"
+
+
+@enum.unique
+class DetectionColor(ValuesEnumMixin, enum.StrEnum):
+    BLACK = "black"
+    BLUE = "blue"
+    BROWN = "brown"
+    GRAY = "gray"
+    GREEN = "green"
+    ORANGE = "orange"
+    PINK = "pink"
+    PURPLE = "purple"
+    RED = "red"
+    WHITE = "white"
+    YELLOW = "yellow"
+
+
+OBJECT_TO_AUDIO_MAP = {
+    SmartDetectObjectType.SMOKE: SmartDetectAudioType.SMOKE,
+    SmartDetectObjectType.CMONX: SmartDetectAudioType.CMONX,
+    SmartDetectObjectType.SIREN: SmartDetectAudioType.SIREN,
+    SmartDetectObjectType.BABY_CRY: SmartDetectAudioType.BABY_CRY,
+    SmartDetectObjectType.SPEAK: SmartDetectAudioType.SPEAK,
+    SmartDetectObjectType.BARK: SmartDetectAudioType.BARK,
+    SmartDetectObjectType.BURGLAR: SmartDetectAudioType.BURGLAR,
+    SmartDetectObjectType.CAR_HORN: SmartDetectAudioType.CAR_HORN,
+    SmartDetectObjectType.GLASS_BREAK: SmartDetectAudioType.GLASS_BREAK,
+}
+
+
+@enum.unique
+class DoorbellMessageType(ValuesEnumMixin, enum.StrEnum):
+    LEAVE_PACKAGE_AT_DOOR = "LEAVE_PACKAGE_AT_DOOR"
+    DO_NOT_DISTURB = "DO_NOT_DISTURB"
+    CUSTOM_MESSAGE = "CUSTOM_MESSAGE"
+    IMAGE = "IMAGE"
+
+
+@enum.unique
+class LightModeEnableType(ValuesEnumMixin, enum.StrEnum):
+    DARK = "dark"
+    ALWAYS = "fulltime"
+    NIGHT = "night"
+
+
+@enum.unique
+class LightModeType(ValuesEnumMixin, enum.StrEnum):
+    MOTION = "motion"
+    WHEN_DARK = "always"
+    MANUAL = "off"
+    SCHEDULE = "schedule"
+
+
+@enum.unique
+class VideoMode(UnknownValuesEnumMixin, enum.StrEnum):
+    """Camera video pipeline mode; unknown wire values coerce to ``UNKNOWN``."""
+
+    DEFAULT = "default"
+    HIGH_FPS = "highFps"
+    HOMEKIT = "homekit"
+    SPORT = "sport"
+    SLOW_SHUTTER = "slowShutter"
+    LPR_NONE_REFLEX = "lprNoneReflex"
+    LPR_REFLEX = "lprReflex"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class AudioStyle(UnknownValuesEnumMixin, enum.StrEnum):
+    NATURE = "nature"
+    NOISE_REDUCED = "noiseReduced"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class RecordingMode(ValuesEnumMixin, enum.StrEnum):
+    ADAPTIVE = "adaptive"
+    ALWAYS = "always"
+    NEVER = "never"
+    SCHEDULE = "schedule"
+    DETECTIONS = "detections"
+
+
+@enum.unique
+class AnalyticsOption(ValuesEnumMixin, enum.StrEnum):
+    NONE = "none"
+    ANONYMOUS = "anonymous"
+    FULL = "full"
+
+
+@enum.unique
+class RecordingType(ValuesEnumMixin, enum.StrEnum):
+    TIMELAPSE = "timelapse"
+    CONTINUOUS = "rotating"
+    DETECTIONS = "detections"
+
+
+@enum.unique
+class ResolutionStorageType(ValuesEnumMixin, enum.StrEnum):
+    UHD = "4K"
+    HD = "HD"
+    FREE = "free"
+
+
+@enum.unique
+class IRLEDMode(UnknownValuesEnumMixin, enum.StrEnum):
+    AUTO = "auto"
+    ON = "on"
+    AUTO_NO_LED = "autoFilterOnly"
+    OFF = "off"
+    MANUAL = "manual"
+    CUSTOM = "custom"
+    CUSTOM_FILTER_ONLY = "customFilterOnly"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class MountType(UnknownValuesEnumMixin, enum.StrEnum):
+    NONE = "none"
+    LEAK = "leak"
+    DOOR = "door"
+    WINDOW = "window"
+    GARAGE = "garage"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class SensorType(UnknownValuesEnumMixin, enum.StrEnum):
+    TEMPERATURE = "temperature"
+    LIGHT = "light"
+    HUMIDITY = "humidity"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class SensorStatusType(UnknownValuesEnumMixin, enum.StrEnum):
+    OFFLINE = "offline"
+    UNKNOWN = "unknown"
+    SAFE = "safe"
+    NEUTRAL = "neutral"
+    LOW = "low"
+    HIGH = "high"
+
+
+@enum.unique
+class SensorScheduleMode(UnknownValuesEnumMixin, enum.StrEnum):
+    ALWAYS = "always"
+    WHEN_ARMED = "when_armed"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class SleepStateType(ValuesEnumMixin, enum.StrEnum):
+    DISCONNECTED = "disconnected"
+    AWAKE = "awake"
+    START_SLEEP = "goingToSleep"
+    ASLEEP = "asleep"
+    WAKING = "waking"
+
+
+@enum.unique
+class AutoExposureMode(ValuesEnumMixin, enum.StrEnum):
+    MANUAL = "manual"
+    AUTO = "auto"
+    NONE = "none"
+    SHUTTER = "shutter"
+    FLICK50 = "flick50"
+    FLICK60 = "flick60"
+
+
+@enum.unique
+class FocusMode(ValuesEnumMixin, enum.StrEnum):
+    MANUAL = "manual"
+    AUTO = "auto"
+    NONE = "none"
+    ZTRIG = "ztrig"
+    TOUCH = "touch"
+
+
+@enum.unique
+class MountPosition(UnknownValuesEnumMixin, enum.StrEnum):
+    CEILING = "ceiling"
+    WALL = "wall"
+    DESK = "desk"
+    NONE = "none"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class GeofencingSetting(ValuesEnumMixin, enum.StrEnum):
+    OFF = "off"
+    ALL_AWAY = "allAway"
+
+
+@enum.unique
+class MotionAlgorithm(ValuesEnumMixin, enum.StrEnum):
+    STABLE = "stable"
+    ENHANCED = "enhanced"
+
+
+@enum.unique
+class AudioCodecs(ValuesEnumMixin, enum.StrEnum):
+    AAC = "aac"
+    VORBIS = "vorbis"
+    OPUS = "opus"
+
+
+@enum.unique
+class LowMedHigh(ValuesEnumMixin, enum.StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+@enum.unique
+class StorageType(UnknownValuesEnumMixin, enum.StrEnum):
+    DISK = "hdd"
+    RAID = "raid"
+    SD_CARD = "sdcard"
+    INTERNAL_SSD = "internalSSD"
+    UNKNOWN = "UNKNOWN"
+
+
+@enum.unique
+class FirmwareReleaseChannel(ValuesEnumMixin, enum.StrEnum):
+    INTERNAL = "internal"
+    ALPHA = "alpha"
+    BETA = "beta"
+    RELEASE_CANDIDATE = "release-candidate"
+    RELEASE = "release"
+
+
+@enum.unique
+class ChimeType(int, enum.Enum):
+    NONE = 0
+    MECHANICAL = 300
+    DIGITAL = 1000
+
+
+@enum.unique
+class SirenDuration(int, enum.Enum):
+    """Valid siren play durations in seconds (as accepted by the public API)."""
+
+    FIVE = 5
+    TEN = 10
+    TWENTY = 20
+    THIRTY = 30
+
+
+@enum.unique
+class SirenConnectionType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API siren wireless connection type (``connectionType`` field)."""
+
+    UCP4 = "ucp4"
+    LORA = "lora"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class NvrArmModeStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Arm-manager status values embedded in the NVR ``armMode`` field."""
+
+    ARMING = "arming"
+    ARMED = "armed"
+    BREACH = "breach"
+    DISABLED = "disabled"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class SensorAlarmType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm sound of a ``sensorAlarm`` / ``alarmHub*`` event (``metadata.alarmType.text``)."""
+
+    SMOKE = "smoke"
+    CO = "CO"
+    GLASS_BREAK = "glassBreak"
+    SENSOR_BUTTON_PRESS = "sensorButtonPress"
+    TAMPER = "tamper"
+    SHORT = "short"
+    CUT = "cut"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class SensorExtremeMetricType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Metric of a ``sensorExtremeValues`` event (``metadata.sensorType.text``)."""
+
+    TEMPERATURE = "temperature"
+    LIGHT = "light"
+    HUMIDITY = "humidity"
+    AQI = "aqi"
+    VAPE = "vape"
+    TVOC = "tvoc"
+    PM1P0 = "pm1p0"
+    PM2P5 = "pm2p5"
+    PM4P0 = "pm4p0"
+    PM10P0 = "pm10p0"
+    CO2 = "co2"
+    VOC = "voc"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class RelayInputCircuitState(UnknownValuesEnumMixin, enum.StrEnum):
+    """Relay input circuit state (``relayInputChanged`` ``metadata.inputState.text``)."""
+
+    CIRCUIT_CLOSED = "circuitClosed"
+    CIRCUIT_OPEN = "circuitOpen"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class SmokeTestSource(UnknownValuesEnumMixin, enum.StrEnum):
+    """Origin of a ``sensorSmokeTest`` event (flat ``metadata.source``)."""
+
+    LOCAL = "local"
+    REMOTE = "remote"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class EventButtonType(UnknownValuesEnumMixin, enum.StrEnum):
+    """
+    Button of a ``sensorButtonPressed`` / ``alarmHubButtonPress`` event.
+
+    Sourced from ``metadata.button.text``.
+    """
+
+    FUNCTION = "function"
+    ALARM_HUB_BUTTON = "alarmHubButton"
+    ARM = "arm"
+    DISARM = "disarm"
+    NIGHT = "night"
+    PANIC = "panic"
+    LEFT = "left"
+    RIGHT = "right"
+    INPUT1 = "input1"
+    INPUT2 = "input2"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class AlarmHubInputType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub input zone kind (``alarmHub.input[].inputType`` field)."""
+
+    MOTION = "MOTION"
+    ENTRY = "ENTRY"
+    SMOKE = "SMOKE"
+    GLASS_BREAK = "GLASS_BREAK"
+    EMERGENCY_BUTTON = "EMERGENCY_BUTTON"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class AlarmHubBatteryStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub backup-battery health (``alarmHub.battery.batteryStatus`` field)."""
+
+    OK = "ok"
+    LOW = "low"
+    CRITICAL = "critical"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class AlarmHubInputStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub input zone status (``alarmHub.input[].status`` field)."""
+
+    NORMAL = "normal"
+    ALARM = "alarm"
+    FAULT = "fault"
+    SHORT = "short"
+    CUT = "cut"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class AlarmHubCoverStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub tamper-cover status (``alarmHub.cover.status`` field)."""
+
+    OPEN = "open"
+    CLOSE = "close"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class AlarmHubOutputStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub output channel status (``alarmHub.output[].status`` field)."""
+
+    WET = "wet"
+    DRY = "dry"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class AlarmHubConnectionState(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub backup-battery wiring state (``alarmHub.battery.connection`` field)."""
+
+    CONNECTED = "connected"
+    DISCONNECTED = "disconnected"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class AlarmHubInputContactType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Alarm-hub input contact wiring (``alarmHub.input[].type`` field)."""
+
+    NO = "no"
+    NC = "nc"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class OnOffState(UnknownValuesEnumMixin, enum.StrEnum):
+    """Generic on/off wire state used by several alarm-hub fields."""
+
+    ON = "on"
+    OFF = "off"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class RelayOutputState(UnknownValuesEnumMixin, enum.StrEnum):
+    """State of a single relay output channel (``state`` field)."""
+
+    ON = "on"
+    OFF = "off"
+    OFF_OTP = "offOtp"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class RelayOutputRebootState(UnknownValuesEnumMixin, enum.StrEnum):
+    """State the relay output is set to after a reboot/power cycle (``rebootState`` field)."""
+
+    RESTORE = "restore"
+    ON = "on"
+    OFF = "off"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class RelayInputState(UnknownValuesEnumMixin, enum.StrEnum):
+    """State of a single relay input channel."""
+
+    ON = "on"
+    OFF = "off"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class RelayOutputType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Relay output device type (``outputs[].type`` field)."""
+
+    GARAGE_DOOR = "garageDoor"
+    GATE = "gate"
+    VALVE = "valve"
+    SIREN = "siren"
+    CUSTOM = "custom"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class RelayInputActionTrigger(UnknownValuesEnumMixin, enum.StrEnum):
+    """Relay input action trigger condition (``inputs[].actionTrigger`` field)."""
+
+    SWITCHED_ON = "switchedOn"
+    SWITCHED_OFF = "switchedOff"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class RelayInputActionType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Relay input action effect (``inputs[].actionType`` field)."""
+
+    SET_OUTPUT_ON = "setOutputOn"
+    SET_OUTPUT_OFF = "setOutputOff"
+    TOGGLE_OUTPUT = "toggleOutput"
+    FOLLOW_INPUT = "followInput"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class DeviceState(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API device connection state (``state`` field)."""
+
+    CONNECTED = "CONNECTED"
+    CONNECTING = "CONNECTING"
+    DISCONNECTED = "DISCONNECTED"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class UlpUserStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API UniFi Identity (ULP) user status (``status`` field)."""
+
+    ACTIVE = "ACTIVE"
+    DEACTIVATED = "DEACTIVATED"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class ChannelQuality(UnknownValuesEnumMixin, enum.StrEnum):
+    """RTSPS channel quality (``qualities`` field on rtsps-stream endpoints)."""
+
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    PACKAGE = "package"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class FobAwayState(UnknownValuesEnumMixin, enum.StrEnum):
+    """Key-fob presence/away state (``awayState`` field)."""
+
+    ONLINE = "ONLINE"
+    RECENTLY_SEEN = "RECENTLY_SEEN"
+    NO_RECENT_HEARTBEAT = "NO_RECENT_HEARTBEAT"
+    DEVICE_LOST = "DEVICE_LOST"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class FobButton(UnknownValuesEnumMixin, enum.StrEnum):
+    """Key-fob button kinds (``featureFlags.buttons`` items)."""
+
+    FUNCTION = "function"
+    ALARM_HUB_BUTTON = "alarmHubButton"
+    ARM = "arm"
+    DISARM = "disarm"
+    NIGHT = "night"
+    PANIC = "panic"
+    LEFT = "left"
+    RIGHT = "right"
+    INPUT1 = "input1"
+    INPUT2 = "input2"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class SpeakerStatus(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API speaker runtime status (``speakerState.status`` field)."""
+
+    IDLE = "idle"
+    STREAMING = "streaming"
+    PLAYING = "playing"
+    TTS_PLAYING = "tts_playing"
+    UPLOADING = "uploading"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class SpeakerMode(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API speaker mode (``speakerState.mode`` field)."""
+
+    LISTEN = "listen"
+    TALK = "talk"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class LiveviewCycleMode(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API liveview slot cycle mode (``slots[].cycleMode`` field)."""
+
+    MOTION = "motion"
+    TIME = "time"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class PermissionNode(UnknownValuesEnumMixin, enum.StrEnum):
+    CREATE = "create"
+    READ = "read"
+    WRITE = "write"
+    DELETE = "delete"
+    READ_MEDIA = "readmedia"
+    DELETE_MEDIA = "deletemedia"
+    READ_LIVE = "readlive"
+    UNKNOWN = "unknown"
+
+    @cached_property
+    def name(self) -> str:
+        """Return the name."""
+        return self._name_
+
+    @cached_property
+    def value(self) -> str:
+        """Return the value."""
+        return self._value_
+
+
+@enum.unique
+class HDRMode(UnknownValuesEnumMixin, enum.StrEnum):
+    NONE = "none"
+    NORMAL = "normal"
+    ALWAYS_ON = "superHdr"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class PublicHdrMode(enum.StrEnum):
+    AUTO = "auto"
+    ON = "on"
+    OFF = "off"
+
+
+@enum.unique
+class AssetFileType(UnknownValuesEnumMixin, enum.StrEnum):
+    """Public-API device asset file kind (``/v1/files/{fileType}``)."""
+
+    ANIMATIONS = "animations"
+    UNKNOWN = "unknown"
+
+
+@enum.unique
+class LensType(enum.StrEnum):
+    NONE = "none"
+    FULL_360 = "360"
+    WIDE = "wide"
+    TELESCOPIC = "tele"
+    DLSR_17 = "m43"
+
+
+@enum.unique
+class OsdOverlayLocation(UnknownValuesEnumMixin, enum.StrEnum):
+    """
+    On-screen-display overlay location (``osdSettings.overlayLocation``).
+
+    Carries an ``UNKNOWN`` member so values added by newer firmware coerce
+    to ``UNKNOWN`` instead of raising during ``Camera`` deserialization.
+    """
+
+    TOP_LEFT = "topLeft"
+    TOP_MIDDLE = "topMiddle"
+    TOP_RIGHT = "topRight"
+    BOTTOM_LEFT = "bottomLeft"
+    BOTTOM_MIDDLE = "bottomMiddle"
+    BOTTOM_RIGHT = "bottomRight"
+    UNKNOWN = "unknown"
+
+
+DoorbellText = Annotated[str, StringConstraints(max_length=30)]
+
+ICRCustomValue = Annotated[int, Field(ge=0, le=11)]
+
+ICRLuxValue = Annotated[int, Field(ge=1, le=30)]
+
+LEDLevel = Annotated[int, Field(ge=0, le=6)]
+
+PercentInt = Annotated[int, Field(ge=0, le=101)]
+
+TwoByteInt = Annotated[int, Field(ge=1, le=256)]
+
+PercentFloat = Annotated[float, Field(ge=0, le=100)]
+
+WDRLevel = Annotated[int, Field(ge=0, le=4)]
+
+ICRSensitivity = Annotated[int, Field(ge=0, le=4)]
+
+Percent = Annotated[float, Field(ge=0, le=1)]
+
+RepeatTimes = Annotated[int, Field(ge=1, le=6)]
+
+
+class PTZPositionDegree(BaseModel):
+    pan: float
+    tilt: float
+    zoom: float
+
+
+class PTZPositionSteps(BaseModel):
+    focus: int
+    pan: int
+    tilt: int
+    zoom: int
+
+
+class PTZPosition(BaseModel):
+    degree: PTZPositionDegree
+    steps: PTZPositionSteps
+
+
+class PTZPresetPosition(BaseModel):
+    pan: int
+    tilt: int
+    zoom: int
+
+
+# PTZ slot constant for home position
+PTZ_HOME_SLOT: int = -1
+
+
+class PTZPreset(BaseModel):
+    id: str
+    name: str
+    slot: int
+    ptz: PTZPresetPosition
+
+
+class PTZPatrol(BaseModel):
+    id: str
+    name: str
+    slot: int
+    presets: list[int]
+    preset_movement_speed: int | None = Field(None, alias="presetMovementSpeed")
+    preset_duration_seconds: int = Field(alias="presetDurationSeconds")
+    camera: str
+    model_key: str = Field("ptzPatrol", alias="modelKey")
+
+    model_config = {"populate_by_name": True}
+
+
+CoordType = Union[Percent, int, float]
+
+
+class Version(BaseVersion):
+    def __str__(self) -> str:
+        super_str = super().__str__()
+        if self.pre is not None and self.pre[0] == "b":
+            super_str = super_str.replace("b", "-beta.")
+        return super_str

@@ -354,18 +354,31 @@ class FanboxExtractor(Extractor):
 class FanboxCreatorExtractor(FanboxExtractor):
     """Extractor for a pixivFANBOX creator's works"""
     subcategory = "creator"
-    pattern = USER_PATTERN + r"(?:/posts)?/?$"
+    pattern = USER_PATTERN + r"(?:/posts)?/?(?:\?([^#]+))?$"
     example = "https://USER.fanbox.cc/"
+    _offset = 0
+
+    def skip_posts(self, num):
+        self._offset += num
+        return num
 
     def posts(self):
+        c1, c2, qs = self.groups
+
+        params = text.parse_query(qs)
+        if "page" in params:
+            self._offset += text.parse_int(params["page"]) * 10
+        elif offset := self.config("offset"):
+            self._offset += offset
+
         url = "https://api.fanbox.cc/post.paginateCreator?creatorId="
-        creator_id = self.groups[0] or self.groups[1]
-        return self._pagination_creator(url + creator_id)
+        return self._pagination_creator(url + (c1 or c2))
 
     def _pagination_creator(self, url):
         urls = self.request_json(url, headers=self.headers)["body"]
-        if offset := self.config("offset"):
-            quotient, remainder = divmod(offset, 10)
+
+        if self._offset:
+            quotient, remainder = divmod(self._offset, 10)
             if quotient:
                 urls = urls[quotient:]
         else:

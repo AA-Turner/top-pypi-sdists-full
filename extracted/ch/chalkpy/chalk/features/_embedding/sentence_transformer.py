@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
-from typing import Optional, Sequence, Type
+from typing import TYPE_CHECKING, Optional, Sequence, Type
 
 import pyarrow as pa
 
@@ -10,6 +10,12 @@ from chalk.features._embedding.embedding_provider import EmbeddingProvider
 from chalk.features._embedding.utils import ModelSpecs, create_fixedsize_with_nulls
 from chalk.features._vector import Vector
 from chalk.utils.missing_dependency import missing_dependency_exception
+
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
+else:
+    SentenceTransformer = None
+
 
 _MAX_BATCH_SIZE = 2048
 _DEFAULT_TASK_TYPE = "SEMANTIC_SIMILARITY"
@@ -26,9 +32,12 @@ class SentenceTransformerProvider(EmbeddingProvider):
     def __init__(self, model: str, dimensions: Optional[int] = None) -> None:
         super().__init__()
 
-        # NOTE: The heavy `sentence_transformers` import is deferred to `_model` (execution time)
-        # so that graph construction succeeds in environments where the dependency is absent
-        # (e.g. the branch server, which imports user code against the lightweight base image).
+        try:
+            global SentenceTransformer
+            from sentence_transformers import SentenceTransformer
+        except ImportError:
+            raise missing_dependency_exception("chalkpy[sentence-transformers]")
+
         if model not in _MODEL_SPECS:
             supported_models_str = ", ".join(f"'{model}'" for model in _MODEL_SPECS)
             raise ValueError(
@@ -42,10 +51,7 @@ class SentenceTransformerProvider(EmbeddingProvider):
 
     @functools.cached_property
     def _model(self):
-        try:
-            from sentence_transformers import SentenceTransformer
-        except ImportError:
-            raise missing_dependency_exception("chalkpy[sentence-transformers]")
+        assert SentenceTransformer
         return SentenceTransformer(self.model)
 
     def get_provider_name(self) -> str:
@@ -64,6 +70,7 @@ class SentenceTransformerProvider(EmbeddingProvider):
         raise NotImplementedError("use async_generate_embedding instead")
 
     async def async_generate_embedding(self, input: pa.Table):
+        assert SentenceTransformer
         inputs: list[str | None] = input.column(0).to_pylist()
 
         for i in range(0, len(inputs), _MAX_BATCH_SIZE):

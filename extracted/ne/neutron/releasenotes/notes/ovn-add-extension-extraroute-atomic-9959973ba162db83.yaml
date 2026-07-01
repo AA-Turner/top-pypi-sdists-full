@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Add the extension ``extraroute-atomic`` to the ML2/OVN router plugin. This
-    extension does not require any specific implementation.

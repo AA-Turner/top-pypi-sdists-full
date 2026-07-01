@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keboola.component
-Version: 1.10.0
+Version: 1.11.0
 Summary: General library for Python applications running in Keboola Connection environment
 Author-email: Keboola KDS Team <support@keboola.com>
 License-Expression: MIT

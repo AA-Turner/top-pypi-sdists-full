@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: netsuitesdk
-Version: 3.1.2
+Version: 3.2.0
 Summary: Python SDK for accessing the NetSuite SOAP webservice
 Home-page: https://github.com/fylein/netsuite-sdk-py
 Author: Siva Narayanan

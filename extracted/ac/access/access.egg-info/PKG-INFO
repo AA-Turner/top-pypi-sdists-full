@@ -1,0 +1,60 @@
+Metadata-Version: 2.4
+Name: access
+Version: 1.1.10.post3
+Summary: Calculate spatial accessibility metrics.
+Author: James Saxon
+Maintainer: PySAL Developers, access contributors
+Maintainer-email: Julia Koschinsky <jkoschinsky@uchicago.edu>, "James D. Gaboardi" <jgaboardi@gmail.com>
+License: BSD 3-Clause
+Project-URL: Home, https://pysal.org/access/
+Project-URL: Repository, https://github.com/pysal/access
+Keywords: spatial,statistics,access
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: GIS
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: geopandas>=1.0.1
+Requires-Dist: numpy>=1.26.0
+Requires-Dist: pandas>=2.1.0
+Requires-Dist: scipy>=1.14.1
+Provides-Extra: tests
+Requires-Dist: codecov; extra == "tests"
+Requires-Dist: coverage; extra == "tests"
+Requires-Dist: pre-commit; extra == "tests"
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest-cov; extra == "tests"
+Requires-Dist: pytest-xdist; extra == "tests"
+Requires-Dist: ruff; extra == "tests"
+Provides-Extra: docs
+Requires-Dist: nbsphinx; extra == "docs"
+Requires-Dist: numpydoc; extra == "docs"
+Requires-Dist: quilt3; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinxcontrib-napoleon; extra == "docs"
+Requires-Dist: sphinx-gallery; extra == "docs"
+Requires-Dist: sphinxcontrib-bibtex; extra == "docs"
+Requires-Dist: sphinx_bootstrap_theme; extra == "docs"
+Provides-Extra: notebooks
+Requires-Dist: dask; extra == "notebooks"
+Requires-Dist: matplotlib; extra == "notebooks"
+Requires-Dist: requests; extra == "notebooks"
+Provides-Extra: all
+Requires-Dist: access[docs,notebooks,tests]; extra == "all"
+Dynamic: license-file
+
+# Spatial Access
+
+![tag](https://img.shields.io/github/v/release/pysal/access?include_prereleases&sort=semver)
+[![Documentation](https://img.shields.io/static/v1.svg?label=docs&message=current&color=9cf)](http://pysal.org/access/)
+[![Continuous Integration](https://github.com/pysal/access/actions/workflows/testing.yml/badge.svg)](https://github.com/pysal/access/actions/workflows/testing.yml)
+
+This package provides classical and novel measures of spatial accessibility to services.
+
+For full documentation, see [here](https://pysal.org/access/).

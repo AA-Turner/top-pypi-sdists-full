@@ -16,6 +16,8 @@ std::string LogicalOperatorUtils::logicalOperatorTypeToString(LogicalOperatorTyp
         return "AGGREGATE";
     case LogicalOperatorType::ALTER:
         return "ALTER";
+    case LogicalOperatorType::ANALYZE:
+        return "ANALYZE";
     case LogicalOperatorType::ATTACH_DATABASE:
         return "ATTACH_DATABASE";
     case LogicalOperatorType::COPY_FROM:
@@ -86,6 +88,8 @@ std::string LogicalOperatorUtils::logicalOperatorTypeToString(LogicalOperatorTyp
         return "ORDER_BY";
     case LogicalOperatorType::PARTITIONER:
         return "PARTITIONER";
+    case LogicalOperatorType::PACKED_EXTEND:
+        return "PACKED_EXTEND";
     case LogicalOperatorType::PATH_PROPERTY_PROBE:
         return "PATH_PROPERTY_PROBE";
     case LogicalOperatorType::PROJECTION:

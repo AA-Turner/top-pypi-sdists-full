@@ -32,6 +32,12 @@ void LocalWAL::logCreateCatalogEntryRecord(CatalogEntry* catalogEntry, bool isIn
     addNewWALRecord(walRecord);
 }
 
+void LocalWAL::logCreateIndexRecord(CatalogEntry* catalogEntry, IndexInfo indexInfo,
+    std::vector<uint8_t> treeBytes) {
+    CreateIndexRecord walRecord(catalogEntry, std::move(indexInfo), std::move(treeBytes));
+    addNewWALRecord(walRecord);
+}
+
 void LocalWAL::logDropCatalogEntryRecord(table_id_t tableID, CatalogEntryType type) {
     DropCatalogEntryRecord walRecord(tableID, type);
     addNewWALRecord(walRecord);
@@ -116,7 +122,7 @@ void LocalWAL::addNewWALRecord(const WALRecord& walRecord) {
 void LocalWAL::addNewWALRecordNoLock(const WALRecord& walRecord) {
     DASSERT(walRecord.type != WALRecordType::INVALID_RECORD);
     serializer.getWriter()->onObjectBegin();
-    walRecord.serialize(serializer);
+    WALRecord::serializeWithLength(serializer, walRecord);
     serializer.getWriter()->onObjectEnd();
 }
 

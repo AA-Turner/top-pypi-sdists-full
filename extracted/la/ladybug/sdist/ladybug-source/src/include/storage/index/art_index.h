@@ -11,12 +11,17 @@
 #include "common/types/string_t.h"
 #include "common/types/uint128_t.h"
 #include "storage/index/index.h"
+#include "storage/page_range.h"
 
 namespace lbug {
 namespace common {
 struct BufferReader;
 }
 namespace storage {
+
+class ArtPageRangeReader;
+class FileHandle;
+class ShadowFile;
 
 class ArtKey {
 public:
@@ -34,11 +39,15 @@ private:
 
 struct ArtPrimaryKeyIndexStorageInfo final : IndexStorageInfo {
     std::vector<std::pair<std::vector<uint8_t>, common::offset_t>> entries;
+    PageRange treePageRange;
+    uint64_t treeSize = 0;
 
     ArtPrimaryKeyIndexStorageInfo() = default;
     explicit ArtPrimaryKeyIndexStorageInfo(
         std::vector<std::pair<std::vector<uint8_t>, common::offset_t>> entries)
         : entries{std::move(entries)} {}
+    ArtPrimaryKeyIndexStorageInfo(PageRange treePageRange, uint64_t treeSize)
+        : treePageRange{treePageRange}, treeSize{treeSize} {}
     DELETE_COPY_DEFAULT_MOVE(ArtPrimaryKeyIndexStorageInfo);
 
     std::shared_ptr<common::BufferWriter> serialize() const override;
@@ -67,17 +76,23 @@ public:
         const common::ValueVector& nodeIDVector,
         const std::vector<common::ValueVector*>& indexVectors,
         Index::InsertState& insertState) override;
+    std::unique_ptr<UpdateState> initUpdateState(main::ClientContext* context,
+        common::column_id_t columnID, visible_func isVisible) override;
+    void update(transaction::Transaction* transaction, const common::ValueVector& nodeIDVector,
+        common::ValueVector& propertyVector, UpdateState& updateState) override;
 
     std::unique_ptr<DeleteState> initDeleteState(const transaction::Transaction*, MemoryManager*,
         visible_func) override {
         return std::make_unique<DeleteState>();
     }
-    void delete_(transaction::Transaction*, const common::ValueVector&, DeleteState&) override {
-        // Visibility rules filter deleted rows. Physical removal is used only for rollback cleanup.
-    }
+    void delete_(transaction::Transaction*, const common::ValueVector& nodeIDVector,
+        DeleteState&) override;
 
     bool lookupPrimaryKey(const transaction::Transaction* transaction,
         common::ValueVector* keyVector, uint64_t vectorPos, common::offset_t& result,
+        visible_func isVisible) override;
+    bool lookupAll(const transaction::Transaction* transaction, common::ValueVector* keyVector,
+        uint64_t vectorPos, std::vector<common::offset_t>& results,
         visible_func isVisible) override;
     bool scanPrimaryKeyRange(common::ValueVector* lowerBoundVector, uint64_t lowerBoundPos,
         bool lowerInclusive, common::ValueVector* upperBoundVector, uint64_t upperBoundPos,
@@ -85,10 +100,18 @@ public:
         visible_func isVisible) override;
     void discardPrimaryKey(common::ValueVector* keyVector) override;
 
-    void checkpoint(main::ClientContext*, PageAllocator&) override;
+    void checkpoint(main::ClientContext*, PageAllocator&, ShadowFile&) override;
+    void rollbackCheckpoint() override;
+    void serialize(common::Serializer& ser) const override;
+    void reclaimStorage(PageAllocator& pageAllocator) const override;
+    std::vector<IndexStorageEntry> getStorageEntries() const override;
+    uint64_t getSerializedTreeSize() const;
+    std::vector<uint8_t> serializeTreeToBytes() const;
 
     static LBUG_API std::unique_ptr<Index> load(main::ClientContext* context,
         StorageManager* storageManager, IndexInfo indexInfo, std::span<uint8_t> storageInfoBuffer);
+    static std::unique_ptr<ArtPrimaryKeyIndex> loadFromWAL(main::ClientContext* context,
+        StorageManager* storageManager, IndexInfo indexInfo, std::span<uint8_t> treeBytes);
 
     static IndexType getIndexType() {
         static const IndexType ART_INDEX_TYPE{"ART", IndexConstraintType::PRIMARY,
@@ -114,19 +137,26 @@ private:
         };
 
         std::optional<common::offset_t> offset;
+        std::unique_ptr<std::vector<common::offset_t>> overflowOffsets;
+        std::vector<uint8_t> prefix;
         Kind kind = Kind::NODE4;
         uint16_t count = 0;
-        union {
-            SmallChildren small;
-            Node48Children node48;
-            Node256Children node256;
-        };
+        SmallChildren small;
+        std::unique_ptr<Node48Children> node48;
+        std::unique_ptr<Node256Children> node256;
 
         Node();
         Node* getChild(uint8_t byte) const;
         Node* getOrInsertChild(ArtPrimaryKeyIndex& index, uint8_t byte);
+        void insertChild(ArtPrimaryKeyIndex& index, uint8_t byte, Node* child);
         void removeChild(uint8_t byte);
-        bool empty() const { return !offset.has_value() && count == 0; }
+        bool hasOffsets() const {
+            return offset.has_value() || (overflowOffsets && !overflowOffsets->empty());
+        }
+        bool empty() const {
+            return !offset.has_value() && (!overflowOffsets || overflowOffsets->empty()) &&
+                   count == 0;
+        }
     };
 
     static constexpr uint64_t NODE_BLOCK_CAPACITY = 16 * 1024;
@@ -144,9 +174,18 @@ private:
     };
 
     bool insertInternal(const ArtKey& key, common::offset_t offset, visible_func isVisible);
+    void insertSecondaryInternal(const ArtKey& key, common::offset_t offset);
+    static void validateIndexInfo(const IndexInfo& indexInfo);
+    Node* findOrCreateLeaf(const std::vector<uint8_t>& key);
     bool lookup(const ArtKey& key, common::offset_t& result, visible_func isVisible) const;
+    const Node* findLeaf(const ArtKey& key) const;
+    void appendVisibleOffsets(const Node& node, std::vector<common::offset_t>& results,
+        visible_func isVisible) const;
     bool eraseInternal(Node& node, const std::vector<uint8_t>& key, uint64_t depth);
     void erase(const ArtKey& key);
+    static void eraseOffsetFromLeaf(Node& node, common::offset_t offset);
+    static void resetNodePayload(Node& node);
+    bool eraseOffsetInternal(Node& node, common::offset_t offset);
     Node* allocateNode();
     void recordKindChange(Node& node, Node::Kind newKind);
     void collectRange(const Node& node, std::vector<uint8_t>& key, const ArtKey* lowerBound,
@@ -154,15 +193,25 @@ private:
         common::idx_t maxResults, std::vector<common::offset_t>& results,
         visible_func isVisible) const;
     void clear();
-    void collectEntries(const Node& node, std::vector<uint8_t>& key,
-        std::vector<std::pair<std::vector<uint8_t>, common::offset_t>>& entries) const;
+    uint64_t calculateSerializedTreeSize(const Node& node) const;
+    void serializeTree(const Node& node, common::Serializer& serializer) const;
+    template<class READER>
+    void loadTree(READER& reader, Node& node);
     void loadEntries(const ArtPrimaryKeyIndexStorageInfo& storageInfo);
+    void materializeDiskTree();
 
 private:
     Node root;
     std::vector<NodeBlock> nodeBlocks;
     uint64_t numAllocatedNodes = 1;
     std::array<uint64_t, 4> numNodesByKind{1, 0, 0, 0};
+    FileHandle* diskFileHandle = nullptr;
+    PageRange diskTreePageRange;
+    uint64_t diskTreeSize = 0;
+    bool diskBacked = false;
+    PageRange checkpointRollbackTreePageRange;
+    uint64_t checkpointRollbackTreeSize = 0;
+    bool hasCheckpointRollbackState = false;
     mutable std::mutex mutex;
 };
 

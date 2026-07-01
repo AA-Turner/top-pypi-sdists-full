@@ -1,0 +1,258 @@
+Metadata-Version: 2.4
+Name: tiled
+Version: 0.2.12
+Summary: Structured Scientific Data Access Service
+Project-URL: Homepage, https://github.com/bluesky/tiled
+Project-URL: Documentation, https://blueskyproject.io/tiled
+Project-URL: Bug Tracker, https://github.com/bluesky/tiled/issues
+Author-email: Bluesky Project Contributors <dallan@bnl.gov>
+Maintainer-email: Brookhaven National Laboratory <dallan@bnl.gov>
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering :: Physics
+Requires-Python: >=3.10
+Requires-Dist: httpx!=0.23.1,>=0.20.0
+Requires-Dist: json-merge-patch
+Requires-Dist: jsonpatch
+Requires-Dist: jsonschema
+Requires-Dist: msgpack>=1.0.0
+Requires-Dist: orjson
+Requires-Dist: platformdirs
+Requires-Dist: pydantic-settings<2.12.0,>=2
+Requires-Dist: pydantic<3,>=2
+Requires-Dist: pyyaml
+Requires-Dist: typer
+Provides-Extra: all
+Requires-Dist: adbc-driver-manager; extra == 'all'
+Requires-Dist: adbc-driver-postgresql; extra == 'all'
+Requires-Dist: adbc-driver-sqlite; extra == 'all'
+Requires-Dist: aiofiles; extra == 'all'
+Requires-Dist: aiosqlite; extra == 'all'
+Requires-Dist: alembic; extra == 'all'
+Requires-Dist: anyio; extra == 'all'
+Requires-Dist: asgi-correlation-id; extra == 'all'
+Requires-Dist: asyncpg; extra == 'all'
+Requires-Dist: awkward>=2.4.3; extra == 'all'
+Requires-Dist: blosc2; extra == 'all'
+Requires-Dist: cachetools; extra == 'all'
+Requires-Dist: canonicaljson; extra == 'all'
+Requires-Dist: dask; extra == 'all'
+Requires-Dist: dask[array]; extra == 'all'
+Requires-Dist: dask[dataframe]; extra == 'all'
+Requires-Dist: duckdb<1.4.0; extra == 'all'
+Requires-Dist: entrypoints; extra == 'all'
+Requires-Dist: fastapi>=0.132.0; extra == 'all'
+Requires-Dist: h5netcdf; extra == 'all'
+Requires-Dist: h5py; extra == 'all'
+Requires-Dist: hdf5plugin; extra == 'all'
+Requires-Dist: jinja2; extra == 'all'
+Requires-Dist: jmespath; extra == 'all'
+Requires-Dist: lz4; extra == 'all'
+Requires-Dist: minio; extra == 'all'
+Requires-Dist: ndindex; extra == 'all'
+Requires-Dist: numba>=0.59.0; extra == 'all'
+Requires-Dist: numcodecs; extra == 'all'
+Requires-Dist: numpy; extra == 'all'
+Requires-Dist: obstore; extra == 'all'
+Requires-Dist: openpyxl; extra == 'all'
+Requires-Dist: packaging; extra == 'all'
+Requires-Dist: pandas<3; extra == 'all'
+Requires-Dist: pillow; extra == 'all'
+Requires-Dist: prometheus-client; extra == 'all'
+Requires-Dist: pyarrow>=14.0.1; extra == 'all'
+Requires-Dist: python-dateutil; extra == 'all'
+Requires-Dist: python-jose[cryptography]; extra == 'all'
+Requires-Dist: python-multipart; extra == 'all'
+Requires-Dist: ragged; extra == 'all'
+Requires-Dist: redis; extra == 'all'
+Requires-Dist: rich; extra == 'all'
+Requires-Dist: sparse>=0.15.5; extra == 'all'
+Requires-Dist: sqlalchemy[asyncio]>=2; extra == 'all'
+Requires-Dist: stamina; extra == 'all'
+Requires-Dist: starlette>=0.48.0; extra == 'all'
+Requires-Dist: tifffile; extra == 'all'
+Requires-Dist: uvicorn[standard]; extra == 'all'
+Requires-Dist: watchfiles; extra == 'all'
+Requires-Dist: xarray; extra == 'all'
+Requires-Dist: zarr; extra == 'all'
+Requires-Dist: zstandard; extra == 'all'
+Provides-Extra: array
+Requires-Dist: dask[array]; extra == 'array'
+Requires-Dist: numpy; extra == 'array'
+Provides-Extra: client
+Requires-Dist: awkward>=2.4.3; extra == 'client'
+Requires-Dist: blosc2; (python_version >= '3.10') and extra == 'client'
+Requires-Dist: dask[array]; extra == 'client'
+Requires-Dist: dask[dataframe]; extra == 'client'
+Requires-Dist: entrypoints; extra == 'client'
+Requires-Dist: lz4; extra == 'client'
+Requires-Dist: ndindex; extra == 'client'
+Requires-Dist: numba>=0.59.0; extra == 'client'
+Requires-Dist: numpy; extra == 'client'
+Requires-Dist: pandas; extra == 'client'
+Requires-Dist: pyarrow>=14.0.1; extra == 'client'
+Requires-Dist: ragged; extra == 'client'
+Requires-Dist: rich; extra == 'client'
+Requires-Dist: sparse>=0.15.5; extra == 'client'
+Requires-Dist: stamina; extra == 'client'
+Requires-Dist: watchfiles; extra == 'client'
+Requires-Dist: websockets; extra == 'client'
+Requires-Dist: xarray; extra == 'client'
+Requires-Dist: zstandard; extra == 'client'
+Provides-Extra: compression
+Requires-Dist: blosc2; (python_version >= '3.10') and extra == 'compression'
+Requires-Dist: lz4; extra == 'compression'
+Requires-Dist: zstandard; extra == 'compression'
+Provides-Extra: dataframe
+Requires-Dist: dask[dataframe]; extra == 'dataframe'
+Requires-Dist: pandas; extra == 'dataframe'
+Requires-Dist: pyarrow>=14.0.1; extra == 'dataframe'
+Provides-Extra: formats
+Requires-Dist: h5netcdf; extra == 'formats'
+Requires-Dist: h5py; extra == 'formats'
+Requires-Dist: hdf5plugin; extra == 'formats'
+Requires-Dist: openpyxl; extra == 'formats'
+Requires-Dist: pillow; extra == 'formats'
+Requires-Dist: tifffile; extra == 'formats'
+Provides-Extra: minimal-client
+Requires-Dist: entrypoints; extra == 'minimal-client'
+Requires-Dist: rich; extra == 'minimal-client'
+Requires-Dist: stamina; extra == 'minimal-client'
+Requires-Dist: watchfiles; extra == 'minimal-client'
+Requires-Dist: websockets; extra == 'minimal-client'
+Provides-Extra: minimal-server
+Requires-Dist: aiofiles; extra == 'minimal-server'
+Requires-Dist: aiosqlite; extra == 'minimal-server'
+Requires-Dist: alembic; extra == 'minimal-server'
+Requires-Dist: anyio; extra == 'minimal-server'
+Requires-Dist: asgi-correlation-id; extra == 'minimal-server'
+Requires-Dist: cachetools; extra == 'minimal-server'
+Requires-Dist: canonicaljson; extra == 'minimal-server'
+Requires-Dist: dask; extra == 'minimal-server'
+Requires-Dist: fastapi>=0.132.0; extra == 'minimal-server'
+Requires-Dist: jinja2; extra == 'minimal-server'
+Requires-Dist: jmespath; extra == 'minimal-server'
+Requires-Dist: numcodecs; extra == 'minimal-server'
+Requires-Dist: packaging; extra == 'minimal-server'
+Requires-Dist: prometheus-client; extra == 'minimal-server'
+Requires-Dist: python-dateutil; extra == 'minimal-server'
+Requires-Dist: python-jose[cryptography]; extra == 'minimal-server'
+Requires-Dist: python-multipart; extra == 'minimal-server'
+Requires-Dist: redis; extra == 'minimal-server'
+Requires-Dist: sqlalchemy[asyncio]>=2; extra == 'minimal-server'
+Requires-Dist: starlette>=0.48.0; extra == 'minimal-server'
+Requires-Dist: uvicorn[standard]; extra == 'minimal-server'
+Requires-Dist: zarr; extra == 'minimal-server'
+Provides-Extra: server
+Requires-Dist: adbc-driver-manager; extra == 'server'
+Requires-Dist: adbc-driver-postgresql; extra == 'server'
+Requires-Dist: adbc-driver-sqlite; extra == 'server'
+Requires-Dist: aiofiles; extra == 'server'
+Requires-Dist: aiosqlite; extra == 'server'
+Requires-Dist: alembic; extra == 'server'
+Requires-Dist: anyio; extra == 'server'
+Requires-Dist: asgi-correlation-id; extra == 'server'
+Requires-Dist: asyncpg; extra == 'server'
+Requires-Dist: awkward>=2.4.3; extra == 'server'
+Requires-Dist: blosc2; (python_version >= '3.10') and extra == 'server'
+Requires-Dist: cachetools; extra == 'server'
+Requires-Dist: canonicaljson; extra == 'server'
+Requires-Dist: dask; extra == 'server'
+Requires-Dist: dask[array]; extra == 'server'
+Requires-Dist: dask[dataframe]; extra == 'server'
+Requires-Dist: duckdb<1.4.0; extra == 'server'
+Requires-Dist: entrypoints; extra == 'server'
+Requires-Dist: fastapi>=0.132.0; extra == 'server'
+Requires-Dist: h5netcdf; extra == 'server'
+Requires-Dist: h5py; extra == 'server'
+Requires-Dist: hdf5plugin; extra == 'server'
+Requires-Dist: jinja2; extra == 'server'
+Requires-Dist: jmespath; extra == 'server'
+Requires-Dist: lz4; extra == 'server'
+Requires-Dist: minio; extra == 'server'
+Requires-Dist: ndindex; extra == 'server'
+Requires-Dist: numba>=0.59.0; extra == 'server'
+Requires-Dist: numcodecs; extra == 'server'
+Requires-Dist: numpy; extra == 'server'
+Requires-Dist: obstore; extra == 'server'
+Requires-Dist: openpyxl; extra == 'server'
+Requires-Dist: packaging; extra == 'server'
+Requires-Dist: pandas; extra == 'server'
+Requires-Dist: pillow; extra == 'server'
+Requires-Dist: prometheus-client; extra == 'server'
+Requires-Dist: pyarrow>=14.0.1; extra == 'server'
+Requires-Dist: python-dateutil; extra == 'server'
+Requires-Dist: python-jose[cryptography]; extra == 'server'
+Requires-Dist: python-multipart; extra == 'server'
+Requires-Dist: ragged; extra == 'server'
+Requires-Dist: redis; extra == 'server'
+Requires-Dist: sparse>=0.15.5; extra == 'server'
+Requires-Dist: sqlalchemy[asyncio]>=2; extra == 'server'
+Requires-Dist: stamina; extra == 'server'
+Requires-Dist: starlette>=0.48.0; extra == 'server'
+Requires-Dist: tifffile; extra == 'server'
+Requires-Dist: uvicorn[standard]; extra == 'server'
+Requires-Dist: websockets; extra == 'server'
+Requires-Dist: xarray; extra == 'server'
+Requires-Dist: zarr; extra == 'server'
+Requires-Dist: zstandard; extra == 'server'
+Provides-Extra: sparse
+Requires-Dist: ndindex; extra == 'sparse'
+Requires-Dist: numba>=0.59.0; extra == 'sparse'
+Requires-Dist: pyarrow>=14.0.1; extra == 'sparse'
+Requires-Dist: sparse>=0.15.5; extra == 'sparse'
+Provides-Extra: xarray
+Requires-Dist: dask[array]; extra == 'xarray'
+Requires-Dist: pandas; extra == 'xarray'
+Requires-Dist: pyarrow; extra == 'xarray'
+Requires-Dist: xarray; extra == 'xarray'
+Description-Content-Type: text/markdown
+
+# Tiled
+
+Tiled is a service that enables **secure, structured** access to **scientific
+data**. It supports **search**, remote **slicing**, **format** conversion, and
+live **streaming**.
+
+Tiled helps scientists to store, find, and access scientific data at scale. It
+provides a API that understands scientific data structures of varied types so
+users can slice, convert, and retrieve just what they need. Tiled is designed
+to run on a scientist's laptop or deploy at scale in a facility's data center.
+
+Tiled is a fully [open source][] project developed under a multi-institutional
+[governance model][].
+
+Tiled enables scientists to:
+- **Search** across metadata
+- **Slice** remotely into arrays and tables
+- **Transcode** data into the format they need
+- **Locate** or **download** underlying data files or blobs (e.g. S3 buckets)
+- **Stream** live data and "replay" recent data
+- **Upload** or **register** datasets to add them to Tiled
+
+## Installation
+
+With **pip** or **uv**, install `"tiled[all]"` or just `"tiled[client]"` if you only need
+to access data (not run your own Tiled server).
+
+With **conda** or **pixi**, install `tiled` or just `tiled-client`. Tiled is available
+on the `conda-forge` channel, which pixi uses by default.
+
+See [Getting Started][] for more detailed installation instructions.
+
+## First Steps
+
+See [What is Tiled?][] for an overview of Tiled's goals. Then see
+[10 Minutes to Tiled][] for a walkthrough of some key features.
+
+[open source]: https://github.com/bluesky/tiled/blob/main/LICENSE
+[governance model]: https://github.com/bluesky/governance
+[Getting Started]: https://blueskyproject.io/tiled/getting-started/index.html
+[What is Tiled?]: https://blueskyproject.io/tiled/getting-started/what-is-tiled.html
+[10 Minutes to Tiled]: https://blueskyproject.io/tiled/getting-started/10-minutes-to-tiled.html

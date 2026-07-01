@@ -1,0 +1,152 @@
+Metadata-Version: 2.4
+Name: rleveldb
+Version: 1.0.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Database
+Classifier: Topic :: System :: Filesystems
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+License-File: LICENSE
+Summary: LevelDB reader for Python — Rust core with PyO3 bindings
+Keywords: leveldb,forensics,database,snappy,ldb
+License: MIT
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Issues, https://github.com/DedInc/rleveldb/issues
+Project-URL: Repository, https://github.com/DedInc/rleveldb
+
+# rleveldb
+
+A LevelDB reader for Python, implemented in Rust. Reads `.ldb` (SSTable), `.log` (write-ahead log), and `.sst` files without linking against the original C++ LevelDB library. Snappy decompression is handled internally.
+
+The Python API follows the same shape as [ccl_leveldb](https://github.com/cclgroupltd/ccl_chromium_reader/blob/master/ccl_chromium_reader/storage_formats/ccl_leveldb.py), so it can act as a drop-in for read workloads. The main difference is performance: parsing is done in Rust with memory-mapped I/O, and the GIL is not held during file reads.
+
+Read-only. This library cannot write to or modify databases.
+
+## Installation
+
+Pre-built wheels are published to PyPI for Linux (x86-64, ARM64), macOS (x86-64, ARM64), and Windows (x86-64):
+
+```
+pip install rleveldb
+```
+
+To build from source you need a Rust toolchain and [maturin](https://github.com/PyO3/maturin):
+
+```
+pip install maturin
+maturin develop
+```
+
+## Usage
+
+```python
+import rleveldb
+
+with rleveldb.RawLevelDb("/path/to/leveldb") as db:
+    records = db.iterate_records_raw()
+
+# Sort by sequence number to replay writes in order
+records.sort(key=lambda r: r.seq)
+
+state = {}
+for rec in records:
+    key = rec.user_key.decode("utf-8", errors="replace")
+    if rec.state == rleveldb.KeyState.Live:
+        state[key] = rec.value
+    elif rec.state == rleveldb.KeyState.Deleted:
+        state.pop(key, None)
+```
+
+`iterate_records_raw()` returns every record from every data file, including tombstones. It does not deduplicate or merge—that is left to the caller, which is intentional for forensic use cases where you want to see deleted entries.
+
+### Iterating in reverse file order
+
+```python
+records = db.iterate_records_raw(reverse=True)
+```
+
+Records come back in descending file-number order. Useful when you only care about the most recent version of each key and want to stop early.
+
+## API
+
+### `RawLevelDb(path: str)`
+
+Opens a LevelDB directory. Raises `ValueError` if `path` is not a directory or the database cannot be opened.
+
+Supports use as a context manager. Calling `.close()` or exiting the `with` block releases file handles and memory maps.
+
+**Methods**
+
+- `iterate_records_raw(*, reverse: bool = False) -> list[Record]`  
+  Returns all records from all data files, ordered by file number. Each file's records are in the order they appear on disk.
+
+**Properties**
+
+- `in_dir_path: str` — the path passed to the constructor.
+
+### `Record`
+
+Represents one entry from a data file. All byte fields are returned as `bytes` objects.
+
+| Attribute | Type | Description |
+|---|---|---|
+| `key` | `bytes` | The internal key. For `.ldb` files this includes an 8-byte suffix (sequence number + type byte). |
+| `user_key` | `bytes` | The key with the internal suffix stripped. Use this for application-level lookups. For `.log` files `user_key == key`. |
+| `value` | `bytes` | The raw value. Empty for deleted entries. |
+| `seq` | `int` | LevelDB sequence number. Higher means more recent. |
+| `state` | `KeyState` | `Live`, `Deleted`, or `Unknown`. |
+| `file_type` | `FileType` | `Ldb` or `Log`. |
+| `origin_file` | `str` | Path to the file this record came from. |
+| `offset` | `int` | Byte offset within the origin file. |
+| `was_compressed` | `bool` | Whether the block holding this record was Snappy-compressed. |
+
+### `KeyState`
+
+`KeyState.Live` — the key exists and has a value.  
+`KeyState.Deleted` — the key was deleted (tombstone record). `value` will be empty.  
+`KeyState.Unknown` — the state byte could not be determined.
+
+### `FileType`
+
+`FileType.Ldb` — record came from an SSTable (`.ldb` or `.sst`).  
+`FileType.Log` — record came from a write-ahead log (`.log`).
+
+## Notes
+
+**The `key` / `user_key` distinction matters for `.ldb` files.**  
+LevelDB appends an 8-byte internal key suffix to every key in SSTable blocks. The last byte of that suffix is the type byte (1 = live, 0 = deleted) and the preceding 7 bytes encode the sequence number. `user_key` strips this suffix, matching what application code originally wrote. For `.log` files there is no suffix.
+
+**MANIFEST files are parsed but not required.**  
+If a valid `MANIFEST-XXXXXX` file exists in the database directory, rleveldb reads the file-to-level mapping from it. This information is not exposed in the current Python API but is used internally. If no manifest is found, the library still reads all data files it can find.
+
+**Corrupt or unreadable files are silently skipped.**  
+Files that fail to open or have invalid magic numbers are skipped rather than raising an exception. This matches the forensic use case where partial databases (e.g., from a disk image) should yield as much data as possible.
+
+**File discovery uses the standard naming convention.**  
+Only files with a 6-digit hexadecimal stem and a `.ldb`, `.sst`, or `.log` extension are loaded as data files. Files with other names are ignored.
+
+## Building
+
+```
+git clone https://github.com/DedInc/rleveldb
+cd rleveldb
+pip install maturin
+maturin develop --release
+```
+
+For a release wheel:
+
+```
+maturin build --release
+```
+
+Maturin handles the compilation and packaging. The only external build-time dependency is a Rust toolchain (1.70+).
+
+## License
+
+MIT
+

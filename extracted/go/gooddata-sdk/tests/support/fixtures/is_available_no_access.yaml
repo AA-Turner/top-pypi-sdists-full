@@ -1,0 +1,34 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/options
+    response:
+      body:
+        string: ''
+      headers:
+        DATE:
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Www-Authenticate:
+          - Bearer error="invalid_token", error_description="Unable to lookup user
+            details for provided Bearer token", error_uri="https://tools.ietf.org/html/rfc6750#section-3.1"
+        X-Content-Type-Options:
+          - nosniff
+      status:
+        code: 401
+        message: Unauthorized
+version: 1

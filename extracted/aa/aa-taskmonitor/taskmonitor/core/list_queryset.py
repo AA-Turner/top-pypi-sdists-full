@@ -112,7 +112,6 @@ class ListAsQuerySet(list):
         Supports args or kwargs, but not both.
         Supports equal clauses only.
         """
-        print(args)
         if args:
             new_list = []
             for item in self:

@@ -441,6 +441,31 @@ class TestCodebaseControllerRenameFile(unittest.TestCase):
         self.assertFalse(original.exists())
         self.assertTrue((dst_dir / "renamed.py").exists())
 
+    def test_rename_file_refuses_to_overwrite_existing_file(self):
+        """Renaming onto an existing file fails and preserves both files."""
+        source = Path(self.tmp_dir.name) / "old.py"
+        source.write_text("# source")
+        target = Path(self.tmp_dir.name) / "existing.py"
+        target.write_text("# existing")
+
+        with self.assertRaises(FileExistsError):
+            self.controller.rename_file(["old.py"], ["existing.py"])
+
+        # Neither file is touched.
+        self.assertTrue(source.exists())
+        self.assertEqual(source.read_text(), "# source")
+        self.assertEqual(target.read_text(), "# existing")
+
+    def test_rename_file_allows_case_only_rename(self):
+        """Case-only renames are allowed even on case-insensitive filesystems."""
+        original = Path(self.tmp_dir.name) / "file.py"
+        original.write_text("# hi")
+
+        result = self.controller.rename_file(["file.py"], ["File.py"])
+
+        self.assertTrue(result.ok)
+        self.assertTrue((Path(self.tmp_dir.name) / "File.py").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

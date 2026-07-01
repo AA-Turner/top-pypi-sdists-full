@@ -1,13 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinx-argparse
-Version: 0.5.2
+Version: 0.6.0
 Summary: A sphinx extension that automatically documents argparse commands and options
 Author-email: Ash Berlin-Taylor <ash_github@firemirror.com>
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
+License-Expression: MIT
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -22,6 +22,7 @@ Classifier: Framework :: Sphinx
 Classifier: Framework :: Sphinx :: Extension
 Classifier: Topic :: Documentation
 Classifier: Topic :: Documentation :: Sphinx
+License-File: LICENSE.rst
 Requires-Dist: sphinx>=5.1.0
 Requires-Dist: docutils>=0.19
 Requires-Dist: furo>=2024 ; extra == "docs"
@@ -32,7 +33,7 @@ Requires-Dist: types-docutils>=0.21 ; extra == "lint"
 Requires-Dist: lxml-stubs>=0.4 ; extra == "lint"
 Requires-Dist: CommonMark>=0.5.6 ; extra == "markdown"
 Requires-Dist: pytest>=8.0 ; extra == "test"
-Requires-Dist: coverage>=6.5 ; extra == "test"
+Requires-Dist: pytest-cov ; extra == "test"
 Requires-Dist: lxml>=4.9 ; extra == "test"
 Requires-Dist: setuptools>=70.0 ; extra == "test"
 Requires-Dist: typing_extensions>=4.9 ; extra == "test"
@@ -58,8 +59,8 @@ Provides-Extra: test
    :target: https://github.com/conda-forge/sphinx-argparse-feedstock/
    :alt: Conda version
 
-.. image:: https://github.com/sphinx-doc/sphinx/actions/workflows/main.yml/badge.svg
-   :target: https://github.com/sphinx-doc/sphinx/actions/workflows/main.yml
+.. image:: https://github.com/sphinx-doc/sphinx-argparse/actions/workflows/ci.yml/badge.svg
+   :target: https://github.com/sphinx-doc/sphinx-argparse/actions/workflows/ci.yml
    :alt: Build Status
 
 .. image:: https://readthedocs.org/projects/sphinx-argparse/badge/?version=stable

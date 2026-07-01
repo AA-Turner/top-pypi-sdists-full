@@ -1,0 +1,121 @@
+Metadata-Version: 2.4
+Name: testmuai-playwright-bindings
+Version: 0.1.21
+Summary: TestMu binding for Playwright Python — thin test runtime for TestMu-exported tests on the LambdaTest grid
+Author-email: TestMu AI <engineering@testmu.ai>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/LambdaTest/testmuai-bindings
+Project-URL: Repository, https://github.com/LambdaTest/testmuai-bindings
+Project-URL: Issues, https://github.com/LambdaTest/testmuai-bindings/issues
+Keywords: testing,playwright,lambdatest,testmu,automation,e2e
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Topic :: Software Development :: Testing
+Classifier: Framework :: Pytest
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: playwright>=1.57.0
+Requires-Dist: pyotp>=2.9.0
+Requires-Dist: aiohttp
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: Pillow>=11.0.0
+Requires-Dist: requests>=2.28.0
+Requires-Dist: websockets>=12
+Requires-Dist: python-dotenv>=1.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21; extra == "dev"
+Dynamic: license-file
+
+# testmuai-playwright-bindings
+
+[![PyPI version](https://img.shields.io/pypi/v/testmuai-playwright-bindings.svg)](https://pypi.org/project/testmuai-playwright-bindings/)
+[![Python versions](https://img.shields.io/pypi/pyversions/testmuai-playwright-bindings.svg)](https://pypi.org/project/testmuai-playwright-bindings/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+TestMu binding for Playwright Python — a thin test runtime for running TestMu-exported tests locally or on the LambdaTest grid.
+
+## Installation
+
+```bash
+pip install testmuai-playwright-bindings
+```
+
+Then install the Playwright browsers (one-time):
+
+```bash
+playwright install
+```
+
+## Quick Start
+
+Set credentials (LambdaTest grid) once in your environment:
+
+```bash
+export LT_USERNAME="your_username"
+export LT_ACCESS_KEY="your_access_key"
+```
+
+Then write a test:
+
+```python
+import testmu
+
+@testmu.test
+async def my_test(page):
+    async with testmu.step("Open site"):
+        await page.goto("https://example.com")
+
+    async with testmu.step("Verify title"):
+        await testmu.expect(page).to_have_title("Example Domain")
+
+testmu.run(my_test)
+```
+
+`testmu.run()` is a synchronous entry point — it sets up the session,
+launches the browser, runs your test, and tears everything down.
+
+## Configuration
+
+Configuration is sourced from environment variables. See [`.env.example`](.env.example) for the full list. The most common ones:
+
+| Variable          | Purpose                               | Required           |
+| ----------------- | ------------------------------------- | ------------------ |
+| `LT_USERNAME`     | LambdaTest grid username              | For cloud features |
+| `LT_ACCESS_KEY`   | LambdaTest grid access key            | For cloud features |
+| `TESTMU_HEADLESS` | `true` (default) or `false`           | No                 |
+| `TESTMU_SMART`    | `1` to enable vision/heal AI features | No                 |
+
+Test-level metadata (build, name, variables, etc.) can be passed via
+`testmu.configure(...)` at the top of generated test files.
+
+## Features
+
+- **`@testmu.test`** — decorator that wraps async Playwright tests with session lifecycle management
+- **`testmu.step(...)`** — context manager for structured test steps
+- **`testmu.var()` / `testmu.set_var()`** — template-based variable resolution (with ATMS lookup when authed)
+- **Helpers** — `execute_js`, `execute_api`, `execute_db`, `vision_query`, `network_query`, `smartui_snapshot_async`, and more
+- **Reporters** — local console reporter and TestMu cloud reporter (LambdaTest dashboard)
+- **Self-healing locators** — automatic locator recovery via heal patch (when smart mode enabled)
+
+## Requirements
+
+- Python ≥ 3.11
+- Playwright ≥ 1.57.0
+
+## Links
+
+- **PyPI**: https://pypi.org/project/testmuai-playwright-bindings/
+- **TestMu**: https://testmu.ai
+- **LambdaTest grid**: https://www.lambdatest.com
+- **Issues**: https://github.com/LambdaTest/testmuai-bindings/issues
+
+## License
+
+Released under the [MIT License](LICENSE).

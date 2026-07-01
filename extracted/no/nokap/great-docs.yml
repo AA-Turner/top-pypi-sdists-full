@@ -1,0 +1,139 @@
+# Great Docs Configuration
+# See https://posit-dev.github.io/great-docs/user-guide/configuration.html
+
+# Docstring Parser
+# ----------------
+parser: numpy
+
+# Site
+# ----
+site_url: "https://posit-dev.github.io/nokap/"
+
+# Dynamic Introspection
+# ---------------------
+dynamic: true
+
+# CLI Documentation
+# -----------------
+cli:
+  enabled: true
+  module: nokap._cli
+  name: cli
+
+# Author Information
+# ------------------
+authors:
+  - name: Richard Iannone
+    role: Maintainer
+    email: riannone@me.com
+    github: rich-iannone
+    orcid: 0000-0003-3925-190X
+
+# API Reference Structure
+# -----------------------
+reference:
+  - title: Core Functions
+    desc: The main screenshot and PDF capture API
+    contents:
+      - webshot
+      - from_html
+      - close
+
+  - title: Browser Management
+    desc: Chrome process lifecycle and discovery
+    contents:
+      - name: Chrome
+        members: true
+      - find_chrome
+
+  - title: Session
+    desc: Low-level browser tab and navigation control
+    contents:
+      - name: Session
+        members: true
+
+  - title: Errors
+    desc: Exception hierarchy for error handling
+    contents:
+      - NokapError
+      - CDPError
+      - ChromeNotFoundError
+      - ChromeStartError
+      - NavigationError
+      - PageLoadTimeout
+      - SelectorError
+
+  - title: Types
+    desc: Type definitions for configuration
+    contents:
+      - PaperSize
+
+# Jupyter Kernel
+# --------------
+jupyter: python3
+
+# Navigation Icons
+# ----------------
+nav_icons:
+  navbar:
+    User Guide: book-open
+    Reference: code-2
+  sidebar:
+    Getting Started: rocket
+    Core Concepts: puzzle
+    Advanced Usage: graduation-cap
+    Introduction: info
+    Installation: download
+    Quick Start: play
+    The CLI: terminal
+    Screenshots: camera
+    PDF Generation: file-text
+    Selectors and Clipping: crop
+    Integration with Great Tables: table
+    Error Handling: alert-triangle
+    Performance Tips: zap
+    AI Agent Integration: bot
+
+# MCP Server Documentation
+# ------------------------
+mcp:
+  enabled: true
+  module: nokap.mcp
+  name: nokap
+  categories:
+    "Capture":
+      - screenshot_url
+      - screenshot_html
+    "Writing to PDF":
+      - generate_pdf
+    "Diagnostics":
+      - doctor
+
+# Skills (Multi-Skill Mode)
+# -------------------------
+skill:
+  skills:
+    - name: nokap
+      file: skills/nokap/SKILL.md
+    - name: nokap-web-capture
+      file: skills/nokap-web-capture/SKILL.md
+    - name: nokap-html-capture
+      file: skills/nokap-html-capture/SKILL.md
+    - name: nokap-pdf
+      file: skills/nokap-pdf/SKILL.md
+
+# Tags
+# ----
+tags:
+  enabled: true
+  icons:
+    Overview: info
+    Setup: download
+    Tutorial: book-open
+    Screenshots: camera
+    PDF: file-text
+    CLI: terminal
+    Configuration: sliders-horizontal
+    Integration: blocks
+    Errors: alert-triangle
+    Performance: zap

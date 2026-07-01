@@ -924,6 +924,7 @@ def _track_cli_usage(response_text: str = "") -> None:
 
 @app.command()
 def run(
+    task: Annotated[list[str] | None, typer.Argument(help="Optional initial task to start the session with")] = None,
     model: Annotated[str | None, typer.Option("--model", "-m", help="Model ID")] = None,
     temperature: Annotated[float | None, typer.Option("--temperature", "-t")] = None,
     max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
@@ -1010,7 +1011,7 @@ def run(
         or not _encoding_is_modern
     ):
         renderer.set_no_color(True)
-    if prompt or quiet or not sys.stdout.isatty():
+    if prompt or task or quiet or not sys.stdout.isatty():
         renderer.set_suppress_spinners(True)
 
     if max_retries != 10:
@@ -1058,12 +1059,22 @@ def run(
     from sage.core.run_hooks import on_session_start
     is_testing = os.environ.get("SAGE_TESTING") == "1" or "pytest" in sys.modules
     
+    
+    # Merge task arguments with --prompt option
+    actual_prompt = prompt
+    if task:
+        task_str = " ".join(task)
+        if actual_prompt:
+            actual_prompt = actual_prompt + "\n\n" + task_str
+        else:
+            actual_prompt = task_str
+
     readiness = on_session_start(
         cfg,
         cwd,
         skip_floor=is_testing,
         skip_readiness=True,
-        user_first_prompt=prompt or "",
+        user_first_prompt=actual_prompt or "",
     )
     if not readiness.ok:
         renderer.error(readiness.message)
@@ -1077,8 +1088,8 @@ def run(
     # path and exits cleanly. The full agent loop (tool use, shell, edits,
     # tests, retries) runs in between — this is what the SMS bridge uses so
     # texted tasks like "create a React Native project" actually execute.
-    if prompt:
-        _one_shot_value = prompt
+    if actual_prompt:
+        _one_shot_value = actual_prompt
         _one_shot_consumed = {"done": False}
 
         def _one_shot_reader(_prompt_text: str) -> str:

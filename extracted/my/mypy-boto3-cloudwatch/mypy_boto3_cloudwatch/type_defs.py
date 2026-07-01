@@ -19,7 +19,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Union
+from typing import Any, Union
 
 from .literals import (
     ActionsSuppressedByType,
@@ -105,6 +105,9 @@ __all__ = (
     "EntityMetricDataTypeDef",
     "EntityTypeDef",
     "EvaluationCriteriaTypeDef",
+    "EvaluationWindowOutputTypeDef",
+    "EvaluationWindowTypeDef",
+    "EvaluationWindowUnionTypeDef",
     "GetAlarmMuteRuleInputTypeDef",
     "GetAlarmMuteRuleInputWaitTypeDef",
     "GetAlarmMuteRuleOutputTypeDef",
@@ -218,6 +221,7 @@ __all__ = (
     "TimestampTypeDef",
     "UntagResourceInputTypeDef",
     "WaiterConfigTypeDef",
+    "WallClockWindowTypeDef",
 )
 
 
@@ -440,6 +444,10 @@ class EnableInsightRulesInputTypeDef(TypedDict):
 class EntityTypeDef(TypedDict):
     KeyAttributes: NotRequired[Mapping[str, str]]
     Attributes: NotRequired[Mapping[str, str]]
+
+
+class WallClockWindowTypeDef(TypedDict):
+    Timezone: NotRequired[str]
 
 
 class GetAlarmMuteRuleInputTypeDef(TypedDict):
@@ -924,6 +932,16 @@ class ListMetricsInputTypeDef(TypedDict):
     OwningAccount: NotRequired[str]
 
 
+class EvaluationWindowOutputTypeDef(TypedDict):
+    WallClockWindow: NotRequired[WallClockWindowTypeDef]
+    SlidingWindow: NotRequired[dict[str, Any]]
+
+
+class EvaluationWindowTypeDef(TypedDict):
+    WallClockWindow: NotRequired[WallClockWindowTypeDef]
+    SlidingWindow: NotRequired[Mapping[str, Any]]
+
+
 class MetricDataResultTypeDef(TypedDict):
     Id: NotRequired[str]
     Label: NotRequired[str]
@@ -1081,6 +1099,9 @@ CloudwatchEventMetricTypeDef = TypedDict(
 class AnomalyDetectorConfigurationTypeDef(TypedDict):
     ExcludedTimeRanges: NotRequired[Sequence[RangeTypeDef]]
     MetricTimezone: NotRequired[str]
+
+
+EvaluationWindowUnionTypeDef = Union[EvaluationWindowTypeDef, EvaluationWindowOutputTypeDef]
 
 
 class GetMetricDataOutputTypeDef(TypedDict):
@@ -1306,6 +1327,7 @@ class MetricAlarmTypeDef(TypedDict):
     ThresholdMetricId: NotRequired[str]
     EvaluationState: NotRequired[EvaluationStateType]
     StateTransitionedTimestamp: NotRequired[datetime]
+    EvaluationWindow: NotRequired[EvaluationWindowOutputTypeDef]
     EvaluationCriteria: NotRequired[EvaluationCriteriaTypeDef]
     EvaluationInterval: NotRequired[int]
 
@@ -1447,6 +1469,7 @@ class PutMetricAlarmInputMetricPutAlarmTypeDef(TypedDict):
     Metrics: NotRequired[Sequence[MetricDataQueryUnionTypeDef]]
     Tags: NotRequired[Sequence[TagTypeDef]]
     ThresholdMetricId: NotRequired[str]
+    EvaluationWindow: NotRequired[EvaluationWindowUnionTypeDef]
     EvaluationCriteria: NotRequired[EvaluationCriteriaTypeDef]
     EvaluationInterval: NotRequired[int]
 
@@ -1474,6 +1497,7 @@ class PutMetricAlarmInputTypeDef(TypedDict):
     Metrics: NotRequired[Sequence[MetricDataQueryUnionTypeDef]]
     Tags: NotRequired[Sequence[TagTypeDef]]
     ThresholdMetricId: NotRequired[str]
+    EvaluationWindow: NotRequired[EvaluationWindowUnionTypeDef]
     EvaluationCriteria: NotRequired[EvaluationCriteriaTypeDef]
     EvaluationInterval: NotRequired[int]
 

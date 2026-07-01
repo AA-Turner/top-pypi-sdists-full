@@ -37,9 +37,10 @@ on the concrete classes.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Type, TypeVar, cast
 
 import trafaret as t
+from typing_extensions import Self
 
 from datarobot._compat import Int, String
 from datarobot.models.shap_impact import ShapImpact
@@ -57,6 +58,9 @@ from .prime_file import PrimeFile
 from .rating_table import RatingTable
 from .ruleset import Ruleset
 from .training_predictions import TrainingPredictions
+
+if TYPE_CHECKING:
+    from datarobot.models.api_object import ServerDataType
 
 TAbstractSpecificJob = TypeVar("TAbstractSpecificJob", bound="AbstractSpecificJob")
 
@@ -84,7 +88,7 @@ class AbstractJob:
         t.Key("is_blocked"): t.Bool,
     })
 
-    def __init__(self, data: Dict[str, Any], completed_resource_url: Optional[str] = None) -> None:
+    def __init__(self, data: ServerDataType, completed_resource_url: Optional[str] = None) -> None:
         # Importing here to dodge circular dependency
         from . import Project  # pylint: disable=import-outside-toplevel,cyclic-import
 
@@ -94,7 +98,7 @@ class AbstractJob:
         data = from_api(data)
 
         converter = (self._converter_common + self._converter_extra).allow_extra("*")
-        self._safe_data = converter.check(data)
+        self._safe_data = cast(Dict[str, Any], converter.check(data))  # TODO: Better annotation than `Any`
         self.job_type = self._get_job_type(self._safe_data)
         self.status = self._safe_data.get("status")
         self.id = self._safe_data.get("id")
@@ -108,10 +112,10 @@ class AbstractJob:
             setattr(self, k, v)
 
     @classmethod
-    def _get_job_type(cls, safe_data):
+    def _get_job_type(cls, safe_data) -> str:
         raise NotImplementedError
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Job({self.job_type}, status={self.status})"
 
     @classmethod
@@ -129,7 +133,7 @@ class AbstractJob:
             e_msg = "Server unexpectedly returned status code {}"
             raise errors.AsyncFailureError(e_msg.format(response.status_code))
 
-    def refresh(self):
+    def refresh(self) -> None:
         """
         Update this object with the latest job data from the server.
         """
@@ -138,7 +142,7 @@ class AbstractJob:
             data, completed_resource_url=completed_url
         )
 
-    def get_result(self, params=None):
+    def get_result(self, params: Optional[Dict[str, Any]] = None):
         """
         Parameters
         ----------
@@ -209,7 +213,7 @@ class AbstractJob:
         else:
             raise ValueError(f"Unrecognized job type {self.job_type}.")
 
-    def _make_result_from_location(self, location, params=None):  # pylint: disable=missing-function-docstring
+    def _make_result_from_location(self, location: str, params: Optional[Dict[str, Any]] = None):  # pylint: disable=missing-function-docstring
         if self.job_type == JOB_TYPE.TRAINING_PREDICTIONS:
             return TrainingPredictions.from_location(location)
 
@@ -236,7 +240,7 @@ class AbstractJob:
             # We are gonna try to update the job data, that's OK if it fails too (rare cases)
             self.refresh()
 
-    def get_result_when_complete(self, max_wait=DEFAULT_MAX_WAIT, params=None):
+    def get_result_when_complete(self, max_wait: int = DEFAULT_MAX_WAIT, params: Optional[Dict[str, Any]] = None):
         """
         Parameters
         ----------
@@ -273,16 +277,16 @@ class AbstractJob:
         return self._job_path(self.project.id, self.id)
 
     @classmethod
-    def _job_path(cls, project_id, job_id):
+    def _job_path(cls, project_id: str, job_id: str) -> str:
         raise NotImplementedError
 
     @classmethod
-    def get(cls, project_id, job_id):
+    def get(cls, project_id: str, job_id: str):
         # Note: For 3.0 (when the behavior of all job types' `get` methods can be made consistent),
         #       the implementation can move here.
         raise NotImplementedError
 
-    def cancel(self):
+    def cancel(self) -> None:
         """
         Cancel this job. If this job has not finished running, it will be
         removed and canceled.
@@ -296,15 +300,15 @@ class Job(AbstractJob):
     Attributes
     ----------
     id : int
-        the ID of the job
+        The ID of the job
     project_id : str
-        the ID of the project the job belongs to
+        The ID of the project the job belongs to
     status : str
-        the status of the job - will be one of ``datarobot.enums.QUEUE_STATUS``
+        The status of the job - will be one of ``datarobot.enums.QUEUE_STATUS``
     job_type : str
-        what kind of work the job is doing - will be one of ``datarobot.enums.JOB_TYPE``
+        What kind of work the job is doing - will be one of ``datarobot.enums.JOB_TYPE``
     is_blocked : bool
-        if true, the job is blocked (cannot be executed) until its dependencies are resolved
+        If true, the job is blocked (cannot be executed) until its dependencies are resolved
     """
 
     _converter_extra = t.Dict({t.Key("job_type", optional=True) >> "job_type": String, t.Key("url") >> "url": String})
@@ -314,7 +318,7 @@ class Job(AbstractJob):
         self._job_details_path = self._client.strip_endpoint(self._safe_data["url"])
 
     @classmethod
-    def _get_job_type(cls, safe_data):
+    def _get_job_type(cls, safe_data) -> str:
         # For generic jobs, job_type comes from the data.
         return safe_data.get("job_type")
 
@@ -352,15 +356,15 @@ class Job(AbstractJob):
 
 class AbstractSpecificJob(AbstractJob):  # pylint: disable=missing-class-docstring
     @classmethod
-    def _job_type(cls):
+    def _job_type(cls) -> str:
         raise NotImplementedError
 
     @classmethod
-    def _get_job_type(cls, _):
+    def _get_job_type(cls, _) -> str:
         return cls._job_type()
 
     @classmethod
-    def from_job(cls, job):  # pylint: disable=missing-function-docstring
+    def from_job(cls, job) -> Self:  # pylint: disable=missing-function-docstring
         if not job.job_type == cls._job_type():
             raise ValueError(f"wrong job_type: {job.job_type}")
         if isinstance(job, AbstractSpecificJob):
@@ -394,13 +398,15 @@ class AbstractSpecificJob(AbstractJob):  # pylint: disable=missing-class-docstri
 
 
 class TrainingPredictionsJob(Job):  # pylint: disable=missing-class-docstring
-    def __init__(self, data, model_id, data_subset, **kwargs):
+    def __init__(self, data, model_id, data_subset, **kwargs) -> None:
         super().__init__(data, **kwargs)
         self._model_id = model_id
         self._data_subset = data_subset
 
     @classmethod
-    def get(cls, project_id, job_id, model_id=None, data_subset=None):
+    def get(
+        cls, project_id: str, job_id: str, model_id: Optional[str] = None, data_subset=None
+    ) -> "TrainingPredictionsJob":
         """
         Fetches one training predictions job.
 
@@ -433,14 +439,14 @@ class TrainingPredictionsJob(Job):  # pylint: disable=missing-class-docstring
             completed_resource_url=completed_url,
         )
 
-    def _make_result_from_location(self, location, params=None):
+    def _make_result_from_location(self, location: str, params: Optional[Dict[str, Any]] = None):
         return TrainingPredictions.from_location(
             location,
             model_id=self._model_id,
             data_subset=self._data_subset,
         )
 
-    def refresh(self):
+    def refresh(self) -> None:
         """
         Update this object with the latest job data from the server.
         """
@@ -470,7 +476,7 @@ class FeatureImpactJob(Job):
     # explicit `with_metadata` parameter (which `refresh()` does).
     _with_metadata = False
 
-    def __init__(self, data, completed_resource_url=None, with_metadata=False):
+    def __init__(self, data, completed_resource_url: Optional[str] = None, with_metadata: bool = False) -> None:
         super().__init__(data, completed_resource_url=completed_resource_url)
         # We might be in existing instance with .refresh() called, that does not know about
         # with_metadata parameter. Only set instance attribute if it is set to True explicitly,
@@ -479,7 +485,7 @@ class FeatureImpactJob(Job):
             self._with_metadata = with_metadata
 
     @classmethod
-    def get(cls, project_id, job_id, with_metadata=False):
+    def get(cls, project_id: str, job_id: str, with_metadata: bool = False) -> "FeatureImpactJob":
         """
         Fetches one job.
 
@@ -507,14 +513,16 @@ class FeatureImpactJob(Job):
         data, completed_url = cls._data_and_completed_url_for_job(url)
         return cls(data, completed_resource_url=completed_url, with_metadata=with_metadata)
 
-    def _make_result_from_location(self, location, params=None):
+    def _make_result_from_location(self, location: str, params: Optional[Dict[str, Any]] = None):
         """Custom extension of get_result_when_complete to use a customized formatter"""
         server_data = self._client.get(location, params=params).json()
         return filter_feature_impact_result(server_data, with_metadata=self._with_metadata)
 
 
 class FeatureEffectsMulticlassJob(Job):
-    def _make_result_from_location(self, location, params=None):
+    def _make_result_from_location(
+        self, location: str, params: Optional[Dict[str, Any]] = None
+    ) -> FeatureEffectsMulticlassJob:
         return FeatureEffectsMulticlass.from_location(location)
 
 
@@ -525,7 +533,7 @@ def _filter_feature_impact_result(data, validator_config):
     return {k: v for k, v in data.items() if k in exposed_fields}
 
 
-def filter_feature_impact_result(data, with_metadata):
+def filter_feature_impact_result(data, with_metadata: bool):
     """Filter Feature Impact response according to specific validator configuration.
 
     Parameters

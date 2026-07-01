@@ -58,6 +58,7 @@ Currently implemented:
  * remote{_add}
  * receive_pack
  * replace{_create,_delete,_list}
+ * request_pull
  * rerere{_status,_diff,_forget,_clear,_gc}
  * reset
  * revert
@@ -211,6 +212,7 @@ __all__ = [
     "prune",
     "pull",
     "push",
+    "range_diff",
     "rebase",
     "receive_pack",
     "reflog",
@@ -223,6 +225,7 @@ __all__ = [
     "replace_create",
     "replace_delete",
     "replace_list",
+    "request_pull",
     "rerere",
     "rerere_clear",
     "rerere_diff",
@@ -316,6 +319,9 @@ from typing import (
     cast,
     overload,
 )
+from typing import (
+    Protocol as TypingProtocol,
+)
 
 if sys.version_info >= (3, 12):
     from typing import override
@@ -327,6 +333,7 @@ from .._typing import Buffer
 if TYPE_CHECKING:
     import urllib3
 
+    from ..diff import ColorizedDiffStream
     from ..filter_branch import CommitData
     from ..gc import GCStats
     from ..maintenance import MaintenanceResult
@@ -372,6 +379,7 @@ from ..objects import (
     Blob,
     Commit,
     ObjectID,
+    ShaFile,
     Tag,
     Tree,
     TreeEntry,
@@ -2000,10 +2008,16 @@ def commit_encode(
     return contents.encode(encoding)
 
 
+class _TextStream(TypingProtocol):
+    """Minimal write-only text stream protocol used for human-readable output."""
+
+    def write(self, data: str, /) -> int: ...
+
+
 def print_commit(
     commit: Commit,
     decode: Callable[[bytes], str],
-    outstream: TextIO = sys.stdout,
+    outstream: _TextStream = sys.stdout,
     abbrev_commit: bool = False,
 ) -> None:
     """Write a human-readable commit log entry.
@@ -2080,7 +2094,7 @@ def show_commit(
     repo: RepoPath,
     commit: Commit,
     decode: Callable[[bytes], str],
-    outstream: TextIO = sys.stdout,
+    outstream: "_TextStream | ColorizedDiffStream" = sys.stdout,
 ) -> None:
     """Show a commit to a stream.
 
@@ -2092,17 +2106,15 @@ def show_commit(
     """
     from ..diff import ColorizedDiffStream
 
-    # Create a wrapper for ColorizedDiffStream to handle string/bytes conversion
+    # Adapter that lets print_commit (which writes str) feed a
+    # ColorizedDiffStream (which writes bytes).
     class _StreamWrapper:
         def __init__(self, stream: "ColorizedDiffStream") -> None:
             self.stream = stream
 
-        def write(self, data: str | bytes) -> None:
-            if isinstance(data, str):
-                # Convert string to bytes for ColorizedDiffStream
-                self.stream.write(data.encode("utf-8"))
-            else:
-                self.stream.write(data)
+        def write(self, data: str) -> int:
+            self.stream.write(data.encode("utf-8"))
+            return len(data)
 
     with open_repo_closing(repo) as r:
         # Use wrapper for ColorizedDiffStream, direct stream for others
@@ -2194,37 +2206,44 @@ def print_name_status(changes: Iterator[TreeChange]) -> Iterator[str]:
     for change in changes:
         if not change:
             continue
+        change_item: TreeChange
         if isinstance(change, list):
-            change = change[0]
-        if change.type == CHANGE_ADD:
-            assert change.new is not None
-            path1 = change.new.path
+            change_item = cast(TreeChange, change[0])
+        else:
+            change_item = change
+        if change_item.type == CHANGE_ADD:
+            assert change_item.new is not None
+            path1 = change_item.new.path
             assert path1 is not None
-            path2 = b""
+            path2: bytes = b""
             kind = "A"
-        elif change.type == CHANGE_DELETE:
-            assert change.old is not None
-            path1 = change.old.path
+        elif change_item.type == CHANGE_DELETE:
+            assert change_item.old is not None
+            path1 = change_item.old.path
             assert path1 is not None
             path2 = b""
             kind = "D"
-        elif change.type == CHANGE_MODIFY:
-            assert change.new is not None
-            path1 = change.new.path
+        elif change_item.type == CHANGE_MODIFY:
+            assert change_item.new is not None
+            path1 = change_item.new.path
             assert path1 is not None
             path2 = b""
             kind = "M"
-        elif change.type in RENAME_CHANGE_TYPES:
-            assert change.old is not None and change.new is not None
-            path1 = change.old.path
+        elif change_item.type in RENAME_CHANGE_TYPES:
+            assert change_item.old is not None and change_item.new is not None
+            path1 = change_item.old.path
             assert path1 is not None
-            path2_opt = change.new.path
+            path2_opt = change_item.new.path
             assert path2_opt is not None
             path2 = path2_opt
-            if change.type == CHANGE_RENAME:
+            if change_item.type == CHANGE_RENAME:
                 kind = "R"
-            elif change.type == CHANGE_COPY:
+            elif change_item.type == CHANGE_COPY:
                 kind = "C"
+            else:
+                kind = "?"
+        else:
+            raise ValueError(f"Unknown change type: {change_item.type}")
         path1_str = (
             path1.decode("utf-8", errors="replace")
             if isinstance(path1, bytes)
@@ -2249,14 +2268,17 @@ def print_name_only(changes: Iterator[TreeChange]) -> Iterator[str]:
     for change in changes:
         if not change:
             continue
+        change_item: TreeChange
         if isinstance(change, list):
-            change = change[0]
-        if change.type == CHANGE_DELETE:
-            assert change.old is not None
-            path = change.old.path
+            change_item = cast(TreeChange, change[0])
         else:
-            assert change.new is not None
-            path = change.new.path
+            change_item = change
+        if change_item.type == CHANGE_DELETE:
+            assert change_item.old is not None
+            path = change_item.old.path
+        else:
+            assert change_item.new is not None
+            path = change_item.new.path
         assert path is not None
         path_str = (
             path.decode("utf-8", errors="replace") if isinstance(path, bytes) else path
@@ -2494,21 +2516,17 @@ def show(
         objects = ["HEAD"]
     if isinstance(objects, str | bytes):
         objects = [objects]
+
+    def _make_decode(obj: ShaFile) -> Callable[[bytes], str]:
+        if isinstance(obj, Commit):
+            return lambda x: commit_decode(obj, x, default_encoding)
+        return lambda x: x.decode(default_encoding)
+
     with open_repo_closing(repo) as r:
         for objectish in objects:
             o = parse_object(r, objectish, config=r.get_config_stack())
-            if isinstance(o, Commit):
-
-                def decode(x: bytes) -> str:
-                    return commit_decode(o, x, default_encoding)
-
-            else:
-
-                def decode(x: bytes) -> str:
-                    return x.decode(default_encoding)
-
             assert isinstance(o, Tree | Blob | Commit | Tag)
-            show_object(r, o, decode, outstream)
+            show_object(r, o, _make_decode(o), outstream)
 
 
 def diff_tree(
@@ -4128,10 +4146,11 @@ def branch_delete(repo: RepoPath, name: str | bytes | Sequence[str | bytes]) -> 
       name: Name of the branch
     """
     with open_repo_closing(repo) as r:
-        if isinstance(name, list | tuple):
-            names = name
-        else:
+        names: Sequence[str | bytes]
+        if isinstance(name, str | bytes):
             names = [name]
+        else:
+            names = name
         for branch_name in names:
             del r.refs[_make_branch_ref(branch_name)]
 
@@ -5349,10 +5368,10 @@ def check_ignore(
 
             if ignore_manager.is_ignored(test_path):
                 # Return relative path (like git does) when absolute path was provided
-                if os.path.isabs(original_path):
+                if os.path.isabs(original_path_str):
                     output_path = path
                 else:
-                    output_path = original_path  # type: ignore[assignment]
+                    output_path = original_path_str
                 yield _quote_path(output_path) if quote_path else output_path
 
 
@@ -6202,13 +6221,14 @@ def cone_mode_disable(repo: str | os.PathLike[str] | Repo, force: bool = False) 
         commit = repo_obj[repo_obj.head()]
         assert isinstance(commit, Commit)
 
-        from ..index import build_index_from_tree
+        from ..index import build_index_from_tree, get_path_element_validator
 
         build_index_from_tree(
             repo_obj.path,
             repo_obj.index_path(),
             repo_obj.object_store,
             commit.tree,
+            validate_path_element=get_path_element_validator(config),
         )
 
 
@@ -6443,8 +6463,8 @@ def show_index(
     from ..pack import load_pack_index
 
     with open_repo_closing(repo) as r:
-        idx = load_pack_index(index_path, r.object_format)
-        return [(offset, sha, crc32) for sha, offset, crc32 in idx.iterentries()]
+        with closing(load_pack_index(index_path, r.object_format)) as idx:
+            return [(offset, sha, crc32) for sha, offset, crc32 in idx.iterentries()]
 
 
 def check_mailmap(repo: RepoPath, contact: str | bytes) -> bytes:
@@ -6591,12 +6611,16 @@ def find_unique_abbrev(
 def describe(repo: str | os.PathLike[str] | Repo, abbrev: int | None = None) -> str:
     """Describe the repository version.
 
+    The commit hash is prefixed with a literal "g" (for "git"), matching
+    git's own behaviour. The "g" is not counted towards abbrev.
+
     Args:
       repo: git repository
-      abbrev: number of characters of commit to take, default is 7
+      abbrev: number of hex characters of the commit hash to take (not
+        counting the "g" prefix), default is 7
     Returns: a string description of the current git revision
 
-    Examples: "gabcdefh", "v0.1" or "v0.1-5-gabcdefh".
+    Examples: "gabcdefg", "v0.1" or "v0.1-5-gabcdefa".
     """
     abbrev_slice = slice(0, abbrev if abbrev is not None else 7)
     # Get the repository
@@ -7262,6 +7286,120 @@ def cherry(
             results.append((status, commit_id, message))
 
         return results
+
+
+def range_diff(
+    repo: RepoPath,
+    range1: str | bytes | Commit | Tag,
+    range2: str | bytes | Commit | Tag | None = None,
+    base: str | bytes | Commit | Tag | None = None,
+    *,
+    creation_factor: int | None = None,
+    diff_algorithm: str | None = None,
+    outstream: BinaryIO = default_bytes_out_stream,
+) -> None:
+    """Compare two commit ranges, like ``git range-diff``.
+
+    Three argument forms are supported, mirroring git:
+
+    * ``range_diff(repo, "A..B", "C..D")`` compares the two ranges directly.
+    * ``range_diff(repo, rev1, rev2, base=base)`` compares ``base..rev1``
+      with ``base..rev2``.
+    * ``range_diff(repo, "rev1...rev2")`` compares ``rev2..rev1`` with
+      ``rev1..rev2`` using their merge base.
+
+    Revisions may be given as strings or bytes (including ``A..B`` range
+    syntax), or as Commit or Tag objects.
+
+    Args:
+      repo: Path to repository or a Repo object.
+      range1: First range (``A..B``), or a single revision when ``base`` is
+        given, or ``rev1...rev2`` for the symmetric-difference form.
+      range2: Second range (``C..D``), or a single revision when ``base`` is
+        given. Must be None for the ``rev1...rev2`` form.
+      base: Common base for the ``base rev1 rev2`` form.
+      creation_factor: Percentage controlling when two commits are considered
+        a match (see git's ``--creation-factor``); defaults to git's default.
+      diff_algorithm: Diff algorithm to use ("myers" or "patience").
+      outstream: Stream to write the rendered range-diff to.
+    """
+    from ..graph import find_merge_base
+    from ..objectspec import parse_commit_range
+    from ..range_diff import (
+        DEFAULT_CREATION_FACTOR,
+        format_range_diff,
+    )
+    from ..range_diff import (
+        range_diff as _range_diff,
+    )
+
+    if creation_factor is None:
+        creation_factor = DEFAULT_CREATION_FACTOR
+
+    def has_range_syntax(rev: object, sep: bytes) -> bool:
+        if isinstance(rev, str):
+            return sep.decode() in rev
+        if isinstance(rev, bytes):
+            return sep in rev
+        return False
+
+    with open_repo_closing(repo) as r:
+        if base is not None:
+            # Form: base rev1 rev2 -> base..rev1 and base..rev2
+            if range2 is None:
+                raise Error("Two revisions are required when a base is given")
+            base_id = parse_commit(r, base).id
+            old_base = base_id
+            new_base = base_id
+            old_tip = parse_commit(r, range1).id
+            new_tip = parse_commit(r, range2).id
+        elif range2 is None:
+            # Form: rev1...rev2 -> rev2..rev1 and rev1..rev2
+            if not has_range_syntax(range1, b"..."):
+                raise Error("A single argument must be of the form <rev1>...<rev2>")
+            assert isinstance(range1, str | bytes)
+            range1 = range1.encode() if isinstance(range1, str) else range1
+            left, right = range1.split(b"...", 1)
+            left_id = parse_commit(r, left).id
+            right_id = parse_commit(r, right or b"HEAD").id
+            merge_bases = find_merge_base(r, [left_id, right_id])
+            if not merge_bases:
+                raise Error("No merge base found for the two revisions")
+            mb = merge_bases[0]
+            old_base = mb
+            old_tip = left_id
+            new_base = mb
+            new_tip = right_id
+        else:
+            # Form: A..B C..D
+            if not isinstance(range1, str | bytes) or not isinstance(
+                range2, str | bytes
+            ):
+                raise Error(
+                    "Both arguments must be commit ranges of the form <base>..<tip>"
+                )
+            old_range = parse_commit_range(r, range1)
+            new_range = parse_commit_range(r, range2)
+            if old_range is None or new_range is None:
+                raise Error(
+                    "Both arguments must be commit ranges of the form <base>..<tip>"
+                )
+            old_base = old_range[0].id
+            old_tip = old_range[1].id
+            new_base = new_range[0].id
+            new_tip = new_range[1].id
+
+        entries = _range_diff(
+            r,
+            old_base,
+            old_tip,
+            new_base,
+            new_tip,
+            creation_factor=creation_factor,
+            diff_algorithm=diff_algorithm,
+        )
+        for line in format_range_diff(entries):
+            outstream.write(line)
 
 
 def cherry_pick(  # noqa: D417
@@ -8242,6 +8380,204 @@ def format_patch(
     return filenames
 
 
+def _commit_iso_date(commit: Commit) -> str:
+    """Format a commit's committer date like git's ``%ci`` placeholder."""
+    time_tuple = time.gmtime(commit.commit_time + commit.commit_timezone)
+    time_str = time.strftime("%Y-%m-%d %H:%M:%S", time_tuple)
+    timezone_str = format_timezone(commit.commit_timezone).decode("ascii")
+    return f"{time_str} {timezone_str}"
+
+
+def _request_pull_ref(r: "Repo", local: bytes) -> bytes:
+    """Resolve the ref name to advertise in a pull request.
+
+    Mirrors git request-pull, which resolves the local ref through a
+    symbolic ref, then a matching head/tag, and finally falls back to the
+    expression itself.
+    """
+    # A symbolic ref (e.g. HEAD) resolves to the underlying branch.
+    try:
+        target: bytes | None = r.refs.follow(Ref(local))[0][-1]
+    except (KeyError, ValueError):
+        target = None
+    if target is not None and target != local and target.startswith(b"refs/"):
+        return target
+
+    # An exact branch or tag name.
+    for prefix in (b"refs/heads/", b"refs/tags/"):
+        if Ref(prefix + local) in r.refs:
+            return prefix + local
+    if local.startswith(b"refs/") and Ref(local) in r.refs:
+        return local
+
+    return local
+
+
+def request_pull(
+    repo: RepoPath,
+    base: str | bytes,
+    url: str,
+    end: str | bytes | None = None,
+    patch: bool = False,
+    outstream: TextIO = sys.stdout,
+) -> None:
+    """Generate a summary of pending changes, like git request-pull.
+
+    Produces a message asking an upstream maintainer to pull a set of
+    changes from a repository, suitable for sending by email.
+
+    Args:
+      repo: Path to repository
+      base: Commit to start at; must already exist in the upstream
+        history (e.g. a tag or branch the maintainer already has).
+      url: URL of the repository the changes can be pulled from.
+      end: Commit to end at, defaulting to HEAD. May use the
+        ``<local>:<remote>`` syntax to advertise a remote ref name that
+        differs from the local one.
+      patch: If True, include the patch text after the summary.
+      outstream: Stream to write the request to.
+
+    Raises:
+      Error: If there are no commits in common between base and end, or
+        if end resolves to no commits beyond base.
+    """
+    from ..diffstat import diffstat
+    from ..graph import find_merge_base
+
+    base_bytes = base.encode() if isinstance(base, str) else base
+
+    if end is None:
+        local: bytes = b"HEAD"
+        remote: bytes | None = None
+    else:
+        end_bytes = end.encode() if isinstance(end, str) else end
+        if b":" in end_bytes:
+            local, remote = end_bytes.split(b":", 1)
+        else:
+            local, remote = end_bytes, None
+
+    with open_repo_closing(repo) as r:
+        base_commit = parse_commit(r, base_bytes)
+        head_commit = parse_commit(r, local)
+
+        merge_bases = find_merge_base(r, [base_commit.id, head_commit.id])
+        if not merge_bases:
+            raise Error(f"No commits in common between {base!r} and {local.decode()!r}")
+        merge_base = merge_bases[0]
+
+        # Collect the commits being requested for the shortlog, oldest last
+        # so we can sort and group them like git shortlog.
+        walker = r.get_walker(include=[head_commit.id], exclude=[base_commit.id])
+        commits = [entry.commit for entry in walker]
+        if not commits:
+            raise Error(
+                f"No commits between {base!r} and {local.decode()!r}; "
+                "nothing to request"
+            )
+
+        # Resolve the ref name to advertise.
+        if remote is not None:
+            pretty_remote = shorten_ref_name(remote)
+        else:
+            resolved = _request_pull_ref(r, local)
+            pretty_remote = shorten_ref_name(resolved)
+
+        # If the local ref resolves to an annotated tag, surface its message.
+        tag_message: str | None = None
+        try:
+            tagged = parse_object(r, local)
+        except KeyError:
+            tagged = None
+        if isinstance(tagged, Tag):
+            tag_message = tagged.message.decode("utf-8", "replace").strip()
+
+        merge_base_commit = r.object_store[merge_base]
+        assert isinstance(merge_base_commit, Commit)
+
+        def subject(commit: Commit) -> str:
+            decoded: str = commit.message.decode(commit.encoding or "utf-8", "replace")
+            return decoded.split("\n", 1)[0].strip()
+
+        outstream.write(
+            "The following changes since commit {}:\n\n".format(
+                merge_base_commit.id.decode("ascii")
+            )
+        )
+        outstream.write(
+            f"  {subject(merge_base_commit)} ({_commit_iso_date(merge_base_commit)})\n\n"
+        )
+        outstream.write("are available in the Git repository at:\n\n")
+        outstream.write(f"  {url} {pretty_remote.decode('utf-8', 'replace')}\n\n")
+        outstream.write(
+            "for you to fetch changes up to {}:\n\n".format(
+                head_commit.id.decode("ascii")
+            )
+        )
+        outstream.write(
+            f"  {subject(head_commit)} ({_commit_iso_date(head_commit)})\n\n"
+        )
+
+        separator = "-" * 64
+        if tag_message:
+            outstream.write(separator + "\n")
+            outstream.write(tag_message + "\n")
+
+        outstream.write(separator + "\n")
+
+        # Shortlog: group commit subjects by author name. Authors are sorted
+        # case-insensitively; within an author the commits keep chronological
+        # (oldest first) order, like git shortlog.
+        from ..mailmap import Mailmap
+
+        try:
+            mailmap: Mailmap | None = Mailmap.from_path(
+                os.path.join(r.path, ".mailmap")
+            )
+        except FileNotFoundError:
+            mailmap = None
+
+        def author_name(commit: Commit) -> str:
+            ident = commit.author
+            if mailmap is not None:
+                resolved = mailmap.lookup(ident)
+                assert isinstance(resolved, bytes)
+                ident = resolved
+            name: str = ident.decode(commit.encoding or "utf-8", "replace")
+            # Strip the "<email>" portion, keeping just the name.
+            if "<" in name:
+                name = name[: name.index("<")].strip()
+            return name
+
+        by_author: dict[str, list[str]] = {}
+        for commit in reversed(commits):
+            by_author.setdefault(author_name(commit), []).append(subject(commit))
+        for author in sorted(by_author, key=str.lower):
+            subjects = by_author[author]
+            outstream.write(f"{author} ({len(subjects)}):\n")
+            for subj in subjects:
+                outstream.write(f"      {subj}\n")
+            outstream.write("\n")
+
+        # Diffstat between the merge base and the head.
+        diff_content = BytesIO()
+        write_tree_diff(
+            diff_content, r.object_store, merge_base_commit.tree, head_commit.tree
+        )
+        diff_bytes = diff_content.getvalue()
+        stat = diffstat(diff_bytes.splitlines())
+        outstream.write(stat.decode("utf-8", "replace") + "\n")
+
+        if patch:
+            outstream.write("\n")
+            if hasattr(outstream, "buffer"):
+                # Flush the text stream so the binary patch is not written
+                # ahead of the already-buffered text output.
+                outstream.flush()
+                outstream.buffer.write(diff_bytes)
+            else:
+                outstream.write(diff_bytes.decode("utf-8", "replace"))
+
+
 def bisect_start(
     repo: str | os.PathLike[str] | Repo = ".",
     bad: str | bytes | Commit | Tag | None = None,
@@ -9185,6 +9521,7 @@ def am(
     Returns:
         List of commit SHAs (bytes) created
     """
+    import email.message
     import email.parser
     import mailbox
     import tempfile

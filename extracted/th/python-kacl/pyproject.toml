@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-kacl"
+version = "0.7.3"
+description = "Python module and CLI tool for validating and modifying Changelogs in \"keep-a-changelog\" format\""
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Matthias Schmieder", email = "schmieder.matthias@gmail.com" }
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Version Control",
+]
+dynamic = [
+    "dependencies",
+]
+
+[project.urls]
+Homepage = "https://gitlab.com/schmieder.matthias/python-kacl.git"
+
+[project.scripts]
+kacl-cli = "kacl.kacl_cli:start"
+kacl = "kacl.kacl_cli:start"
+
+[tool.setuptools.dynamic.dependencies]
+file = ["requirements.txt"]
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.packages.find]
+exclude = ["tests", "tests.*"]

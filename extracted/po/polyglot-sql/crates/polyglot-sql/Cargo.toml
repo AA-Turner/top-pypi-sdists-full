@@ -1,0 +1,130 @@
+[package]
+name = "polyglot-sql"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "SQL parsing, validating, formatting, and dialect translation library"
+readme = "README.md"
+
+[features]
+default = [
+    "all-dialects",
+    "generate",
+    "transpile",
+    "builder",
+    "ast-tools",
+    "semantic",
+    "openlineage",
+    "diff",
+    "planner",
+    "time",
+    "stacker",
+]
+bindings = ["dep:ts-rs"]
+generate = []
+transpile = ["generate"]
+builder = ["generate"]
+ast-tools = []
+semantic = ["ast-tools"]
+openlineage = ["semantic"]
+diff = ["generate"]
+planner = []
+time = []
+# Default-on for native builds so direct Rust users and the FFI/Python bindings
+# inherit stack-growth protection automatically. WASM opts out via
+# `default-features = false` in its dependency declaration.
+stacker = ["dep:stacker"]
+all-dialects = [
+    "dialect-postgresql", "dialect-mysql", "dialect-bigquery",
+    "dialect-snowflake", "dialect-duckdb", "dialect-tsql",
+    "dialect-clickhouse", "dialect-oracle", "dialect-hive",
+    "dialect-spark", "dialect-sqlite", "dialect-presto",
+    "dialect-trino", "dialect-redshift", "dialect-databricks",
+    "dialect-athena", "dialect-teradata", "dialect-doris",
+    "dialect-starrocks", "dialect-materialize", "dialect-risingwave",
+    "dialect-singlestore", "dialect-cockroachdb", "dialect-tidb",
+    "dialect-druid", "dialect-solr", "dialect-tableau",
+    "dialect-dune", "dialect-fabric", "dialect-drill",
+    "dialect-dremio", "dialect-exasol", "dialect-datafusion",
+]
+dialect-postgresql = []
+dialect-mysql = []
+dialect-bigquery = []
+dialect-snowflake = []
+dialect-duckdb = []
+dialect-tsql = []
+dialect-clickhouse = []
+dialect-oracle = []
+dialect-hive = []
+dialect-spark = []
+dialect-sqlite = []
+dialect-presto = []
+dialect-trino = []
+dialect-redshift = []
+dialect-databricks = []
+dialect-athena = []
+dialect-teradata = []
+dialect-doris = []
+dialect-starrocks = []
+dialect-materialize = []
+dialect-risingwave = []
+dialect-singlestore = []
+dialect-cockroachdb = []
+dialect-tidb = []
+dialect-druid = []
+dialect-solr = []
+dialect-tableau = []
+dialect-dune = []
+dialect-fabric = []
+dialect-drill = []
+dialect-dremio = []
+dialect-exasol = []
+dialect-datafusion = []
+function-catalog-clickhouse = [
+    "semantic",
+    "dep:polyglot-sql-function-catalogs",
+    "polyglot-sql-function-catalogs/dialect-clickhouse",
+]
+function-catalog-duckdb = [
+    "semantic",
+    "dep:polyglot-sql-function-catalogs",
+    "polyglot-sql-function-catalogs/dialect-duckdb",
+]
+function-catalog-all-dialects = [
+    "semantic",
+    "dep:polyglot-sql-function-catalogs",
+    "polyglot-sql-function-catalogs/all-dialects",
+]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+unicode-segmentation = { workspace = true }
+stacker = { version = "0.1", optional = true }
+ts-rs = { version = "12.0", features = ["serde-compat"], optional = true }
+polyglot-sql-function-catalogs = { path = "../polyglot-sql-function-catalogs", version = "0.5.11", optional = true, default-features = false }
+
+[dev-dependencies]
+pretty_assertions = "1.4"
+once_cell = "1.19"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "parsing"
+harness = false
+
+[[bench]]
+name = "transpile"
+harness = false
+
+[[bench]]
+name = "in_list"
+harness = false
+
+[[bench]]
+name = "rust_parsing"
+harness = false

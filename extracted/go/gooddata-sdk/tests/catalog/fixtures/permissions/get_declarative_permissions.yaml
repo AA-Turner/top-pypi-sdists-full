@@ -1,0 +1,100 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/layout/workspaces/demo/permissions
+    response:
+      body:
+        string:
+          hierarchyPermissions:
+            - assignee:
+                id: demo2
+                type: user
+              name: MANAGE
+            - assignee:
+                id: demoGroup
+                type: userGroup
+              name: ANALYZE
+          permissions:
+            - assignee:
+                id: demo2
+                type: user
+              name: ANALYZE
+            - assignee:
+                id: demoGroup
+                type: userGroup
+              name: VIEW
+      headers:
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/layout/workspaces/demo/permissions
+    response:
+      body:
+        string:
+          hierarchyPermissions:
+            - assignee:
+                id: demo2
+                type: user
+              name: MANAGE
+            - assignee:
+                id: demoGroup
+                type: userGroup
+              name: ANALYZE
+          permissions:
+            - assignee:
+                id: demo2
+                type: user
+              name: ANALYZE
+            - assignee:
+                id: demoGroup
+                type: userGroup
+              name: VIEW
+      headers:
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+version: 1

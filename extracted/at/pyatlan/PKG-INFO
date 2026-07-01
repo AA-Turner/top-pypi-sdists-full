@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyatlan
-Version: 9.8.0
+Version: 9.9.0
 Summary: Atlan Python Client
 Author-email: Atlan Technologies Pvt Ltd <engineering@atlan.com>
 Maintainer-email: Atlan Technologies Pvt Ltd <engineering@atlan.com>
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 5 - Production/Stable
@@ -22,7 +23,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: pydantic~=2.12.5
+Requires-Dist: pydantic~=2.13.4
 Requires-Dist: jinja2~=3.1.6
 Requires-Dist: tenacity~=9.1.2
 Requires-Dist: lazy-loader~=0.4

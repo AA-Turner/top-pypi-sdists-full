@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Collection, Iterable, List, Optional, Sequence
 if TYPE_CHECKING:
     from chalk.features.feature_set import Features
     from chalk.ml.model_reference import ModelReference
+    from chalk.queries.materialized_feature_view import MaterializedFeatureView
     from chalk.queries.named_query import NamedQuery
     from chalk.queries.scheduled_aggregate_backfill import ScheduledAggregateBackfill
     from chalk.queries.scheduled_query import ScheduledQuery
@@ -46,6 +47,7 @@ from chalk.parsed._proto.utils import (
 from chalk.parsed._proto.validation import validate_artifacts
 from chalk.parsed.to_proto import ToProtoConverter
 from chalk.parsed.user_types_to_json import get_lsp_gql
+from chalk.queries.materialized_feature_view import MATERIALIZED_FEATURE_VIEW_REGISTRY
 from chalk.queries.named_query import NAMED_QUERY_REGISTRY
 from chalk.queries.scheduled_aggregate_backfill import SCHEDULED_AGGREGATE_BACKFILL_REGISTRY, AggregateBackfillTarget
 from chalk.queries.scheduled_query import CRON_QUERY_REGISTRY, lint_incremental_resolvers
@@ -190,6 +192,7 @@ def export_from_registry(*, include_captured_global_values: bool = False) -> exp
         online_store_config_registry=ONLINE_STORE_CONFIG_REGISTRY,
         cron_query_registry=CRON_QUERY_REGISTRY,
         scheduled_aggregate_backfill_registry=SCHEDULED_AGGREGATE_BACKFILL_REGISTRY,
+        materialized_feature_view_registry=MATERIALIZED_FEATURE_VIEW_REGISTRY,
         chart_registry=_Chart.registry,
         include_captured_global_values=include_captured_global_values,
     )
@@ -207,7 +210,8 @@ def export_from_registries(
     online_store_config_registry: "dict[str, OnlineStoreConfig]",
     cron_query_registry: "dict[str, ScheduledQuery]",
     scheduled_aggregate_backfill_registry: "dict[str, ScheduledAggregateBackfill]",
-    chart_registry: Iterable[_Chart],
+    materialized_feature_view_registry: "dict[str, MaterializedFeatureView]",
+    chart_registry: "Iterable[_Chart]",
     include_captured_global_values: bool = False,
 ) -> export_pb.Export:
     """Build an Export proto from explicit registry inputs.
@@ -252,6 +256,21 @@ def export_from_registries(
             # Not an LSP error, so log it as a failed import
             failed_protos.append(build_failed_import(e, "validation"))
 
+    from chalk.parsed.validation_from_registries import validate_materialized_feature_view_from_registries
+
+    valid_mfv_registry: dict[str, MaterializedFeatureView] = {}
+    for ns, view in materialized_feature_view_registry.items():
+        validation_errors = validate_materialized_feature_view_from_registries(view, features_registry)
+        if validation_errors:
+            failed_protos.append(
+                build_failed_import(
+                    "\n".join(validation_errors),
+                    f"materialized feature view for namespace '{ns}'",
+                )
+            )
+            continue
+        valid_mfv_registry[ns] = view
+
     graph_res = ToProtoConverter.convert_graph(
         features_registry=features_registry,
         resolver_registry=resolver_registry.get_all_resolvers(),
@@ -261,6 +280,7 @@ def export_from_registries(
         named_query_registry=named_query_registry,
         model_reference_registry=model_reference_registry,
         online_store_config_registry=online_store_config_registry,
+        materialized_feature_view_registry=valid_mfv_registry,
     )
 
     crons: List[CronQuery] = []

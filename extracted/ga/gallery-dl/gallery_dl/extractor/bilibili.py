@@ -46,10 +46,20 @@ class BilibiliArticleExtractor(BilibiliExtractor):
         # Flatten modules list
         pics = []
         modules = {}
+        article["title"] = ""
+        article["content"] = txt = []
         for module in article["detail"]["modules"]:
             if m := module.get("module_author"):
                 article["username"] = m.get("name")
                 article["user_id"] = m.get("mid")
+                article["date"] = self.parse_timestamp(m.get("pub_ts"))
+            if m := module.get("module_title"):
+                article["title"] = m.get("text")
+                article["tags"] = m.get("tags")
+            if m := module.get("module_topic"):
+                article["topic"] = m.get("name")
+                article["topic_id"] = m.get("id")
+                article["topic_url"] = m.get("jump_url")
             if m := module.get("module_blocked"):
                 self.log.warning("%s: Blocked Article\n%s", article_id,
                                  m.get("hint_message"))
@@ -63,6 +73,15 @@ class BilibiliArticleExtractor(BilibiliExtractor):
                     if "pic" in paragraph:
                         try:
                             pics.extend(paragraph["pic"]["pics"])
+                        except Exception:
+                            pass
+                    if "text" in paragraph:
+                        try:
+                            for node in paragraph["text"]["nodes"]:
+                                if n := node.get("word"):
+                                    txt.append(n["words"])
+                                if n := node.get("rich"):
+                                    txt.append(n.get("orig_text") or n["text"])
                         except Exception:
                             pass
             del module["module_type"]

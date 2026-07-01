@@ -1,0 +1,137 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skchat-sovereign"
+dynamic = ["version"]
+description = "AI-native encrypted P2P chat — sovereign communication for humans and AI"
+readme = "README.md"
+license = {text = "GPL-3.0-or-later"}
+requires-python = ">=3.11"
+authors = [
+    {name = "smilinTux", email = "admin@smilintux.org"},
+]
+keywords = ["chat", "p2p", "pgp", "encrypted", "ai", "sovereign"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Communications :: Chat",
+    "Topic :: Security :: Cryptography",
+]
+dependencies = [
+    "pydantic>=2.0",
+    "PGPy>=0.6",
+    "pyyaml>=6.0",
+    "Pillow>=10.0",
+    "filetype>=1.2",
+]
+
+[project.optional-dependencies]
+cli = [
+    "click>=8.1",
+    "rich>=13.0",
+]
+skcapstone = [
+    # Optional integration backbone (ADR-optional-integration-backbone).
+    # skchat runs fully standalone without this; when present the integration
+    # adapter routes alerts to sk-alert and registers jobs with skscheduler.
+    "skcapstone>=0.1",
+]
+all = [
+    "skchat-sovereign[cli]",
+]
+sk-pqc = [
+    # coord 0a1f0a51: OPTIONAL re-export of the published sk_pqc lib. When present,
+    # the ratchet modules (dm_ratchet/group_ratchet) re-export sk_pqc's vetted
+    # code; when ABSENT (e.g. .41) they fall back to the local impl unchanged.
+    # NOT a hard runtime dep — never required to run. Install: pip install
+    # "skchat-sovereign[sk-pqc]"
+    "sk-pqc>=0.1",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "pytest-cov>=4.0",
+    "black>=24.0",
+    "ruff>=0.4",
+    "click>=8.1",
+    "rich>=13.0",
+    "mcp>=1.0",
+    "httpx>=0.27",
+    "textual>=0.50",
+    "skcomms>=0.1.0",
+    "skmemory>=0.9",
+]
+
+[project.scripts]
+skchat = "skchat.cli:main"
+skchat-mcp = "skchat.mcp_server:main"
+skchat-voice = "skchat.transports.serve_ws:main"
+
+[project.urls]
+Homepage = "https://skchat.io"
+Repository = "https://github.com/smilinTux/skchat"
+Issues = "https://github.com/smilinTux/skchat/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+skchat = ["SKILL.md", "static/*"]
+
+[tool.setuptools_scm]
+version_file = "src/skchat/_version.py"
+fallback_version = "0.0.0+unknown"
+
+[tool.ruff]
+line-length = 99
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I"]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "F821",   # undefined name (false positives for lazy/local imports)
+    "F841",   # local variable assigned but never used (intentional in tests)
+    "E402",   # module level import not at top of file (needed in conftest)
+]
+
+[tool.black]
+line-length = 99
+target-version = ["py311"]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+omit = [
+    "tests/*",
+    "*/tests/*",
+    "src/skchat/static/*",
+]
+
+[tool.coverage.report]
+# Measured branch coverage was ~57% on 2026-06-17; gate sits a few points
+# below so CI passes today and can be ratcheted up as coverage improves.
+fail_under = 54
+show_missing = true
+skip_covered = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "live: test hits live model endpoints (skworld-100/.100/localhost); run with -m live",
+    "integration: mark test as an integration test requiring live external services",
+    "e2e_live: end-to-end tests using file-based transport (no daemon or network required)",
+    "e2e_3way: 3-way group chat E2E tests (Chef + Opus + Lumina in skworld-team)",
+]
+addopts = "-v --tb=short -m 'not live'"
+asyncio_mode = "auto"

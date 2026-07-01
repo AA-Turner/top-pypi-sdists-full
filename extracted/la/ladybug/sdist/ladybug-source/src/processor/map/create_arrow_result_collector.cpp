@@ -2,7 +2,11 @@
 #include "binder/expression/scalar_function_expression.h"
 #include "function/schema/vector_node_rel_functions.h"
 #include "processor/operator/arrow_result_collector.h"
+#include "processor/physical_plan_util.h"
 #include "processor/plan_mapper.h"
+#include "storage/storage_manager.h"
+#include "storage/table/node_table.h"
+#include "transaction/transaction.h"
 
 using namespace lbug::common;
 
@@ -47,7 +51,8 @@ static CSRTrackingInfo getCSRTrackingInfo(const binder::expression_vector& expre
 
 std::unique_ptr<PhysicalOperator> PlanMapper::createArrowResultCollector(
     ArrowResultConfig arrowConfig, const binder::expression_vector& expressions,
-    planner::Schema* schema, std::unique_ptr<PhysicalOperator> prevOperator) {
+    planner::Schema* schema, std::unique_ptr<PhysicalOperator> prevOperator,
+    OrderPreservationType orderPreservation) {
     std::vector<DataPos> columnDataPos;
     std::vector<LogicalType> columnTypes;
     for (auto& expr : expressions) {
@@ -55,9 +60,24 @@ std::unique_ptr<PhysicalOperator> PlanMapper::createArrowResultCollector(
         columnTypes.push_back(expr->getDataType().copy());
     }
     auto sharedState = std::make_shared<ArrowResultCollectorSharedState>();
+    sharedState->requireDeterministicOrder =
+        (orderPreservation == OrderPreservationType::FIXED_ORDER);
     auto csrTrackingInfo = getCSRTrackingInfo(expressions);
+    if (csrTrackingInfo.enabled()) {
+        // Look up the source node table's total row count so we can pad
+        // trailing empty rows in the CSR indptr (nodes with zero outgoing
+        // edges must still have an indptr slot).
+        const auto& srcExpr = *expressions[csrTrackingInfo.srcRowIDColIdx];
+        const auto& scalarFunc = srcExpr.constCast<binder::ScalarFunctionExpression>();
+        const auto& propExpr = scalarFunc.getChild(0)->constCast<binder::PropertyExpression>();
+        auto tableID = propExpr.getSingleTableID();
+        auto trx = transaction::Transaction::Get(*clientContext);
+        auto table = storage::StorageManager::Get(*clientContext)->getTable(tableID);
+        auto nodeTable = table->ptrCast<storage::NodeTable>();
+        csrTrackingInfo.numSourceRows = static_cast<int64_t>(nodeTable->getNumTotalRows(trx));
+    }
     auto opInfo = ArrowResultCollectorInfo(arrowConfig.chunkSize, columnDataPos,
-        std::move(columnTypes), csrTrackingInfo);
+        std::move(columnTypes), csrTrackingInfo, orderPreservation);
     auto printInfo = OPPrintInfo::EmptyInfo();
     if (csrTrackingInfo.enabled() &&
         (expressions.size() == 2 || (expressions.size() == 3 && csrTrackingInfo.hasRelRowID()))) {

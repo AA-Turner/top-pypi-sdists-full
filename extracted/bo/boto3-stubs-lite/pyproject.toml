@@ -4,10 +4,10 @@
 
 [project]
 name = "boto3-stubs-lite"
-version = "1.43.37"
+version = "1.43.38"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Lite type annotations for boto3 1.43.37 generated with mypy-boto3-builder 8.12.0"
+description = "Lite type annotations for boto3 1.43.38 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "boto3-stubs-full>=1.43.0, <1.44.0",
 ]
 boto3 = [
-    "boto3==1.43.37",
+    "boto3==1.43.38",
 ]
 all = [
     "mypy-boto3-accessanalyzer>=1.43.0, <1.44.0",
@@ -264,8 +264,6 @@ all = [
     "mypy-boto3-iot-jobs-data>=1.43.0, <1.44.0",
     "mypy-boto3-iot-managed-integrations>=1.43.0, <1.44.0",
     "mypy-boto3-iotdeviceadvisor>=1.43.0, <1.44.0",
-    "mypy-boto3-iotevents>=1.43.0, <1.44.0",
-    "mypy-boto3-iotevents-data>=1.43.0, <1.44.0",
     "mypy-boto3-iotfleetwise>=1.43.0, <1.44.0",
     "mypy-boto3-iotsecuretunneling>=1.43.0, <1.44.0",
     "mypy-boto3-iotsitewise>=1.43.0, <1.44.0",
@@ -361,7 +359,6 @@ all = [
     "mypy-boto3-organizations>=1.43.0, <1.44.0",
     "mypy-boto3-osis>=1.43.0, <1.44.0",
     "mypy-boto3-outposts>=1.43.0, <1.44.0",
-    "mypy-boto3-panorama>=1.43.0, <1.44.0",
     "mypy-boto3-partnercentral-account>=1.43.0, <1.44.0",
     "mypy-boto3-partnercentral-benefits>=1.43.0, <1.44.0",
     "mypy-boto3-partnercentral-channel>=1.43.0, <1.44.0",
@@ -447,7 +444,6 @@ all = [
     "mypy-boto3-signer-data>=1.43.0, <1.44.0",
     "mypy-boto3-signin>=1.43.0, <1.44.0",
     "mypy-boto3-simpledbv2>=1.43.0, <1.44.0",
-    "mypy-boto3-simspaceweaver>=1.43.0, <1.44.0",
     "mypy-boto3-snow-device-management>=1.43.0, <1.44.0",
     "mypy-boto3-snowball>=1.43.0, <1.44.0",
     "mypy-boto3-sns>=1.43.0, <1.44.0",
@@ -468,6 +464,7 @@ all = [
     "mypy-boto3-supplychain>=1.43.0, <1.44.0",
     "mypy-boto3-support>=1.43.0, <1.44.0",
     "mypy-boto3-support-app>=1.43.0, <1.44.0",
+    "mypy-boto3-supportauthz>=1.43.0, <1.44.0",
     "mypy-boto3-sustainability>=1.43.0, <1.44.0",
     "mypy-boto3-swf>=1.43.0, <1.44.0",
     "mypy-boto3-synthetics>=1.43.0, <1.44.0",
@@ -1085,12 +1082,6 @@ iot-managed-integrations = [
 iotdeviceadvisor = [
     "mypy-boto3-iotdeviceadvisor>=1.43.0, <1.44.0",
 ]
-iotevents = [
-    "mypy-boto3-iotevents>=1.43.0, <1.44.0",
-]
-iotevents-data = [
-    "mypy-boto3-iotevents-data>=1.43.0, <1.44.0",
-]
 iotfleetwise = [
     "mypy-boto3-iotfleetwise>=1.43.0, <1.44.0",
 ]
@@ -1376,9 +1367,6 @@ osis = [
 outposts = [
     "mypy-boto3-outposts>=1.43.0, <1.44.0",
 ]
-panorama = [
-    "mypy-boto3-panorama>=1.43.0, <1.44.0",
-]
 partnercentral-account = [
     "mypy-boto3-partnercentral-account>=1.43.0, <1.44.0",
 ]
@@ -1634,9 +1622,6 @@ signin = [
 simpledbv2 = [
     "mypy-boto3-simpledbv2>=1.43.0, <1.44.0",
 ]
-simspaceweaver = [
-    "mypy-boto3-simspaceweaver>=1.43.0, <1.44.0",
-]
 snow-device-management = [
     "mypy-boto3-snow-device-management>=1.43.0, <1.44.0",
 ]
@@ -1696,6 +1681,9 @@ support = [
 ]
 support-app = [
     "mypy-boto3-support-app>=1.43.0, <1.44.0",
+]
+supportauthz = [
+    "mypy-boto3-supportauthz>=1.43.0, <1.44.0",
 ]
 sustainability = [
     "mypy-boto3-sustainability>=1.43.0, <1.44.0",

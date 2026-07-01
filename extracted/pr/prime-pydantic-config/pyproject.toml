@@ -1,0 +1,54 @@
+[project]
+name = "prime-pydantic-config"
+version = "0.3.0.dev86"
+description = "Pydantic-driven CLI with TOML/YAML config file support for ML"
+authors = [
+    { name = "Sami Jaghouar", email = "sami.jaghouar@gmail.com" }
+]
+dependencies = [
+    "pydantic>=2.0.0",
+]
+readme = "README.md"
+requires-python = ">= 3.10"
+
+[project.urls]
+Homepage = "https://github.com/PrimeIntellect-ai/pydantic-config"
+Repository = "https://github.com/PrimeIntellect-ai/pydantic-config"
+Issues = "https://github.com/PrimeIntellect-ai/pydantic-config/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pydantic_config"]
+
+
+[project.optional-dependencies]
+yaml = ["pyyaml"]
+toml = ["tomli"]
+all = ["pyyaml", "tomli"]
+
+[tool.ruff]
+line-length = 120 
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.1",
+    "pre-commit>=3.0.0",
+    "pytest>=9.0.3",
+    "rich>=15.0.0",
+]
+
+[tool.uv]
+# Enforce a uv version that supports the friendly-duration form
+# (`"7 days"`) in the static pyproject parser. Older uvs silently parse
+# the value as an RFC 3339 date, emit a TOML parse warning, and proceed
+# *without* the cooldown — bypassing this security policy.
+required-version = ">=0.11.1"
+# Supply-chain cooldown: new PyPI uploads must age 7 days before resolution
+# picks them up. prime-pydantic-config has no first-party PrimeIntellect
+# dependencies, so no exclude-newer-package exemptions are needed yet — add
+# a [tool.uv.exclude-newer-package] entry when that changes.
+exclude-newer = "7 days"
+

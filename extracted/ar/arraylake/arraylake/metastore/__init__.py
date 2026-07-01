@@ -1,1 +1,0 @@
-from arraylake.metastore.http_metastore import HttpMetastore, HttpMetastoreConfig

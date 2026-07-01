@@ -1,0 +1,104 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "dirsql"
+# Maturin reads the version from `packages/python/Cargo.toml`'s
+# `[package].version` (see `dynamic = ["version"]`). Putitoutthere's
+# `write-version` step rewrites that literal before `maturin build` so
+# wheels ship at the planned version, not the literal on disk.
+dynamic = ["version"]
+description = "Ephemeral SQL index over a local directory"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "Kevin Scott" },
+]
+repository = "https://github.com/thekevinscott/dirsql"
+keywords = ["sql", "filesystem", "directory", "sqlite", "index"]
+readme = "README.md"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-describe>=2",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5",
+    "ruff>=0.4",
+    "maturin>=1.0",
+    # ty is pre-1.0 -- pin tightly. Re-pin in lockstep with CI.
+    "ty==0.0.42",
+]
+
+[project.scripts]
+dirsql = "dirsql.cli.main:main"
+
+[tool.maturin]
+features = ["extension-module"]
+# Keep test files out of the built wheel/sdist. `tests/` is the integration
+# suite; `**/*_test.py` / `**/test_*.py` are the colocated unit tests that live
+# inside the `dirsql/` package and would otherwise ship as package data.
+# Enforced by the `packaging` gate (testing-conventions) in CI.
+exclude = [
+    "tests/",
+    "**/*_test.py",
+    "**/test_*.py",
+]
+# `python-source` intentionally unset: the maturin-recommended mixed
+# layout (`python-source = "python"`) is unsupported by upstream
+# putitoutthere's wheel-content verifier, which compares `stage_to`
+# against the literal in-wheel path without subtracting the
+# source-root prefix that maturin strips. Filed at
+# thekevinscott/putitoutthere; revert this flatten (and re-add
+# `python-source = "python"`) once upstream's verifier handles
+# python-source stripping.
+module-name = "dirsql._dirsql"
+# putitoutthere's `[package.bundle_cli]` recipe (see putitoutthere.toml)
+# cross-compiles the `dirsql` bin per target and stages it under
+# `dirsql/_binary/` before `maturin build`, so it ships inside each
+# wheel as package data. The directory is `.gitignore`d; not in
+# source control.
+include = [
+    { path = "dirsql/_binary/*", format = "wheel" },
+    { path = "docs/**/*", format = "sdist" },
+]
+manifest-path = "packages/python/Cargo.toml"
+
+# Type checking. The source tree currently type-checks clean: the initial
+# `# ty: ignore[...]` baseline (seeded by `ty check --add-ignore`) has been
+# driven to zero, so any new error in new or touched code fails CI with no
+# pre-existing suppressions to hide behind. Every rule is promoted to
+# `"error"`, matching TypeScript-strict discipline. Test files are excluded
+# because they monkeypatch fakes onto production module attributes
+# (`monkeypatch.setattr(async_mod, "_RustDirSQL", ...)`) -- AGENTS.md flags
+# that as a smell, ty surfaces it accurately, and the cleanup (constructor
+# injection) is tracked separately.
+[tool.ty.src]
+exclude = [
+    "**/test_*.py",
+    "**/*_test.py",
+    "tests/",
+    "build/",
+    "dirsql/_binary/",
+]
+
+[tool.ty.environment]
+python-version = "3.11"
+
+# Ruff enforces "every type-ignore must cite a rule code" (PGH003) so a
+# `# type: ignore` or `# ty: ignore` without `[...]` fails lint. Stops the
+# escape hatch from quietly widening.
+[tool.ruff.lint]
+extend-select = ["PGH003"]
+
+[tool.coverage.run]
+omit = [
+    # Colocated unit tests live alongside the package source; instrumenting
+    # them lets a test double's own branches pad the metric (e.g. a fake's
+    # empty-list return). Exclude test files so the floor reflects only
+    # library code. Recursive glob so nested packages (e.g.
+    # `dirsql/cli/`) are covered too.
+    "**/test_*.py",
+    "**/*_test.py",
+]

@@ -1,0 +1,177 @@
+Metadata-Version: 2.4
+Name: selenium-page-factory
+Version: 2.8
+Summary: Python library provides page factory approach to implement page object model in selenium
+Home-page: https://github.com/NayakwadiS/selenium-page-factory
+Author: Sujit Nayakwadi
+Author-email: Sujit Nayakwadi <nayakwadi_sujit@rediffmail.com>
+Maintainer-email: Sujit Nayakwadi <nayakwadi_sujit@rediffmail.com>
+License: MIT
+Project-URL: Homepage, https://github.com/NayakwadiS/selenium-page-factory
+Project-URL: Documentation, https://selenium-page-factory.readthedocs.io
+Project-URL: Repository, https://github.com/NayakwadiS/selenium-page-factory
+Project-URL: Bug Tracker, https://github.com/NayakwadiS/selenium-page-factory/issues
+Project-URL: Changelog, https://github.com/NayakwadiS/selenium-page-factory/blob/master/CHANGELOG.md
+Keywords: selenium,page object model,pom,pages,page factory,automation,testing,webdriver
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Operating System :: OS Independent
+Classifier: Framework :: Pytest
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: selenium>=3.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=3.0.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx>=4.0.0; extra == "docs"
+Requires-Dist: sphinx-rtd-theme>=1.0.0; extra == "docs"
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+
+selenium-page-factory
+=====================
+
+<img src="./docs/new_logo.JPG"  height="110">
+
+Python library provides page factory approach to implement page object model in selenium
+
+![Python](https://img.shields.io/badge/python-v3.7+-blue.svg)
+[![Pypi](https://img.shields.io/badge/Pypi-v2.8-green)](https://pypi.org/project/selenium-page-factory/)
+![Dependencies](https://img.shields.io/badge/dependencies-up%20to%20date-brightgreen.svg)
+![License](https://img.shields.io/pypi/l/selenium-wire.svg)
+[![Documentation](https://img.shields.io/badge/Documantation-latest-brightgreen)](https://selenium-page-factory.readthedocs.io/en/latest/)
+![Downloads](https://img.shields.io/pypi/dm/selenium-page-factory)
+
+Introduction
+============
+
+* A Page Factory is one way of implementing a Page Object Model. In order to support the Page Object pattern.
+* As in Java we are using @findBy, here we are declaring all web element in dictionary.
+Dictionary keys become WebElement / class member variable with having all extended WebElement methods.
+  
+
+Main Features
+=============
+
+* Initialise all the webElements declared in Point at a time.
+* All WebElements methods are re-define to add extra features eg- click method extended to have explicit wait for element to be clickable.
+* Cent percent unittest coverage.
+* Supports Selenium 4 ActionChains methods
+* Now Support Appium for mobile testing
+* Raised custom Page factory exceptions
+* **NEW**: Multiple elements support for lists and tables
+* **NEW**: Scroll into view functionality
+* **NEW**: Drag and drop support
+* **NEW**: Click with retry mechanism for handling flaky tests
+
+Installation
+=============
+
+```shell
+  pip install selenium-page-factory
+```
+
+Pre-Requisite
+=============
+Every Page in Page Object Model should have WebDriver object as class member
+as shown below
+
+```python
+class PageClass(PageFactory):
+
+    def __init__(self,driver):
+        self.driver = driver        # Required
+        self.timeout = 15      	    #(Optional - Customise your explicit wait for every webElement)
+        self.highlight = True 	    #(Optional - To highlight every webElement in PageClass)
+	self.mobile_test = False    #(Optional - Added for Appium support)
+```
+
+Extended WebElements Methods
+===================
+<table>
+  <tbody>
+    <tr>
+      <td >set_text</td>
+      <td >get_text</td>
+    </tr>
+    <tr>
+      <td >clear_text</td>
+      <td >click_button</td>
+    </tr>
+    <tr>
+      <td >double_click</td>
+      <td >get_list_item_count</td>
+    </tr>
+	<tr>
+      <td >select_element_by_text</td>
+      <td >select_element_by_index</td>
+    </tr>
+	<tr>
+      <td >select_element_by_value</td>
+      <td >get_all_list_item</td>
+    </tr>
+	<tr>
+      <td >get_list_selected_item</td>
+      <td >highlight</td>
+    </tr>
+	<tr>
+      <td >is_Enabled</td>
+      <td >is_Checked</td>
+    </tr>
+	<tr>
+      <td >getAttribute</td>
+      <td >hover</td>
+    </tr>
+	<tr>
+      <td >visibility_of_element_located</td>
+      <td >invisibility_of_element_located</td>
+    </tr>
+	<tr>
+      <td >element_to_be_clickable</td>
+      <td >text_to_be_present_in_element</td> 
+    </tr>
+	</tr>
+	<tr>
+      <td >context_click</td>
+      <td >execute_script</td> 
+    </tr>
+    </tr>
+	</tr>
+	<tr>
+      <td >click_and_hold</td>
+      <td >release</td> 
+    </tr>
+    <tr>
+      <td >hover_with_offset</td>
+      <td ><strong>scroll_into_view</strong></td> 
+    </tr>
+    <tr>
+      <td ><strong>drag_and_drop_to</strong></td>
+      <td ><strong>click_with_retry</strong></td> 
+    </tr>
+  </tbody>
+</table>
+
+ Note: 
+ Every WebElement will be created after verifying it's Presence and visibility on Page at Run-Time. 
+ 
+
+*[selenium-page-factory Documentation](https://selenium-page-factory.readthedocs.io)*
+
+Selenium Python Framework Example *[here](https://github.com/NayakwadiS/Selenium_Python_UnitTest_HTML)*
+
+

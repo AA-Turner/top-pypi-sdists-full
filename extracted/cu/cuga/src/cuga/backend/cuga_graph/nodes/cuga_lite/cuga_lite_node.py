@@ -80,7 +80,6 @@ class CugaLiteHumanInTheLoopHandler:
             # User denied - set final answer and end
             policy_name = state.cuga_lite_metadata.get("policy_name", "Tool Approval Policy")
             state.final_answer = f"❌ **Execution Cancelled**\n\nYou denied the execution of restricted tools required by **{policy_name}**.\n\nThe agent will not proceed with this task."
-            state.execution_complete = True
             state.sender = node_name
             return Command(update=state.model_dump(), goto=NodeNames.FINAL_ANSWER_AGENT)
 
@@ -121,7 +120,11 @@ class CugaLiteNode(BaseNode):
 
     @staticmethod
     async def read_text_file(file_path: str) -> Optional[str]:
-        """Read text file content using filesystem tool via registry.
+        """Read text file content directly from disk.
+
+        Filesystem is no longer an MCP server; this helper just reads the
+        markdown task-input path (absolute, or relative to the cwd /
+        cuga_workspace) using the consolidated workspace path resolver.
 
         Args:
             file_path: Path to the file to read
@@ -129,28 +132,23 @@ class CugaLiteNode(BaseNode):
         Returns:
             File content as string, or None if failed
         """
-        try:
-            from cuga.backend.cuga_graph.nodes.cuga_lite.tool_registry_provider import call_api
+        from pathlib import Path
 
-            result = await call_api(
-                app_name="filesystem", api_name="filesystem_read_text_file", args={"path": file_path}
+        try:
+            p = Path(file_path).expanduser()
+            if p.is_file():
+                return p.read_text(encoding="utf-8", errors="replace")
+            # Fall back to the consolidated workspace resolver for relative
+            # paths (handles /workspace and cuga_workspace layouts).
+            from cuga.backend.cuga_graph.nodes.cuga_lite.executors.filesystem import (
+                resolve_workspace_path,
             )
 
-            if isinstance(result, dict):
-                if "error" in result:
-                    logger.error(f"Error reading file {file_path}: {result['error']}")
-                    return None
-                if "result" in result:
-                    return result["result"]
-                if "content" in result:
-                    return result["content"]
-                return str(result)
-            elif isinstance(result, str):
-                return result
-            else:
-                logger.error(f"Unexpected result type from read_text_file: {type(result)}")
-                return None
-
+            resolved = resolve_workspace_path(file_path, thread_id=None, operation="read_file")
+            if resolved.is_file():
+                return resolved.read_text(encoding="utf-8", errors="replace")
+            logger.warning(f"File not found: {file_path}")
+            return None
         except Exception as e:
             logger.error(f"Exception reading file {file_path}: {e}")
             return None
@@ -386,7 +384,7 @@ class CugaLiteNode(BaseNode):
             )
 
         # Save trajectory to Evolve if enabled
-        from cuga.backend.evolve.integration import EvolveIntegration
+        from cuga.backend.evolve.integration import EvolveIntegration, normalize_evolve_identifier
 
         if EvolveIntegration.is_enabled() and state.chat_messages:
             import asyncio as _asyncio
@@ -395,14 +393,31 @@ class CugaLiteNode(BaseNode):
             state_error = getattr(state, "error", None)
             success = not (self._has_error(state.final_answer or "") or bool(state_error))
             messages_snapshot = list(state.chat_messages)
+            _evolve_user_id = normalize_evolve_identifier(state.user_id)
+            _evolve_namespace_id = (state.service_scope or {}).get("tenant_id") or None
+            _evolve_session_id = state.thread_id or None
             if settings.evolve.async_save:
                 task = _asyncio.create_task(
-                    EvolveIntegration.save_trajectory(messages_snapshot, task_id, success)
+                    EvolveIntegration.save_trajectory(
+                        messages_snapshot,
+                        task_id,
+                        success,
+                        user_id=_evolve_user_id,
+                        namespace_id=_evolve_namespace_id,
+                        session_id=_evolve_session_id,
+                    )
                 )
                 self._background_tasks.add(task)
                 task.add_done_callback(self._background_tasks.discard)
             else:
-                await EvolveIntegration.save_trajectory(messages_snapshot, task_id, success)
+                await EvolveIntegration.save_trajectory(
+                    messages_snapshot,
+                    task_id,
+                    success,
+                    user_id=_evolve_user_id,
+                    namespace_id=_evolve_namespace_id,
+                    session_id=_evolve_session_id,
+                )
 
         # Get metadata from state
         metadata = state.cuga_lite_metadata or {}

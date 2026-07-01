@@ -20,11 +20,12 @@ from seeq.spy.jobs import _schedule
 
 @Status.top_level_spy_function(no_status=True)
 def pull(
-    datalab_notebook_url: Optional[str] = None,
-    label: Optional[str] = None,
-    interactive_index: Optional[Union[int, str]] = None,
-    all: bool = False,
-    session: Optional[Session] = None
+        datalab_notebook_url: Optional[str] = None,
+        *,
+        label: Optional[str] = None,
+        interactive_index: Optional[Union[int, str]] = None,
+        all: bool = False,
+        session: Optional[Session] = None
 ) -> Optional[pd.Series]:
     """
     Retrieves a jobs DataFrame previously created by a call to spy.jobs.push or

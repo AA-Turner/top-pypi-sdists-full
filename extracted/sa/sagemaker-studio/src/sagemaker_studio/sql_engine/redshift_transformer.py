@@ -19,6 +19,17 @@ class RedshiftTransformer(DatabaseTransformer):
         return "redshift"
 
     @staticmethod
+    def get_execution_metadata(cursor: Any) -> Optional[Dict[str, Any]]:
+        """Extract Redshift Data API execution metadata from the cursor.
+
+        Returns:
+            Dict with statement_id, session_id, has_result_set, and records_updated.
+        """
+        if hasattr(cursor, "get_execution_metadata"):
+            return cursor.get_execution_metadata()
+        return None
+
+    @staticmethod
     def get_required_fields() -> List[str]:
         """
         Get required fields for Redshift connections.

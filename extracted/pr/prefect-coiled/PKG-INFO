@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: prefect-coiled
+Version: 0.0.4
+Summary: Prefect integrations for interacting with Coiled.
+Maintainer-email: Coiled <info@coiled.io>
+License: Apache License 2.0
+License-File: LICENSE
+Keywords: coiled,prefect
+Requires-Python: >=3.9
+Requires-Dist: coiled>=1.71.1
+Requires-Dist: prefect>=3.1.1
+Description-Content-Type: text/markdown
+
+# `prefect-coiled`
+
+Prefect worker for running deployments and flows on Coiled.
+
+The worker polls a Prefect Cloud work pool for pending flows to be run and then uses Coiled to run the flow in the cloud.
+
+To get started, see [this example](https://github.com/coiled/prefect-worker/blob/main/example/README.md).

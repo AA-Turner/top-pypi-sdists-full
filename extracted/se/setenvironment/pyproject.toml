@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "setenvironment"
+description = "Cross platform(ish) productivity commands written in python."
+requires-python = ">=3.7"
+keywords = ["setenvironment"]
+license = { text = "BSD 3-Clause License" }
+classifiers = ["Programming Language :: Python :: 3"]
+dependencies = ["pywin32; sys_platform == 'win32'"]
+# Change this with the version number bump.
+# Also make the change in zcmds/version.py
+version = "2.0.3"
+
+[project.scripts]
+"setenvironment_set" = "setenvironment.cli:setenv"
+"setenvironment_get" = "setenvironment.cli:getenv"
+"setenvironment_unset" = "setenvironment.cli:unsetenv"
+"setenvironment_addpath" = "setenvironment.cli:addpath"
+"setenvironment_removepath" = "setenvironment.cli:removepath"
+"setenvironment" = "setenvironment.main:main"

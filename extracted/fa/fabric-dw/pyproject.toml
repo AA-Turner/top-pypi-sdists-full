@@ -1,0 +1,205 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fabric-dw"
+dynamic = ["version"]
+requires-python = ">=3.11"
+description = "Python CLI + MCP server for administering Microsoft Fabric Data Warehouses and SQL Analytics Endpoints"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Sam Debruyn", email = "sam@debruyn.dev" }]
+maintainers = [{ name = "Sam Debruyn", email = "sam@debruyn.dev" }]
+keywords = [
+    "microsoft-fabric",
+    "fabric",
+    "data-warehouse",
+    "mcp",
+    "model-context-protocol",
+    "cli",
+    "async",
+    "uvx",
+    "sql-analytics-endpoint",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Framework :: AsyncIO",
+    "Framework :: Pydantic",
+    "Framework :: Pydantic :: 2",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Database",
+    "Topic :: Database :: Front-Ends",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
+    "Typing :: Typed",
+]
+dependencies = [
+    "azure-identity>=1.19",
+    "pydantic>=2.9",
+    "httpx[http2]>=0.27",
+    "aiolimiter>=1.2",
+    "tenacity>=9",
+    "mssql-python>=1.9.0",
+    "filelock>=3.16",
+    "mcp[cli]>=1.0,<2",
+    "click>=8.2",
+    "rich>=14",
+    "anyio>=4",
+    "aiohttp>=3.9",
+    "pyarrow>=17.0",
+    "tomli-w>=1.0",
+    "azure-monitor-opentelemetry>=1.6",
+    "pyyaml>=6.0",
+]
+
+[project.urls]
+Homepage = "https://fdw.debruyn.dev"
+Documentation = "https://fdw.debruyn.dev"
+Repository = "https://github.com/sdebruyn/fabric-dw-mcp-cli"
+Issues = "https://github.com/sdebruyn/fabric-dw-mcp-cli/issues"
+"Release notes" = "https://github.com/sdebruyn/fabric-dw-mcp-cli/releases"
+
+[project.scripts]
+fabric-dw = "fabric_dw.cli:main"
+fabric-dw-mcp = "fabric_dw.mcp.server:run"
+fdw = "fabric_dw.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "pytest-asyncio>=1.4",
+    "pytest-xdist>=3.5",
+    "anyio[trio]",
+    "respx>=0.23",
+    "freezegun>=1.5",
+    "pytest-randomly",
+    "pytest-cov",
+    "ruff>=0.15,<0.16",
+    "ty==0.0.51",
+    "types-pyyaml>=6.0",
+    "pytest-socket>=0.8.0",
+]
+docs = ["zensical>=0.0.42"]
+
+[tool.hatch.version]
+source = "vcs"
+raw-options = { local_scheme = "no-local-version" }
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/fabric_dw/_version.py"
+
+[tool.hatch.build]
+# Force-tracked files whose paths match a .gitignore rule (e.g. dist/) are
+# excluded from hatchling builds even when `git add -f` was used.  The
+# artifacts list overrides that exclusion so vendored assets like
+# qp.min.js (inside assets/html_query_plan/dist/) are shipped in both the
+# wheel and the sdist.
+artifacts = ["src/fabric_dw/assets/**/*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fabric_dw"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/fabric_dw/py.typed" = "fabric_dw/py.typed"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+# Exclude the vcs-generated version file; it is gitignored and its __all__
+# ordering is controlled by the build backend, not by us.
+exclude = ["src/fabric_dw/_version.py"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "N", "UP", "B", "SIM", "ANN", "RUF", "PL",
+    "C4", "DTZ", "ARG", "PT", "TRY", "LOG", "S", "FBT", "RET", "PIE",
+    "TID", "ICN", "T20", "ERA", "PERF", "FURB",
+]
+ignore = [
+    # TRY003: the project favours descriptive inline exception messages over an
+    # exception-message-constants module. Suppressing globally removes ~30 inline noqa comments.
+    "TRY003",
+    # D/DOC: docstring rules are intentionally deferred until the public API stabilises.
+    # Re-evaluate when the service and MCP layers solidify. Enable D419 (empty docstring)
+    # at minimum once the deferral is lifted.
+]
+
+[tool.ruff.lint.per-file-ignores]
+# ANN: test functions do not require full type annotations.
+# S101: pytest asserts are intentional.
+# PLR2004: test fixtures use concrete numeric values that are inherent to the test spec
+#   (retention_days=14, page_size=10, etc.) — these are not magic numbers in the
+#   refactoring sense. HTTP status codes in src/ use http.HTTPStatus instead.
+"tests/**" = ["ANN", "S101", "PLR2004"]
+# PLR0913: service functions have many parameters by design (workspace_id, client, etc.).
+"src/fabric_dw/services/**" = ["PLR0913"]
+# FBT001: Click injects bool flags via decorators; positional-bool check is a false-positive.
+# PLR0913: CLI commands grow many options (--limit/--since/--until/etc.); suppress at CLI layer.
+"src/fabric_dw/cli/**" = ["FBT001", "PLR0913"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ty]
+# ty 0.0.49 is in alpha; no meaningful strictness settings are stable yet.
+# Pinned to 0.0.49 in [dependency-groups].dev and the justfile `type` recipe.
+# Re-evaluate configuration options when ty reaches a stable 0.1+ release.
+# Run with: uv run ty check src tests
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: hits real Fabric APIs",
+    "slow: relies on real wall-clock timing; excluded from the default unit run",
+    "sql_endpoint: exercises a live SQL Analytics Endpoint (slow to provision; excluded from local runs by default)",
+]
+addopts = "-ra --strict-markers -m 'not integration and not slow and not sql_endpoint'"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "error::RuntimeWarning",
+    "error::DeprecationWarning",
+    "error::ResourceWarning",
+    # Third-party libraries emit deprecation/pending-deprecation warnings that we
+    # do not own.  Ignore them so upstream changes don't break our suite unilaterally.
+    "ignore::DeprecationWarning:filelock",
+    "ignore::DeprecationWarning:pkg_resources",
+    "ignore::DeprecationWarning:google",
+    "ignore::DeprecationWarning:azure",
+    "ignore::DeprecationWarning:mcp",
+    "ignore::DeprecationWarning:pydantic",
+    "ignore::DeprecationWarning:httpx",
+    "ignore::DeprecationWarning:anyio",
+    "ignore::DeprecationWarning:pyarrow",
+]
+
+[tool.coverage.run]
+source_pkgs = ["fabric_dw"]
+branch = true
+
+[tool.coverage.paths]
+fabric_dw = ["src/fabric_dw", "**/site-packages/fabric_dw"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]

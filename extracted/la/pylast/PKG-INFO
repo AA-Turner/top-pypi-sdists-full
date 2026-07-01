@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylast
-Version: 7.0.2
+Version: 7.1.0
 Summary: A Python interface to Last.fm and Libre.fm
 Project-URL: Changelog, https://github.com/pylast/pylast/releases
 Project-URL: Homepage, https://github.com/pylast/pylast
@@ -25,7 +25,7 @@ Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: httpx>=0.26
+Requires-Dist: httpx2
 Provides-Extra: tests
 Requires-Dist: flaky; extra == 'tests'
 Requires-Dist: pytest-cov; extra == 'tests'

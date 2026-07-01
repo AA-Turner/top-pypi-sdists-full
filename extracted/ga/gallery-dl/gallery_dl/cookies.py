@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2022-2025 Mike Fährmann
+# Copyright 2022-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -254,12 +254,20 @@ def _firefox_cookies_database(browser_name, profile=None, container=None):
             identities = ()
 
         for context in identities:
-            if container == context.get("name") or container == text.extr(
-                    context.get("l10nID", ""), "userContext", ".label"):
-                container_id = context["userContextId"]
-                break
+            if c := context.get("name"):
+                if c == container:
+                    break
+            elif c := context.get("l10nId"):
+                if c.startswith("user-context-") and c[13:] == container:
+                    break
+                if c.rpartition("-")[2] == container:
+                    break
+            elif c := context.get("l10nID"):
+                if text.extr(c, "userContext", ".label") == container:
+                    break
         else:
             raise ValueError(f"Unable to find Firefox container '{container}'")
+        container_id = context["userContextId"]
         _log_debug("Only loading cookies from container '%s' (ID %s)",
                    container, container_id)
 
@@ -1053,6 +1061,8 @@ def pbkdf2_sha1(password, salt, iterations, key_length):
 
 def _decrypt_aes_cbc(ciphertext, key, offset=0,
                      initialization_vector=b" " * 16):
+    if not ciphertext:
+        return ""
     plaintext = aes.unpad_pkcs7(aes.aes_cbc_decrypt_bytes(
         ciphertext, key, initialization_vector))
     if offset:
@@ -1064,6 +1074,8 @@ def _decrypt_aes_cbc(ciphertext, key, offset=0,
 
 
 def _decrypt_aes_gcm(ciphertext, key, nonce, authentication_tag, offset=0):
+    if not ciphertext:
+        return ""
     try:
         plaintext = aes.aes_gcm_decrypt_and_verify_bytes(
             ciphertext, key, authentication_tag, nonce)

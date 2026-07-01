@@ -1,0 +1,18 @@
+Metadata-Version: 1.1
+Name: pyscrypt
+Version: 1.6.2
+Summary: Pure-Python Implementation of the scrypt password-based key derivation function and scrypt file format library
+Home-page: https://github.com/ricmoo/pyscrypt
+Author: Richard Moore
+Author-email: pyscrypt@ricmoo.com
+License: License :: OSI Approved :: MIT License
+Description: A very simple, pure-Python implementation of the scrypt
+        password-based key derivation function and scrypt file format library with no
+        dependencies beyond standard Python libraries. See README.md for API
+        reference and details.
+Platform: UNKNOWN
+Classifier: Topic :: Security :: Cryptography
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3

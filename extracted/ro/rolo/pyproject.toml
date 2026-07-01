@@ -1,0 +1,86 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rolo"
+authors = [
+    { name = "LocalStack Contributors", email = "info@localstack.cloud" }
+]
+description = "A Python framework for building HTTP-based server applications"
+dependencies = [
+    "requests>=2.20",
+    "werkzeug>=3.0"
+]
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries"
+]
+dynamic = ["readme", "version"]
+
+
+[project.optional-dependencies]
+dev = [
+    "black==23.10.0",
+    "pytest>=7.0",
+    "hypercorn",
+    "pydantic",
+    "pytest_httpserver",
+    "websocket-client>=1.7.0",
+    "coverage[toml]>=5.0.0",
+    "coveralls>=3.3",
+    "twisted>=24",
+    "ruff==0.1.0"
+]
+docs = [
+    "sphinx",
+    "furo",
+    "myst_parser",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "rolo/version.py"
+
+[tool.black]
+line_length = 100
+include = '((rolo)/.*\.py$|tests/.*\.py$)'
+#extend_exclude = '()'
+
+[tool.ruff]
+# Always generate Python 3.10-compatible code.
+target-version = "py310"
+line-length = 110
+select = ["B", "C", "E", "F", "I", "W", "T", "B9"]
+ignore = [
+    "E501", # E501 Line too long - handled by black, see https://docs.astral.sh/ruff/faq/#is-ruff-compatible-with-black
+]
+exclude = [
+    ".venv*",
+    "venv*",
+    "dist",
+    "build",
+    "target",
+    "*.egg-info",
+    ".git",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "if __name__ == .__main__.:",
+    "raise NotImplemented.",
+    "return NotImplemented",
+    "def __repr__",
+    "__all__",
+]

@@ -1,0 +1,11 @@
+"""Shared user-facing status text for the TUI chrome and welcome screen."""
+
+STATUS_AUTH_REQUIRED = "Auth required"
+STATUS_AUTHENTICATING = "Authenticating …"
+STATUS_CONNECTION_FAILED = "Connection failed"
+STATUS_SYNCING = "Syncing …"
+STATUS_LOADING_CAPABILITIES = "Loading capabilities …"
+STATUS_LOGGING_IN = "Logging in …"
+STATUS_READY = "Ready"
+STATUS_STARTING = "Starting …"
+STATUS_RESTARTING = "Restarting …"

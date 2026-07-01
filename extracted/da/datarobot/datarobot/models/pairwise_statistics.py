@@ -13,10 +13,12 @@ from __future__ import annotations
 
 from abc import ABCMeta
 from collections import defaultdict
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
 import trafaret as t
+from typing_extensions import Self
 
 from datarobot._compat import Int, String
 from datarobot.models.api_object import APIObject
@@ -41,22 +43,22 @@ class PairwiseStatisticsBase(APIObject, metaclass=ABCMeta):  # pylint: disable=m
         ),
     }).allow_extra("*")
 
-    def __init__(self, feature_name, data):
+    def __init__(self, feature_name: str, data: List[Dict[str, Any]]) -> None:
         self.feature_name = feature_name
         self.values = data
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}(feature_name={self.feature_name})"
 
     @classmethod
-    def _get(cls, multilabel_insights_key, statistic_type):
+    def _get(cls, multilabel_insights_key: str, statistic_type: str) -> Self:
         url = "multilabelInsights/{}/pairwiseStatistics/?statisticType={}".format(
             multilabel_insights_key, statistic_type
         )
         return cls.from_location(url)
 
     @staticmethod
-    def _sort_index_and_columns(df):
+    def _sort_index_and_columns(df: pd.DataFrame) -> pd.DataFrame:
         """
         Sorts the index and columns of a pairwise statistics dataframe.
         The dataframe is expected to have a shape of (num_labels, num_labels) and to have the same
@@ -91,12 +93,12 @@ class PairwiseCorrelations(PairwiseStatisticsBase):
         Correlation values for all label pairs as a DataFrame
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.statistic_dataframe = self._to_statistic_dataframe(self.values)
 
     @staticmethod
-    def _to_statistic_dataframe(correlation_values):
+    def _to_statistic_dataframe(correlation_values: List[Dict[str, Any]]) -> pd.DataFrame:
         """
         Converts the correlation values to a dataframe.
 
@@ -111,7 +113,7 @@ class PairwiseCorrelations(PairwiseStatisticsBase):
         pandas.DataFrame
             The correlation values as a pandas.DataFrame
         """
-        columns = defaultdict(dict)
+        columns: Dict[str, Any] = defaultdict(dict)
         for statistic_value in correlation_values:
             row_label = str(statistic_value["label_configuration"][0]["label"])
             column_label = str(statistic_value["label_configuration"][1]["label"])
@@ -123,7 +125,7 @@ class PairwiseCorrelations(PairwiseStatisticsBase):
         return statistic_dataframe
 
     @classmethod
-    def get(cls, multilabel_insights_key):
+    def get(cls, multilabel_insights_key: str) -> PairwiseCorrelations:
         """Retrieves pairwise correlations
 
         You might find it more convenient to use
@@ -145,7 +147,7 @@ class PairwiseCorrelations(PairwiseStatisticsBase):
         """
         return cls._get(multilabel_insights_key, "correlation")
 
-    def as_dataframe(self):
+    def as_dataframe(self) -> pd.DataFrame:
         """The pairwise label correlations as a (num_labels x num_labels) DataFrame.
 
         Returns
@@ -158,12 +160,12 @@ class PairwiseCorrelations(PairwiseStatisticsBase):
 
 
 class PairwiseProbabilitiesBase(PairwiseStatisticsBase, metaclass=ABCMeta):  # pylint: disable=missing-class-docstring
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.statistic_dataframes = self._to_statistic_dataframes(self.values)
 
     @staticmethod
-    def _to_statistic_dataframes(statistic_values):
+    def _to_statistic_dataframes(statistic_values: List[Dict[str, Any]]) -> Dict[Tuple[int, int], pd.DataFrame]:
         """
         Converts the statistic values into DataFrames. There will be one DataFrame for each
         relevance configuration.
@@ -181,7 +183,7 @@ class PairwiseProbabilitiesBase(PairwiseStatisticsBase, metaclass=ABCMeta):  # p
             e.g., (0, 0), (0, 1) etc. The values are the static_values for this relevance
             configuration as pandas.DataFrame.
         """
-        grouped_statistic_values = defaultdict(lambda: defaultdict(dict))
+        grouped_statistic_values: Dict[Tuple[int, int], Any] = defaultdict(lambda: defaultdict(dict))
         for statistic_value in statistic_values:
             relevance_configuration = (
                 statistic_value["label_configuration"][0]["relevance"],
@@ -199,7 +201,7 @@ class PairwiseProbabilitiesBase(PairwiseStatisticsBase, metaclass=ABCMeta):  # p
             statistic_dataframes[relevance_configuration] = df
         return statistic_dataframes
 
-    def _as_dataframe(self, relevance_configuration):
+    def _as_dataframe(self, relevance_configuration: Tuple[int, int]) -> pd.DataFrame:
         if relevance_configuration not in VALID_RELEVANCE_CONFIGURATIONS:
             raise ValueError(
                 "You have passed an invalid label configuration. Valid options are (0, 0), (0, 1), (1, 0) and (1, 1)"
@@ -237,7 +239,7 @@ class PairwiseJointProbabilities(PairwiseProbabilitiesBase):
     """
 
     @classmethod
-    def get(cls, multilabel_insights_key):
+    def get(cls, multilabel_insights_key: str) -> PairwiseJointProbabilities:
         """Retrieves pairwise joint probabilities
 
         You might find it more convenient to use
@@ -259,7 +261,7 @@ class PairwiseJointProbabilities(PairwiseProbabilitiesBase):
         """
         return cls._get(multilabel_insights_key, "jointProbability")
 
-    def as_dataframe(self, relevance_configuration):
+    def as_dataframe(self, relevance_configuration: Tuple[int, int]) -> pd.DataFrame:
         """Joint probabilities of label pairs as a (num_labels x num_labels) DataFrame.
 
         Parameters
@@ -318,7 +320,7 @@ class PairwiseConditionalProbabilities(PairwiseProbabilitiesBase):
     """
 
     @classmethod
-    def get(cls, multilabel_insights_key):
+    def get(cls, multilabel_insights_key: str) -> PairwiseConditionalProbabilities:
         """Retrieves pairwise conditional probabilities
 
         You might find it more convenient to use
@@ -340,7 +342,7 @@ class PairwiseConditionalProbabilities(PairwiseProbabilitiesBase):
         """
         return cls._get(multilabel_insights_key, "conditionalProbability")
 
-    def as_dataframe(self, relevance_configuration):
+    def as_dataframe(self, relevance_configuration: Tuple[int, int]) -> pd.DataFrame:
         """Conditional probabilities of label pairs as a (num_labels x num_labels) DataFrame.
         The label names in the columns are the events, on which we condition. The label names in the
         index are the events whose conditional probability given the indexes is in the dataframe.

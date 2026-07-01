@@ -25,6 +25,11 @@ from .custom_model_version import (
     CustomModelVersionConversion,
     CustomModelVersionDependencyBuild,
 )
+from .custom_scoring_metrics import (
+    CustomScoringMetric,
+    CustomScoringMetricVersion,
+    CustomScoringMetricVersionFileContents,
+)
 from .custom_task import CustomTask
 from .custom_task_version import CustomTaskVersion
 from .custom_templates import CustomTemplate
@@ -73,7 +78,7 @@ from .files import Files, FilesCatalogSearch, FilesStage, FilesDetails
 from .jdbc_data_preview import JdbcPreview, JdbcPreviewData, JdbcResultSchemaEntry
 from .job import FeatureImpactJob, Job, TrainingPredictionsJob
 from .key_values import KeyValue
-from .memory import Event, Session, MemorySpace
+from .memory import Emitter, Event, EventUpdate, MemorySpace, NewEvent, Session
 from .model import (
     BlenderModel,
     ClusteringModel,

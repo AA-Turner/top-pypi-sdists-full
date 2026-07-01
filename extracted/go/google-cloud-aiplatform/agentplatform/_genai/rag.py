@@ -17,11 +17,14 @@
 
 import json
 import logging
+import mimetypes
+import os
 from typing import Any, Optional, Union
 from urllib.parse import urlencode
 
 from google.genai import _api_module
 from google.genai import _common
+from google.genai import _extra_utils
 from google.genai._common import get_value_by_path as getv
 from google.genai._common import set_value_by_path as setv
 
@@ -1555,6 +1558,67 @@ def _UpdateRagCorpusRequestParameters_to_vertex(
     return to_object
 
 
+def _UploadRagFileConfig_to_vertex(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    to_object: dict[str, Any] = {}
+    if getv(from_object, ["rag_file_chunking_config"]) is not None:
+        setv(
+            to_object,
+            ["ragFileChunkingConfig"],
+            getv(from_object, ["rag_file_chunking_config"]),
+        )
+
+    if getv(from_object, ["rag_file_metadata_config"]) is not None:
+        setv(
+            to_object,
+            ["ragFileMetadataConfig"],
+            getv(from_object, ["rag_file_metadata_config"]),
+        )
+
+    if getv(from_object, ["rag_file_parsing_config"]) is not None:
+        setv(
+            to_object,
+            ["ragFileParsingConfig"],
+            _RagFileParsingConfig_to_vertex(
+                getv(from_object, ["rag_file_parsing_config"]), to_object
+            ),
+        )
+
+    if getv(from_object, ["rag_file_transformation_config"]) is not None:
+        setv(
+            to_object,
+            ["ragFileTransformationConfig"],
+            getv(from_object, ["rag_file_transformation_config"]),
+        )
+
+    return to_object
+
+
+def _UploadRagFileParameters_to_vertex(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    to_object: dict[str, Any] = {}
+    if getv(from_object, ["name"]) is not None:
+        setv(to_object, ["_url", "name"], getv(from_object, ["name"]))
+
+    if getv(from_object, ["rag_file"]) is not None:
+        setv(to_object, ["ragFile"], getv(from_object, ["rag_file"]))
+
+    if getv(from_object, ["upload_rag_file_config"]) is not None:
+        setv(
+            to_object,
+            ["uploadRagFileConfig"],
+            _UploadRagFileConfig_to_vertex(
+                getv(from_object, ["upload_rag_file_config"]), to_object
+            ),
+        )
+
+    return to_object
+
+
 def _VertexAiSearchConfig_from_vertex(
     from_object: Union[dict[str, Any], object],
     parent_object: Optional[dict[str, Any]] = None,
@@ -1586,7 +1650,15 @@ class Rag(_api_module.BaseModule):
         config: Optional[types.AskContextsConfigOrDict] = None,
     ) -> types.AskContextsResponse:
         """
-        Asks a RAG Contexts.
+        Agentic Retrieval Ask API for RAG.
+
+        Args:
+          query: The query to ask.
+          config: Optional configuration for the request.
+
+        Returns:
+          The AskContextsResponse.
+
         """
 
         parameter_model = types._AskContextsRequestParameters(
@@ -1799,6 +1871,14 @@ class Rag(_api_module.BaseModule):
     ) -> types.RagCorpus:
         """
         Gets a RAG Corpus.
+
+        Args:
+          name: The name of the RagCorpus to retrieve.
+          config: Optional configuration for the request.
+
+        Returns:
+          The requested RagCorpus.
+
         """
 
         parameter_model = types._GetRagCorpusRequestParameters(
@@ -1870,7 +1950,14 @@ class Rag(_api_module.BaseModule):
         self, *, config: Optional[types.ListRagCorporaConfigOrDict] = None
     ) -> types.ListRagCorporaResponse:
         """
-        Lists RagCorpora.
+        Lists RagCorpora for a project.
+
+        Args:
+          config: Optional configuration for listing corpora.
+
+        Returns:
+          A ListRagCorporaResponse containing the corpora.
+
         """
 
         parameter_model = types._ListRagCorporaRequestParameters(
@@ -1942,6 +2029,14 @@ class Rag(_api_module.BaseModule):
     ) -> types.RagFile:
         """
         Gets a RagFile.
+
+        Args:
+          name: The name of the RagFile to retrieve.
+          config: Optional configuration for the request.
+
+        Returns:
+          The requested RagFile.
+
         """
 
         parameter_model = types._GetRagFileRequestParameters(
@@ -2011,6 +2106,14 @@ class Rag(_api_module.BaseModule):
     ) -> types.ListRagFilesResponse:
         """
         Lists RagFile instances within a RagCorpus.
+
+        Args:
+          name: The name of the RagCorpus to list files from.
+          config: Optional configuration for the request (e.g., pagination details).
+
+        Returns:
+          A ListRagFilesResponse containing the files.
+
         """
 
         parameter_model = types._ListRagFilesRequestParameters(
@@ -2079,7 +2182,14 @@ class Rag(_api_module.BaseModule):
         self, *, config: Optional[types.GetRagConfigOrDict] = None
     ) -> types.RagEngineConfig:
         """
-        Gets a RAG Engine Config.
+        Gets the project-level RAG Engine Config.
+
+        Args:
+          config: Optional configuration for the request.
+
+        Returns:
+          The requested RagEngineConfig.
+
         """
 
         parameter_model = types._GetRagConfigRequestParameters(
@@ -2441,7 +2551,16 @@ class Rag(_api_module.BaseModule):
         config: Optional[types.RetrieveContextsConfigOrDict] = None,
     ) -> types.RetrieveContextsResponse:
         """
-        Retrieves a RAG Contexts.
+        Retrieves contexts from a Vertex RAG store based on a query.
+
+        Args:
+          vertex_rag_store: The Vertex RAG store to retrieve contexts from.
+          query: The query to retrieve contexts for.
+          config: Optional configuration for the request.
+
+        Returns:
+          The RetrieveContextsResponse containing the relevant contexts.
+
         """
 
         parameter_model = types._RetrieveRagContextsRequestParameters(
@@ -2719,6 +2838,78 @@ class Rag(_api_module.BaseModule):
         self._api_client._verify_response(return_value)
         return return_value
 
+    def _upload_file(
+        self,
+        *,
+        name: str,
+        rag_file: types.RagFileOrDict,
+        upload_rag_file_config: Optional[types.UploadRagFileConfigOrDict] = None,
+        config: Optional[types.UploadRagFileRequestConfigOrDict] = None,
+    ) -> types.UploadRagFileResponse:
+        parameter_model = types._UploadRagFileParameters(
+            name=name,
+            rag_file=rag_file,
+            upload_rag_file_config=upload_rag_file_config,
+            config=config,
+        )
+
+        request_url_dict: Optional[dict[str, str]]
+        if not self._api_client.vertexai:
+            raise ValueError(
+                "This method is only supported in Gemini Enterprise Agent Platform mode, not in Gemini Developer API mode."
+            )
+        else:
+            request_dict = _UploadRagFileParameters_to_vertex(parameter_model)
+            request_url_dict = request_dict.get("_url")
+            if request_url_dict:
+                path = "{name}/ragFiles:upload".format_map(request_url_dict)
+            else:
+                path = "{name}/ragFiles:upload"
+
+        query_params = request_dict.get("_query")
+        if query_params:
+            path = f"{path}?{urlencode(query_params)}"
+        # TODO: remove the hack that pops config.
+        request_dict.pop("config", None)
+
+        http_options: Optional[types.HttpOptions] = None
+        if (
+            parameter_model.config is not None
+            and parameter_model.config.http_options is not None
+        ):
+            http_options = parameter_model.config.http_options
+
+        request_dict = _common.convert_to_dict(request_dict)
+        request_dict = _common.encode_unserializable_types(request_dict)
+
+        response = self._api_client.request("post", path, request_dict, http_options)
+
+        response_dict = {} if not response.body else json.loads(response.body)
+
+        return_value = types.UploadRagFileResponse._from_response(
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
+        )
+
+        self._api_client._verify_response(return_value)
+        return return_value
+
     def create_corpus(
         self,
         *,
@@ -2726,7 +2917,7 @@ class Rag(_api_module.BaseModule):
         config: Optional[types.CreateRagCorpusConfigOrDict] = None,
     ) -> types.RagCorpus:
         """
-        Creates a new Rag Corpus and waits for completion.
+        Creates a new RAG Corpus and waits for completion.
 
         Args:
           rag_corpus: The RagCorpus to create.
@@ -2743,7 +2934,9 @@ class Rag(_api_module.BaseModule):
         )
 
         if operation.error:
-            raise RuntimeError(f"Failed to create RagCorpus: {operation.error}")
+            raise RuntimeError(
+                f"Operation {operation.name} failed to create RagCorpus: {operation.error}"
+            )
 
         return self.get_corpus(name=operation.response.name)
 
@@ -2754,8 +2947,14 @@ class Rag(_api_module.BaseModule):
         config: Optional[types.DeleteRagCorpusConfigOrDict] = None,
     ) -> None:
         """
-        Deletes a Rag Corpus and waits for the delete operation to complete.
+        Deletes a RAG Corpus and waits for the delete operation to complete.
+
+        Args:
+          name: The name of the RagCorpus to delete, formatted as
+            `projects/{project}/locations/{location}/ragCorpora/{corpus_id}`.
+          config: The configuration to use for the RagCorpus delete request.
         """
+
         operation = self._delete_corpus(name=name, config=config)
 
         operation = _operations_utils.await_operation(
@@ -2764,7 +2963,9 @@ class Rag(_api_module.BaseModule):
         )
 
         if operation.error:
-            raise RuntimeError(f"Failed to delete RagCorpus: {operation.error}")
+            raise RuntimeError(
+                f"Operation {operation.name} failed to delete RagCorpus: {operation.error}"
+            )
 
         return None
 
@@ -2775,7 +2976,12 @@ class Rag(_api_module.BaseModule):
         config: Optional[types.DeleteRagFileConfigOrDict] = None,
     ) -> None:
         """
-        Deletes a file from a Rag Corpus and waits for the delete operation to complete.
+        Deletes a file from a RAG Corpus and waits for the delete operation to complete.
+
+        Args:
+          name: The name of the RagFile to delete, formatted as
+            `projects/{project}/locations/{location}/ragCorpora/{corpus_id}/ragFiles/{file_id}`.
+          config: The configuration to use for the RagFile delete request.
         """
         operation = self._delete_file(name=name, config=config)
 
@@ -2786,7 +2992,7 @@ class Rag(_api_module.BaseModule):
 
         if operation.error:
             raise RuntimeError(
-                f"Failed to delete file from RagCorpus: {operation.error}"
+                f"Operation {operation.name} failed to delete file from RagCorpus: {operation.error}"
             )
 
         return None
@@ -2799,7 +3005,7 @@ class Rag(_api_module.BaseModule):
         config: Optional[types.UpdateRagCorpusConfigOrDict] = None,
     ) -> types.RagCorpus:
         """
-        Updates a Rag Corpus and waits for completion.
+        Updates a RAG Corpus and waits for completion.
 
         Args:
           name: The name of the RagCorpus to update, formatted as
@@ -2818,7 +3024,9 @@ class Rag(_api_module.BaseModule):
         )
 
         if operation.error:
-            raise RuntimeError(f"Failed to update RagCorpus: {operation.error}")
+            raise RuntimeError(
+                f"Operation {operation.name} failed to update RagCorpus: {operation.error}"
+            )
 
         return self.get_corpus(name=operation.response.name)
 
@@ -2848,7 +3056,9 @@ class Rag(_api_module.BaseModule):
         )
 
         if operation.error:
-            raise RuntimeError(f"Failed to update RagEngineConfig: {operation.error}")
+            raise RuntimeError(
+                f"Operation {operation.name} failed to update RagEngineConfig: {operation.error}"
+            )
 
         return self.get_config()
 
@@ -2911,10 +3121,98 @@ class Rag(_api_module.BaseModule):
 
         if operation.error:
             raise RuntimeError(
-                f"Failed to import files into RagCorpus: {operation.error}"
+                f"Operation {operation.name} failed to import files into RagCorpus: {operation.error}"
             )
 
         return operation.response
+
+    def upload_file(
+        self,
+        *,
+        corpus_name: str,
+        path: str,
+        display_name: Optional[str] = None,
+        upload_rag_file_config: Optional[types.UploadRagFileConfigOrDict] = None,
+        request_config: Optional[types.UploadRagFileRequestConfigOrDict] = None,
+    ) -> types.RagFile:
+        """
+        Uploads a file to a RAG Corpus.
+
+        Args:
+          corpus_name: The name of the RAG Corpus to upload to.
+          path: The path to the file to upload.
+          display_name: Optional. The display name for the uploaded file. If not provided, a display name will be generated.
+          upload_rag_file_config: Optional. The configuration to use for the upload.
+          request_config: Optional. The configuration to use for the request.
+
+        Returns:
+          The uploaded RagFile.
+        """
+
+        if not display_name:
+            display_name = f"file_{_common.timestamped_unique_name()}"
+
+        rag_file = types.RagFile(display_name=display_name)
+
+        mime_type, _ = mimetypes.guess_type(path)
+
+        if mime_type is None:
+            mime_type = "application/octet-stream"
+
+        http_options, size_bytes, mime_type = _extra_utils.prepare_resumable_upload(
+            path,
+            user_http_options=request_config.http_options if request_config else None,
+            user_mime_type=mime_type,
+        )
+
+        current_api_version = self._api_client._http_options.api_version or "v1beta1"
+        upload_api_version = f"upload/{current_api_version}"
+
+        http_options.api_version = upload_api_version
+
+        parameter_model = types._UploadRagFileParameters(
+            name=corpus_name,
+            rag_file=rag_file,
+            upload_rag_file_config=upload_rag_file_config,
+        )
+        request_dict = _UploadRagFileParameters_to_vertex(parameter_model)
+
+        request_dict.pop("_url", None)
+        request_dict.pop("_query", None)
+
+        request_path = f"{corpus_name}/ragFiles:upload"
+
+        request_dict = _common.convert_to_dict(request_dict)
+        request_dict = _common.encode_unserializable_types(request_dict)
+
+        response = self._api_client.request(
+            "post",
+            request_path,
+            request_dict,
+            http_options,
+        )
+
+        if response.headers is None or (
+            "x-goog-upload-url" not in response.headers
+            and "X-Goog-Upload-URL" not in response.headers
+        ):
+            raise KeyError(
+                "Failed to create file. Upload URL was not returned from the create file request."
+            )
+
+        upload_url = response.headers.get(
+            "x-goog-upload-url", response.headers.get("X-Goog-Upload-URL")
+        )
+
+        fs_path = os.fspath(path)
+        return_file = self._api_client.upload_file(
+            fs_path, upload_url, size_bytes, http_options=http_options
+        )
+
+        rag_file_payload = return_file.json.get("ragFile") or return_file.json.get(
+            "rag_file", {}
+        )
+        return types.RagFile(**rag_file_payload)
 
 
 class AsyncRag(_api_module.BaseModule):
@@ -2926,7 +3224,15 @@ class AsyncRag(_api_module.BaseModule):
         config: Optional[types.AskContextsConfigOrDict] = None,
     ) -> types.AskContextsResponse:
         """
-        Asks a RAG Contexts.
+        Agentic Retrieval Ask API for RAG.
+
+        Args:
+          query: The query to ask.
+          config: Optional configuration for the request.
+
+        Returns:
+          The AskContextsResponse.
+
         """
 
         parameter_model = types._AskContextsRequestParameters(
@@ -3145,6 +3451,14 @@ class AsyncRag(_api_module.BaseModule):
     ) -> types.RagCorpus:
         """
         Gets a RAG Corpus.
+
+        Args:
+          name: The name of the RagCorpus to retrieve.
+          config: Optional configuration for the request.
+
+        Returns:
+          The requested RagCorpus.
+
         """
 
         parameter_model = types._GetRagCorpusRequestParameters(
@@ -3218,7 +3532,14 @@ class AsyncRag(_api_module.BaseModule):
         self, *, config: Optional[types.ListRagCorporaConfigOrDict] = None
     ) -> types.ListRagCorporaResponse:
         """
-        Lists RagCorpora.
+        Lists RagCorpora for a project.
+
+        Args:
+          config: Optional configuration for listing corpora.
+
+        Returns:
+          A ListRagCorporaResponse containing the corpora.
+
         """
 
         parameter_model = types._ListRagCorporaRequestParameters(
@@ -3292,6 +3613,14 @@ class AsyncRag(_api_module.BaseModule):
     ) -> types.RagFile:
         """
         Gets a RagFile.
+
+        Args:
+          name: The name of the RagFile to retrieve.
+          config: Optional configuration for the request.
+
+        Returns:
+          The requested RagFile.
+
         """
 
         parameter_model = types._GetRagFileRequestParameters(
@@ -3363,6 +3692,14 @@ class AsyncRag(_api_module.BaseModule):
     ) -> types.ListRagFilesResponse:
         """
         Lists RagFile instances within a RagCorpus.
+
+        Args:
+          name: The name of the RagCorpus to list files from.
+          config: Optional configuration for the request (e.g., pagination details).
+
+        Returns:
+          A ListRagFilesResponse containing the files.
+
         """
 
         parameter_model = types._ListRagFilesRequestParameters(
@@ -3433,7 +3770,14 @@ class AsyncRag(_api_module.BaseModule):
         self, *, config: Optional[types.GetRagConfigOrDict] = None
     ) -> types.RagEngineConfig:
         """
-        Gets a RAG Engine Config.
+        Gets the project-level RAG Engine Config.
+
+        Args:
+          config: Optional configuration for the request.
+
+        Returns:
+          The requested RagEngineConfig.
+
         """
 
         parameter_model = types._GetRagConfigRequestParameters(
@@ -3805,7 +4149,16 @@ class AsyncRag(_api_module.BaseModule):
         config: Optional[types.RetrieveContextsConfigOrDict] = None,
     ) -> types.RetrieveContextsResponse:
         """
-        Retrieves a RAG Contexts.
+        Retrieves contexts from a Vertex RAG store based on a query.
+
+        Args:
+          vertex_rag_store: The Vertex RAG store to retrieve contexts from.
+          query: The query to retrieve contexts for.
+          config: Optional configuration for the request.
+
+        Returns:
+          The RetrieveContextsResponse containing the relevant contexts.
+
         """
 
         parameter_model = types._RetrieveRagContextsRequestParameters(
@@ -4091,6 +4444,80 @@ class AsyncRag(_api_module.BaseModule):
         self._api_client._verify_response(return_value)
         return return_value
 
+    async def _upload_file(
+        self,
+        *,
+        name: str,
+        rag_file: types.RagFileOrDict,
+        upload_rag_file_config: Optional[types.UploadRagFileConfigOrDict] = None,
+        config: Optional[types.UploadRagFileRequestConfigOrDict] = None,
+    ) -> types.UploadRagFileResponse:
+        parameter_model = types._UploadRagFileParameters(
+            name=name,
+            rag_file=rag_file,
+            upload_rag_file_config=upload_rag_file_config,
+            config=config,
+        )
+
+        request_url_dict: Optional[dict[str, str]]
+        if not self._api_client.vertexai:
+            raise ValueError(
+                "This method is only supported in Gemini Enterprise Agent Platform mode, not in Gemini Developer API mode."
+            )
+        else:
+            request_dict = _UploadRagFileParameters_to_vertex(parameter_model)
+            request_url_dict = request_dict.get("_url")
+            if request_url_dict:
+                path = "{name}/ragFiles:upload".format_map(request_url_dict)
+            else:
+                path = "{name}/ragFiles:upload"
+
+        query_params = request_dict.get("_query")
+        if query_params:
+            path = f"{path}?{urlencode(query_params)}"
+        # TODO: remove the hack that pops config.
+        request_dict.pop("config", None)
+
+        http_options: Optional[types.HttpOptions] = None
+        if (
+            parameter_model.config is not None
+            and parameter_model.config.http_options is not None
+        ):
+            http_options = parameter_model.config.http_options
+
+        request_dict = _common.convert_to_dict(request_dict)
+        request_dict = _common.encode_unserializable_types(request_dict)
+
+        response = await self._api_client.async_request(
+            "post", path, request_dict, http_options
+        )
+
+        response_dict = {} if not response.body else json.loads(response.body)
+
+        return_value = types.UploadRagFileResponse._from_response(
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
+        )
+
+        self._api_client._verify_response(return_value)
+        return return_value
+
     async def create_corpus(
         self,
         *,
@@ -4098,7 +4525,7 @@ class AsyncRag(_api_module.BaseModule):
         config: Optional[types.CreateRagCorpusConfigOrDict] = None,
     ) -> types.RagCorpus:
         """
-        Creates a new Rag Corpus and waits for completion asynchronously.
+        Creates a new RAG Corpus and waits for completion asynchronously.
 
         Args:
           rag_corpus: The RagCorpus to create.
@@ -4115,7 +4542,9 @@ class AsyncRag(_api_module.BaseModule):
         )
 
         if operation.error:
-            raise RuntimeError(f"Failed to create RagCorpus: {operation.error}")
+            raise RuntimeError(
+                f"Operation {operation.name} failed to create RagCorpus: {operation.error}"
+            )
 
         return await self.get_corpus(name=operation.response.name)
 
@@ -4126,7 +4555,12 @@ class AsyncRag(_api_module.BaseModule):
         config: Optional[types.DeleteRagCorpusConfigOrDict] = None,
     ) -> None:
         """
-        Deletes a Rag Corpus and waits for the delete operation to complete asynchronously.
+        Deletes a RAG Corpus and waits for the delete operation to complete asynchronously.
+
+        Args:
+          name: The name of the RagCorpus to delete, formatted as
+            `projects/{project}/locations/{location}/ragCorpora/{corpus_id}`.
+          config: The configuration to use for the RagCorpus delete request.
         """
         operation = await self._delete_corpus(name=name, config=config)
 
@@ -4136,7 +4570,9 @@ class AsyncRag(_api_module.BaseModule):
         )
 
         if operation.error:
-            raise RuntimeError(f"Failed to delete RagCorpus: {operation.error}")
+            raise RuntimeError(
+                f"Operation {operation.name} failed to delete RagCorpus: {operation.error}"
+            )
 
         return None
 
@@ -4147,7 +4583,12 @@ class AsyncRag(_api_module.BaseModule):
         config: Optional[types.DeleteRagFileConfigOrDict] = None,
     ) -> None:
         """
-        Deletes a file from a Rag Corpus and waits for the delete operation to complete asynchronously.
+        Deletes a file from a RAG Corpus and waits for the delete operation to complete.
+
+        Args:
+          name: The name of the RagFile to delete, formatted as
+            `projects/{project}/locations/{location}/ragCorpora/{corpus_id}/ragFiles/{file_id}`.
+          config: The configuration to use for the RagFile delete request.
         """
         operation = await self._delete_file(name=name, config=config)
 
@@ -4158,7 +4599,7 @@ class AsyncRag(_api_module.BaseModule):
 
         if operation.error:
             raise RuntimeError(
-                f"Failed to delete file from RagCorpus: {operation.error}"
+                f"Operation {operation.name} failed to delete file from RagCorpus: {operation.error}"
             )
 
         return None
@@ -4171,7 +4612,7 @@ class AsyncRag(_api_module.BaseModule):
         config: Optional[types.UpdateRagCorpusConfigOrDict] = None,
     ) -> types.RagCorpus:
         """
-        Updates a Rag Corpus and waits for completion asynchronously.
+        Updates a RAG Corpus and waits for completion asynchronously.
 
         Args:
           name: The name of the RagCorpus to update, formatted as
@@ -4192,7 +4633,9 @@ class AsyncRag(_api_module.BaseModule):
         )
 
         if operation.error:
-            raise RuntimeError(f"Failed to update RagCorpus: {operation.error}")
+            raise RuntimeError(
+                f"Operation {operation.name} failed to update RagCorpus: {operation.error}"
+            )
 
         return await self.get_corpus(name=operation.response.name)
 
@@ -4222,7 +4665,9 @@ class AsyncRag(_api_module.BaseModule):
         )
 
         if operation.error:
-            raise RuntimeError(f"Failed to update RagEngineConfig: {operation.error}")
+            raise RuntimeError(
+                f"Operation {operation.name} failed to update RagEngineConfig: {operation.error}"
+            )
 
         return await self.get_config()
 
@@ -4286,7 +4731,95 @@ class AsyncRag(_api_module.BaseModule):
 
         if operation.error:
             raise RuntimeError(
-                f"Failed to import files into RagCorpus: {operation.error}"
+                f"Operation {operation.name} failed to import files into RagCorpus: {operation.error}"
             )
 
         return operation.response
+
+    async def upload_file(
+        self,
+        *,
+        corpus_name: str,
+        path: str,
+        display_name: Optional[str] = None,
+        upload_rag_file_config: Optional[types.UploadRagFileConfigOrDict] = None,
+        request_config: Optional[types.UploadRagFileRequestConfigOrDict] = None,
+    ) -> types.RagFile:
+        """
+        Uploads a file to a RAG Corpus.
+
+        Args:
+          corpus_name: The name of the RAG Corpus to upload to.
+          path: The path to the file to upload.
+          display_name: Optional. The display name for the uploaded file. If not provided, a display name will be generated.
+          upload_rag_file_config: Optional. The configuration to use for the upload.
+          request_config: Optional. The configuration to use for the request.
+
+        Returns:
+          The uploaded RagFile.
+        """
+
+        if not display_name:
+            display_name = f"file_{_common.timestamped_unique_name()}"
+
+        rag_file = types.RagFile(display_name=display_name)
+
+        mime_type, _ = mimetypes.guess_type(path)
+
+        if mime_type is None:
+            mime_type = "application/octet-stream"
+
+        http_options, size_bytes, mime_type = _extra_utils.prepare_resumable_upload(
+            path,
+            user_http_options=request_config.http_options if request_config else None,
+            user_mime_type=mime_type,
+        )
+
+        current_api_version = self._api_client._http_options.api_version or "v1beta1"
+        upload_api_version = f"upload/{current_api_version}"
+
+        http_options.api_version = upload_api_version
+
+        parameter_model = types._UploadRagFileParameters(
+            name=corpus_name,
+            rag_file=rag_file,
+            upload_rag_file_config=upload_rag_file_config,
+        )
+        request_dict = _UploadRagFileParameters_to_vertex(parameter_model)
+
+        request_dict.pop("_url", None)
+        request_dict.pop("_query", None)
+
+        request_path = f"{corpus_name}/ragFiles:upload"
+
+        request_dict = _common.convert_to_dict(request_dict)
+        request_dict = _common.encode_unserializable_types(request_dict)
+
+        response = await self._api_client.async_request(
+            "post",
+            request_path,
+            request_dict,
+            http_options,
+        )
+
+        if response.headers is None or (
+            "x-goog-upload-url" not in response.headers
+            and "X-Goog-Upload-URL" not in response.headers
+        ):
+            raise KeyError(
+                "Failed to create file. Upload URL was not returned from the create file request."
+            )
+
+        upload_url = response.headers.get(
+            "x-goog-upload-url", response.headers.get("X-Goog-Upload-URL")
+        )
+
+        fs_path = os.fspath(path)
+        return_file = await self._api_client.async_upload_file(
+            fs_path, upload_url, size_bytes, http_options=http_options
+        )
+
+        rag_file_payload = return_file.json.get("ragFile") or return_file.json.get(
+            "rag_file", {}
+        )
+        return types.RagFile(**rag_file_payload)

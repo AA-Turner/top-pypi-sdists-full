@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter_ai
-Version: 3.0.0
+Version: 3.0.1
 Summary: A set of extensions providing agentic AI in JupyterLab
 Project-URL: Documentation, https://jupyter-ai.readthedocs.io/en/v3/
 Project-URL: Source, https://github.com/jupyterlab/jupyter-ai
@@ -51,22 +51,22 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
-Requires-Dist: jupyter-ai-acp-client>=0.1.0
-Requires-Dist: jupyter-ai-chat-commands>=0.0.4
-Requires-Dist: jupyter-ai-persona-manager>=0.0.8
-Requires-Dist: jupyter-ai-router>=0.0.3
-Requires-Dist: jupyter-ai-tools>=0.4.1
-Requires-Dist: jupyter-server-documents>=0.1.2
-Requires-Dist: jupyter-server-mcp>=0.1.2
-Requires-Dist: jupyterlab-chat>=0.21.0
-Requires-Dist: jupyterlab-commands-toolkit>=0.1.4
-Requires-Dist: jupyterlab-notebook-awareness>=0.2.0
+Requires-Dist: jupyter-ai-acp-client<0.2.0,>=0.1.5
+Requires-Dist: jupyter-ai-chat-commands<0.1.0,>=0.0.4
+Requires-Dist: jupyter-ai-persona-manager<0.1.0,>=0.0.11
+Requires-Dist: jupyter-ai-router<0.1.0,>=0.0.5
+Requires-Dist: jupyter-ai-tools<0.6.0,>=0.5.2
+Requires-Dist: jupyter-server-documents<0.3.0,>=0.2.5
+Requires-Dist: jupyter-server-mcp<0.3.0,>=0.2.1
+Requires-Dist: jupyterlab-chat<0.23.0,>=0.22.1
+Requires-Dist: jupyterlab-commands-toolkit<0.2.0,>=0.1.6
+Requires-Dist: jupyterlab-notebook-awareness<0.3.0,>=0.2.0
 Provides-Extra: jupyternaut
-Requires-Dist: jupyter-ai-jupyternaut>=0.0.11; extra == 'jupyternaut'
-Requires-Dist: jupyter-ai-litellm>=0.0.2; extra == 'jupyternaut'
+Requires-Dist: jupyter-ai-jupyternaut<0.1.0,>=0.0.11; extra == 'jupyternaut'
+Requires-Dist: jupyter-ai-litellm<0.1.0,>=0.0.2; extra == 'jupyternaut'
 Provides-Extra: magics
-Requires-Dist: jupyter-ai-litellm>=0.0.2; extra == 'magics'
-Requires-Dist: jupyter-ai-magic-commands>=0.0.3; extra == 'magics'
+Requires-Dist: jupyter-ai-litellm<0.1.0,>=0.0.2; extra == 'magics'
+Requires-Dist: jupyter-ai-magic-commands<0.1.0,>=0.0.3; extra == 'magics'
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -77,7 +77,7 @@ Description-Content-Type: text/markdown
 
 <p align="center"><i>An open source extension that connects AI agents to computational notebooks in JupyterLab.</i></p>
 
-Jupyter AI brings agentic AI to JupyterLab. It provides a native chat UI where you can collaborate with frontier AI agents — including Claude, Codex, Gemini, Goose, Kiro, and OpenCode — all integrated through the [Agent Client Protocol (ACP)](https://agentclientprotocol.com). Agents are automatically detected when their dependencies are installed, so getting started is as simple as installing Jupyter AI and the agent of your choice.
+Jupyter AI brings agentic AI to JupyterLab. It provides a native chat UI where you can collaborate with frontier AI agents — including Claude, Codex, GitHub Copilot, Gemini, Goose, Kiro, Mistral Vibe, and OpenCode — all integrated through the [Agent Client Protocol (ACP)](https://agentclientprotocol.com). Agents are automatically detected when their dependencies are installed, so getting started is as simple as installing Jupyter AI and the agent of your choice.
 
 Agents in Jupyter AI can read and write files, run terminal commands, and interact with notebooks through a built-in [Jupyter MCP server](https://github.com/jupyter-ai-contrib/jupyter-server-mcp). A permission system gives you guardrails over agent actions — agents request approval before writing files or executing commands. You can also create multiple concurrent chats, drag and drop files or notebook cells as context, and collaborate in real time with other users connected to the same server.
 

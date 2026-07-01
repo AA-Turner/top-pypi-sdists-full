@@ -1,0 +1,185 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "onnx-asr"
+dynamic = ["version"]
+dependencies = [
+    "numpy>=1.22.4",
+    "typing-extensions>=4.6.0; python_version < '3.11'",
+]
+requires-python = ">=3.10"
+authors = [{ name = "Ilya Stupakov", email = "istupakov@gmail.com" }]
+description = "A lightweight Python package for Automatic Speech Recognition using ONNX models"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["asr", "speech-recognition", "speech-to-text", "onnx", "stt"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+cpu = ["onnxruntime>=1.18.1"]
+gpu = ["onnxruntime-gpu>=1.18.1"]
+hub = ["huggingface-hub>=0.30.2"]
+
+[project.urls]
+Homepage = "https://github.com/istupakov/onnx-asr"
+Documentation = "https://istupakov.github.io/onnx-asr/"
+Repository = "https://github.com/istupakov/onnx-asr"
+Issues = "https://github.com/istupakov/onnx-asr/issues"
+Changelog = "https://github.com/istupakov/onnx-asr/releases"
+
+[project.scripts]
+onnx-asr = "onnx_asr.cli:main"
+
+[dependency-groups]
+benchmark = [
+    "datasets>=4.5.0",
+    "jinja2>=3.1.6",
+    "jiwer>=3.1.0",
+    "pandas>=2.3.3",
+    "soundfile>=0.13.1",
+    "tqdm>=4.67.3",
+    { include-group = "jupyter" },
+]
+build = [
+    "hatch-vcs>=0.5.0",
+    "hatchling>=1.28.0",
+    "ml-dtypes>=0.5.4",
+    "numpy>=2.2.6",
+    "onnxscript>=0.6.2",
+]
+dev = [
+    "mypy>=1.19.1",
+    "ruff>=0.15.1",
+    "onnx-asr[hub]",
+    { include-group = "build" },
+    { include-group = "jupyter" },
+    { include-group = "test" },
+]
+docs = [
+    "click<8.3",                       # Until 8.3.2
+    "markdown-callouts>=0.4.0",
+    "mkdocs-material[imaging]>=9.7.2",
+    "mkdocstrings[python]>=1.0.3",
+    "ruff>=0.15.1",
+]
+jupyter = ["ipykernel<7", "ipywidgets>=8.1.8", "nbstripout>=0.9.1"]
+test = ["pytest>=9.0.2", "pytest-cov>=7.0.0"]
+test-all = [
+    "kaldi-native-fbank>=1.22.3",
+    "nemo-toolkit[asr]>=2.6.2",
+    "onnx>=1.20.1",
+    "openai-whisper>=20250625",
+    "soundfile>=0.13.1",
+    "torch>=2.10.0",
+    "torchaudio>=2.10.0",
+    { include-group = "build" },
+    { include-group = "test" },
+]
+
+[tool.uv]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "hatch_build.py" },
+    { file = "preprocessors/*.py" },
+    { git = { commit = true, tags = true } },
+]
+conflicts = [[{ extra = "cpu" }, { extra = "gpu" }]]
+
+[tool.uv.sources]
+torch = { index = "pytorch" }
+torchaudio = { index = "pytorch" }
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build]
+only-packages = true
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+pretty = true
+untyped_calls_exclude = "onnxruntime"
+exclude = ["^preprocessors.", "^tests.preprocessors.", "^wrappers."]
+
+[[tool.mypy.overrides]]
+module = ["onnxruntime.*"]
+follow_untyped_imports = true
+implicit_reexport = true
+
+[[tool.mypy.overrides]]
+module = ["soundfile.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["preprocessors.*"]
+follow_imports = "silent"
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "A001",
+    "A002",
+    "ANN204",
+    "ARG002",
+    "ARG004",
+    "D203",
+    "D213",
+    "COM812",
+    "PLR",
+    "PLW2901",
+    "S101",
+    "S105",
+    "SLF001",
+    "TC",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN", "D", "FBT001", "PGH003", "PLR0911", "PLR2004"]
+"preprocessors/*" = ["ANN", "D103", "F821", "FBT", "N802", "N806"]
+"wrappers/*" = ["ANN401"]
+"*.ipynb" = ["ANN", "D", "ERA", "RUF001", "T"]
+
+[tool.pytest]
+filterwarnings = [
+    "ignore::DeprecationWarning:onnxscript.*",
+    "ignore::DeprecationWarning:sys.*",
+]
+
+[tool.coverage.run]
+source = ["src", "preprocessors"]

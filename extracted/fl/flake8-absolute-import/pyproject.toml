@@ -1,0 +1,109 @@
+[build-system]
+requires = [
+    "wheel",
+    "setuptools>=77",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flake8-absolute-import"
+description = "flake8 plugin to require absolute imports"
+authors = [
+    { name = "Brian Skinn", email = "brian.skinn@gmail.com" },
+]
+license = "MIT"
+license-files = [
+    "LICENSE.txt",
+]
+classifiers = [
+    "Natural Language :: English",
+    "Framework :: Flake8",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
+    "Development Status :: 5 - Production/Stable",
+]
+keywords = [
+    "flake8",
+    "flake8-plugin",
+    "linting",
+    "absolute-imports",
+    "relative-imports",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "flake8>=5.0",
+]
+dynamic = [
+    "version",
+    "readme",
+]
+
+[project.urls]
+Homepage = "https://github.com/bskinn/flake8-absolute-import"
+Changelog = "https://github.com/bskinn/flake8-absolute-import/blob/main/CHANGELOG.md"
+Donate = "https://github.com/sponsors/bskinn"
+
+[project.entry-points."flake8.extension"]
+ABS1 = "flake8_absolute_import:Plugin"
+
+[tool.setuptools]
+platforms = [
+    "any",
+]
+include-package-data = false
+
+[tool.setuptools.dynamic]
+version = {attr = "flake8_absolute_import.version.__version__"}
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = [
+    "src",
+]
+namespaces = false
+
+[tool.black]
+line-length = 88
+include = '''
+(
+    ^/tests/.*[.]py$
+  | ^/src/flake8_absolute_import/.*[.]py$
+  | ^/setup[.]py
+  | ^/conftest[.]py
+)
+'''
+exclude = '''
+(
+    __pycache__
+  | ^/[.]
+  | ^/doc
+  | ^/env
+)
+'''
+
+[tool.mypy]
+mypy_path = "src"
+warn_return_any = true
+warn_unused_configs = true
+exclude = '''(?x)(
+  ^env/
+  )
+  '''
+
+[[tool.mypy.overrides]]
+module = [
+  "pytest",
+]
+ignore_missing_imports = true

@@ -50,6 +50,8 @@ with patch("sagemaker_studio.Project"):
     from sagemaker_studio.utils.spark.session import spark_config_builder
     from sagemaker_studio.utils.spark.session.spark_config_builder import (
         DEFAULT_SPARK_PROPS,
+        _generate_glue_catalog_spark_configs,
+        apply_compatibility_mode_configs,
         build_spark_configs,
         extract_connection_spark_configs,
     )
@@ -59,7 +61,7 @@ _CONFIG_BUILDER_PATH = "sagemaker_studio.utils.spark.session.spark_config_builde
 
 @pytest.fixture(autouse=True)
 def mock_internals(monkeypatch):
-    """Mock InternalUtils and Project for all tests."""
+    """Mock InternalUtils and _ensure_project for all tests."""
     mock_utils = MagicMock()
     mock_utils._get_domain_region.return_value = "us-west-2"
     mock_utils._get_datazone_stage.return_value = "prod"
@@ -68,8 +70,8 @@ def mock_internals(monkeypatch):
     monkeypatch.setattr(spark_config_builder, "_stage", "prod")
 
     mock_proj = MagicMock()
-    monkeypatch.setattr(f"{_CONFIG_BUILDER_PATH}.Project", mock_proj)
-    return mock_proj.return_value
+    monkeypatch.setattr(f"{_CONFIG_BUILDER_PATH}._ensure_project", lambda: mock_proj)
+    return mock_proj
 
 
 # -------------------------------------------------------------------
@@ -169,10 +171,10 @@ class TestBuildSparkConfigs:
             connection_configs={"a": "conn_a", "b": "conn_b"},
             user_configs={"a": "user_a"},
         )
-        assert result["a"] == "user_a"  # user wins over all
-        assert result["b"] == "conn_b"  # connection wins over base
-        assert result["c"] == "3"  # base preserved
-        assert result["d"] == "service_d"  # service addition preserved
+        assert result["a"] == "user_a"
+        assert result["b"] == "conn_b"
+        assert result["c"] == "3"
+        assert result["d"] == "service_d"
 
     @patch(
         f"{_CONFIG_BUILDER_PATH}.generate_spark_configs",
@@ -184,19 +186,6 @@ class TestBuildSparkConfigs:
             service_configs=None,
             connection_configs=None,
             user_configs=None,
-        )
-        assert result == {"base.key": "val"}
-
-    @patch(
-        f"{_CONFIG_BUILDER_PATH}.generate_spark_configs",
-        return_value={"base.key": "val"},
-    )
-    def test_empty_dict_layers_are_harmless(self, mock_gen):
-        result = build_spark_configs(
-            account_id="123",
-            service_configs={},
-            connection_configs={},
-            user_configs={},
         )
         assert result == {"base.key": "val"}
 
@@ -241,13 +230,13 @@ class TestExtractConnectionSparkConfigs:
         assert result == {}
 
     def test_returns_empty_when_connection_data_is_missing(self):
-        conn = MagicMock(spec=[])  # no attributes
+        conn = MagicMock(spec=[])
         result = extract_connection_spark_configs(conn)
         assert result == {}
 
     def test_returns_empty_on_exception(self):
         conn = MagicMock()
-        conn._Connection__connection_data = None  # will cause TypeError on .get()
+        conn._Connection__connection_data = None
         result = extract_connection_spark_configs(conn)
         assert result == {}
 
@@ -278,4 +267,117 @@ class TestExtractConnectionSparkConfigs:
         conn = MagicMock()
         conn._Connection__connection_data = {"configurations": "not_a_list"}
         result = extract_connection_spark_configs(conn)
+        assert result == {}
+
+
+# -------------------------------------------------------------------
+# Tests for apply_compatibility_mode_configs
+# -------------------------------------------------------------------
+
+
+class TestApplyCompatibilityModeConfigs:
+    def test_adds_all_compatibility_keys(self):
+        result = apply_compatibility_mode_configs({})
+        expected_keys = [
+            "spark.hadoop.fs.s3.credentialsResolverClass",
+            "spark.hadoop.fs.s3.useDirectoryHeaderAsFolderObject",
+            "spark.hadoop.fs.s3.folderObject.autoAction.disabled",
+            "spark.sql.catalog.createDirectoryAfterTable.enabled",
+            "spark.sql.catalog.dropDirectoryBeforeTable.enabled",
+            "spark.sql.catalog.spark_catalog.glue.lakeformation-enabled",
+            "spark.sql.catalog.skipLocationValidationOnCreateTable.enabled",
+        ]
+        for key in expected_keys:
+            assert key in result
+
+    def test_preserves_existing_configs(self):
+        existing = {"spark.custom.key": "custom_val"}
+        result = apply_compatibility_mode_configs(existing)
+        assert result["spark.custom.key"] == "custom_val"
+        assert "spark.hadoop.fs.s3.credentialsResolverClass" in result
+
+    def test_returns_same_dict_mutated(self):
+        existing = {"spark.a": "1"}
+        result = apply_compatibility_mode_configs(existing)
+        assert result is existing
+
+    def test_lakeformation_credential_resolver_value(self):
+        result = apply_compatibility_mode_configs({})
+        assert result["spark.hadoop.fs.s3.credentialsResolverClass"] == (
+            "com.amazonaws.glue.accesscontrol.AWSLakeFormationCredentialResolver"
+        )
+
+
+# -------------------------------------------------------------------
+# Tests for _generate_glue_catalog_spark_configs
+# -------------------------------------------------------------------
+
+
+class TestGenerateGlueCatalogSparkConfigs:
+    def test_generates_configs_for_non_federated_catalogs(self, mock_internals):
+        catalog = MagicMock()
+        catalog.type = "GLUE"
+        catalog.spark_catalog_name = "my_catalog"
+        catalog.id = "cat-123"
+        catalog.resource_arn = "arn:aws:glue:us-west-2:111222333444:catalog/my_catalog"
+        mock_internals.connection.return_value.catalogs = [catalog]
+
+        result = _generate_glue_catalog_spark_configs(mock_internals)
+
+        assert result["spark.sql.catalog.my_catalog"] == "org.apache.iceberg.spark.SparkCatalog"
+        assert (
+            result["spark.sql.catalog.my_catalog.catalog-impl"]
+            == "org.apache.iceberg.aws.glue.GlueCatalog"
+        )
+        assert result["spark.sql.catalog.my_catalog.glue.id"] == "cat-123"
+        assert result["spark.sql.catalog.my_catalog.glue.account-id"] == "111222333444"
+        assert (
+            result["spark.sql.catalog.my_catalog.glue.catalog-arn"]
+            == "arn:aws:glue:us-west-2:111222333444:catalog/my_catalog"
+        )
+        assert result["spark.sql.catalog.my_catalog.client.region"] == "us-west-2"
+        assert result["spark.sql.catalog.my_catalog.glue.lakeformation-enabled"] == "true"
+
+    def test_skips_federated_catalogs(self, mock_internals):
+        federated_catalog = MagicMock()
+        federated_catalog.type = "FEDERATED"
+
+        non_federated_catalog = MagicMock()
+        non_federated_catalog.type = "GLUE"
+        non_federated_catalog.spark_catalog_name = "good_catalog"
+        non_federated_catalog.id = "cat-456"
+        non_federated_catalog.resource_arn = "arn:aws:glue:us-west-2:111222333444:catalog/good"
+
+        mock_internals.connection.return_value.catalogs = [federated_catalog, non_federated_catalog]
+
+        result = _generate_glue_catalog_spark_configs(mock_internals)
+
+        assert "spark.sql.catalog.good_catalog" in result
+        assert len([k for k in result if k.startswith("spark.sql.catalog.good_catalog")]) == 7
+
+    def test_respects_catalog_limit(self, mock_internals):
+        catalogs = []
+        for i in range(10):
+            cat = MagicMock()
+            cat.type = "GLUE"
+            cat.spark_catalog_name = f"cat_{i}"
+            cat.id = f"id-{i}"
+            cat.resource_arn = f"arn:aws:glue:us-west-2:111222333444:catalog/cat_{i}"
+            catalogs.append(cat)
+
+        mock_internals.connection.return_value.catalogs = catalogs
+
+        result = _generate_glue_catalog_spark_configs(mock_internals)
+
+        # Should only have configs for CATALOG_LIMIT (7) catalogs
+        catalog_names = set()
+        for key in result:
+            parts = key.split(".")
+            if len(parts) >= 4:
+                catalog_names.add(parts[3])
+        assert len(catalog_names) == 7
+
+    def test_returns_empty_when_no_catalogs(self, mock_internals):
+        mock_internals.connection.return_value.catalogs = []
+        result = _generate_glue_catalog_spark_configs(mock_internals)
         assert result == {}

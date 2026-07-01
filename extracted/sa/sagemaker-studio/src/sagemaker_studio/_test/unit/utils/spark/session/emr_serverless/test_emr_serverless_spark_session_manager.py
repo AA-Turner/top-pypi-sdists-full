@@ -99,7 +99,7 @@ def mock_internal_utils():
     with patch(
         "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.InternalUtils"
     ) as mock_utils, patch(
-        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.Project"
+        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager._ensure_project"
     ) as mock_project:
         mock_utils.return_value._get_domain_region.return_value = "us-west-2"
         mock_utils.return_value._get_account_id.return_value = "1234567890"
@@ -140,7 +140,7 @@ def test_lazy_init_raises_without_connection_or_name():
     with patch(
         "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.InternalUtils"
     ) as mock_utils, patch(
-        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.Project"
+        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager._ensure_project"
     ), patch(
         "boto3.client"
     ), patch(
@@ -764,7 +764,7 @@ def test_lazy_init_with_pre_resolved_connection(mock_session_cls, mock_boto_clie
     with patch(
         "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.InternalUtils"
     ) as mu, patch(
-        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.Project"
+        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager._ensure_project"
     ) as mp:
         mu.return_value._get_domain_region.return_value = "us-west-2"
         mp.return_value.id = "proj-1"
@@ -792,7 +792,7 @@ def test_lazy_init_no_compute_arn_raises(mock_session_cls, mock_boto_client):
     with patch(
         "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.InternalUtils"
     ) as mu, patch(
-        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.Project"
+        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager._ensure_project"
     ):
         mu.return_value._get_domain_region.return_value = "us-west-2"
 
@@ -820,7 +820,7 @@ def test_lazy_init_connection_spark_configs(mock_session_cls, mock_boto_client):
     with patch(
         "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.InternalUtils"
     ) as mu, patch(
-        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager.Project"
+        "sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager._ensure_project"
     ) as mp:
         mu.return_value._get_domain_region.return_value = "us-west-2"
         mp.return_value.id = "proj-1"
@@ -982,7 +982,7 @@ def test_executor_idle_timeout_spark_conf_wins_over_all(manager, mock_boto3_clie
     emr_client = _setup_manager_for_session_start(
         manager, mock_boto3_clients, connection_spark_configs=connection_configs
     )
-    manager.spark_conf = {
+    manager._user_spark_conf = {
         "spark.dynamicAllocation.executorIdleTimeout": "45s",
         "spark.executor.memory": "4g",
     }

@@ -1,0 +1,329 @@
+---
+version: v3
+kind: KeeperRecordType
+data:
+  - class: Login
+    name: login
+    fields:
+      - type: passkey
+      - type: login
+      - type: password
+      - type: url
+      - type: fileRef
+      - type: oneTimeCode
+  - class: BankAccount
+    name: bankAccount
+    fields:
+      - type: bankAccount
+        required: true
+      - type: name
+      - type: login
+      - type: password
+      - type: url
+      - type: cardRef
+      - type: fileRef
+        allow_multiple: True
+      - type: oneTimeCode
+  - class: Address
+    name: address
+    fields:
+      - type: address
+      - type: fileRef
+  - class: BankCard
+    name: bankCard
+    fields:
+      - type: paymentCard
+      - type: text
+        label: "Cardholder Name"
+      - type: pinCode
+      - type: addressRef
+      - type: fileRef
+  - class: BirthCertificate
+    name: birthCertificate
+    fields:
+      - type: name
+      - type: birthDate
+      - type: fileRef
+  - class: Contact
+    name: contact
+    fields:
+      - type: name
+        required: true
+      - type: text
+        label: "Company"
+      - type: email
+      - type: phone
+      - type: addressRef
+      - type: fileRef
+  - class: DriverLicense
+    name: driverLicense
+    fields:
+      - type: accountNumber
+        label: "Driver's License Number"
+      - type: name
+      - type: birthDate
+      - type: addressRef
+      - type: expirationDate
+      - type: fileRef
+  - class: EncryptedNotes
+    name: encryptedNotes
+    fields:
+      - type: note
+      - type: date
+      - type: fileRef
+  - class: File
+    name: file
+    fields:
+      - type: fileRef
+  - class: HealthInsurance
+    name: healthInsurance
+    fields:
+      - type: accountNumber
+      - type: name
+        label: "Insured's Name"
+      - type: login
+      - type: password
+      - type: url
+      - type: fileRef
+  - class: Membership
+    name: membership
+    fields:
+      - type: accountNumber
+      - type: name
+      - type: password
+      - type: fileRef
+  - class: Passport
+    name: passport
+    fields:
+      - type: accountNumber
+        label: "Passport Number"
+      - type: name
+      - type: birthDate
+      - type: addressRef
+      - type: expirationDate
+      - type: date
+        label: "Date Issued"
+      - type: password
+      - type: fileRef
+  - class: Photo
+    name: photo
+    fields:
+      - type: fileRef
+  - class: ServerCredentials
+    name: serverCredentials
+    fields:
+      - type: host
+      - type: login
+      - type: password
+      - type: fileRef
+  - class: SoftwareLicense
+    name: softwareLicense
+    fields:
+      - type: licenseNumber
+      - type: expirationDate
+      - type: date
+        label: "Date Active"
+      - type: fileRef
+      - type: securityQuestion
+  - class: SsnCard
+    name: ssnCard
+    fields:
+      - type: accountNumber
+        label: "Identity Number"
+      - type: name
+      - type: fileRef
+  - class: SshKeys
+    name: sshKeys
+    fields:
+      - type: login
+      - type: keyPair
+      - type: password
+      - type: host
+      - type: fileRef
+  - class: DatabaseCredentials
+    name: databaseCredentials
+    fields:
+      - type: text
+        label: "type"
+      - type: host
+      - type: login
+      - type: password
+      - type: fileRef
+  - class: pamDatabase
+    name: pamDatabase
+    fields:
+      - type: pamHostname
+      - type: checkbox
+        label: "Use SSL"
+      - type: login
+      - type: password
+      - type: script
+        label: "Rotation Scripts"
+      - type: text
+        label: "Connect Database"
+      - type: text
+        label: "Database Id"
+      - type: databaseType
+      - type: text
+        label: "Provider Group"
+      - type: text
+        label: "Provider Region"
+      - type: fileRef
+      - type: oneTimeCode
+  - class: pamDirectory
+    name: pamDirectory
+    fields:
+      - type: pamHostname
+      - type: checkbox
+        label: "Use SSL"
+      - type: login
+      - type: password
+      - type: script
+        label: "Rotation Scripts"
+      - type: text
+        label: "Distinguished Name"
+      - type: text
+        label: "Domain Name"
+      - type: multiline
+        label: "Alternative IPs"
+      - type: text
+        label: "Directory Id"
+      - type: directoryType
+      - type: text
+        label: "User Match"
+      - type: text
+        label: "Provider Group"
+      - type: text
+        label: "Provider Region"
+      - type: fileRef
+      - type: oneTimeCode
+  - class: pamMachine
+    name: pamMachine
+    fields:
+      - type: pamHostname
+        required: true
+      - type: login
+      - type: password
+      - type: script
+        label: "Rotation Scripts"
+      - type: secret
+        label: "Private PEM Key"
+      - type: text
+        label: "Operating System"
+      - type: checkbox
+        label: "SSL Verification"
+      - type: text
+        label: "Instance Name"
+      - type: text
+        label: "Instance Id"
+      - type: text
+        label: "Provider Group"
+      - type: text
+        label: "Provider Region"
+      - type: fileRef
+      - type: oneTimeCode
+  - class: pamUser
+    name: pamUser
+    fields:
+      - type: login
+        required: true
+      - type: password
+      - type: script
+        label: "Rotation Scripts"
+      - type: secret
+        label: "Private PEM Key"
+      - type: text
+        label: "Distinguished Name"
+      - type: text
+        label: "Connect Database"
+      - type: checkbox
+        label: "Managed"
+      - type: fileRef
+      - type: oneTimeCode
+  - class: pamAwsConfiguration
+    name: pamAwsConfiguration
+    fields:
+      - type: pamResources
+        required: true
+      - type: schedule
+        label: "Default Rotation Schedule"
+        required: true
+      - type: text
+        label: "AWS Id"
+        required: true
+      - type: secret
+        label: "Access Key Id"
+        required: true
+      - type: secret
+        label: "Access Secret Key"
+        required: true
+      - type: multiline
+        label: "Region Names"
+      - type: multiline
+        label: "Port Mapping"
+      - type: script
+        label: "Rotation Scripts"
+      - type: fileRef
+  - class: pamAzureConfiguration
+    name: pamAzureConfiguration
+    fields:
+      - type: pamResources
+        required: true
+      - type: schedule
+        label: "Default Rotation Schedule"
+        required: true
+      - type: text
+        label: "Azure Id"
+        required: true
+      - type: secret
+        label: "Client Id"
+        required: true
+      - type: secret
+        label: "Client Secret"
+        required: true
+      - type: secret
+        label: "Subscription Id"
+        required: true
+      - type: secret
+        label: "Tenant Id"
+        required: true
+      - type: multiline
+        label: "Resource Groups"
+      - type: multiline
+        label: "Port Mapping"
+      - type: script
+        label: "Rotation Scripts"
+      - type: fileRef
+  - class: pamLocalConfiguration
+    name: pamLocalConfiguration
+    fields:
+      - type: pamResources
+        required: true
+      - type: schedule
+        label: "Default Rotation Schedule"
+        required: true
+      - type: text
+        label: "Local Id"
+        required: true
+      - type: multiline
+        label: "Port Mapping"
+      - type: script
+        label: "Rotation Scripts"
+      - type: fileRef
+  - class: pamNetworkConfiguration
+    name: pamNetworkConfiguration
+    fields:
+      - type: pamResources
+        required: true
+      - type: schedule
+        label: "Default Rotation Schedule"
+        required: true
+      - type: text
+        label: "Network Id"
+      - type: text
+        label: "Network CIDR"
+      - type: multiline
+        label: "Port Mapping"
+      - type: script
+        label: "Rotation Scripts"
+      - type: fileRef

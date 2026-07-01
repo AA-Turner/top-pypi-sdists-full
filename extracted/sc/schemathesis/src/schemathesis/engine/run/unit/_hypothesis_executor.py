@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 import unittest
 import uuid
 from collections.abc import Callable
@@ -26,6 +25,7 @@ from schemathesis.core.errors import (
     is_regex_validation_error,
 )
 from schemathesis.core.failures import Failure, FailureGroup
+from schemathesis.core.timing import Instant
 from schemathesis.engine import Status, events
 from schemathesis.engine.context import EngineContext
 from schemathesis.engine.errors import (
@@ -65,7 +65,7 @@ def run_test(
     errors: list[Exception] = []
     skip_reason = None
     error: Exception
-    test_start_time = time.monotonic()
+    started_at = Instant()
     recorder = ScenarioRecorder(label=operation.label)
     state = TestingState()
 
@@ -82,7 +82,7 @@ def run_test(
             label=operation.label,
             recorder=recorder,
             status=status,
-            elapsed_time=time.monotonic() - test_start_time,
+            elapsed_time=started_at.elapsed,
             skip_reason=skip_reason,
             is_final=False,
         )
@@ -97,13 +97,16 @@ def run_test(
     auth = ctx.config.auth_for(operation=operation)
     headers = ctx.config.headers_for(operation=operation)
     transport_kwargs = ctx.get_transport_kwargs(operation=operation)
+    checks_config = ctx.config.checks_config_for(operation=operation, phase=phase_name)
     check_ctx = CheckContext(
         override=override,
         auth=auth,
         headers=CaseInsensitiveDict(headers) if headers else None,
-        config=ctx.config.checks_config_for(operation=operation, phase=phase_name),
+        config=checks_config,
         transport_kwargs=transport_kwargs,
         recorder=recorder,
+        response_checks=ctx.checks.for_responses(),
+        phase=phase,
     )
 
     if ctx.error_feedback is not None:
@@ -257,6 +260,7 @@ def run_test(
         else:
             code_sample = state.get_code_sample_for(exc)
             yield non_fatal_error(exc, code_sample=code_sample)
+
     if status == Status.SUCCESS and any(
         check.status == Status.FAILURE for checks in recorder.checks.values() for check in checks
     ):

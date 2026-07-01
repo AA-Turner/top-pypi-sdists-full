@@ -1,0 +1,49 @@
+"""CLI for speech recognition from WAV files."""
+
+import argparse
+import pathlib
+from collections.abc import Sequence
+from typing import get_args
+
+import onnx_asr
+from onnx_asr.loader import AsrNames, AsrTypeNames, VadNames
+
+
+def parse_args(args: Sequence[str] | None) -> argparse.Namespace:
+    """Parse CLI args."""
+    parser = argparse.ArgumentParser(prog="onnx_asr", description=onnx_asr.__doc__)
+    parser.add_argument(
+        "model",
+        help=f"Model name or type {(*get_args(AsrNames), *get_args(AsrTypeNames), 'onnx-community/whisper-...')}",
+    )
+    parser.add_argument(
+        "filename",
+        help="Path to wav file (only PCM_U8, PCM_16, PCM_24 and PCM_32 formats are supported).",
+        type=pathlib.Path,
+        nargs="+",
+    )
+    parser.add_argument("-p", "--model_path", type=pathlib.Path, help="Path to directory with model files")
+    parser.add_argument("-q", "--quantization", help="Model quantization ('int8' for example)")
+    parser.add_argument("--lang", help="Language for multilingual models (Whisper and Canary)", default=None)
+    parser.add_argument("--vad", help="Use VAD model", choices=get_args(VadNames))
+    parser.add_argument("--version", action="version", version=f"%(prog)s {onnx_asr.__version__}")
+    return parser.parse_args(args)
+
+
+def run(args: argparse.Namespace) -> None:
+    """Run CLI with args."""
+    model = onnx_asr.load_model(args.model, args.model_path, quantization=args.quantization)
+    if args.vad:
+        vad = onnx_asr.load_vad(args.vad)
+        for segment in model.with_vad(vad, batch_size=1).recognize(args.filename, language=args.lang):
+            for res in segment:
+                print(f"[{res.start:5.1f}, {res.end:5.1f}]: {res.text}")  # noqa: T201
+            print()  # noqa: T201
+    else:
+        for text in model.recognize(args.filename, language=args.lang):
+            print(text)  # noqa: T201
+
+
+def main() -> None:
+    """CLI scripts entrypoint."""
+    run(parse_args(None))

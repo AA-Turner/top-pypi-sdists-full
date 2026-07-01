@@ -5,14 +5,9 @@ https://pypistats.org/api
 
 from __future__ import annotations
 
-import atexit
-import json
 import sys
-import warnings
 
-from termcolor import colored
-
-from . import _cache, _version
+from . import _version
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -23,19 +18,13 @@ __version__ = _version.__version__
 BASE_URL = "https://pypistats.org/api/"
 USER_AGENT = f"pypistats/{__version__}"
 
-
-def _print_verbose(verbose: bool, *args, **kwargs: Any) -> None:
-    """Print if verbose"""
-    if verbose:
-        _print_stderr(*args, **kwargs)
+_verbose = False
 
 
-def _print_stderr(*args, **kwargs: Any) -> None:
-    """Print to stderr"""
-    print(*args, file=sys.stderr, **kwargs)
-
-
-atexit.register(_cache.clear)
+def _print_verbose(*args: Any, **kwargs: Any) -> None:
+    """Print to stderr if verbose"""
+    if _verbose:
+        print(*args, file=sys.stderr, **kwargs)
 
 
 def _validate_total(total: str) -> None:
@@ -54,7 +43,6 @@ def pypi_stats_api(
     sort: bool | str = True,
     total: str = "all",
     color: str = "yes",
-    verbose: bool = False,
 ):
     """Call the API and return JSON"""
     _validate_total(total)
@@ -65,28 +53,33 @@ def pypi_stats_api(
     else:
         params = ""
     url = BASE_URL + endpoint.lower() + params
+
+    from . import _cache
+
     cache_file = _cache.filename(url)
-    if verbose:
+    if _verbose:
         package = endpoint.split("/")[1]
         human_url = f"https://pypistats.org/packages/{package}"
-        _print_verbose(verbose, f"Human URL:\t{human_url}")
-        _print_verbose(verbose, f"API URL:\t{url}")
-        _print_verbose(verbose, f"Cache file:\t{cache_file}")
+        _print_verbose(f"Human URL:\t{human_url}")
+        _print_verbose(f"API URL:\t{url}")
+        _print_verbose(f"Cache file:\t{cache_file}")
 
     res = {}
     if cache_file.is_file():
-        _print_verbose(verbose, "Cache file exists")
+        _print_verbose("Cache file exists")
         res = _cache.load(cache_file)
 
     if res == {}:
         # No cache, or couldn't load cache
+        import json
+
         import urllib3
 
         r = urllib3.request("GET", url, headers={"User-Agent": USER_AGENT})
 
         # Raise if we made a bad request
         # (4XX client error or 5XX server error response)
-        _print_verbose(verbose, "HTTP status code:", r.status)
+        _print_verbose("HTTP status code:", r.status)
         if r.status >= 400:
             msg = f"HTTP Error {r.status} for url: {url}"
             raise urllib3.exceptions.HTTPError(msg)
@@ -116,6 +109,8 @@ def pypi_stats_api(
     if start_date:
         assert first is not None
         if start_date < first:
+            import warnings
+
             warnings.warn(
                 f"Requested start date ({start_date}) is before earliest available "
                 f"data ({first}), because data is only available for 180 days. "
@@ -137,6 +132,8 @@ def pypi_stats_api(
         res["data"] = _total(res["data"])
 
     if format == "json":
+        import json
+
         return json.dumps(res)
 
     # These only for tables, like markdown and rst
@@ -338,6 +335,9 @@ def _colourify(data) -> list:
     for row in data:
         if "percent" not in row:
             continue
+
+        from termcolor import colored
+
         percent = float(row["percent"].rstrip("%"))
         if percent <= 5:
             colour = "red"
@@ -361,10 +361,10 @@ def _tabulate(data: dict | list, format_: str = "markdown", color: str = "yes") 
     headers.append("downloads")
     headers.remove("downloads")
 
-    if format_ in ("markdown", "pretty"):
-        return _prettytable(headers, data, format_, color)
+    if format_ in ("numpy", "pandas"):
+        return _dataframe(headers, data, format_)
     else:
-        return _pytablewriter(headers, data, format_)
+        return _prettytable(headers, data, format_, color)
 
 
 def _prettytable(
@@ -372,10 +372,16 @@ def _prettytable(
 ) -> str:
     from prettytable import PrettyTable, TableStyle
 
-    x = PrettyTable()
-    x.set_style(
-        TableStyle.MARKDOWN if format_ == "markdown" else TableStyle.SINGLE_BORDER
-    )
+    table = PrettyTable()
+
+    if format_ == "html":
+        table.border = False
+    elif format_ == "markdown":
+        table.set_style(TableStyle.MARKDOWN)
+    elif format_ == "rst":
+        table.set_style(TableStyle.RST)
+    elif format_ == "pretty":
+        table.set_style(TableStyle.SINGLE_BORDER)
 
     if isinstance(data, dict):
         data = [data]
@@ -383,87 +389,48 @@ def _prettytable(
     # Apply bold to header?
     def h(header: str) -> str:
         if color != "no" and format_ == "pretty":
+            from termcolor import colored
+
             return colored(header, attrs=["bold"])
         return header
 
     for header in headers:
         col_data = [row[header] if header in row else "" for row in data]
-        x.add_column(h(header), col_data)
+        table.add_column(h(header), col_data)
 
-    x.align[h("last_day")] = "r"
-    x.align[h("last_month")] = "r"
-    x.align[h("last_week")] = "r"
-    x.align[h("category")] = "l"
-    x.align[h("percent")] = "r"
-    x.align[h("downloads")] = "r"
-    x.custom_format[h("last_day")] = lambda f, v: f"{v:,}"
-    x.custom_format[h("last_month")] = lambda f, v: f"{v:,}"
-    x.custom_format[h("last_week")] = lambda f, v: f"{v:,}"
-    x.custom_format[h("downloads")] = lambda f, v: f"{v:,}"
+    table.align[h("last_day")] = "r"
+    table.align[h("last_month")] = "r"
+    table.align[h("last_week")] = "r"
+    table.align[h("category")] = "l"
+    table.align[h("percent")] = "r"
+    table.align[h("downloads")] = "r"
+    table.custom_format[h("last_day")] = lambda f, v: f"{v:,}"
+    table.custom_format[h("last_month")] = lambda f, v: f"{v:,}"
+    table.custom_format[h("last_week")] = lambda f, v: f"{v:,}"
+    table.custom_format[h("downloads")] = lambda f, v: f"{v:,}"
 
-    return x.get_string() + "\n"
-
-
-def _pytablewriter(headers, data, format_: str):
-    from pytablewriter import (
-        HtmlTableWriter,
-        NumpyTableWriter,
-        PandasDataFrameWriter,
-        RstSimpleTableWriter,
-        String,
-        TsvTableWriter,
-    )
-    from pytablewriter.style import Align, Style, ThousandSeparator
-
-    format_writers = {
-        "html": HtmlTableWriter,
-        "numpy": NumpyTableWriter,
-        "pandas": PandasDataFrameWriter,
-        "rst": RstSimpleTableWriter,
-        "tsv": TsvTableWriter,
-    }
-
-    writer = format_writers[format_]()  # type: ignore[abstract]
-    if format_ != "html":
-        writer.margin = 1
-
-    if isinstance(data, dict):
-        writer.value_matrix = [data]
-    else:  # isinstance(data, list):
-        writer.value_matrix = data
-
-    writer.headers = headers
-
-    # Custom alignment and format
-    if headers[0] in ["last_day", "last_month", "last_week"]:
-        # Special case for 'recent'
-        writer.column_styles = len(headers) * [Style(thousand_separator=",")]  # type: ignore[assignment]
+    if format_ == "html":
+        return table.get_html_string(format=True) + "\n"
+    elif format_ == "tsv":
+        return table.get_csv_string(delimiter="\t", lineterminator="\n")
     else:
-        column_styles = []
-        type_hints = []
+        return table.get_string() + "\n"
 
-        for header in headers:
-            align = Align.AUTO
-            thousand_separator = ThousandSeparator.NONE
-            type_hint = None
-            if header == "percent":
-                align = Align.RIGHT
-            elif header == "downloads" and (format_ not in ["numpy", "pandas"]):
-                thousand_separator = ThousandSeparator.COMMA
-            elif header == "category":
-                type_hint = String
-            style = Style(align=align, thousand_separator=thousand_separator)
-            column_styles.append(style)
-            type_hints.append(type_hint)
 
-        writer.column_styles = column_styles  # type: ignore[assignment]
-        writer.type_hints = type_hints  # type: ignore[assignment]
+def _dataframe(headers: list[str], data: dict | list, format_: str):
+    if isinstance(data, dict):
+        data = [data]
+
+    rows = [[row.get(header, "") for header in headers] for row in data]
 
     if format_ == "numpy":
-        return writer.tabledata.as_dataframe().values
-    elif format_ == "pandas":
-        return writer.tabledata.as_dataframe()
-    return writer.dumps()
+        import numpy
+
+        return numpy.array(rows, dtype=object)
+
+    import pandas
+
+    return pandas.DataFrame(rows, columns=headers)
 
 
 def _paramify(param_name: str, param_value: float | str | None) -> str:

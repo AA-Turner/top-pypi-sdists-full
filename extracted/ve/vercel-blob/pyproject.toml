@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "vercel_blob"
+version = "0.4.2"
+description = "A Python Wrapper for Vercel Blob Storage API"
+authors = ["SuryaSekhar14 <suryasekhardatta22@gmail.com>"]
+readme = "README.md"
+repository = "https://github.com/SuryaSekhar14/vercel_blob"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = "^2.32.3"
+urllib3 = ">=2.2.2"
+certifi = ">=2024.07.04"
+tqdm = "^4.67.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

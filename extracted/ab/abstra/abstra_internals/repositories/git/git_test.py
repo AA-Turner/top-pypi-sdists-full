@@ -165,6 +165,81 @@ class NativeGitRepositoryTest(unittest.TestCase):
         self.assertNotIn("new.txt", changed_files)
         self.assertIn("tracked.txt", changed_files)
 
+    def test_commit_changes_with_paths_already_staged_deletion(self):
+        """A partial commit succeeds even when a selected deletion is already staged.
+
+        Regression for #6214: ``git add -- <path>`` aborts the whole batch with
+        "pathspec did not match any files" when a selected path's deletion is
+        already staged (gone from both worktree and index). The commit must
+        still go through and include the deletion.
+        """
+        self.repo.init_repository()
+        self.create_test_file("a.txt", "base a")
+        self.create_test_file("b.txt", "base b")
+        self.repo.commit_changes("Initial commit")
+
+        # a.txt: deleted AND already staged (D ) — the poison precondition.
+        (self.temp_dir / "a.txt").unlink()
+        self.repo._run_git_command(["add", "--", "a.txt"])
+        # b.txt: a normal modification committed alongside the deletion.
+        self.modify_test_file("b.txt", "changed b")
+
+        success, error = self.repo.commit_changes("Del A + B", paths=["a.txt", "b.txt"])
+        self.assertTrue(success, error)
+
+        # Both changes landed: a.txt is gone, b.txt no longer dirty.
+        self.assertFalse((self.temp_dir / "a.txt").exists())
+        self.assertFalse(self.repo.has_uncommitted_changes())
+
+    def test_commit_all_with_gitignored_abstra_and_staged_deletion(self):
+        """Commit-all succeeds when ``.abstra`` is gitignored and a deletion is staged.
+
+        Reproduces the live stuck state: ``git add --all -- . :(exclude).abstra/...``
+        exits non-zero (advisory: ``.abstra`` is ignored) even though it staged
+        everything, so add_all_files falls back to per-file staging. The fallback
+        must tolerate an already-staged deletion instead of reporting it as a
+        failed add.
+        """
+        self.repo.init_repository()
+        self.create_test_file(".gitignore", ".abstra\n")
+        self.create_test_file("keep.py", "base")
+        self.create_test_file("gone.py", "doomed")
+        self.repo.commit_changes("Initial commit")
+
+        # Make ``.abstra`` exist and be ignored so the bulk add exits non-zero.
+        self.create_test_file(".abstra/file-history/x", "history")
+        # A deletion that is already staged (D ) — the poison for the fallback.
+        (self.temp_dir / "gone.py").unlink()
+        self.repo._run_git_command(["add", "--", "gone.py"])
+        # A normal modification committed alongside it.
+        self.modify_test_file("keep.py", "changed")
+
+        # Commit-all path: paths=None.
+        success, error = self.repo.commit_changes("Save all")
+        self.assertTrue(success, error)
+        self.assertFalse((self.temp_dir / "gone.py").exists())
+        self.assertFalse(self.repo.has_uncommitted_changes())
+
+    def test_commit_changes_with_paths_reports_genuine_add_failure(self):
+        """A selected path with nothing to stage fails with a clear add error.
+
+        The staged-deletion tolerance must not swallow a genuine failure: a path
+        that matches neither the working tree nor the index (e.g. a stale entry)
+        is reported up front rather than surfacing later as a commit error.
+        """
+        self.repo.init_repository()
+        self.create_test_file("real.txt", "base")
+        self.repo.commit_changes("Initial commit")
+        self.modify_test_file("real.txt", "changed")
+
+        success, error = self.repo.commit_changes(
+            "Partial", paths=["real.txt", "ghost.txt"]
+        )
+        self.assertFalse(success)
+        assert error is not None
+        self.assertIn("ghost.txt", error)
+        self.assertIn("Git add failed", error)
+
     def test_discard_files_restores_tracked_and_removes_untracked(self):
         """discard_files restores modified files and removes new ones"""
         self.repo.init_repository()

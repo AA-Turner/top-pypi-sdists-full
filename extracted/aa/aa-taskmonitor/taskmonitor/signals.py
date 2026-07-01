@@ -7,7 +7,7 @@ This module is kept intentionally small, since it is difficult to test signals d
 
 from celery import signals
 
-from .core import task_logs
+from taskmonitor.core import task_logs
 
 
 @signals.task_received.connect

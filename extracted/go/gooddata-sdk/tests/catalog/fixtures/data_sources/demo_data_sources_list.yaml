@@ -1,0 +1,50 @@
+# (C) 2026 GoodData Corporation
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/dataSources?page=0&size=500
+    response:
+      body:
+        string:
+          data:
+            - attributes:
+                alternativeDataSourceId: ds-put-abc-id
+                authenticationType: USERNAME_PASSWORD
+                name: demo-test-ds
+                schema: demo
+                type: POSTGRESQL
+                url: jdbc:postgresql://postgres:5432/tiger?sslmode=prefer
+                username: postgres
+              id: demo-test-ds
+              links:
+                self: http://localhost:3000/api/v1/entities/dataSources/demo-test-ds
+              type: dataSource
+          links:
+            next: http://localhost:3000/api/v1/entities/dataSources?page=1&size=500
+            self: http://localhost:3000/api/v1/entities/dataSources?page=0&size=500
+      headers:
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+      status:
+        code: 200
+        message: OK
+version: 1

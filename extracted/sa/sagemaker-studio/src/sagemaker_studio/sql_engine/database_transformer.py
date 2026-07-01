@@ -190,6 +190,22 @@ class DatabaseTransformer(ABC):
         else:
             raise KeyError(f"Required parent type '{required_type}' not found in provided parents.")
 
+    @staticmethod
+    def get_execution_metadata(cursor: Any) -> Optional[Dict[str, Any]]:
+        """Extract engine-specific execution metadata from a DBAPI cursor.
+
+        Override in subclasses to return metadata such as external query IDs,
+        execution stats, data scanned, etc. The default implementation returns
+        None (no metadata available).
+
+        Args:
+            cursor: The raw DBAPI cursor after query execution.
+
+        Returns:
+            Dict with engine-specific metadata, or None if not available.
+        """
+        return None
+
     @classmethod
     def split_query(cls, query: str) -> List[SqlStatement]:
         """

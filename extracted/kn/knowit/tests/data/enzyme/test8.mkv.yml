@@ -1,0 +1,20 @@
+duration: '0:00:47.341000'
+path: tests/data/videos/test8.mkv
+container: mkv
+size: 21224737 byte
+video:
+- id: 1
+  language: und
+  width: 1024 pixel
+  height: 576 pixel
+  scan_type: PROGRESSIVE
+  resolution: 576p
+  codec: H264
+audio:
+- id: 2
+  language: und
+  codec: AAC
+  channels_count: 2
+  channels: '2.0'
+provider:
+  name: enzyme

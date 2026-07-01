@@ -41,6 +41,7 @@ __all__ = [
     "Index",
     "IndexEntry",
     "IndexExtension",
+    "InvalidPathError",
     "ResolveUndoExtension",
     "SerializedIndexEntry",
     "SparseDirExtension",
@@ -833,14 +834,12 @@ def write_cache_entry(
     write_cache_time(f, entry.ctime)
     write_cache_time(f, entry.mtime)
 
+    compressed_path = b""
     if version >= 4:
         # Version 4: use compression but set name_len to actual filename length
         # This matches how C Git implements index v4 flags
         compressed_path = _compress_path(entry.name, previous_path)
-        flags = len(entry.name) | (entry.flags & ~FLAG_NAMEMASK)
-    else:
-        # Versions < 4: include actual name length
-        flags = len(entry.name) | (entry.flags & ~FLAG_NAMEMASK)
+    flags = len(entry.name) | (entry.flags & ~FLAG_NAMEMASK)
 
     if entry.extended_flags:
         flags |= FLAG_EXTENDED
@@ -1363,7 +1362,7 @@ class Index:
     def changes_from_tree(
         self,
         object_store: ObjectContainer,
-        tree: ObjectID,
+        tree: ObjectID | None,
         want_unchanged: bool = False,
     ) -> Generator[
         tuple[
@@ -1386,7 +1385,7 @@ class Index:
 
         def lookup_entry(path: bytes) -> tuple[bytes, int]:
             entry = self[path]
-            if hasattr(entry, "sha") and hasattr(entry, "mode"):
+            if isinstance(entry, IndexEntry):
                 return entry.sha, cleanup_mode(entry.mode)
             else:
                 # Handle ConflictedIndexEntry case
@@ -1962,6 +1961,15 @@ def make_path_normalizer(
     return normalize
 
 
+class InvalidPathError(Exception):
+    """Raised when a tree entry's path is unsafe to write to the work tree."""
+
+    def __init__(self, path: bytes) -> None:
+        """Initialize the exception with the offending path."""
+        self.path = path
+        super().__init__(f"invalid path {path.decode('utf-8', 'replace')!r}")
+
+
 def validate_path_element_default(element: bytes) -> bool:
     """Validate a path element using default rules.
 
@@ -1974,12 +1982,32 @@ def validate_path_element_default(element: bytes) -> bool:
     return _normalize_path_element_default(element) not in INVALID_DOTNAMES
 
 
-def _is_ntfs_dotgit_short_name(normalized: bytes) -> bool:
-    """Match NTFS 8.3 short-name forms of ``.git`` (``git~<digits>``)."""
-    if not normalized.startswith(b"git~"):
+def _is_ntfs_dotgit(name: bytes) -> bool:
+    """Match NTFS-dangerous spellings of ``.git`` at the start of ``name``.
+
+    Matches ``.git`` or the 8.3 short name ``git~1`` followed only by
+    dots/spaces and then the end of the element, a separator, or a ``:``
+    (an alternate-data-stream marker, as in ``.git::$INDEX_ALLOCATION``).
+    """
+    if name[:1] == b".":
+        if name[1:4].lower() != b"git":
+            return False
+        i = 4
+    elif name[:1].lower() == b"g":  # ``git~1`` 8.3 short name
+        if name[1:3].lower() != b"it" or name[3:5] != b"~1":
+            return False
+        i = 5
+    else:
         return False
-    tail = normalized[4:]
-    return len(tail) > 0 and tail.isdigit()
+
+    while i < len(name):
+        c = name[i : i + 1]
+        if c == b":":
+            return True
+        if c != b"." and c != b" ":
+            return False
+        i += 1
+    return True
 
 
 # Reserved Windows device names. Opening any of these on Windows
@@ -2010,20 +2038,16 @@ def validate_path_element_ntfs(element: bytes) -> bool:
     Returns:
       True if path element is valid for NTFS, False otherwise
     """
-    # A backslash is a path separator on Windows, so accepting it
-    # here would let a tree authored on POSIX escape the work tree
-    # or plant files under ``.git\`` when checked out on Windows.
-    if b"\\" in element:
+    # A backslash is a separator on Windows but an ordinary filename
+    # character on POSIX, so only reject it on Windows.
+    if os.name == "nt" and b"\\" in element:
         return False
-    # NTFS alternate data streams are addressed as ``name:stream``;
-    # reject any element containing ``:`` so ``.git::$INDEX_ALLOCATION``
-    # and similar forms cannot bypass the ``.git`` check.
-    if b":" in element:
-        return False
+    # Backslash also separates ``.git`` spellings, so check each segment.
+    for segment in element.split(b"\\"):
+        if _is_ntfs_dotgit(segment):
+            return False
     normalized = _normalize_path_element_ntfs(element)
     if normalized in INVALID_DOTNAMES:
-        return False
-    if _is_ntfs_dotgit_short_name(normalized):
         return False
     if _is_reserved_windows_device_name(normalized):
         return False
@@ -2152,8 +2176,10 @@ def build_index_from_tree(
         assert (
             entry.path is not None and entry.mode is not None and entry.sha is not None
         )
+        # Validate as we go and abort on the first invalid path,
+        # leaving any files already written in place.
         if not validate_path(entry.path, validate_path_element):
-            continue
+            raise InvalidPathError(entry.path)
         full_path = _tree_to_fs_path(root_path, entry.path, tree_encoding)
 
         if not os.path.exists(os.path.dirname(full_path)):
@@ -2962,9 +2988,10 @@ def update_working_tree(
                 and change.new.mode is not None
             )
             path = change.new.path
+            # Validate as we go and abort on the first invalid path,
+            # leaving any changes already applied in place.
             if not validate_path(path, validate_path_element):
-                continue
-
+                raise InvalidPathError(path)
             full_path = _tree_to_fs_path(repo_path, path, tree_encoding)
             try:
                 modify_stat: os.stat_result | None = os.lstat(full_path)
@@ -3312,7 +3339,7 @@ def _fs_to_tree_path(fs_path: str | bytes, tree_encoding: str = "utf-8") -> byte
     # us either str (already decoded) or bytes encoded via the filesystem
     # codec. Normalise to str, then encode under the tree encoding so the
     # resulting tree path is plain UTF-8. This matches C git's xwcstoutf,
-    # which is just WideCharToMultiByte(CP_UTF8) — it makes no attempt to
+    # which is just WideCharToMultiByte(CP_UTF8); it makes no attempt to
     # reverse the xutftowcsn fallbacks, so a file that was checked out from
     # a tree path with invalid UTF-8 will read back as the lossy form (the
     # same divergence C git exhibits, documented as a one-way mapping).

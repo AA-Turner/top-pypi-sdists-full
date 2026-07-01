@@ -195,6 +195,9 @@ def get_editor_bp(repos: Repositories):
             req = AbstraLibApiEditorCodebaseFilesPatchRequest.from_dict(json)
             result = controller.rename_file(req.path_parts, req.new_path_parts)
             return result.to_dict()
+        except FileExistsError as e:
+            AbstraLogger.error(f"rename_file conflict: {e}")
+            flask.abort(409, description=str(e))
         except Exception as e:
             AbstraLogger.error(f"rename_file failed: {e}")
             flask.abort(500, description=str(e))

@@ -10,7 +10,6 @@
 
 from .common import Extractor, Message
 from .. import text
-import random
 
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?filester\.(?:me|s[hi]|gg)"
 
@@ -27,10 +26,10 @@ class FilesterExtractor(Extractor):
                          text.ensure_http_scheme(domain))
 
     def _download_url(self, slug):
-        url = self.root + "/api/public/download"
+        url = self.root + "/v2/api/public/download"
         data = self.request_json(url, method="POST", json={"file_slug": slug})
-        return (f"https://cache{random.choice((1, 6))}.filester.me"
-                f"{data['download_url']}?download=true")
+        return (f"{data['server']}/v2/{data['file']}"
+                f"?token={data['token']}&download=true")
 
 
 class FilesterFileExtractor(FilesterExtractor):

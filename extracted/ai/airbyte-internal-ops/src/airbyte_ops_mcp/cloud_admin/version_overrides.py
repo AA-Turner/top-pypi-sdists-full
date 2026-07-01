@@ -17,6 +17,7 @@ import logging
 from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
+import google.auth.credentials
 import requests as _requests
 from airbyte import constants
 from airbyte.exceptions import PyAirbyteInputError
@@ -426,11 +427,15 @@ def _validate_version_override_target(target: VersionOverrideTarget) -> None:
 
 def _resolve_target_context(
     target: VersionOverrideTarget,
+    *,
+    bq_credentials: google.auth.credentials.Credentials | None = None,
 ) -> tuple[str, bool | None, str | None]:
     """Resolve customer tier, EU region, and error message for `target`."""
     if target.scope in ("actor", "workspace"):
         assert target.workspace_id is not None
-        ws_resolution = resolve_workspace(target.workspace_id)
+        ws_resolution = resolve_workspace(
+            target.workspace_id, credentials=bq_credentials
+        )
         if not ws_resolution.organization_id:
             return (
                 ws_resolution.customer_tier,
@@ -445,7 +450,7 @@ def _resolve_target_context(
             )
         return ws_resolution.customer_tier, ws_resolution.is_eu, None
 
-    tier_result = get_org_tier(target.organization_id)
+    tier_result = get_org_tier(target.organization_id, credentials=bq_credentials)
     return tier_result.customer_tier, None, None
 
 
@@ -612,6 +617,7 @@ def set_version_override(
     force: bool = False,
     config_api_root: str | None = None,
     user_email: str | None = None,
+    bq_credentials: google.auth.credentials.Credentials | None = None,
 ) -> VersionOverrideResult:
     """Set or clear a connector version override through one normalized path."""
     _validate_version_override_target(target)
@@ -630,7 +636,9 @@ def set_version_override(
             result_kwargs=result_kwargs,
         )
 
-    customer_tier, is_eu, context_error = _resolve_target_context(target)
+    customer_tier, is_eu, context_error = _resolve_target_context(
+        target, bq_credentials=bq_credentials
+    )
     tier_warning = build_tier_warning(customer_tier)
     if context_error is not None:
         return _build_version_override_result(

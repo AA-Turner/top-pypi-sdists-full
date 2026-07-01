@@ -1,3 +1,0 @@
-display_name: "Stata Modernize"
-short_description: "Replace legacy Stata patterns with modern, faster, more portable ones."
-default_prompt: "Use the stata-modernize skill to identify and replace legacy Stata patterns with modern alternatives."

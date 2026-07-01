@@ -641,6 +641,23 @@ class NativeGitRepository(GitRepositoryInterface):
 
         return success, error_message
 
+    def _stage_path_tolerating_staged(self, path: str) -> bool:
+        """Stage a single path; return whether its change ends up staged.
+
+        ``git add -- <path>`` reports "pathspec did not match any files" for a
+        path whose change is already in the index — typically a staged deletion
+        (the path is gone from both the working tree and the index). That is
+        benign: the change is already captured. Returns ``False`` only when the
+        add failed *and* nothing is staged for the path (a genuine failure).
+        """
+        add_success, _, _ = self._run_git_command(["add", "--", path])
+        if add_success:
+            return True
+        _, staged_out, _ = self._run_git_command(
+            ["diff", "--cached", "--name-only", "--", path]
+        )
+        return bool(staged_out.strip())
+
     def add_all_files(self) -> Tuple[bool, Optional[str]]:
         """Add all changes to staging area"""
         if not self.is_git_repository():
@@ -648,6 +665,11 @@ class NativeGitRepository(GitRepositoryInterface):
 
         success, _, error = self._git_add_all_excluding_protected()
         self._unstage_protected_paths()
+        # ``git add --all -- . :(exclude)…`` exits non-zero merely when the
+        # pathspec references a path under a .gitignore'd directory (e.g. a
+        # project whose ``.abstra`` is ignored) — only an advisory, yet it
+        # still staged every real change. So don't trust the exit code: fall
+        # back to staging per file and verify.
         if not success:
             changed_files = self.get_changed_files()
             failed_files = []
@@ -655,8 +677,7 @@ class NativeGitRepository(GitRepositoryInterface):
             for file in changed_files:
                 if self._is_protected_git_path(file):
                     continue
-                file_success, _, _ = self._run_git_command(["add", file])
-                if not file_success:
+                if not self._stage_path_tolerating_staged(file):
                     failed_files.append(file)
 
             if failed_files:
@@ -714,11 +735,22 @@ class NativeGitRepository(GitRepositoryInterface):
         selected = self._normalize_commit_paths(paths) if paths else None
 
         if selected:
-            # Stage only the selected paths. ``git add`` handles modifications,
-            # new (untracked) files, and deletions for the listed paths.
-            add_success, _, add_error = self._run_git_command(["add", "--", *selected])
-            if not add_success:
-                return False, f"Git add failed with error: {add_error}"
+            # Stage the selected paths one at a time. A single batched
+            # ``git add -- a b c`` aborts the whole set with "pathspec did not
+            # match any files" if *any* path matches neither the working tree
+            # nor the index — most commonly a deletion that is already staged
+            # (e.g. left over from a prior interrupted "commit all"). Per path
+            # we tolerate that (its change is already staged), but still report
+            # a path with nothing staged as a real failure.
+            failed_paths = [
+                path
+                for path in selected
+                if not self._stage_path_tolerating_staged(path)
+            ]
+            if failed_paths:
+                return False, (
+                    f"Git add failed for the following files: {', '.join(failed_paths)}"
+                )
         else:
             git_add_success, git_add_error_message = self.add_all_files()
             if not git_add_success:

@@ -1,1 +1,0 @@
-from .gisaid import GisaidAPI

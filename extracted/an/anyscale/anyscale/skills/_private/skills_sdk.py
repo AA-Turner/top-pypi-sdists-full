@@ -534,14 +534,6 @@ class PrivateSkillsSDK(BaseSDK):
             bundle, plan, target_platforms, existing_metadata=existing_metadata,
         )
         self._warn_about_unsupported_skills(plan.catalog)
-        if Platform.CODEX in target_platforms:
-            self._logger.info("")
-            self._logger.info(
-                "  To enable Anyscale hooks for Codex, add the following to "
-                "~/.codex/config.toml:"
-            )
-            self._logger.info("    [features]")
-            self._logger.info("    codex_hooks = true")
 
     def _warn_about_unsupported_skills(self, catalog: List[CatalogEntry]) -> None:
         """Log a warning for catalog entries whose platforms the CLI doesn't know."""

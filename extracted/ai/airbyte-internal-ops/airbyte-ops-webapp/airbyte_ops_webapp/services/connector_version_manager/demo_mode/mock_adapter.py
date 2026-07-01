@@ -216,7 +216,7 @@ MOCK_CONFIGURATIONS: tuple[ScopedConfiguration, ...] = (
 def _generate_bulk_pins(count: int = 210) -> tuple[VersionPinRow, ...]:
     """Generate bulk mock pins for scrollbar testing."""
     scope_types = ("actor", "workspace", "organization")
-    origins = ("user", "rollout", "support")
+    origins = ("user", "connector_rollout", "user")
     reasons = (
         "Customer regression investigation",
         "Pinned pending patch release",
@@ -239,7 +239,9 @@ def _generate_bulk_pins(count: int = 210) -> tuple[VersionPinRow, ...]:
                 scope_url=f"https://cloud.airbyte.com/workspaces/{scope_t[:3]}_{i:04d}",
                 origin_type=origins[i % 3],
                 origin_name=f"user{i}@airbyte.io",
-                description=reasons[i % 5],
+                description=""
+                if origins[i % 3] == "connector_rollout"
+                else reasons[i % 5],
                 created_at=f"2026-04-{(i % 28) + 1:02d}T10:00:00Z",
                 created_at_display=f"2026-04-{(i % 28) + 1:02d}",
                 expires_at="2026-07-01T00:00:00Z" if i % 4 == 0 else "",
@@ -254,6 +256,34 @@ def _generate_bulk_pins(count: int = 210) -> tuple[VersionPinRow, ...]:
 MOCK_VERSION_PINS: dict[str, tuple[VersionPinRow, ...]] = {
     "adv_postgres_372": _generate_bulk_pins(210),
     "adv_postgres_371": (
+        VersionPinRow(
+            scope_type="actor",
+            scope_id="act_bc0001-breaking",
+            scope_url="https://cloud.airbyte.com/workspaces",
+            origin_type="breaking_change",
+            origin_name="3.8.0",
+            description="",
+            created_at="2026-04-15T08:00:00Z",
+            created_at_display="2026-04-15 (Tue)",
+            expires_at="",
+            expires_at_display="",
+            reference_url="",
+            scope_name="Customer Source A",
+        ),
+        VersionPinRow(
+            scope_type="actor",
+            scope_id="act_bc0002-breaking",
+            scope_url="https://cloud.airbyte.com/workspaces",
+            origin_type="breaking_change",
+            origin_name="3.8.0",
+            description="",
+            created_at="2026-04-15T08:01:00Z",
+            created_at_display="2026-04-15 (Tue)",
+            expires_at="",
+            expires_at_display="",
+            reference_url="",
+            scope_name="Customer Source B",
+        ),
         VersionPinRow(
             scope_type="workspace",
             scope_id="ws_abc123-def456",
@@ -336,6 +366,23 @@ MOCK_ROLLOUTS: dict[str, tuple[ConnectorRollout, ...]] = {
         ),
     ),
     "ef69ef6e-aa7f-4af1-a01d-ef775033524e": (
+        ConnectorRollout(
+            rollout_id="mock-github-rollout-t2",
+            connector_id="ef69ef6e-aa7f-4af1-a01d-ef775033524e",
+            connector_name="source-github",
+            connector_type="source",
+            docker_repository="airbyte/source-github",
+            state="in_progress",
+            rc_docker_image_tag="1.10.0-rc.1",
+            initial_docker_image_tag="1.9.4",
+            current_target_rollout_pct="100",
+            final_target_rollout_pct="100",
+            created_at="2026-06-18T09:00:00Z",
+            updated_at="2026-06-19T12:00:00Z",
+            rollout_strategy="manual",
+            rc_pin_count=3,
+            tier=CustomerTier.TIER_2,
+        ),
         ConnectorRollout(
             rollout_id="mock-github-rollout",
             connector_id="ef69ef6e-aa7f-4af1-a01d-ef775033524e",
@@ -427,7 +474,22 @@ class MockPinningAdapter(OpsMcpAdapter):
             for version in versions:
                 pins = self.version_pins.get(version.version_id, ())
                 if pins:
-                    actor_pins = sum(1 for p in pins if p.scope_type == "actor")
+                    breaking_change_pins = sum(
+                        1
+                        for p in pins
+                        if p.scope_type == "actor"
+                        and p.origin_type == "breaking_change"
+                    )
+                    rollout_pins = sum(
+                        1 for p in pins if p.origin_type == "connector_rollout"
+                    )
+                    actor_pins = sum(
+                        1
+                        for p in pins
+                        if p.scope_type == "actor"
+                        and p.origin_type
+                        not in ("breaking_change", "connector_rollout")
+                    )
                     workspace_pins = sum(1 for p in pins if p.scope_type == "workspace")
                     org_pins = sum(1 for p in pins if p.scope_type == "organization")
                     result.append(
@@ -439,6 +501,8 @@ class MockPinningAdapter(OpsMcpAdapter):
                             "docker_image_tag": version.docker_image_tag,
                             "last_published": version.last_published,
                             "pin_count": len(pins),
+                            "breaking_change_pins": breaking_change_pins,
+                            "rollout_pins": rollout_pins,
                             "actor_pins": actor_pins,
                             "workspace_pins": workspace_pins,
                             "org_pins": org_pins,
@@ -648,7 +712,12 @@ class MockPinningAdapter(OpsMcpAdapter):
         total = len(all_pins)
         return all_pins[offset : offset + limit], total
 
-    def apply_override(self, plan: OverridePlan) -> OperationResult:
+    def apply_override(
+        self,
+        plan: OverridePlan,
+        *,
+        google_access_token: str = "",
+    ) -> OperationResult:
         """Apply the override flow without calling Airbyte Cloud."""
         version_label = (
             "cleared" if plan.action == "unset" else f"set to {plan.version}"

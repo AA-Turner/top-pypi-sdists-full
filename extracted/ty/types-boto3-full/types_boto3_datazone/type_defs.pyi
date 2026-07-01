@@ -203,6 +203,8 @@ __all__ = (
     "ConnectionPropertiesOutputTypeDef",
     "ConnectionPropertiesPatchTypeDef",
     "ConnectionSummaryTypeDef",
+    "ConnectivityPropertiesPatchTypeDef",
+    "ConnectivityPropertiesTypeDef",
     "CreateAccountPoolInputTypeDef",
     "CreateAccountPoolOutputTypeDef",
     "CreateAssetFilterInputTypeDef",
@@ -481,6 +483,7 @@ __all__ = (
     "IamPropertiesOutputTypeDef",
     "IamPropertiesPatchTypeDef",
     "IamUserProfileDetailsTypeDef",
+    "IdentityMappingTypeDef",
     "ImportTypeDef",
     "InExpressionOutputTypeDef",
     "InExpressionTypeDef",
@@ -506,6 +509,8 @@ __all__ = (
     "LineageNodeTypeItemTypeDef",
     "LineageRunDetailsTypeDef",
     "LineageSqlQueryRunDetailsTypeDef",
+    "LineageSyncInputTypeDef",
+    "LineageSyncOutputTypeDef",
     "LineageSyncScheduleTypeDef",
     "ListAccountPoolsInputPaginateTypeDef",
     "ListAccountPoolsInputTypeDef",
@@ -785,6 +790,9 @@ __all__ = (
     "SelfGrantStatusDetailTypeDef",
     "SelfGrantStatusOutputTypeDef",
     "SingleSignOnTypeDef",
+    "SnowflakePropertiesInputTypeDef",
+    "SnowflakePropertiesOutputTypeDef",
+    "SnowflakePropertiesPatchTypeDef",
     "SourceLocationTypeDef",
     "SparkEmrPropertiesInputTypeDef",
     "SparkEmrPropertiesOutputTypeDef",
@@ -2047,6 +2055,10 @@ class IamUserProfileDetailsTypeDef(TypedDict):
     sessionName: NotRequired[str]
     groupProfileId: NotRequired[str]
 
+class IdentityMappingTypeDef(TypedDict):
+    usernameAttribute: str
+    prefix: NotRequired[str]
+
 class InExpressionOutputTypeDef(TypedDict):
     columnName: str
     values: list[str]
@@ -2105,6 +2117,17 @@ class LineageSqlQueryRunDetailsTypeDef(TypedDict):
     totalQueriesProcessed: NotRequired[int]
     numQueriesFailed: NotRequired[int]
     errorMessages: NotRequired[list[str]]
+
+class LineageSyncInputTypeDef(TypedDict):
+    enabled: bool
+    timezone: NotRequired[TimezoneType]
+    schedule: NotRequired[str]
+
+class LineageSyncOutputTypeDef(TypedDict):
+    lineageJobId: NotRequired[str]
+    timezone: NotRequired[TimezoneType]
+    enabled: NotRequired[bool]
+    schedule: NotRequired[str]
 
 class LineageSyncScheduleTypeDef(TypedDict):
     schedule: NotRequired[str]
@@ -4048,6 +4071,13 @@ class ListLineageNodeHistoryOutputTypeDef(TypedDict):
 class LineageRunDetailsTypeDef(TypedDict):
     sqlQueryRunDetails: NotRequired[LineageSqlQueryRunDetailsTypeDef]
 
+class SnowflakePropertiesOutputTypeDef(TypedDict):
+    snowflakeRole: str
+    identityMapping: IdentityMappingTypeDef
+    lineageSync: LineageSyncOutputTypeDef
+    status: ConnectionStatusType
+    errorMessage: NotRequired[str]
+
 class RedshiftLineageSyncConfigurationInputTypeDef(TypedDict):
     enabled: NotRequired[bool]
     schedule: NotRequired[LineageSyncScheduleTypeDef]
@@ -4749,6 +4779,11 @@ class BatchPutAttributesMetadataInputTypeDef(TypedDict):
     entityIdentifier: str
     attributes: Sequence[AttributeInputTypeDef]
     clientToken: NotRequired[str]
+
+class ConnectivityPropertiesPatchTypeDef(TypedDict):
+    description: NotRequired[str]
+    connectionProperties: NotRequired[Mapping[str, str]]
+    authenticationConfiguration: NotRequired[AuthenticationConfigurationPatchTypeDef]
 
 class GlueConnectionPatchTypeDef(TypedDict):
     description: NotRequired[str]
@@ -5864,6 +5899,11 @@ class ListingItemTypeDef(TypedDict):
     assetListing: NotRequired[AssetListingTypeDef]
     dataProductListing: NotRequired[DataProductListingTypeDef]
 
+class SnowflakePropertiesPatchTypeDef(TypedDict):
+    connectivityPropertiesPatch: NotRequired[ConnectivityPropertiesPatchTypeDef]
+    snowflakeRole: NotRequired[str]
+    lineageSync: NotRequired[LineageSyncInputTypeDef]
+
 class GluePropertiesPatchTypeDef(TypedDict):
     glueConnectionInput: NotRequired[GlueConnectionPatchTypeDef]
 
@@ -6219,6 +6259,7 @@ class ConnectionPropertiesOutputTypeDef(TypedDict):
     sparkEmrProperties: NotRequired[SparkEmrPropertiesOutputTypeDef]
     sparkGlueProperties: NotRequired[SparkGluePropertiesOutputTypeDef]
     s3Properties: NotRequired[S3PropertiesOutputTypeDef]
+    snowflakeProperties: NotRequired[SnowflakePropertiesOutputTypeDef]
     amazonQProperties: NotRequired[AmazonQPropertiesOutputTypeDef]
     mlflowProperties: NotRequired[MlflowPropertiesOutputTypeDef]
     workflowsMwaaProperties: NotRequired[WorkflowsMwaaPropertiesOutputTypeDef]
@@ -6267,6 +6308,7 @@ class ConnectionPropertiesPatchTypeDef(TypedDict):
     redshiftProperties: NotRequired[RedshiftPropertiesPatchTypeDef]
     sparkEmrProperties: NotRequired[SparkEmrPropertiesPatchTypeDef]
     s3Properties: NotRequired[S3PropertiesPatchTypeDef]
+    snowflakeProperties: NotRequired[SnowflakePropertiesPatchTypeDef]
     amazonQProperties: NotRequired[AmazonQPropertiesPatchTypeDef]
     mlflowProperties: NotRequired[MlflowPropertiesPatchTypeDef]
     lakehouseProperties: NotRequired[LakehousePropertiesPatchTypeDef]
@@ -6461,6 +6503,18 @@ class PhysicalEndpointTypeDef(TypedDict):
     port: NotRequired[int]
     protocol: NotRequired[ProtocolType]
     stage: NotRequired[str]
+
+class ConnectivityPropertiesTypeDef(TypedDict):
+    connectionProperties: NotRequired[Mapping[str, str]]
+    physicalConnectionRequirements: NotRequired[PhysicalConnectionRequirementsUnionTypeDef]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    validateCredentials: NotRequired[bool]
+    validateForComputeEnvironments: NotRequired[Sequence[ComputeEnvironmentsType]]
+    sparkProperties: NotRequired[Mapping[str, str]]
+    athenaProperties: NotRequired[Mapping[str, str]]
+    pythonProperties: NotRequired[Mapping[str, str]]
+    authenticationConfiguration: NotRequired[AuthenticationConfigurationInputTypeDef]
 
 class GlueConnectionInputTypeDef(TypedDict):
     connectionProperties: NotRequired[Mapping[str, str]]
@@ -7000,6 +7054,12 @@ UpdateConnectionOutputTypeDef = TypedDict(
     },
 )
 
+class SnowflakePropertiesInputTypeDef(TypedDict):
+    snowflakeRole: str
+    identityMapping: IdentityMappingTypeDef
+    connectivityProperties: NotRequired[ConnectivityPropertiesTypeDef]
+    lineageSync: NotRequired[LineageSyncInputTypeDef]
+
 class GluePropertiesInputTypeDef(TypedDict):
     glueConnectionInput: NotRequired[GlueConnectionInputTypeDef]
 
@@ -7056,6 +7116,7 @@ class ConnectionPropertiesInputTypeDef(TypedDict):
     sparkEmrProperties: NotRequired[SparkEmrPropertiesInputTypeDef]
     sparkGlueProperties: NotRequired[SparkGluePropertiesInputTypeDef]
     s3Properties: NotRequired[S3PropertiesInputTypeDef]
+    snowflakeProperties: NotRequired[SnowflakePropertiesInputTypeDef]
     amazonQProperties: NotRequired[AmazonQPropertiesInputTypeDef]
     mlflowProperties: NotRequired[MlflowPropertiesInputTypeDef]
     workflowsMwaaProperties: NotRequired[WorkflowsMwaaPropertiesInputTypeDef]

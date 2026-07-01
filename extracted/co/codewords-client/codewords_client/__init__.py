@@ -100,6 +100,67 @@ def _format_service_only_traceback(exc, max_frames: int = 5, max_chars: int = 20
     return formatted
 
 
+class _EventTolerantBoundLogger(structlog.stdlib.BoundLogger):
+    """structlog BoundLogger that tolerates a clashing ``event=`` keyword.
+
+    structlog reserves the FIRST positional of ``.info()/.debug()/…`` as the log
+    ``event`` (the message). A large number of CodeWords services — and Cody-built
+    bots copied from templates — call e.g.::
+
+        logger.info("Webhook received", event=payload["event"])
+
+    i.e. the message positionally AND an ``event=`` field. Stock structlog raises
+    ``TypeError: BoundLogger.info() got multiple values for argument 'event'``,
+    which 500s the handler on EVERY call. For a WhatsApp/webhook bot that is the
+    "received but no send" failure — the bot silently never replies. We defensively
+    rename a clashing ``event=`` field to ``event_type`` so the call logs instead of
+    crashing the service. A lone ``event=`` (no positional message) is the normal
+    structlog message and is left untouched.
+    """
+
+    @staticmethod
+    def _detangle_event(args: tuple, kwargs: dict) -> tuple[tuple, dict]:
+        if args and "event" in kwargs:  # message given positionally AND event= field
+            kwargs = dict(kwargs)
+            key = "event_type" if "event_type" not in kwargs else "event_value"
+            kwargs[key] = kwargs.pop("event")
+        return args, kwargs
+
+    def debug(self, *args, **kw):
+        a, k = self._detangle_event(args, kw)
+        return super().debug(*a, **k)
+
+    def info(self, *args, **kw):
+        a, k = self._detangle_event(args, kw)
+        return super().info(*a, **k)
+
+    def warning(self, *args, **kw):
+        a, k = self._detangle_event(args, kw)
+        return super().warning(*a, **k)
+
+    warn = warning
+
+    def error(self, *args, **kw):
+        a, k = self._detangle_event(args, kw)
+        return super().error(*a, **k)
+
+    def critical(self, *args, **kw):
+        a, k = self._detangle_event(args, kw)
+        return super().critical(*a, **k)
+
+    def exception(self, *args, **kw):
+        a, k = self._detangle_event(args, kw)
+        return super().exception(*a, **k)
+
+    def msg(self, *args, **kw):
+        a, k = self._detangle_event(args, kw)
+        return super().msg(*a, **k)
+
+    def log(self, level, *args, **kw):
+        a, k = self._detangle_event(args, kw)
+        return super().log(level, *a, **k)
+
+
 def _setup_logging():
     """Configure structlog logging with filtered service-only tracebacks."""
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
@@ -112,7 +173,7 @@ def _setup_logging():
         ],
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
+        wrapper_class=_EventTolerantBoundLogger,
         cache_logger_on_first_use=True,
     )
 
@@ -271,64 +332,74 @@ def _patch_firecrawl():
         logger.warning("Failed to patch FirecrawlApp", error=str(e))
 
 def _patch_openai():
-    """Monkey patch AsyncOpenAI to auto-inject CodeWords proxy settings and correlation IDs."""
+    """Monkey patch OpenAI and AsyncOpenAI to auto-inject CodeWords proxy settings and correlation IDs."""
     try:
-        from openai import AsyncOpenAI
-        if hasattr(AsyncOpenAI, '_codewords_patched'):
-            return
-        
-        _original_init = AsyncOpenAI.__init__
-        
-        def _enhanced_init(self, api_key=None, base_url=None, default_headers=None, **kwargs):
-            api_key = api_key or os.environ.get('CODEWORDS_API_KEY')
-            base_url = base_url or urljoin(os.environ.get('CODEWORDS_RUNTIME_URI', 'https://runtime.codewords.ai'), "run/openai/v1")
-            default_headers = dict(default_headers or {})
-            
-            if 'X-Correlation-Id' not in default_headers:
-                correlation_id = get_contextvars().get("correlation_id")
-                if correlation_id:
-                    default_headers['X-Correlation-Id'] = correlation_id
-            
-            _original_init(self, api_key=api_key, base_url=base_url, default_headers=default_headers, **kwargs)
-        
-        AsyncOpenAI.__init__ = _enhanced_init
-        AsyncOpenAI._codewords_patched = True
-        logger.debug("AsyncOpenAI successfully patched for CodeWords auto-configuration")
-        
+        from openai import OpenAI, AsyncOpenAI
+
+        def _make_enhanced_init(_original_init):
+            def _enhanced_init(self, api_key=None, base_url=None, default_headers=None, **kwargs):
+                api_key = api_key or os.environ.get('CODEWORDS_API_KEY')
+                base_url = base_url or urljoin(
+                    os.environ.get('CODEWORDS_RUNTIME_URI', 'https://runtime.codewords.ai'),
+                    "run/openai/v1",
+                )
+                default_headers = dict(default_headers or {})
+                if 'X-Correlation-Id' not in default_headers:
+                    cid = get_contextvars().get("correlation_id")
+                    if cid:
+                        default_headers['X-Correlation-Id'] = cid
+                _original_init(self, api_key=api_key, base_url=base_url, default_headers=default_headers, **kwargs)
+            return _enhanced_init
+
+        if not hasattr(OpenAI, '_codewords_patched'):
+            OpenAI.__init__ = _make_enhanced_init(OpenAI.__init__)
+            OpenAI._codewords_patched = True
+            logger.debug("OpenAI successfully patched for CodeWords auto-configuration")
+
+        if not hasattr(AsyncOpenAI, '_codewords_patched'):
+            AsyncOpenAI.__init__ = _make_enhanced_init(AsyncOpenAI.__init__)
+            AsyncOpenAI._codewords_patched = True
+            logger.debug("AsyncOpenAI successfully patched for CodeWords auto-configuration")
+
     except ImportError:
         pass
     except Exception as e:
-        logger.warning("Failed to patch AsyncOpenAI", error=str(e))
+        logger.warning("Failed to patch OpenAI/AsyncOpenAI", error=str(e))
 
 def _patch_anthropic():
-    """Monkey patch AsyncAnthropic to auto-inject CodeWords proxy settings and correlation IDs."""
+    """Monkey patch Anthropic and AsyncAnthropic to auto-inject CodeWords proxy settings and correlation IDs."""
     try:
-        from anthropic import AsyncAnthropic
-        if hasattr(AsyncAnthropic, '_codewords_patched'):
-            return
+        from anthropic import Anthropic, AsyncAnthropic
 
-        _original_init = AsyncAnthropic.__init__
+        def _make_enhanced_init(_original_init):
+            def _enhanced_init(self, api_key=None, base_url=None, default_headers=None, **kwargs):
+                api_key = api_key or os.environ.get('CODEWORDS_API_KEY')
+                base_url = base_url or urljoin(
+                    os.environ.get('CODEWORDS_RUNTIME_URI', 'https://runtime.codewords.ai'),
+                    "run/anthropic",
+                )
+                default_headers = dict(default_headers or {})
+                if 'X-Correlation-Id' not in default_headers:
+                    cid = get_contextvars().get("correlation_id")
+                    if cid:
+                        default_headers['X-Correlation-Id'] = cid
+                _original_init(self, api_key=api_key, base_url=base_url, default_headers=default_headers, **kwargs)
+            return _enhanced_init
 
-        def _enhanced_init(self, api_key=None, base_url=None, default_headers=None, **kwargs):
-            api_key = api_key or os.environ.get('CODEWORDS_API_KEY')
-            base_url = base_url or urljoin(os.environ.get('CODEWORDS_RUNTIME_URI', 'https://runtime.codewords.ai'), "run/anthropic")
-            default_headers = dict(default_headers or {})
+        if not hasattr(Anthropic, '_codewords_patched'):
+            Anthropic.__init__ = _make_enhanced_init(Anthropic.__init__)
+            Anthropic._codewords_patched = True
+            logger.debug("Anthropic successfully patched for CodeWords auto-configuration")
 
-            if 'X-Correlation-Id' not in default_headers:
-                correlation_id = get_contextvars().get("correlation_id")
-                if correlation_id:
-                    default_headers['X-Correlation-Id'] = correlation_id
-
-            _original_init(self, api_key=api_key, base_url=base_url, default_headers=default_headers, **kwargs)
-
-        AsyncAnthropic.__init__ = _enhanced_init
-        AsyncAnthropic._codewords_patched = True
-        logger.debug("AsyncAnthropic successfully patched for CodeWords auto-configuration")
+        if not hasattr(AsyncAnthropic, '_codewords_patched'):
+            AsyncAnthropic.__init__ = _make_enhanced_init(AsyncAnthropic.__init__)
+            AsyncAnthropic._codewords_patched = True
+            logger.debug("AsyncAnthropic successfully patched for CodeWords auto-configuration")
 
     except ImportError:
         pass
     except Exception as e:
-        logger.warning("Failed to patch AsyncAnthropic", error=str(e))
+        logger.warning("Failed to patch Anthropic/AsyncAnthropic", error=str(e))
 
 def _patch_perplexity():
     """Monkey patch Perplexity and AsyncPerplexity to auto-inject CodeWords proxy settings and correlation IDs."""

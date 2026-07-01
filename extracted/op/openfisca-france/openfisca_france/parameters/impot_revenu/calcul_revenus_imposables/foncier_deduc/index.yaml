@@ -1,8 +1,0 @@
-description: Déductions des revenus fonciers issus de certains baux
-metadata:
-  documentation_start: true
-  order:
-  - plafond
-  - taux_droit_commun
-  - logements_neufs
-  - logements_anciens

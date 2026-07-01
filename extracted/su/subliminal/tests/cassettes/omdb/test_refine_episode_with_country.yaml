@@ -1,0 +1,54 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, zstd
+      Connection:
+      - keep-alive
+      User-Agent:
+      - Subliminal/2.5
+    method: GET
+    uri: https://www.omdbapi.com/?r=json&v=1&apikey=7a541ee4&s=Shameless&page=1&type=series
+  response:
+    body:
+      string: "{\"Search\":[{\"Title\":\"Shameless\",\"Year\":\"2011\u20132021\",\"imdbID\":\"tt1586680\",\"Type\":\"series\",\"Poster\":\"https://m.media-amazon.com/images/M/MV5BMWUwZjJmYjctYTY3MC00ZTVlLWI1ZGEtNWQzMTFlMTcwMTY2XkEyXkFqcGc@._V1_SX300.jpg\"},{\"Title\":\"Shameless\",\"Year\":\"2004\u20132013\",\"imdbID\":\"tt0377260\",\"Type\":\"series\",\"Poster\":\"https://m.media-amazon.com/images/M/MV5BYmM0NGVmZmYtODc5NS00Y2JlLTg5ZTAtODczNjllNmY1YjYzXkEyXkFqcGc@._V1_SX300.jpg\"},{\"Title\":\"Shameless
+        Hall of Shame\",\"Year\":\"2012\u20132021\",\"imdbID\":\"tt13653972\",\"Type\":\"series\",\"Poster\":\"https://m.media-amazon.com/images/M/MV5BNWE0Y2Q5ZDktZTkwYS00NWE2LTliOWMtZDk1NDU4YmJkYTkzXkEyXkFqcGc@._V1_SX300.jpg\"},{\"Title\":\"Rich
+        & Shameless\",\"Year\":\"2022\u20132024\",\"imdbID\":\"tt17497942\",\"Type\":\"series\",\"Poster\":\"https://m.media-amazon.com/images/M/MV5BYzFhOTdmYjUtYjI0MS00ZjE5LWE3MWMtM2E0MzEwNTcyOTA3XkEyXkFqcGc@._V1_SX300.jpg\"},{\"Title\":\"Shameless
+        Comedy\",\"Year\":\"2023\u2013\",\"imdbID\":\"tt20196198\",\"Type\":\"series\",\"Poster\":\"https://m.media-amazon.com/images/M/MV5BN2FkNWMwOGUtYWRiNC00OGYyLTkzYWEtY2FhMDVmMGU3ODM3XkEyXkFqcGc@._V1_SX300.jpg\"},{\"Title\":\"Shameless
+        Idealists\",\"Year\":\"2010\u2013\",\"imdbID\":\"tt2539106\",\"Type\":\"series\",\"Poster\":\"https://m.media-amazon.com/images/M/MV5BYmU5MTAwNmUtZTBiZi00YWExLTgzMmQtNjM3NzZiMTMwZjA2XkEyXkFqcGdeQXVyMzk2OTI5MDM@._V1_SX300.jpg\"}],\"totalResults\":\"6\",\"Response\":\"True\"}"
+    headers:
+      CF-RAY:
+      - 9cd0366baf85ab0d-LIS
+      Cache-Control:
+      - public, max-age=3600
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Fri, 13 Feb 2026 00:29:38 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      access-control-allow-origin:
+      - '*'
+      cf-cache-status:
+      - DYNAMIC
+      content-length:
+      - '1334'
+      expires:
+      - Fri, 13 Feb 2026 01:29:38 GMT
+      last-modified:
+      - Fri, 13 Feb 2026 00:29:38 GMT
+      vary:
+      - '*'
+      x-aspnet-version:
+      - 4.0.30319
+    status:
+      code: 200
+      message: OK
+version: 1

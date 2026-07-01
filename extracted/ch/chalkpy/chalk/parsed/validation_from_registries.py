@@ -26,6 +26,7 @@ from chalk.parsed.ast_context import get_project_ast_context
 if TYPE_CHECKING:
     from chalk.features.feature_set import Features, FeaturesProtocol
     from chalk.features.resolver import ResolverRegistry
+    from chalk.queries.materialized_feature_view import MaterializedFeatureView
     from chalk.queries.scheduled_aggregate_backfill import ScheduledAggregateBackfill
     from chalk_rs import AstProjectIndex
 
@@ -232,6 +233,19 @@ def _validate_feature_names_from_registry(feature: "Feature") -> None:
             or feature.lsp_error_builder.class_definition_range(),
             code="25",
         )
+
+
+def validate_materialized_feature_view_from_registries(
+    view: "MaterializedFeatureView",
+    features_registry: dict[str, type["FeaturesProtocol"]],
+) -> list[str]:
+    """Returns explicit validation failures on a materialized feature view."""
+    errors: list[str] = []
+    if view.namespace not in features_registry:
+        errors.append(
+            f"MaterializedFeatureView references namespace '{view.namespace}' which does not exist in the feature registry."
+        )
+    return errors
 
 
 def validate_scheduled_agg_backfill_from_registries(

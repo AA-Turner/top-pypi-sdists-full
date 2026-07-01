@@ -5869,6 +5869,33 @@ class Crc32(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
         ...
 
 
+class Sha3(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def bitwise_clear_xor(xor: System.Runtime.Intrinsics.Vector128[int], value: System.Runtime.Intrinsics.Vector128[int], mask: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def bitwise_rotate_left_by_1_and_xor(xor: System.Runtime.Intrinsics.Vector128[int], rol_1: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def xor(value_1: System.Runtime.Intrinsics.Vector128[int], value_2: System.Runtime.Intrinsics.Vector128[int], value_3: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    def xor_rotate_right(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int], count: int) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+
 class Dp(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -5907,6 +5934,21 @@ class Dp(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
     @staticmethod
     @overload
     def dot_product_by_selected_quadruplet(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector64[int], right_scaled_index: int) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+
+class SveSha3(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def bitwise_rotate_left_by_1_and_xor(xor: System.Numerics.Vector[int], rol_1: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
 

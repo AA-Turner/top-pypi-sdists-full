@@ -1,0 +1,109 @@
+interactions:
+- request:
+    body: '{"apikey": "5EC930FB90DA1ADA", "username": null, "password": null}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Accept-Language:
+      - en
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '66'
+      Content-Type:
+      - application/json
+      User-Agent:
+      - Subliminal/2.2
+    method: POST
+    uri: https://api.thetvdb.com/login
+  response:
+    body:
+      string: '{"token":"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDAwOTQyMjAsImlkIjoic3VibGltaW5hbCIsIm9yaWdfaWF0IjoxNzM5NDg5NDIwfQ.to1lA1te9rHT1Z3WeInLZZBGMgFwE8GrPFFO0pzQGg74-w4oQ_7WCpyyoYKwtEiUx6__OqARhh3Bv4LlyfFzt6ksgNfg13ADpUMH0A8ro4q5dmjLJO4MaMi1reqLvt0uEfWN_DjKT4P_0RAX_tQxultbsCsqsWJxClqSvYO2d2h5Ems7SBTmr-gVvHtqIC-umYTJ7o_0-zptmfjICG1A2Vw0LXOhy_6zq4pRh6ScMKTw7SNQ1KVY_l7LV4dICJJcCJ8chNqf5-U80F8neBO9TxUHNRYlkjpRyUPwzCJKzKkPrkjE99iV_jw7z_cfJwY2B-9CWRJSEr8T-4tkUbSg_w"}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '470'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 13 Feb 2025 23:30:20 GMT
+      Vary:
+      - Accept-Language
+      Via:
+      - 1.1 5ad93350267f9ac167b2959e5c7e257e.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - lJ6lM5J0tXnSN8uF1yZqMcZGnGgw6JTYAK2U6xLK-WS00qLdN0h6cQ==
+      X-Amz-Cf-Pop:
+      - MAD51-C3
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - Thundar!
+      X-Thetvdb-Api-Version:
+      - 3.0.0
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Accept-Language:
+      - en
+      Authorization:
+      - Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDAwOTQyMjAsImlkIjoic3VibGltaW5hbCIsIm9yaWdfaWF0IjoxNzM5NDg5NDIwfQ.to1lA1te9rHT1Z3WeInLZZBGMgFwE8GrPFFO0pzQGg74-w4oQ_7WCpyyoYKwtEiUx6__OqARhh3Bv4LlyfFzt6ksgNfg13ADpUMH0A8ro4q5dmjLJO4MaMi1reqLvt0uEfWN_DjKT4P_0RAX_tQxultbsCsqsWJxClqSvYO2d2h5Ems7SBTmr-gVvHtqIC-umYTJ7o_0-zptmfjICG1A2Vw0LXOhy_6zq4pRh6ScMKTw7SNQ1KVY_l7LV4dICJJcCJ8chNqf5-U80F8neBO9TxUHNRYlkjpRyUPwzCJKzKkPrkjE99iV_jw7z_cfJwY2B-9CWRJSEr8T-4tkUbSg_w
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      User-Agent:
+      - Subliminal/2.2
+    method: GET
+    uri: https://api.thetvdb.com/series/80379
+  response:
+    body:
+      string: '{"data":{"id":80379,"seriesId":"","seriesName":"The Big Bang Theory","aliases":[],"season":"12","poster":"posters/80379-18.jpg","banner":"graphical/80379-g23.jpg","fanart":"fanart/original/80379-38.jpg","status":"Ended","firstAired":"2007-09-24","network":"CBS","networkId":"57","runtime":"25","language":"en","genre":["Comedy","Romance"],"overview":"A
+        woman who moves into an apartment across the hall from two brilliant but socially
+        awkward physicists shows them how little they know about life outside of the
+        laboratory.","lastUpdated":1735806730,"airsDayOfWeek":"Thursday","airsTime":"8:00
+        PM","rating":"TV-14","imdbId":"tt0898266","zap2itId":"","added":"2008-02-04
+        00:00:00","addedBy":1,"siteRating":8.8,"siteRatingCount":41886,"slug":"the-big-bang-theory"}}'
+    headers:
+      Age:
+      - '82812'
+      Cache-Control:
+      - private, max-age=86400
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '763'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 13 Feb 2025 00:30:07 GMT
+      Last-Modified:
+      - Thu, 02 Jan 2025 08:32:10 GMT
+      Vary:
+      - Accept-Language
+      Via:
+      - 1.1 d657f066b9b78c7e750a7471d5089526.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - KipAB5NHn8GEHs8VI6TvBimukMq3CAHjm8KiEtbg1Jnex1AN7cXYsQ==
+      X-Amz-Cf-Pop:
+      - MAD51-C3
+      X-Cache:
+      - Hit from cloudfront
+      X-Powered-By:
+      - Thundar!
+      X-Thetvdb-Api-Version:
+      - 3.0.0
+    status:
+      code: 200
+      message: OK
+version: 1

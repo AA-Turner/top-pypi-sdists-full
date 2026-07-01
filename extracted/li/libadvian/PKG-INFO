@@ -1,0 +1,147 @@
+Metadata-Version: 2.3
+Name: libadvian
+Version: 1.9.0
+Summary: Small helpers that do not warrant their own library
+License: MIT
+Author: Eero af Heurlin
+Author-email: eero.afheurlin@advian.fi
+Requires-Python: >=3.9,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Provides-Extra: all
+Provides-Extra: http
+Provides-Extra: logstash
+Provides-Extra: vector
+Requires-Dist: frozendict ; extra == "http"
+Requires-Dist: http ; extra == "all"
+Requires-Dist: http ; extra == "logstash"
+Requires-Dist: http ; extra == "vector"
+Requires-Dist: requests ; extra == "http"
+Description-Content-Type: text/x-rst
+
+=========
+libadvian
+=========
+
+Small helpers that do not warrant their own library.
+
+Notable helpers
+---------------
+
+  - init_logging (libadvian.logging): Initializes default logger to our standard log format.
+  - b64_to_uuid and uuid_to_b64 (libadvian.binpackers): URL-safe base64 UUID decode/encode.
+  - ensure_[utf8|str] (libadvian.binpackers): For making sure you are dealing with bytes or strings.
+  - TaskMaster.singleton().create_task(my_task()) (libadvian.tasks): for true fire-and-forget tasks.
+  - chunked(iterable, size) (libadvian.iter): divide iterable into chunks.
+
+There is more, everything is type hinted and documented, just look around.
+
+HTTP Logging notes
+------------------
+
+Note: requires you install the extra feature "http" to use
+
+If LOG_HTTP_TARGET_URI is set in ENV, init_logging will add BufferedHTTPMultiRecordHandler handler
+for shipping logs to Vector/Logtash (or similar that can take POSTs with text body), for username and password use
+LOG_HTTP_USERNAME and LOG_HTTP_PASSWORD variables.
+
+Any extra properties set by logger.level("message", extra={"key": "value"}) will be resolved and added to
+labels_json -header in the POST. If LOG_GLOBAL_LABELS_JSON is set in ENV that will be decoded and filter
+added to init_logging -pipeline that will add those labels as extras to all logrecords.
+
+You can of course initialize those handlers manually and use them as you wish. For quick and very dirty
+way of adding headers to the HTTP requests muck with libadvian.logging.httpmulti.HTTP_LOGGING_CONFIG
+before initializing logging::
+
+    libadvian.logging.httpmulti.HTTP_LOGGING_CONFIG["handlers"]["http"].update({"session_options": { "headers": {
+        "Myheader": "myval"
+    }}})
+
+Making a deep copy and using logging.dictConfig() on the copy would be much cleaner though.
+
+Docker
+------
+
+For more controlled deployments and to get rid of "works on my computer" -syndrome, we always
+make sure our software works under docker.
+
+It's also a quick way to get started with a standard development environment.
+
+SSH agent forwarding
+^^^^^^^^^^^^^^^^^^^^
+
+We need buildkit_::
+
+    export DOCKER_BUILDKIT=1
+
+.. _buildkit: https://docs.docker.com/develop/develop-images/build_enhancements/
+
+And also the exact way for forwarding agent to running instance is different on OSX::
+
+    export DOCKER_SSHAGENT="-v /run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock -e SSH_AUTH_SOCK=/run/host-services/ssh-auth.sock"
+
+and Linux::
+
+    export DOCKER_SSHAGENT="-v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK -e SSH_AUTH_SOCK"
+
+Creating a development container
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Build image, create container and start it::
+
+    docker build --ssh default --target devel_shell -t libadvian:devel_shell .
+    docker create --name libadvian_devel -v `pwd`":/app" -it `echo $DOCKER_SSHAGENT` libadvian:devel_shell
+    docker start -i libadvian_devel
+
+pre-commit considerations
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If working in Docker instead of native env you need to run the pre-commit checks in docker too::
+
+    docker exec -i libadvian_devel /bin/bash -c "pre-commit install --install-hooks"
+    docker exec -i libadvian_devel /bin/bash -c "pre-commit run --all-files"
+
+You need to have the container running, see above. Or alternatively use the docker run syntax but using
+the running container is faster::
+
+    docker run --rm -it -v `pwd`":/app" libadvian:devel_shell -c "pre-commit run --all-files"
+
+Test suite
+^^^^^^^^^^
+
+You can use the devel shell to run py.test when doing development, for CI use
+the "tox" target in the Dockerfile::
+
+    docker build --ssh default --target tox -t libadvian:tox .
+    docker run --rm -it -v `pwd`":/app" libadvian:tox
+
+Development
+-----------
+
+TLDR:
+
+- Create and activate a Python 3.9 virtualenv (assuming virtualenvwrapper)::
+
+    mkvirtualenv -p `which python3.9` my_virtualenv
+
+- change to a branch::
+
+    git checkout -b my_branch
+
+- install Poetry: https://python-poetry.org/docs/#installation
+- Install project deps and pre-commit hooks::
+
+    poetry install
+    pre-commit install --install-hooks
+    pre-commit run --all-files
+
+- Ready to go.
+
+Remember to activate your virtualenv whenever working on the repo, this is needed
+because pylint and mypy pre-commit hooks use the "system" python for now (because reasons).
+

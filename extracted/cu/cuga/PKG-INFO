@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cuga
-Version: 0.2.28
+Version: 0.3.0
 Summary: CUGA is an open-source generalist agent for the enterprise, supporting complex task execution on web and APIs, OpenAPI/MCP integrations, composable architecture, reasoning modes, and policy-aware features.
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://cuga.dev
@@ -11,7 +11,7 @@ License-File: LICENSE
 Requires-Dist: langchain>=1.0
 Requires-Dist: langchain-ibm>=0.3.9
 Requires-Dist: langchain-openai
-Requires-Dist: langchain-core>=1.2.22
+Requires-Dist: langchain-core>=1.3.3
 Requires-Dist: aiohttp>=3.13.4
 Requires-Dist: httpx
 Requires-Dist: docker
@@ -21,7 +21,7 @@ Requires-Dist: uvicorn
 Requires-Dist: fastapi[standard]
 Requires-Dist: langfuse
 Requires-Dist: dynaconf>=3.2.13
-Requires-Dist: playwright>=1.49.0
+Requires-Dist: playwright>=1.59.0
 Requires-Dist: browsergym-core==0.13.0
 Requires-Dist: python-dotenv
 Requires-Dist: loguru
@@ -32,35 +32,34 @@ Requires-Dist: typer-slim>=0.15.3
 Requires-Dist: fastmcp>=3.2.0
 Requires-Dist: langchain-mcp-adapters
 Requires-Dist: pyyaml>=6.0.3
-Requires-Dist: pymilvus[milvus-lite]>=2.6.4
 Requires-Dist: langchain-groq>=0.3.8
 Requires-Dist: langchain-litellm
-Requires-Dist: litellm>=1.83.14
+Requires-Dist: litellm>=1.84.0
 Requires-Dist: tavily-python
 Requires-Dist: fastembed>=0.4.0
 Requires-Dist: a2a-sdk[http-server]>=0.3.22
 Requires-Dist: sqlite-vec>=0.1.6
 Requires-Dist: pgvector>=0.4.2
 Requires-Dist: asyncpg>=0.30
-Requires-Dist: PyJWT[crypto]>=2.12.0
-Requires-Dist: cryptography>=46.0.7
+Requires-Dist: PyJWT[crypto]>=2.13.0
+Requires-Dist: cryptography>=48.0.1
 Requires-Dist: hvac>=2.0.0
 Requires-Dist: boto3>=1.34.0
 Requires-Dist: langchain-docling<3.0,>=2.0
+Requires-Dist: easyocr
 Requires-Dist: torch
 Requires-Dist: torchvision
 Requires-Dist: langchain-ollama>=0.2.0
 Requires-Dist: langchain-text-splitters<2.0,>=1.0
 Requires-Dist: beautifulsoup4>=4.12
 Requires-Dist: psycopg[binary]>=3.2
+Requires-Dist: toolguard>=0.2.17
 Requires-Dist: cuga-oak-health; python_version >= "3.12"
 Requires-Dist: aiosmtpd
 Provides-Extra: evaluation
 Requires-Dist: rapidfuzz; extra == "evaluation"
 Provides-Extra: e2b
 Requires-Dist: e2b-code-interpreter>=2.4.1; extra == "e2b"
-Provides-Extra: memory
-Requires-Dist: mem0ai[extras]; extra == "memory"
 Provides-Extra: knowledge
 Provides-Extra: health
 Requires-Dist: cuga-oak-health; python_version >= "3.12" and extra == "health"
@@ -68,7 +67,7 @@ Provides-Extra: opensandbox
 Requires-Dist: opensandbox; extra == "opensandbox"
 Requires-Dist: opensandbox-code-interpreter; extra == "opensandbox"
 Provides-Extra: evolve
-Requires-Dist: altk-evolve>=1.0.6; python_version >= "3.12" and extra == "evolve"
+Requires-Dist: altk-evolve>=1.1.0; python_version >= "3.12" and extra == "evolve"
 Provides-Extra: observability
 Requires-Dist: openlit>=1.40.3; extra == "observability"
 Dynamic: license-file
@@ -97,8 +96,8 @@ Building a domain-specific enterprise agent from scratch is complex and requires
 [![Documentation](https://shields.io/badge/Documentation-Available-blue?logo=gitbook&style=for-the-badge)](https://docs.cuga.dev)
 [![Discord](https://shields.io/badge/Discord-Join-blue?logo=discord&style=for-the-badge)](https://discord.gg/aH6rAEEW)
 
-[![AppWorld](https://img.shields.io/badge/%F0%9F%A5%87%20%231%20on-AppWorld-gold?style=for-the-badge)](https://appworld.dev/leaderboard)
-[![WebArena](https://img.shields.io/badge/Top--tier%20on-WebArena-silver?style=for-the-badge)](https://docs.google.com/spreadsheets/d/1M801lEpBbKSNwP-vDBkC_pF7LdyGU1f_ufZb_NWNBZQ/edit?gid=0#gid=0)
+[![AppWorld](https://img.shields.io/badge/%F0%9F%A5%87%20%231%20(07%2F25-02%2F26)%20on-AppWorld-gold?style=for-the-badge)](https://appworld.dev/leaderboard)
+[![WebArena](https://img.shields.io/badge/%F0%9F%A5%87%20%231%20(02%2F25-09%2F25)%20on-WebArena-gold?style=for-the-badge)](https://docs.google.com/spreadsheets/d/1M801lEpBbKSNwP-vDBkC_pF7LdyGU1f_ufZb_NWNBZQ/edit?gid=0#gid=0)
 
 </div>
 
@@ -117,8 +116,8 @@ Building a domain-specific enterprise agent from scratch is complex and requires
 > | **Manage & publish** | `cuga start manager` · draft tools, MCP, LLM, and policies in the web UI, then **publish** a versioned config for production chat ([details](#manage-publish-and-self-hosting)) |
 > | **Reflection** | `[advanced_features] reflection_enabled` in [`settings.toml`](src/cuga/settings.toml) |
 > | **Langflow** | Low-code visual workflows — integrates with CUGA ([langflow.org](https://www.langflow.org/)) |
-> | **Memory** (optional) | `enable_memory` in `settings.toml` · `uv sync --extra memory` · `cuga start memory` |
-> | **Agent skills** | `SKILL.md` under `.agents/skills` · **`cuga start demo_skills`** (`sandbox_mode = "native"` by default, or **`opensandbox`**) · or **`demo --sandbox`** with `[skills]` on · [Agent skills](#agent-skills) |
+> | **Knowledge** (RAG) | `enable_knowledge=True` (default) · ingest PDFs/Office/HTML/Markdown via **Docling** · **agent-level** + **session-level** scopes · `cuga start demo_knowledge` · [details](#knowledge-base) |
+> | **Agent skills** | `SKILL.md` under `.cuga/skills` (default) · **`cuga start demo_skills`** (`sandbox_mode = "native"` by default, or **`opensandbox`**) · or **`demo --sandbox`** with `[skills]` on · [Agent skills](#agent-skills) |
 > | **Self-host on a cluster** | Helm chart and deploy scripts in [`deployment/`](deployment/) · [Kubernetes guide](deployment/README.md) (local kind/minikube, or registry push for cloud clusters) |
 > | **Save & reuse** _(experimental)_ | `cuga_mode = "save_reuse_fast"` in `settings.toml` |
 >
@@ -130,8 +129,8 @@ Building a domain-specific enterprise agent from scratch is complex and requires
 
 CUGA achieves state-of-the-art performance on leading benchmarks:
 
-- **#1 on [AppWorld](https://appworld.dev/leaderboard)** — a benchmark with 750 real-world tasks across 457 APIs
-- **Top-tier on [WebArena](https://docs.google.com/spreadsheets/d/1M801lEpBbKSNwP-vDBkC_pF7LdyGU1f_ufZb_NWNBZQ/edit?gid=0#gid=0)** (#1 from 02/25 - 09/25) — a complex benchmark for autonomous web agents across application domains
+- **#1 on [AppWorld](https://appworld.dev/leaderboard)** (#1 from 07/25 - 02/26) — a benchmark with 750 real-world tasks across 457 APIs
+- **#1 on [WebArena](https://docs.google.com/spreadsheets/d/1M801lEpBbKSNwP-vDBkC_pF7LdyGU1f_ufZb_NWNBZQ/edit?gid=0#gid=0)** (#1 from 02/25 - 09/25) — a complex benchmark for autonomous web agents across application domains
 
 ### Key Features & Capabilities
 
@@ -148,6 +147,8 @@ CUGA achieves state-of-the-art performance on leading benchmarks:
 - **Save-and-reuse capabilities** _(Experimental)_ — Capture and reuse successful execution paths (plans, code, and trajectories) for faster and consistent behavior across repeated tasks
 
 - **Agent skills** — Package domain workflows as `SKILL.md` files with frontmatter; the agent discovers them and loads full instructions on demand via the `load_skill` tool (see [Agent skills](#agent-skills))
+
+- **Knowledge engine** — Built-in RAG over your documents: ingest PDFs, Office files, HTML, Markdown, and images through **Docling**, then search and reason over them via auto-injected knowledge tools. Documents can be scoped to **agent-level** (permanent, shared across conversations) or **session-level** (per-thread, isolated to a single conversation) — so long-lived reference material and ephemeral per-user uploads can coexist (see [Knowledge Base](#knowledge-base))
 
 ### Manage, publish, and self-hosting
 
@@ -346,8 +347,8 @@ CUGA supports multiple LLM providers with flexible configuration options. You ca
 **Setup Instructions:**
 
 1. Access [IBM WatsonX](https://www.ibm.com/watsonx)
-2. Create a project and get your credentials:
-   - Project ID
+2. Create a project or space and get your credentials:
+   - Project ID or Space ID
    - API Key
    - Region/URL
 3. Add to your `.env` file:
@@ -356,6 +357,7 @@ CUGA supports multiple LLM providers with flexible configuration options. You ca
    # WatsonX Configuration
    WATSONX_API_KEY=your-watsonx-api-key
    WATSONX_PROJECT_ID=your-project-id
+   # WATSONX_SPACE_ID=your-space-id  # Alternative to WATSONX_PROJECT_ID
    WATSONX_URL=https://us-south.ml.cloud.ibm.com  # or your region
    AGENT_SETTING_CONFIG="settings.watsonx.toml"
 
@@ -457,11 +459,16 @@ Agent skills are reusable instruction packs: each skill is a `SKILL.md` file wit
 
 **Where skills live**
 
-| Location | Role |
-| -------- | ---- |
-| `.agents/skills/**/SKILL.md` | Preferred project-local skills path; this is what `npx skills ... -a universal` writes |
+Configure a single root in [`settings.toml`](src/cuga/settings.toml) (`[skills] root`, default **`cuga`**) or via **`DYNACONF_SKILLS__ROOT`** env var. CUGA scans one directory only — no merge across paths.
 
-Use **`~/.config/agents/skills/`** for global installs from `npx skills` with **`-g`**; **`~/.config/cuga/skills/`** is a legacy global path that is still scanned. Legacy **`<CUGA folder>/skills/`** and **`<CUGA folder>/.skills/`** (often `.cuga` via `CUGA_FOLDER`) are still scanned. If the same skill `name` appears in multiple places, project-local skills win over global skills, and `.agents/skills/` wins over legacy project paths.
+| `skills.root` | Project path | Use when |
+| ------------- | ------------ | -------- |
+| `cuga` (default) | `<CUGA folder>/skills/**/SKILL.md` (e.g. `.cuga/skills/`) | CUGA-native layout; keeps skills with other CUGA config |
+| `agents` | `.agents/skills/**/SKILL.md` | [skills.sh](https://skills.sh) / `npx skills` universal installs |
+| `global_agents` | `~/.config/agents/skills/` | Global `npx skills -g` installs |
+| `global_cuga` | `~/.config/cuga/skills/` | Legacy global CUGA path |
+
+**Why default `cuga`?** CUGA already uses `.cuga/` for policy, workspace, and uploads. Keeping skills there avoids colliding with other agents that write `.agents/skills/`. If you install skills with `npx skills`, set `root = "agents"` or copy skills into `.cuga/skills/`.
 
 **`SKILL.md` shape**
 
@@ -490,7 +497,7 @@ The [Anthropic skills repo](https://github.com/anthropics/skills) publishes read
 npx skills add https://github.com/anthropics/skills --skill pptx -a universal
 ```
 
-This creates `.agents/skills/pptx/SKILL.md` for the current project. Restart `cuga start demo_skills` (or your app) so skills are rescanned. Add `-g` if you want the skill installed globally under `~/.config/agents/skills/` instead.
+This creates `.agents/skills/pptx/SKILL.md` for the current project (or set `[skills] root = "agents"` in `settings.toml`). To use the CUGA default layout instead, copy or symlink skills into `.cuga/skills/`. Restart `cuga start demo_skills` (or your app) so skills are rescanned. Add `-g` if you want the skill installed globally under `~/.config/agents/skills/` instead.
 
 ---
 
@@ -592,6 +599,9 @@ When enabled, the agent can search, ingest, and manage documents.
 cuga start demo_knowledge
 ```
 
+> Walk through a full HR-Benefits demo with sample documents and example prompts:
+> **[docs/examples/knowledge_demo/](./docs/examples/knowledge_demo)**
+
 Knowledge is **enabled by default** via `settings.toml`. The SDK auto-injects knowledge tools
 and awareness into the agent, so it knows what documents are available and how to search them.
 
@@ -651,6 +661,24 @@ agent = CugaAgent(tools=[my_tools], enable_knowledge=False)
 #### Supported Document Types
 
 PDF, DOCX, XLSX, PPTX, HTML, Markdown, images, and more (via Docling).
+
+#### Embedding providers + tuning
+
+The knowledge engine ships four built-in provider categories — `fastembed`
+(default, local), `huggingface` (local), `openai` (network, accepts any
+OpenAI-compatible endpoint via `base_url`), and `ollama` (network) — plus
+`openrouter` for one-key-many-models access to embedding models on
+[openrouter.ai/models](https://openrouter.ai/models?output_modalities=embeddings).
+Provider, model, batch size, and concurrency are all set under
+`[knowledge.embeddings]` in `settings.toml` or via CLI overrides
+(`--embeddings-provider`, `--embeddings-base-url`, `--embeddings-api-key`,
+`--embeddings-model`, `--embeddings-batch-size`, `--embeddings-concurrency`).
+
+> **Full provider matrix + tuning guide** — see the
+> [knowledge engine docs](https://docs.cuga.dev/docs/sdk/knowledge/).
+> Switching provider or model invalidates existing vectors (different
+> dim), so the manage UI surfaces a "Re-index recommended" banner
+> automatically.
 
 ---
 
@@ -1137,6 +1165,7 @@ CUGA supports three types of tool integrations. Each approach has its own use ca
 - **Tool Registry**: [./src/cuga/backend/tools_env/registry/README.md](./src/cuga/backend/tools_env/registry/README.md)
 - **Comprehensive example with different tools + MCP**: [./docs/examples/cuga_with_runtime_tools/README.md](Adding Tools)
 - **CUGA as MCP**: [./docs/examples/cuga_as_mcp/README.md](docs/examples/cuga_as_mcp)
+- **Knowledge Engine demo**: [./docs/examples/knowledge_demo/README.md](./docs/examples/knowledge_demo) — agent-level + session-level knowledge walkthrough
 
 </details>
 

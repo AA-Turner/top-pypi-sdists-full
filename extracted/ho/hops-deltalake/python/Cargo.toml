@@ -1,0 +1,97 @@
+[package]
+name = "deltalake-python"
+version = "1.4.0-post121"
+authors = [
+    "Qingping Hou <dave2008713@gmail.com>",
+    "Will Jones <willjones127@gmail.com>",
+    "Hamid Ghasemirahni <hamid@logicalclocks.com>",
+    "Salman Niazi <salman@logicalclocks.com>"
+]
+homepage = "https://github.com/logicalclocks/delta-rs"
+license = "Apache-2.0"
+description = "HopsFS compatible version of Native Delta Lake Python binding based on delta-rs with Pandas integration"
+readme = "README.md"
+edition = "2024"
+keywords = ["deltalake", "delta", "datalake", "pandas", "arrow"]
+
+[lib]
+name = "deltalake"
+crate-type = ["cdylib"]
+doc = false
+
+[dependencies]
+delta_kernel.workspace = true
+url.workspace = true
+
+pyo3-arrow = { version = "0.14.0", default-features = false }
+
+# arrow
+arrow-schema = { workspace = true, features = ["serde"] }
+arrow-cast = { workspace = true }
+
+# datafusion
+datafusion-ffi = { workspace = true }
+datafusion-execution = { version = "52.1.0" }
+
+# serde
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# "stdlib"
+async-trait = { workspace = true }
+chrono = { workspace = true }
+env_logger = "0"
+thiserror = { workspace = true }
+uuid = { workspace = true, features = ["serde", "v4"] }
+parking_lot = "0.12"
+
+# runtime
+futures = { workspace = true }
+num_cpus = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+
+deltalake-mount = { path = "../crates/mount" }
+
+# opentelemetry
+tracing-opentelemetry = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Non-unix or emscripten os
+[target.'cfg(any(not(target_family = "unix"), target_os = "emscripten"))'.dependencies]
+mimalloc = { version = "0.1", default-features = false }
+
+# Unix (excluding macOS & emscripten) → jemalloc
+[target.'cfg(all(target_family = "unix", not(target_os = "macos"), not(target_os = "emscripten")))'.dependencies]
+jemallocator = { version = "0.5", features = [
+    "disable_initial_exec_tls",
+    "background_threads",
+] }
+
+# macOS → jemalloc (without background_threads) (https://github.com/jemalloc/jemalloc/issues/843)
+[target.'cfg(all(target_family = "unix", target_os = "macos"))'.dependencies]
+jemallocator = { version = "0.5", features = ["disable_initial_exec_tls"] }
+
+[dependencies.pyo3]
+version = "0.26"
+features = ["extension-module", "abi3", "abi3-py310"]
+
+[dependencies.deltalake]
+path = "../crates/deltalake"
+version = "0"
+features = [
+    "azure",
+    "gcs",
+    "python",
+    "datafusion",
+    "unity-experimental",
+    "hdfs",
+    "lakefs",
+]
+
+[features]
+default = ["rustls"]
+native-tls = ["deltalake/s3-native-tls", "deltalake/glue"]
+rustls = ["deltalake/s3", "deltalake/glue"]

@@ -7,6 +7,7 @@ import geopandas as gpd
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import cartopy.crs as ccrs
 import pygeoutil.rgeo as rgeo
 from cartopy.feature import ShapelyFeature
@@ -110,7 +111,14 @@ def _draw_regions(ax, df_comb, merge_col, name_col, series, dict_lup, use_key,
         else:
             key = df_comb[name_col][i]
 
-        if key:
+        # NaN in the value column means "region excluded from analysis"
+        # (e.g. yield_outlook's minimal-crop-area filter). Draw as
+        # lightgray silhouette with the normal black border so the
+        # country outline stays complete.
+        if key is not None and series != "qualitative" and pd.isna(key):
+            key = "__excluded__"
+            fc = (0.85, 0.85, 0.85, 1.0)
+        elif key:
             if series == "qualitative":
                 if isinstance(cmap, list):
                     fc = _normalize_color(cmap[(key - 1) % len(cmap)])

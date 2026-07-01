@@ -19,11 +19,13 @@ import asyncio
 import logging
 import time
 import weakref
+from contextlib import asynccontextmanager
 from datetime import datetime
 from functools import partial
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from .._lockmap import LockMap
 from ._reset_policy import SessionResetPolicy
+from ._admission import AdmissionRejected
 
 if TYPE_CHECKING:
     from praisonaiagents import Agent
@@ -34,6 +36,12 @@ logger = logging.getLogger(__name__)
 class BotRunTimeout(Exception):
     """Exception raised when a bot run times out."""
     pass
+
+
+@asynccontextmanager
+async def _null_async_context():
+    """A no-op async context manager (admission gate disabled)."""
+    yield
 
 
 class BotSessionManager:
@@ -84,6 +92,7 @@ class BotSessionManager:
         delivery_router: Optional[Any] = None,
         session_scope: str = "per_user",
         attribution: str = "[{sender}] ",
+        admission_gate: Optional[Any] = None,
     ) -> None:
         self._histories: Dict[str, List[Dict[str, Any]]] = {}
         self._locks = LockMap()
@@ -120,6 +129,14 @@ class BotSessionManager:
         # Run timeout and active run tracking for cancellation support
         self._run_timeout = run_timeout
         self._active_runs: Dict[str, Any] = {}  # user_id -> InterruptController
+        # In-run progress liveness (Issue #2393): wall-clock timestamp of the
+        # most recent real run progress (run start, streamed token/draft edit,
+        # tool event). Channel health reads this via ``last_run_progress`` so a
+        # long, actively-progressing run keeps the channel BUSY instead of being
+        # restarted mid-run once its wall-clock crosses ``stuck_after``. A run
+        # that emits nothing for ``stuck_after`` leaves this frozen and is still
+        # correctly flagged STUCK.
+        self._last_run_progress: Optional[float] = None
         # Per-user model overrides set via the /model command. Applied per-turn
         # inside the agent lock in chat() and restored afterwards so a shared
         # Agent instance never leaks one user's model to another. Keyed by
@@ -177,10 +194,29 @@ class BotSessionManager:
         # per-conversation state (iterative summary, anti-thrashing streaks),
         # so a single shared instance would leak context across users and
         # race under concurrent saves on the executor thread pool.
+        # Issue #2454: optional gateway-wide inbound admission gate. When set,
+        # each turn must acquire a global concurrency slot (bounded by
+        # ``max_concurrent_runs``) before its per-user lock, with a bounded
+        # wait queue and a declared overflow policy. ``None`` preserves the
+        # legacy behaviour (every inbound turn dispatches immediately, only
+        # per-user serialisation applies).
+        self._admission_gate = admission_gate
         self._compaction_config = compaction
         # Probe availability once so behaviour/tests can detect whether
         # compaction is active without sharing the stateful instance.
         self._compaction_enabled = self._build_compactor(compaction) is not None
+        # Code-skew guard (Issue #2460): capture the wrapper code fingerprint at
+        # startup so a later in-place update (git pull / pip install -U) is
+        # caught before a hot operation (e.g. /model) triggers a first-use lazy
+        # import against changed code. Best-effort and fail-open; capturing here
+        # (rather than on first /model use) also guards the very first call and
+        # pre-resolves the comparison predicate while imports are known-good.
+        try:
+            from ._commands import capture_boot_fingerprint
+
+            capture_boot_fingerprint(self)
+        except Exception:
+            pass
 
     @staticmethod
     def _build_compactor(compaction: Optional[Any]) -> Optional[Any]:
@@ -577,6 +613,20 @@ class BotSessionManager:
 
         return _restore
 
+    def _admission_context(self, user_id: str):
+        """Return an async context manager admitting one inbound turn.
+
+        Issue #2454: when a gateway-wide admission gate is configured, this
+        acquires a global concurrency slot (bounded by ``max_concurrent_runs``)
+        with a bounded wait queue, and raises ``AdmissionRejected`` when the
+        gateway is at capacity. A no-op pass-through when no gate is set, so
+        the legacy dispatch path is preserved exactly.
+        """
+        gate = self._admission_gate
+        if gate is None:
+            return _null_async_context()
+        return gate.admit(session_id=self._storage_key(user_id))
+
     async def chat(
         self,
         agent: "Agent",
@@ -805,7 +855,11 @@ class BotSessionManager:
         # Initialize result variable
         result: Optional[str] = None
         claim_ctx = None
-        
+        # Issue #2454: admission-gate context for this turn (released in the
+        # finally below regardless of outcome). ``None`` when no gate is set.
+        _admission_cm = None
+        _admission_active = False
+
         try:
             # Claim journal entry if we have one
             if journal_key is not None:
@@ -813,6 +867,31 @@ class BotSessionManager:
                 await claim_ctx.__aenter__()
                 
             try:
+                # Issue #2454: gateway-wide admission gate in front of the
+                # per-user lock. Acquires a global concurrency slot (bounded
+                # by ``max_concurrent_runs``) with a bounded wait queue; sheds
+                # with a busy ack when the queue is full. A no-op when no gate
+                # is configured, so legacy behaviour is preserved exactly.
+                _admission_cm = self._admission_context(user_id)
+                try:
+                    await _admission_cm.__aenter__()
+                    _admission_active = True
+                except AdmissionRejected as _rej:
+                    # Over capacity and the wait queue is full: shed this turn
+                    # with a clean, model-readable busy ack rather than starting
+                    # an (N+1)th concurrent provider call. Release the journal
+                    # claim (if any) so the message can be retried later.
+                    _admission_cm = None
+                    if claim_ctx is not None:
+                        try:
+                            await claim_ctx.__aexit__(
+                                type(_rej), _rej, _rej.__traceback__
+                            )
+                        except Exception as e:  # pragma: no cover — defensive
+                            logger.debug("Failed to release claim on shed: %s", e)
+                    return _rej.message
+                # The gate is held for the full turn; released in the outer
+                # finally below so a slot is never leaked on any exit path.
                 async with user_lock:
                     # Load history (may hit disk via run_in_executor for async safety)
                     loop = asyncio.get_running_loop()
@@ -869,7 +948,12 @@ class BotSessionManager:
                         storage_key = self._storage_key(user_id)
                         if controller:
                             self._active_runs[storage_key] = controller
-                        
+                        # In-run progress liveness (Issue #2393): mark progress
+                        # at run start so a fresh long run is never STUCK on a
+                        # stale inbound timestamp; streamed events refresh it
+                        # below while the turn executes.
+                        self.note_run_progress()
+
                         bridged_stream_callback = None
                         try:
                             # Choose streaming vs non-streaming path based on callback
@@ -879,6 +963,12 @@ class BotSessionManager:
                                 emitter = getattr(agent, "stream_emitter", None)
                                 if emitter is not None:
                                     def bridged_stream_callback(event):
+                                        # In-run progress liveness (Issue #2393):
+                                        # every streamed token/draft edit/tool
+                                        # event is real progress, so refresh the
+                                        # heartbeat to keep the channel BUSY for
+                                        # the full duration of a long stream.
+                                        self.note_run_progress()
                                         try:
                                             result = stream_callback(event)
                                             if asyncio.iscoroutine(result):
@@ -926,7 +1016,24 @@ class BotSessionManager:
                                 import contextvars
                                 import inspect
                                 _ctx = contextvars.copy_context()
-                                
+
+                                # In-run progress liveness (Issue #2393): attach a
+                                # progress-only callback to the agent's event
+                                # emitter so internal tool/token events during a
+                                # non-streamed run still refresh the heartbeat,
+                                # keeping a long, actively-progressing run BUSY.
+                                # A genuinely-hung run emits nothing, leaving the
+                                # timestamp frozen so STUCK is still detectable.
+                                progress_emitter = getattr(agent, "stream_emitter", None)
+                                progress_callback = None
+                                if progress_emitter is not None and hasattr(progress_emitter, "add_callback"):
+                                    def progress_callback(_event):  # noqa: ANN001
+                                        self.note_run_progress()
+                                    try:
+                                        progress_emitter.add_callback(progress_callback)
+                                    except Exception:  # noqa: BLE001 — best-effort liveness
+                                        progress_callback = None
+
                                 # Create agent.chat call with cancel_token if supported
                                 # Use inspect.signature for safer parameter checking
                                 _chat_params = inspect.signature(agent.chat).parameters if hasattr(agent, 'chat') else {}
@@ -957,6 +1064,12 @@ class BotSessionManager:
                                     if controller:
                                         controller.request("run timeout")
                                     raise BotRunTimeout(f"Agent run timed out after {self._run_timeout}s")
+                                finally:
+                                    if progress_emitter is not None and progress_callback is not None:
+                                        try:
+                                            progress_emitter.remove_callback(progress_callback)
+                                        except Exception:  # noqa: BLE001 — best-effort cleanup
+                                            pass
                             # Capture updated history before restoring caller's.
                             updated_history = agent.chat_history
                         except Exception as exc:
@@ -1046,6 +1159,14 @@ class BotSessionManager:
                     await claim_ctx.__aexit__(None, None, None)
                 return result or ""
         finally:
+            # Issue #2454: release the admission slot for this turn (frees a
+            # global concurrency slot and lets a queued waiter proceed). Done
+            # first so capacity is returned promptly on every exit path.
+            if _admission_active and _admission_cm is not None:
+                try:
+                    await _admission_cm.__aexit__(None, None, None)
+                except Exception as e:  # pragma: no cover — defensive
+                    logger.debug("Failed to release admission slot: %s", e)
             # Always clear task-local session context, even if an exception occurred.
             if ctx_token is not None and _clear_ctx is not None:
                 try:
@@ -1366,6 +1487,27 @@ class BotSessionManager:
     def get_active_runs(self) -> List[str]:
         """Get list of user IDs with active runs."""
         return list(self._active_runs.keys())
+
+    def note_run_progress(self) -> None:
+        """Record in-run progress for channel-health liveness (Issue #2393).
+
+        Called when a run makes real progress (run start, a streamed
+        token/draft edit bridged through ``stream_callback``, or a tool event)
+        so the health monitor can tell an actively-progressing long run from a
+        genuinely-hung one. Best-effort and side-effect-free beyond the
+        timestamp; never raises.
+        """
+        self._last_run_progress = time.time()
+
+    def last_run_progress(self) -> Optional[float]:
+        """Return the most recent in-run progress timestamp (or ``None``).
+
+        Read by the bot adapter's health builder so the evaluator's busy branch
+        can use ``max(last_activity, last_run_progress)`` — keeping a streaming
+        or tool-calling run BUSY rather than mistaking its wall-clock for a
+        stuck socket.
+        """
+        return self._last_run_progress
 
     def _add_mirror_entry_sync(self, user_id: str, entry: dict) -> bool:
         """Thread-safe method to add a mirror entry to user's history.

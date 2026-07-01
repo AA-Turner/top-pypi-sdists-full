@@ -1,0 +1,51 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, zstd
+      Connection:
+      - keep-alive
+      User-Agent:
+      - Subliminal/2.5
+    method: GET
+    uri: https://www.omdbapi.com/?r=json&v=1&apikey=7a541ee4&s=Jack+Reacher&page=1&type=movie&y=2016
+  response:
+    body:
+      string: '{"Search":[{"Title":"Jack Reacher: Never Go Back","Year":"2016","imdbID":"tt3393786","Type":"movie","Poster":"https://m.media-amazon.com/images/M/MV5BODQ3ODQ3NDI4NV5BMl5BanBnXkFtZTgwMDY1Mzk5OTE@._V1_SX300.jpg"},{"Title":"Jack
+        Reacher VS Jason Bourne: A Fan Film","Year":"2016","imdbID":"tt30574880","Type":"movie","Poster":"https://m.media-amazon.com/images/M/MV5BNWRjNWNmYjgtOWVkMy00MGY5LThiNTItMTFhODljZThmZTgyXkEyXkFqcGc@._V1_SX300.jpg"}],"totalResults":"2","Response":"True"}'
+    headers:
+      CF-RAY:
+      - 9cd03669c81ebd0e-LIS
+      Cache-Control:
+      - public, max-age=3600
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Fri, 13 Feb 2026 00:29:38 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      access-control-allow-origin:
+      - '*'
+      cf-cache-status:
+      - DYNAMIC
+      content-length:
+      - '479'
+      expires:
+      - Fri, 13 Feb 2026 01:29:38 GMT
+      last-modified:
+      - Fri, 13 Feb 2026 00:29:38 GMT
+      vary:
+      - '*'
+      x-aspnet-version:
+      - 4.0.30319
+    status:
+      code: 200
+      message: OK
+version: 1

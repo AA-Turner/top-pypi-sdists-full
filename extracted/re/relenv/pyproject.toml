@@ -1,0 +1,94 @@
+# Copyright 2022-2025 Broadcom.
+# SPDX-License-Identifier: Apache-2
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "relenv"
+dynamic = ["version", "readme"]
+
+[project.urls]
+"Source Code" = "https://github.com/saltstack/relative-environment-for-python"
+Documentation = "https://relenv.readthedocs.io/en/latest/"
+Changelog = "https://relenv.readthedocs.io/en/latest/changelog.html"
+
+[project.scripts]
+relenv = "relenv.__main__:main"
+
+[project.optional-dependencies]
+toolchain = ["ppbt"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "relenv.common.__version__"}
+readme = {file = "README.md", content-type = "text/markdown"}
+
+[tool.setuptools.packages.find]
+include = ["relenv*", "tests*"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = [
+  "tests"
+]
+
+[tool.isort]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+line_length = 88
+ensure_newline_before_comments=true
+
+[tool.pylint]
+max-line-length=120
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "D",    # pydocstyle
+    "I",    # isort
+    "UP",   # pyupgrade
+    "TCH",  # flake8-type-checking
+]
+ignore = [
+    "D100", # Missing docstring in public module
+    "D101", # Missing docstring in public class
+    "D102", # Missing docstring in public method
+    "D103", # Missing docstring in public function
+    "D104", # Missing docstring in public package
+    "D105", # Missing docstring in magic method
+    "D107", # Missing docstring in __init__
+    "D200", # One-line docstring should fit on one line with quotes
+    "D205", # 1 blank line required between summary line and description
+    "D212", # Multi-line docstring summary should start at the first line
+    "D401", # First line should be in imperative mood
+    "D415", # First line should end with a period, question mark, or exclamation point
+    "F403", # 'from <name> import *' used
+    "F405", # '*' may be undefined, or defined from star imports
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"noxfile.py" = ["E501"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.mypy]
+python_version = "3.10"
+explicit_package_bases = true
+ignore_missing_imports = true
+namespace_packages = true
+mypy_path = "."
+exclude = "relenv/__main__\\.py"

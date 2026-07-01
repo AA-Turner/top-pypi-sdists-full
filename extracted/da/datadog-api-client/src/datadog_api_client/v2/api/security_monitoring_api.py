@@ -16,6 +16,7 @@ from datadog_api_client.model_utils import (
     file_type,
     UnsetType,
     unset,
+    UUID,
 )
 from datadog_api_client.v2.model.create_custom_framework_response import CreateCustomFrameworkResponse
 from datadog_api_client.v2.model.create_custom_framework_request import CreateCustomFrameworkRequest
@@ -41,6 +42,21 @@ from datadog_api_client.v2.model.security_findings_sort import SecurityFindingsS
 from datadog_api_client.v2.model.security_findings_data import SecurityFindingsData
 from datadog_api_client.v2.model.assignee_response import AssigneeResponse
 from datadog_api_client.v2.model.assignee_request import AssigneeRequest
+from datadog_api_client.v2.model.due_date_rules_response import DueDateRulesResponse
+from datadog_api_client.v2.model.due_date_rule_response import DueDateRuleResponse
+from datadog_api_client.v2.model.due_date_rule_create_request import DueDateRuleCreateRequest
+from datadog_api_client.v2.model.due_date_rule_reorder_request import DueDateRuleReorderRequest
+from datadog_api_client.v2.model.due_date_rule_update_request import DueDateRuleUpdateRequest
+from datadog_api_client.v2.model.mute_rules_response import MuteRulesResponse
+from datadog_api_client.v2.model.mute_rule_response import MuteRuleResponse
+from datadog_api_client.v2.model.mute_rule_create_request import MuteRuleCreateRequest
+from datadog_api_client.v2.model.mute_rule_reorder_request import MuteRuleReorderRequest
+from datadog_api_client.v2.model.mute_rule_update_request import MuteRuleUpdateRequest
+from datadog_api_client.v2.model.ticket_creation_rules_response import TicketCreationRulesResponse
+from datadog_api_client.v2.model.ticket_creation_rule_response import TicketCreationRuleResponse
+from datadog_api_client.v2.model.ticket_creation_rule_create_request import TicketCreationRuleCreateRequest
+from datadog_api_client.v2.model.ticket_creation_rule_reorder_request import TicketCreationRuleReorderRequest
+from datadog_api_client.v2.model.ticket_creation_rule_update_request import TicketCreationRuleUpdateRequest
 from datadog_api_client.v2.model.detach_case_request import DetachCaseRequest
 from datadog_api_client.v2.model.finding_case_response_array import FindingCaseResponseArray
 from datadog_api_client.v2.model.create_case_request_array import CreateCaseRequestArray
@@ -75,6 +91,7 @@ from datadog_api_client.v2.model.vulnerability_severity import VulnerabilitySeve
 from datadog_api_client.v2.model.vulnerability_status import VulnerabilityStatus
 from datadog_api_client.v2.model.vulnerability_tool import VulnerabilityTool
 from datadog_api_client.v2.model.vulnerability_ecosystem import VulnerabilityEcosystem
+from datadog_api_client.v2.model.cyclone_dx_bom import CycloneDXBom
 from datadog_api_client.v2.model.list_vulnerable_assets_response import ListVulnerableAssetsResponse
 from datadog_api_client.v2.model.security_monitoring_critical_assets_response import (
     SecurityMonitoringCriticalAssetsResponse,
@@ -782,6 +799,66 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
+        self._create_security_findings_automation_due_date_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": (DueDateRuleResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/due_date_rules",
+                "operation_id": "create_security_findings_automation_due_date_rule",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (DueDateRuleCreateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._create_security_findings_automation_mute_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": (MuteRuleResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/mute_rules",
+                "operation_id": "create_security_findings_automation_mute_rule",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (MuteRuleCreateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._create_security_findings_automation_ticket_creation_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": (TicketCreationRuleResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/ticket_creation_rules",
+                "operation_id": "create_security_findings_automation_ticket_creation_rule",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (TicketCreationRuleCreateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
         self._create_security_monitoring_critical_asset_endpoint = _Endpoint(
             settings={
                 "response_type": (SecurityMonitoringCriticalAssetResponse,),
@@ -1094,6 +1171,75 @@ class SecurityMonitoringApi:
                     "required": True,
                     "openapi_types": (str,),
                     "attribute": "security_filter_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["*/*"],
+            },
+            api_client=api_client,
+        )
+
+        self._delete_security_findings_automation_due_date_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/due_date_rules/{rule_id}",
+                "operation_id": "delete_security_findings_automation_due_date_rule",
+                "http_method": "DELETE",
+                "version": "v2",
+            },
+            params_map={
+                "rule_id": {
+                    "required": True,
+                    "openapi_types": (UUID,),
+                    "attribute": "rule_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["*/*"],
+            },
+            api_client=api_client,
+        )
+
+        self._delete_security_findings_automation_mute_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/mute_rules/{rule_id}",
+                "operation_id": "delete_security_findings_automation_mute_rule",
+                "http_method": "DELETE",
+                "version": "v2",
+            },
+            params_map={
+                "rule_id": {
+                    "required": True,
+                    "openapi_types": (UUID,),
+                    "attribute": "rule_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["*/*"],
+            },
+            api_client=api_client,
+        )
+
+        self._delete_security_findings_automation_ticket_creation_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/ticket_creation_rules/{rule_id}",
+                "operation_id": "delete_security_findings_automation_ticket_creation_rule",
+                "http_method": "DELETE",
+                "version": "v2",
+            },
+            params_map={
+                "rule_id": {
+                    "required": True,
+                    "openapi_types": (UUID,),
+                    "attribute": "rule_id",
                     "location": "path",
                 },
             },
@@ -1802,6 +1948,75 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
+        self._get_security_findings_automation_due_date_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": (DueDateRuleResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/due_date_rules/{rule_id}",
+                "operation_id": "get_security_findings_automation_due_date_rule",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "rule_id": {
+                    "required": True,
+                    "openapi_types": (UUID,),
+                    "attribute": "rule_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_security_findings_automation_mute_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": (MuteRuleResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/mute_rules/{rule_id}",
+                "operation_id": "get_security_findings_automation_mute_rule",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "rule_id": {
+                    "required": True,
+                    "openapi_types": (UUID,),
+                    "attribute": "rule_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_security_findings_automation_ticket_creation_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": (TicketCreationRuleResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/ticket_creation_rules/{rule_id}",
+                "operation_id": "get_security_findings_automation_ticket_creation_rule",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "rule_id": {
+                    "required": True,
+                    "openapi_types": (UUID,),
+                    "attribute": "rule_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
         self._get_security_monitoring_critical_asset_endpoint = _Endpoint(
             settings={
                 "response_type": (SecurityMonitoringCriticalAssetResponse,),
@@ -2429,6 +2644,26 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
+        self._import_security_vulnerabilities_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security/vulnerabilities",
+                "operation_id": "import_security_vulnerabilities",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (CycloneDXBom,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["*/*"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
         self._list_assets_sbo_ms_endpoint = _Endpoint(
             settings={
                 "response_type": (ListAssetsSBOMsResponse,),
@@ -2855,6 +3090,108 @@ class SecurityMonitoringApi:
                 "sort": {
                     "openapi_types": (SecurityFindingsSort,),
                     "attribute": "sort",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_security_findings_automation_due_date_rules_endpoint = _Endpoint(
+            settings={
+                "response_type": (DueDateRulesResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/due_date_rules",
+                "operation_id": "list_security_findings_automation_due_date_rules",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "page_size": {
+                    "validation": {
+                        "inclusive_maximum": 1000,
+                        "inclusive_minimum": 1,
+                    },
+                    "openapi_types": (int,),
+                    "attribute": "page[size]",
+                    "location": "query",
+                },
+                "page_number": {
+                    "validation": {
+                        "inclusive_minimum": 0,
+                    },
+                    "openapi_types": (int,),
+                    "attribute": "page[number]",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_security_findings_automation_mute_rules_endpoint = _Endpoint(
+            settings={
+                "response_type": (MuteRulesResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/mute_rules",
+                "operation_id": "list_security_findings_automation_mute_rules",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "page_size": {
+                    "validation": {
+                        "inclusive_maximum": 1000,
+                        "inclusive_minimum": 1,
+                    },
+                    "openapi_types": (int,),
+                    "attribute": "page[size]",
+                    "location": "query",
+                },
+                "page_number": {
+                    "validation": {
+                        "inclusive_minimum": 0,
+                    },
+                    "openapi_types": (int,),
+                    "attribute": "page[number]",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_security_findings_automation_ticket_creation_rules_endpoint = _Endpoint(
+            settings={
+                "response_type": (TicketCreationRulesResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/ticket_creation_rules",
+                "operation_id": "list_security_findings_automation_ticket_creation_rules",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "page_size": {
+                    "validation": {
+                        "inclusive_maximum": 1000,
+                        "inclusive_minimum": 1,
+                    },
+                    "openapi_types": (int,),
+                    "attribute": "page[size]",
+                    "location": "query",
+                },
+                "page_number": {
+                    "validation": {
+                        "inclusive_minimum": 0,
+                    },
+                    "openapi_types": (int,),
+                    "attribute": "page[number]",
                     "location": "query",
                 },
             },
@@ -3553,6 +3890,66 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
+        self._reorder_security_findings_automation_due_date_rules_endpoint = _Endpoint(
+            settings={
+                "response_type": (DueDateRuleReorderRequest,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/due_date_rules/reorder",
+                "operation_id": "reorder_security_findings_automation_due_date_rules",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (DueDateRuleReorderRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._reorder_security_findings_automation_mute_rules_endpoint = _Endpoint(
+            settings={
+                "response_type": (MuteRuleReorderRequest,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/mute_rules/reorder",
+                "operation_id": "reorder_security_findings_automation_mute_rules",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (MuteRuleReorderRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._reorder_security_findings_automation_ticket_creation_rules_endpoint = _Endpoint(
+            settings={
+                "response_type": (TicketCreationRuleReorderRequest,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/ticket_creation_rules/reorder",
+                "operation_id": "reorder_security_findings_automation_ticket_creation_rules",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (TicketCreationRuleReorderRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
         self._restore_security_monitoring_rule_endpoint = _Endpoint(
             settings={
                 "response_type": (SecurityMonitoringRuleResponse,),
@@ -3817,6 +4214,84 @@ class SecurityMonitoringApi:
                 "body": {
                     "required": True,
                     "openapi_types": (SecurityFilterUpdateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._update_security_findings_automation_due_date_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": (DueDateRuleResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/due_date_rules/{rule_id}",
+                "operation_id": "update_security_findings_automation_due_date_rule",
+                "http_method": "PUT",
+                "version": "v2",
+            },
+            params_map={
+                "rule_id": {
+                    "required": True,
+                    "openapi_types": (UUID,),
+                    "attribute": "rule_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (DueDateRuleUpdateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._update_security_findings_automation_mute_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": (MuteRuleResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/mute_rules/{rule_id}",
+                "operation_id": "update_security_findings_automation_mute_rule",
+                "http_method": "PUT",
+                "version": "v2",
+            },
+            params_map={
+                "rule_id": {
+                    "required": True,
+                    "openapi_types": (UUID,),
+                    "attribute": "rule_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (MuteRuleUpdateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._update_security_findings_automation_ticket_creation_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": (TicketCreationRuleResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/findings/automation/ticket_creation_rules/{rule_id}",
+                "operation_id": "update_security_findings_automation_ticket_creation_rule",
+                "http_method": "PUT",
+                "version": "v2",
+            },
+            params_map={
+                "rule_id": {
+                    "required": True,
+                    "openapi_types": (UUID,),
+                    "attribute": "rule_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (TicketCreationRuleUpdateRequest,),
                     "location": "body",
                 },
             },
@@ -4271,8 +4746,9 @@ class SecurityMonitoringApi:
 
         Export multiple security monitoring resources to Terraform, packaged as a zip archive.
         The ``resource_type`` path parameter specifies the type of resources to export
-        and must be one of ``suppressions`` or ``critical_assets``.
+        and must be one of ``suppressions`` , ``critical_assets`` , ``security_filters`` , or ``rules``.
         A maximum of 1000 resources can be exported in a single request.
+        For ``rules`` , partner rules cannot be exported and return a 400 error.
 
         :param resource_type: The type of security monitoring resource to export.
         :type resource_type: SecurityMonitoringTerraformResourceType
@@ -4380,7 +4856,7 @@ class SecurityMonitoringApi:
 
         Convert a security monitoring resource that doesn't (yet) exist from JSON to Terraform.
         The ``resource_type`` path parameter specifies the type of resource to convert
-        and must be one of ``suppressions`` or ``critical_assets``.
+        and must be one of ``suppressions`` , ``critical_assets`` , ``security_filters`` , or ``rules``.
 
         :param resource_type: The type of security monitoring resource to export.
         :type resource_type: SecurityMonitoringTerraformResourceType
@@ -4505,6 +4981,54 @@ class SecurityMonitoringApi:
         kwargs["body"] = body
 
         return self._create_security_filter_endpoint.call_with_http_info(**kwargs)
+
+    def create_security_findings_automation_due_date_rule(
+        self,
+        body: DueDateRuleCreateRequest,
+    ) -> DueDateRuleResponse:
+        """Create a due date rule.
+
+        Create a new due date rule for the current organization.
+
+        :type body: DueDateRuleCreateRequest
+        :rtype: DueDateRuleResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._create_security_findings_automation_due_date_rule_endpoint.call_with_http_info(**kwargs)
+
+    def create_security_findings_automation_mute_rule(
+        self,
+        body: MuteRuleCreateRequest,
+    ) -> MuteRuleResponse:
+        """Create a mute rule.
+
+        Create a new mute rule for the current organization.
+
+        :type body: MuteRuleCreateRequest
+        :rtype: MuteRuleResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._create_security_findings_automation_mute_rule_endpoint.call_with_http_info(**kwargs)
+
+    def create_security_findings_automation_ticket_creation_rule(
+        self,
+        body: TicketCreationRuleCreateRequest,
+    ) -> TicketCreationRuleResponse:
+        """Create a ticket creation rule.
+
+        Create a new ticket creation rule for the current organization.
+
+        :type body: TicketCreationRuleCreateRequest
+        :rtype: TicketCreationRuleResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._create_security_findings_automation_ticket_creation_rule_endpoint.call_with_http_info(**kwargs)
 
     def create_security_monitoring_critical_asset(
         self,
@@ -4778,6 +5302,57 @@ class SecurityMonitoringApi:
 
         return self._delete_security_filter_endpoint.call_with_http_info(**kwargs)
 
+    def delete_security_findings_automation_due_date_rule(
+        self,
+        rule_id: UUID,
+    ) -> None:
+        """Delete a due date rule.
+
+        Delete an existing due date rule by ID.
+
+        :param rule_id: The ID of the due date rule.
+        :type rule_id: UUID
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["rule_id"] = rule_id
+
+        return self._delete_security_findings_automation_due_date_rule_endpoint.call_with_http_info(**kwargs)
+
+    def delete_security_findings_automation_mute_rule(
+        self,
+        rule_id: UUID,
+    ) -> None:
+        """Delete a mute rule.
+
+        Delete an existing mute rule by ID.
+
+        :param rule_id: The ID of the mute rule.
+        :type rule_id: UUID
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["rule_id"] = rule_id
+
+        return self._delete_security_findings_automation_mute_rule_endpoint.call_with_http_info(**kwargs)
+
+    def delete_security_findings_automation_ticket_creation_rule(
+        self,
+        rule_id: UUID,
+    ) -> None:
+        """Delete a ticket creation rule.
+
+        Delete an existing ticket creation rule by ID.
+
+        :param rule_id: The ID of the ticket creation rule.
+        :type rule_id: UUID
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["rule_id"] = rule_id
+
+        return self._delete_security_findings_automation_ticket_creation_rule_endpoint.call_with_http_info(**kwargs)
+
     def delete_security_monitoring_critical_asset(
         self,
         critical_asset_id: str,
@@ -5013,7 +5588,8 @@ class SecurityMonitoringApi:
 
         Export a security monitoring resource to a Terraform configuration.
         The ``resource_type`` path parameter specifies the type of resource to export
-        and must be one of ``suppressions`` or ``critical_assets``.
+        and must be one of ``suppressions`` , ``critical_assets`` , ``security_filters`` , or ``rules``.
+        For ``rules`` , partner rules cannot be exported and return a 400 error.
 
         :param resource_type: The type of security monitoring resource to export.
         :type resource_type: SecurityMonitoringTerraformResourceType
@@ -5363,6 +5939,57 @@ class SecurityMonitoringApi:
         kwargs["security_filter_id"] = security_filter_id
 
         return self._get_security_filter_endpoint.call_with_http_info(**kwargs)
+
+    def get_security_findings_automation_due_date_rule(
+        self,
+        rule_id: UUID,
+    ) -> DueDateRuleResponse:
+        """Get a due date rule.
+
+        Get the details of a due date rule by ID.
+
+        :param rule_id: The ID of the due date rule.
+        :type rule_id: UUID
+        :rtype: DueDateRuleResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["rule_id"] = rule_id
+
+        return self._get_security_findings_automation_due_date_rule_endpoint.call_with_http_info(**kwargs)
+
+    def get_security_findings_automation_mute_rule(
+        self,
+        rule_id: UUID,
+    ) -> MuteRuleResponse:
+        """Get a mute rule.
+
+        Get the details of a mute rule by ID.
+
+        :param rule_id: The ID of the mute rule.
+        :type rule_id: UUID
+        :rtype: MuteRuleResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["rule_id"] = rule_id
+
+        return self._get_security_findings_automation_mute_rule_endpoint.call_with_http_info(**kwargs)
+
+    def get_security_findings_automation_ticket_creation_rule(
+        self,
+        rule_id: UUID,
+    ) -> TicketCreationRuleResponse:
+        """Get a ticket creation rule.
+
+        Get the details of a ticket creation rule by ID.
+
+        :param rule_id: The ID of the ticket creation rule.
+        :type rule_id: UUID
+        :rtype: TicketCreationRuleResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["rule_id"] = rule_id
+
+        return self._get_security_findings_automation_ticket_creation_rule_endpoint.call_with_http_info(**kwargs)
 
     def get_security_monitoring_critical_asset(
         self,
@@ -5880,6 +6507,37 @@ class SecurityMonitoringApi:
         kwargs: Dict[str, Any] = {}
         return self._get_vulnerability_notification_rules_endpoint.call_with_http_info(**kwargs)
 
+    def import_security_vulnerabilities(
+        self,
+        body: CycloneDXBom,
+    ) -> None:
+        """Import security vulnerabilities.
+
+        Import security vulnerabilities from an external scanner in CycloneDX 1.5 format.
+
+        The payload is validated against the CycloneDX 1.5 JSON schema and the following
+        additional constraints:
+
+        * ``metadata`` , ``metadata.component`` , and ``metadata.component.name`` are required.
+        * ``metadata.tools.components`` must contain exactly one element with a ``name`` field.
+        * ``components`` cannot be empty. Each component requires ``bom-ref`` , ``type`` , ``name`` , and ``version``.
+        * When ``type`` is ``library`` , ``purl`` is required and must be a valid PURL.
+        * When ``type`` is ``operating-system`` , ``name`` must be one of the supported OS values:
+          ``alma`` , ``alpine`` , ``amazon`` , ``azurelinux`` , ``bottlerocket`` , ``cbl-mariner`` , ``chainguard`` ,
+          ``centos`` , ``debian`` , ``fedora`` , ``opensuse`` , ``opensuse-leap`` , ``opensuse-tumbleweed`` ,
+          ``oracle`` , ``photon`` , ``redhat`` , ``rocky`` , ``slem`` , ``sles`` , ``ubuntu`` , ``wolfi`` , ``windows`` , ``macos``.
+        * ``vulnerabilities`` cannot be empty. Each vulnerability requires ``id`` , exactly one ``ratings`` entry,
+          and at least one ``affects`` entry.
+        * Each ``affects[].ref`` must match a ``bom-ref`` value in ``components``.
+
+        :type body: CycloneDXBom
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._import_security_vulnerabilities_endpoint.call_with_http_info(**kwargs)
+
     def list_assets_sbo_ms(
         self,
         *,
@@ -6281,7 +6939,7 @@ class SecurityMonitoringApi:
         :type sort_order: str, optional
         :param ocsf: When true, return only OCSF field-based matches. When false, return regex/message-based matches.
         :type ocsf: bool, optional
-        :param worked_by: Filter indicators whose triage state was updated by a specific user UUID.
+        :param worked_by: Filter indicators whose triage state was updated by a specific user identified by their handle.
         :type worked_by: str, optional
         :param triage_state: Filter by triage state.
         :type triage_state: IoCTriageState, optional
@@ -6607,6 +7265,81 @@ class SecurityMonitoringApi:
             "kwargs": kwargs,
         }
         return endpoint.call_with_http_info_paginated(pagination)
+
+    def list_security_findings_automation_due_date_rules(
+        self,
+        *,
+        page_size: Union[int, UnsetType] = unset,
+        page_number: Union[int, UnsetType] = unset,
+    ) -> DueDateRulesResponse:
+        """Get all due date rules.
+
+        Get all due date rules for the current organization.
+
+        :param page_size: The number of rules per page. Maximum is 1000.
+        :type page_size: int, optional
+        :param page_number: The page number to return.
+        :type page_number: int, optional
+        :rtype: DueDateRulesResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        if page_size is not unset:
+            kwargs["page_size"] = page_size
+
+        if page_number is not unset:
+            kwargs["page_number"] = page_number
+
+        return self._list_security_findings_automation_due_date_rules_endpoint.call_with_http_info(**kwargs)
+
+    def list_security_findings_automation_mute_rules(
+        self,
+        *,
+        page_size: Union[int, UnsetType] = unset,
+        page_number: Union[int, UnsetType] = unset,
+    ) -> MuteRulesResponse:
+        """Get all mute rules.
+
+        Get all mute rules for the current organization.
+
+        :param page_size: The number of rules per page. Maximum is 1000.
+        :type page_size: int, optional
+        :param page_number: The page number to return.
+        :type page_number: int, optional
+        :rtype: MuteRulesResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        if page_size is not unset:
+            kwargs["page_size"] = page_size
+
+        if page_number is not unset:
+            kwargs["page_number"] = page_number
+
+        return self._list_security_findings_automation_mute_rules_endpoint.call_with_http_info(**kwargs)
+
+    def list_security_findings_automation_ticket_creation_rules(
+        self,
+        *,
+        page_size: Union[int, UnsetType] = unset,
+        page_number: Union[int, UnsetType] = unset,
+    ) -> TicketCreationRulesResponse:
+        """Get all ticket creation rules.
+
+        Get all ticket creation rules for the current organization.
+
+        :param page_size: The number of rules per page. Maximum is 1000.
+        :type page_size: int, optional
+        :param page_number: The page number to return.
+        :type page_number: int, optional
+        :rtype: TicketCreationRulesResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        if page_size is not unset:
+            kwargs["page_size"] = page_size
+
+        if page_number is not unset:
+            kwargs["page_number"] = page_number
+
+        return self._list_security_findings_automation_ticket_creation_rules_endpoint.call_with_http_info(**kwargs)
 
     def list_security_monitoring_critical_assets(
         self,
@@ -7476,6 +8209,54 @@ class SecurityMonitoringApi:
 
         return self._patch_vulnerability_notification_rule_endpoint.call_with_http_info(**kwargs)
 
+    def reorder_security_findings_automation_due_date_rules(
+        self,
+        body: DueDateRuleReorderRequest,
+    ) -> DueDateRuleReorderRequest:
+        """Reorder due date rules.
+
+        Reorder the list of due date rules for the current organization.
+
+        :type body: DueDateRuleReorderRequest
+        :rtype: DueDateRuleReorderRequest
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._reorder_security_findings_automation_due_date_rules_endpoint.call_with_http_info(**kwargs)
+
+    def reorder_security_findings_automation_mute_rules(
+        self,
+        body: MuteRuleReorderRequest,
+    ) -> MuteRuleReorderRequest:
+        """Reorder mute rules.
+
+        Reorder the list of mute rules for the current organization.
+
+        :type body: MuteRuleReorderRequest
+        :rtype: MuteRuleReorderRequest
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._reorder_security_findings_automation_mute_rules_endpoint.call_with_http_info(**kwargs)
+
+    def reorder_security_findings_automation_ticket_creation_rules(
+        self,
+        body: TicketCreationRuleReorderRequest,
+    ) -> TicketCreationRuleReorderRequest:
+        """Reorder ticket creation rules.
+
+        Reorder the list of ticket creation rules for the current organization.
+
+        :type body: TicketCreationRuleReorderRequest
+        :rtype: TicketCreationRuleReorderRequest
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._reorder_security_findings_automation_ticket_creation_rules_endpoint.call_with_http_info(**kwargs)
+
     def restore_security_monitoring_rule(
         self,
         rule_id: str,
@@ -7770,6 +8551,69 @@ class SecurityMonitoringApi:
         kwargs["body"] = body
 
         return self._update_security_filter_endpoint.call_with_http_info(**kwargs)
+
+    def update_security_findings_automation_due_date_rule(
+        self,
+        rule_id: UUID,
+        body: DueDateRuleUpdateRequest,
+    ) -> DueDateRuleResponse:
+        """Update a due date rule.
+
+        Update an existing due date rule by ID.
+
+        :param rule_id: The ID of the due date rule.
+        :type rule_id: UUID
+        :type body: DueDateRuleUpdateRequest
+        :rtype: DueDateRuleResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["rule_id"] = rule_id
+
+        kwargs["body"] = body
+
+        return self._update_security_findings_automation_due_date_rule_endpoint.call_with_http_info(**kwargs)
+
+    def update_security_findings_automation_mute_rule(
+        self,
+        rule_id: UUID,
+        body: MuteRuleUpdateRequest,
+    ) -> MuteRuleResponse:
+        """Update a mute rule.
+
+        Update an existing mute rule by ID.
+
+        :param rule_id: The ID of the mute rule.
+        :type rule_id: UUID
+        :type body: MuteRuleUpdateRequest
+        :rtype: MuteRuleResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["rule_id"] = rule_id
+
+        kwargs["body"] = body
+
+        return self._update_security_findings_automation_mute_rule_endpoint.call_with_http_info(**kwargs)
+
+    def update_security_findings_automation_ticket_creation_rule(
+        self,
+        rule_id: UUID,
+        body: TicketCreationRuleUpdateRequest,
+    ) -> TicketCreationRuleResponse:
+        """Update a ticket creation rule.
+
+        Update an existing ticket creation rule by ID.
+
+        :param rule_id: The ID of the ticket creation rule.
+        :type rule_id: UUID
+        :type body: TicketCreationRuleUpdateRequest
+        :rtype: TicketCreationRuleResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["rule_id"] = rule_id
+
+        kwargs["body"] = body
+
+        return self._update_security_findings_automation_ticket_creation_rule_endpoint.call_with_http_info(**kwargs)
 
     def update_security_monitoring_critical_asset(
         self,

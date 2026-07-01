@@ -1,0 +1,125 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "textual-image"
+version = "0.13.2"
+description = "Render images via Kitty's Terminal Graphics Protocol with Rich and Textual"
+authors = [
+    {name = "Simon Hayessen", email = "simon@lnqs.io"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+
+    "Intended Audience :: Developers",
+
+    "Environment :: Console",
+
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: User Interfaces",
+
+    "License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+
+    "Operating System :: POSIX :: Linux",
+
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "pillow>=10.3.0",
+    "rich>=13.4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/lnqs/textual-image"
+Documentation = "https://github.com/lnqs/textual-image"
+Repository = "https://github.com/lnqs/textual-image"
+Issues = "https://github.com/lnqs/textual-image/issues"
+
+[project.optional-dependencies]
+textual = [
+    "textual>=0.68.0",
+]
+numpy = [
+    "numpy>=2.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "commitizen",
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "ruff",
+    "syrupy",
+    "typing-extensions",
+    "typos",
+]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.13.2"
+tag_format = "v$version"
+version_scheme = "pep440"
+update_changelog_on_bump = true
+changelog_file = "CHANGELOG.md"
+version_files = ["pyproject.toml:project.version"]
+bump_message = "chore(release): bump version to $new_version"
+
+[tool.hatch.build.targets.wheel]
+packages = ["textual_image"]
+
+[tool.ruff]
+lint.select = ["A", "ANN", "C", "E", "F", "FIX", "I", "N", "PTH", "T", "TC", "Q"]
+lint.ignore = ["A002"]
+line-length = 120
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+"scripts/**" = ["T201"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.report]
+fail_under = 100
+exclude_lines = ["if __name__ == .__main__.:", "if sys.platform", "pragma: no cover"]
+exclude_also = [
+    "no cover: start(?s:.)*?no cover: stop",
+    "\\A(?s:.*# pragma: exclude file.*)\\Z",
+    "if TYPE_CHECKING:",
+]
+
+[tool.mypy]
+strict = true
+warn_unused_ignores = false
+exclude = ['build/']
+
+[tool.typos.default]
+extend-ignore-identifiers-re = [
+    "arange",
+]
+
+[tool.typos.files]
+extend-exclude = [
+    "tests/renderable/__snapshots__/*.ambr",
+]

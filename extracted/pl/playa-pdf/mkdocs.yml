@@ -1,0 +1,34 @@
+site_name: PLAYA
+site_description: Parallel and LAzY Analyzer for PDFs
+site_author: David Huggins-Daines
+site_url: https://dhdaines.github.io/playa
+repo_name: dhdaines/playa
+repo_url: https://github.com/dhdaines/playa
+edit_uri: blob/main/docs
+copyright: "Copyright &copy; David Huggins-Daines 2024-present"
+
+theme:
+  name: material
+plugins:
+  - include-markdown
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [playa]
+          inventories:
+            - https://docs.python.org/3/objects.inv
+          options:
+            show_root_heading: true
+            docstring_style: google
+nav:
+  - Home: index.md
+  - CLI: cli.md
+  - Reference: reference.md
+  - Data API: data.md
+  - PDFMiner.six compatibility: working-in-the-pdf-mine.md
+watch:
+- playa
+extra:
+  version:
+    provider: mike

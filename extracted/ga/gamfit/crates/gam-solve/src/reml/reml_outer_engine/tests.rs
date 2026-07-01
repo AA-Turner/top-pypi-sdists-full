@@ -921,16 +921,16 @@ pub(crate) fn projected_factor_cache_lru_evicts_oldest_under_budget() {
 
     let make = |seed: u64| -> Array2<f64> { Array2::from_elem((4, 8), seed as f64) };
 
-    let _a = cache.get_or_insert_with(make_factor_key(1), || make(1));
-    let _b = cache.get_or_insert_with(make_factor_key(2), || make(2));
+    cache.get_or_insert_with(make_factor_key(1), || make(1));
+    cache.get_or_insert_with(make_factor_key(2), || make(2));
     assert_eq!(cache.len(), 2);
     assert_eq!(cache.total_bytes(), entry_bytes * 2);
 
     // Bump `a`'s recency so it survives the next eviction.
-    let _a_again = cache.get_or_insert_with(make_factor_key(1), || make(1));
+    cache.get_or_insert_with(make_factor_key(1), || make(1));
 
     // Inserting `c` must evict `b` (oldest), not `a` (most recent).
-    let _c = cache.get_or_insert_with(make_factor_key(3), || make(3));
+    cache.get_or_insert_with(make_factor_key(3), || make(3));
     assert_eq!(cache.len(), 2);
     assert_eq!(cache.total_bytes(), entry_bytes * 2);
 
@@ -1276,6 +1276,7 @@ pub(crate) fn ift_gradient_correction_with_zero_projected_residual_is_zero() {
         &zero_residual,
         true,
         &[false, false],
+        &[true, true],
     )
     .expect("kkt correction must succeed at zero residual");
 
@@ -1321,6 +1322,7 @@ pub(crate) fn ift_rho_upper_bound_masks_residual_correction_direction() {
         &residual,
         true,
         &[false, true],
+        &[true, true],
     )
     .expect("kkt correction must succeed with a masked upper-bound coordinate");
 
@@ -1402,6 +1404,12 @@ pub(crate) fn kkt_theta_correction_cross_and_psi_hessian_matches_finite_differen
         drift_apply,
         &r0,
         true,
+        &[false, false, false],
+        // This fixture's r(θ)=r0+Σθ_i s_i and H(θ)=H0+Σθ_i A_i are AFFINE in θ,
+        // so every coordinate's second self-derivative ∂²r=∂²H=0 — no
+        // exponential self-coupling on any coordinate (unlike the production ρ
+        // map λ=exp(ρ)). The FD ground truth is built from this same affine
+        // model, so the correction must NOT add the δ_ij·C_i term here.
         &[false, false, false],
     )
     .expect("theta correction must succeed");
@@ -1913,7 +1921,7 @@ pub(crate) fn test_compute_adjoint_z_c_streaming_matches_dense_reference() {
         }
         h_dense[i] = acc;
     }
-    let streamed = compute_adjoint_z_c(&ing, &hop, &h_dense, None).expect("adjoint path");
+    let streamed = compute_adjoint_z_c(&ing, &hop, &h_dense).expect("adjoint path");
 
     let mut t = h_dense.clone();
     Zip::from(&mut t)
@@ -2043,14 +2051,14 @@ pub(crate) fn operator_hessian_matches_dense_with_operator_drifts_and_extended_g
             tk_eta_fixed: None,
             tk_x_fixed: None,
         }],
-        ext_coord_pair_fn: Some(Box::new(|_, _| HyperCoordPair {
+        ext_coord_pair_fn: Some(Arc::new(|_, _| HyperCoordPair {
             a: 0.09,
             g: array![0.16, -0.12],
             b_mat: array![[0.08, 0.03], [0.03, -0.04]],
             b_operator: None,
             ld_s: -0.05,
         })),
-        rho_ext_pair_fn: Some(Box::new(|_, _| HyperCoordPair {
+        rho_ext_pair_fn: Some(Arc::new(|_, _| HyperCoordPair {
             a: -0.14,
             g: array![-0.18, 0.22],
             b_mat: array![[0.05, -0.02], [-0.02, 0.07]],
@@ -2205,14 +2213,14 @@ pub(crate) fn operator_hessian_with_contracted_psi_hook_matches_per_pair_dense()
                 tk_eta_fixed: None,
                 tk_x_fixed: None,
             }],
-            ext_coord_pair_fn: Some(Box::new(move |_, _| HyperCoordPair {
+            ext_coord_pair_fn: Some(Arc::new(move |_, _| HyperCoordPair {
                 a: psi_pair_a,
                 g: array![0.16, -0.12],
                 b_mat: pair_b_for_dense.clone(),
                 b_operator: None,
                 ld_s: psi_pair_ld_s,
             })),
-            rho_ext_pair_fn: Some(Box::new(|_, _| HyperCoordPair {
+            rho_ext_pair_fn: Some(Arc::new(|_, _| HyperCoordPair {
                 a: -0.14,
                 g: array![-0.18, 0.22],
                 b_mat: array![[0.05, -0.02], [-0.02, 0.07]],
@@ -2344,7 +2352,7 @@ pub(crate) fn operator_hessian_with_contracted_psi_hook_matches_per_pair_dense()
     // term2-only: zero the ψψ second drift (pair.b_mat) → removes base_h2 ψψ.
     let dense_no_base = {
         let mut sol = build_solution(false);
-        sol.ext_coord_pair_fn = Some(Box::new(move |_, _| HyperCoordPair {
+        sol.ext_coord_pair_fn = Some(Arc::new(move |_, _| HyperCoordPair {
             a: psi_pair_a,
             g: array![0.16, -0.12],
             b_mat: Array2::zeros((2, 2)),
@@ -2424,7 +2432,7 @@ pub(crate) fn operator_hessian_with_contracted_psi_hook_matches_per_pair_dense()
     let dense_without_psi_score_hvp = {
         let mut sol = build_solution(false);
         let pair_b_for_zero_score = psi_pair_b.clone();
-        sol.ext_coord_pair_fn = Some(Box::new(move |_, _| HyperCoordPair {
+        sol.ext_coord_pair_fn = Some(Arc::new(move |_, _| HyperCoordPair {
             a: psi_pair_a,
             g: Array1::zeros(2),
             b_mat: pair_b_for_zero_score.clone(),
@@ -2791,14 +2799,14 @@ pub(crate) fn projected_operator_hessian_matches_dense_subspace_trace() {
             tk_eta_fixed: None,
             tk_x_fixed: None,
         }],
-        ext_coord_pair_fn: Some(Box::new(|_, _| HyperCoordPair {
+        ext_coord_pair_fn: Some(Arc::new(|_, _| HyperCoordPair {
             a: 0.09,
             g: array![0.16, -0.12],
             b_mat: array![[0.08, 0.03], [0.03, -0.04]],
             b_operator: None,
             ld_s: -0.05,
         })),
-        rho_ext_pair_fn: Some(Box::new(|_, _| HyperCoordPair {
+        rho_ext_pair_fn: Some(Arc::new(|_, _| HyperCoordPair {
             a: -0.14,
             g: array![-0.18, 0.22],
             b_mat: array![[0.05, -0.02], [-0.02, 0.07]],
