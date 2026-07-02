@@ -94,7 +94,9 @@ def run_sample_template_library_test(
 
         obj.widgets["new_text_field_widget"].font = "new_font"
         obj.widgets["new_text_field_widget"].font_color = (1, 0, 0)
-        # TODO: why is alignment not rendered right in the appearance stream?
+
+        # Currently alignment is not respected due to qpdf limitations
+        # https://github.com/qpdf/qpdf/blob/503d401615a842f7c5220a3ee425f5db2f25f537/TODO.md#text-appearance-streams
         obj.widgets["new_text_field_widget"].alignment = 2
 
         obj.widgets["new_checkbox_widget"].size = 40
@@ -106,10 +108,7 @@ def run_sample_template_library_test(
         expected = f.read()
 
         assert len(obj.read()) == len(expected)
-        if generate_appearance_streams:
-            request.config.results["skip_regenerate"] = len(obj.read()) == len(expected)
-        else:
-            assert obj.read() == expected
+        assert obj.read() == expected
 
 
 def test_fill(template_stream, pdf_samples, data_dict, request):
@@ -199,7 +198,7 @@ def test_issue_613(pdf_samples, request):
         assert obj.read() == expected
 
 
-@pytest.mark.posix_only
+@pytest.mark.requires_zlib_over_zlib_ng
 def test_sample_template_library(
     pdf_samples, image_samples, sample_font_stream, request
 ):

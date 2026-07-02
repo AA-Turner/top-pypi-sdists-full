@@ -270,8 +270,11 @@ class TestImage:
         im = Image.new("RGB", (10, 10))
         im._dump(str(tmp_path / "temp_RGB.ppm"))
 
+        im = Image.new("RGBA", (10, 10))
+        im._dump(str(tmp_path / "temp_RGBA.ppm"))
+
         im = Image.new("HSV", (10, 10))
-        with pytest.raises(ValueError):
+        with pytest.raises(OSError):
             im._dump(str(tmp_path / "temp_HSV.ppm"))
 
     def test_comparison_with_other_type(self) -> None:
@@ -862,7 +865,7 @@ class TestImage:
     def test_exif_webp(self, tmp_path: Path) -> None:
         with Image.open("Tests/images/hopper.webp") as im:
             exif = im.getexif()
-            assert exif == {}
+            assert dict(exif) == {}
 
             out = tmp_path / "temp.webp"
             exif[258] = 8
@@ -884,7 +887,7 @@ class TestImage:
     def test_exif_png(self, tmp_path: Path) -> None:
         with Image.open("Tests/images/exif.png") as im:
             exif = im.getexif()
-            assert exif == {274: 1}
+            assert dict(exif) == {274: 1}
 
             out = tmp_path / "temp.png"
             exif[258] = 8
@@ -1121,6 +1124,14 @@ class TestImage:
         ):
             for name in enum.__members__:
                 assert getattr(Image, name) == enum[name]
+
+    def test_decoder_setimage_once(self) -> None:
+        im = Image.new("L", (1, 1))
+        decoder = Image._getdecoder("L", "raw", "L")
+
+        decoder.setimage(im.im, None)
+        with pytest.raises(ValueError, match="decoder already has an image"):
+            decoder.setimage(im.im, None)
 
     @pytest.mark.parametrize(
         "path",

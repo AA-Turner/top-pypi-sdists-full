@@ -17,14 +17,25 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
+from typing import IO, Any, Union
+
+from botocore.response import StreamingBody
 
 from .literals import (
     AcceptanceTypeType,
     AgreementTypeType,
     CustomerAgreementStateType,
+    InputSourceType,
+    InquiryStatusMessageType,
+    InquiryStatusType,
+    InquirySupportModeType,
     NotificationSubscriptionStatusType,
     PublishedStateType,
+    QueryStatusMessageType,
+    QueryStatusType,
+    ReviewTypeType,
     UploadStateType,
 )
 
@@ -36,14 +47,32 @@ else:
 
 __all__ = (
     "AccountSettingsTypeDef",
+    "BlobTypeDef",
+    "CitationTypeDef",
+    "CreateComplianceInquiryRequestTypeDef",
+    "CreateComplianceInquiryResponseTypeDef",
     "CustomerAgreementSummaryTypeDef",
+    "ExportComplianceInquiryRequestTypeDef",
+    "ExportComplianceInquiryResponseTypeDef",
     "GetAccountSettingsResponseTypeDef",
+    "GetComplianceInquiryMetadataRequestTypeDef",
+    "GetComplianceInquiryMetadataResponseTypeDef",
     "GetReportMetadataRequestTypeDef",
     "GetReportMetadataResponseTypeDef",
     "GetReportRequestTypeDef",
     "GetReportResponseTypeDef",
     "GetTermForReportRequestTypeDef",
     "GetTermForReportResponseTypeDef",
+    "InquiryContentTypeDef",
+    "InquiryDetailTypeDef",
+    "InquiryFileContentTypeDef",
+    "InquirySummaryTypeDef",
+    "ListComplianceInquiriesRequestPaginateTypeDef",
+    "ListComplianceInquiriesRequestTypeDef",
+    "ListComplianceInquiriesResponseTypeDef",
+    "ListComplianceInquiryQueriesRequestPaginateTypeDef",
+    "ListComplianceInquiryQueriesRequestTypeDef",
+    "ListComplianceInquiryQueriesResponseTypeDef",
     "ListCustomerAgreementsRequestPaginateTypeDef",
     "ListCustomerAgreementsRequestTypeDef",
     "ListCustomerAgreementsResponseTypeDef",
@@ -53,17 +82,54 @@ __all__ = (
     "ListReportsRequestPaginateTypeDef",
     "ListReportsRequestTypeDef",
     "ListReportsResponseTypeDef",
+    "ListTagsForResourceRequestTypeDef",
+    "ListTagsForResourceResponseTypeDef",
     "PaginatorConfigTypeDef",
     "PutAccountSettingsRequestTypeDef",
     "PutAccountSettingsResponseTypeDef",
+    "QuerySummaryTypeDef",
     "ReportDetailTypeDef",
     "ReportSummaryTypeDef",
     "ResponseMetadataTypeDef",
+    "ResponseVersionTypeDef",
+    "TagResourceRequestTypeDef",
+    "UntagResourceRequestTypeDef",
 )
 
 
 class AccountSettingsTypeDef(TypedDict):
     notificationSubscriptionStatus: NotRequired[NotificationSubscriptionStatusType]
+
+
+BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
+
+
+class CitationTypeDef(TypedDict):
+    sourceLabel: NotRequired[str]
+    sourceContent: NotRequired[str]
+    sourceLink: NotRequired[str]
+
+
+InquirySummaryTypeDef = TypedDict(
+    "InquirySummaryTypeDef",
+    {
+        "arn": str,
+        "name": str,
+        "id": str,
+        "status": InquiryStatusType,
+        "statusMessage": InquiryStatusMessageType,
+        "inputSource": InputSourceType,
+        "createdAt": datetime,
+    },
+)
+
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
 
 
 CustomerAgreementSummaryTypeDef = TypedDict(
@@ -86,12 +152,30 @@ CustomerAgreementSummaryTypeDef = TypedDict(
 )
 
 
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
+class ExportComplianceInquiryRequestTypeDef(TypedDict):
+    complianceInquiryId: str
+    queryIdentifiers: NotRequired[Sequence[int]]
+    includeCitations: NotRequired[bool]
+
+
+class GetComplianceInquiryMetadataRequestTypeDef(TypedDict):
+    complianceInquiryId: str
+
+
+InquiryDetailTypeDef = TypedDict(
+    "InquiryDetailTypeDef",
+    {
+        "arn": str,
+        "name": str,
+        "id": str,
+        "status": InquiryStatusType,
+        "statusMessage": InquiryStatusMessageType,
+        "inputSource": InputSourceType,
+        "createdAt": datetime,
+        "updatedAt": NotRequired[datetime],
+        "supportMode": NotRequired[InquirySupportModeType],
+    },
+)
 
 
 class GetReportMetadataRequestTypeDef(TypedDict):
@@ -143,6 +227,17 @@ class PaginatorConfigTypeDef(TypedDict):
     StartingToken: NotRequired[str]
 
 
+class ListComplianceInquiriesRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListComplianceInquiryQueriesRequestTypeDef(TypedDict):
+    complianceInquiryId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
 class ListCustomerAgreementsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -181,8 +276,44 @@ class ListReportsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListTagsForResourceRequestTypeDef(TypedDict):
+    resourceArn: str
+
+
 class PutAccountSettingsRequestTypeDef(TypedDict):
     notificationSubscriptionStatus: NotRequired[NotificationSubscriptionStatusType]
+
+
+class ResponseVersionTypeDef(TypedDict):
+    responseText: str
+    timestamp: datetime
+
+
+class TagResourceRequestTypeDef(TypedDict):
+    resourceArn: str
+    tags: Mapping[str, str]
+
+
+class UntagResourceRequestTypeDef(TypedDict):
+    resourceArn: str
+    tagKeys: Sequence[str]
+
+
+class InquiryFileContentTypeDef(TypedDict):
+    content: BlobTypeDef
+    fileSections: NotRequired[Sequence[str]]
+
+
+class CreateComplianceInquiryResponseTypeDef(TypedDict):
+    complianceInquirySummary: InquirySummaryTypeDef
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ExportComplianceInquiryResponseTypeDef(TypedDict):
+    documentPresignedUrl: str
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetAccountSettingsResponseTypeDef(TypedDict):
@@ -201,10 +332,15 @@ class GetTermForReportResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class ListCustomerAgreementsResponseTypeDef(TypedDict):
-    customerAgreements: list[CustomerAgreementSummaryTypeDef]
+class ListComplianceInquiriesResponseTypeDef(TypedDict):
+    complianceInquiries: list[InquirySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class ListTagsForResourceResponseTypeDef(TypedDict):
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class PutAccountSettingsResponseTypeDef(TypedDict):
@@ -212,9 +348,30 @@ class PutAccountSettingsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListCustomerAgreementsResponseTypeDef(TypedDict):
+    customerAgreements: list[CustomerAgreementSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class GetComplianceInquiryMetadataResponseTypeDef(TypedDict):
+    complianceInquiryDetail: InquiryDetailTypeDef
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetReportMetadataResponseTypeDef(TypedDict):
     reportDetails: ReportDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListComplianceInquiriesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListComplianceInquiryQueriesRequestPaginateTypeDef(TypedDict):
+    complianceInquiryId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListCustomerAgreementsRequestPaginateTypeDef(TypedDict):
@@ -240,3 +397,34 @@ class ListReportsResponseTypeDef(TypedDict):
     reports: list[ReportSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class QuerySummaryTypeDef(TypedDict):
+    queryIdentifier: int
+    query: str
+    status: QueryStatusType
+    statusMessage: QueryStatusMessageType
+    createdAt: datetime
+    response: NotRequired[str]
+    reviewType: NotRequired[ReviewTypeType]
+    citations: NotRequired[list[CitationTypeDef]]
+    updatedResponseVersions: NotRequired[list[ResponseVersionTypeDef]]
+
+
+class InquiryContentTypeDef(TypedDict):
+    query: NotRequired[str]
+    fileContent: NotRequired[InquiryFileContentTypeDef]
+
+
+class ListComplianceInquiryQueriesResponseTypeDef(TypedDict):
+    queries: list[QuerySummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class CreateComplianceInquiryRequestTypeDef(TypedDict):
+    name: str
+    inquiryContent: InquiryContentTypeDef
+    clientToken: NotRequired[str]
+    supportMode: NotRequired[InquirySupportModeType]
+    tags: NotRequired[Mapping[str, str]]

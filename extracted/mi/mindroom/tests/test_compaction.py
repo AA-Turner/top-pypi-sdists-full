@@ -21,8 +21,8 @@ from mindroom.config.main import Config
 from mindroom.config.models import DefaultsConfig, ModelConfig
 from mindroom.constants import AI_RUN_METADATA_KEY
 from mindroom.execution_preparation import _PreparedExecutionContext
-from mindroom.history.compaction import _estimate_tool_definition_tokens, compute_prompt_token_breakdown
 from mindroom.history.policy import classify_compaction_decision
+from mindroom.history.prompt_tokens import _estimate_tool_definition_tokens, compute_prompt_token_breakdown
 from mindroom.history.runtime import create_scope_session_storage
 from mindroom.history.storage import read_scope_state, write_scope_state
 from mindroom.history.types import (
@@ -71,7 +71,6 @@ def _make_outcome(**overrides: object) -> CompactionOutcome:
         "window_tokens": 100_000,
         "history_budget_tokens": 100_000,
         "threshold_tokens": 80_000,
-        "reserve_tokens": 4_096,
         "runs_before": 20,
         "runs_after": 8,
         "compacted_run_count": 12,
@@ -85,7 +84,6 @@ def _make_outcome(**overrides: object) -> CompactionOutcome:
 
 def _make_execution_plan(**overrides: object) -> ResolvedHistoryExecutionPlan:
     defaults: dict[str, object] = {
-        "authored_compaction_config": True,
         "authored_compaction_enabled": True,
         "destructive_compaction_available": True,
         "explicit_compaction_model": False,
@@ -105,7 +103,6 @@ def _make_execution_plan(**overrides: object) -> ResolvedHistoryExecutionPlan:
 
 def _make_policy_plan() -> ResolvedHistoryExecutionPlan:
     return ResolvedHistoryExecutionPlan(
-        authored_compaction_config=True,
         authored_compaction_enabled=True,
         destructive_compaction_available=True,
         explicit_compaction_model=False,
@@ -259,7 +256,7 @@ class TestCompactionOutcome:
     def test_to_notice_metadata_basic(self) -> None:
         outcome = _make_outcome()
         meta = outcome.to_notice_metadata()
-        assert meta["version"] == 2
+        assert meta["version"] == 3
         assert meta["before_tokens"] == 30_000
         assert meta["after_tokens"] == 12_000
         assert meta["history_budget_tokens"] == 100_000
@@ -269,10 +266,10 @@ class TestCompactionOutcome:
         assert "tool_definition_tokens" not in meta
         assert "current_prompt_tokens" not in meta
 
-    def test_to_notice_metadata_keeps_v1_window_tokens_when_history_budget_unknown(self) -> None:
+    def test_to_notice_metadata_keeps_window_tokens_when_history_budget_unknown(self) -> None:
         outcome = _make_outcome(history_budget_tokens=None)
         meta = outcome.to_notice_metadata()
-        assert meta["version"] == 1
+        assert meta["version"] == 3
         assert meta["window_tokens"] == 100_000
 
     def test_to_notice_metadata_with_breakdown(self) -> None:
@@ -282,7 +279,7 @@ class TestCompactionOutcome:
             current_prompt_tokens=100,
         )
         meta = outcome.to_notice_metadata()
-        assert meta["version"] == 2
+        assert meta["version"] == 3
         assert meta["history_budget_tokens"] == 100_000
         assert meta["threshold_tokens"] == 80_000
         assert meta["role_instructions_tokens"] == 2_000
@@ -298,10 +295,8 @@ async def test_prepare_agent_and_prompt_omits_zero_breakdown_segments_in_notice(
 
     prepared_execution = _PreparedExecutionContext(
         messages=(Message(role="user", content="x" * 248),),
-        replay_plan=None,
         unseen_event_ids=[],
-        replays_persisted_history=False,
-        compaction_outcomes=[_make_outcome()],
+        prepared_history=PreparedHistoryState(compaction_outcomes=[_make_outcome()]),
     )
 
     with (

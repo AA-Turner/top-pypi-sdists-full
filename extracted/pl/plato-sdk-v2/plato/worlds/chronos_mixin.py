@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import time
 from datetime import UTC, datetime
 
 from plato.otel import init_tracing, shutdown_tracing
@@ -371,19 +370,7 @@ class ChronosSessionMixin:
                         # event loop — otherwise the world heartbeat coroutine is
                         # starved for the duration and the VM is killed on the
                         # heartbeat TTL mid-checkout.
-                        _t_checkout = time.monotonic()
-                        self.logger.info(
-                            "[git-perf] checkout_main_from_bare START workspace=%s bare=%s repo=%s",
-                            name,
-                            bare,
-                            repo,
-                        )
                         await asyncio.to_thread(checkout_main_from_bare, bare_repo_path=bare, worktree_path=repo)
-                        self.logger.info(
-                            "[git-perf] checkout_main_from_bare DONE workspace=%s in %.1fs",
-                            name,
-                            time.monotonic() - _t_checkout,
-                        )
                         self.logger.debug(f"Re-checked out repo/ from restored bare repo for workspace '{name}'")
                     self.logger.debug(f"Restored workspace '{name}' from step '{exact_step}'")
                     restored_any = True

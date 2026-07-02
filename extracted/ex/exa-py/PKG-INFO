@@ -1,24 +1,28 @@
 Metadata-Version: 2.4
 Name: exa-py
-Version: 2.15.0
+Version: 2.16.0
 Summary: Python SDK for Exa API.
-Home-page: https://github.com/exa-labs/exa-py
-Author: Exa
-Author-email: Exa AI <hello@exa.ai>
 License: MIT
-Requires-Python: >=3.9
-Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests>=2.32.3
-Requires-Dist: typing-extensions>=4.12.2
-Requires-Dist: openai>=1.48
-Requires-Dist: pydantic>=2.10.6
-Requires-Dist: httpx>=0.28.1
-Requires-Dist: httpcore>=1.0.9
-Requires-Dist: python-dotenv>=1.0.1
-Dynamic: author
-Dynamic: home-page
-Dynamic: license-file
+Author: Exa AI
+Author-email: hello@exa.ai
+Requires-Python: >=3.9
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: httpcore (>=1.0.9)
+Requires-Dist: httpx (>=0.28.1)
+Requires-Dist: openai (>=1.48)
+Requires-Dist: pydantic (>=2.10.6)
+Requires-Dist: python-dotenv (>=1.0.1)
+Requires-Dist: requests (>=2.32.3)
+Requires-Dist: typing-extensions (>=4.12.2)
+Description-Content-Type: text/markdown
 
 # Exa Python SDK
 
@@ -189,3 +193,4 @@ results = await exa.search("async search example", contents={"highlights": True}
 ## More
 
 See the [full documentation](https://docs.exa.ai) for all features including websets, filters, and advanced options.
+

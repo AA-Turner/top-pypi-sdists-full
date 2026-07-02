@@ -22,14 +22,13 @@ ROOT = str(Path(__file__).parent.parent)  # nilearn package
 _MODULE_TO_IGNORE = {
     "_utils",
     "conftest",
-    "input_data",
     "tests",
 }
 
 
 def _skip_module(module_name: str):
     module_parts = module_name.split(".")
-    return bool(
+    return (
         any(part in _MODULE_TO_IGNORE for part in module_parts)
         or "._" in module_name
     )
@@ -103,6 +102,15 @@ def all_estimators(type_filter=None):
         List of (name, class),
         where ``name`` is the class name as string
         and ``class`` is the actual type of the class.
+
+    Examples
+    --------
+    >>> from nilearn.utils import all_estimators
+    >>> estimators = all_estimators()
+    >>> len(estimators)
+    33
+    >>> estimators[0]
+    ('BaseGLM', <class 'nilearn.glm._base.BaseGLM'>)
 
     """
     # TODO: add GLM?
@@ -227,6 +235,17 @@ def all_displays(type_filter=None):
     displays : list of tuples
         List of (name, class), where ``name`` is the display class name as
         string and ``class`` is the actual type of the class.
+
+    Examples
+    --------
+    >>> from nilearn.utils import all_displays
+    >>> displays = all_displays()
+    >>> try:
+    ...     import matplotlib
+    ...     assert len(displays) == 27
+    ... except ImportError:
+    ...     assert len(displays) == 0
+
     """
     if not is_matplotlib_installed():
         return []

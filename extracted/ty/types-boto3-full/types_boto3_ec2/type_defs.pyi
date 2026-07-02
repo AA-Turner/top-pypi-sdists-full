@@ -28,6 +28,8 @@ from .literals import (
     AcceleratorNameType,
     AcceleratorTypeType,
     AccountAttributeNameType,
+    AccountVpcEncryptionControlModeType,
+    AccountVpcEncryptionControlStateType,
     ActivityStatusType,
     AddressFamilyType,
     AddressTransferStatusType,
@@ -38,6 +40,7 @@ from .literals import (
     AllowedImagesSettingsEnabledStateType,
     AllowsMultipleInstanceTypesType,
     AmdSevSnpSpecificationType,
+    AmdSevSnpType,
     AnalysisStatusType,
     ApplianceModeSupportValueType,
     ArchitectureTypeType,
@@ -468,6 +471,8 @@ __all__ = (
     "AccessScopePathTypeDef",
     "AccountAttributeTypeDef",
     "AccountAttributeValueTypeDef",
+    "AccountVpcEncryptionControlExclusionsTypeDef",
+    "AccountVpcEncryptionControlTypeDef",
     "ActiveInstanceTypeDef",
     "ActiveVpnTunnelStatusTypeDef",
     "AddIpamOperatingRegionTypeDef",
@@ -1188,6 +1193,8 @@ __all__ = (
     "DeregisterTransitGatewayMulticastGroupSourcesResultTypeDef",
     "DescribeAccountAttributesRequestTypeDef",
     "DescribeAccountAttributesResultTypeDef",
+    "DescribeAccountVpcEncryptionControlRequestTypeDef",
+    "DescribeAccountVpcEncryptionControlResultTypeDef",
     "DescribeAddressTransfersRequestPaginateTypeDef",
     "DescribeAddressTransfersRequestTypeDef",
     "DescribeAddressTransfersResultTypeDef",
@@ -2176,6 +2183,8 @@ __all__ = (
     "HibernationOptionsTypeDef",
     "HistoryRecordEntryTypeDef",
     "HistoryRecordTypeDef",
+    "HostCpuOptionsRequestTypeDef",
+    "HostCpuOptionsTypeDef",
     "HostInstanceTypeDef",
     "HostOfferingTypeDef",
     "HostPropertiesTypeDef",
@@ -2459,6 +2468,8 @@ __all__ = (
     "MetricDataResultTypeDef",
     "MetricPointTypeDef",
     "MetricValueTypeDef",
+    "ModifyAccountVpcEncryptionControlRequestTypeDef",
+    "ModifyAccountVpcEncryptionControlResultTypeDef",
     "ModifyAddressAttributeRequestTypeDef",
     "ModifyAddressAttributeResultTypeDef",
     "ModifyAvailabilityZoneGroupRequestTypeDef",
@@ -3302,6 +3313,16 @@ class AcceptVpcPeeringConnectionRequestVpcPeeringConnectionAcceptTypeDef(TypedDi
 class AccountAttributeValueTypeDef(TypedDict):
     AttributeValue: NotRequired[str]
 
+class AccountVpcEncryptionControlExclusionsTypeDef(TypedDict):
+    InternetGateway: NotRequired[VpcEncryptionControlExclusionStateType]
+    EgressOnlyInternetGateway: NotRequired[VpcEncryptionControlExclusionStateType]
+    NatGateway: NotRequired[VpcEncryptionControlExclusionStateType]
+    VirtualPrivateGateway: NotRequired[VpcEncryptionControlExclusionStateType]
+    VpcPeering: NotRequired[VpcEncryptionControlExclusionStateType]
+    Lambda: NotRequired[VpcEncryptionControlExclusionStateType]
+    VpcLattice: NotRequired[VpcEncryptionControlExclusionStateType]
+    ElasticFileSystem: NotRequired[VpcEncryptionControlExclusionStateType]
+
 class ActiveInstanceTypeDef(TypedDict):
     InstanceId: NotRequired[str]
     InstanceType: NotRequired[str]
@@ -3366,6 +3387,9 @@ class AdvertiseByoipCidrRequestTypeDef(TypedDict):
     Asn: NotRequired[str]
     DryRun: NotRequired[bool]
     NetworkBorderGroup: NotRequired[str]
+
+class HostCpuOptionsRequestTypeDef(TypedDict):
+    AmdSevSnp: NotRequired[AmdSevSnpType]
 
 class AlternatePathHintTypeDef(TypedDict):
     ComponentId: NotRequired[str]
@@ -5156,6 +5180,9 @@ class DescribeAccountAttributesRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     AttributeNames: NotRequired[Sequence[AccountAttributeNameType]]
 
+class DescribeAccountVpcEncryptionControlRequestTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
@@ -5448,24 +5475,6 @@ class DescribeVolumeAttributeRequestTypeDef(TypedDict):
 class DescribeVolumeAttributeRequestVolumeDescribeAttributeTypeDef(TypedDict):
     Attribute: VolumeAttributeNameType
     DryRun: NotRequired[bool]
-
-class VolumeModificationTypeDef(TypedDict):
-    VolumeId: NotRequired[str]
-    ModificationState: NotRequired[VolumeModificationStateType]
-    StatusMessage: NotRequired[str]
-    TargetSize: NotRequired[int]
-    TargetIops: NotRequired[int]
-    TargetVolumeType: NotRequired[VolumeTypeType]
-    TargetThroughput: NotRequired[int]
-    TargetMultiAttachEnabled: NotRequired[bool]
-    OriginalSize: NotRequired[int]
-    OriginalIops: NotRequired[int]
-    OriginalVolumeType: NotRequired[VolumeTypeType]
-    OriginalThroughput: NotRequired[int]
-    OriginalMultiAttachEnabled: NotRequired[bool]
-    Progress: NotRequired[int]
-    StartTime: NotRequired[datetime]
-    EndTime: NotRequired[datetime]
 
 class DescribeVpcAttributeRequestTypeDef(TypedDict):
     Attribute: VpcAttributeNameType
@@ -6512,6 +6521,9 @@ class HibernationOptionsRequestTypeDef(TypedDict):
 class HibernationOptionsTypeDef(TypedDict):
     Configured: NotRequired[bool]
 
+class HostCpuOptionsTypeDef(TypedDict):
+    AmdSevSnp: NotRequired[AmdSevSnpType]
+
 class HostInstanceTypeDef(TypedDict):
     InstanceId: NotRequired[str]
     InstanceType: NotRequired[str]
@@ -7097,6 +7109,18 @@ class MediaDeviceMemoryInfoTypeDef(TypedDict):
 class MetricValueTypeDef(TypedDict):
     Metric: NotRequired[MetricType]
     Value: NotRequired[float]
+
+class ModifyAccountVpcEncryptionControlRequestTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    Mode: NotRequired[AccountVpcEncryptionControlModeType]
+    InternetGateway: NotRequired[VpcEncryptionControlExclusionStateInputType]
+    EgressOnlyInternetGateway: NotRequired[VpcEncryptionControlExclusionStateInputType]
+    NatGateway: NotRequired[VpcEncryptionControlExclusionStateInputType]
+    VirtualPrivateGateway: NotRequired[VpcEncryptionControlExclusionStateInputType]
+    VpcPeering: NotRequired[VpcEncryptionControlExclusionStateInputType]
+    Lambda: NotRequired[VpcEncryptionControlExclusionStateInputType]
+    VpcLattice: NotRequired[VpcEncryptionControlExclusionStateInputType]
+    ElasticFileSystem: NotRequired[VpcEncryptionControlExclusionStateInputType]
 
 class ModifyAddressAttributeRequestTypeDef(TypedDict):
     AllocationId: str
@@ -9260,6 +9284,13 @@ class RejectTransitGatewayClientVpnAttachmentResultTypeDef(TypedDict):
 class AccountAttributeTypeDef(TypedDict):
     AttributeName: NotRequired[str]
     AttributeValues: NotRequired[list[AccountAttributeValueTypeDef]]
+
+class AccountVpcEncryptionControlTypeDef(TypedDict):
+    State: NotRequired[AccountVpcEncryptionControlStateType]
+    Mode: NotRequired[AccountVpcEncryptionControlModeType]
+    Exclusions: NotRequired[AccountVpcEncryptionControlExclusionsTypeDef]
+    ManagedBy: NotRequired[ManagedByType]
+    LastUpdateTimestamp: NotRequired[datetime]
 
 class DescribeFleetInstancesResultTypeDef(TypedDict):
     ActiveInstances: list[ActiveInstanceTypeDef]
@@ -12869,6 +12900,7 @@ class DescribeVolumesModificationsRequestPaginateTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     VolumeIds: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
+    IncludeManagedResources: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeVolumesModificationsRequestTypeDef(TypedDict):
@@ -12877,6 +12909,7 @@ class DescribeVolumesModificationsRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    IncludeManagedResources: NotRequired[bool]
 
 class DescribeVolumesRequestPaginateTypeDef(TypedDict):
     VolumeIds: NotRequired[Sequence[str]]
@@ -13839,15 +13872,6 @@ class DescribeTagsResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
-class DescribeVolumesModificationsResultTypeDef(TypedDict):
-    VolumesModifications: list[VolumeModificationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-class ModifyVolumeResultTypeDef(TypedDict):
-    VolumeModification: VolumeModificationTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class DescribeVpcBlockPublicAccessOptionsResultTypeDef(TypedDict):
     VpcBlockPublicAccessOptions: VpcBlockPublicAccessOptionsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -13999,6 +14023,25 @@ class PlacementGroupTypeDef(TypedDict):
     LinkedGroupId: NotRequired[str]
     Operator: NotRequired[OperatorResponseTypeDef]
     ParentGroupId: NotRequired[str]
+
+class VolumeModificationTypeDef(TypedDict):
+    VolumeId: NotRequired[str]
+    ModificationState: NotRequired[VolumeModificationStateType]
+    StatusMessage: NotRequired[str]
+    TargetSize: NotRequired[int]
+    TargetIops: NotRequired[int]
+    TargetVolumeType: NotRequired[VolumeTypeType]
+    TargetThroughput: NotRequired[int]
+    TargetMultiAttachEnabled: NotRequired[bool]
+    OriginalSize: NotRequired[int]
+    OriginalIops: NotRequired[int]
+    OriginalVolumeType: NotRequired[VolumeTypeType]
+    OriginalThroughput: NotRequired[int]
+    OriginalMultiAttachEnabled: NotRequired[bool]
+    Progress: NotRequired[int]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    Operator: NotRequired[OperatorResponseTypeDef]
 
 class VolumeRecycleBinInfoTypeDef(TypedDict):
     VolumeId: NotRequired[str]
@@ -15675,6 +15718,14 @@ class DescribeAccountAttributesResultTypeDef(TypedDict):
     AccountAttributes: list[AccountAttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DescribeAccountVpcEncryptionControlResultTypeDef(TypedDict):
+    AccountVpcEncryptionControl: AccountVpcEncryptionControlTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ModifyAccountVpcEncryptionControlResultTypeDef(TypedDict):
+    AccountVpcEncryptionControl: AccountVpcEncryptionControlTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 AdditionalDetailTypeDef = TypedDict(
     "AdditionalDetailTypeDef",
     {
@@ -16407,6 +16458,7 @@ class HostTypeDef(TypedDict):
     OutpostArn: NotRequired[str]
     HostMaintenance: NotRequired[HostMaintenanceType]
     AssetId: NotRequired[str]
+    CpuOptions: NotRequired[HostCpuOptionsTypeDef]
 
 class StorageTypeDef(TypedDict):
     S3: NotRequired[S3StorageTypeDef]
@@ -16882,6 +16934,15 @@ class CreatePlacementGroupResultTypeDef(TypedDict):
 
 class DescribePlacementGroupsResultTypeDef(TypedDict):
     PlacementGroups: list[PlacementGroupTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeVolumesModificationsResultTypeDef(TypedDict):
+    VolumesModifications: list[VolumeModificationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ModifyVolumeResultTypeDef(TypedDict):
+    VolumeModification: VolumeModificationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListVolumesInRecycleBinResultTypeDef(TypedDict):
@@ -18336,6 +18397,7 @@ class AllocateHostsRequestTypeDef(TypedDict):
     HostMaintenance: NotRequired[HostMaintenanceType]
     AssetIds: NotRequired[Sequence[str]]
     AvailabilityZoneId: NotRequired[str]
+    CpuOptions: NotRequired[HostCpuOptionsRequestTypeDef]
     AutoPlacement: NotRequired[AutoPlacementType]
     ClientToken: NotRequired[str]
     InstanceType: NotRequired[str]

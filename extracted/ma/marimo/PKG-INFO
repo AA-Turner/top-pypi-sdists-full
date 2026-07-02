@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: marimo
-Version: 0.23.11
+Version: 0.23.13
 Summary: A library for making reactive notebooks and apps
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -48,7 +48,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-grpc~=1.28.0 ; extra == 'otel'
 Requires-Dist: marimo[sql] ; extra == 'recommended'
 Requires-Dist: marimo[sandbox] ; extra == 'recommended'
 Requires-Dist: altair>=5.4.0 ; extra == 'recommended'
-Requires-Dist: pydantic-ai-slim[openai]>=1.107.0,<2.0.0 ; extra == 'recommended'
+Requires-Dist: pydantic-ai-slim[openai]>=1.107.0,<3.0.0 ; extra == 'recommended'
 Requires-Dist: ruff ; extra == 'recommended'
 Requires-Dist: nbformat>=5.7.0 ; extra == 'recommended'
 Requires-Dist: pyzmq>=27.1.0 ; extra == 'sandbox'

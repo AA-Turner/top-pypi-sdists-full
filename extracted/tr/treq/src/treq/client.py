@@ -1,5 +1,9 @@
+# -*- test-case-name: treq.test.test_client -*-
+from __future__ import annotations
+
 import io
 import mimetypes
+import sys
 import uuid
 from collections import abc
 from http.cookiejar import CookieJar
@@ -7,20 +11,21 @@ from json import dumps as json_dumps
 from typing import (
     Any,
     Callable,
-    Iterable,
-    Iterator,
-    List,
     Mapping,
     Optional,
-    Tuple,
+    TypeVar,
     Union,
 )
+
+if sys.version_info < (3, 10):
+    from typing_extensions import Concatenate, ParamSpec
+else:
+    from typing import Concatenate, ParamSpec
+
 from urllib.parse import quote_plus
 from urllib.parse import urlencode as _urlencode
 
 from hyperlink import DecodedURL, EncodedURL
-from requests.cookies import merge_cookies
-from treq.cookies import scoped_cookie
 from twisted.internet.defer import Deferred
 from twisted.internet.interfaces import IProtocol
 from twisted.python.components import proxyForInterface, registerAdapter
@@ -39,6 +44,7 @@ from twisted.web.iweb import IBodyProducer, IResponse
 
 from treq import multipart
 from treq._types import (
+    _NOTHING,
     _CookiesType,
     _DataType,
     _FilesType,
@@ -46,18 +52,18 @@ from treq._types import (
     _HeadersType,
     _ITreqReactor,
     _JSONType,
+    _Nothing,
     _ParamsType,
-    _URLType,
+    _SomeURL,
 )
 from treq.auth import add_auth
+from treq.cookies import scoped_cookie
 from treq.response import _Response
 
+from .cookies import IndexableCookieJar
 
-class _Nothing:
-    """Type of the sentinel `_NOTHING`"""
-
-
-_NOTHING = _Nothing()
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 def urlencode(query: _ParamsType, doseq: bool) -> bytes:
@@ -67,7 +73,7 @@ def urlencode(query: _ParamsType, doseq: bool) -> bytes:
 
 def _scoped_cookiejar_from_dict(
     url_object: EncodedURL, cookie_dict: Optional[Mapping[str, str]]
-) -> CookieJar:
+) -> IndexableCookieJar:
     """
     Create a CookieJar from a dictionary whose cookies are all scoped to the
     given URL's origin.
@@ -75,12 +81,18 @@ def _scoped_cookiejar_from_dict(
     @note: This does not scope the cookies to any particular path, only the
         host, port, and scheme of the given URL.
     """
-    cookie_jar = CookieJar()
+    cookie_jar = IndexableCookieJar()
     if cookie_dict is None:
         return cookie_jar
     for k, v in cookie_dict.items():
         cookie_jar.set_cookie(scoped_cookie(url_object, k, v))
     return cookie_jar
+
+
+def _merge_cookies(left: IndexableCookieJar, right: CookieJar) -> IndexableCookieJar:
+    for cookie in right:
+        left.set_cookie(cookie)
+    return left
 
 
 class _BodyBufferingProtocol(proxyForInterface(IProtocol)):  # type: ignore
@@ -130,78 +142,42 @@ class _BufferedResponse(proxyForInterface(IResponse)):  # type: ignore
             self._waiters.append(protocol)
 
 
+P2 = ParamSpec("P2")
+
+
+def _like(
+    c: Callable[Concatenate[HTTPClient, str, _SomeURL, P], R],
+) -> Callable[
+    [Callable[Concatenate[HTTPClient, _SomeURL, P], R]],
+    Callable[Concatenate[HTTPClient, _SomeURL, P], R],
+]:
+    return lambda x: x
+
+
 class HTTPClient:
     def __init__(
         self,
         agent: IAgent,
-        cookiejar: Optional[CookieJar] = None,
+        cookiejar: Optional[IndexableCookieJar] = None,
         data_to_body_producer: Callable[[Any], IBodyProducer] = IBodyProducer,
     ) -> None:
         self._agent = agent
         if cookiejar is None:
-            cookiejar = CookieJar()
+            cookiejar = IndexableCookieJar()
         self._cookiejar = cookiejar
         self._data_to_body_producer = data_to_body_producer
-
-    def get(self, url: _URLType, **kwargs: Any) -> "Deferred[_Response]":
-        """
-        See :func:`treq.get()`.
-        """
-        kwargs.setdefault("_stacklevel", 3)
-        return self.request("GET", url, **kwargs)
-
-    def put(
-        self, url: _URLType, data: Optional[_DataType] = None, **kwargs: Any
-    ) -> "Deferred[_Response]":
-        """
-        See :func:`treq.put()`.
-        """
-        kwargs.setdefault("_stacklevel", 3)
-        return self.request("PUT", url, data=data, **kwargs)
-
-    def patch(
-        self, url: _URLType, data: Optional[_DataType] = None, **kwargs: Any
-    ) -> "Deferred[_Response]":
-        """
-        See :func:`treq.patch()`.
-        """
-        kwargs.setdefault("_stacklevel", 3)
-        return self.request("PATCH", url, data=data, **kwargs)
-
-    def post(
-        self, url: _URLType, data: Optional[_DataType] = None, **kwargs: Any
-    ) -> "Deferred[_Response]":
-        """
-        See :func:`treq.post()`.
-        """
-        kwargs.setdefault("_stacklevel", 3)
-        return self.request("POST", url, data=data, **kwargs)
-
-    def head(self, url: _URLType, **kwargs: Any) -> "Deferred[_Response]":
-        """
-        See :func:`treq.head()`.
-        """
-        kwargs.setdefault("_stacklevel", 3)
-        return self.request("HEAD", url, **kwargs)
-
-    def delete(self, url: _URLType, **kwargs: Any) -> "Deferred[_Response]":
-        """
-        See :func:`treq.delete()`.
-        """
-        kwargs.setdefault("_stacklevel", 3)
-        return self.request("DELETE", url, **kwargs)
 
     def request(
         self,
         method: str,
-        url: _URLType,
+        url: _SomeURL,
         *,
         params: Optional[_ParamsType] = None,
         headers: Optional[_HeadersType] = None,
         data: Optional[_DataType] = None,
         files: Optional[_FilesType] = None,
         json: Union[_JSONType, _Nothing] = _NOTHING,
-        auth: Optional[Tuple[Union[str, bytes], Union[str, bytes]]] = None,
+        auth: Optional[tuple[Union[str, bytes], Union[str, bytes]]] = None,
         cookies: Optional[_CookiesType] = None,
         allow_redirects: bool = True,
         browser_like_redirects: bool = False,
@@ -246,7 +222,7 @@ class HTTPClient:
         if not isinstance(cookies, CookieJar):
             cookies = _scoped_cookiejar_from_dict(parsed_url, cookies)
 
-        merge_cookies(self._cookiejar, cookies)
+        _merge_cookies(self._cookiejar, cookies)
         wrapped_agent: IAgent = CookieAgent(self._agent, self._cookiejar)
 
         if allow_redirects:
@@ -282,6 +258,60 @@ class HTTPClient:
             d.addCallback(_BufferedResponse)
 
         return d.addCallback(_Response, self._cookiejar)
+
+    @_like(request)
+    def get(self, url: _SomeURL, **kwargs: Any) -> "Deferred[_Response]":
+        """
+        See :func:`treq.get()`.
+        """
+        kwargs.setdefault("_stacklevel", 3)
+        return self.request("GET", url, **kwargs)
+
+    @_like(request)
+    def put(
+        self, url: _SomeURL, data: Optional[_DataType] = None, **kwargs: Any
+    ) -> "Deferred[_Response]":
+        """
+        See :func:`treq.put()`.
+        """
+        kwargs.setdefault("_stacklevel", 3)
+        return self.request("PUT", url, data=data, **kwargs)
+
+    @_like(request)
+    def patch(
+        self, url: _SomeURL, data: Optional[_DataType] = None, **kwargs: Any
+    ) -> "Deferred[_Response]":
+        """
+        See :func:`treq.patch()`.
+        """
+        kwargs.setdefault("_stacklevel", 3)
+        return self.request("PATCH", url, data=data, **kwargs)
+
+    @_like(request)
+    def post(
+        self, url: _SomeURL, data: Optional[_DataType] = None, **kwargs: Any
+    ) -> "Deferred[_Response]":
+        """
+        See :func:`treq.post()`.
+        """
+        kwargs.setdefault("_stacklevel", 3)
+        return self.request("POST", url, data=data, **kwargs)
+
+    @_like(request)
+    def head(self, url: _SomeURL, **kwargs: Any) -> "Deferred[_Response]":
+        """
+        See :func:`treq.head()`.
+        """
+        kwargs.setdefault("_stacklevel", 3)
+        return self.request("HEAD", url, **kwargs)
+
+    @_like(request)
+    def delete(self, url: _SomeURL, **kwargs: Any) -> "Deferred[_Response]":
+        """
+        See :func:`treq.delete()`.
+        """
+        kwargs.setdefault("_stacklevel", 3)
+        return self.request("DELETE", url, **kwargs)
 
     def _request_headers(
         self, headers: Optional[_HeadersType], stacklevel: int
@@ -321,7 +351,7 @@ class HTTPClient:
         files: Optional[_FilesType],
         json: Union[_JSONType, _Nothing],
         stacklevel: int,
-    ) -> Tuple[Optional[IBodyProducer], Optional[bytes]]:
+    ) -> tuple[Optional[IBodyProducer], Optional[bytes]]:
         """
         Here we choose a right producer based on the parameters passed in.
 
@@ -367,7 +397,7 @@ class HTTPClient:
             # If the files keyword is present we will issue a
             # multipart/form-data request as it suits better for cases
             # with files and/or large objects.
-            fields: List[Tuple[str, _FileValue]] = []
+            fields: list[tuple[str, _FileValue]] = []
             if data:
                 for field in _convert_params(data):
                     fields.append(field)
@@ -400,7 +430,7 @@ class HTTPClient:
         return None, None
 
 
-def _convert_params(params: _DataType) -> Iterable[Tuple[str, str]]:
+def _convert_params(params: _DataType) -> abc.Iterable[tuple[str, str]]:
     items_method = getattr(params, "items", None)
     if items_method:
         return list(sorted(items_method()))
@@ -479,7 +509,7 @@ def _query_quote(v: Any) -> str:
     return q
 
 
-def _coerced_query_params(params: _ParamsType) -> Iterator[Tuple[str, str]]:
+def _coerced_query_params(params: _ParamsType) -> abc.Iterator[tuple[str, str]]:
     """
     Carefully coerce *params* in the same way as `urllib.parse.urlencode()`
 
@@ -496,7 +526,7 @@ def _coerced_query_params(params: _ParamsType) -> Iterator[Tuple[str, str]]:
         A generator that yields two-tuples containing percent-encoded text
         strings.
     """
-    items: Iterable[Tuple[str, Union[str, Tuple[str, ...], List[str]]]]
+    items: abc.Iterable[tuple[str, Union[str, tuple[str, ...], list[str]]]]
     if isinstance(params, abc.Mapping):
         items = params.items()
     else:

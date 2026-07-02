@@ -102,9 +102,13 @@ def with_fixups(
     Args:
         fixups: Sequence of fixups to try
     """
-    available_fixups: list[Fixup] = list(fixups)
-    active_fixups: list[Fixup] = []
-    once_fixups: list[Fixup] = []
+    # Fixup state is scoped per-model: a sticky fixup activated for one model
+    # (e.g. ImageInputUnsupportedFixup on a text-only endpoint) must never leak
+    # into a different model the same process generates with later. Users swap
+    # models on demand, so we key the available/active/once lists by model id.
+    available_by_model: dict[str, list[Fixup]] = {}
+    active_by_model: dict[str, list[Fixup]] = {}
+    once_by_model: dict[str, list[Fixup]] = {}
 
     def decorator(func: FixupCompatibleFunc[P, R]) -> FixupCompatibleFunc[P, R]:
         @functools.wraps(func)
@@ -114,7 +118,10 @@ def with_fixups(
             *args: P.args,
             **kwargs: P.kwargs,
         ) -> R:
-            nonlocal available_fixups, active_fixups
+            model_key = getattr(self, "model", "") or ""
+            available_fixups = available_by_model.setdefault(model_key, list(fixups))
+            active_fixups = active_by_model.setdefault(model_key, [])
+            once_fixups = once_by_model.setdefault(model_key, [])
 
             all_active = [*active_fixups, *once_fixups]
             for fixup in all_active:
@@ -135,7 +142,7 @@ def with_fixups(
                 for fixup in all_active:
                     result = fixup.fix_result(result)
 
-                available_fixups = [*available_fixups, *once_fixups]
+                available_by_model[model_key] = [*available_fixups, *once_fixups]
                 once_fixups.clear()
             except Exception as e:
                 for fixup in list(available_fixups):

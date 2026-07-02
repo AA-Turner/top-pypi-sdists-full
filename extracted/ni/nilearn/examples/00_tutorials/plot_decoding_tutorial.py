@@ -1,6 +1,6 @@
 """
-A introduction tutorial to fMRI decoding
-========================================
+An introduction tutorial to fMRI decoding
+=========================================
 
 Here is a simple tutorial on decoding with nilearn.
 It reproduces the :footcite:t:`Haxby2001` study
@@ -9,7 +9,8 @@ on a face vs cat discrimination task in a mask of the ventral stream.
 This tutorial is meant as an introduction to the various steps of a decoding
 analysis using Nilearn meta-estimator: :class:`~nilearn.decoding.Decoder`
 
-It is not a minimalistic example, as it strives to be didactic. It is not
+It is not a minimalistic example,
+as it strives to be didactic. It is not
 meant to be copied to analyze new data: many of the steps are unnecessary.
 """
 
@@ -141,13 +142,12 @@ print(f"{conditions.shape=}")
 # ------------------------------------
 #
 # As a decoder, we use a Support Vector Classifier with a linear kernel. We
-# first create it using by using :class:`~nilearn.decoding.Decoder`.
+# first create it by using :class:`~nilearn.decoding.Decoder`.
 from nilearn.decoding import Decoder
 
 decoder = Decoder(
     estimator="svc",
     mask=mask_filename,
-    standardize="zscore_sample",
     screening_percentile=100,
     verbose=1,
 )
@@ -168,7 +168,7 @@ decoder
 #
 #   After fitting,
 #   the HTML representation of the estimator looks different
-#   than before before fitting.
+#   than before fitting.
 #
 decoder.fit(fmri_niimgs, conditions)
 
@@ -208,7 +208,6 @@ conditions_test = conditions[-30:]
 decoder = Decoder(
     estimator="svc",
     mask=mask_filename,
-    standardize="zscore_sample",
     screening_percentile=100,
     verbose=1,
 )
@@ -217,13 +216,13 @@ decoder.fit(fmri_niimgs_train, conditions_train)
 prediction = decoder.predict(fmri_niimgs_test)
 
 # The prediction accuracy is calculated on the test data: this is the accuracy
-# of our model on examples it hasn't seen to examine how well the model perform
-# in general.
+# of our model on examples it hasn't seen to examine how well the model
+# performs in general.
 
-predicton_accuracy = (prediction == conditions_test).sum() / float(
+prediction_accuracy = (prediction == conditions_test).sum() / float(
     len(conditions_test)
 )
-print(f"Prediction Accuracy: {predicton_accuracy:.3f}")
+print(f"Prediction Accuracy: {prediction_accuracy:.3f}")
 
 # %%
 # Implementing a KFold loop
@@ -239,17 +238,16 @@ for fold, (train, test) in enumerate(cv.split(conditions), start=1):
     decoder = Decoder(
         estimator="svc",
         mask=mask_filename,
-        standardize="zscore_sample",
         screening_percentile=100,
         verbose=1,
     )
     decoder.fit(index_img(fmri_niimgs, train), conditions[train])
     prediction = decoder.predict(index_img(fmri_niimgs, test))
-    predicton_accuracy = (prediction == conditions[test]).sum() / float(
+    prediction_accuracy = (prediction == conditions[test]).sum() / float(
         len(conditions[test])
     )
     print(
-        f"CV Fold {fold:01d} | Prediction Accuracy: {predicton_accuracy:.3f}"
+        f"CV Fold {fold:01d} | Prediction Accuracy: {prediction_accuracy:.3f}"
     )
 
 # %%
@@ -264,7 +262,6 @@ n_folds = 5
 decoder = Decoder(
     estimator="svc",
     mask=mask_filename,
-    standardize="zscore_sample",
     cv=n_folds,
     scoring="accuracy",
     screening_percentile=100,
@@ -307,7 +304,6 @@ cv = LeaveOneGroupOut()
 decoder = Decoder(
     estimator="svc",
     mask=mask_filename,
-    standardize="zscore_sample",
     cv=cv,
     screening_percentile=100,
     verbose=1,
@@ -334,7 +330,7 @@ print(f"{coef_=}")
 print(f"{coef_.shape=}")
 
 # %%
-# To get the Nifti image of these coefficients, we only need retrieve the
+# To get the Nifti image of these coefficients, we only need to retrieve the
 # `coef_img_` in the decoder and select the class
 
 coef_img = decoder.coef_img_["face"]
@@ -373,13 +369,14 @@ view_img(
 # by comparing to a score at chance.
 
 # %%
-# Let's define a object with Dummy estimator replacing 'svc' for classification
-# setting. This object initializes estimator with default dummy strategy.
+# Let's define an object with a Dummy estimator
+# replacing 'svc' for classification setting.
+# This object initializes estimator
+# with a default dummy strategy.
 dummy_decoder = Decoder(
     estimator="dummy_classifier",
     mask=mask_filename,
     cv=cv,
-    standardize="zscore_sample",
     screening_percentile=100,
     verbose=1,
 )

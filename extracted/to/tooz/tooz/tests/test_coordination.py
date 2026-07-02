@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import functools
+import multiprocessing
 import threading
 import time
 import unittest
@@ -25,6 +27,11 @@ from testtools import testcase
 
 import tooz
 import tooz.coordination
+from tooz.drivers import etcd3gw
+from tooz.drivers import file
+from tooz.drivers import ipc
+from tooz.drivers import memcached
+from tooz.drivers import redis
 from tooz import tests
 
 
@@ -100,6 +107,32 @@ class TestAPI(tests.TestWithCoordinator):
         for group_id in groups_ids:
             self.assertIn(group_id, created_groups)
 
+    def test_get_groups_str_group_id(self):
+        """Drivers accept str group_id at runtime (no runtime enforcement).
+
+        Depending on the driver, the str group_id may be returned as-is or
+        normalised to bytes.
+        """
+        str_group_id = "str-" + self.group_id.decode('ascii')
+        self._coord.create_group(str_group_id).get()  # type: ignore[arg-type]
+        groups = self._coord.get_groups().get()
+        bytes_group_id = str_group_id.encode('utf-8')
+        # Drivers that store IDs as-is propagate str back; all others
+        # normalise to bytes.
+        if isinstance(
+            self._coord,
+            (file.FileDriver, ipc.IPCDriver, memcached.MemcachedDriver),
+        ):
+            self.assertIn(str_group_id, groups)
+            # this is a list of strings but the hints say list of bytes
+            # (intentionally)
+            found = next(g for g in groups if g == str_group_id)  # type: ignore[comparison-overlap]
+            self.assertIsInstance(found, str)
+        else:
+            self.assertIn(bytes_group_id, groups)
+            found = next(g for g in groups if g == bytes_group_id)
+            self.assertIsInstance(found, bytes)
+
     def test_delete_group(self):
         self._coord.create_group(self.group_id).get()
         all_group_ids = self._coord.get_groups().get()
@@ -150,14 +183,11 @@ class TestAPI(tests.TestWithCoordinator):
         all_group_ids = self._coord.get_groups().get()
         self.assertIn(self.group_id, all_group_ids)
         self._coord.join_group(self.group_id).get()
-        member_list = self._coord.get_members(self.group_id).get()
-        self.assertIn(self.member_id, member_list)
         member_ids = self._coord.get_members(self.group_id).get()
         self.assertIn(self.member_id, member_ids)
         self._coord.leave_group(self.group_id).get()
-        new_member_objects = self._coord.get_members(self.group_id).get()
-        new_member_list = [member.member_id for member in new_member_objects]
-        self.assertNotIn(self.member_id, new_member_list)
+        member_ids = self._coord.get_members(self.group_id).get()
+        self.assertNotIn(self.member_id, member_ids)
 
     def test_leave_nonexistent_group(self):
         all_group_ids = self._coord.get_groups().get()
@@ -201,14 +231,51 @@ class TestAPI(tests.TestWithCoordinator):
         members_ids = self._coord.get_members(group_id_test2).get()
         self.assertEqual({self.member_id, member_id_test2}, members_ids)
 
+    def test_get_members_str_member_id(self):
+        """Drivers accept str member_id at runtime (no runtime enforcement).
+
+        Depending on the driver, the str member_id may be returned as-is or
+        normalised to bytes. Drivers that cannot handle str member_ids at all
+        will cause this test to be skipped.
+        """
+        str_member_id = "str-" + self.member_id.decode('ascii')
+        group_id = tests.get_random_uuid()
+        coord2 = tooz.coordination.get_coordinator(self.url, str_member_id)  # type: ignore[arg-type]
+        coord2.start()
+        self.addCleanup(coord2.stop)
+        self._coord.create_group(group_id).get()
+        try:
+            coord2.join_group(group_id).get()
+        except (TypeError, tooz.ToozError):
+            self.skipTest(
+                f"{type(self._coord).__name__} does not support str member_id"
+            )
+        members = self._coord.get_members(group_id).get()
+        bytes_member_id = str_member_id.encode('utf-8')
+        # Drivers that store IDs as-is propagate str back; all others
+        # normalise to bytes.
+        if isinstance(
+            self._coord,
+            (file.FileDriver, ipc.IPCDriver, memcached.MemcachedDriver),
+        ):
+            self.assertIn(str_member_id, members)
+            # this is a list of strings but the hints say list of bytes
+            # (intentionally)
+            found = next(m for m in members if m == str_member_id)  # type: ignore[comparison-overlap]
+            self.assertIsInstance(found, str)
+        else:
+            self.assertIn(bytes_member_id, members)
+            found = next(m for m in members if m == bytes_member_id)
+            self.assertIsInstance(found, bytes)
+
     def test_get_member_capabilities(self):
         self._coord.create_group(self.group_id).get()
-        self._coord.join_group(self.group_id, b"test_capabilities")
+        self._coord.join_group(self.group_id, {"data": "test_capabilities"})
 
         capa = self._coord.get_member_capabilities(
             self.group_id, self.member_id
         ).get()
-        self.assertEqual(capa, b"test_capabilities")
+        self.assertEqual(capa, {"data": "test_capabilities"})
 
     def test_get_member_capabilities_complex(self):
         self._coord.create_group(self.group_id).get()
@@ -221,6 +288,7 @@ class TestAPI(tests.TestWithCoordinator):
             self.group_id, self.member_id
         ).get()
         self.assertEqual(capa, caps)
+        assert isinstance(capa, dict)
         self.assertEqual(capa['type'], caps['type'])
 
     def test_get_member_capabilities_nonexistent_group(self):
@@ -245,12 +313,16 @@ class TestAPI(tests.TestWithCoordinator):
 
     def test_get_member_info(self):
         self._coord.create_group(self.group_id).get()
-        self._coord.join_group(self.group_id, b"test_capabilities").get()
+        self._coord.join_group(
+            self.group_id, {"data": "test_capabilities"}
+        ).get()
 
         member_info = self._coord.get_member_info(
             self.group_id, self.member_id
         ).get()
-        self.assertEqual(member_info['capabilities'], b"test_capabilities")
+        self.assertEqual(
+            member_info['capabilities'], {"data": "test_capabilities"}
+        )
 
     def test_get_member_info_complex(self):
         self._coord.create_group(self.group_id).get()
@@ -290,24 +362,22 @@ class TestAPI(tests.TestWithCoordinator):
 
     def test_update_capabilities(self):
         self._coord.create_group(self.group_id).get()
-        self._coord.join_group(self.group_id, b"test_capabilities1").get()
+        self._coord.join_group(self.group_id, {"version": 1}).get()
 
         capa = self._coord.get_member_capabilities(
             self.group_id, self.member_id
         ).get()
-        self.assertEqual(capa, b"test_capabilities1")
-        self._coord.update_capabilities(
-            self.group_id, b"test_capabilities2"
-        ).get()
+        self.assertEqual(capa, {"version": 1})
+        self._coord.update_capabilities(self.group_id, {"version": 2}).get()
 
         capa2 = self._coord.get_member_capabilities(
             self.group_id, self.member_id
         ).get()
-        self.assertEqual(capa2, b"test_capabilities2")
+        self.assertEqual(capa2, {"version": 2})
 
     def test_update_capabilities_with_group_id_nonexistent(self):
         update_cap = self._coord.update_capabilities(
-            self.group_id, b'test_capabilities'
+            self.group_id, {"data": "test_capabilities"}
         )
         # Drivers raise one of those depending on their capability
         self.assertRaisesAny(
@@ -458,7 +528,7 @@ class TestAPI(tests.TestWithCoordinator):
         # driver that are not able to see all events, so we join, wait for
         # the join to be seen, and then we leave, and wait for the leave to
         # be seen.
-        self._coord.watch_join_group(self.group_id, lambda children: True)
+        self._coord.watch_join_group(self.group_id, lambda children: None)
         self._coord.watch_leave_group(self.group_id, self._set_event)
 
         # Join and leave the group
@@ -490,11 +560,20 @@ class TestAPI(tests.TestWithCoordinator):
         self.assertEqual([], self.events)
 
     def test_watch_join_group_disappear(self):
-        if not hasattr(self._coord, '_destroy_group'):
+        if not isinstance(
+            self._coord,
+            (
+                etcd3gw.Etcd3Driver,
+                memcached.MemcachedDriver,
+                redis.RedisDriver,
+            ),
+        ):
             self.skipTest(
-                "This test only works with coordinators"
-                " that have the ability to destroy groups."
+                "This test only works with coordinators "
+                "that have the ability to destroy groups."
             )
+            # https://github.com/testing-cabal/testtools/pull/585
+            raise Exception()
 
         self._coord.create_group(self.group_id).get()
         self._coord.watch_join_group(self.group_id, self._set_event)
@@ -555,12 +634,9 @@ class TestAPI(tests.TestWithCoordinator):
         # Only works for clients that have access to the groups they are part
         # of, to ensure that after we got booted out by client3 that this
         # client now no longer believes its part of the group.
-        cached_run = (
-            tooz.coordination.CoordinationDriverCachedRunWatchers.run_watchers
-        )
-        if (
-            hasattr(self._coord, '_joined_groups')
-            and self._coord.run_watchers == cached_run
+        if isinstance(
+            self._coord,
+            tooz.coordination.CoordinationDriverCachedRunWatchers,
         ):
             self.assertIn(self.group_id, self._coord._joined_groups)
             self._coord.run_watchers()
@@ -863,12 +939,20 @@ class TestAPI(tests.TestWithCoordinator):
 
     def test_get_lock_concurrency_locking_two_lock_process(self):
         self._do_test_get_lock_concurrency_locking_two_lock(
-            futures.ProcessPoolExecutor, False
+            functools.partial(
+                futures.ProcessPoolExecutor,
+                mp_context=multiprocessing.get_context('spawn'),
+            ),
+            False,
         )
 
     def test_get_lock_serial_locking_two_lock_process(self):
         self._do_test_get_lock_serial_locking_two_lock(
-            futures.ProcessPoolExecutor, False
+            functools.partial(
+                futures.ProcessPoolExecutor,
+                mp_context=multiprocessing.get_context('spawn'),
+            ),
+            False,
         )
 
     def test_get_lock_concurrency_locking_two_lock_thread1(self):
@@ -963,7 +1047,9 @@ class TestAPI(tests.TestWithCoordinator):
             lock, 'acquire', wraps=lock.acquire, autospec=True
         ) as mock_acquire:
             with lock(blocking_value):
-                mock_acquire.assert_called_once_with(blocking_value)
+                mock_acquire.assert_called_once_with(
+                    blocking_value, False, None
+                )
 
     def test_lock_context_manager_acquire_argument_timeout(self):
         name = tests.get_random_uuid()
@@ -1038,7 +1124,7 @@ class TestHook(testcase.TestCase):
         self.hooks = tooz.coordination.Hooks()
         self.triggered = False
 
-    def _trigger(self):
+    def _trigger(self, event: object = None) -> None:
         self.triggered = True
 
     def test_register_hook(self):

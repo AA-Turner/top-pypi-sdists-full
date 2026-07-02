@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-manilaclient
-Version: 6.1.0
+Version: 6.2.0
 Summary: Client library for OpenStack Shared File System Storage
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0

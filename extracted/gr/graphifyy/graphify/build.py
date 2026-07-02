@@ -117,8 +117,41 @@ def _norm_source_file(p: str | None, root: str | None = None) -> str | None:
         try:
             p = Path(p).relative_to(root).as_posix()
         except ValueError:
-            pass
+            # Lexical relative_to failed. Retry with both sides fully resolved:
+            # a symlinked scan root (macOS /var -> /private/var, or a symlinked
+            # home/worktree) makes the raw prefixes differ even though they point
+            # at the same dir, which otherwise silently defeats prune/replace
+            # matching. Only the slow path resolves, so the common lexical match
+            # stays filesystem-free.
+            try:
+                p = Path(p).resolve().relative_to(Path(root).resolve()).as_posix()
+            except (ValueError, OSError):
+                pass
     return p
+
+
+def _infer_merge_root(graph_path: Path) -> str | None:
+    """Best-effort scan root for relativizing paths in build_merge when the caller
+    passes no ``root`` (#1571).
+
+    Prefers the committed ``graphify-out/.graphify_root`` marker — the authoritative
+    scan root graphify records at build/watch time (#686/#1423) — then falls back to
+    the directory that contains the output dir (``graph.json``'s grandparent, i.e.
+    ``<root>/graphify-out/graph.json`` -> ``<root>``). Returns None if neither
+    resolves, in which case normalization is a no-op (prior behavior).
+    """
+    try:
+        marker = graph_path.parent / ".graphify_root"
+        if marker.exists():
+            recorded = marker.read_text(encoding="utf-8").strip()
+            if recorded:
+                return str(Path(recorded).resolve())
+    except OSError:
+        pass
+    try:
+        return str(graph_path.parent.parent.resolve())
+    except Exception:
+        return None
 
 
 def edge_data(G: nx.Graph, u: str, v: str) -> dict:
@@ -642,7 +675,15 @@ def deduplicate_by_label(nodes: list[dict], edges: list[dict]) -> tuple[list[dic
     """Merge nodes that share a normalised label, rewriting edge references.
 
     Prefers IDs without chunk suffixes (_c\\d+) and shorter IDs when tied.
-    Drops self-loops created by the merge. Called in build() automatically.
+    Drops self-loops created by the merge.
+
+    Dormant: this is NOT wired into ``build()`` — the active dedup path is
+    ``deduplicate_entities`` (imported and called in ``build``), which supersedes
+    it. The previous "Called in build() automatically" note was never true. It
+    also merges by label alone with no ``file_type`` guard, so it must not be
+    enabled for code nodes: same-label symbols from different files/packages
+    (e.g. two ``Account`` types) would collapse into one — the cross-file
+    conflation ``deduplicate_entities`` deliberately avoids for code (#1205).
     """
     _CHUNK_SUFFIX = re.compile(r"_c\d+$")
     canonical: dict[str, dict] = {}  # norm_label -> surviving node
@@ -714,15 +755,35 @@ def build_merge(
         # NetworkX round-trip loses direction permanently (#760).
         from graphify.security import check_graph_file_size_cap
         check_graph_file_size_cap(graph_path)
-        data = json.loads(graph_path.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(graph_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            raise RuntimeError(
+                f"Cannot read {graph_path} for incremental merge: {exc}. "
+                "Delete the file and run a full rebuild."
+            ) from exc
         links_key = "links" if "links" in data else "edges"
         existing_nodes = list(data.get("nodes", []))
         existing_edges = list(data.get(links_key, []))
+        existing_hyperedges = list(data.get("hyperedges", []))
         had_graph = True
     else:
         existing_nodes = []
         existing_edges = []
+        existing_hyperedges = []
         had_graph = False
+
+    # Effective root for relativizing absolute source_file / prune paths back to the
+    # stored relative source_file keys. When the caller passes root we use it;
+    # otherwise fall back to the graph's recorded scan root, so absolute
+    # prune_sources and new-chunk paths still match even when a caller omits root
+    # (#1571 — the skill's --update runbook calls build_merge without root, so
+    # absolute deleted-file paths never matched the relative node keys and their
+    # nodes survived as ghosts).
+    _eff_root = (
+        str(Path(root).resolve()) if root is not None
+        else _infer_merge_root(graph_path)
+    )
 
     # Re-extracted files REPLACE their prior contribution. Every source_file
     # present in new_chunks is dropped from the loaded base before merging, so a
@@ -733,7 +794,7 @@ def build_merge(
     # for them; genuinely deleted files are still handled via prune_sources.
     # Matched in both raw and _norm_source_file form because new_chunks may carry
     # absolute win32 paths while the stored graph keeps relative posix (#1007).
-    _replace_root = str(Path(root).resolve()) if root is not None else None
+    _replace_root = _eff_root
     new_sources: set[str] = set()
     for ch in new_chunks:
         for n in ch.get("nodes", []):
@@ -756,23 +817,46 @@ def build_merge(
     all_chunks = base + list(new_chunks)
     G = build(all_chunks, directed=directed, dedup=dedup, dedup_llm_backend=dedup_llm_backend, root=root)
 
+    # Prune set for deleted source files — both the raw form (matches nodes that
+    # kept absolute source_file) and the normalised relative form (matches nodes
+    # relativised by _norm_source_file at build time). .resolve() (via _eff_root)
+    # handles symlinked roots and ".." / "./" segments so Path.relative_to()
+    # succeeds even when the scan root is a symlink. (#1007, #1571)
+    prune_set: set[str] = set()
+    for p in (prune_sources or []):
+        if not p:
+            continue
+        prune_set.add(p)
+        norm = _norm_source_file(p, _eff_root)
+        if norm:
+            prune_set.add(norm)
+
+    # Carry forward hyperedges from files that were neither re-extracted nor
+    # deleted (#1574). build() only sees the new chunks' hyperedges, so without
+    # this every --update collapses the graph's hyperedge set down to just the
+    # changed files'. Re-extracted files' prior hyperedges are dropped (their new
+    # version is already in G — replace-per-source, like nodes/edges); deleted
+    # files' are dropped via prune_set. id-dedup (attach_hyperedges) so a carried
+    # hyperedge never duplicates one the new chunks re-emitted. Mirrors watch.py,
+    # which already preserves existing hyperedges across a rebuild.
+    if existing_hyperedges:
+        carried = []
+        for he in existing_hyperedges:
+            if not isinstance(he, dict):
+                continue
+            sf = he.get("source_file")
+            norm = _norm_source_file(sf, _eff_root)
+            if sf in new_sources or norm in new_sources:
+                continue  # re-extracted — replaced by the new chunk's version
+            if sf in prune_set or norm in prune_set:
+                continue  # deleted — pruned
+            carried.append(he)
+        if carried:
+            from graphify.export import attach_hyperedges
+            attach_hyperedges(G, carried)
+
     # Prune nodes and edges from deleted source files
     if prune_sources:
-        # Build a set containing both the raw form (matches nodes that kept
-        # absolute source_file) and the normalised relative form (matches nodes
-        # that were relativised by _norm_source_file at build time).
-        # .resolve() handles symlinked roots and redundant ".." / "./" segments
-        # so Path.relative_to() succeeds even when the scan root is a symlink.
-        # (#1007: manifest absolute paths vs graph relative source_file mismatch)
-        _root_str = str(Path(root).resolve()) if root is not None else None
-        prune_set: set[str] = set()
-        for p in prune_sources:
-            if not p:
-                continue
-            prune_set.add(p)
-            norm = _norm_source_file(p, _root_str)
-            if norm:
-                prune_set.add(norm)
         to_remove = [
             n for n, d in G.nodes(data=True)
             if d.get("source_file") in prune_set

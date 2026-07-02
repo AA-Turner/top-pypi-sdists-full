@@ -254,7 +254,8 @@ class RenderSettingChange(BaseDetailsRenderStrategy):
         try:
             field = cast(
                 "models.Field",
-                obj._meta.get_field(details["field"]),  # noqa: SLF001
+                # ruff: ignore[private-member-access]
+                obj._meta.get_field(details["field"]),
             )
         except FieldDoesNotExist:
             return change.get_action_display()
@@ -362,20 +363,42 @@ class RenderRepositoryDetails(BaseDetailsRenderStrategy):
         ActionEvents.RESET,
         ActionEvents.MERGE,
         ActionEvents.REBASE,
+        ActionEvents.REMOTE_UPDATE,
     }
 
     def render_details(self, change: Change) -> StrOrPromise:
+        previous_revision = change.details.get(
+            "previous_head", change.details.get("previous_remote_revision", "N/A")
+        )
+        new_revision = change.details.get(
+            "new_head", change.details.get("remote_revision", "N/A")
+        )
         return format_html(
             "{}<br/><br/>{}<br/>{}",
             change.get_action_display(),
             format_html(
                 escape(gettext("Original revision: {}")),
-                change.details.get("previous_head", "N/A"),
+                previous_revision,
             ),
             format_html(
                 escape(gettext("New revision: {}")),
-                change.details.get("new_head", "N/A"),
+                new_revision,
             ),
+        )
+
+
+@register_details_display_strategy
+class RenderRepositoryFailureDetails(BaseDetailsRenderStrategy):
+    """Strategy for displaying details of repository failure events."""
+
+    actions: ClassVar[set[ActionEvents]] = {ActionEvents.FAILED_REMOTE_UPDATE}
+    details_required = True
+
+    def render_details(self, change: Change) -> StrOrPromise:
+        return format_html(
+            "{}<br/><br/>{}",
+            change.get_action_display(),
+            change.details.get("error", change.target),
         )
 
 
@@ -499,7 +522,8 @@ class BaseChangeHistoryContext:
         return render_to_string("snippets/format-translation.html", context)
 
     def make_distance_badge(self, count: int) -> str:
-        """Create a badge for the Damerau–Levenshtein distance."""  # noqa: RUF002
+        # ruff: ignore[ambiguous-unicode-character-docstring]
+        """Create a badge for the Damerau–Levenshtein distance."""
         return npgettext(
             "Number of edits on a change in Damerau–Levenshtein distance",
             "%(count)d character edited",

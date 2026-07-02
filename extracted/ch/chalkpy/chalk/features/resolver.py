@@ -5286,4 +5286,18 @@ def make_model_resolver(
     # Register the resolver
     RESOLVER_REGISTRY.add_to_registry(resolver, override=False)
 
+    # Record the input/output wiring on the associated ModelReference so it shows up
+    # in the dashboard's model "Details" tab. F.inference does this automatically via
+    # generate_inference_resolver(); make_model_resolver must do the same explicitly,
+    # otherwise the ModelReference is uploaded with empty `relations` and the Details
+    # tab renders "No Details to Show".
+    from chalk.ml.model_reference import MODEL_REFERENCE_REGISTRY
+
+    identifier = model.identifier or ""
+    model_reference = MODEL_REFERENCE_REGISTRY.get((model.name, identifier), None)
+    if model_reference is not None:
+        input_fqns = [f.fqn for f in input_features]
+        for output_feature in output_features:
+            model_reference.relations.append((input_fqns, output_feature.fqn))
+
     return resolver

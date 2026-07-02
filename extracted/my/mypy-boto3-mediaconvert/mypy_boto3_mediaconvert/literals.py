@@ -216,6 +216,7 @@ __all__ = (
     "H264DynamicSubGopType",
     "H264EndOfStreamMarkersType",
     "H264EntropyEncodingType",
+    "H264ExplicitWeightedPredictionType",
     "H264FieldEncodingType",
     "H264FlickerAdaptiveQuantizationType",
     "H264FramerateControlType",
@@ -918,7 +919,7 @@ FileSourceConvert608To708Type = Literal["DISABLED", "UPCONVERT"]
 FileSourceTimeDeltaUnitsType = Literal["MILLISECONDS", "SECONDS"]
 FontScriptType = Literal["AUTOMATIC", "HANS", "HANT"]
 FormatType = Literal[
-    "avi", "matroska", "mp4", "mpegps", "mpegts", "mxf", "quicktime", "wave", "webm"
+    "avi", "matroska", "mp3", "mp4", "mpegps", "mpegts", "mxf", "quicktime", "wave", "webm"
 ]
 FrameControlType = Literal["NEAREST_IDRFRAME", "NEAREST_IFRAME"]
 FrameMetricTypeType = Literal["MS_SSIM", "PSNR", "PSNR_HVS", "QVBR", "SHOT_CHANGE", "SSIM", "VMAF"]
@@ -950,6 +951,7 @@ H264CodecProfileType = Literal[
 H264DynamicSubGopType = Literal["ADAPTIVE", "STATIC"]
 H264EndOfStreamMarkersType = Literal["INCLUDE", "SUPPRESS"]
 H264EntropyEncodingType = Literal["CABAC", "CAVLC"]
+H264ExplicitWeightedPredictionType = Literal["DISABLED", "ENABLED"]
 H264FieldEncodingType = Literal["FORCE_FIELD", "MBAFF", "PAFF"]
 H264FlickerAdaptiveQuantizationType = Literal["DISABLED", "ENABLED"]
 H264FramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
@@ -1837,8 +1839,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -1865,6 +1865,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -1932,7 +1934,6 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
@@ -2018,7 +2019,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -2039,6 +2039,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

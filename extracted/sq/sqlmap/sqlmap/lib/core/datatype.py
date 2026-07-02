@@ -7,7 +7,6 @@ See the file 'LICENSE' for copying permission
 
 import copy
 import threading
-import types
 
 from thirdparty.odict import OrderedDict
 from thirdparty.six.moves import collections_abc as _collections
@@ -151,7 +150,7 @@ class LRUDict(object):
     def get(self, key, default=None):
         try:
             return self.__getitem__(key)
-        except:
+        except (KeyError, TypeError):
             return default
 
     def __setitem__(self, key, value):

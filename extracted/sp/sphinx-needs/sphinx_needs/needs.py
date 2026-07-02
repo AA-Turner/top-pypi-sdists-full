@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import sys
 from collections.abc import Callable
 from copy import deepcopy
 from itertools import chain
@@ -77,6 +78,7 @@ from sphinx_needs.directives.needgantt import (
     NeedganttDirective,
     process_needgantt,
 )
+from sphinx_needs.directives.needif import IfDirective
 from sphinx_needs.directives.needimport import Needimport, NeedimportDirective
 from sphinx_needs.directives.needlist import (
     Needlist,
@@ -128,6 +130,7 @@ from sphinx_needs.roles.need_incoming import NeedIncoming, process_need_incoming
 from sphinx_needs.roles.need_outgoing import NeedOutgoing, process_need_outgoing
 from sphinx_needs.roles.need_part import NeedPart, NeedPartRole, process_need_part
 from sphinx_needs.roles.need_ref import NeedRef, process_need_ref
+from sphinx_needs.roles.variant import VariantRole
 from sphinx_needs.schema.config import (
     FieldIntegerSchemaType,
     SchemasFileRootType,
@@ -138,13 +141,13 @@ from sphinx_needs.schema.config_utils import (
 )
 from sphinx_needs.schema.process import process_schemas
 from sphinx_needs.services.github import GithubService
-from sphinx_needs.services.open_needs import OpenNeedsService
 from sphinx_needs.utils import node_match
+from sphinx_needs.variant_data import VariantDataError, resolve_variant_data
 from sphinx_needs.warnings import process_warnings
 
-try:
+if sys.version_info >= (3, 11):
     import tomllib  # added in python 3.11
-except ImportError:
+else:
     import tomli as tomllib
 
 
@@ -269,6 +272,7 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.add_directive("needextend", NeedextendDirective)
     app.add_directive("needreport", NeedReportDirective)
     app.add_directive("needuml", NeedumlDirective)
+    app.add_directive("if", IfDirective)
     app.add_directive("needarch", NeedarchDirective)
     app.add_directive("list2need", List2NeedDirective)
 
@@ -309,6 +313,9 @@ def setup(app: Sphinx) -> dict[str, Any]:
 
     app.add_role("need_func", NeedFuncRole(with_brackets=True))  # deprecrated
     app.add_role("ndf", NeedFuncRole(with_brackets=False))
+
+    # Resolves :variant:`a.b` immediately to the value from needs_variant_data.
+    app.add_role("variant", VariantRole())
 
     ########################################################################
     # EVENTS
@@ -479,16 +486,27 @@ def load_config_from_toml(app: Sphinx, config: Config) -> None:
         return
 
     allowed_keys = NeedsSphinxConfig.field_names()
+    overridden_keys: set[str] = set()
+    config_overrides = getattr(config, "overrides", None)
+    if isinstance(config_overrides, dict):
+        overridden_keys = {str(key) for key in config_overrides}
 
     for key, value in toml_data.items():
         if key not in allowed_keys:
             continue
-        config["needs_" + key] = NeedsSphinxConfig.convert_field_value(
+        config_key = "needs_" + key
+        # Keep values passed via sphinx-build -D (confoverrides) untouched.
+        if key in overridden_keys or config_key in overridden_keys:
+            continue
+        config[config_key] = NeedsSphinxConfig.convert_field_value(
             key, value, toml_file.parent
         )
 
+    schema_config_overridden = "needs_schema_" in overridden_keys
     for key, value in toml_data.get("schema", {}).items():
         if key not in allowed_keys:
+            continue
+        if schema_config_overridden or f"needs_schema_{key}" in overridden_keys:
             continue
         config["needs_schema_"][key] = NeedsSphinxConfig.convert_field_value(
             key, value, toml_file.parent, "schema_"
@@ -658,6 +676,29 @@ def visitor_dummy(*_args: Any, **_kwargs: Any) -> None:
     pass
 
 
+def _resolve_variant_data_config(config: NeedsSphinxConfig, confdir: str) -> None:
+    """Resolve variant data from file + inline config, validate, and store back.
+
+    After this call, ``config.variant_data`` contains the fully merged result.
+    """
+    if not config.variant_data and not config.variant_data_file:
+        return
+
+    # Resolve relative file paths against the Sphinx confdir
+    file_path = config.variant_data_file
+    if file_path and not Path(file_path).is_absolute():
+        file_path = str(Path(confdir) / file_path)
+
+    try:
+        resolved = resolve_variant_data(config.variant_data, file_path)
+    except VariantDataError as e:
+        from sphinx_needs.exceptions import NeedsConfigException
+
+        raise NeedsConfigException(str(e)) from e
+    # Store the resolved result back so downstream code sees the merged dict
+    config.variant_data = resolved
+
+
 def prepare_env(app: Sphinx, env: BuildEnvironment, _docnames: list[str]) -> None:
     """
     Prepares the sphinx environment to store sphinx-needs internal data.
@@ -665,12 +706,22 @@ def prepare_env(app: Sphinx, env: BuildEnvironment, _docnames: list[str]) -> Non
     needs_config = NeedsSphinxConfig(app.config)
     data = SphinxNeedsData(env)
 
+    # Resolve variant data (load file + merge + validate) once for the build
+    _resolve_variant_data_config(needs_config, str(app.confdir))
+
+    # Cache the variant data proxy for use in filter expressions
+    if needs_config.variant_data:
+        from sphinx_needs.variant_data import VariantDataProxy
+
+        needs_config.variant_data_proxy = VariantDataProxy(needs_config.variant_data)
+    else:
+        needs_config.variant_data_proxy = None
+
     # Register embedded services
     services = data.get_or_create_services()
     services.register("github-issues", GithubService, gh_type="issue")
     services.register("github-prs", GithubService, gh_type="pr")
     services.register("github-commits", GithubService, gh_type="commit")
-    services.register("open-needs", OpenNeedsService)
 
     # Register user defined services
     for name, service in needs_config.services.items():
@@ -754,6 +805,14 @@ def check_configuration(app: Sphinx, config: Config) -> None:
     link_types = [x["option"] for x in needs_config._extra_links]
 
     external_filter = needs_config.filter_data
+    if external_filter:
+        log_warning(
+            LOGGER,
+            "needs_filter_data is deprecated and will be removed in a future version. "
+            "Use needs_variant_data instead.",
+            "deprecated",
+            None,
+        )
     for extern_filter, value in external_filter.items():
         # Check if external filter values is really a string
         if not isinstance(value, str):

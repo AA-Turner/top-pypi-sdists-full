@@ -6,7 +6,6 @@ See the file 'LICENSE' for copying permission
 """
 
 import codecs
-import collections
 import difflib
 import inspect
 import logging
@@ -71,7 +70,8 @@ def dirtyPatches():
 
     # add support for inet_pton() on Windows OS
     if IS_WIN:
-        from thirdparty.wininetpton import win_inet_pton
+        from thirdparty.wininetpton.win_inet_pton import inject_into_socket
+        inject_into_socket()
 
     # Reference: https://github.com/nodejs/node/issues/12786#issuecomment-298652440
     codecs.register(lambda name: codecs.lookup("utf-8") if name == "cp65001" else None)
@@ -85,7 +85,7 @@ def dirtyPatches():
         _http_client.LineAndFileWrapper.readline = _
 
     # to prevent too much "guessing" in case of binary data retrieval
-    thirdparty.chardet.universaldetector.MINIMUM_THRESHOLD = 0.90
+    thirdparty.chardet.universaldetector.UniversalDetector.MINIMUM_THRESHOLD = 0.90
 
     match = re.search(r" --method[= ](\w+)", " ".join(sys.argv))
     if match and match.group(1).upper() != PLACE.POST:
@@ -182,10 +182,21 @@ def dirtyPatches():
     import pickle
     if not getattr(pickle, "_patched", False):
         class RestrictedUnpickler(pickle.Unpickler):
+            # Note: allowlist (not blacklist) - a module blacklist is bypassable (e.g. importlib/ctypes/operator), so only
+            # explicitly-safe builtin data types and sqlmap's own (and bundled) classes are permitted to be unpickled
             def find_class(self, module, name):
-                # blacklist for OS-level execution modules
-                if module in ("os", "subprocess", "sys", "posix", "nt", "pty", "commands", "shutil"):
-                    raise ValueError("Unpickling of module '%s' is forbidden" % module)
+                # Note: protocol-2 pickling of a 'bytes' value on Python 3 emits a _codecs.encode global; allow that one
+                # (it only runs a codec, e.g. latin1 - it cannot execute arbitrary code) so serialized values containing
+                # bytes round-trip. Everything else from _codecs (e.g. lookup) stays blocked by the rule below.
+                if module == "_codecs" and name == "encode":
+                    pass
+                # safe builtin data types only (blocks eval/exec/__import__/getattr/etc.)
+                elif module in ("builtins", "__builtin__"):
+                    if name not in ("set", "frozenset", "dict", "list", "tuple", "int", "float", "bool", "str", "bytes", "bytearray", "object", "NoneType", "complex"):
+                        raise ValueError("unpickling of '%s.%s' is forbidden" % (module, name))
+                # everything else must be one of sqlmap's own (or bundled) classes (e.g. lib.core.datatype.AttribDict)
+                elif (module or "").split(".")[0] not in ("lib", "plugins", "thirdparty"):
+                    raise ValueError("unpickling of module '%s' is forbidden" % module)
 
                 # Python 2/3 method resolution
                 if hasattr(pickle.Unpickler, "find_class"):

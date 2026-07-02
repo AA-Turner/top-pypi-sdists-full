@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numba
-Version: 0.65.1
+Version: 0.66.0
 Summary: compiling Python code using LLVM
 Home-page: https://numba.pydata.org
 License: BSD
@@ -19,8 +19,7 @@ Classifier: Topic :: Software Development :: Compilers
 Requires-Python: >=3.10
 License-File: LICENSE
 License-File: LICENSES.third-party
-Requires-Dist: llvmlite<0.48,>=0.47.0dev0
-Requires-Dist: numpy>=1.22
+Requires-Dist: llvmlite<0.49,>=0.48.0dev0
 Requires-Dist: numpy<2.5,>=1.22
 Dynamic: classifier
 Dynamic: description
@@ -35,17 +34,13 @@ Dynamic: summary
 Numba
 *****
 
-.. image:: https://badges.gitter.im/numba/numba.svg
-   :target: https://gitter.im/numba/numba?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge
-   :alt: Gitter
-
 .. image:: https://img.shields.io/badge/discuss-on%20discourse-blue
    :target: https://numba.discourse.group/
    :alt: Discourse
 
-.. image:: https://zenodo.org/badge/3659275.svg
-   :target: https://zenodo.org/badge/latestdoi/3659275
-   :alt: Zenodo DOI
+.. image:: https://zenodo.org/badge/doi/10.5281/zenodo.4343230.svg
+   :target: https://doi.org/10.5281/zenodo.4343230
+   :alt: Zenodo
 
 .. image:: https://img.shields.io/pypi/v/numba.svg
    :target: https://pypi.python.org/pypi/numba/

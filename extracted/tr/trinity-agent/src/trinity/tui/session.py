@@ -67,6 +67,7 @@ PLAIN_TUI_COMMAND_HANDLERS: dict[str, str] = {
     "context": "_cmd_context",
     "project": "_cmd_project",
     "providers": "_cmd_providers",
+    "settings": "_cmd_settings",
     "rounds": "_cmd_rounds",
     "agent": "_cmd_agent",
     "model": "_cmd_model",
@@ -342,6 +343,14 @@ class InteractiveSession:
         """Show provider status in the plain TUI."""
         self._cmd_status()
 
+    def _cmd_settings(self) -> None:
+        """Explain how to open persistent UI settings."""
+        self.console.print(
+            "[yellow]/settings opens in the default Textual Workbench. "
+            "Run `trinity` without `--plain` or `TRINITY_TUI=plain`, "
+            "then use /settings or the Ctrl+, shortcut.[/yellow]"
+        )
+
     def _cmd_context(self) -> None:
         """Show current workflow session context."""
         session = self.workflow.session
@@ -560,7 +569,7 @@ class InteractiveSession:
         """Show model settings in the plain TUI."""
         from rich.table import Table
 
-        table = Table(title="Model Settings")
+        table = Table(title="Model Overrides")
         table.add_column("Agent", style="cyan")
         table.add_column("Provider", style="green")
         table.add_column("Enabled")

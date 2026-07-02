@@ -114,6 +114,7 @@ class FORK(object):
     DM8 = "DM8"
     DORIS = "Doris"
     STARROCKS = "StarRocks"
+    TRINO = "Trino"
 
 class CUSTOM_LOGGING(object):
     PAYLOAD = 9
@@ -238,6 +239,7 @@ class DUMP_FORMAT(object):
     CSV = "CSV"
     HTML = "HTML"
     SQLITE = "SQLITE"
+    JSONL = "JSONL"
 
 class HTTP_HEADER(object):
     ACCEPT = "Accept"
@@ -287,6 +289,7 @@ class HASHDB_KEYS(object):
     DBMS = "DBMS"
     DBMS_FORK = "DBMS_FORK"
     CHECK_WAF_RESULT = "CHECK_WAF_RESULT"
+    CHECK_WAF_BYPASS = "CHECK_WAF_BYPASS"
     CHECK_NULL_CONNECTION_RESULT = "CHECK_NULL_CONNECTION_RESULT"
     CONF_TMP_PATH = "CONF_TMP_PATH"
     KB_ABS_FILE_PATHS = "KB_ABS_FILE_PATHS"
@@ -406,6 +409,7 @@ class CONTENT_TYPE(object):
     OS_CMD = 24
     REG_READ = 25
     STATEMENTS = 26
+    PROCEDURES = 27
 
 class CONTENT_STATUS(object):
     IN_PROGRESS = 0

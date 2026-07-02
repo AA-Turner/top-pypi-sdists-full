@@ -99,6 +99,7 @@ from .config import (
     ConfigFormat,
     ConfigOption,
     ConfigValidator,
+    ExportConfigOption,
     NoConfigOption,
     ValidateConfigOption,
     ValidationError,
@@ -121,6 +122,7 @@ from .decorators import (  # type: ignore[no-redef]
     columns_option,
     command,
     config_option,
+    export_config_option,
     group,
     help_option,
     jobs_option,
@@ -148,7 +150,9 @@ from .execution import (
     JobsOption,
     TimerOption,
     ZeroExitOption,
+    resolve_jobs,
     run_jobs,
+    run_lanes,
 )
 from .highlight import (
     HelpFormatter,
@@ -215,7 +219,7 @@ from .test_suite import (
     parse_test_suite,
     run_test_suite,
 )
-from .testing import CliRunner, Result
+from .testing import CliRunner, Result, format_cli_prompt
 from .theme import (
     BUILTIN_THEMES,
     HelpTheme,
@@ -273,6 +277,7 @@ __all__ = [
     "Context",
     "DateTime",
     "EnumChoice",
+    "ExportConfigOption",
     "ExtraOption",
     "File",
     "FileError",
@@ -349,8 +354,10 @@ __all__ = [
     "echo",
     "echo_via_pager",
     "edit",
+    "export_config_option",
     "file_path",
     "flatten_config_keys",
+    "format_cli_prompt",
     "format_filename",
     "format_from_path",
     "format_param_row",
@@ -400,8 +407,10 @@ __all__ = [
     "render_manpages",
     "render_table",
     "require_sibling_param",
+    "resolve_jobs",
     "run_config_validation",
     "run_jobs",
+    "run_lanes",
     "run_test_suite",
     "search_params",
     "secho",
@@ -444,10 +453,10 @@ if not _HAS_CLICK_8_4_EXPORTS:
 del _HAS_CLICK_8_4_EXPORTS
 
 
-__version__ = "8.1.4"
+__version__ = "8.2.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "5bf9352425edf71ef5cbaebae9b43f6583174e4a"
+__git_tag_sha__ = "5a3e4f8b4ecad0bbddf56d372727e2c08c1eb000"

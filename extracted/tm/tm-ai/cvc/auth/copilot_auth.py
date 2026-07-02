@@ -28,7 +28,7 @@ import subprocess
 from cvc._subprocess_compat import HIDDEN_KW
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -395,6 +395,202 @@ def get_copilot_api_token(raw_token: str) -> str:
     except Exception as exc:
         logger.debug("Copilot token exchange failed, using raw token: %s", exc)
         return raw_token
+
+
+# ─── Dynamic Copilot Model Discovery ───────────────────────────────────────
+#
+# GitHub Copilot serves a ``GET /models`` endpoint on the account-scoped
+# API base that returns the exact list of models the user's plan/org has
+# enabled. This is the ONLY source of truth for what's actually available
+# — the static ``fallback_models`` in cvc/providers/base.py is just a
+# hint and can be wrong (e.g. after a new model launches and the org
+# enables it, or when a plan upgrades).
+#
+# We cache the result in-process for ``_COPILOT_MODELS_CACHE_TTL`` seconds
+# so we don't slam the API on every chat turn.
+#
+# Response shape (per Copilot OpenAI-compat surface):
+#   {
+#     "object": "list",
+#     "data": [
+#       {"id": "gpt-4o", "object": "model", "created": 1727000000,
+#        "owned_by": "openai", "version": "...", "name": "...",
+#        "capabilities": {...}, "billing": {...}, ...
+#       },
+#       ...
+#     ]
+#   }
+
+_COPILOT_MODELS_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_COPILOT_MODELS_CACHE_TTL = 600.0  # 10 min — fresh enough for org-policy changes
+
+
+def _parse_copilot_models_response(data: Any) -> list[dict[str, Any]]:
+    """Normalise the /models payload into a uniform shape for the dashboard.
+
+    Returns a list of dicts: {id, name, owned_by, capabilities, raw}.
+    """
+    out: list[dict[str, Any]] = []
+    if not isinstance(data, dict):
+        return out
+    items = data.get("data")
+    if not isinstance(items, list):
+        return out
+    for m in items:
+        if not isinstance(m, dict):
+            continue
+        mid = m.get("id") or m.get("name") or ""
+        if not isinstance(mid, str) or not mid.strip():
+            continue
+        out.append({
+            "id": mid.strip(),
+            "name": (m.get("name") or mid.strip()),
+            "owned_by": m.get("owned_by") or m.get("vendor") or "",
+            "capabilities": m.get("capabilities") or {},
+            "billing": m.get("billing") or {},
+            "version": m.get("version") or "",
+            "raw": m,
+        })
+    return out
+
+
+def list_copilot_models(
+    raw_token: str, *, force_refresh: bool = False, timeout: float = 8.0
+) -> list[dict[str, Any]]:
+    """Return the list of models available on the user's GitHub Copilot plan.
+
+    Uses the exchanged Copilot API token + the account-specific base URL
+    returned by ``/copilot_internal/v2/token``. Results are cached for
+    10 minutes; pass ``force_refresh=True`` to bypass.
+
+    Returns an empty list on any failure (no token, exchange failed,
+    network error, malformed payload). Callers should fall back to the
+    static ``fallback_models`` in that case.
+    """
+    if not raw_token:
+        return []
+
+    fp = _token_fingerprint(raw_token)
+    now = time.time()
+    if not force_refresh:
+        cached = _COPILOT_MODELS_CACHE.get(fp)
+        if cached and (now - cached[0]) < _COPILOT_MODELS_CACHE_TTL:
+            return list(cached[1].get("models") or [])
+
+    # Exchange token (this also gives us the account-specific api_url)
+    try:
+        api_token, expires_at, api_url = exchange_copilot_token(raw_token, timeout=timeout)
+    except Exception as exc:
+        logger.debug("list_copilot_models: token exchange failed: %s", exc)
+        return []
+
+    # Hit the /models endpoint on the account-specific base URL.
+    import urllib.request
+    url = f"{api_url}/models"
+    req = urllib.request.Request(
+        url,
+        method="GET",
+        headers={
+            "Authorization": f"Bearer {api_token}",
+            "User-Agent": _EXCHANGE_USER_AGENT,
+            "Accept": "application/json",
+            "Editor-Version": _EDITOR_VERSION,
+            # Copilot requires this header for the /models endpoint on some plans
+            "Copilot-Integration-Id": "vscode-chat",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw_data = json.loads(resp.read().decode())
+    except Exception as exc:
+        logger.debug("list_copilot_models: GET %s failed: %s", url, exc)
+        return []
+
+    models = _parse_copilot_models_response(raw_data)
+    _COPILOT_MODELS_CACHE[fp] = (now, {"models": models, "expires_at": expires_at})
+    logger.info("list_copilot_models: discovered %d models for account", len(models))
+    return models
+
+
+def clear_copilot_models_cache(raw_token: Optional[str] = None) -> None:
+    """Clear the model list cache. If ``raw_token`` is given, only that
+    account's cache is cleared; otherwise the entire cache is flushed.
+    """
+    if raw_token is None:
+        _COPILOT_MODELS_CACHE.clear()
+        return
+    fp = _token_fingerprint(raw_token)
+    _COPILOT_MODELS_CACHE.pop(fp, None)
+
+
+# ─── Model fallback matching ────────────────────────────────────────────────
+#
+# When the user picks a model that their Copilot plan doesn't enable
+# (e.g. requests Sonnet 5 but org hasn't rolled it out yet), the API
+# returns 400 with a list of actually-available models. We parse that
+# list and pick the closest match so the request succeeds instead of
+# failing.
+
+def pick_closest_copilot_model(
+    requested: str, available: list[str]
+) -> Optional[str]:
+    """Pick the closest model from `available` to the one `requested`.
+
+    Matching priority:
+      1. Exact match
+      2. Same family + same vendor (e.g. "claude-sonnet-4.6" → "claude-sonnet-4.5")
+      3. Same family, latest available version
+      4. Same vendor, any model
+      5. None
+
+    `available` may be model ids or full dicts from list_copilot_models().
+    """
+    if not available:
+        return None
+    # Normalise to bare id strings
+    ids: list[str] = []
+    for a in available:
+        if isinstance(a, str):
+            ids.append(a)
+        elif isinstance(a, dict):
+            mid = a.get("id")
+            if isinstance(mid, str):
+                ids.append(mid)
+    if not ids:
+        return None
+
+    requested_lc = requested.lower().strip()
+
+    # 1. Exact match
+    for mid in ids:
+        if mid.lower() == requested_lc:
+            return mid
+
+    # 2/3. Family match — split requested into tokens
+    #    e.g. "claude-sonnet-4.6" → family="claude-sonnet", rest="4.6"
+    req_tokens = requested_lc.replace("_", "-").split("-")
+    # Score each candidate by token overlap
+    scored: list[tuple[int, str]] = []
+    for mid in ids:
+        cand_lc = mid.lower()
+        cand_tokens = cand_lc.replace("_", "-").split("-")
+        # Count shared tokens in the same position
+        overlap = sum(1 for r, c in zip(req_tokens, cand_tokens) if r == c)
+        # Prefer longer family prefix matches (claude-sonnet-4.x beats claude-3.x)
+        if overlap > 0:
+            scored.append((overlap, mid))
+    if scored:
+        scored.sort(key=lambda x: (-x[0], x[1]))
+        return scored[0][1]
+
+    # 4. Vendor match (first token = vendor like "claude", "gpt", "gemini")
+    if req_tokens:
+        vendor = req_tokens[0]
+        for mid in ids:
+            if mid.lower().startswith(vendor + "-") or mid.lower().startswith(vendor):
+                return mid
+
+    return None
 
 
 # ─── Copilot API Headers ───────────────────────────────────────────────────

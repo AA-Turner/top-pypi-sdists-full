@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: line-bot-sdk
-Version: 3.23.1
+Version: 3.24.0
 Summary: LINE Messaging API SDK for Python
 Home-page: https://github.com/line/line-bot-sdk-python
 Author: RyosukeHasebe

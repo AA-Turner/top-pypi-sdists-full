@@ -25,18 +25,19 @@ from mindroom.constants import (
 )
 from mindroom.entity_resolution import entity_identity_registry
 from mindroom.history import (
-    AgentStaticTokenEstimator,
     PreparedHistoryState,
     PreparedScopeHistory,
     ResolvedReplayPlan,
     ScopeSessionContext,
-    TeamStaticTokenEstimator,
+    agent_static_token_estimator,
     apply_replay_plan,
     context_budget_after_reserve,
     finalize_history_preparation,
     prepare_bound_scope_history,
     prepare_scope_history,
     read_scope_seen_event_ids,
+    resolve_agent_preparation_inputs,
+    team_static_token_estimator,
 )
 from mindroom.logging_config import get_logger
 from mindroom.matrix.client_visible_messages import replace_visible_message
@@ -54,7 +55,7 @@ if TYPE_CHECKING:
 
     from mindroom.attachments import AttachmentRecord
     from mindroom.config.main import Config
-    from mindroom.history import CompactionDecision, CompactionLifecycle, CompactionOutcome, CompactionReplyOutcome
+    from mindroom.history import CompactionLifecycle, CompactionOutcome
     from mindroom.matrix.client_visible_messages import ResolvedVisibleMessage
     from mindroom.timing import DispatchPipelineTiming
 
@@ -78,14 +79,8 @@ class _PreparedExecutionContext:
     """Final request-scoped input planning result."""
 
     messages: tuple[Message, ...]
-    replay_plan: ResolvedReplayPlan | None
     unseen_event_ids: list[str]
-    replays_persisted_history: bool
-    compaction_outcomes: list[CompactionOutcome]
-    compaction_decision: CompactionDecision | None = None
-    compaction_reply_outcome: CompactionReplyOutcome = "none"
-    prepared_context_tokens: int | None = None
-    estimated_context_tokens: int | None = None
+    prepared_history: PreparedHistoryState
 
     @property
     def final_prompt(self) -> str:
@@ -98,20 +93,9 @@ class _PreparedExecutionContext:
         return self.messages[:-1]
 
     @property
-    def prepared_history(self) -> PreparedHistoryState:
-        """Return the history diagnostics prepared for this execution."""
-        default_decision = PreparedHistoryState().compaction_decision
-        return PreparedHistoryState(
-            compaction_outcomes=self.compaction_outcomes,
-            replay_plan=self.replay_plan,
-            replays_persisted_history=self.replays_persisted_history,
-            compaction_decision=(
-                self.compaction_decision if self.compaction_decision is not None else default_decision
-            ),
-            compaction_reply_outcome=self.compaction_reply_outcome,
-            prepared_context_tokens=self.prepared_context_tokens,
-            estimated_context_tokens=self.estimated_context_tokens,
-        )
+    def replay_plan(self) -> ResolvedReplayPlan | None:
+        """Return the resolved persisted-replay plan for this execution."""
+        return self.prepared_history.replay_plan
 
 
 @dataclass(frozen=True)
@@ -673,11 +657,9 @@ async def _prepare_execution_context_common(
     thread_history_render_limits: ThreadHistoryRenderLimits | None = None,
     fallback_static_token_budget: int | None = None,
     attachment_context: _ThreadAttachmentContext | None = None,
-    timing_scope: str | None = None,
     pipeline_timing: DispatchPipelineTiming | None = None,
 ) -> _PreparedExecutionContext:
     """Prepare one request-scoped prompt/replay plan after unseen-thread handling."""
-    del timing_scope
     seen_event_ids = _scope_seen_event_ids(scope_context)
 
     provisional_messages = _messages_with_current_prompt(
@@ -769,24 +751,14 @@ async def _prepare_execution_context_common(
         fallback_context_tokens = estimate_static_tokens_fn(render_messages_text_fn(final_messages))
         if prepared_history.replay_plan is not None:
             fallback_context_tokens += prepared_history.replay_plan.estimated_tokens
-        prepared_history = replace(
-            prepared_history,
-            prepared_context_tokens=fallback_context_tokens,
-            estimated_context_tokens=fallback_context_tokens,
-        )
+        prepared_history = replace(prepared_history, prepared_context_tokens=fallback_context_tokens)
     if pipeline_timing is not None:
         pipeline_timing.mark("prompt_assembly_ready")
 
     return _PreparedExecutionContext(
         messages=final_messages,
-        replay_plan=prepared_history.replay_plan,
-        estimated_context_tokens=prepared_history.estimated_context_tokens,
         unseen_event_ids=unseen_event_ids,
-        replays_persisted_history=prepared_history.replays_persisted_history,
-        compaction_outcomes=prepared_history.compaction_outcomes,
-        compaction_decision=prepared_history.compaction_decision,
-        compaction_reply_outcome=prepared_history.compaction_reply_outcome,
-        prepared_context_tokens=prepared_history.prepared_context_tokens,
+        prepared_history=prepared_history,
     )
 
 
@@ -810,7 +782,6 @@ async def prepare_agent_execution_context(
     current_timestamp_ms: float | None = None,
     current_prompt_is_structured: bool = False,
     include_openai_compat_guidance: bool = False,
-    timing_scope: str | None = None,
     pipeline_timing: DispatchPipelineTiming | None = None,
 ) -> _PreparedExecutionContext:
     """Prepare one agent's final prompt and replay plan for the current call."""
@@ -824,23 +795,28 @@ async def prepare_agent_execution_context(
         thread_id=thread_id,
         runtime_paths=runtime_paths,
     )
-    static_token_estimator = AgentStaticTokenEstimator(agent)
+    static_token_estimator = agent_static_token_estimator(agent)
 
     async def _prepare_agent_scope_history(
         prepared_prompt: str,
     ) -> PreparedScopeHistory:
-        return await prepare_scope_history(
+        resolved_inputs = resolve_agent_preparation_inputs(
             agent=agent,
             agent_name=agent_name,
             full_prompt=prepared_prompt,
+            config=config,
+            active_model_name=runtime_model.model_name,
+            active_context_window=runtime_model.context_window,
+            static_prompt_tokens=static_token_estimator.estimate(prepared_prompt),
+        )
+        return await prepare_scope_history(
+            agent=agent,
+            agent_name=agent_name,
+            resolved_inputs=resolved_inputs,
             runtime_paths=runtime_paths,
             config=config,
             compaction_outcomes_collector=compaction_outcomes_collector,
             scope_context=scope_context,
-            active_model_name=runtime_model.model_name,
-            active_context_window=runtime_model.context_window,
-            static_prompt_tokens=static_token_estimator.estimate(prepared_prompt),
-            timing_scope=timing_scope,
             compaction_lifecycle=compaction_lifecycle,
             pipeline_timing=pipeline_timing,
         )
@@ -867,13 +843,12 @@ async def prepare_agent_execution_context(
         thread_history_render_limits=None,
         fallback_static_token_budget=_fallback_static_token_budget(
             context_window=runtime_model.context_window,
-            reserve_tokens=config.get_entity_compaction_config(agent_name).reserve_tokens,
+            reserve_tokens=config.resolve_entity(agent_name).compaction_config.reserve_tokens,
         ),
         attachment_context=_ThreadAttachmentContext(
             storage_path=runtime_paths.storage_root,
             room_id=room_id,
         ),
-        timing_scope=timing_scope,
         pipeline_timing=pipeline_timing,
     )
 
@@ -903,7 +878,7 @@ async def _prepare_bound_team_execution_context(
     pipeline_timing: DispatchPipelineTiming | None = None,
 ) -> _PreparedExecutionContext:
     """Prepare one bound team scope for the current call."""
-    static_token_estimator = TeamStaticTokenEstimator(team)
+    static_token_estimator = team_static_token_estimator(team)
 
     async def _prepare_team_scope_history(
         prepared_prompt: str,
@@ -950,11 +925,9 @@ async def _prepare_bound_team_execution_context(
         ),
         fallback_static_token_budget=_fallback_static_token_budget(
             context_window=active_context_window,
-            reserve_tokens=(
-                config.get_entity_compaction_config(team_name).reserve_tokens
-                if team_name is not None and team_name in config.teams
-                else config.get_default_compaction_config().reserve_tokens
-            ),
+            reserve_tokens=config.resolve_entity(
+                team_name if team_name is not None and team_name in config.teams else None,
+            ).compaction_config.reserve_tokens,
         ),
         pipeline_timing=pipeline_timing,
     )

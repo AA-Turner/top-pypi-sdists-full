@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tooz
-Version: 8.1.0
+Version: 9.0.0
 Summary: Coordination library for distributed systems.
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0
@@ -13,12 +13,13 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: System :: Distributed Computing
-Requires-Python: >=3.10
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: stevedore>=1.16.0
@@ -29,11 +30,6 @@ Requires-Dist: tenacity>=5.0.0
 Requires-Dist: futurist>=1.2.0
 Requires-Dist: oslo.utils>=4.7.0
 Requires-Dist: oslo.serialization>=1.10.0
-Requires-Dist: debtcollector>=3.0.0
-Provides-Extra: consul
-Requires-Dist: python-consul2>=0.0.16; extra == "consul"
-Provides-Extra: etcd
-Requires-Dist: requests>=2.10.0; extra == "etcd"
 Provides-Extra: etcd3gw
 Requires-Dist: etcd3gw>=2.3.0; extra == "etcd3gw"
 Provides-Extra: redis

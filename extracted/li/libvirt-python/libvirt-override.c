@@ -11165,6 +11165,57 @@ libvirt_virDomainSetThrottleGroup(PyObject *self ATTRIBUTE_UNUSED,
 #endif /* LIBVIR_CHECK_VERSION(11, 2, 0) */
 
 
+#if LIBVIR_CHECK_VERSION(12, 5, 0)
+static virPyTypedParamsHint virPyDomainAnnounceInterfaceParams[] = {
+    { VIR_DOMAIN_ANNOUNCE_INTERFACE_INITIAL, VIR_TYPED_PARAM_UINT },
+    { VIR_DOMAIN_ANNOUNCE_INTERFACE_MAX, VIR_TYPED_PARAM_UINT },
+    { VIR_DOMAIN_ANNOUNCE_INTERFACE_ROUNDS, VIR_TYPED_PARAM_UINT },
+    { VIR_DOMAIN_ANNOUNCE_INTERFACE_STEP, VIR_TYPED_PARAM_UINT },
+};
+
+
+static PyObject *
+libvirt_virDomainAnnounceInterface(PyObject *self ATTRIBUTE_UNUSED,
+                                   PyObject *args)
+{
+    PyObject *pyobj_dom = NULL;
+    PyObject *pyobj_dict = NULL;
+    virDomainPtr dom = NULL;
+    const char *device = NULL;
+    virTypedParameterPtr params = NULL;
+    int nparams = 0;
+    unsigned int flags = 0;
+    int c_retval;
+
+    if (!PyArg_ParseTuple(args, (char *)"OzO|I:virDomainAnnounceInterface",
+                          &pyobj_dom, &device, &pyobj_dict, &flags))
+        return NULL;
+
+    if (PyDict_Check(pyobj_dict)) {
+        if (virPyDictToTypedParams(pyobj_dict, &params, &nparams,
+                                   virPyDomainAnnounceInterfaceParams,
+                                   VIR_N_ELEMENTS(virPyDomainAnnounceInterfaceParams)) < 0) {
+            return NULL;
+        }
+    } else {
+        PyErr_Format(PyExc_TypeError, "Announce params must be a dictionary");
+        return NULL;
+    }
+
+    dom = (virDomainPtr) PyvirDomain_Get(pyobj_dom);
+
+    LIBVIRT_BEGIN_ALLOW_THREADS;
+    c_retval = virDomainAnnounceInterface(dom, device, params, nparams, flags);
+    LIBVIRT_END_ALLOW_THREADS;
+
+    virTypedParamsFree(params, nparams);
+
+    return libvirt_intWrap(c_retval);
+}
+#endif /* LIBVIR_CHECK_VERSION(12, 5, 0) */
+
+
+
 /************************************************************************
  *									*
  *			The registration stuff				*
@@ -11453,6 +11504,9 @@ static PyMethodDef libvirtMethods[] = {
     {(char *) "virDomainGetAutostartOnce", libvirt_virDomainGetAutostartOnce, METH_VARARGS, NULL},
     {(char *) "virDomainSetThrottleGroup", libvirt_virDomainSetThrottleGroup, METH_VARARGS, NULL},
 #endif /* LIBVIR_CHECK_VERSION(11, 2, 0) */
+#if LIBVIR_CHECK_VERSION(12, 5, 0)
+    {(char *) "virDomainAnnounceInterface", libvirt_virDomainAnnounceInterface, METH_VARARGS, NULL},
+#endif /* LIBVIR_CHECK_VERSION(12, 5, 0) */
     {NULL, NULL, 0, NULL}
 };
 

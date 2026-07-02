@@ -1,0 +1,18 @@
+
+[package]
+name = "solders-macros"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["src/*.rs", "/LICENSE"]
+license = { workspace = true }
+description = "A collection of attribute macros to reduce boilerplate in the [solders](https://github.com/kevinheavey/solders) project."
+repository = { workspace = true }
+readme = "README.md"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.39"
+quote = "1.0.18"
+syn = { version = "1.0.96", features = ["full"] }

@@ -49,6 +49,8 @@ __all__ = (
     "CreateApplicationOutputTypeDef",
     "CreateStreamGroupInputTypeDef",
     "CreateStreamGroupOutputTypeDef",
+    "CreateStreamSessionAdminShellInputTypeDef",
+    "CreateStreamSessionAdminShellOutputTypeDef",
     "CreateStreamSessionConnectionInputTypeDef",
     "CreateStreamSessionConnectionOutputTypeDef",
     "DefaultApplicationTypeDef",
@@ -134,6 +136,10 @@ class ReplicationStatusTypeDef(TypedDict):
 class DefaultApplicationTypeDef(TypedDict):
     Id: NotRequired[str]
     Arn: NotRequired[str]
+
+class CreateStreamSessionAdminShellInputTypeDef(TypedDict):
+    Identifier: str
+    StreamSessionIdentifier: str
 
 class CreateStreamSessionConnectionInputTypeDef(TypedDict):
     Identifier: str
@@ -242,6 +248,12 @@ class UpdateApplicationInputTypeDef(TypedDict):
 class AssociateApplicationsOutputTypeDef(TypedDict):
     Arn: str
     ApplicationArns: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateStreamSessionAdminShellOutputTypeDef(TypedDict):
+    SessionId: str
+    StreamUrl: str
+    TokenValue: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateStreamSessionConnectionOutputTypeDef(TypedDict):

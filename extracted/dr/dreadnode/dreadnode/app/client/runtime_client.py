@@ -462,6 +462,8 @@ class RuntimeClient:
         policy: str | dict[str, t.Any] | None = None,
         labels: dict[str, list[str]] | None = None,
         origin: str | None = None,
+        project_memory_scope_kind: str | None = None,
+        enable_project_memory_preload: bool | None = None,
     ) -> models.SessionInfo:
         """Create or resolve a session on the server.
 
@@ -510,6 +512,10 @@ class RuntimeClient:
         resolved_origin = origin if origin is not None else self._default_session_origin
         if resolved_origin is not None:
             payload["origin"] = resolved_origin
+        if project_memory_scope_kind is not None:
+            payload["project_memory_scope_kind"] = project_memory_scope_kind
+        if enable_project_memory_preload is not None:
+            payload["enable_project_memory_preload"] = enable_project_memory_preload
         response = await self._http_client.post("/api/sessions", json=payload)
         response.raise_for_status()
         session = models.SessionInfo.from_dict(response.json())

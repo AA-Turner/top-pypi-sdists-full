@@ -401,7 +401,7 @@ def _file_mode_knowledge_instruction_block(
         "Available file-only sources:",
     ]
     source_lines: list[str] = []
-    for base_id in config.get_agent_knowledge_base_ids(agent_name):
+    for base_id in config.resolve_entity(agent_name).knowledge_base_ids:
         base_config = config.get_knowledge_base_config(base_id)
         if base_config.mode != "files":
             continue
@@ -582,7 +582,7 @@ def build_agent_toolkit(  # noqa: C901, PLR0911, PLR0912
     shared_storage_path = shared_storage_root(storage_path)
 
     if tool_name == "memory":
-        if config.get_agent_memory_backend(agent_name) == "none":
+        if config.resolve_entity(agent_name).memory_backend == "none":
             return None
 
         from mindroom.custom_tools.memory import MemoryTools  # noqa: PLC0415
@@ -794,7 +794,7 @@ def _visible_deferred_tool_names(
 ) -> list[str]:
     return [
         entry.name
-        for entry in config.get_agent_authored_deferred_tool_configs(agent_name)
+        for entry in config.resolve_entity(agent_name).authored_deferred_tool_configs
         if entry.name not in hidden_tool_names
     ]
 
@@ -867,7 +867,7 @@ def _build_dynamic_tooling_state_suffix(
 
     initial_tools = [
         entry.name
-        for entry in config.get_agent_authored_deferred_tool_configs(agent_name)
+        for entry in config.resolve_entity(agent_name).authored_deferred_tool_configs
         if entry.initial and entry.name not in hidden_tool_names
     ]
     visible_loaded_tools = tuple(tool_name for tool_name in loaded_tools if tool_name not in hidden_tool_names)
@@ -965,7 +965,7 @@ def _resolve_agent_culture(
     cache_private: bool = False,
 ) -> tuple[CultureManager | None, _CultureAgentSettings | None]:
     """Resolve shared culture manager and feature flags for an agent."""
-    culture_assignment = config.get_agent_culture(agent_name)
+    culture_assignment = config.resolve_entity(agent_name).culture
     if culture_assignment is None:
         return None, None
 
@@ -1175,7 +1175,6 @@ def create_agent(  # noqa: PLR0915, C901, PLR0912
     disabled_tool_names: frozenset[str] = frozenset(),
     delegation_depth: int = 0,
     refresh_scheduler: KnowledgeRefreshScheduler | None = None,
-    timing_scope: str | None = None,
     dynamic_tool_continuation: bool = False,
 ) -> Agent:
     """Create an agent instance from configuration.
@@ -1207,8 +1206,6 @@ def create_agent(  # noqa: PLR0915, C901, PLR0912
             infinite recursion when agents delegate to each other.
         refresh_scheduler: Optional runtime-owned shared knowledge refresh scheduler
             passed through to delegated child agents.
-        timing_scope: Optional correlated timing scope id for nested
-            `system_prompt_assembly` sub-timers.
         dynamic_tool_continuation: Whether this agent runs under the standalone
             ai.py turn loop that resumes after a dynamic load/unload. Only that
             loop stops the dynamic tools manager mid-turn; team members and other
@@ -1224,7 +1221,7 @@ def create_agent(  # noqa: PLR0915, C901, PLR0912
     """
 
     def agent_create_timing(label: str, **event_data: object) -> AbstractContextManager[None]:
-        return timed_block(f"system_prompt_assembly.agent_create.{label}", scope=timing_scope, **event_data)
+        return timed_block(f"system_prompt_assembly.agent_create.{label}", scope=None, **event_data)
 
     resolved_storage_path = runtime_paths.storage_root
     create_runtime_state = not disable_runtime_capabilities
@@ -1314,10 +1311,11 @@ def create_agent(  # noqa: PLR0915, C901, PLR0912
             tool_registry_preloaded=True,
         )
     workspace = agent_runtime.workspace
+    entity_view = config.resolve_entity(agent_name)
     tools: list[Toolkit] = []
     for tool_name in resolved_tool_configs:
         try:
-            runtime_overrides = config.get_agent_tool_runtime_overrides(agent_name, tool_name)
+            runtime_overrides = entity_view.tool_runtime_overrides(tool_name)
             with agent_create_timing("toolkit_build.one", tool_name=tool_name):
                 toolkit = build_agent_toolkit(
                     tool_name,
@@ -1473,7 +1471,7 @@ def create_agent(  # noqa: PLR0915, C901, PLR0912
 
     knowledge_enabled = (
         not disable_runtime_capabilities
-        and bool(config.get_agent_knowledge_base_ids(agent_name))
+        and bool(config.resolve_entity(agent_name).knowledge_base_ids)
         and knowledge is not None
     )
     knowledge_sources = (
@@ -1519,7 +1517,7 @@ def create_agent(  # noqa: PLR0915, C901, PLR0912
         enable_agentic_culture = culture_settings.enable_agentic_culture
 
     # Shared history-policy source of truth with the team replay path.
-    history_settings = config.get_entity_history_settings(agent_name)
+    history_settings = entity_view.history_settings
     history_policy = history_settings.policy
 
     compress_tool_results = (

@@ -610,13 +610,16 @@ mod tests {
     /// an error of order the channel magnitude itself — normalized residual
     /// ~O(1), seven orders above this floor — so the gate below catches every
     /// real defect with ~80× headroom over the transcendental noise.
+    #[cfg(target_os = "linux")]
     const PARITY_ATOL: f64 = 1e-9;
+    #[cfg(target_os = "linux")]
     const PARITY_RTOL: f64 = 1e-7;
 
     /// Assert every element of `dev` matches `cpu` within
     /// `PARITY_ATOL + PARITY_RTOL * channel_scale`, where `channel_scale` is the
     /// channel's max |cpu| (the magnitude a real bug would perturb). Returns the
     /// worst normalized residual for reporting.
+    #[cfg(target_os = "linux")]
     fn assert_channel_parity(name: &str, cpu: &[f64], dev: &[f64]) -> f64 {
         let scale = cpu.iter().fold(0.0_f64, |m, x| m.max(x.abs()));
         let tol = PARITY_ATOL + PARITY_RTOL * scale;
@@ -639,6 +642,49 @@ mod tests {
             dev[worst_i]
         );
         worst / tol
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn diag_device_channel_breakdown() {
+        let rows = fixture(DEVICE_ROW_THRESHOLD + 1024);
+        let cpu = survival_rigid_row_jets_cpu(&rows, 0.7, &DIR, &DIRU, &DIRV);
+        let got = match survival_rigid_row_jets_device_only(&rows, 0.7, &DIR, &DIRU, &DIRV) {
+            Ok(g) => g,
+            Err(e) => {
+                eprintln!("DEVICE PATH UNAVAILABLE: {e}");
+                return;
+            }
+        };
+        let report = |name: &str, a: &[f64], b: &[f64]| {
+            let mut maxabs = 0.0_f64;
+            let mut maxrel = 0.0_f64;
+            let mut worst_idx = 0usize;
+            let mut worst_cpu = 0.0_f64;
+            let mut worst_gpu = 0.0_f64;
+            for (i, (x, y)) in a.iter().zip(b).enumerate() {
+                let ad = (x - y).abs();
+                if ad > maxabs {
+                    maxabs = ad;
+                    worst_idx = i;
+                    worst_cpu = *x;
+                    worst_gpu = *y;
+                }
+                let denom = x.abs().max(y.abs());
+                if denom > 1e-12 {
+                    maxrel = maxrel.max(ad / denom);
+                }
+            }
+            eprintln!(
+                "[{name:8}] maxabs={maxabs:.3e} maxrel={maxrel:.3e} \
+                 worst@{worst_idx} cpu={worst_cpu:.6e} gpu={worst_gpu:.6e}"
+            );
+        };
+        report("value", &cpu.value, &got.value);
+        report("grad", &cpu.grad, &got.grad);
+        report("hess", &cpu.hess, &got.hess);
+        report("third", &cpu.third, &got.third);
+        report("fourth", &cpu.fourth, &got.fourth);
     }
 
     #[cfg(target_os = "linux")]
@@ -678,6 +724,7 @@ mod tests {
     /// censored/event × entry-present, deep negative tails (logΦ underflow
     /// regime), tiny and large covariance, near-zero slope, large scale, zero
     /// weight (the early-out branch), and the erfcx asymptotic cutover (|η|>26).
+    #[cfg(target_os = "linux")]
     fn edge_fixture() -> Vec<SurvivalRowInputs> {
         let mut rows = Vec::new();
         let push = |rows: &mut Vec<SurvivalRowInputs>, p: [f64; 4], w, d, z, c| {

@@ -1023,9 +1023,10 @@ class MyPyllantAPI:
         self,
         system: System,
     ):
-        if system.control_identifier.is_vrc700:
-            raise ValueError("Not supported on VRC700 controllers")
-
+        # The ``ventilation-boost`` endpoint works on VRC700 controllers too — it is
+        # the same system-level endpoint as on TLI/sensoCOMFORT (verified live on a
+        # recoVAIR VAR 260/4 + VRC700: POST -> 202, currentSpecialFunction becomes
+        # VENTILATION_BOOST).
         await self.aiohttp_session.post(
             f"{await self.get_system_api_base(system.id)}/ventilation-boost",
             json={},
@@ -1037,9 +1038,6 @@ class MyPyllantAPI:
         return system
 
     async def cancel_ventilation_boost(self, system: System):
-        if system.control_identifier.is_vrc700:
-            raise ValueError("Not supported on VRC700 controllers")
-
         await self.aiohttp_session.delete(
             f"{await self.get_system_api_base(system.id)}/ventilation-boost",
             headers=self.get_authorized_headers(),
@@ -1232,16 +1230,29 @@ class MyPyllantAPI:
             maximum_fan_stage: The maximum fan speed, from 1-6
             fan_stage_type: The fan stage type (day or night)
         """
-        url = (
-            f"{await self.get_system_api_base(ventilation.system_id)}"
-            f"/ventilation/{ventilation.index}/fan-stage"
-        )
-        await self.aiohttp_session.patch(
-            url,
-            json={
+        json_payload: dict[str, int | str]
+        if ventilation.control_identifier.is_vrc700:
+            # VRC700 exposes separate day/night endpoints and takes only
+            # ``maximumFanStage`` in the body (the ``fan-stage`` endpoint with a
+            # ``type`` field returns 404 there). Verified live on a recoVAIR
+            # VAR 260/4 + VRC700: PATCH .../{day,night}-fan-stage -> 202.
+            url = (
+                f"{await self.get_system_api_base(ventilation.system_id)}"
+                f"/ventilation/{ventilation.index}/{fan_stage_type.lower()}-fan-stage"
+            )
+            json_payload = {"maximumFanStage": maximum_fan_stage}
+        else:
+            url = (
+                f"{await self.get_system_api_base(ventilation.system_id)}"
+                f"/ventilation/{ventilation.index}/fan-stage"
+            )
+            json_payload = {
                 "maximumFanStage": maximum_fan_stage,
                 "type": str(fan_stage_type),
-            },
+            }
+        await self.aiohttp_session.patch(
+            url,
+            json=json_payload,
             headers=self.get_authorized_headers(),
         )
         setattr(

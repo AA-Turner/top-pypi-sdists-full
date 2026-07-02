@@ -13,6 +13,7 @@ if t.TYPE_CHECKING:
     from dreadnode.tools.interaction import UserCancelled, ask_user, confirm
     from dreadnode.tools.ls import ls
     from dreadnode.tools.memory import Memory
+    from dreadnode.tools.project_memory import ProjectMemory
     from dreadnode.tools.read import read
     from dreadnode.tools.report import report
     from dreadnode.tools.think import think
@@ -27,6 +28,7 @@ if t.TYPE_CHECKING:
 
 __all__ = [
     "Memory",
+    "ProjectMemory",
     "UserCancelled",
     "apply_patch",
     "ask_user",
@@ -54,6 +56,7 @@ __all__ = [
 # Names whose submodule has a different filename than the public attribute.
 _SUBMODULE_OVERRIDES: dict[str, str] = {
     "Memory": "memory",
+    "ProjectMemory": "project_memory",
     "delete_lines": "editing",
     "edit_file": "editing",
     "insert_lines": "editing",
@@ -77,7 +80,10 @@ def __getattr__(name: str) -> t.Any:
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 
-def default_tools() -> dict[str, "Tool | Toolset"]:
+def default_tools(
+    *,
+    additional_toolsets: list["Toolset"] | None = None,
+) -> dict[str, "Tool | Toolset"]:
     """All standard tools, keyed by function name.
 
     Imports are deferred to avoid circular dependencies.
@@ -122,4 +128,6 @@ def default_tools() -> dict[str, "Tool | Toolset"]:
         confirm,
         Memory(),
     ]
+    if additional_toolsets:
+        tools.extend(additional_toolsets)
     return {tool.name: tool for tool in tools}

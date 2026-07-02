@@ -44,7 +44,7 @@ from mindroom.history.interrupted_replay import _render_interrupted_replay_conte
 from mindroom.history.runtime import open_bound_scope_session_context
 from mindroom.history.storage import read_scope_seen_event_ids, update_scope_seen_event_ids
 from mindroom.history.turn_recorder import TurnRecorder
-from mindroom.history.types import CompactionDecision, CompactionReplyOutcome
+from mindroom.history.types import CompactionDecision, CompactionReplyOutcome, PreparedHistoryState
 from mindroom.hooks import EnrichmentItem
 from mindroom.knowledge.utils import _KnowledgeResolution
 from mindroom.media_inputs import MediaInputs
@@ -116,13 +116,13 @@ def _prepared_team_execution_context(
 ) -> _PreparedExecutionContext:
     return _PreparedExecutionContext(
         messages=(*context_messages, Message(role="user", content=final_prompt)),
-        replay_plan=None,
         unseen_event_ids=unseen_event_ids or [],
-        replays_persisted_history=replays_persisted_history,
-        compaction_outcomes=[],
-        compaction_decision=compaction_decision,
-        compaction_reply_outcome=compaction_reply_outcome,
-        prepared_context_tokens=prepared_context_tokens,
+        prepared_history=PreparedHistoryState(
+            replays_persisted_history=replays_persisted_history,
+            compaction_decision=compaction_decision or CompactionDecision(mode="none", reason="unclassified"),
+            compaction_reply_outcome=compaction_reply_outcome,
+            prepared_context_tokens=prepared_context_tokens,
+        ),
     )
 
 
@@ -1029,7 +1029,7 @@ async def test_prepare_bound_team_execution_context_uses_team_renderer_for_trimm
             captured_prompts.append((full_prompt, None))
             return 0
 
-    with patch("mindroom.execution_preparation.TeamStaticTokenEstimator", FakeTeamStaticTokenEstimator):
+    with patch("mindroom.execution_preparation.team_static_token_estimator", FakeTeamStaticTokenEstimator):
         prepared = await _prepare_bound_team_execution_context(
             scope_context=None,
             agents=[fake_agent],
@@ -1498,10 +1498,8 @@ async def test_team_response_records_interrupted_snapshot_for_cancelled_runs() -
     assert _render_interrupted_replay_content(snapshot) == (
         "**GeneralAgent**: Half done\n\n\n"
         "*No team consensus - showing individual responses only*\n\n"
-        "[tool:run_shell_command completed]\n"
-        "  args: cmd=pwd\n"
-        "  result: /app\n\n"
-        "[interrupted]"
+        "(turn interrupted by the user before completion; "
+        "1 tool call(s) had completed: run_shell_command)"
     )
 
 
@@ -1566,10 +1564,8 @@ async def test_team_response_records_incomplete_cancelled_tools_as_interrupted()
     assert _render_interrupted_replay_content(snapshot) == (
         "**GeneralAgent**: Half done\n\n\n"
         "*No team consensus - showing individual responses only*\n\n"
-        "[tool:run_shell_command interrupted]\n"
-        "  args: cmd=pwd\n"
-        "  result: <interrupted before completion>\n\n"
-        "[interrupted]"
+        "(turn interrupted by the user before completion; "
+        "1 tool call(s) were still running: run_shell_command)"
     )
 
 
@@ -1986,10 +1982,8 @@ async def test_team_response_stream_records_hidden_interrupted_tool_state() -> N
     assert _render_interrupted_replay_content(snapshot) == (
         "**GeneralAgent**: Half done\n\n\n"
         "*No team consensus - showing individual responses only*\n\n"
-        "[tool:run_shell_command completed]\n"
-        "  args: cmd=pwd\n"
-        "  result: /app\n\n"
-        "[interrupted]"
+        "(turn interrupted by the user before completion; "
+        "1 tool call(s) had completed: run_shell_command)"
     )
 
 
@@ -2213,7 +2207,8 @@ async def test_team_response_stream_records_interrupted_snapshot_after_external_
     snapshot = recorder.interrupted_snapshot()
     assert snapshot.user_message == "Analyze this."
     assert _render_interrupted_replay_content(snapshot) == (
-        "**GeneralAgent**: Half done\n\n\n*No team consensus - showing individual responses only*\n\n[interrupted]"
+        "**GeneralAgent**: Half done\n\n\n*No team consensus - showing individual responses only*\n\n"
+        "(turn interrupted by the user before completion)"
     )
 
 
@@ -2311,12 +2306,12 @@ async def test_team_response_stream_preserves_pending_tool_scope_for_same_named_
 
     snapshot = recorder.interrupted_snapshot()
     assert snapshot.user_message == "Analyze this."
-    content = _render_interrupted_replay_content(snapshot)
-    assert "[tool:run_shell_command completed]" in content
-    assert "args: cmd=pwd" in content
-    assert "[tool:run_shell_command interrupted]" in content
-    assert "args: cmd=ls" in content
-    assert "args: cmd=pwd\n  result: <interrupted before completion>" not in content
+    assert [(tool.tool_name, tool.args_preview) for tool in snapshot.completed_tools] == [
+        ("run_shell_command", "cmd=pwd"),
+    ]
+    assert [(tool.tool_name, tool.args_preview) for tool in snapshot.interrupted_tools] == [
+        ("run_shell_command", "cmd=ls"),
+    ]
 
 
 @pytest.mark.asyncio
@@ -2398,13 +2393,9 @@ async def test_team_response_stream_preserves_pending_tool_identity_within_membe
     assert _render_interrupted_replay_content(snapshot) == (
         "**GeneralAgent**: General started\n\n\n"
         "*No team consensus - showing individual responses only*\n\n"
-        "[tool:run_shell_command completed]\n"
-        "  args: cmd=pwd\n"
-        "  result: /app\n"
-        "[tool:run_shell_command interrupted]\n"
-        "  args: cmd=ls\n"
-        "  result: <interrupted before completion>\n\n"
-        "[interrupted]"
+        "(turn interrupted by the user before completion; "
+        "1 tool call(s) had completed: run_shell_command; "
+        "1 tool call(s) were still running: run_shell_command)"
     )
 
 
@@ -3931,7 +3922,7 @@ async def test_private_ad_hoc_team_second_turn_replays_first_scoped_run() -> Non
         )
 
     assert second_team.id == scope_context.scope.scope_id
-    assert prepared.replays_persisted_history is True
+    assert prepared.prepared_history.replays_persisted_history is True
 
 
 @pytest.mark.asyncio

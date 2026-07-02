@@ -44,15 +44,20 @@ __all__ = (
     "DomainPackageStatusType",
     "DomainProcessingStatusTypeType",
     "DomainStateType",
+    "DomainUseCaseType",
     "DryRunModeType",
+    "EngineModeType",
     "EngineTypeType",
     "IPAddressTypeType",
     "InboundConnectionStatusCodeType",
     "IndexStatusType",
     "InitiatedByType",
     "InsightEntityTypeType",
+    "InsightFeedbackEntityTypeType",
+    "InsightFeedbackThumbsType",
     "InsightFieldTypeType",
     "InsightPriorityLevelType",
+    "InsightResponseStatusType",
     "InsightSortOrderType",
     "InsightStatusType",
     "InsightTypeType",
@@ -163,7 +168,9 @@ DomainProcessingStatusTypeType = Literal[
     "UpgradingEngineVersion",
 ]
 DomainStateType = Literal["Active", "NotAvailable", "Processing"]
+DomainUseCaseType = Literal["MIXED", "OBSERVABILITY", "SEARCH", "VECTOR"]
 DryRunModeType = Literal["Basic", "Verbose"]
+EngineModeType = Literal["GENERAL", "OPTIMIZED"]
 EngineTypeType = Literal["Elasticsearch", "OpenSearch"]
 IPAddressTypeType = Literal["dualstack", "ipv4"]
 InboundConnectionStatusCodeType = Literal[
@@ -179,8 +186,11 @@ InboundConnectionStatusCodeType = Literal[
 IndexStatusType = Literal["CREATED", "DELETED", "UPDATED"]
 InitiatedByType = Literal["CUSTOMER", "SERVICE"]
 InsightEntityTypeType = Literal["Account", "DomainName"]
+InsightFeedbackEntityTypeType = Literal["DomainName"]
+InsightFeedbackThumbsType = Literal["Down", "Up"]
 InsightFieldTypeType = Literal["metric", "text"]
 InsightPriorityLevelType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM"]
+InsightResponseStatusType = Literal["ERROR", "SUCCESS"]
 InsightSortOrderType = Literal["ASC", "DESC"]
 InsightStatusType = Literal["ACTIVE", "DISMISSED", "RESOLVED"]
 InsightTypeType = Literal["EVENT", "RECOMMENDATION"]

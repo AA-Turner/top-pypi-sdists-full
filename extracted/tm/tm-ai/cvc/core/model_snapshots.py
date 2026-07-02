@@ -52,7 +52,7 @@ logger = logging.getLogger("cvc.model_snapshots")
 SNAPSHOT_DIR = "user_model_snapshots"
 SNAPSHOT_INDEX = "user_model_snapshots_index.json"
 
-Trigger = Literal["manual", "auto", "post_session", "correction", "preservation_freeze", "import"]
+Trigger = Literal["manual", "auto", "post_session", "correction", "preservation_freeze", "import", "per_turn_auto", "per_turn_cleanup", "manual_refresh", "day_canonical"]
 
 
 class SnapshotStore:
@@ -79,8 +79,15 @@ class SnapshotStore:
         trigger: Trigger = "manual",
         commit_hash: str | None = None,
         snapshot_id: str | None = None,
+        **metadata: Any,
     ) -> str:
-        """Persist a new snapshot. Returns the snapshot_id."""
+        """Persist a new snapshot. Returns the snapshot_id.
+
+        v3.5.1 — ``**metadata`` lets callers attach extra fields
+        (e.g. ``scope="day"``, ``consolidated_from=[...]``) without
+        changing the signature. Stored on the index entry only —
+        model JSON stays canonical.
+        """
         sid = snapshot_id or uuid.uuid4().hex[:16]
         ts = time.time()
         parent = self._last_snapshot_id()
@@ -96,6 +103,7 @@ class SnapshotStore:
             "commit_hash": commit_hash,
             "model": json.loads(model_json),
             "size_bytes": size,
+            **({"metadata": dict(metadata)} if metadata else {}),
         }
         # Append-only: write the file AND extend the index
         (self._dir / f"{sid}.json").write_text(
@@ -103,15 +111,16 @@ class SnapshotStore:
             encoding="utf-8",
         )
         idx = self._read_index()
-        idx["snapshots"].append(
-            {
-                "snapshot_id": sid,
-                "timestamp": ts,
-                "trigger": trigger,
-                "commit_hash": commit_hash,
-                "size_bytes": size,
-            }
-        )
+        idx_entry = {
+            "snapshot_id": sid,
+            "timestamp": ts,
+            "trigger": trigger,
+            "commit_hash": commit_hash,
+            "size_bytes": size,
+        }
+        if metadata:
+            idx_entry["metadata"] = dict(metadata)
+        idx["snapshots"].append(idx_entry)
         self._write_index(idx)
         logger.debug("snapshot %s appended (%s, %d bytes)", sid, trigger, size)
         return sid
@@ -125,6 +134,59 @@ class SnapshotStore:
         if trigger:
             snaps = [s for s in snaps if s.get("trigger") == trigger]
         return list(reversed(snaps[-limit:]))
+
+    def list_by_date(self, date_iso: str) -> list[dict[str, Any]]:
+        """Return full snapshots (with model JSON) for a YYYY-MM-DD date.
+
+        v3.5.1 — TIME PORTAL day-scope support. Includes the index
+        entry plus the full model payload (via ``get``) so callers
+        don't have to do a second roundtrip per snapshot. Sorted
+        oldest → newest.
+        """
+        snaps: list[dict[str, Any]] = []
+        for entry in self._read_index().get("snapshots", []):
+            ts = entry.get("timestamp", 0)
+            if not ts:
+                continue
+            local = time.localtime(ts)
+            stamp = time.strftime("%Y-%m-%d", local)
+            if stamp == date_iso:
+                full = self.get(entry["snapshot_id"])
+                if full:
+                    snaps.append(full)
+        snaps.sort(key=lambda s: s.get("timestamp", 0))
+        return snaps
+
+    def list_day_index(self) -> list[dict[str, Any]]:
+        """Return one entry per day with snapshot count + first/last timestamp.
+
+        Used by the Time Portal UI to render the day-row accordion.
+        Sorted newest day first. Includes raw snapshot count BEFORE
+        day consolidation so the UI can show "47 raw → 1 consolidated".
+        """
+        idx = self._read_index().get("snapshots", [])
+        by_day: dict[str, dict[str, Any]] = {}
+        for s in idx:
+            ts = s.get("timestamp", 0)
+            if not ts:
+                continue
+            date = time.strftime("%Y-%m-%d", time.localtime(ts))
+            entry = by_day.setdefault(date, {
+                "date": date,
+                "snapshot_count": 0,
+                "first_ts": ts,
+                "last_ts": ts,
+                "first_id": s.get("snapshot_id"),
+                "last_id": s.get("snapshot_id"),
+            })
+            entry["snapshot_count"] += 1
+            if ts < entry["first_ts"]:
+                entry["first_ts"] = ts
+                entry["first_id"] = s.get("snapshot_id")
+            if ts > entry["last_ts"]:
+                entry["last_ts"] = ts
+                entry["last_id"] = s.get("snapshot_id")
+        return sorted(by_day.values(), key=lambda d: d["date"], reverse=True)
 
     def get(self, snapshot_id: str) -> dict[str, Any] | None:
         """Load a full snapshot by id (includes the model JSON)."""

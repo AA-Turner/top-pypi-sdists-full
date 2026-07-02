@@ -39,6 +39,7 @@ def _empty_result() -> PseudonymLLMResult:
         audit_text="", downstream_text="", display_text="", key={}, aliases={}
     )
 
+
 # Integer schema version stamped into export_state() output. Decoupled from
 # the package version on purpose — bumped only when the state shape itself
 # changes, so most package releases leave it untouched.
@@ -196,6 +197,7 @@ class StreamingRedactor:
         # 0 initially; ``min(prev_cut, _EVIDENCE_CONTEXT_WINDOW)`` after each emit.
         self._ctx_len: int = 0
         self._accumulated_key: dict[str, str] = {}
+        self._accumulated_types: dict[str, str] = {}
 
     def feed(self, chunk: str) -> PseudonymLLMResult:
         """Accumulate ``chunk`` and emit up to the context-cut boundary, redacted.
@@ -276,9 +278,7 @@ class StreamingRedactor:
         return self._redact_and_merge(emit, shifted)
 
     @staticmethod
-    def _shift_entities(
-        entities: list[PatternMatch], lo: int, hi: int
-    ) -> list[PatternMatch]:
+    def _shift_entities(entities: list[PatternMatch], lo: int, hi: int) -> list[PatternMatch]:
         """Re-base the final entity set onto the emit slice ``[lo, hi)``.
 
         Exact mirror of the core SSOT ``shift_spans`` (see
@@ -306,9 +306,7 @@ class StreamingRedactor:
                 drop = max(0, lo - e.start)  # head chars in the left-context
                 text = e.text[drop:] if drop else e.text
                 result.append(
-                    dataclasses.replace(
-                        e, start=max(0, e.start - lo), end=e.end - lo, text=text
-                    )
+                    dataclasses.replace(e, start=max(0, e.start - lo), end=e.end - lo, text=text)
                 )
         return result
 
@@ -340,11 +338,17 @@ class StreamingRedactor:
         # are disjoint by construction, so collisions are impossible.
         for fake, original in result.key.items():
             self._accumulated_key.setdefault(fake, original)
+        for fake, t in result.types.items():
+            self._accumulated_types.setdefault(fake, t)
         return result
 
     def aggregate_key(self) -> dict[str, str]:
         """Return a copy of the unified key across all fed chunks."""
         return dict(self._accumulated_key)
+
+    def aggregate_types(self) -> dict[str, str]:
+        """Return a copy of the fake → SSOT PII type map across all fed chunks."""
+        return dict(self._accumulated_types)
 
     def export_state(self, *, include_salt: bool = False) -> dict:
         """Serialize this redactor's state to a JSON-friendly dict.
@@ -424,9 +428,7 @@ class StreamingRedactor:
             types_exclude=state.get("types_exclude"),
             strict_input=state.get("strict_input", True),
             reserved_names=(
-                {k: tuple(v) for k, v in reserved.items()}
-                if reserved is not None
-                else None
+                {k: tuple(v) for k, v in reserved.items()} if reserved is not None else None
             ),
         )
         instance._accumulated_key = dict(state.get("accumulated_key", {}))

@@ -1,15 +1,15 @@
 [build-system]
-requires = ["maturin>=1.8.1,<1.9"]
+requires = ["maturin>=1.14.1,<1.15"]
 build-backend = "maturin"
 
 
 [project]
 name = "solders"
-version = "0.27.1"
+version = "0.28.0"
 description = "Python bindings for Solana Rust tools"
 authors = [ {name = "kevinheavey", email = "kevinheavey123@gmail.com"} ]
 license = {file = "LICENSE"} # relative to the package/ directory
-requires-python = ">=3.8,<4.0"
+requires-python = ">=3.10,<4.0"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
@@ -31,7 +31,7 @@ dev = [
     "based58==0.1.1",
     "bumpversion==0.6.0",
     "jsonalias==0.1.1",
-    "maturin>=1.8.1,<1.9",
+    "maturin>=1.14.1,<1.15",
     "mnemonic==0.20",
     "mypy==0.991",
     "myst-parser>=1.0.0,<2.0.0",
@@ -76,7 +76,7 @@ exclude = [
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.per-file-ignores]
 "src/solana/blockhash.py" = ["A003"]

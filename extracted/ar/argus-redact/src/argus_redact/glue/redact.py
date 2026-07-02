@@ -33,7 +33,8 @@ from argus_redact.telemetry import PerfRecord, emit, get_perf_hook
 logger = logging.getLogger(__name__)
 
 # Cached telemetry constants (resolved once at import, not per-call)
-from argus_redact._core_loader import HAS_CORE as _RUST_CORE, _core
+from argus_redact._core_loader import HAS_CORE as _RUST_CORE  # noqa: E402
+from argus_redact._core_loader import _core  # noqa: E402
 
 
 @functools.lru_cache(maxsize=1)
@@ -137,9 +138,7 @@ def _validate_langs(langs: tuple[str, ...] | list[str]) -> None:
     """
     for code in langs:
         if code not in _LANG_PATTERNS:
-            raise ValueError(
-                f"Unknown language '{code}'. Available: {list(_LANG_PATTERNS.keys())}"
-            )
+            raise ValueError(f"Unknown language '{code}'. Available: {list(_LANG_PATTERNS.keys())}")
 
 
 _LANG_NER_ADAPTERS = {
@@ -217,6 +216,38 @@ def _get_ner_adapters(lang: str | list[str]) -> list:
             pass
 
     return adapters
+
+
+def _gate_en_ner_person(
+    text: str,
+    matches: list[PatternMatch],
+    pii_entities: list,
+) -> list[PatternMatch]:
+    """Evidence-gate English L2 NER ``person`` candidates through the L1 scorer.
+
+    spaCy English NER (``en_core_web_sm``) is high-recall/noisy on prose; ungated,
+    its ``person`` spans enter the result set raw and destroy precision while L1
+    English person detection is rigorously evidence-gated. This closes that
+    asymmetry by routing each L2 ``person`` candidate through the SAME Rust
+    evidence scorer L1 uses (``_core.score_person_candidates_en`` →
+    ``person_en::score_person_candidate``): a title / name-like lead / PII
+    proximity keeps it, an uncorroborated bare-prose span is dropped. The
+    scoring AND the keep/drop threshold are single-sourced in Rust — no scoring is
+    duplicated here.
+
+    ``pii_entities`` are the L1 structural-PII matches (the proximity signal,
+    matching what L1 person detection receives). Non-``person`` candidates
+    (location / organization) pass through untouched.
+    """
+    person_pos = [i for i, m in enumerate(matches) if m.type == "person"]
+    if not person_pos:
+        return matches
+    candidates = [(matches[i].start, matches[i].end) for i in person_pos]
+    keep_mask = _core.score_person_candidates_en(text, candidates, pii_entities or None, None)
+    dropped = {pos for pos, keep in zip(person_pos, keep_mask) if not keep}
+    if not dropped:
+        return matches
+    return [m for i, m in enumerate(matches) if i not in dropped]
 
 
 def _get_semantic_adapter():
@@ -322,9 +353,7 @@ def _detect(
             )
             layer2_status = "no_model"
             if strict:
-                raise LayerUnavailableError(
-                    "mode='auto' + strict=True: no NER model available."
-                )
+                raise LayerUnavailableError("mode='auto' + strict=True: no NER model available.")
         elif not should_skip_ner(hints):
             # Model present AND not hint-skipped → run L2 detection.
             from argus_redact.impure.ner import detect_ner
@@ -334,6 +363,12 @@ def _detect(
             for adapter in adapters:
                 ner_entities = detect_ner(text, adapter=adapter, min_confidence=ner_confidence)
                 layer2_matches = [e.to_pattern_match(layer=LAYER_NER) for e in ner_entities]
+                # English spaCy `person` candidates are evidence-gated through the
+                # SAME L1 Rust scorer (proximity signal = the L1a regex matches),
+                # so noisy bare-prose spans are dropped instead of entering raw.
+                # Other languages / non-person types are unaffected.
+                if getattr(adapter, "lang", None) == "en":
+                    layer2_matches = _gate_en_ner_person(text, layer2_matches, layer1)
                 entities.extend(layer2_matches)
                 layer2_count += len(layer2_matches)
             layer2_status = "ok"
@@ -359,9 +394,7 @@ def _detect(
             except Exception as exc:
                 # Type only, never exc_info=True: a full traceback can embed
                 # input fragments from the adapter call frames.
-                logger.warning(
-                    "Layer 3 semantic detection failed: %s", type(exc).__name__
-                )
+                logger.warning("Layer 3 semantic detection failed: %s", type(exc).__name__)
                 layer3_status = "error"
                 warnings.warn(
                     "mode='auto': Layer-3 semantic detection failed; continuing "
@@ -454,6 +487,14 @@ def _replace_and_emit(
     return redacted, result_key, aliases
 
 
+def _build_type_map(key: dict[str, str], entities: list[PatternMatch]) -> dict[str, str]:
+    """fake → SSOT PII type: invert ``key`` (fake→original) and read each entity's
+    ``.type``. Single source shared by ``redact(with_types=True)`` and
+    ``redact_pseudonym_llm``'s ``result.types`` (called once per replace pass)."""
+    reverse = {original: fake for fake, original in key.items()}
+    return {reverse[e.text]: e.type for e in entities if e.text in reverse}
+
+
 def redact(
     text: str,
     *,
@@ -523,8 +564,7 @@ def redact(
         raise ValueError("types and types_exclude are mutually exclusive")
 
     if salt is not None and (
-        isinstance(salt, int)
-        or (isinstance(salt, (bytes, bytearray)) and len(salt) < 16)
+        isinstance(salt, int) or (isinstance(salt, (bytes, bytearray)) and len(salt) < 16)
     ):
         warnings.warn(
             "low-entropy salt: an integer or short salt is grid-searchable on small "
@@ -565,9 +605,7 @@ def redact(
     if isinstance(key, str):
         key_file = key
         path = Path(key_file)
-        existing_key = (
-            json.loads(_safe_read_text(path)) if path.exists() else {}
-        )
+        existing_key = json.loads(_safe_read_text(path)) if path.exists() else {}
     elif isinstance(key, dict):
         existing_key = dict(key)
 
@@ -684,14 +722,8 @@ def redact(
         return redacted, result_key, {"entities": entity_details, "stats": stats}
 
     if with_types:
-        # Precedence 3: with_types only — build replacement → PII type mapping
-        reverse_key = {v: k for k, v in result_key.items()}
-        type_map = {}
-        for e in entities:
-            replacement = reverse_key.get(e.text, "")
-            if replacement:
-                type_map[replacement] = e.type
-        return redacted, result_key, type_map
+        # Precedence 3: with_types only — replacement → PII type mapping
+        return redacted, result_key, _build_type_map(result_key, entities)
 
     # Precedence 4: default
     return redacted, result_key

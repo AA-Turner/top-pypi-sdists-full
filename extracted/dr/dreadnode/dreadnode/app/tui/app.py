@@ -19,6 +19,7 @@ from textual.widgets import Static, TextArea
 
 from dreadnode.app.api.client import AuthenticationError
 from dreadnode.app.api.models import HumanInputResponse, HumanPrompt, QuestionAnswer
+from dreadnode.app.cli.args import RESUME_PICK_SENTINEL
 from dreadnode.app.cli.shared import ArtifactRef
 from dreadnode.app.client.managed_client import ManagedRuntimeClient
 from dreadnode.app.client.models import CapabilityInfo, RuntimeInfo, SessionInfo
@@ -840,6 +841,12 @@ class _AppSessionsContext:
     def set_cost_unknown(self, unknown: bool) -> None:
         self._app.cost_unknown = unknown
 
+    def subagent_cost_usd(self) -> float:
+        return self._app.subagent_cost_usd
+
+    def set_subagent_cost_usd(self, cost: float) -> None:
+        self._app.subagent_cost_usd = cost
+
     def show_thinking(self) -> bool:
         return self._app._show_thinking
 
@@ -1522,6 +1529,7 @@ class DreadnodeTextualApp(App[None]):
     tool_call_count: reactive[int] = reactive(0)
     cost_usd: reactive[float] = reactive(0.0)
     cost_unknown: reactive[bool] = reactive(False)
+    subagent_cost_usd: reactive[float] = reactive(0.0)
     workspace_label: reactive[str] = reactive("")
     model_name: reactive[str] = reactive("")
     effort_label: reactive[str] = reactive("")
@@ -1858,6 +1866,7 @@ class DreadnodeTextualApp(App[None]):
             tool_call_count=DreadnodeTextualApp.tool_call_count,
             cost_usd=DreadnodeTextualApp.cost_usd,
             cost_unknown=DreadnodeTextualApp.cost_unknown,
+            subagent_cost_usd=DreadnodeTextualApp.subagent_cost_usd,
             runtime_issues=DreadnodeTextualApp.runtime_health,
         )
         return status
@@ -2357,6 +2366,7 @@ class DreadnodeTextualApp(App[None]):
             self.tool_call_count = 0
             self.cost_usd = 0.0
             self.cost_unknown = False
+            self.subagent_cost_usd = 0.0
             await self._sessions_manager.load_transcript(session_id)
             self._sync_active_session_projection()
             self._sync_sessions()
@@ -2811,6 +2821,7 @@ class DreadnodeTextualApp(App[None]):
         self.tool_call_count = 0
         self.cost_usd = 0.0
         self.cost_unknown = False
+        self.subagent_cost_usd = 0.0
         self._sync_conversation()
         self._sync_active_session_projection()
         self._sync_sessions()
@@ -3388,6 +3399,7 @@ class DreadnodeTextualApp(App[None]):
         self.tool_call_count = 0
         self.cost_usd = 0.0
         self.cost_unknown = False
+        self.subagent_cost_usd = 0.0
         await self._sessions_manager.load_transcript(session_id)
         await self._sync_runtime_session_subscriptions()
         self._sync_active_session_projection()
@@ -3396,7 +3408,16 @@ class DreadnodeTextualApp(App[None]):
         self._update_context()
 
     async def _resume_requested_session(self) -> None:
-        """Resume a session requested via --resume CLI flag."""
+        """Resume a session requested via --resume CLI flag.
+
+        When the resume ID is the pick sentinel, open the
+        session picker instead of matching a prefix — this is what
+        ``dn --resume`` (no ID) resolves to.
+        """
+        if self._resume_session_id == RESUME_PICK_SENTINEL:
+            self._refresh_sessions_then_open_picker()
+            return
+
         prefix = self._resume_session_id or ""
         matches = [sid for sid in self.sessions if sid.startswith(prefix)]
 

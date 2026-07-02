@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-slim
-Version: 2.107.0
+Version: 2.108.0
 Summary: Modular version of the Docling package: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Project-URL: homepage, https://github.com/docling-project/docling
 Project-URL: repository, https://github.com/docling-project/docling
@@ -80,6 +80,7 @@ Requires-Dist: transformers!=5.0.*,!=5.1.*,!=5.2.*,!=5.3.*,<6.0.0,>=4.42.0; (sys
 Requires-Dist: tritonclient[grpc]<3.0.0,>=2.65.0; extra == 'all'
 Requires-Dist: typer<0.27.0,>=0.12.5; extra == 'all'
 Requires-Dist: websockets<17.0,>=14.0; extra == 'all'
+Requires-Dist: whisper-s2t-reborn<2,>=1.6.3; (sys_platform != 'darwin' or platform_machine != 'arm64') and extra == 'all'
 Provides-Extra: cli
 Requires-Dist: python-dotenv~=1.0; extra == 'cli'
 Requires-Dist: rich>=13.0.0; extra == 'cli'
@@ -116,6 +117,7 @@ Provides-Extra: format-audio
 Requires-Dist: mlx-whisper>=0.4.3; (python_version >= '3.10' and sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'format-audio'
 Requires-Dist: numba>=0.63.0; extra == 'format-audio'
 Requires-Dist: openai-whisper>=20250625; extra == 'format-audio'
+Requires-Dist: whisper-s2t-reborn<2,>=1.6.3; (sys_platform != 'darwin' or platform_machine != 'arm64') and extra == 'format-audio'
 Provides-Extra: format-docx
 Requires-Dist: python-docx<2.0.0,>=1.1.2; extra == 'format-docx'
 Provides-Extra: format-email

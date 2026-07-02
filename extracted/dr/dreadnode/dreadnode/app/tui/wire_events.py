@@ -300,6 +300,10 @@ class ToolEndData(BaseModel):
     # uncaught exceptions still arrive as :class:`ToolError` instead.
     error: str | None = None
     error_type: str | None = None
+    # Estimated USD cost contributed by this tool call (e.g. sub-agent
+    # LLM spend). ``None`` for ordinary tools. The TUI accumulates this
+    # into a separate sub-agent cost display, not the main session cost.
+    cost_usd: float | None = None
 
 
 class ToolEnd(_Envelope):

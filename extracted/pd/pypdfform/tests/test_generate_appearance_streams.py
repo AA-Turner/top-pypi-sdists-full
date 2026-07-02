@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# TODO: why does pikepdf randomize final streams?
 
 import os
 
@@ -24,7 +23,30 @@ def test_fill(template_stream, pdf_samples, data_dict, request):
         expected = f.read()
 
         assert len(obj.read()) == len(expected)
-        request.config.results["skip_regenerate"] = len(obj.read()) == len(expected)
+        assert obj.read() == expected
+
+
+def test_fill_sejda_complex(
+    sejda_template_complex, sejda_complex_data, pdf_samples, request
+):
+    expected_path = os.path.join(
+        pdf_samples,
+        "generate_appearance_streams",
+        "paragraph",
+        "sample_filled_sejda_complex.pdf",
+    )
+    with open(expected_path, "rb+") as f:
+        obj = PdfWrapper(sejda_template_complex, generate_appearance_streams=True).fill(
+            sejda_complex_data,
+        )
+
+        request.config.results["expected_path"] = expected_path
+        request.config.results["stream"] = obj.read()
+
+        expected = f.read()
+
+        assert len(obj.read()) == len(expected)
+        assert obj.read() == expected
 
 
 def test_dropdown_two(sample_template_with_dropdown, pdf_samples, request):
@@ -53,30 +75,7 @@ def test_dropdown_two(sample_template_with_dropdown, pdf_samples, request):
         expected = f.read()
 
         assert len(obj.read()) == len(expected)
-        request.config.results["skip_regenerate"] = len(obj.read()) == len(expected)
-
-
-def test_fill_sejda_complex(
-    sejda_template_complex, sejda_complex_data, pdf_samples, request
-):
-    expected_path = os.path.join(
-        pdf_samples,
-        "generate_appearance_streams",
-        "paragraph",
-        "sample_filled_sejda_complex.pdf",
-    )
-    with open(expected_path, "rb+") as f:
-        obj = PdfWrapper(sejda_template_complex, generate_appearance_streams=True).fill(
-            sejda_complex_data,
-        )
-
-        request.config.results["expected_path"] = expected_path
-        request.config.results["stream"] = obj.read()
-
-        expected = f.read()
-
-        assert len(obj.read()) == len(expected)
-        request.config.results["skip_regenerate"] = len(obj.read()) == len(expected)
+        assert obj.read() == expected
 
 
 def test_issue_613(pdf_samples, request):
@@ -100,10 +99,10 @@ def test_issue_613(pdf_samples, request):
         expected = f.read()
 
         assert len(obj.read()) == len(expected)
-        request.config.results["skip_regenerate"] = len(obj.read()) == len(expected)
+        assert obj.read() == expected
 
 
-@pytest.mark.posix_only
+@pytest.mark.requires_zlib_over_zlib_ng
 def test_sample_template_library(
     pdf_samples, image_samples, sample_font_stream, request
 ):

@@ -17,10 +17,11 @@ This module defines:
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import math
 from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ExitCondition(BaseModel, frozen=True):
@@ -235,7 +236,10 @@ class Seed(BaseModel, frozen=True):
         seed.goal = "New goal"  # Raises ValidationError (frozen)
     """
 
-    # Direction - IMMUTABLE
+    # Direction - IMMUTABLE. Extra fields are reserved for plugin-owned,
+    # structured handoff data and must stay JSON/YAML serializable.
+    model_config = {"extra": "allow"}
+
     goal: str = Field(..., min_length=1, description="Primary objective of the workflow")
     task_type: str = Field(
         default="code",
@@ -314,13 +318,27 @@ class Seed(BaseModel, frozen=True):
             )
         return value
 
+    @model_validator(mode="after")
+    def _validate_plugin_extra_fields(self) -> Seed:
+        """Keep plugin-owned extra fields safe for Seed persistence paths."""
+        frozen_extra: dict[str, Any] = {}
+        for key, value in (self.model_extra or {}).items():
+            if not isinstance(key, str):
+                raise ValueError("Seed extra field keys must be strings")
+            frozen_extra[key] = _freeze_seed_extra_value(value, path=key)
+        object.__setattr__(self, "__pydantic_extra__", _FrozenDict(frozen_extra))
+        return self
+
     def to_dict(self) -> dict[str, Any]:
         """Convert seed to dictionary for serialization.
 
         Returns:
             Dictionary representation of the seed.
         """
-        return self.model_dump(mode="json", by_alias=True)
+        extra = self.model_extra or {}
+        data = self.model_dump(mode="json", by_alias=True, exclude=set(extra))
+        data.update({key: _thaw_seed_extra_value(value) for key, value in extra.items()})
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Seed:
@@ -333,3 +351,47 @@ class Seed(BaseModel, frozen=True):
             Seed instance.
         """
         return cls.model_validate(data)
+
+
+def _freeze_seed_extra_value(value: Any, *, path: str) -> Any:
+    if value is None or isinstance(value, str | bool | int):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError(f"Seed extra field {path!r} must be a finite float")
+        return value
+    if isinstance(value, list):
+        return tuple(
+            _freeze_seed_extra_value(item, path=f"{path}[{index}]")
+            for index, item in enumerate(value)
+        )
+    if isinstance(value, dict):
+        frozen: dict[str, Any] = {}
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ValueError(f"Seed extra field {path!r} dict keys must be strings")
+            frozen[key] = _freeze_seed_extra_value(item, path=f"{path}.{key}")
+        return _FrozenDict(frozen)
+    raise ValueError(f"Seed extra field {path!r} must be JSON/YAML-serializable structured data")
+
+
+def _thaw_seed_extra_value(value: Any) -> Any:
+    if isinstance(value, _FrozenDict):
+        return {key: _thaw_seed_extra_value(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw_seed_extra_value(item) for item in value]
+    return value
+
+
+class _FrozenDict(dict[str, Any]):
+    def _readonly(self, *_args: Any, **_kwargs: Any) -> None:
+        raise TypeError("Seed extra fields are immutable")
+
+    __setitem__ = _readonly
+    __delitem__ = _readonly
+    clear = _readonly
+    pop = _readonly
+    popitem = _readonly
+    setdefault = _readonly
+    update = _readonly
+    __ior__ = _readonly

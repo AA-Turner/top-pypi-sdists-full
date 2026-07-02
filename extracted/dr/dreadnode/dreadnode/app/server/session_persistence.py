@@ -23,6 +23,7 @@ class _PersistSnapshot:
     persisted_message_count: int
     all_messages_count: int = 0
     new_messages: list[t.Any] | None = None
+    new_message_uuids: list[str] | None = None
     usage_by_uuid: dict[str, dict[str, t.Any]] | None = None
     needs_context: bool = False
     context: dict[str, t.Any] | None = None
@@ -66,6 +67,13 @@ class SessionPersistenceCoordinator:
         self._resolve_agent_system_prompt = resolve_agent_system_prompt
         self._last_persisted_seq: int = -1
         self._persisted_message_count: int = 0
+        # Track persisted messages by stable uuid, not positional index:
+        # ``Trajectory.messages`` reorders buffered tool results relative to
+        # assistant messages, so positional slicing can skip a freshly-added
+        # assistant (tool-call) message that got reordered behind the boundary
+        # (orphan tool results, lost calls — pronounced under foreign engines
+        # that emit tool bursts). uuid tracking is order-independent.
+        self._persisted_message_uuids: set[str] = set()
         self._current_segment_agent: str | None = None
         self._current_segment_model: str | None = None
         self._current_segment_system_prompt: str | None = None
@@ -90,6 +98,16 @@ class SessionPersistenceCoordinator:
     @persisted_message_count.setter
     def persisted_message_count(self, value: int) -> None:
         self._persisted_message_count = value
+        # Restore/hydration marks already-present messages as persisted via this
+        # setter (without re-sending them). Seed the uuid set too, or the
+        # uuid-based new-message filter would treat the hydrated messages as new
+        # and re-persist them on the next flush.
+        trajectory = self._get_trajectory()
+        if trajectory is not None:
+            for message in list(trajectory.messages)[:value]:
+                uuid = getattr(message, "uuid", None)
+                if uuid is not None:
+                    self._persisted_message_uuids.add(str(uuid))
 
     @property
     def persist_lock(self) -> asyncio.Lock:
@@ -230,9 +248,16 @@ class SessionPersistenceCoordinator:
             return None
 
         persisted_message_count = self._persisted_message_count
-        new_messages = all_messages[persisted_message_count:]
+        # Filter by stable uuid rather than positional slice (see __init__):
+        # any message whose uuid hasn't been persisted is new, regardless of
+        # where reordering placed it in the list.
+        persisted_uuids = self._persisted_message_uuids
+        new_messages = [
+            m for m in all_messages if str(getattr(m, "uuid", None)) not in persisted_uuids
+        ]
         if not new_messages:
             return None
+        new_message_uuids = [str(getattr(m, "uuid", None)) for m in new_messages]
 
         from dreadnode.agents.events import GenerationStep
 
@@ -281,6 +306,7 @@ class SessionPersistenceCoordinator:
             persisted_message_count=persisted_message_count,
             all_messages_count=len(all_messages),
             new_messages=new_messages,
+            new_message_uuids=new_message_uuids,
             usage_by_uuid=usage_by_uuid or None,
             needs_context=needs_context,
             context=context,
@@ -349,6 +375,8 @@ class SessionPersistenceCoordinator:
             self._persisted_message_count,
             snapshot.all_messages_count,
         )
+        if snapshot.new_message_uuids:
+            self._persisted_message_uuids.update(snapshot.new_message_uuids)
         if snapshot.needs_context:
             self._current_segment_agent = snapshot.current_agent
             self._current_segment_model = snapshot.current_model

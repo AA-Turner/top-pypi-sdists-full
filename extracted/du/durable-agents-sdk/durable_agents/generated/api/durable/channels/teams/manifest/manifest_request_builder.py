@@ -14,6 +14,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ......models.channel_message_access import ChannelMessageAccess
     from ......models.error_envelope import ErrorEnvelope
 
 class ManifestRequestBuilder(BaseRequestBuilder):
@@ -27,7 +28,7 @@ class ManifestRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/api/durable/channels/teams/manifest?bot_id={bot_id}{&name*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/api/durable/channels/teams/manifest?bot_id={bot_id}{&message_access*,name*}", path_parameters)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[ManifestRequestBuilderGetQueryParameters]] = None) -> Optional[bytes]:
         """
@@ -74,6 +75,8 @@ class ManifestRequestBuilder(BaseRequestBuilder):
         Download the Microsoft Teams app package.
         """
         bot_id: Optional[str] = None
+
+        message_access: Optional[ChannelMessageAccess] = None
 
         name: Optional[str] = None
 

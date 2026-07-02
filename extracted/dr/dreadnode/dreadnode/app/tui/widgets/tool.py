@@ -6,21 +6,33 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from markdown_it import MarkdownIt
+from rich import box
 from rich.console import Group
-from rich.markdown import Heading, Markdown
+from rich.markdown import Heading, Markdown, TableElement
 from rich.segment import Segment
 from rich.style import Style
+from rich.table import Table
 from rich.text import Text
 from textual.reactive import reactive
 from textual.widget import Widget
 
-from dreadnode.app.tui.theme import ACCENT, ERROR, FG, FG_FAINTEST, FG_MUTED, FG_SUBTLE
+from dreadnode.app.tui.theme import (
+    ACCENT,
+    BORDER_LIGHT,
+    ERROR,
+    FG,
+    FG_FAINTEST,
+    FG_MUTED,
+    FG_SUBTLE,
+)
 
 if TYPE_CHECKING:
     from rich.console import (
         Console,
         ConsoleOptions,
         ConsoleRenderable,
+        JustifyMethod,
         RenderableType,
         RenderResult,
     )
@@ -73,15 +85,65 @@ class _ThemedHeading(Heading):
         yield text
 
 
+class _BorderedTable(TableElement):
+    """Render Markdown tables with a visible border and header rule.
+
+    Rich's default table element uses ``box.SIMPLE_HEAVY`` (borderless); this
+    restores the bordered grid the Textual ``MarkdownTable`` widget produced so
+    committed messages match the previous look.
+    """
+
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        table = Table(box=box.SQUARE, border_style=BORDER_LIGHT, header_style=f"bold {FG}")
+        if self.header is not None and self.header.row is not None:
+            for column in self.header.row.cells:
+                table.add_column(column.content)
+        if self.body is not None:
+            for row in self.body.rows:
+                table.add_row(*[cell.content for cell in row.cells])
+        yield table
+
+
 class ThemedMarkdown(Markdown):
     """Rich ``Markdown`` whose headings match the TCSS conversation theme.
 
-    See ``_ThemedHeading`` for the rationale — this subclass simply swaps
-    the heading element so report bodies rendered inside ``ToolCall``
-    don't fall back to Rich's centered/magenta-underlined defaults.
+    See ``_ThemedHeading`` for the rationale — this subclass swaps the heading
+    element so bodies don't fall back to Rich's centered/magenta-underlined
+    defaults, and parses with the same ``gfm-like`` preset Textual's ``Markdown``
+    widget uses so content renders identically whether it came through this Rich
+    path or a Textual widget.
     """
 
-    elements: ClassVar[dict[str, type]] = {**Markdown.elements, "heading_open": _ThemedHeading}
+    elements: ClassVar[dict[str, type]] = {
+        **Markdown.elements,
+        "heading_open": _ThemedHeading,
+        "table_open": _BorderedTable,
+    }
+
+    def __init__(
+        self,
+        markup: str,
+        code_theme: str = "monokai",
+        justify: JustifyMethod | None = None,
+        style: str | Style = "none",
+        hyperlinks: bool = True,
+        inline_code_lexer: str | None = None,
+        inline_code_theme: str | None = None,
+    ) -> None:
+        # Set up the same attributes Rich's ``Markdown.__init__`` would, but
+        # parse with the ``gfm-like`` preset Textual's Markdown widget uses
+        # (tables, strikethrough, and linkified bare URLs) so content renders
+        # identically through this Rich path or a Textual widget. We inline the
+        # setup rather than call ``super().__init__`` so the document is parsed
+        # once, not twice.
+        self.markup = markup
+        self.parsed = MarkdownIt("gfm-like").parse(markup)
+        self.code_theme = code_theme
+        self.justify = justify
+        self.style = style
+        self.hyperlinks = hyperlinks
+        self.inline_code_lexer = inline_code_lexer
+        self.inline_code_theme = inline_code_theme or code_theme
 
 
 class _GutterFrame:

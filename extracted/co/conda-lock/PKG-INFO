@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: conda_lock
-Version: 4.0.1
+Version: 4.0.2
 Summary: Lockfiles for conda
 Project-URL: Homepage, https://github.com/conda/conda-lock
 Project-URL: Repository, https://github.com/conda/conda-lock

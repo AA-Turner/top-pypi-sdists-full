@@ -44,12 +44,103 @@ else:
     _workflows_2b7f1587 = _LazyImport("projen.github.workflows")
 
 
+@jsii.data_type(
+    jsii_type="projen.typescript.NodeRunnerOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "experimental_transform_types": "experimentalTransformTypes",
+        "tsconfig": "tsconfig",
+        "type_check": "typeCheck",
+    },
+)
+class NodeRunnerOptions:
+    def __init__(
+        self,
+        *,
+        experimental_transform_types: typing.Optional[builtins.bool] = None,
+        tsconfig: typing.Optional[builtins.str] = None,
+        type_check: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Options for the native Node.js TypeScript runner.
+
+        :param experimental_transform_types: (experimental) Whether to also enable ``--experimental-transform-types``. Default: false
+        :param tsconfig: (experimental) Path to the tsconfig file for type-checking. When specified, will use this tsconfig for type-checking (if enabled). Default: - typescript default discovery
+        :param type_check: (experimental) Whether to type-check the entrypoint before executing. Because the native Node.js TypeScript does not type check code, you may want to enable this for additional type safety. When enabled, runs ``tsc --noEmit``, using the provided tsconfig. Default: false
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1939fe76e1bf004b26e371eb35e14ee2942bdc2871ba55451771cd90263896f2)
+            check_type(argname="argument experimental_transform_types", value=experimental_transform_types, expected_type=type_hints["experimental_transform_types"])
+            check_type(argname="argument tsconfig", value=tsconfig, expected_type=type_hints["tsconfig"])
+            check_type(argname="argument type_check", value=type_check, expected_type=type_hints["type_check"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if experimental_transform_types is not None:
+            self._values["experimental_transform_types"] = experimental_transform_types
+        if tsconfig is not None:
+            self._values["tsconfig"] = tsconfig
+        if type_check is not None:
+            self._values["type_check"] = type_check
+
+    @builtins.property
+    def experimental_transform_types(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to also enable ``--experimental-transform-types``.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("experimental_transform_types")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def tsconfig(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Path to the tsconfig file for type-checking.
+
+        When specified, will use this tsconfig for type-checking (if enabled).
+
+        :default: - typescript default discovery
+
+        :stability: experimental
+        '''
+        result = self._values.get("tsconfig")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def type_check(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to type-check the entrypoint before executing.
+
+        Because the native Node.js TypeScript does not type check code,
+        you may want to enable this for additional type safety.
+        When enabled, runs ``tsc --noEmit``, using the provided tsconfig.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("type_check")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NodeRunnerOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class Projenrc(
     _projen_04054675.ProjenrcFile,
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.typescript.Projenrc",
 ):
-    '''(experimental) Sets up a typescript project to use TypeScript for projenrc.
+    '''(experimental) A projenrc file written in TypeScript.
+
+    This component is used within TypeScriptProject.
 
     :stability: experimental
     '''
@@ -60,13 +151,15 @@ class Projenrc(
         *,
         filename: typing.Optional[builtins.str] = None,
         projen_code_dir: typing.Optional[builtins.str] = None,
+        runner: typing.Optional["TypeScriptRunner"] = None,
         swc: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param project: -
         :param filename: (experimental) The name of the projenrc file. Default: ".projenrc.ts"
         :param projen_code_dir: (experimental) A directory tree that may contain *.ts files that can be referenced from your projenrc typescript file. Default: "projenrc"
-        :param swc: (experimental) Whether to use ``SWC`` for ts-node. Default: false
+        :param runner: (experimental) The runner to use for executing TypeScript files. Default: - the project's runner
+        :param swc: (deprecated) Whether to use ``SWC`` for ts-node. Default: false
 
         :stability: experimental
         '''
@@ -74,7 +167,7 @@ class Projenrc(
             type_hints = typing.get_type_hints(_typecheckingstub__2263ee9c745ea47c774563d843521472e79762041f4e1ae7ba448b00eb619b8d)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = ProjenrcOptions(
-            filename=filename, projen_code_dir=projen_code_dir, swc=swc
+            filename=filename, projen_code_dir=projen_code_dir, runner=runner, swc=swc
         )
 
         jsii.create(self.__class__, self, [project, options])
@@ -111,6 +204,7 @@ class Projenrc(
     name_mapping={
         "filename": "filename",
         "projen_code_dir": "projenCodeDir",
+        "runner": "runner",
         "swc": "swc",
     },
 )
@@ -120,12 +214,14 @@ class ProjenrcOptions:
         *,
         filename: typing.Optional[builtins.str] = None,
         projen_code_dir: typing.Optional[builtins.str] = None,
+        runner: typing.Optional["TypeScriptRunner"] = None,
         swc: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param filename: (experimental) The name of the projenrc file. Default: ".projenrc.ts"
         :param projen_code_dir: (experimental) A directory tree that may contain *.ts files that can be referenced from your projenrc typescript file. Default: "projenrc"
-        :param swc: (experimental) Whether to use ``SWC`` for ts-node. Default: false
+        :param runner: (experimental) The runner to use for executing TypeScript files. Default: - the project's runner
+        :param swc: (deprecated) Whether to use ``SWC`` for ts-node. Default: false
 
         :stability: experimental
         '''
@@ -133,12 +229,15 @@ class ProjenrcOptions:
             type_hints = typing.get_type_hints(_typecheckingstub__c19ece862a34d563e3af49bcb2633dab3ba4ac5f67cc57c6fff86d7cca41defc)
             check_type(argname="argument filename", value=filename, expected_type=type_hints["filename"])
             check_type(argname="argument projen_code_dir", value=projen_code_dir, expected_type=type_hints["projen_code_dir"])
+            check_type(argname="argument runner", value=runner, expected_type=type_hints["runner"])
             check_type(argname="argument swc", value=swc, expected_type=type_hints["swc"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if filename is not None:
             self._values["filename"] = filename
         if projen_code_dir is not None:
             self._values["projen_code_dir"] = projen_code_dir
+        if runner is not None:
+            self._values["runner"] = runner
         if swc is not None:
             self._values["swc"] = swc
 
@@ -165,12 +264,25 @@ class ProjenrcOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def runner(self) -> typing.Optional["TypeScriptRunner"]:
+        '''(experimental) The runner to use for executing TypeScript files.
+
+        :default: - the project's runner
+
+        :stability: experimental
+        '''
+        result = self._values.get("runner")
+        return typing.cast(typing.Optional["TypeScriptRunner"], result)
+
+    @builtins.property
     def swc(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether to use ``SWC`` for ts-node.
+        '''(deprecated) Whether to use ``SWC`` for ts-node.
 
         :default: false
 
-        :stability: experimental
+        :deprecated: Use ``runner: TypeScriptRunner.tsNode({ swc: true })`` instead.
+
+        :stability: deprecated
         '''
         result = self._values.get("swc")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -197,8 +309,6 @@ class ProjenrcTs(
     This component can be instantiated in any type of project
     and has no expectations around the project's main language.
 
-    Requires that ``npx`` is available.
-
     :stability: experimental
     '''
 
@@ -208,13 +318,15 @@ class ProjenrcTs(
         *,
         filename: typing.Optional[builtins.str] = None,
         projen_code_dir: typing.Optional[builtins.str] = None,
+        runner: typing.Optional["TypeScriptRunner"] = None,
         tsconfig_file_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param project: -
         :param filename: (experimental) The name of the projenrc file. Default: ".projenrc.ts"
         :param projen_code_dir: (experimental) A directory tree that may contain *.ts files that can be referenced from your projenrc typescript file. Default: "projenrc"
-        :param tsconfig_file_name: (experimental) The name of the tsconfig file that will be used by ts-node when compiling projen source files. Default: "tsconfig.projen.json"
+        :param runner: (experimental) The runner to use for executing TypeScript files. Default: TypeScriptRunner.tsNode()
+        :param tsconfig_file_name: (deprecated) The name of the tsconfig file that will be used by the runner when compiling projen source files. Default: "tsconfig.projen.json"
 
         :stability: experimental
         '''
@@ -224,6 +336,7 @@ class ProjenrcTs(
         options = ProjenrcTsOptions(
             filename=filename,
             projen_code_dir=projen_code_dir,
+            runner=runner,
             tsconfig_file_name=tsconfig_file_name,
         )
 
@@ -262,6 +375,7 @@ class ProjenrcTs(
     name_mapping={
         "filename": "filename",
         "projen_code_dir": "projenCodeDir",
+        "runner": "runner",
         "tsconfig_file_name": "tsconfigFileName",
     },
 )
@@ -271,12 +385,14 @@ class ProjenrcTsOptions:
         *,
         filename: typing.Optional[builtins.str] = None,
         projen_code_dir: typing.Optional[builtins.str] = None,
+        runner: typing.Optional["TypeScriptRunner"] = None,
         tsconfig_file_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param filename: (experimental) The name of the projenrc file. Default: ".projenrc.ts"
         :param projen_code_dir: (experimental) A directory tree that may contain *.ts files that can be referenced from your projenrc typescript file. Default: "projenrc"
-        :param tsconfig_file_name: (experimental) The name of the tsconfig file that will be used by ts-node when compiling projen source files. Default: "tsconfig.projen.json"
+        :param runner: (experimental) The runner to use for executing TypeScript files. Default: TypeScriptRunner.tsNode()
+        :param tsconfig_file_name: (deprecated) The name of the tsconfig file that will be used by the runner when compiling projen source files. Default: "tsconfig.projen.json"
 
         :stability: experimental
         '''
@@ -284,12 +400,15 @@ class ProjenrcTsOptions:
             type_hints = typing.get_type_hints(_typecheckingstub__160fd3491644df95d187ac5907c3e3cc1eb206baf5e8a1cbfca8496701ab6df6)
             check_type(argname="argument filename", value=filename, expected_type=type_hints["filename"])
             check_type(argname="argument projen_code_dir", value=projen_code_dir, expected_type=type_hints["projen_code_dir"])
+            check_type(argname="argument runner", value=runner, expected_type=type_hints["runner"])
             check_type(argname="argument tsconfig_file_name", value=tsconfig_file_name, expected_type=type_hints["tsconfig_file_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if filename is not None:
             self._values["filename"] = filename
         if projen_code_dir is not None:
             self._values["projen_code_dir"] = projen_code_dir
+        if runner is not None:
+            self._values["runner"] = runner
         if tsconfig_file_name is not None:
             self._values["tsconfig_file_name"] = tsconfig_file_name
 
@@ -316,12 +435,25 @@ class ProjenrcTsOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def runner(self) -> typing.Optional["TypeScriptRunner"]:
+        '''(experimental) The runner to use for executing TypeScript files.
+
+        :default: TypeScriptRunner.tsNode()
+
+        :stability: experimental
+        '''
+        result = self._values.get("runner")
+        return typing.cast(typing.Optional["TypeScriptRunner"], result)
+
+    @builtins.property
     def tsconfig_file_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The name of the tsconfig file that will be used by ts-node when compiling projen source files.
+        '''(deprecated) The name of the tsconfig file that will be used by the runner when compiling projen source files.
 
         :default: "tsconfig.projen.json"
 
-        :stability: experimental
+        :deprecated: Use ``runner`` to configure the tsconfigFileName directly.
+
+        :stability: deprecated
         '''
         result = self._values.get("tsconfig_file_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -934,6 +1066,157 @@ class TsJestTsconfig(
         return typing.cast("TsJestTsconfig", jsii.sinvoke(cls, "fromFile", [file_path]))
 
 
+@jsii.data_type(
+    jsii_type="projen.typescript.TsNodeRunnerOptions",
+    jsii_struct_bases=[],
+    name_mapping={"swc": "swc", "tsconfig": "tsconfig", "type_check": "typeCheck"},
+)
+class TsNodeRunnerOptions:
+    def __init__(
+        self,
+        *,
+        swc: typing.Optional[builtins.bool] = None,
+        tsconfig: typing.Optional[builtins.str] = None,
+        type_check: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Options for the ts-node runner.
+
+        :param swc: (experimental) Whether to use SWC for transpilation. This will disable type-checking. Default: false
+        :param tsconfig: (experimental) Path to the tsconfig file to use. Default: - ts-node default discovery
+        :param type_check: (experimental) Whether to type-check the script during executing. Default: true
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__996cd2806aa10d291f836ab1bc4fd6b397dbdec7875d027aedb273d748cb57ad)
+            check_type(argname="argument swc", value=swc, expected_type=type_hints["swc"])
+            check_type(argname="argument tsconfig", value=tsconfig, expected_type=type_hints["tsconfig"])
+            check_type(argname="argument type_check", value=type_check, expected_type=type_hints["type_check"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if swc is not None:
+            self._values["swc"] = swc
+        if tsconfig is not None:
+            self._values["tsconfig"] = tsconfig
+        if type_check is not None:
+            self._values["type_check"] = type_check
+
+    @builtins.property
+    def swc(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to use SWC for transpilation.
+
+        This will disable type-checking.
+
+        :default: false
+
+        :see: https://github.com/TypeStrong/ts-node#swc
+        :stability: experimental
+        '''
+        result = self._values.get("swc")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def tsconfig(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Path to the tsconfig file to use.
+
+        :default: - ts-node default discovery
+
+        :stability: experimental
+        '''
+        result = self._values.get("tsconfig")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def type_check(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to type-check the script during executing.
+
+        :default: true
+
+        :see: https://github.com/TypeStrong/ts-node#typecheck
+        :stability: experimental
+        '''
+        result = self._values.get("type_check")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TsNodeRunnerOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.typescript.TsxRunnerOptions",
+    jsii_struct_bases=[],
+    name_mapping={"tsconfig": "tsconfig", "type_check": "typeCheck"},
+)
+class TsxRunnerOptions:
+    def __init__(
+        self,
+        *,
+        tsconfig: typing.Optional[builtins.str] = None,
+        type_check: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Options for the tsx runner.
+
+        :param tsconfig: (experimental) Path to the tsconfig file to use. When specified, will use this tsconfig for running tsx and type-checking (if enabled). Default: - tsx/typescript default discovery
+        :param type_check: (experimental) Whether to type-check the entrypoint before executing. Because tsx does not type check code, you may want to enable this for additional type safety. When enabled, runs ``tsc --noEmit``, using the provided tsconfig. Default: false
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4d73ec80c59f6436fffd0f95dad78637bd0bbe1b9f4b699fb5a70c1f2d10151)
+            check_type(argname="argument tsconfig", value=tsconfig, expected_type=type_hints["tsconfig"])
+            check_type(argname="argument type_check", value=type_check, expected_type=type_hints["type_check"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if tsconfig is not None:
+            self._values["tsconfig"] = tsconfig
+        if type_check is not None:
+            self._values["type_check"] = type_check
+
+    @builtins.property
+    def tsconfig(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Path to the tsconfig file to use.
+
+        When specified, will use this tsconfig for running tsx and type-checking (if enabled).
+
+        :default: - tsx/typescript default discovery
+
+        :stability: experimental
+        '''
+        result = self._values.get("tsconfig")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def type_check(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to type-check the entrypoint before executing.
+
+        Because tsx does not type check code, you may want to enable this for additional type safety.
+        When enabled, runs ``tsc --noEmit``, using the provided tsconfig.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("type_check")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TsxRunnerOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class TypeScriptProject(
     _javascript_eb5dbe11.NodeProject,
     metaclass=jsii.JSIIMeta,
@@ -958,6 +1241,7 @@ class TypeScriptProject(
         libdir: typing.Optional[builtins.str] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
         projenrc_ts_options: typing.Optional[typing.Union["ProjenrcOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        runner: typing.Optional["TypeScriptRunner"] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
         testdir: typing.Optional[builtins.str] = None,
@@ -1107,6 +1391,7 @@ class TypeScriptProject(
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
         :param projenrc_ts_options: (experimental) Options for .projenrc.ts.
+        :param runner: (experimental) The TypeScript runner to use for executing TypeScript files. This is a project-level setting that components (e.g. projenrc) will use as their default runner. Default: TypeScriptRunner.tsNode()
         :param sample_code: (experimental) Generate one-time sample in ``src/`` and ``test/`` if there are no files there. Default: true
         :param srcdir: (experimental) Typescript sources directory. Default: "src"
         :param testdir: (experimental) Jest tests directory. Tests files should be named ``xxx.test.ts``. If this directory is under ``srcdir`` (e.g. ``src/test``, ``src/__tests__``), then tests are going to be compiled into ``lib/`` and executed as javascript. If the test directory is outside of ``src``, then we configure jest to compile the code in-memory. Default: "test"
@@ -1258,6 +1543,7 @@ class TypeScriptProject(
             libdir=libdir,
             projenrc_ts=projenrc_ts,
             projenrc_ts_options=projenrc_ts_options,
+            runner=runner,
             sample_code=sample_code,
             srcdir=srcdir,
             testdir=testdir,
@@ -1433,6 +1719,15 @@ class TypeScriptProject(
         :stability: experimental
         '''
         return typing.cast(builtins.str, jsii.get(self, "libdir"))
+
+    @builtins.property
+    @jsii.member(jsii_name="runner")
+    def runner(self) -> "TypeScriptRunner":
+        '''(experimental) The TypeScript runner used for executing TypeScript files.
+
+        :stability: experimental
+        '''
+        return typing.cast("TypeScriptRunner", jsii.get(self, "runner"))
 
     @builtins.property
     @jsii.member(jsii_name="srcdir")
@@ -1648,6 +1943,7 @@ class TypeScriptProject(
         "libdir": "libdir",
         "projenrc_ts": "projenrcTs",
         "projenrc_ts_options": "projenrcTsOptions",
+        "runner": "runner",
         "sample_code": "sampleCode",
         "srcdir": "srcdir",
         "testdir": "testdir",
@@ -1801,6 +2097,7 @@ class TypeScriptProjectOptions(_javascript_eb5dbe11.NodeProjectOptions):
         libdir: typing.Optional[builtins.str] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
         projenrc_ts_options: typing.Optional[typing.Union["ProjenrcOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        runner: typing.Optional["TypeScriptRunner"] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
         testdir: typing.Optional[builtins.str] = None,
@@ -1950,6 +2247,7 @@ class TypeScriptProjectOptions(_javascript_eb5dbe11.NodeProjectOptions):
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
         :param projenrc_ts_options: (experimental) Options for .projenrc.ts.
+        :param runner: (experimental) The TypeScript runner to use for executing TypeScript files. This is a project-level setting that components (e.g. projenrc) will use as their default runner. Default: TypeScriptRunner.tsNode()
         :param sample_code: (experimental) Generate one-time sample in ``src/`` and ``test/`` if there are no files there. Default: true
         :param srcdir: (experimental) Typescript sources directory. Default: "src"
         :param testdir: (experimental) Jest tests directory. Tests files should be named ``xxx.test.ts``. If this directory is under ``srcdir`` (e.g. ``src/test``, ``src/__tests__``), then tests are going to be compiled into ``lib/`` and executed as javascript. If the test directory is outside of ``src``, then we configure jest to compile the code in-memory. Default: "test"
@@ -2166,6 +2464,7 @@ class TypeScriptProjectOptions(_javascript_eb5dbe11.NodeProjectOptions):
             check_type(argname="argument libdir", value=libdir, expected_type=type_hints["libdir"])
             check_type(argname="argument projenrc_ts", value=projenrc_ts, expected_type=type_hints["projenrc_ts"])
             check_type(argname="argument projenrc_ts_options", value=projenrc_ts_options, expected_type=type_hints["projenrc_ts_options"])
+            check_type(argname="argument runner", value=runner, expected_type=type_hints["runner"])
             check_type(argname="argument sample_code", value=sample_code, expected_type=type_hints["sample_code"])
             check_type(argname="argument srcdir", value=srcdir, expected_type=type_hints["srcdir"])
             check_type(argname="argument testdir", value=testdir, expected_type=type_hints["testdir"])
@@ -2453,6 +2752,8 @@ class TypeScriptProjectOptions(_javascript_eb5dbe11.NodeProjectOptions):
             self._values["projenrc_ts"] = projenrc_ts
         if projenrc_ts_options is not None:
             self._values["projenrc_ts_options"] = projenrc_ts_options
+        if runner is not None:
+            self._values["runner"] = runner
         if sample_code is not None:
             self._values["sample_code"] = sample_code
         if srcdir is not None:
@@ -4226,6 +4527,20 @@ class TypeScriptProjectOptions(_javascript_eb5dbe11.NodeProjectOptions):
         return typing.cast(typing.Optional["ProjenrcOptions"], result)
 
     @builtins.property
+    def runner(self) -> typing.Optional["TypeScriptRunner"]:
+        '''(experimental) The TypeScript runner to use for executing TypeScript files.
+
+        This is a project-level setting that components (e.g. projenrc) will
+        use as their default runner.
+
+        :default: TypeScriptRunner.tsNode()
+
+        :stability: experimental
+        '''
+        result = self._values.get("runner")
+        return typing.cast(typing.Optional["TypeScriptRunner"], result)
+
+    @builtins.property
     def sample_code(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Generate one-time sample in ``src/`` and ``test/`` if there are no files there.
 
@@ -4339,6 +4654,198 @@ class TypeScriptProjectOptions(_javascript_eb5dbe11.NodeProjectOptions):
         )
 
 
+class TypeScriptRunner(
+    _projen_04054675.ScriptRunner,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.typescript.TypeScriptRunner",
+):
+    '''(experimental) The runner used to execute TypeScript files.
+
+    A runner is a {@link FutureComponent }: create it standalone (e.g. via one of
+    the static factories) and it is attached to a project by the component that
+    consumes it. Use {@link TypeScriptRunner.copy} to derive a new runner with
+    adjusted options.
+
+    :stability: experimental
+    '''
+
+    @jsii.member(jsii_name="nodejs")
+    @builtins.classmethod
+    def nodejs(
+        cls,
+        *,
+        experimental_transform_types: typing.Optional[builtins.bool] = None,
+        tsconfig: typing.Optional[builtins.str] = None,
+        type_check: typing.Optional[builtins.bool] = None,
+    ) -> "TypeScriptRunner":
+        '''(experimental) Use the native Node.js TypeScript support.
+
+        Requires Node.js 22.18.0 or later.
+        The script must use ESM style imports (no directories, include file endings, etc.).
+
+        Named ``nodejs`` (not ``node``) because a runner is a construct, and ``node`` is
+        reserved by ``constructs.Construct`` for the construct's tree node.
+
+        :param experimental_transform_types: (experimental) Whether to also enable ``--experimental-transform-types``. Default: false
+        :param tsconfig: (experimental) Path to the tsconfig file for type-checking. When specified, will use this tsconfig for type-checking (if enabled). Default: - typescript default discovery
+        :param type_check: (experimental) Whether to type-check the entrypoint before executing. Because the native Node.js TypeScript does not type check code, you may want to enable this for additional type safety. When enabled, runs ``tsc --noEmit``, using the provided tsconfig. Default: false
+
+        :stability: experimental
+        '''
+        options = NodeRunnerOptions(
+            experimental_transform_types=experimental_transform_types,
+            tsconfig=tsconfig,
+            type_check=type_check,
+        )
+
+        return typing.cast("TypeScriptRunner", jsii.sinvoke(cls, "nodejs", [options]))
+
+    @jsii.member(jsii_name="tsNode")
+    @builtins.classmethod
+    def ts_node(
+        cls,
+        *,
+        swc: typing.Optional[builtins.bool] = None,
+        tsconfig: typing.Optional[builtins.str] = None,
+        type_check: typing.Optional[builtins.bool] = None,
+    ) -> "TypeScriptRunner":
+        '''(experimental) Use ts-node to execute TypeScript files.
+
+        :param swc: (experimental) Whether to use SWC for transpilation. This will disable type-checking. Default: false
+        :param tsconfig: (experimental) Path to the tsconfig file to use. Default: - ts-node default discovery
+        :param type_check: (experimental) Whether to type-check the script during executing. Default: true
+
+        :stability: experimental
+        '''
+        options = TsNodeRunnerOptions(
+            swc=swc, tsconfig=tsconfig, type_check=type_check
+        )
+
+        return typing.cast("TypeScriptRunner", jsii.sinvoke(cls, "tsNode", [options]))
+
+    @jsii.member(jsii_name="tsx")
+    @builtins.classmethod
+    def tsx(
+        cls,
+        *,
+        tsconfig: typing.Optional[builtins.str] = None,
+        type_check: typing.Optional[builtins.bool] = None,
+    ) -> "TypeScriptRunner":
+        '''(experimental) Use tsx to execute TypeScript files.
+
+        tsx is a fast TypeScript runtime that does not perform type-checking.
+        You may opt-in to an explicit type-checking step before the script is run.
+
+        :param tsconfig: (experimental) Path to the tsconfig file to use. When specified, will use this tsconfig for running tsx and type-checking (if enabled). Default: - tsx/typescript default discovery
+        :param type_check: (experimental) Whether to type-check the entrypoint before executing. Because tsx does not type check code, you may want to enable this for additional type safety. When enabled, runs ``tsc --noEmit``, using the provided tsconfig. Default: false
+
+        :stability: experimental
+        '''
+        options = TsxRunnerOptions(tsconfig=tsconfig, type_check=type_check)
+
+        return typing.cast("TypeScriptRunner", jsii.sinvoke(cls, "tsx", [options]))
+
+    @jsii.member(jsii_name="configFor")
+    def config_for(
+        self,
+        entrypoint: builtins.str,
+    ) -> "_projen_04054675.RunScriptConfig":
+        '''(experimental) Produce the {@link RunScriptConfig} to run the given entrypoint with this runner.
+
+        :param entrypoint: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8e3b41b83a92833d538e1f3bf68ef5f60a356dd38b7cb99a42e0b4cd70535fb8)
+            check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
+        return typing.cast("_projen_04054675.RunScriptConfig", jsii.invoke(self, "configFor", [entrypoint]))
+
+    @jsii.member(jsii_name="copy")
+    def copy(
+        self,
+        *,
+        tsconfig: typing.Optional[builtins.str] = None,
+        type_check: typing.Optional[builtins.bool] = None,
+    ) -> "TypeScriptRunner":
+        '''(experimental) Returns a new (detached) runner of the same kind, with ``overrides`` merged over the current options.
+
+        Safe to call while detached.
+
+        :param tsconfig: (experimental) Path to the tsconfig file to use.
+        :param type_check: (experimental) Whether to type-check the entrypoint.
+
+        :stability: experimental
+        '''
+        overrides = TypeScriptRunnerOptions(tsconfig=tsconfig, type_check=type_check)
+
+        return typing.cast("TypeScriptRunner", jsii.invoke(self, "copy", [overrides]))
+
+
+@jsii.data_type(
+    jsii_type="projen.typescript.TypeScriptRunnerOptions",
+    jsii_struct_bases=[],
+    name_mapping={"tsconfig": "tsconfig", "type_check": "typeCheck"},
+)
+class TypeScriptRunnerOptions:
+    def __init__(
+        self,
+        *,
+        tsconfig: typing.Optional[builtins.str] = None,
+        type_check: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) The options that can be adjusted on any {@link TypeScriptRunner}, regardless of its runtime.
+
+        This is the override type for {@link TypeScriptRunner.copy}. Runtime-specific
+        creation options (such as ``swc`` for ts-node) are set via the static factories
+        and are preserved - but cannot be changed - by ``copy``, so a copy can never
+        change the runtime of a runner.
+
+        :param tsconfig: (experimental) Path to the tsconfig file to use.
+        :param type_check: (experimental) Whether to type-check the entrypoint.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__abbd2e327d1d796cb4719f5ee784dd071d8d8e68869c179306b998a62fa05e19)
+            check_type(argname="argument tsconfig", value=tsconfig, expected_type=type_hints["tsconfig"])
+            check_type(argname="argument type_check", value=type_check, expected_type=type_hints["type_check"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if tsconfig is not None:
+            self._values["tsconfig"] = tsconfig
+        if type_check is not None:
+            self._values["type_check"] = type_check
+
+    @builtins.property
+    def tsconfig(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Path to the tsconfig file to use.
+
+        :stability: experimental
+        '''
+        result = self._values.get("tsconfig")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def type_check(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to type-check the entrypoint.
+
+        :stability: experimental
+        '''
+        result = self._values.get("type_check")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TypeScriptRunnerOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class TypedocDocgen(
     metaclass=jsii.JSIIMeta,
     jsii_type="projen.typescript.TypedocDocgen",
@@ -4384,6 +4891,7 @@ class TypeScriptAppProject(
         libdir: typing.Optional[builtins.str] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
         projenrc_ts_options: typing.Optional[typing.Union["ProjenrcOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        runner: typing.Optional["TypeScriptRunner"] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
         testdir: typing.Optional[builtins.str] = None,
@@ -4533,6 +5041,7 @@ class TypeScriptAppProject(
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
         :param projenrc_ts_options: (experimental) Options for .projenrc.ts.
+        :param runner: (experimental) The TypeScript runner to use for executing TypeScript files. This is a project-level setting that components (e.g. projenrc) will use as their default runner. Default: TypeScriptRunner.tsNode()
         :param sample_code: (experimental) Generate one-time sample in ``src/`` and ``test/`` if there are no files there. Default: true
         :param srcdir: (experimental) Typescript sources directory. Default: "src"
         :param testdir: (experimental) Jest tests directory. Tests files should be named ``xxx.test.ts``. If this directory is under ``srcdir`` (e.g. ``src/test``, ``src/__tests__``), then tests are going to be compiled into ``lib/`` and executed as javascript. If the test directory is outside of ``src``, then we configure jest to compile the code in-memory. Default: "test"
@@ -4684,6 +5193,7 @@ class TypeScriptAppProject(
             libdir=libdir,
             projenrc_ts=projenrc_ts,
             projenrc_ts_options=projenrc_ts_options,
+            runner=runner,
             sample_code=sample_code,
             srcdir=srcdir,
             testdir=testdir,
@@ -4827,6 +5337,7 @@ class TypeScriptAppProject(
 
 
 __all__ = [
+    "NodeRunnerOptions",
     "Projenrc",
     "ProjenrcOptions",
     "ProjenrcTs",
@@ -4836,19 +5347,33 @@ __all__ = [
     "TsJestOptions",
     "TsJestTransformOptions",
     "TsJestTsconfig",
+    "TsNodeRunnerOptions",
+    "TsxRunnerOptions",
     "TypeScriptAppProject",
     "TypeScriptProject",
     "TypeScriptProjectOptions",
+    "TypeScriptRunner",
+    "TypeScriptRunnerOptions",
     "TypedocDocgen",
 ]
 
 publication.publish()
+
+def _typecheckingstub__1939fe76e1bf004b26e371eb35e14ee2942bdc2871ba55451771cd90263896f2(
+    *,
+    experimental_transform_types: typing.Optional[builtins.bool] = None,
+    tsconfig: typing.Optional[builtins.str] = None,
+    type_check: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__2263ee9c745ea47c774563d843521472e79762041f4e1ae7ba448b00eb619b8d(
     project: TypeScriptProject,
     *,
     filename: typing.Optional[builtins.str] = None,
     projen_code_dir: typing.Optional[builtins.str] = None,
+    runner: typing.Optional[TypeScriptRunner] = None,
     swc: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4858,6 +5383,7 @@ def _typecheckingstub__c19ece862a34d563e3af49bcb2633dab3ba4ac5f67cc57c6fff86d7cc
     *,
     filename: typing.Optional[builtins.str] = None,
     projen_code_dir: typing.Optional[builtins.str] = None,
+    runner: typing.Optional[TypeScriptRunner] = None,
     swc: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4868,6 +5394,7 @@ def _typecheckingstub__f8247bfab52de99210dd1174bf8292517bfb90aa0435a94a64a093bcd
     *,
     filename: typing.Optional[builtins.str] = None,
     projen_code_dir: typing.Optional[builtins.str] = None,
+    runner: typing.Optional[TypeScriptRunner] = None,
     tsconfig_file_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4877,6 +5404,7 @@ def _typecheckingstub__160fd3491644df95d187ac5907c3e3cc1eb206baf5e8a1cbfca849670
     *,
     filename: typing.Optional[builtins.str] = None,
     projen_code_dir: typing.Optional[builtins.str] = None,
+    runner: typing.Optional[TypeScriptRunner] = None,
     tsconfig_file_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4924,6 +5452,23 @@ def _typecheckingstub__1dea54f53ed685b6629951d7aaee8ae0563b656a849a1c5f2cf70786f
 
 def _typecheckingstub__92dd15c4a7cabe98b93189ec1f931bb163c5658476fc9627211024b208dcbf8f(
     file_path: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__996cd2806aa10d291f836ab1bc4fd6b397dbdec7875d027aedb273d748cb57ad(
+    *,
+    swc: typing.Optional[builtins.bool] = None,
+    tsconfig: typing.Optional[builtins.str] = None,
+    type_check: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4d73ec80c59f6436fffd0f95dad78637bd0bbe1b9f4b699fb5a70c1f2d10151(
+    *,
+    tsconfig: typing.Optional[builtins.str] = None,
+    type_check: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5069,6 +5614,7 @@ def _typecheckingstub__a914f27f5d915b07b8847d407b03b08cab2aad7b213973084a9026526
     libdir: typing.Optional[builtins.str] = None,
     projenrc_ts: typing.Optional[builtins.bool] = None,
     projenrc_ts_options: typing.Optional[typing.Union[ProjenrcOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    runner: typing.Optional[TypeScriptRunner] = None,
     sample_code: typing.Optional[builtins.bool] = None,
     srcdir: typing.Optional[builtins.str] = None,
     testdir: typing.Optional[builtins.str] = None,
@@ -5077,6 +5623,20 @@ def _typecheckingstub__a914f27f5d915b07b8847d407b03b08cab2aad7b213973084a9026526
     tsconfig_dev_file: typing.Optional[builtins.str] = None,
     ts_jest_options: typing.Optional[typing.Union[TsJestOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     typescript_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e3b41b83a92833d538e1f3bf68ef5f60a356dd38b7cb99a42e0b4cd70535fb8(
+    entrypoint: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__abbd2e327d1d796cb4719f5ee784dd071d8d8e68869c179306b998a62fa05e19(
+    *,
+    tsconfig: typing.Optional[builtins.str] = None,
+    type_check: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -3067,7 +3067,7 @@ pub(crate) fn parallel_block_diag_inverse_apply_deterministic_and_solves() {
     let backend = CpuBatchedBlockSolver;
     let ridge_t = 1e-4;
     let ridge_beta = 1e-5;
-    let precond = ArrowBlockDiagInverse::build(&sys, ridge_t, ridge_beta, false, &backend)
+    let precond = ArrowBlockDiagInverse::build(&sys, ridge_t, ridge_beta, None, false, &backend)
         .expect("block-diagonal inverse must build");
     let total_dt = sys.row_offsets[n];
     let r_t = Array1::from_iter((0..total_dt).map(|i| 0.15 * (i as f64).sin() + 0.02));
@@ -3481,11 +3481,10 @@ pub(crate) fn sae_direct_inner_solve_engages_device_and_matches_cpu_1551() {
     // Parity (holds on every host): the produced Newton step must match the dense
     // joint-system reference. On a GPU host this is the device==CPU parity gate;
     // on a CPU host it pins the matrix-free reduced solve to the dense oracle.
-    let reference =
-        crate::gpu_kernels::arrow_schur::solve_arrow_newton_step_dense_reference(
-            &sys, ridge_t, ridge_beta,
-        )
-        .expect("dense reference solve");
+    let reference = crate::gpu_kernels::arrow_schur::solve_arrow_newton_step_dense_reference(
+        &sys, ridge_t, ridge_beta,
+    )
+    .expect("dense reference solve");
     let db_scale = reference
         .delta_beta
         .iter()
@@ -3493,7 +3492,8 @@ pub(crate) fn sae_direct_inner_solve_engages_device_and_matches_cpu_1551() {
         .max(1.0);
     let mut max_db_rel = 0.0_f64;
     for a in 0..sys.k {
-        max_db_rel = max_db_rel.max((artifacts.delta_beta[a] - reference.delta_beta[a]).abs() / db_scale);
+        max_db_rel =
+            max_db_rel.max((artifacts.delta_beta[a] - reference.delta_beta[a]).abs() / db_scale);
     }
     assert!(
         max_db_rel <= 1e-7,
@@ -3639,8 +3639,8 @@ pub(crate) fn device_arrow_and_host_procedural_matvec_flags_are_mutually_exclusi
         ArrowSolveOptions::direct(),
     ] {
         let mode = options.mode;
-        let (_dt, _db, diag) = solve_arrow_newton_step_core(&sys, ridge_t, ridge_beta, &options)
-            .expect("core solve");
+        let (_dt, _db, diag) =
+            solve_arrow_newton_step_core(&sys, ridge_t, ridge_beta, &options).expect("core solve");
         assert!(
             !(diag.used_device_arrow && diag.injected_host_procedural_matvec),
             "#1209: used_device_arrow and injected_host_procedural_matvec are mutually \
@@ -4665,4 +4665,176 @@ pub(crate) fn build_dense_schur_direct_refuses_oversize_border_1017() {
         }
         other => panic!("expected SchurFactorFailed for oversize border, got {other:?}"),
     }
+
+    let err = build_dense_schur_sqrt_ba(&sys, &htt_factors, 1e-6, &backend)
+        .expect_err("oversize square-root BA border must be refused, not allocated");
+    match err {
+        ArrowSchurError::SchurFactorFailed { reason } => {
+            assert!(
+                reason.contains("host budget") && reason.contains("matrix-free"),
+                "sqrt-BA refusal must be actionable (border-too-large, matrix-free-only): {reason}"
+            );
+        }
+        other => panic!("expected SchurFactorFailed for oversize sqrt-BA border, got {other:?}"),
+    }
+}
+
+/// The parallel disjoint-range prefix fan-out in `CompositePenaltyOp::matvec`
+/// (per-atom Kronecker smooth blocks over the K=32k manifold border) must be
+/// BIT-IDENTICAL to the plain serial per-op sum. This builds a composite wide
+/// enough to trip the parallel prefix (covered width ≥ `SCHUR_PROLOGUE_PARALLEL_K_MIN`,
+/// ≥ 2 blocks) with a trailing dense op that overlaps every prefix index (the
+/// serial tail), and asserts exact f64 agreement with an independent serial
+/// reference built from `op.matvec`.
+#[test]
+fn composite_penalty_parallel_prefix_matches_serial_bit_exact() {
+    let n_atoms = 8usize;
+    let p_a = 4usize; // left Kronecker factor dim
+    let p = 32usize; // identity-right width
+    let block = p_a * p; // 128
+    let k = n_atoms * block; // 1024 ≥ SCHUR_PROLOGUE_PARALLEL_K_MIN (512)
+    assert!(
+        k >= SCHUR_PROLOGUE_PARALLEL_K_MIN,
+        "must trip the parallel prefix"
+    );
+
+    // Deterministic pseudo-random SPD-ish left factors and input.
+    let mut state = 0x1234_5678u64;
+    let mut next = || {
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        ((state >> 11) as f64) / ((1u64 << 53) as f64) * 2.0 - 1.0
+    };
+
+    let mut ops: Vec<Arc<dyn BetaPenaltyOp>> = Vec::with_capacity(n_atoms + 1);
+    for atom in 0..n_atoms {
+        let mut a = Array2::<f64>::zeros((p_a, p_a));
+        for v in a.iter_mut() {
+            *v = next();
+        }
+        ops.push(Arc::new(IdentityRightKroneckerPenaltyOp {
+            factor_a: a,
+            p,
+            global_offset: atom * block,
+            k,
+        }));
+    }
+    // Trailing dense op: a None-range tail that writes EVERY index, exercising
+    // the "prefix-parallel then serial-tail" accumulation order.
+    let mut dense = Array2::<f64>::zeros((k, k));
+    for v in dense.iter_mut() {
+        *v = next() * 0.01;
+    }
+    ops.push(Arc::new(DensePenaltyOp(dense)));
+
+    let x: Array1<f64> = Array1::from_iter((0..k).map(|_| next()));
+    let x_slice = x.as_slice().unwrap();
+
+    // Independent serial reference: sum each op through `op.matvec` in order.
+    let mut reference = vec![0.0_f64; k];
+    for op in &ops {
+        op.matvec(x_slice, &mut reference);
+    }
+
+    let composite = CompositePenaltyOp { k, ops };
+    let mut got = vec![0.0_f64; k];
+    composite.matvec(x_slice, &mut got);
+
+    assert_eq!(
+        got, reference,
+        "parallel-prefix composite matvec must be bit-identical to the serial sum"
+    );
+
+    // Running it again (accumulate contract) must also match a doubled serial ref.
+    let mut reference2 = reference.clone();
+    for op in &composite.ops {
+        op.matvec(x_slice, &mut reference2);
+    }
+    composite.matvec(x_slice, &mut got);
+    assert_eq!(
+        got, reference2,
+        "second accumulating matvec must remain bit-identical to serial"
+    );
+}
+
+/// The matrix-free reduced-Schur log-determinant `slq_reduced_schur_log_det`
+/// (Stochastic Lanczos Quadrature on the `schur_matvec` apply, NO dense `k×k`
+/// Schur formed) must agree with the exact dense evidence log|S| it replaces —
+/// the route both dense evidence paths REFUSE above the in-core budget at the
+/// K=32k manifold border. Also asserts SLQ reproducibility and that the one-call
+/// `matrix_free_arrow_evidence_log_det` returns the exact `log_det_tt` (same
+/// factorization) plus the matrix-free `log|S|`.
+#[test]
+fn slq_reduced_schur_log_det_matches_dense_evidence() {
+    let (n, d, k) = (40usize, 3usize, 80usize);
+    let sys = dense_direct_system(n, d, k);
+    let backend = CpuBatchedBlockSolver;
+    let ridge_beta = 1e-6;
+    let seed = 0x5142_1701_0E_u64;
+
+    let htt_factors = backend
+        .factor_blocks(&sys.rows, 0.0, d, false)
+        .expect("SPD per-row blocks must factor");
+
+    // Exact dense reduced-Schur log|S| — the O(k²) assembly + O(k³) Cholesky the
+    // matrix-free primitive avoids.
+    let schur = build_dense_schur_direct(&sys, &htt_factors, ridge_beta, &backend)
+        .expect("dense reduced Schur must build for the well-conditioned fixture");
+    let l = cholesky_lower(&schur).expect("reduced Schur must be SPD");
+    let exact_logdet: f64 = (0..k).map(|i| 2.0 * l[[i, i]].ln()).sum();
+
+    // Matrix-free SLQ estimate — never forms S.
+    let slq =
+        slq_reduced_schur_log_det(&sys, &htt_factors, ridge_beta, &backend, None, 48, 60, seed);
+    let rel = (slq.estimate - exact_logdet).abs() / exact_logdet.abs();
+    eprintln!(
+        "matrix-free reduced-Schur log|S|: slq={:.6} exact={:.6} rel={:.3e} std_err={:.3e}",
+        slq.estimate, exact_logdet, rel, slq.std_err
+    );
+    assert!(
+        rel < 0.05,
+        "matrix-free SLQ reduced-Schur log|S| rel err {rel:.3e} exceeds 5% \
+         (slq={}, exact={exact_logdet})",
+        slq.estimate
+    );
+
+    // Deterministic for a fixed seed (the REML evidence outer loop requires it).
+    let slq_again =
+        slq_reduced_schur_log_det(&sys, &htt_factors, ridge_beta, &backend, None, 48, 60, seed);
+    assert_eq!(
+        slq.estimate, slq_again.estimate,
+        "matrix-free reduced-Schur SLQ log-det must be bit-reproducible for a fixed seed"
+    );
+
+    // One-call convenience: log_det_tt is EXACT (same undamped factorization as
+    // the manual sum), and log|S| approximates the dense reduced-Schur log-det.
+    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let (log_det_tt, slq_conv) =
+        matrix_free_arrow_evidence_log_det(&sys, 0.0, ridge_beta, &options, 48, 60, seed)
+            .expect("matrix-free evidence log-det must succeed for the SPD fixture");
+    // Reference factorization must use the SAME options-derived
+    // `tolerate_ill_conditioning` the convenience factors with (via
+    // `factor_blocks_for_system`), so the diagonal sum is bit-comparable.
+    let htt_factors_conv = backend
+        .factor_blocks(&sys.rows, 0.0, d, options.tolerate_ill_conditioning)
+        .expect("SPD per-row blocks must factor");
+    // Flat (row, axis) accumulation in the SAME order the convenience uses, so
+    // the f64 associativity matches bit-for-bit.
+    let mut manual_log_det_tt = 0.0_f64;
+    for row in 0..htt_factors_conv.len() {
+        let f = htt_factors_conv.factor(row);
+        for a in 0..f.nrows() {
+            manual_log_det_tt += 2.0 * f[[a, a]].ln();
+        }
+    }
+    assert_eq!(
+        log_det_tt, manual_log_det_tt,
+        "matrix-free evidence log_det_tt must be bit-identical to the undamped factor diagonal sum"
+    );
+    let conv_rel = (slq_conv.estimate - exact_logdet).abs() / exact_logdet.abs();
+    assert!(
+        conv_rel < 0.05,
+        "matrix-free evidence log|S| rel err {conv_rel:.3e} exceeds 5%"
+    );
 }

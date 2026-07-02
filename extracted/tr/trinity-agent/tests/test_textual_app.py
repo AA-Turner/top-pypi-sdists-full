@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import html
 import subprocess
 import sys
 import time
@@ -10,6 +11,7 @@ from types import SimpleNamespace
 import pytest
 from textual import events
 from textual.app import App
+from textual.color import Color
 from textual.containers import VerticalScroll
 from textual.css.query import NoMatches
 from textual.widgets import (
@@ -986,12 +988,12 @@ def test_artifact_presenter_uses_korean_labels() -> None:
 
 
 def test_model_settings_presenter_uses_korean_labels() -> None:
-    assert model_settings_title(lang="ko") == "모델 설정"
+    assert model_settings_title(lang="ko") == "다음 요청 모델"
     assert model_settings_unavailable_markdown(lang="ko") == (
-        "모델 설정은 시작 화면과 넥서스에서 사용할 수 있습니다."
+        "다음 요청 모델은 시작 화면과 넥서스에서 사용할 수 있습니다."
     )
     assert model_settings_updated_markdown(lang="ko") == (
-        "모델 설정을 업데이트했습니다."
+        "다음 요청 모델을 업데이트했습니다."
     )
 
 
@@ -1828,7 +1830,7 @@ async def test_start_screen_stays_within_standard_viewport(tmp_path) -> None:
             start.query_one("#start-composer", PromptComposer),
             start.query_one("#start-recipient-selector", AgentRecipientModelSelector),
             start.query_one("#start-actions"),
-            start.query_one("#start-select-workspace", Button),
+            start.query_one("#start-select-workspace", Static),
             start.query_one("#workspace-candidate", Static),
         )
         for widget in widgets:
@@ -1862,7 +1864,7 @@ async def test_start_screen_compacts_geometry_in_low_viewport(
             start.query_one("#start-composer", PromptComposer),
             start.query_one("#start-recipient-selector", AgentRecipientModelSelector),
             start.query_one("#start-actions"),
-            start.query_one("#start-select-workspace", Button),
+            start.query_one("#start-select-workspace", Static),
             start.query_one("#workspace-candidate", Static),
         )
         for widget in widgets:
@@ -1913,8 +1915,8 @@ async def test_start_workspace_label_stays_compact_with_long_path(
         start = app.screen
         assert isinstance(start, StartScreen)
         workspace_label = start.query_one("#workspace-candidate", Static)
-        select_workspace = start.query_one("#start-select-workspace", Button)
-        assert str(select_workspace.label) == "Select Workspace"
+        select_workspace = start.query_one("#start-select-workspace", Static)
+        assert str(select_workspace.content) == "Select Workspace"
         assert select_workspace.region.height == 3
         assert workspace_label.region.height == 3
         assert select_workspace.region.x > workspace_label.region.x
@@ -1922,6 +1924,26 @@ async def test_start_workspace_label_stays_compact_with_long_path(
             workspace_label.region.y + workspace_label.region.height
             <= start.size.height
         )
+
+
+@pytest.mark.asyncio
+async def test_start_workspace_button_keeps_korean_label_visible(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        select_workspace = start.query_one("#start-select-workspace", Static)
+
+        assert str(select_workspace.content) == "작업 폴더 선택"
+        assert select_workspace.styles.width.value == 28
+        assert select_workspace.styles.min_width.value == 28
+        assert select_workspace.region.width >= 28
+        screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
+        assert "작업 폴더 선택" in screenshot
 
 
 @pytest.mark.parametrize(
@@ -2265,6 +2287,81 @@ async def test_model_slash_modal_updates_selector_model_override(tmp_path) -> No
         assert controller.started_models[-1] == {"codex": "gpt-5.5"}
 
 
+@pytest.mark.asyncio
+async def test_model_slash_modal_updates_nexus_follow_up_model_override(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    config.agents["codex"].model = "default"
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(config, controller)
+    app._start_model_discovery = lambda: None  # type: ignore[method-assign]
+    app._refresh_provider_models = lambda *, use_cache: None  # type: ignore[method-assign]
+
+    async with app.run_test(size=(120, 34)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+
+        selector = nexus.query_one(
+            "#nexus-recipient-selector",
+            AgentRecipientModelSelector,
+        )
+        selector.set_selected_agents(("codex",))
+        selector.set_model_choices(
+            "codex",
+            [
+                ProviderModelChoice(
+                    provider=Provider.CODEX,
+                    model="default",
+                    label="codex(default)",
+                    source="static-fallback",
+                    is_default=True,
+                    context_budget=128_000,
+                ),
+                ProviderModelChoice(
+                    provider=Provider.CODEX,
+                    model="gpt-5.5",
+                    label="gpt-5.5",
+                    source="cli-live",
+                    context_budget=None,
+                ),
+            ],
+        )
+
+        app._handle_textual_slash_command("/model")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ModelSettingsModal)
+        app.screen.query_one("#model-agent-codex", Button).press()
+        await pilot.pause()
+
+        menu = app.screen.query_one("#model-choice-list", OptionList)
+        labels = app.screen.choice_labels("codex")
+        menu.highlighted = next(
+            index for index, label in enumerate(labels) if "gpt-5.5" in label
+        )
+        menu.action_select()
+        await pilot.pause()
+
+        app.screen.query_one("#apply-model-settings", Button).press()
+        await pilot.pause()
+
+        assert selector.selected_model("codex") == "gpt-5.5"
+        assert selector.model_overrides() == {"codex": "gpt-5.5"}
+
+        composer = app.screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("코덱스 모델 확인")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups[-1] == "코덱스 모델 확인"
+        assert controller.follow_up_targets[-1] == ("codex",)
+        assert controller.follow_up_models[-1] == {"codex": "gpt-5.5"}
+
+
 def test_open_model_settings_unavailable_uses_korean_notification(
     tmp_path,
     monkeypatch,
@@ -2286,8 +2383,8 @@ def test_open_model_settings_unavailable_uses_korean_notification(
 
     assert notifications == [
         (
-            "모델 설정은 시작 화면과 넥서스에서 사용할 수 있습니다.",
-            "모델 설정",
+            "다음 요청 모델은 시작 화면과 넥서스에서 사용할 수 있습니다.",
+            "다음 요청 모델",
             "warning",
         )
     ]
@@ -2319,7 +2416,7 @@ def test_model_settings_applied_uses_korean_notification(tmp_path, monkeypatch) 
 
     assert selector.selections == {"codex": "gpt-5.5"}
     assert notifications == [
-        ("모델 설정을 업데이트했습니다.", "모델 설정", "info"),
+        ("다음 요청 모델을 업데이트했습니다.", "다음 요청 모델", "info"),
     ]
 
 
@@ -2531,6 +2628,17 @@ async def test_app_skips_unchanged_discovered_model_choice_sync(
         ]
 
 
+def test_settings_shortcut_binding_is_registered() -> None:
+    binding = next(
+        binding
+        for binding in TrinityTextualApp.BINDINGS
+        if binding.action == "go_settings"
+    )
+
+    assert binding.key == "ctrl+comma"
+    assert binding.description == "Settings"
+
+
 @pytest.mark.asyncio
 async def test_textual_app_switches_named_routes(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
@@ -2546,6 +2654,40 @@ async def test_textual_app_switches_named_routes(tmp_path) -> None:
         assert app.current_route == "settings"
         assert app.screen.name == "settings"
         assert isinstance(app.screen, SettingsScreen)
+
+
+@pytest.mark.asyncio
+async def test_settings_route_switch_preserves_unsaved_choices(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        screen.query_one("#density", Select).value = "compact"
+        await pilot.pause()
+        assert str(screen.query_one("#settings-status", Static).content).startswith(
+            "Unsaved changes"
+        )
+
+        app.switch_to("nexus")
+        await pilot.pause()
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        assert str(screen.query_one("#density", Select).value) == "compact"
+        assert str(screen.query_one("#settings-status", Static).content).startswith(
+            "Unsaved changes"
+        )
+
+        screen.action_apply()
+        await pilot.pause()
+
+    assert UISettingsStore(tmp_path / ".trinity").load().density == "compact"
 
 
 @pytest.mark.asyncio
@@ -6136,6 +6278,214 @@ async def test_nexus_agent_uses_korean_labels(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_agent_command_syncs_recipient_selectors(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+    refreshes: list[bool] = []
+    app._refresh_provider_models = (  # type: ignore[method-assign]
+        lambda *, use_cache: refreshes.append(use_cache)
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        start_selector = start.query_one(AgentRecipientModelSelector)
+
+        app._handle_textual_slash_command("/agent codex on")
+        await pilot.pause()
+
+        codex_toggle = start_selector.query_one("#recipient-codex", AgentToggle)
+        assert config.agents["codex"].enabled is True
+        assert codex_toggle.disabled is False
+        assert codex_toggle.value is True
+        assert "codex" in start_selector.selected_agents()
+        assert refreshes == [True]
+
+        app.switch_to("nexus")
+        await pilot.pause()
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        nexus_selector = nexus.query_one(AgentRecipientModelSelector)
+
+        app._handle_textual_slash_command("/agent claude off")
+        await pilot.pause()
+
+        claude_toggle = nexus_selector.query_one("#recipient-claude", AgentToggle)
+        assert config.agents["claude"].enabled is False
+        assert claude_toggle.disabled is True
+        assert claude_toggle.value is False
+        assert "claude" not in nexus_selector.selected_agents()
+        assert refreshes == [True]
+
+
+@pytest.mark.asyncio
+async def test_agent_command_refreshes_stale_nexus_provider_snapshot(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+    app._refresh_provider_models = (  # type: ignore[method-assign]
+        lambda *, use_cache: None
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        app._handle_textual_slash_command("/status")
+        await pilot.pause()
+        assert screen.query_one("#provider-codex", ProviderPanel).state.enabled is False
+
+        app._handle_textual_slash_command("/agent codex on")
+        await pilot.pause()
+
+        assert screen.query_one("#provider-codex", ProviderPanel).state.enabled is True
+        assert app.active_snapshot is not None
+        codex = next(
+            provider
+            for provider in app.active_snapshot.providers
+            if provider.name == "codex"
+        )
+        assert codex.enabled is True
+        assert app.active_snapshot.local_commands[-1].command == "/agent"
+
+
+@pytest.mark.asyncio
+async def test_agent_command_syncs_open_settings_agent_rows(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+    refreshes: list[bool] = []
+    app._refresh_provider_models = (  # type: ignore[method-assign]
+        lambda *, use_cache: refreshes.append(use_cache)
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+        assert screen.query_one("#model-codex", Select).disabled is True
+        status = screen.query_one("#settings-status", Static)
+        labels = [str(label.content) for label in screen.query(".settings-row Label")]
+        assert "Codex (off)" in labels
+
+        app._handle_textual_slash_command("/agent codex on")
+        await pilot.pause()
+
+        labels = [str(label.content) for label in screen.query(".settings-row Label")]
+        central_values = {
+            value
+            for _label, value in screen.query_one("#central-provider", Select)._options
+        }
+        preview = str(screen.query_one("#settings-summary", Static).content)
+        assert screen.query_one("#model-codex", Select).disabled is False
+        assert "Codex" in labels
+        assert "Codex (off)" not in labels
+        assert "codex" in central_values
+        assert "- Codex: default" in preview
+        assert str(status.content) == "Saved"
+        assert refreshes == [True]
+
+        screen.query_one("#model-codex").value = "gpt-5"
+        await pilot.pause()
+        assert screen.query_one("#model-codex", Select).value == "gpt-5"
+        assert str(status.content) != "Saved"
+
+        screen.query_one("#central-provider").value = "codex"
+        await pilot.pause()
+        assert screen.query_one("#central-provider", Select).value == "codex"
+        assert str(status.content) != "Saved"
+
+        app._handle_textual_slash_command("/agent codex off")
+        await pilot.pause()
+
+        labels = [str(label.content) for label in screen.query(".settings-row Label")]
+        central_values = {
+            value
+            for _label, value in screen.query_one("#central-provider", Select)._options
+        }
+        preview = str(screen.query_one("#settings-summary", Static).content)
+        assert screen.query_one("#model-codex", Select).disabled is True
+        assert "Codex (off)" in labels
+        assert "codex" not in central_values
+        assert screen.query_one("#central-provider", Select).value == "auto"
+        assert "- Codex (off): GPT-5" in preview
+        assert str(status.content) == "Unsaved changes · press Save & Apply to save"
+        assert refreshes == [True]
+
+        screen.action_apply()
+        await pilot.pause()
+
+    saved_config = TrinityConfig.load(tmp_path / ".trinity" / "trinity.config")
+    assert config.agents["codex"].enabled is False
+    assert saved_config.agents["codex"].enabled is False
+    assert saved_config.agents["codex"].model == "gpt-5"
+
+
+@pytest.mark.asyncio
+async def test_agent_command_preserves_saved_disabled_central_provider(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.synthesis_agent = "codex"
+    config.synthesis_model = "agent-default"
+    app = TrinityTextualApp(config)
+    app._refresh_provider_models = lambda *, use_cache: None  # type: ignore[method-assign]
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+        status = screen.query_one("#settings-status", Static)
+        assert screen.query_one("#central-provider", Select).value == "codex"
+        assert str(status.content) == "Saved"
+
+        app._handle_textual_slash_command("/agent codex on")
+        await pilot.pause()
+        assert screen.query_one("#central-provider", Select).value == "codex"
+        assert str(status.content) == "Saved"
+
+        app._handle_textual_slash_command("/agent codex off")
+        await pilot.pause()
+        preview = str(screen.query_one("#settings-summary", Static).content)
+        assert screen.query_one("#central-provider", Select).value == "codex"
+        assert "Saved central agent default model\n- Codex (off) / Agent default" in preview
+        assert str(status.content) == "Saved"
+
+
+@pytest.mark.asyncio
+async def test_agent_command_preserves_open_settings_unsaved_status(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+    app._refresh_provider_models = lambda *, use_cache: None  # type: ignore[method-assign]
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+        status = screen.query_one("#settings-status", Static)
+
+        screen.query_one("#density").value = "compact"
+        await pilot.pause()
+        assert str(status.content) == "Unsaved changes · press Save & Apply to save"
+
+        app._handle_textual_slash_command("/agent codex on")
+        await pilot.pause()
+
+        assert screen.query_one("#density", Select).value == "compact"
+        assert str(status.content) == "Unsaved changes · press Save & Apply to save"
+
+        app._handle_textual_slash_command("/agent codex off")
+        await pilot.pause()
+
+        assert screen.query_one("#density", Select).value == "compact"
+        assert str(status.content) == "Unsaved changes · press Save & Apply to save"
+
+
+@pytest.mark.asyncio
 async def test_nexus_agent_errors_use_korean_labels(tmp_path) -> None:
     controller = FakeWorkflowController()
     app = TrinityTextualApp(
@@ -8960,6 +9310,12 @@ async def test_execution_matrix_renders_korean_compact_status_labels(
                     ),
                     WorkPackageSnapshot(
                         id="WP-005",
+                        title="Idle task",
+                        owner_agent="claude",
+                        status="idle",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-006",
                         title="Unknown task",
                         owner_agent="codex",
                         status="paused",
@@ -8979,6 +9335,7 @@ async def test_execution_matrix_renders_korean_compact_status_labels(
             "대기",
             "완료",
             "문제",
+            "휴식",
             "?",
         ]
 
@@ -11004,6 +11361,52 @@ async def test_providers_slash_command_opens_provider_inspector(tmp_path) -> Non
 
 
 @pytest.mark.asyncio
+async def test_settings_slash_command_opens_settings_screen(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/settings")
+        await pilot.pause()
+
+        assert isinstance(app.screen, SettingsScreen)
+        assert app.current_route == "settings"
+
+
+@pytest.mark.asyncio
+async def test_start_settings_slash_command_opens_settings_screen(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        start = app.screen
+        assert isinstance(start, StartScreen)
+
+        start._submit("/settings")
+        await pilot.pause()
+
+        assert isinstance(app.screen, SettingsScreen)
+        assert app.current_route == "settings"
+        assert app.active_snapshot is None
+
+
+@pytest.mark.asyncio
+async def test_settings_binding_action_opens_settings_screen(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app.action_go_settings()
+        await pilot.pause()
+
+        assert isinstance(app.screen, SettingsScreen)
+        assert app.current_route == "settings"
+
+
+@pytest.mark.asyncio
 async def test_provider_inspector_modal_uses_korean_chrome(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
@@ -11284,7 +11687,7 @@ async def test_start_workspace_button_opens_workspace_picker(tmp_path) -> None:
     async with app.run_test(size=(140, 44)) as pilot:
         start = app.screen
         assert isinstance(start, StartScreen)
-        start.query_one("#start-select-workspace", Button).press()
+        await pilot.click("#start-select-workspace")
         await pilot.pause()
 
         assert isinstance(app.screen, WorkspacePicker)
@@ -11520,10 +11923,13 @@ async def test_nexus_workspace_command_selects_target_without_execution(
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
         workspace_label = nexus.query_one("#nexus-target-workspace", Static)
+        select_workspace = nexus.query_one("#nexus-select-workspace", Static)
         assert str(target.resolve()) in str(workspace_label.content)
         assert workspace_label.styles.min_width.value == 0
-        assert workspace_label.styles.height.value == 1
+        assert workspace_label.styles.height.value == 2
         assert workspace_label.styles.content_align_vertical == "middle"
+        assert str(select_workspace.content) == "Select Workspace"
+        assert select_workspace.styles.width.value == 28
 
         app._handle_textual_slash_command("/workspace")
         await pilot.pause()
@@ -11542,6 +11948,36 @@ async def test_nexus_workspace_command_selects_target_without_execution(
         assert controller.execution_requests == 0
         assert controller.target_workspace == target.resolve()
         assert app.current_route == "nexus"
+
+
+@pytest.mark.asyncio
+async def test_nexus_workspace_button_opens_workspace_picker(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        await pilot.click("#nexus-select-workspace")
+        await pilot.pause()
+
+        assert controller.execution_requests == 0
+        picker = app.screen
+        assert isinstance(picker, WorkspacePicker)
+        assert picker.intent == "select"
 
 
 @pytest.mark.asyncio
@@ -11567,6 +12003,7 @@ async def test_nexus_workspace_label_stays_within_narrow_width(tmp_path) -> None
         assert isinstance(nexus, NexusScreen)
         widgets = (
             nexus.query_one("#nexus-target-workspace", Static),
+            nexus.query_one("#nexus-select-workspace", Static),
         )
         for widget in widgets:
             assert widget.region.x >= 0
@@ -11590,7 +12027,9 @@ async def test_nexus_screen_stays_within_narrow_viewport(
         nexus_shell = nexus.query_one("#nexus-screen")
         widgets = (
             nexus.query_one("#provider-strip"),
+            nexus.query_one("#nexus-workspace-row"),
             nexus.query_one("#nexus-target-workspace", Static),
+            nexus.query_one("#nexus-select-workspace", Static),
             nexus.query_one("#nexus-main"),
             nexus.query_one("#nexus-recipient-selector"),
             nexus.query_one("#nexus-composer", PromptComposer),
@@ -11763,8 +12202,13 @@ async def test_nexus_action_bar_keeps_korean_workspace_label(tmp_path) -> None:
         workspace_label = str(
             nexus.query_one("#nexus-target-workspace", Static).content
         )
+        select_workspace = nexus.query_one("#nexus-select-workspace", Static)
         assert workspace_label.startswith("계획 대상: ")
         assert str(target.resolve()) in workspace_label
+        assert str(select_workspace.content) == "작업 폴더 선택"
+        assert select_workspace.region.width >= 28
+        screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
+        assert "작업 폴더 선택" in screenshot
         assert nexus.query_one("#nexus-composer", PromptComposer).placeholder == (
             "답변, 방향 조정 또는 /로 명령 입력"
         )
@@ -12250,12 +12694,156 @@ async def test_settings_screen_saves_theme_preferences(tmp_path) -> None:
     assert saved.density == "compact"
 
 
+@pytest.mark.asyncio
+async def test_settings_visual_apply_preserves_start_model_override(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        selector = start.query_one(AgentRecipientModelSelector)
+        selector.set_model_overrides({"codex": "gpt-5"})
+        assert selector.model_overrides() == {"codex": "gpt-5"}
+
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+        screen.query_one("#density").value = "compact"
+        screen.action_apply()
+        await pilot.pause()
+
+        app.switch_to("start")
+        await pilot.pause()
+        assert selector.selected_model("codex") == "gpt-5"
+        assert selector.model_overrides() == {"codex": "gpt-5"}
+
+
+@pytest.mark.asyncio
+async def test_settings_model_apply_preserves_unrelated_start_model_override(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        selector = start.query_one(AgentRecipientModelSelector)
+        selector.set_model_overrides({"codex": "gpt-5"})
+        assert selector.model_overrides() == {"codex": "gpt-5"}
+
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+        screen.query_one("#model-claude").value = "sonnet[1m]"
+        screen.action_apply()
+        await pilot.pause()
+
+        app.switch_to("start")
+        await pilot.pause()
+        assert selector.selected_model("claude") == "sonnet[1m]"
+        assert selector.selected_model("codex") == "gpt-5"
+        assert selector.model_overrides() == {"codex": "gpt-5"}
+
+
+@pytest.mark.asyncio
+async def test_settings_apply_keeps_agent_command_changes_session_only(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+    app._refresh_provider_models = (  # type: ignore[method-assign]
+        lambda *, use_cache: None
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app._handle_textual_slash_command("/agent codex on")
+        app._handle_textual_slash_command("/agent claude off")
+        await pilot.pause()
+
+        assert config.agents["codex"].enabled is True
+        assert config.agents["claude"].enabled is False
+
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        screen.query_one("#theme-mode").value = "light"
+        screen.action_apply()
+        await pilot.pause()
+
+    saved_config = TrinityConfig.load(tmp_path / ".trinity" / "trinity.config")
+    assert config.agents["codex"].enabled is True
+    assert config.agents["claude"].enabled is False
+    assert saved_config.agents["codex"].enabled is False
+    assert saved_config.agents["claude"].enabled is True
+
+
 def test_textual_app_applies_saved_theme_on_startup(tmp_path) -> None:
     UISettingsStore(tmp_path / ".trinity").save(UISettings(theme_mode="light"))
 
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
     assert app.theme == "textual-light"
+
+
+@pytest.mark.asyncio
+async def test_settings_screen_loads_saved_ui_preferences(tmp_path) -> None:
+    UISettingsStore(tmp_path / ".trinity").save(
+        UISettings(
+            theme_mode="light",
+            color_profile="truecolor",
+            density="compact",
+            motion="reduced",
+            unicode_rendering="unicode",
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        assert screen.query_one("#theme-mode", Select).value == "light"
+        assert screen.query_one("#color-profile", Select).value == "truecolor"
+        assert screen.query_one("#density", Select).value == "compact"
+        assert screen.query_one("#motion", Select).value == "reduced"
+        assert screen.query_one("#unicode-rendering", Select).value == "unicode"
+        preview = str(screen.query_one("#settings-summary", Static).content)
+        assert "- Theme mode: light" in preview
+        assert "- Color compatibility: truecolor" in preview
+        assert "- Density: compact" in preview
+
+
+def test_textual_app_discovers_models_for_enabled_agents_only(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    seen: list[str] = []
+
+    def fake_iter_discovered_agent_model_choices(agent_specs, **_kwargs):
+        seen.extend(name for name, _spec in agent_specs)
+        return ()
+
+    monkeypatch.setattr(
+        textual_app_module,
+        "iter_discovered_agent_model_choices",
+        fake_iter_discovered_agent_model_choices,
+    )
+    app = TrinityTextualApp(config)
+
+    app._discover_provider_models()
+
+    assert seen == ["claude"]
 
 
 @pytest.mark.asyncio
@@ -12343,28 +12931,26 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
         screen.query_one("#color-profile").value = "truecolor"
         screen.action_apply()
         await pilot.pause()
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
         assert app.has_class("ui-color-profile-truecolor")
         assert not app.has_class("ui-color-profile-256color")
         assert not app.has_class("ui-color-profile-ascii-safe")
-        assert (
-            "Terminal colors: truecolor · Start logo motion: animated · "
-            "Start logo glyphs: ascii"
-        ) in preview
+        assert "- Color compatibility: truecolor" in preview
+        assert "- Start logo motion: animated" in preview
+        assert "- Start logo glyphs: ascii" in preview
 
         screen.query_one("#color-profile").value = "ascii-safe"
         screen.action_apply()
         await pilot.pause()
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
         assert app.has_class("ui-color-profile-ascii-safe")
         assert not app.has_class("ui-color-profile-256color")
         assert not app.has_class("ui-color-profile-truecolor")
-        assert (
-            "Terminal colors: ascii-safe · Start logo motion: animated · "
-            "Start logo glyphs: ascii"
-        ) in preview
+        assert "- Color compatibility: ascii-safe colors" in preview
+        assert "- Start logo motion: animated" in preview
+        assert "- Start logo glyphs: ascii" in preview
 
         screen.query_one("#color-profile").value = "default"
         screen.action_apply()
@@ -12379,7 +12965,8 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
 async def test_settings_visual_preferences_reach_workbench_surfaces(
     tmp_path,
 ) -> None:
-    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
 
     async with app.run_test(size=(120, 40)) as pilot:
         app.switch_to("settings")
@@ -12387,7 +12974,8 @@ async def test_settings_visual_preferences_reach_workbench_surfaces(
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
 
-        preview = screen.query_one("#theme-preview", Static)
+        preview = screen.query_one("#settings-summary", Static)
+        truecolor = Color.parse("#5ce1e6")
         screen.query_one("#color-profile").value = "truecolor"
         screen.query_one("#density").value = "compact"
         screen.action_apply()
@@ -12396,6 +12984,8 @@ async def test_settings_visual_preferences_reach_workbench_surfaces(
         assert app.has_class("ui-color-profile-truecolor")
         assert app.has_class("ui-density-compact")
         assert preview.is_mounted
+        assert preview.styles.max_height.value == 10
+        assert str(preview.styles.overflow_y) == "auto"
 
         app.switch_to("nexus")
         await pilot.pause()
@@ -12407,13 +12997,66 @@ async def test_settings_visual_preferences_reach_workbench_surfaces(
         assert nexus.query_one("#provider-strip").is_mounted
         assert nexus.query_one("#nexus-composer", PromptComposer).is_mounted
 
+        app.push_screen(
+            ProviderInspector(
+                [
+                    ProviderSnapshot(
+                        name="claude",
+                        provider="claude-code",
+                        enabled=True,
+                        status="Ready",
+                    )
+                ]
+            )
+        )
+        await pilot.pause()
+        provider_inspector = app.screen
+        assert provider_inspector.query_one(
+            "#provider-inspector-title",
+            Static,
+        ).styles.color == truecolor
+        assert (
+            provider_inspector.query_one("#provider-inspector").styles.border_top[1]
+            == truecolor
+        )
+        assert (
+            provider_inspector.query_one(
+                ".provider-inspector-output",
+                RichLog,
+            ).styles.border_top[1]
+            == truecolor
+        )
+        app.pop_screen()
+        await pilot.pause()
+
+        app.push_screen(ModelSettingsModal(config.agents, {}, {}))
+        await pilot.pause()
+        model_settings = app.screen
+        assert model_settings.query_one(
+            "#model-settings-title",
+            Static,
+        ).styles.color == truecolor
+        assert (
+            model_settings.query_one("#model-settings-modal").styles.border_top[1]
+            == truecolor
+        )
+        assert (
+            model_settings.query_one("#model-choice-list", OptionList).styles.border_top[1]
+            == truecolor
+        )
+        app.pop_screen()
+        await pilot.pause()
+
         app.switch_to("execution")
         await pilot.pause()
         execution = app.screen
         assert isinstance(execution, ExecutionMatrixScreen)
         assert execution.query_one("#execution-screen").styles.padding.top == 0
         assert execution.query_one("#execution-summary").styles.margin.top == 0
+        assert execution.query_one("#execution-header").styles.color == truecolor
+        assert execution.query_one("#execution-package-list").styles.border_top[1] == truecolor
         assert execution.query_one("#execution-package-list").styles.height.value == 12
+        assert execution.query_one("#execution-log").styles.border_top[1] == truecolor
         assert execution.query_one("#execution-log").styles.height.value == 8
 
         app.switch_to("report")
@@ -12423,6 +13066,8 @@ async def test_settings_visual_preferences_reach_workbench_surfaces(
         assert report.query_one("#report-screen").styles.padding.top == 0
         assert report.query_one("#report-header").styles.height.value == 3
         assert report.query_one("#report-header").styles.margin.bottom == 0
+        assert report.query_one("#report-title").styles.color == truecolor
+        assert report.query_one("#report-body").styles.border_top[1] == truecolor
         assert report.query_one("#report-body").styles.padding.top == 0
 
 
@@ -12435,12 +13080,59 @@ async def test_settings_controls_use_flexible_width(tmp_path) -> None:
         await pilot.pause()
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
-        preview = screen.query_one("#theme-preview", Static)
+        preview = screen.query_one("#settings-summary", Static)
         model_select = screen.query_one("#model-claude", Select)
 
         assert preview.styles.height.is_auto
+        assert preview.styles.max_height.value == 14
+        assert str(preview.styles.overflow_y) == "auto"
         assert not preview.styles.width.is_cells
         assert model_select.styles.width.is_fraction
+
+
+@pytest.mark.asyncio
+async def test_settings_korean_control_labels_keep_select_space(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        labels = list(screen.query(".settings-row Label"))
+        central_provider_label = next(
+            label
+            for label in labels
+            if "중앙 에이전트 프로바이더" in str(label.content)
+        )
+        central_provider_select = screen.query_one("#central-provider", Select)
+
+        assert central_provider_label.styles.width.value == 26
+        assert central_provider_select.styles.min_width.value == 28
+        assert central_provider_select.styles.width.is_fraction
+
+
+@pytest.mark.asyncio
+async def test_settings_preview_stays_bounded_on_small_terminals(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        preview = screen.query_one("#settings-summary", Static)
+        apply_button = screen.query_one("#apply-settings", Button)
+
+        assert preview.styles.height.is_auto
+        assert preview.styles.max_height.value == 14
+        assert str(preview.styles.overflow_y) == "auto"
+        assert apply_button.is_mounted
+        assert str(apply_button.label) == "Save & Apply"
+        assert apply_button.region.width >= 16
 
 
 @pytest.mark.asyncio
@@ -12491,7 +13183,7 @@ async def test_settings_preview_shows_profile_output_contracts(tmp_path) -> None
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
 
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
         assert "contracts execute:execution_v1 review:review_v1" in preview
 
@@ -12507,22 +13199,24 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
 
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
         assert screen.label_text("central_provider") == "중앙 에이전트 프로바이더"
-        assert "테마 모드: 다크" in preview
-        assert "밀도: 여유" in preview
-        assert (
-            "터미널 색상: 기본 팔레트 · 시작 로고 애니메이션: 애니메이션 · "
-            "시작 로고 글리프: ASCII"
-        ) in preview
-        assert "중앙: 자동 / 강력" in preview
+        assert "설정 요약" in preview
+        assert "화면 설정" in preview
+        assert "- 테마 모드: 다크" in preview
+        assert "- 밀도: 여유" in preview
+        assert "- 색상 호환성: 기본 색상" in preview
+        assert "- 시작 로고 애니메이션: 애니메이션" in preview
+        assert "- 시작 로고 글리프: ASCII" in preview
+        assert "저장된 중앙 에이전트 기본 모델\n- 자동 / 강력" in preview
+        assert "저장된 에이전트 기본 모델" in preview
         assert "Claude: 기본값" in preview
-        assert "Claude: 기본값 · 설계자 · 아키텍처 0.95" in preview
+        assert "설계자 · 아키텍처 0.95" in preview
         assert "출력 형식 실행:실행 v1 리뷰:리뷰 v1" in preview
         assert "Mode:" not in preview
         assert "Density:" not in preview
-        assert "Terminal colors:" not in preview
+        assert "Color compatibility:" not in preview
         assert "Motion:" not in preview
         assert "Unicode:" not in preview
         assert "Central:" not in preview
@@ -12536,6 +13230,7 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_settings_screen_saves_agent_and_central_models(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
     app = TrinityTextualApp(config)
 
     async with app.run_test(size=(120, 40)) as pilot:
@@ -12556,6 +13251,33 @@ async def test_settings_screen_saves_agent_and_central_models(tmp_path) -> None:
     assert saved_config.agents["codex"].model == "gpt-5"
     assert saved_config.synthesis_agent == "codex"
     assert saved_config.synthesis_model == "agent-default"
+
+
+@pytest.mark.asyncio
+async def test_settings_screen_loads_saved_model_defaults(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    config.agents["claude"].model = "sonnet[1m]"
+    config.agents["codex"].model = "gpt-5"
+    config.synthesis_agent = "codex"
+    config.synthesis_model = "agent-default"
+    config.save(tmp_path / ".trinity" / "trinity.config")
+    app = TrinityTextualApp(TrinityConfig.load(tmp_path / ".trinity" / "trinity.config"))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        assert screen.query_one("#model-claude", Select).value == "sonnet[1m]"
+        assert screen.query_one("#model-codex", Select).value == "gpt-5"
+        assert screen.query_one("#central-provider", Select).value == "codex"
+        assert screen.query_one("#central-model", Select).value == "agent-default"
+        preview = str(screen.query_one("#settings-summary", Static).content)
+        assert "- Claude: sonnet[1m]" in preview
+        assert "- Codex: gpt-5" in preview
+        assert "Saved central agent default model\n- Codex / Agent default" in preview
 
 
 @pytest.mark.asyncio
@@ -12613,10 +13335,13 @@ async def test_settings_screen_uses_discovered_model_choices(tmp_path) -> None:
         central_select.value = "opus-live"
         screen.action_apply()
         await pilot.pause()
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
-        assert "Claude: Opus Live  cli-live  1,000,000 ctx" in preview
-        assert "Central: Claude / Opus Live  cli-live  1,000,000 ctx" in preview
+        assert "- Claude: Opus Live  cli-live  1,000,000 ctx" in preview
+        assert (
+            "Saved central agent default model\n"
+            "- Claude / Opus Live  cli-live  1,000,000 ctx"
+        ) in preview
 
     assert config.agents["claude"].model == "opus-live"
     assert config.synthesis_agent == "claude"
@@ -12648,21 +13373,25 @@ async def test_settings_preview_refreshes_when_model_choices_arrive(tmp_path) ->
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
 
-        preview = str(screen.query_one("#theme-preview", Static).content)
-        assert "Claude: opus-live" in preview
-        assert "Central: Claude / opus-live" in preview
+        preview = str(screen.query_one("#settings-summary", Static).content)
+        assert "- Claude: opus-live" in preview
+        assert "Saved central agent default model\n- Claude / opus-live" in preview
 
         app._apply_discovered_model_choices({"claude": discovered})
         await pilot.pause()
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
-        assert "Claude: Opus Live  cli-live  1,000,000 ctx" in preview
-        assert "Central: Claude / Opus Live  cli-live  1,000,000 ctx" in preview
+        assert "- Claude: Opus Live  cli-live  1,000,000 ctx" in preview
+        assert (
+            "Saved central agent default model\n"
+            "- Claude / Opus Live  cli-live  1,000,000 ctx"
+        ) in preview
 
 
 @pytest.mark.asyncio
 async def test_settings_central_models_follow_selected_provider(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
     app = TrinityTextualApp(config)
     app._model_discovery_started = True
     claude = config.agents["claude"]
@@ -12718,6 +13447,7 @@ async def test_settings_central_models_follow_selected_provider(tmp_path) -> Non
 @pytest.mark.asyncio
 async def test_settings_central_model_label_prefers_selected_provider(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
     config.synthesis_agent = "codex"
     config.synthesis_model = "shared-live"
     app = TrinityTextualApp(config)
@@ -12753,11 +13483,11 @@ async def test_settings_central_model_label_prefers_selected_provider(tmp_path) 
 
         central_select = screen.query_one("#central-model", Select)
         central_labels = {value: str(label) for label, value in central_select._options}
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
         assert central_labels["shared-live"] == "Codex Shared  cli-live"
-        assert "Central: Codex / Codex Shared  cli-live" in preview
-        assert "Central: Codex / Claude Shared" not in preview
+        assert "Saved central agent default model\n- Codex / Codex Shared  cli-live" in preview
+        assert "Saved central agent default model\n- Codex / Claude Shared" not in preview
 
 
 @pytest.mark.asyncio
@@ -12768,19 +13498,17 @@ async def test_settings_screen_syncs_mounted_agent_model_selectors(tmp_path) -> 
     async with app.run_test(size=(120, 40)) as pilot:
         start = app.screen
         assert isinstance(start, StartScreen)
-        assert (
-            start.query_one(AgentRecipientModelSelector).selected_model("claude")
-            == "default"
-        )
+        start_selector = start.query_one(AgentRecipientModelSelector)
+        assert start_selector.selected_model("claude") == "default"
+        start_selector.set_selected_agents(("claude",))
 
         app.switch_to("nexus")
         await pilot.pause()
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
-        assert (
-            nexus.query_one(AgentRecipientModelSelector).selected_model("claude")
-            == "default"
-        )
+        nexus_selector = nexus.query_one(AgentRecipientModelSelector)
+        assert nexus_selector.selected_model("claude") == "default"
+        nexus_selector.set_selected_agents(())
 
         app.switch_to("settings")
         await pilot.pause()
@@ -12797,6 +13525,7 @@ async def test_settings_screen_syncs_mounted_agent_model_selectors(tmp_path) -> 
         start = app.screen
         assert isinstance(start, StartScreen)
         start_selector = start.query_one(AgentRecipientModelSelector)
+        assert start_selector.selected_agents() == ("claude",)
         assert start_selector.selected_model("claude") == "sonnet[1m]"
         assert start_selector.selected_model("codex") == "gpt-5"
 
@@ -12805,8 +13534,153 @@ async def test_settings_screen_syncs_mounted_agent_model_selectors(tmp_path) -> 
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
         nexus_selector = nexus.query_one(AgentRecipientModelSelector)
+        assert nexus_selector.selected_agents() == ()
         assert nexus_selector.selected_model("claude") == "sonnet[1m]"
         assert nexus_selector.selected_model("codex") == "gpt-5"
+
+
+@pytest.mark.asyncio
+async def test_settings_model_default_reaches_unvisited_nexus_selector(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        start = app.screen
+        assert isinstance(start, StartScreen)
+
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        screen.query_one("#model-claude").value = "sonnet[1m]"
+        screen.action_apply()
+        await pilot.pause()
+
+        app.switch_to("nexus")
+        await pilot.pause()
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        nexus_selector = nexus.query_one(AgentRecipientModelSelector)
+        assert nexus_selector.selected_model("claude") == "sonnet[1m]"
+        assert nexus_selector.model_overrides() == {}
+
+
+@pytest.mark.asyncio
+async def test_settings_saved_agent_model_default_is_not_request_override(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        screen.query_one("#model-claude").value = "sonnet[1m]"
+        screen.action_apply()
+        await pilot.pause()
+
+        app.switch_to("start")
+        await pilot.pause()
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        selector = start.query_one(AgentRecipientModelSelector)
+        assert selector.selected_model("claude") == "sonnet[1m]"
+        assert selector.model_overrides() == {}
+
+        composer = start.query_one(PromptComposer)
+        composer.set_text("저장된 기본 모델로 분석해라")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.started_targets[-1] == ("claude",)
+        assert controller.started_models[-1] == {}
+
+
+@pytest.mark.asyncio
+async def test_settings_saved_agent_model_default_is_not_follow_up_override(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        screen.query_one("#model-claude").value = "sonnet[1m]"
+        screen.action_apply()
+        await pilot.pause()
+
+        app.switch_to("nexus")
+        await pilot.pause()
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        selector = nexus.query_one(AgentRecipientModelSelector)
+        assert selector.selected_model("claude") == "sonnet[1m]"
+        assert selector.model_overrides() == {}
+
+        composer = nexus.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("저장된 기본 모델로 이어서 분석해라")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_up_targets[-1] == ("claude",)
+        assert controller.follow_up_models[-1] == {}
+
+
+@pytest.mark.asyncio
+async def test_settings_apply_refreshes_stale_nexus_provider_models(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+    app._start_model_discovery = lambda: None  # type: ignore[method-assign]
+    app._refresh_provider_models = (  # type: ignore[method-assign]
+        lambda *, use_cache: None
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        app._handle_textual_slash_command("/status")
+        await pilot.pause()
+        assert (
+            nexus.query_one("#provider-claude", ProviderPanel).state.configured_model
+            == "default"
+        )
+
+        app.switch_to("settings")
+        await pilot.pause()
+        settings = app.screen
+        assert isinstance(settings, SettingsScreen)
+        settings.query_one("#model-claude").value = "sonnet[1m]"
+        settings.action_apply()
+        await pilot.pause()
+
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        assert (
+            nexus.query_one("#provider-claude", ProviderPanel).state.configured_model
+            == "sonnet[1m]"
+        )
+        assert app.active_snapshot is not None
+        claude = next(
+            provider
+            for provider in app.active_snapshot.providers
+            if provider.name == "claude"
+        )
+        assert claude.configured_model == "sonnet[1m]"
 
 
 @pytest.mark.asyncio

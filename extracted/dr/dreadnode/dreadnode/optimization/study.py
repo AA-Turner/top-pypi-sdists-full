@@ -51,6 +51,24 @@ current_trial: contextvars.ContextVar[Trial | None] = contextvars.ContextVar(
 )
 
 
+def _is_setup_or_routing_error(error: Exception) -> bool:
+    """Return true when an error should fail the full study immediately."""
+    if isinstance(error, RuntimeError):
+        message = str(error)
+        return "Missing proxy configuration" in message
+
+    try:
+        import litellm
+    except Exception:
+        return False
+
+    bad_request_error = getattr(litellm, "BadRequestError", None)
+    if not isinstance(bad_request_error, type):
+        exceptions = getattr(litellm, "exceptions", None)
+        bad_request_error = getattr(exceptions, "BadRequestError", None)
+    return isinstance(bad_request_error, type) and isinstance(error, bad_request_error)
+
+
 def _serialize_candidate(candidate: t.Any) -> str:
     """Serialize a candidate to a string for OTEL span attributes.
 
@@ -635,6 +653,7 @@ class Study(
     ) -> tuple[Trial[CandidateT], list[StudyEvent[CandidateT]]]:
         """Evaluate a single sample, return trial and events."""
         events: list[StudyEvent[CandidateT]] = []
+        fatal_error: Exception | None = None
 
         # Create trial from sample
         trial: Trial[CandidateT] = Trial(
@@ -810,11 +829,24 @@ class Study(
                 trial.pruning_reason = f"Constraint not satisfied: {e}"
 
             except Exception as e:
+                if _is_setup_or_routing_error(e):
+                    if span is not None:
+                        span.set_exception(e)
+                    trial.status = "failed"
+                    trial.error = str(e)
+                    logger.error(
+                        "Fatal setup/routing error on trial {}: {}",
+                        trial.step,
+                        e,
+                    )
+                    fatal_error = e
+
                 if span is not None:
                     span.set_exception(e)
-                trial.status = "failed"
-                trial.error = str(e)
-                logger.warning(f"Trial {trial.step} failed: {e}")
+                if fatal_error is None:
+                    trial.status = "failed"
+                    trial.error = str(e)
+                    logger.warning("Trial {} failed: {}", trial.step, e)
 
             # Set AIRT trial-level attributes on the span (for CH materialized columns).
             # Applied to ALL trial statuses (finished, pruned, failed) so pruned
@@ -922,6 +954,9 @@ class Study(
             if span is not None:
                 event.emit(span)
             events.append(event)
+
+        if fatal_error is not None:
+            raise fatal_error
 
         return trial, events
 

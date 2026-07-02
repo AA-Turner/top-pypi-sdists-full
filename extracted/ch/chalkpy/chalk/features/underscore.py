@@ -20,6 +20,7 @@ from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb2
 
 if TYPE_CHECKING:
     from chalk.features._encoding.converter import TPrimitive
+from chalk.utils.duration import Duration, parse_chalk_duration_s
 from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.source_parsing import should_skip_source_code_parsing
 
@@ -668,8 +669,15 @@ class UnderscoreFunction(Underscore):
     def with_logging(self, *, key: str, level: str = "info", log_args: bool = False) -> UnderscoreFunction:
         return self._with_policy("logging", key=key, level=level, log_args=log_args)
 
-    def with_cache(self, *, key: str) -> UnderscoreFunction:
-        return self._with_policy("cache", key=key)
+    def with_cache(self, *, key: str, ttl: Duration | None = None, path: str | None = None) -> UnderscoreFunction:
+        # ttl and path are only added to the policy when provided, so the engine falls back to its
+        # defaults (no expiry; CHALK_DF_BLOCKING_CACHE_DIR / temp dir) otherwise.
+        policy_params: dict[str, Any] = {"key": key}
+        if ttl is not None:
+            policy_params["ttl_seconds"] = parse_chalk_duration_s(ttl)
+        if path is not None:
+            policy_params["path"] = path
+        return self._with_policy("cache", **policy_params)
 
     @classmethod
     def with_f_dot_repr(

@@ -5,6 +5,7 @@ from numpy.testing import (
     assert_raises,
 )
 from sklearn.covariance import shrunk_covariance
+from sklearn.utils.validation import check_is_fitted
 import pytest
 
 from pyriemann.estimation import (
@@ -19,13 +20,17 @@ from pyriemann.estimation import (
     BlockCovariances,
     Kernels,
 )
-from pyriemann.utils.test import (
+from pyriemann.geometry.test import (
     is_sym_pos_def as is_spd,
     is_sym_pos_semi_def as is_spsd,
     is_herm_pos_def as is_hpd,
     is_herm_pos_semi_def as is_hpsd,
     is_hankel
 )
+
+
+pytestmark = pytest.mark.numpy_only
+
 
 estim = ["corr", "cov", "lwf", "mcd", "oas", "sch", "scm"]
 m_estim = ["hub", "stu", "tyl"]
@@ -383,3 +388,28 @@ def test_shrinkage(shrinkage, kind, get_mats):
 
     Xt2 = sh.fit_transform(X)
     assert_array_almost_equal(Xt, Xt2)
+
+
+@pytest.mark.parametrize(
+    "estimator, n_dim, kind",
+    [
+        (Covariances(), [3, 100], "real"),
+        (BlockCovariances(block_size=1), [3, 100], "real"),
+        (CrossSpectra(), [3, 100], "real"),
+        (CoSpectra(), [3, 100], "real"),
+        (Coherences(), [3, 100], "real"),
+        (TimeDelayCovariances(), [3, 100], "real"),
+        (Kernels(), [3, 100], "real"),
+        (Shrinkage(), 3, "spd"),
+    ],
+)
+def test_stateless_check_is_fitted(estimator, n_dim, kind, get_mats):
+    """Stateless transformers report as fitted after ``fit``.
+
+    They have a no-op ``fit`` and set no fitted attribute, so without
+    ``__sklearn_is_fitted__`` scikit-learn's ``check_is_fitted`` raised
+    ``NotFittedError`` (covers subclasses ``BlockCovariances``/``CoSpectra``/
+    ``Coherences`` via inheritance).
+    """
+    X = get_mats(2, n_dim, kind)
+    check_is_fitted(estimator.fit(X))

@@ -116,6 +116,7 @@ class ContractMetadata(google.protobuf.message.Message):
     CUSTOM_OPTIONS_FIELD_NUMBER: builtins.int
     BILLING_FEATURES_FIELD_NUMBER: builtins.int
     PACKAGE_UID_FIELD_NUMBER: builtins.int
+    PREVIOUS_ID_FIELD_NUMBER: builtins.int
     PACKAGE_ID_FIELD_NUMBER: builtins.int
     PACKAGE_METADATA_FIELD_NUMBER: builtins.int
     FEATURES_FIELD_NUMBER: builtins.int
@@ -124,6 +125,7 @@ class ContractMetadata(google.protobuf.message.Message):
     ruleset_version: builtins.str
     """The set of BillingRules that the BillingRulesEngine has to execute for this contract."""
     package_uid: builtins.str
+    previous_id: builtins.int
     package_id: builtins.int
     @property
     def custom_options(self) -> global___MetadataOptions:
@@ -150,11 +152,13 @@ class ContractMetadata(google.protobuf.message.Message):
         custom_options: global___MetadataOptions | None = ...,
         billing_features: sentry_protos.billing.v1.feature_pb2.FeatureOptions | None = ...,
         package_uid: builtins.str = ...,
+        previous_id: builtins.int | None = ...,
         package_id: builtins.int = ...,
         package_metadata: global___MetadataOptions | None = ...,
         features: global___FeatureOptions | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["billing_features", b"billing_features", "custom_options", b"custom_options", "features", b"features", "package_metadata", b"package_metadata"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["billing_features", b"billing_features", "custom_options", b"custom_options", "features", b"features", "id", b"id", "organization_id", b"organization_id", "package_id", b"package_id", "package_metadata", b"package_metadata", "package_uid", b"package_uid", "ruleset_version", b"ruleset_version"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_previous_id", b"_previous_id", "billing_features", b"billing_features", "custom_options", b"custom_options", "features", b"features", "package_metadata", b"package_metadata", "previous_id", b"previous_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_previous_id", b"_previous_id", "billing_features", b"billing_features", "custom_options", b"custom_options", "features", b"features", "id", b"id", "organization_id", b"organization_id", "package_id", b"package_id", "package_metadata", b"package_metadata", "package_uid", b"package_uid", "previous_id", b"previous_id", "ruleset_version", b"ruleset_version"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_previous_id", b"_previous_id"]) -> typing.Literal["previous_id"] | None: ...
 
 global___ContractMetadata = ContractMetadata

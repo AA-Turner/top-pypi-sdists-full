@@ -30,8 +30,13 @@ from cosmos.operators._watcher.base import (
     BaseConsumerSensor,
     store_dbt_resource_status_from_log,
 )
+from cosmos.operators._watcher.state import (
+    DBT_SOURCE_FRESHNESS_STALE_STATUSES,
+    DBT_SUCCESS_STATUSES,
+    DbtNodeStatus,
+)
 from cosmos.operators._watcher.xcom import (
-    _backup_xcom_to_variable,
+    _compose_backup_callback,
     _delete_xcom_backup_variable,
     _init_xcom_backup,
     _restore_xcom_from_variable,
@@ -69,8 +74,8 @@ def _default_freshness_callback(
     task_group: TaskGroup | None,
     nodes: dict[str, DbtNode] | None,
     sources_json: dict[str, Any] | None,
-) -> tuple[list[str], str]:
-    """Return unique_ids of nodes that must be skipped due to stale sources, plus the status ``"skip"``.
+) -> list[tuple[str, str]]:
+    """Return a list of ``(unique_id, state)`` tuples for nodes that must be skipped due to stale sources.
 
     Stale sources are those with ``status`` of ``"error"`` or ``"warn"`` in ``sources_json["results"]``.
 
@@ -82,11 +87,15 @@ def _default_freshness_callback(
     Traversal is a DFS over the reverse-dependency graph built from ``nodes``.
     """
     if not nodes or not sources_json:
-        return [], "skip"
+        return []
 
-    stale_source_ids = {r["unique_id"] for r in sources_json.get("results", []) if r.get("status") in ("error", "warn")}
+    stale_source_ids = {
+        r["unique_id"]
+        for r in sources_json.get("results", [])
+        if r.get("status") in DBT_SOURCE_FRESHNESS_STALE_STATUSES
+    }
     if not stale_source_ids:
-        return [], "skip"
+        return []
 
     # Build reverse map: dep_id -> set of node_ids that directly depend on it
     dependents: dict[str, set[str]] = {}
@@ -118,7 +127,7 @@ def _default_freshness_callback(
     # and test hash-suffixed unique_ids are not valid dbt --exclude selectors.
     excludable = [uid for uid in visited if nodes.get(uid) and nodes[uid].resource_type in _excludable_resource_types]
     logger.info("Nodes to skip due to stale sources: %s", excludable)
-    return excludable, "skip"
+    return [(uid, DbtNodeStatus.SKIPPED) for uid in excludable]
 
 
 class _StdoutFilter:
@@ -207,12 +216,15 @@ class DbtProducerWatcherOperator(DbtBuildMixin, DbtLocalBaseOperator):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         task_id = kwargs.pop("task_id", PRODUCER_WATCHER_TASK_ID)
         self.tests_per_model: dict[str, list[str]] = kwargs.pop("tests_per_model", {})
-        self.test_results_per_model: dict[str, list[str]] = {}
+        self.test_results_per_model: dict[str, dict[str, str]] = {}
         self._check_source_freshness: bool = kwargs.pop("_check_source_freshness", False)
+        self._should_generate_model_uris: bool = kwargs.pop(
+            "_should_generate_model_uris", kwargs.get("emit_datasets", True)
+        )
         self._freshness_callback: Callable[
             [Context, Any, TaskGroup | None, dict[str, DbtNode] | None, dict[str, Any] | None],
-            tuple[list[str], str],
-        ] = _default_freshness_callback
+            list[tuple[str, str]],
+        ] = kwargs.pop("freshness_callback", _default_freshness_callback)
         # Do not publish compiled_sql to the producer's rendered_template: it would contain SQL for
         # all models run by the producer, is often truncated in the UI due to size, and is of no use
         # there; individual sensor tasks show the corresponding rendered_template per model.
@@ -225,6 +237,11 @@ class DbtProducerWatcherOperator(DbtBuildMixin, DbtLocalBaseOperator):
         # An explicit invocation_mode passed by the caller is preserved as-is.
         super().__init__(task_id=task_id, *args, **kwargs)
         self.log_format = "json"
+        # Flush the in-memory backup to a Variable so the producer retry can restore it. A graceful
+        # failure with retries left is UP_FOR_RETRY (on_retry_callback), not FAILED, so register on
+        # both; composed after super().__init__ to preserve a DAG-level default_args callback (#2776).
+        self.on_retry_callback = _compose_backup_callback(getattr(self, "on_retry_callback", None))
+        self.on_failure_callback = _compose_backup_callback(getattr(self, "on_failure_callback", None))
 
         # Mutable dict populated lazily from the manifest; shared with the log parser.
         self._dataset_namespace: str | None = None
@@ -247,6 +264,7 @@ class DbtProducerWatcherOperator(DbtBuildMixin, DbtLocalBaseOperator):
             test_results_per_model=self.test_results_per_model,
             model_outlet_uris=self._model_outlet_uris,
             dataset_namespace=self._dataset_namespace,
+            should_generate_model_uris=self._should_generate_model_uris,
             upstream_failure_skipped_ids=self._upstream_failure_skipped_ids,
         )
 
@@ -312,7 +330,7 @@ class DbtProducerWatcherOperator(DbtBuildMixin, DbtLocalBaseOperator):
                     json_str = MessageToJson(event, preserving_proto_field_name=True)
                     parse(json_str, extra_kwargs)
                 except Exception as e:
-                    logger.exception("Error in dbt event callback: %s", e)
+                    self.log.exception("Error in dbt event callback: %s", e)
                     if not callback_error:
                         callback_error.append(e)
 
@@ -324,13 +342,13 @@ class DbtProducerWatcherOperator(DbtBuildMixin, DbtLocalBaseOperator):
             return result
         return super().run_dbt_runner(command, env, cwd, **kwargs)
 
-    def _push_skipped_xcom_for_model(self, ti: Any, unique_id: str) -> None:
-        """Push a synthetic ``"skipped"`` status XCom for a model excluded due to a stale upstream source.
+    def _push_node_state_xcom(self, ti: Any, unique_id: str, state: str) -> None:
+        """Push a synthetic status XCom for a node using the given ``state``.
 
         Uses the unified ``*_status`` XCom key that consumer sensors already poll.
         """
         uid_key = unique_id.replace(".", "__")
-        safe_xcom_push(task_instance=ti, key=f"{uid_key}_status", value={"status": "skipped", "outlet_uris": []})
+        safe_xcom_push(task_instance=ti, key=f"{uid_key}_status", value={"status": state, "outlet_uris": []})
 
     def _run_source_freshness(self, context: Context) -> None:
         """Run ``dbt source freshness`` via ``build_cmd`` and ``run_command``.
@@ -347,7 +365,7 @@ class DbtProducerWatcherOperator(DbtBuildMixin, DbtLocalBaseOperator):
         try:
             self.base_cmd = ["source", "freshness"]
             self.indirect_selection = None  # ``dbt source freshness`` does not support --indirect-selection
-            self.full_refresh = False  # type: ignore[assignment]  # ``dbt source freshness`` does not support --full-refresh
+            self.full_refresh = False
             self.dbt_cmd_flags = []  # clear build-specific flags (e.g. --resource-type)
             full_cmd, env = self.build_cmd(context=context, cmd_flags=self.add_cmd_flags())
             context["_check_source_freshness"] = True  # type: ignore[typeddict-unknown-key]
@@ -359,29 +377,37 @@ class DbtProducerWatcherOperator(DbtBuildMixin, DbtLocalBaseOperator):
             self.dbt_cmd_flags = original_dbt_cmd_flags
             context.pop("_check_source_freshness", None)  # type: ignore[typeddict-item]
 
-    def _skipped_node_token(self, context: Context, node_unique_ids: list[str]) -> None:
-        if not node_unique_ids:
+    def _apply_node_state_tokens(self, context: Context, node_state_pairs: list[tuple[str, str]]) -> None:
+        if not node_state_pairs:
             return
 
         ti = context["ti"]
 
-        for unique_id in node_unique_ids:
-            logger.info(
-                "Marking resource '%s' as skipped (stale upstream source)",
-                unique_id,
-            )
-            self._push_skipped_xcom_for_model(ti, unique_id)
+        for unique_id, state in node_state_pairs:
+            self.log.info("Pre-setting resource '%s' state to %s from source-freshness callback", unique_id, state)
+            self._push_node_state_xcom(ti, unique_id, state)
 
-        # Use the same parsing as DbtNode.resource_name: unique_id.split(".", 2)[2]
-        # This preserves version suffixes (e.g. model.pkg.my_model.v1 -> my_model.v1)
-        model_names = sorted({uid.split(".", 2)[2] for uid in node_unique_ids if len(uid.split(".", 2)) == 3})
-
-        current_exclude = getattr(self, "exclude", None)
+        # Exclude any node whose pre-set state is non-success from the dbt build.
+        # This covers both "skipped" (default) and failure states ("failed", "fail",
+        # "error") that a custom freshness_callback may return.  Without exclusion,
+        # dbt would run the model anyway and either overwrite the pre-set XCom status
+        # or trigger a race condition with the consumer sensor.
+        excluded_ids = [uid for uid, state in node_state_pairs if state not in DBT_SUCCESS_STATUSES]
+        if not excluded_ids:
+            return
+        resource_names = set()
+        for uid in excluded_ids:
+            try:
+                resource_names.add(DbtNode.get_resource_name_from_unique_id(uid))
+            except ValueError:
+                self.log.warning(
+                    "Skipping malformed dbt unique_id while building source-freshness exclude list: %s", uid
+                )
+        model_names = sorted(resource_names)
         exclude_str = " ".join(model_names)
-        if current_exclude:
-            self.exclude = f"{current_exclude} {exclude_str}"
-        else:
-            self.exclude = exclude_str
+        if exclude_str:
+            current_exclude = getattr(self, "exclude", None)
+            self.exclude = f"{current_exclude} {exclude_str}" if current_exclude else exclude_str
 
     def _push_source_freshness_results(self, context: Context) -> None:
         """Push per-source freshness status to XCom so source consumer sensors can read it."""
@@ -401,7 +427,18 @@ class DbtProducerWatcherOperator(DbtBuildMixin, DbtLocalBaseOperator):
 
     def _apply_source_freshness(self, context: Context) -> None:
         """Run source freshness, invoke the callback, and mark affected nodes as skipped."""
-        self._run_source_freshness(context)
+        try:
+            self._run_source_freshness(context)
+        except Exception as exc:
+            # dbt source freshness exits non-zero for WARN/ERROR freshness status, which is
+            # expected and handled by the callback. Re-raise only for genuine failures where
+            # sources.json was never written (e.g. connection error, bad project config).
+            if self._sources_json is None:
+                raise
+            self.log.warning(
+                "dbt source freshness completed with non-zero exit code: %s. " "Proceeding with freshness results.",
+                exc,
+            )
 
         # Push per-source freshness results so source consumer sensors can read them
         self._push_source_freshness_results(context)
@@ -421,12 +458,18 @@ class DbtProducerWatcherOperator(DbtBuildMixin, DbtLocalBaseOperator):
             tg_dbt_graph = getattr(task_group, "dbt_graph", None)
             nodes = getattr(tg_dbt_graph, "nodes", None)
 
-        node_ids_to_skip, _ = self._freshness_callback(context, dag, task_group, nodes, self._sources_json)
-        self._skipped_node_token(context, node_ids_to_skip)
+        freshness_results = self._freshness_callback(context, dag, task_group, nodes, self._sources_json)
+        self._apply_node_state_tokens(context, freshness_results)
 
     def execute(self, context: Context, **kwargs: Any) -> Any:
-        # Pre-compute the dataset namespace for per-model outlet URI generation.
-        self._dataset_namespace = get_dataset_namespace(self.profile_config)
+        # Resolve the dataset namespace only when the producer will generate per-model outlet
+        # URIs. With emit_datasets=False the producer does no dataset work, so we skip the
+        # namespace's profile resolution and leave it None. URI generation is gated explicitly by
+        # should_generate_model_uris in the log parser -- this None is just the disabled-state
+        # invariant, not a control signal.
+        self._dataset_namespace = (
+            get_dataset_namespace(self.profile_config) if self._should_generate_model_uris else None
+        )
         self._model_outlet_uris.clear()
         self._upstream_failure_skipped_ids.clear()
 
@@ -436,6 +479,10 @@ class DbtProducerWatcherOperator(DbtBuildMixin, DbtLocalBaseOperator):
 
         try_number = getattr(task_instance, "try_number", 1)
 
+        from cosmos import settings
+
+        reliable_retry = settings.enable_watcher_reliable_retry
+
         if try_number > 1:
             _restore_xcom_from_variable(context)
             raise AirflowSkipException(
@@ -443,7 +490,7 @@ class DbtProducerWatcherOperator(DbtBuildMixin, DbtLocalBaseOperator):
                 f"Detected attempt #{try_number}; skipping execution to avoid running a second dbt build."
             )
 
-        _init_xcom_backup(context)
+        _init_xcom_backup(context, persist=reliable_retry)
 
         if self._check_source_freshness:
             self._apply_source_freshness(context)
@@ -451,16 +498,18 @@ class DbtProducerWatcherOperator(DbtBuildMixin, DbtLocalBaseOperator):
         try:
             return_value = super().execute(context=context, **kwargs)
             safe_xcom_push(task_instance=context["ti"], key="task_status", value="completed")
-            _delete_xcom_backup_variable(context)
+            if reliable_retry:
+                _delete_xcom_backup_variable(context)
             return return_value
 
         except Exception:
+            # The on-failure callback flushes the in-memory backup to the Variable; here we only
+            # record that the producer finished so consumer sensors stop waiting.
             safe_xcom_push(task_instance=context["ti"], key="task_status", value="completed")
-            _backup_xcom_to_variable(context)
             raise
 
 
-class DbtConsumerWatcherSensor(BaseConsumerSensor, DbtRunLocalOperator):  # type: ignore[misc]
+class DbtConsumerWatcherSensor(BaseConsumerSensor, DbtRunLocalOperator):
     template_fields: tuple[str, ...] = BaseConsumerSensor.template_fields + DbtRunLocalOperator.template_fields  # type: ignore[operator]
 
     def __init__(
@@ -507,7 +556,7 @@ class DbtConsumerWatcherSensor(BaseConsumerSensor, DbtRunLocalOperator):  # type
         if settings.enable_uri_xcom:
             context["ti"].xcom_push(key="uri", value=outlet_uris)
 
-    def execute(self, context: Context, **kwargs: Any) -> None:  # type: ignore[override]
+    def execute(self, context: Context, **kwargs: Any) -> None:
         super().execute(context, **kwargs)
         # If we reach here without deferring, the model succeeded — emit datasets
         self._emit_datasets(context)
@@ -529,7 +578,7 @@ class DbtBuildWatcherOperator:
         )
 
 
-class DbtSeedWatcherOperator(DbtSeedMixin, DbtConsumerWatcherSensor):  # type: ignore[misc]
+class DbtSeedWatcherOperator(DbtSeedMixin, DbtConsumerWatcherSensor):
     """
     Watches for the progress of dbt seed execution, run by the producer task (DbtProducerWatcherOperator).
     """
@@ -540,7 +589,7 @@ class DbtSeedWatcherOperator(DbtSeedMixin, DbtConsumerWatcherSensor):  # type: i
         super().__init__(*args, **kwargs)
 
 
-class DbtSnapshotWatcherOperator(DbtSnapshotMixin, DbtConsumerWatcherSensor):  # type: ignore[misc]
+class DbtSnapshotWatcherOperator(DbtSnapshotMixin, DbtConsumerWatcherSensor):
     """
     Watches for the progress of dbt snapshot execution, run by the producer task (DbtProducerWatcherOperator).
     """
@@ -548,7 +597,7 @@ class DbtSnapshotWatcherOperator(DbtSnapshotMixin, DbtConsumerWatcherSensor):  #
     template_fields: tuple[str, ...] = DbtConsumerWatcherSensor.template_fields
 
 
-class DbtSourceWatcherOperator(BaseConsumerSensor, DbtSourceLocalOperator):  # type: ignore[misc]
+class DbtSourceWatcherOperator(BaseConsumerSensor, DbtSourceLocalOperator):
     """Watches for source freshness results from the producer task.
 
     When the producer has ``_check_source_freshness`` enabled it runs
@@ -567,16 +616,16 @@ class DbtSourceWatcherOperator(BaseConsumerSensor, DbtSourceLocalOperator):  # t
 
     def _fallback_to_non_watcher_run(self, try_number: int, context: Context) -> bool:
         """Run ``dbt source freshness`` locally for this specific source on retry."""
-        logger.info(
+        self.log.info(
             "Retry attempt #%s – Running source freshness for '%s' from project '%s'",
             try_number - 1,
             self.model_unique_id,
             self.project_dir,
         )
-        resource_name = self.model_unique_id.split(".", 2)[2]
+        resource_name = DbtNode.get_resource_name_from_unique_id(self.model_unique_id)
         cmd_flags = ["--select", f"source:{resource_name}"]
-        self.build_and_run_cmd(context, cmd_flags=cmd_flags)  # type: ignore[attr-defined]
-        logger.info("dbt source freshness completed successfully on retry for source '%s'", self.model_unique_id)
+        self.build_and_run_cmd(context, cmd_flags=cmd_flags)
+        self.log.info("dbt source freshness completed successfully on retry for source '%s'", self.model_unique_id)
         return True
 
 
@@ -591,7 +640,7 @@ class DbtRunWatcherOperator(DbtConsumerWatcherSensor):
         super().__init__(*args, **kwargs)
 
 
-class DbtTestWatcherOperator(DbtConsumerWatcherSensor):  # type: ignore[misc]
+class DbtTestWatcherOperator(DbtConsumerWatcherSensor):
     """Sensor that watches the aggregated test status for a dbt model in watcher execution mode.
 
     The producer task (``DbtProducerWatcherOperator``) collects individual test
@@ -610,7 +659,7 @@ class DbtTestWatcherOperator(DbtConsumerWatcherSensor):  # type: ignore[misc]
     back to running ``dbt test --select <model>`` locally for this specific model.
     """
 
-    template_fields: tuple[str, ...] = DbtConsumerWatcherSensor.template_fields  # type: ignore[operator]
+    template_fields: tuple[str, ...] = DbtConsumerWatcherSensor.template_fields
 
     # Hardcode base_cmd = ["test"] (overriding DbtRunMixin inherited via
     # DbtConsumerWatcherSensor) rather than inheriting from DbtTestMixin: due
@@ -633,15 +682,15 @@ class DbtTestWatcherOperator(DbtConsumerWatcherSensor):  # type: ignore[misc]
         Airflow-level retries fire. Producer flags are intentionally not forwarded
         because some of them (e.g. ``--full-refresh``) are not valid for ``dbt test``.
         """
-        logger.info(
+        self.log.info(
             "Running tests for model '%s' from project '%s' (try %s)",
             self.model_unique_id,
             self.project_dir,
             try_number,
         )
 
-        model_selector = self.model_unique_id.split(".", 2)[2]
+        model_selector = DbtNode.get_resource_name_from_unique_id(self.model_unique_id)
         cmd_flags = ["--select", model_selector]
         self.build_and_run_cmd(context, cmd_flags=cmd_flags)
-        logger.info("dbt test completed successfully for model '%s'", self.model_unique_id)
+        self.log.info("dbt test completed successfully for model '%s'", self.model_unique_id)
         return True

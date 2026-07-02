@@ -925,6 +925,8 @@ class State:
         # running dict because the ParallelState objects, which filter unpicklable objects
         # out of the context dict when necessary, are not picklable themselves.
         self.procs = {}
+        # Fix for Issue #30971: Track processed SLS files to handle empty SLS files
+        self._processed_sls_files = set()
 
     def _match_global_state_conditions(self, full, state, name):
         """
@@ -1674,6 +1676,11 @@ class State:
         for id_, body in high.items():
             if id_.startswith("__"):
                 continue
+            # Track SLS files from the high data, even if they produce no chunks.
+            # This is needed to handle SLS files that produce no output but are
+            # still required by other states (Issue #30971).
+            if "__sls__" in body:
+                self._processed_sls_files.add(body["__sls__"])
             for state, run in body.items():
                 # This should be a single value instead of a set
                 # because multiple functions of the same state
@@ -3243,10 +3250,30 @@ class State:
                     return running, pending
         if low.get("__prereq__"):
             status, _ = self._check_requisites(low, running)
-            self.pre[tag] = self.call(low, chunks, running)
-            if not self.pre[tag]["changes"] and status == "change":
-                self.pre[tag]["changes"] = {"watch": "watch"}
-                self.pre[tag]["result"] = None
+            if status == "pre":
+                # The prereq chain for this state reported no changes, so
+                # this state should not run either. Mark it as having no
+                # changes so a state prerequiring this one does not run.
+                # Fixes #68438.
+                start_time, duration = _calculate_fake_duration()
+                pre_ret = {
+                    "changes": {},
+                    "result": True,
+                    "duration": duration,
+                    "start_time": start_time,
+                    "comment": "No changes detected",
+                    "__run_num__": self.__run_num,
+                    "__state_ran__": False,
+                }
+                for key in ("__sls__", "__id__", "name"):
+                    pre_ret[key] = low.get(key)
+                self.pre[tag] = pre_ret
+                self.__run_num += 1
+            else:
+                self.pre[tag] = self.call(low, chunks, running)
+                if not self.pre[tag]["changes"] and status == "change":
+                    self.pre[tag]["changes"] = {"watch": "watch"}
+                    self.pre[tag]["result"] = None
         else:
             depth += 1
             # even this depth is being generous. This shouldn't exceed 1 no
@@ -4052,10 +4079,12 @@ class BaseHighState:
                     "The top file matches for saltenv {} are not "
                     "formatted as a dict".format(saltenv)
                 )
-            for slsmods in matches.values():
+            for match, slsmods in matches.items():
                 if not isinstance(slsmods, list):
                     errors.append(
-                        "Malformed topfile (state declarations not formed as a list)"
+                        "Malformed topfile: state declarations for matcher"
+                        " {!r} in saltenv {!r} are not formed as a list (got"
+                        " {})".format(match, saltenv, type(slsmods).__name__)
                     )
                     continue
                 for slsmod in slsmods:
@@ -4246,6 +4275,12 @@ class BaseHighState:
                 mods.add(f"{saltenv}:{sls}")
             except AttributeError:
                 pass
+
+            # Track SLS files that were rendered, even if they produce no
+            # output (empty state), so they can satisfy requisites
+            # (Issue #30971)
+            if hasattr(self.state, "_processed_sls_files"):
+                self.state._processed_sls_files.add(sls)
 
         if state:
             if not isinstance(state, dict):

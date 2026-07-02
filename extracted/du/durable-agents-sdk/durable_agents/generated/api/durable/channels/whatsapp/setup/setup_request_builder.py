@@ -14,6 +14,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ......models.channel_message_access import ChannelMessageAccess
     from ......models.error_envelope import ErrorEnvelope
     from ......models.whats_app_setup_guide import WhatsAppSetupGuide
     from ......models.whats_app_setup_request import WhatsAppSetupRequest
@@ -30,7 +31,7 @@ class SetupRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/api/durable/channels/whatsapp/setup{?phone_number_id*,verify_token*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/api/durable/channels/whatsapp/setup{?message_access*,phone_number_id*,verify_token*}", path_parameters)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[SetupRequestBuilderGetQueryParameters]] = None) -> Optional[WhatsAppSetupGuide]:
         """
@@ -116,6 +117,8 @@ class SetupRequestBuilder(BaseRequestBuilder):
         """
         Get WhatsApp Cloud API setup metadata and webhook guidance.
         """
+        message_access: Optional[ChannelMessageAccess] = None
+
         phone_number_id: Optional[str] = None
 
         verify_token: Optional[str] = None

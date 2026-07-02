@@ -49,10 +49,8 @@ option(BUILD_SHARED_LIBS "Build opencc as shared library" ${_OPENCC_DEFAULT_BUIL
 option(OPENCC_ENABLE_INSTALL "Generate install targets" ${_OPENCC_DEFAULT_ENABLE_INSTALL})
 option(ENABLE_GTEST "Build all tests." OFF)
 option(ENABLE_BENCHMARK "Build benchmark tests." OFF)
-option(ENABLE_DARTS "Build DartsDict (ocd format)." ON)
 option(BUILD_OPENCC_JIEBA_PLUGIN "Build Jieba segmentation as a loadable plugin." OFF)
 option(BUILD_PYTHON "Build python library" OFF)
-option(USE_SYSTEM_DARTS "Use system version of Darts" OFF)
 option(USE_SYSTEM_GOOGLE_BENCHMARK "Use system version of Google Benchmark" OFF)
 option(USE_SYSTEM_GTEST "Use system version of GoogleTest" OFF)
 option(USE_SYSTEM_MARISA "Use system version of Marisa" OFF)
@@ -67,6 +65,10 @@ set (PACKAGE_BUGREPORT https://github.com/BYVoid/OpenCC/issues)
 # Derive version from Git tags (falls back to hardcoded default when Git is unavailable)
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 include(GitVersion)
+
+# C++ interface/layout changes after 1.3.1 require downstream C++ consumers
+# such as librime to relink instead of loading an ABI-incompatible libopencc.
+set (OPENCC_ABI_VERSION 1.4)
 
 set(CPACK_SOURCE_PACKAGE_FILE_NAME
   "${PACKAGE_NAME}-${OPENCC_VERSION_MAJOR}.${OPENCC_VERSION_MINOR}.${OPENCC_VERSION_REVISION}"
@@ -256,12 +258,6 @@ if (ENABLE_BENCHMARK)
   add_definitions(
     -DPROJECT_BINARY_DIR="${PROJECT_BINARY_DIR}"
     -DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
-  )
-endif()
-
-if (ENABLE_DARTS)
-  add_definitions(
-    -DENABLE_DARTS
   )
 endif()
 

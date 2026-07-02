@@ -8,19 +8,10 @@ from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
-from os import environ
 from typing import Any, Awaitable, Callable, Dict, TypeVar, Union, cast
 from urllib.parse import urlencode
 
 import aiohttp
-
-DDTRACE = environ.get("DD_TRACE_ENABLED", "true").lower() in ["true", "1"]
-if DDTRACE:
-    try:
-        from ddtrace import tracer
-        from ddtrace.propagation.http import HTTPPropagator
-    except ImportError:
-        DDTRACE = False
 
 logger = getLogger(__name__)
 
@@ -94,12 +85,7 @@ AsyncFuncType = Callable[..., Awaitable[Any]]
 
 
 def get_trace_context(func: Union[SyncFuncType, AsyncFuncType]):
-    if DDTRACE and tracer.current_span():  # type: ignore
-        return tracer.trace(name=f"{func.__module__}.{func.__qualname__}"), operation_context(  # type: ignore
-            name=f"{func.__module__}.{func.__qualname__}"
-        )
-    else:
-        return nullcontext(), nullcontext()
+    return nullcontext(), nullcontext()
 
 
 def track_context(func: F) -> F:
@@ -132,10 +118,6 @@ def create_trace_data() -> Dict[str, str]:
         "coiled-session-id": COILED_SESSION_ID,
         "coiled-request-id": random_str(),
     }
-    if DDTRACE:
-        span = tracer.current_span()  # type: ignore
-        if span:
-            HTTPPropagator.inject(span_context=span.context, headers=trace_data)  # type: ignore
     op_id = COILED_OP_CONTEXT.get()
     if op_id:
         trace_data["coiled-operation-id"] = op_id

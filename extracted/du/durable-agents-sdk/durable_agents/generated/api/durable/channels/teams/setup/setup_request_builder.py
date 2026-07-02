@@ -14,6 +14,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ......models.channel_message_access import ChannelMessageAccess
     from ......models.error_envelope import ErrorEnvelope
     from ......models.teams_setup_guide import TeamsSetupGuide
 
@@ -28,7 +29,7 @@ class SetupRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/api/durable/channels/teams/setup{?bot_id*,name*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/api/durable/channels/teams/setup{?bot_id*,message_access*,name*}", path_parameters)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[SetupRequestBuilderGetQueryParameters]] = None) -> Optional[TeamsSetupGuide]:
         """
@@ -77,6 +78,8 @@ class SetupRequestBuilder(BaseRequestBuilder):
         Get Microsoft Teams setup metadata and package guidance.
         """
         bot_id: Optional[str] = None
+
+        message_access: Optional[ChannelMessageAccess] = None
 
         name: Optional[str] = None
 

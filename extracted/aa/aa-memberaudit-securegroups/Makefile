@@ -1,0 +1,60 @@
+# This makefile provides tools for developers.
+#
+# Note that it requires you to have a .env file defined with the path to your manage.py file
+# The syntax is: MANAGE_PY_PATH = /path/to/manage.py
+
+-include .env
+export
+
+appname = aa-memberaudit-securegroups
+package = memberaudit_securegroups
+
+help:
+	@echo "Makefile for $(appname)"
+	@echo "Manage path is $(MANAGE_PY_PATH)"
+
+makemessages:
+	cd $(package) && \
+	django-admin makemessages \
+		-l de \
+		-l en \
+		-l es \
+		-l fr_FR \
+		-l it_IT \
+		-l ja \
+		-l ko_KR \
+		-l ru \
+		-l uk \
+		-l zh_Hans \
+		--keep-pot \
+		--ignore 'build/*'
+
+tx_push:
+	tx push --source
+
+tx_pull:
+	tx pull -f
+
+compilemessages:
+	cd $(package) && \
+	django-admin compilemessages \
+		-l de \
+		-l en \
+		-l es \
+		-l fr_FR \
+		-l it_IT \
+		-l ja \
+		-l ko_KR \
+		-l ru \
+		-l uk \
+		-l zh_Hans
+
+coverage:
+	coverage run $(MANAGE_PY_PATH) test $(package) --keepdb --failfast && coverage html && coverage report -m
+	# coverage run --concurrency=multiprocessing $(MANAGE_PY_PATH) test --keepdb --failfast --timing --parallel --exclude-tag=exclude-parallel && coverage combine && coverage html && coverage report -m
+
+pylint:
+	pylint --load-plugins pylint_django $(package)
+
+graph_models:
+	python $(MANAGE_PY_PATH) graph_models $(package) --arrow-shape normal -o $(appname)_models.png

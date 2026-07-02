@@ -933,6 +933,190 @@ class ApiClient:
         self.request("DELETE", f"/org/{org}/ws/{workspace}/projects/{project}")
 
     # =========================================================================
+    # Project Memory
+    # =========================================================================
+
+    def list_project_memories(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        *,
+        scope_kind: str = "project",
+        project_filter: str | None = None,
+        include_closed: bool = False,
+        subtype: str | None = None,
+        limit: int = 50,
+    ) -> dict[str, t.Any]:
+        """POST /org/{org}/ws/{workspace}/projects/{project}/project-memory/list."""
+        payload: dict[str, t.Any] = {
+            "scope_kind": scope_kind,
+            "include_closed": include_closed,
+            "limit": limit,
+        }
+        if project_filter is not None:
+            payload["project_filter"] = project_filter
+        if subtype is not None:
+            payload["subtype"] = subtype
+
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/projects/{project}/project-memory/list",
+            json_data=payload,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def list_project_memory_preload(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        *,
+        scope_kind: str = "project",
+        limit: int = 20,
+    ) -> dict[str, t.Any]:
+        """List recent open project memories for prompt preload context."""
+        return self.list_project_memories(
+            org,
+            workspace,
+            project,
+            scope_kind=scope_kind,
+            include_closed=False,
+            limit=limit,
+        )
+
+    def get_project_memory(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        *,
+        memory_id: str,
+        scope_kind: str = "project",
+        project_filter: str | None = None,
+        include_closed: bool = False,
+    ) -> dict[str, t.Any]:
+        """POST /org/{org}/ws/{workspace}/projects/{project}/project-memory/get."""
+        payload: dict[str, t.Any] = {
+            "memory_id": memory_id,
+            "scope_kind": scope_kind,
+            "include_closed": include_closed,
+        }
+        if project_filter is not None:
+            payload["project_filter"] = project_filter
+
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/projects/{project}/project-memory/get",
+            json_data=payload,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def save_project_memory(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        *,
+        title: str,
+        body: str,
+        scope_kind: str = "project",
+        summary: str | None = None,
+        subtype: str | None = None,
+        payload_json: dict[str, t.Any] | None = None,
+        memory_id: str | None = None,
+        expected_version: int | None = None,
+        runtime_id: str | None = None,
+        session_id: str | None = None,
+        run_id: str | None = None,
+        tool_event_id: str | None = None,
+        capability_id: str | None = None,
+        audit_note: str | None = None,
+        project_id: str | None = None,
+    ) -> dict[str, t.Any]:
+        """POST /org/{org}/ws/{workspace}/projects/{project}/project-memory/save."""
+        payload: dict[str, t.Any] = {
+            "scope_kind": scope_kind,
+            "title": title,
+            "body": body,
+        }
+        if summary is not None:
+            payload["summary"] = summary
+        if subtype is not None:
+            payload["subtype"] = subtype
+        if payload_json is not None:
+            payload["payload_json"] = payload_json
+        if memory_id is not None:
+            payload["memory_id"] = memory_id
+        if expected_version is not None:
+            payload["expected_version"] = expected_version
+        if runtime_id is not None:
+            payload["runtime_id"] = runtime_id
+        if session_id is not None:
+            payload["session_id"] = session_id
+        if run_id is not None:
+            payload["run_id"] = run_id
+        if tool_event_id is not None:
+            payload["tool_event_id"] = tool_event_id
+        if capability_id is not None:
+            payload["capability_id"] = capability_id
+        if audit_note is not None:
+            payload["audit_note"] = audit_note
+        if project_id is not None:
+            payload["project_id"] = project_id
+
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/projects/{project}/project-memory/save",
+            json_data=payload,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def close_project_memory(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        *,
+        memory_id: str,
+        expected_version: int,
+        close_reason: str,
+        scope_kind: str = "project",
+        runtime_id: str | None = None,
+        session_id: str | None = None,
+        run_id: str | None = None,
+        tool_event_id: str | None = None,
+        capability_id: str | None = None,
+        note: str | None = None,
+    ) -> dict[str, t.Any]:
+        """POST /org/{org}/ws/{workspace}/projects/{project}/project-memory/close."""
+        payload: dict[str, t.Any] = {
+            "memory_id": memory_id,
+            "scope_kind": scope_kind,
+            "expected_version": expected_version,
+            "close_reason": close_reason,
+        }
+        if runtime_id is not None:
+            payload["runtime_id"] = runtime_id
+        if session_id is not None:
+            payload["session_id"] = session_id
+        if run_id is not None:
+            payload["run_id"] = run_id
+        if tool_event_id is not None:
+            payload["tool_event_id"] = tool_event_id
+        if capability_id is not None:
+            payload["capability_id"] = capability_id
+        if note is not None:
+            payload["note"] = note
+
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/projects/{project}/project-memory/close",
+            json_data=payload,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    # =========================================================================
     # OCI Registry
     # =========================================================================
 
@@ -2183,6 +2367,94 @@ class ApiClient:
             f"/org/{org}/tasks/{name}/visibility",
             json_data={"is_public": is_public},
         )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    # =========================================================================
+    # Task sets (platform)
+    # =========================================================================
+
+    def list_task_sets(
+        self,
+        org: str,
+        *,
+        source: list[str] | None = None,
+        search: str | None = None,
+        tags: list[str] | None = None,
+        contains: str | None = None,
+        sort_by: str = "created_at",
+        sort_dir: str = "desc",
+        page: int = 1,
+        limit: int = 50,
+        include_public: bool = False,
+    ) -> dict[str, t.Any]:
+        """GET /org/{org}/task-sets - List task sets (TSS-CAT-001/002)."""
+        params: dict[str, t.Any] = {
+            "sort_by": sort_by,
+            "sort_dir": sort_dir,
+            "page": page,
+            "limit": limit,
+            "include_public": include_public,
+        }
+        if source is not None:
+            params["source"] = source
+        if search is not None:
+            params["search"] = search
+        if tags is not None:
+            params["tags"] = tags
+        if contains is not None:
+            params["contains"] = contains
+        response = self.request("GET", f"/org/{org}/task-sets", params=params)
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def get_task_set_facets(
+        self,
+        org: str,
+        *,
+        source: list[str] | None = None,
+        search: str | None = None,
+        tags: list[str] | None = None,
+        include_public: bool = False,
+    ) -> dict[str, t.Any]:
+        """GET /org/{org}/task-sets/facets - Task set filter facets (TSS-CAT-005)."""
+        params: dict[str, t.Any] = {"include_public": include_public}
+        if source is not None:
+            params["source"] = source
+        if search is not None:
+            params["search"] = search
+        if tags is not None:
+            params["tags"] = tags
+        response = self.request("GET", f"/org/{org}/task-sets/facets", params=params)
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def get_task_set(self, org: str, name: str) -> dict[str, t.Any]:
+        """GET /org/{org}/task-sets/{name} - Detail with per-caller member resolution (TSS-CAT-004)."""
+        response = self.request("GET", f"/org/{org}/task-sets/{name}")
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def create_task_set(self, org: str, request: dict[str, t.Any]) -> dict[str, t.Any]:
+        """POST /org/{org}/task-sets - Create a task set from a manifest body."""
+        response = self.request("POST", f"/org/{org}/task-sets", json_data=request)
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def update_task_set(self, org: str, name: str, request: dict[str, t.Any]) -> dict[str, t.Any]:
+        """PUT /org/{org}/task-sets/{name} - Replace the full manifest (TSS-MUT-001)."""
+        response = self.request("PUT", f"/org/{org}/task-sets/{name}", json_data=request)
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def update_task_set_visibility(
+        self, org: str, name: str, *, is_public: bool
+    ) -> dict[str, t.Any]:
+        """PATCH /org/{org}/task-sets/{name}/visibility - Flip is_public (TSS-VIS-002)."""
+        response = self.request(
+            "PATCH",
+            f"/org/{org}/task-sets/{name}/visibility",
+            json_data={"is_public": is_public},
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def delete_task_set(self, org: str, name: str) -> dict[str, t.Any]:
+        """DELETE /org/{org}/task-sets/{name} - Hard delete (TSS-MUT-006)."""
+        response = self.request("DELETE", f"/org/{org}/task-sets/{name}")
         return t.cast("dict[str, t.Any]", response.json())
 
     # =========================================================================

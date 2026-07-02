@@ -55,6 +55,31 @@ class EllipsisCheck(SourceCheck):
         return "..." in sources[0]
 
 
+class SourceMaxLengthCheck(SourceCheck):
+    """Check whether source leaves enough room for translations."""
+
+    check_id = "source-max-length"
+    name = gettext_lazy("Source string length")
+    description = gettext_lazy(
+        "Source string is too long to fit into the configured maximum length."
+    )
+
+    def check_source_unit(self, sources: list[str], unit: Unit) -> bool:
+        if not unit.all_flags.has_value("max-length"):
+            return False
+        try:
+            max_length = unit.all_flags.get_value("max-length")
+        except ValueError:
+            return True
+
+        replace = self.get_replacement_function(unit)
+        if unit.translation.component.source_language.is_base({"en"}):
+            return any(
+                len(replace(source)) * 100 > max_length * 85 for source in sources
+            )
+        return any(len(replace(source)) > max_length for source in sources)
+
+
 class MultipleFailingCheck(SourceCheck, BatchCheckMixin):
     """Check whether there are more failing checks on this translation."""
 
@@ -65,7 +90,8 @@ class MultipleFailingCheck(SourceCheck, BatchCheckMixin):
     )
 
     def get_related_checks(self, unit_ids: Iterable[int]):
-        from weblate.checks.models import Check  # noqa: PLC0415
+        # ruff: ignore[import-outside-top-level]
+        from weblate.checks.models import Check
 
         return (
             Check.objects.filter(unit__source_unit_id__in=unit_ids)
@@ -84,10 +110,12 @@ class MultipleFailingCheck(SourceCheck, BatchCheckMixin):
             .values_list("unit__translation", flat=True)
             .distinct()
         )
-        return related.count() >= 2
+        # We only need to know whether two translations are affected.
+        return len(related[:2]) >= 2
 
     def check_component(self, component: Component) -> Iterable[Unit]:
-        from weblate.trans.models import Unit  # noqa: PLC0415
+        # ruff: ignore[import-outside-top-level]
+        from weblate.trans.models import Unit
 
         source_translation = component.get_source_translation()
         if source_translation is None:
@@ -165,21 +193,41 @@ class LongUntranslatedCheck(SourceCheck, BatchCheckMixin):
         if unit.timestamp > timezone.now() - timedelta(days=90):
             return False
 
+        component = unit.translation.component
+        component_stats = component.stats
+        if component_stats.is_loaded:
+            component_translated_percent = component_stats.translated_percent
+        else:
+            stats_data = component_stats.load()
+            if {"all", "translated"} <= stats_data.keys():
+                component_stats.set_data(stats_data)
+                component_translated_percent = component_stats.translated_percent
+            else:
+                # Avoid rebuilding full component stats just for this check.
+                component_data = self.get_component_translated_percent(component)
+                component_total = component_data["total"] or 0
+                component_translated_percent = (
+                    100
+                    * (component_total - (component_data["not_translated"] or 0))
+                    / component_total
+                    if component_total
+                    else 0
+                )
+        if component_translated_percent <= 0:
+            return False
+
         states = list(unit.unit_set.values_list("state", flat=True))
         total = len(states)
         not_translated = states.count(STATE_EMPTY) + sum(
             states.count(state) for state in FUZZY_STATES
         )
         translated_percent = 100 * (total - not_translated) / total
-        return (
-            total
-            and 2 * translated_percent
-            < unit.translation.component.stats.translated_percent
-        )
+        return total and 2 * translated_percent < component_translated_percent
 
     @staticmethod
     def get_component_translated_percent(component: Component):
-        from weblate.trans.models import Unit  # noqa: PLC0415
+        # ruff: ignore[import-outside-top-level]
+        from weblate.trans.models import Unit
 
         return Unit.objects.filter(translation__component=component).aggregate(
             total=Count("pk"),
@@ -189,7 +237,8 @@ class LongUntranslatedCheck(SourceCheck, BatchCheckMixin):
         )
 
     def check_component(self, component: Component) -> Iterable[Unit]:
-        from weblate.trans.models import Unit  # noqa: PLC0415
+        # ruff: ignore[import-outside-top-level]
+        from weblate.trans.models import Unit
 
         component_stats = self.get_component_translated_percent(component)
         total = component_stats["total"] or 0

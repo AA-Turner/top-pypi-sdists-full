@@ -27,8 +27,8 @@ REPO_URL = "https://api.github.com/repos/WeblateOrg/weblate"
 ACTIVITY_URL = "https://api.github.com/repos/WeblateOrg/weblate/stats/commit_activity"
 FALLBACK_STATS = {
     "stars": 5896,
-    "issues": 485,
-    "commits": 1751,
+    "issues": 484,
+    "commits": 1728,
 }
 
 

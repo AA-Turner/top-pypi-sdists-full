@@ -1,3 +1,5 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -58,5 +60,15 @@ cc_binary(
     deps = [
         "//src:cmd_line_output_lib",
         "//src:phrase_extract_lib",
+    ],
+)
+
+cc_binary(
+    name = "speed_benchmark",
+    srcs = ["SpeedBenchmark.cpp"],
+    deps = [
+        "//src:resource_provider_lib",
+        "//src:simple_converter_lib",
+        "//src:utf8_util_lib",
     ],
 )

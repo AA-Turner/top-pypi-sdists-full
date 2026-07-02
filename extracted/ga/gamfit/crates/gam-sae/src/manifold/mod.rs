@@ -100,6 +100,13 @@ pub(crate) use gam_solve::arrow_schur::{
     arrow_factor_min_pivot, solve_arrow_newton_step_with_options,
 };
 
+// #988 memory-matrix-free evidence log-det: the reduced-Schur SLQ entry point
+// and its shared tuning constants, used when the dense k×k Schur exceeds budget.
+pub(crate) use gam_solve::arrow_schur::{
+    SCHUR_SLQ_LOGDET_LANCZOS_STEPS, SCHUR_SLQ_LOGDET_PROBES, SCHUR_SLQ_LOGDET_SEED,
+    matrix_free_arrow_evidence_log_det,
+};
+
 pub(crate) use gam_solve::estimate::EstimationError;
 
 pub(crate) use gam_solve::evidence::arrow_log_det_from_cache;
@@ -125,6 +132,8 @@ mod arrow_solver;
 mod atom;
 mod certificate;
 mod construction;
+mod construction_ard;
+mod construction_aux_types;
 mod construction_cache_refresh;
 mod construction_padded_blocks;
 mod construction_reconstruction;
@@ -145,10 +154,28 @@ mod term;
 mod tests;
 
 #[cfg(test)]
+mod tests_bessel_normaliser_1113;
+
+#[cfg(test)]
 mod tests_parallelism_invariance_1557;
 
 #[cfg(test)]
 mod tests_olmo;
+
+#[cfg(test)]
+mod tests_ibp_capacity_1784;
+
+#[cfg(test)]
+mod tests_startup_validation_1782;
+
+#[cfg(test)]
+mod tests_schur_seed_refusal_1782;
+
+#[cfg(test)]
+mod tests_structured_residual_2021;
+
+#[cfg(test)]
+mod tests_streaming_efs_cache_1026;
 
 #[cfg(test)]
 mod tests_row_jet_and_outer_objective_780;
@@ -172,12 +199,15 @@ mod tests_collapse_bar_reachable_rank_1610;
 mod sae_contract_probe_tests;
 
 #[cfg(test)]
+mod tests_device_engage_1783;
+
+#[cfg(test)]
 mod lambda_smooth_1556_tests;
 
 pub use arrow_solver::*;
 pub use atom::*;
 pub use certificate::*;
-pub use construction::*;
+pub use construction_aux_types::*;
 pub use construction_cache_refresh::*;
 pub use construction_padded_blocks::*;
 pub(crate) use kronecker::*;

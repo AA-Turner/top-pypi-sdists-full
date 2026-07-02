@@ -3022,6 +3022,132 @@ class FileBaseOptions:
         )
 
 
+class FutureComponent(
+    Component,
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="projen.FutureComponent",
+):
+    '''(experimental) A {@link Component} that is created *detached* from any project and attached to one later via {@link FutureComponent.attach}.
+
+    Like a regular component, but constructed without a project. It improves on a
+    naive deferred component in three ways:
+
+    - Use-before-attach is an error, not a silent footgun. The constructor hands
+      the caller a guard proxy; touching ``project``, ``node``, ``synthesize()`` or any
+      subclass feature before ``attach()`` throws.
+    - No global shadow-tree leak. Each instance gets its own throwaway shadow
+      root, so detached components never share an id counter and the root becomes
+      garbage once the component is reparented on attach.
+    - ``attach()`` returns the unwrapped component, so callers can opt out of the
+      proxy entirely.
+
+    The constructor takes no arguments (``super()``). A subclass that needs options
+    captures them itself, reading the local parameter inside its constructor - NOT
+    ``this.options``, which the guard blocks until attach::
+
+       class Worker extends FutureComponent {
+         private readonly options: WorkerOptions;
+         constructor(options: WorkerOptions = {}) {
+           super();
+           this.options = options; // set: allowed
+         }
+         protected init() {
+           // this.project is available here
+         }
+       }
+
+       const w = new Worker({ retries: 3 });
+       // w.project;                  // throws: not attached yet
+       const real = w.attach(project); // reparents, runs init(), returns the bare instance
+
+    :stability: experimental
+    '''
+
+    def __init__(self) -> None:
+        '''
+        :stability: experimental
+        '''
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="attach")
+    def attach(
+        self,
+        scope: "_constructs_77d1e7e8.IConstruct",
+        id: typing.Optional[builtins.str] = None,
+    ) -> "FutureComponent":
+        '''(experimental) Attach the component to a scope. Only now does it become usable.
+
+        Returns the real, unwrapped component (not the proxy). A component may be
+        attached exactly once; attaching an already-attached component throws (copy
+        it first to attach a variant elsewhere). Use ``tryAttach()`` if you don't care
+        whether it has already been attached.
+
+        :param scope: -
+        :param id: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad86f32c7267bd76592c55bd9533b001f9fac5fbe8a04e9f32da369e26132ea3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        return typing.cast("FutureComponent", jsii.invoke(self, "attach", [scope, id]))
+
+    @jsii.member(jsii_name="init")
+    def _init(self) -> None:
+        '''(experimental) Project-dependent setup.
+
+        Runs once, from ``attach()``, when ``this.project`` is
+        finally available.
+
+        :stability: experimental
+        '''
+        return typing.cast(None, jsii.invoke(self, "init", []))
+
+    @jsii.member(jsii_name="tryAttach")
+    def try_attach(
+        self,
+        scope: "_constructs_77d1e7e8.IConstruct",
+        id: typing.Optional[builtins.str] = None,
+    ) -> "FutureComponent":
+        '''(experimental) Attach the component if it isn't already, without caring *where*.
+
+        Unlike ``attach()``, never throws on an already-attached component: if attached
+        anywhere at all, the existing instance is returned and ``scope`` is ignored.
+        Use ``attach()`` when attaching to a specific scope is part of your contract
+        and a pre-existing attachment elsewhere would be a bug.
+
+        :param scope: -
+        :param id: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a51219ab42c3d7f48bc3572df60c0fbefb5d72c524987b0e6b86edf2f3000538)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        return typing.cast("FutureComponent", jsii.invoke(self, "tryAttach", [scope, id]))
+
+    @builtins.property
+    @jsii.member(jsii_name="attached")
+    def attached(self) -> builtins.bool:
+        '''(experimental) Whether ``attach()`` has been called.
+
+        A convenience for tests/introspection;
+        prefer ``tryAttach()`` over reading this and branching.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.bool, jsii.get(self, "attached"))
+
+
+class _FutureComponentProxy(FutureComponent):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, FutureComponent).__jsii_proxy_class__ = lambda : _FutureComponentProxy
+
+
 class GitAttributesFile(
     FileBase,
     metaclass=jsii.JSIIMeta,
@@ -4518,6 +4644,49 @@ class _IResolverProxy:
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IResolver).__jsii_proxy_class__ = lambda : _IResolverProxy
+
+
+@jsii.interface(jsii_type="projen.IScriptRunner")
+class IScriptRunner(typing_extensions.Protocol):
+    '''(experimental) A script runner that can produce the configuration to execute a file of a particular type.
+
+    :stability: experimental
+    '''
+
+    @jsii.member(jsii_name="configFor")
+    def config_for(self, entrypoint: builtins.str) -> "RunScriptConfig":
+        '''(experimental) Produce the configuration to run the given entrypoint.
+
+        :param entrypoint: -
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IScriptRunnerProxy:
+    '''(experimental) A script runner that can produce the configuration to execute a file of a particular type.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "projen.IScriptRunner"
+
+    @jsii.member(jsii_name="configFor")
+    def config_for(self, entrypoint: builtins.str) -> "RunScriptConfig":
+        '''(experimental) Produce the configuration to run the given entrypoint.
+
+        :param entrypoint: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__29ed02685a86ec4c0aecdbab09e52ebfd91b464740a3baccfe64a9bcbfcdd2e6)
+            check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
+        return typing.cast("RunScriptConfig", jsii.invoke(self, "configFor", [entrypoint]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IScriptRunner).__jsii_proxy_class__ = lambda : _IScriptRunnerProxy
 
 
 class IgnoreFile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.IgnoreFile"):
@@ -8089,6 +8258,66 @@ class Rule:
         )
 
 
+@jsii.data_type(
+    jsii_type="projen.RunScriptConfig",
+    jsii_struct_bases=[],
+    name_mapping={"dependencies": "dependencies", "steps": "steps"},
+)
+class RunScriptConfig:
+    def __init__(
+        self,
+        *,
+        dependencies: typing.Sequence[typing.Union["DependencyRequest", typing.Dict[builtins.str, typing.Any]]],
+        steps: typing.Sequence[typing.Union["TaskStep", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''(experimental) The resolved configuration for running a script.
+
+        :param dependencies: (experimental) Dependencies required to run the script.
+        :param steps: (experimental) The task steps to execute the script.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__00200b24e5134222dec4d5e4a4647b1f7a52574d84741c2ec1039ec7d4d418b1)
+            check_type(argname="argument dependencies", value=dependencies, expected_type=type_hints["dependencies"])
+            check_type(argname="argument steps", value=steps, expected_type=type_hints["steps"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dependencies": dependencies,
+            "steps": steps,
+        }
+
+    @builtins.property
+    def dependencies(self) -> typing.List["DependencyRequest"]:
+        '''(experimental) Dependencies required to run the script.
+
+        :stability: experimental
+        '''
+        result = self._values.get("dependencies")
+        assert result is not None, "Required property 'dependencies' is missing"
+        return typing.cast(typing.List["DependencyRequest"], result)
+
+    @builtins.property
+    def steps(self) -> typing.List["TaskStep"]:
+        '''(experimental) The task steps to execute the script.
+
+        :stability: experimental
+        '''
+        result = self._values.get("steps")
+        assert result is not None, "Required property 'steps' is missing"
+        return typing.cast(typing.List["TaskStep"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RunScriptConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class SampleDir(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.SampleDir"):
     '''(experimental) Renders the given files into the directory if the directory does not exist.
 
@@ -8404,6 +8633,40 @@ class SampleReadmeProps:
         return "SampleReadmeProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(IScriptRunner)
+class ScriptRunner(
+    FutureComponent,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.ScriptRunner",
+):
+    '''(experimental) A script runner that executes the entrypoint file directly.
+
+    A runner is a {@link FutureComponent}: it can be created standalone (e.g. in
+    ``.projenrc.ts``) and is attached to a project by whoever consumes it.
+
+    :stability: experimental
+    '''
+
+    def __init__(self) -> None:
+        '''
+        :stability: experimental
+        '''
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="configFor")
+    def config_for(self, entrypoint: builtins.str) -> "RunScriptConfig":
+        '''(experimental) Produce the configuration to run the given entrypoint.
+
+        :param entrypoint: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__939fee1373e62abd235529796534cc847037961c79d7fb5ffa308bdc9ed7c6be)
+            check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
+        return typing.cast("RunScriptConfig", jsii.invoke(self, "configFor", [entrypoint]))
 
 
 @jsii.data_type(
@@ -13390,6 +13653,7 @@ __all__ = [
     "EndOfLine",
     "FileBase",
     "FileBaseOptions",
+    "FutureComponent",
     "GitAttributesFile",
     "GitAttributesFileOptions",
     "GitOptions",
@@ -13412,6 +13676,7 @@ __all__ = [
     "IDockerComposeVolumeConfig",
     "IResolvable",
     "IResolver",
+    "IScriptRunner",
     "IgnoreFile",
     "IgnoreFileOptions",
     "IniFile",
@@ -13447,12 +13712,14 @@ __all__ = [
     "RenovatebotScheduleInterval",
     "ResolveOptions",
     "Rule",
+    "RunScriptConfig",
     "SampleDir",
     "SampleDirOptions",
     "SampleFile",
     "SampleFileOptions",
     "SampleReadme",
     "SampleReadmeProps",
+    "ScriptRunner",
     "SnapshotOptions",
     "SourceCode",
     "SourceCodeOptions",
@@ -13911,6 +14178,20 @@ def _typecheckingstub__177d8a347651b29224d730dd6e1bbec48e6dd46e5dcfd4d25e3798e67
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ad86f32c7267bd76592c55bd9533b001f9fac5fbe8a04e9f32da369e26132ea3(
+    scope: _constructs_77d1e7e8.IConstruct,
+    id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a51219ab42c3d7f48bc3572df60c0fbefb5d72c524987b0e6b86edf2f3000538(
+    scope: _constructs_77d1e7e8.IConstruct,
+    id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a914753a9db7cc6bfa6a166cf7ee02794375210a09b1d8e2c62496abf14b4d21(
     scope: _constructs_77d1e7e8.IConstruct,
     *,
@@ -14091,6 +14372,12 @@ def _typecheckingstub__02fe3f80ba2709a778dd1c7b2c05be66e2342a0284f2ddb2216485cc3
     *,
     args: typing.Optional[typing.Sequence[typing.Any]] = None,
     omit_empty: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__29ed02685a86ec4c0aecdbab09e52ebfd91b464740a3baccfe64a9bcbfcdd2e6(
+    entrypoint: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14656,6 +14943,14 @@ def _typecheckingstub__960ffc3506d59d9b0342960ce1ae8b57e2e9b37cb7952b5c51fec42ee
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__00200b24e5134222dec4d5e4a4647b1f7a52574d84741c2ec1039ec7d4d418b1(
+    *,
+    dependencies: typing.Sequence[typing.Union[DependencyRequest, typing.Dict[builtins.str, typing.Any]]],
+    steps: typing.Sequence[typing.Union[TaskStep, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b8efbed63e76d887e28111eeef32b09ef5633f3c345fcb30e0eb79de9bd55ffb(
     project: Project,
     dir: builtins.str,
@@ -14705,6 +15000,12 @@ def _typecheckingstub__77957e29d490dd06dbcef8d6f6f12b818295fcdd57ba6e23c2f47a789
     *,
     contents: typing.Optional[builtins.str] = None,
     filename: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__939fee1373e62abd235529796534cc847037961c79d7fb5ffa308bdc9ed7c6be(
+    entrypoint: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15550,5 +15851,5 @@ def _typecheckingstub__13520dccfc7567565533a60eb68d854a29a519fa88a2a00e2abe76dd2
     """Type checking stubs"""
     pass
 
-for cls in [ICompareString, IDevEnvironment, IDockerComposeNetworkBinding, IDockerComposeNetworkConfig, IDockerComposeServiceName, IDockerComposeVolumeBinding, IDockerComposeVolumeConfig, IResolvable, IResolver]:
+for cls in [ICompareString, IDevEnvironment, IDockerComposeNetworkBinding, IDockerComposeNetworkConfig, IDockerComposeServiceName, IDockerComposeVolumeBinding, IDockerComposeVolumeConfig, IResolvable, IResolver, IScriptRunner]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -683,6 +683,7 @@ class AgenticPlatformPipelineType(pycarlo.lib.types.Enum):
 
     * `AGENT_HEALTH`None
     * `ALERT_ASSESSMENT`None
+    * `COST_AGENT_INSIGHTS`None
     * `MONITORING`None
     * `MONITOR_TUNING`None
     * `SCHEDULED_REPORT`None
@@ -693,6 +694,7 @@ class AgenticPlatformPipelineType(pycarlo.lib.types.Enum):
     __choices__ = (
         "AGENT_HEALTH",
         "ALERT_ASSESSMENT",
+        "COST_AGENT_INSIGHTS",
         "MONITORING",
         "MONITOR_TUNING",
         "SCHEDULED_REPORT",
@@ -1979,6 +1981,7 @@ class ConversationFilterFieldName(pycarlo.lib.types.Enum):
 
     * `DURATION`None
     * `HAS_ERRORS`None
+    * `INTENT_CLUSTER`None
     * `STATUS`None
     * `TOTAL_TOKENS`None
     * `TURNS`None
@@ -1986,7 +1989,15 @@ class ConversationFilterFieldName(pycarlo.lib.types.Enum):
     """
 
     __schema__ = schema
-    __choices__ = ("DURATION", "HAS_ERRORS", "STATUS", "TOTAL_TOKENS", "TURNS", "WORKFLOW")
+    __choices__ = (
+        "DURATION",
+        "HAS_ERRORS",
+        "INTENT_CLUSTER",
+        "STATUS",
+        "TOTAL_TOKENS",
+        "TURNS",
+        "WORKFLOW",
+    )
 
 
 class ConversationSortField(pycarlo.lib.types.Enum):
@@ -4818,7 +4829,6 @@ class JobPerformanceFacet(pycarlo.lib.types.Enum):
 class JobsPerformanceSummarySort(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
-    * `ALERTS_COUNT`None
     * `AVG_RUN_DURATION`None
     * `DISPLAY_NAME`None
     * `FAILURE_RATE`None
@@ -4834,7 +4844,6 @@ class JobsPerformanceSummarySort(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = (
-        "ALERTS_COUNT",
         "AVG_RUN_DURATION",
         "DISPLAY_NAME",
         "FAILURE_RATE",
@@ -4899,10 +4908,12 @@ class LineageNodeJobType(pycarlo.lib.types.Enum):
     * `AIRFLOW`None
     * `AZURE_DATA_FACTORY`None
     * `CONFLUENT_KAFKA_CONNECT`None
+    * `CUSTOM_ETL_CONNECTOR`None
     * `DATABRICKS`None
     * `DBT_CLOUD`None
     * `DBT_CORE`None
     * `FIVETRAN`None
+    * `GCP_DATAFORM`None
     * `INFORMATICA`None
     * `INFORMATICA_V2`None
     * `MSK_KAFKA_CONNECT`None
@@ -4916,10 +4927,12 @@ class LineageNodeJobType(pycarlo.lib.types.Enum):
         "AIRFLOW",
         "AZURE_DATA_FACTORY",
         "CONFLUENT_KAFKA_CONNECT",
+        "CUSTOM_ETL_CONNECTOR",
         "DATABRICKS",
         "DBT_CLOUD",
         "DBT_CORE",
         "FIVETRAN",
+        "GCP_DATAFORM",
         "INFORMATICA",
         "INFORMATICA_V2",
         "MSK_KAFKA_CONNECT",
@@ -9842,7 +9855,6 @@ class ClusteringConfigInput(sgqlc.types.Input):
         "min_confidence",
         "user_input_char_cap",
         "agent_response_char_cap",
-        "window_days",
         "min_conversations",
         "classify_cadence_minutes",
         "collection_lag_hours",
@@ -9878,9 +9890,6 @@ class ClusteringConfigInput(sgqlc.types.Input):
 
     agent_response_char_cap = sgqlc.types.Field(Int, graphql_name="agentResponseCharCap")
     """Per-turn cap on agent-response characters sent to the model."""
-
-    window_days = sgqlc.types.Field(Int, graphql_name="windowDays")
-    """Rolling cluster-share window in days; display only."""
 
     min_conversations = sgqlc.types.Field(Int, graphql_name="minConversations")
     """Minimum discovery-eligible conversations before clustering
@@ -10094,6 +10103,7 @@ class ConversationFiltersInput(sgqlc.types.Input):
         "max_total_tokens",
         "min_duration",
         "max_duration",
+        "cluster_keys",
     )
     conversation_id_search = sgqlc.types.Field(String, graphql_name="conversationIdSearch")
     """Case-insensitive substring search on conversation_id"""
@@ -10141,6 +10151,14 @@ class ConversationFiltersInput(sgqlc.types.Input):
 
     max_duration = sgqlc.types.Field(Float, graphql_name="maxDuration")
     """Maximum conversation duration in seconds"""
+
+    cluster_keys = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="clusterKeys"
+    )
+    """Filter the list to conversations assigned to these intent clusters
+    (within the query's clusteringSpaceUuid). Empty or omitted applies
+    no cluster filter; requires clusteringSpaceUuid to be set.
+    """
 
 
 class CreateLinearTicketForAgentHealthIssueInput(sgqlc.types.Input):
@@ -11006,6 +11024,59 @@ class DeleteAgentTraceTableInput(sgqlc.types.Input):
     __field_names__ = ("uuid",)
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """UUID of the agent trace table to delete"""
+
+
+class EtlTaskPerformanceV3FilterInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("job_mcon", "start_time", "end_time")
+    job_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobMcon")
+    """Parent unified-ETL (V3) job mcon; scopes the summary to that job's
+    tasks
+    """
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Starting time of period to query for"""
+
+    end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
+    """Ending time of the query period. The window is half-open
+    [startTime, endTime) — a run starting exactly at endTime is
+    excluded. When omitted the window is open-ended (all runs from
+    startTime onward) and the 7-day duration trend is computed
+    relative to the current time.
+    """
+
+
+class EtlTaskPerformanceV3PagingInput(sgqlc.types.Input):
+    """Paging + sort for ``getEtlTaskPerformanceV3``.  Identical to the
+    legacy ``TasksPerformancePagingInput`` (relay cursors plus the
+    shared ``TasksPerformanceSummarySort`` field/direction) so the
+    frontend reuses its existing tasks-performance paging logic
+    unchanged.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("first", "after", "last", "before", "order_by", "order_direction")
+    first = sgqlc.types.Field(Int, graphql_name="first")
+    """Number of items to retrieve after the cursor. Defaults to 20 if no
+    other paging parameters are provided
+    """
+
+    after = sgqlc.types.Field(String, graphql_name="after")
+    """Starting cursor when paging forward"""
+
+    last = sgqlc.types.Field(Int, graphql_name="last")
+    """Number of items to retrieve before the cursor when paging backward"""
+
+    before = sgqlc.types.Field(String, graphql_name="before")
+    """Ending cursor when paging backward"""
+
+    order_by = sgqlc.types.Field(TasksPerformanceSummarySort, graphql_name="orderBy")
+    """Field by which to order the results. Defaults to
+    LAST_RUN_START_TIME
+    """
+
+    order_direction = sgqlc.types.Field(EtlPerformanceSortDirection, graphql_name="orderDirection")
+    """Sort direction. Defaults to EnumMeta.ASC"""
 
 
 class EvalSchemaFieldInput(sgqlc.types.Input):
@@ -11897,6 +11968,7 @@ class GetConversationsInput(sgqlc.types.Input):
         "start_time",
         "end_time",
         "filters",
+        "clustering_space_uuid",
         "first",
         "after",
         "last",
@@ -11922,6 +11994,13 @@ class GetConversationsInput(sgqlc.types.Input):
 
     filters = sgqlc.types.Field(ConversationFiltersInput, graphql_name="filters")
     """Optional filters"""
+
+    clustering_space_uuid = sgqlc.types.Field(UUID, graphql_name="clusteringSpaceUuid")
+    """Clustering scope for this query. When set, each conversation's
+    intentCluster is populated from this space's current taxonomy, and
+    any clusterKeys filter resolves against it. Omit to exclude intent
+    clusters.
+    """
 
     first = sgqlc.types.Field(Int, graphql_name="first")
     """Number of conversations to fetch (forward pagination)"""
@@ -23822,6 +23901,23 @@ class ClearMemoryData(sgqlc.types.Type):
     """True if memories were cleared successfully."""
 
 
+class ClusterAssignmentType(sgqlc.types.Type):
+    """One conversation's assigned cluster (latest-wins, current
+    taxonomy).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("cluster_key", "cluster_name", "confidence")
+    cluster_key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="clusterKey")
+    """Assigned cluster slug; "uncategorized" if gated / no match."""
+
+    cluster_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="clusterName")
+    """Display name of the assigned cluster."""
+
+    confidence = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="confidence")
+    """Classifier self-reported confidence for the assignment."""
+
+
 class ClusteringConfig(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -23835,7 +23931,6 @@ class ClusteringConfig(sgqlc.types.Type):
         "min_confidence",
         "user_input_char_cap",
         "agent_response_char_cap",
-        "window_days",
         "min_conversations",
         "classify_cadence_minutes",
         "collection_lag_hours",
@@ -23887,9 +23982,6 @@ class ClusteringConfig(sgqlc.types.Type):
         sgqlc.types.non_null(Int), graphql_name="agentResponseCharCap"
     )
     """Per-turn cap on agent-response characters sent to the model."""
-
-    window_days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="windowDays")
-    """Rolling cluster-share window in days; display only."""
 
     min_conversations = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="minConversations"
@@ -24656,6 +24748,7 @@ class Conversation(sgqlc.types.Type):
         "status",
         "errors_count",
         "eval_scores",
+        "intent_cluster",
     )
     conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
     """Conversation identifier"""
@@ -24694,6 +24787,12 @@ class Conversation(sgqlc.types.Type):
     any conversation eval monitor.
     """
 
+    intent_cluster = sgqlc.types.Field(ClusterAssignmentType, graphql_name="intentCluster")
+    """The conversation's assigned intent cluster for the requested
+    clustering scope. Null when the conversation is unclassified or no
+    clustering scope was requested.
+    """
+
 
 class ConversationClusterConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
@@ -24720,6 +24819,43 @@ class ConversationClusterEdge(sgqlc.types.Type):
 
     cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
     """A cursor for use in pagination"""
+
+
+class ConversationClusterStat(sgqlc.types.Type):
+    """A cluster's windowed share of classified conversations (panel
+    card).
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "cluster_key",
+        "name",
+        "description",
+        "ordinal",
+        "conversation_count",
+        "share_pct",
+    )
+    cluster_key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="clusterKey")
+    """Stable cluster slug."""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Human-readable cluster name."""
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+    """One-line intent descriptor."""
+
+    ordinal = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="ordinal")
+    """Display order; Uncategorized sorts last."""
+
+    conversation_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="conversationCount"
+    )
+    """Conversations assigned to this cluster in the window."""
+
+    share_pct = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="sharePct")
+    """Percent of classified conversations in this cluster (cards sum to
+    100).
+    """
 
 
 class ConversationClusterType(sgqlc.types.Type):
@@ -24764,6 +24900,55 @@ class ConversationClusterType(sgqlc.types.Type):
 
     taxonomy_version = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="taxonomyVersion")
     """Taxonomy version this cluster belongs to."""
+
+
+class ConversationClusteringResult(sgqlc.types.Type):
+    """Conversation-clustering panel for one (agent, scope, window):
+    enablement state, the space, per-cluster stats, and coverage.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "state",
+        "space",
+        "clusters",
+        "eligible_conversation_count",
+        "classified_conversation_count",
+    )
+    state = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationClusteringState), graphql_name="state"
+    )
+    """Computed enablement state for the (agent, scope)."""
+
+    space = sgqlc.types.Field("ConversationClusteringSpaceType", graphql_name="space")
+    """The clustering space; null before opt-in (state OPT_IN)."""
+
+    clusters = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ConversationClusterStat))),
+        graphql_name="clusters",
+    )
+    """Per-cluster windowed stats incl. the synthetic Uncategorized
+    bucket; empty until a taxonomy exists.
+    """
+
+    eligible_conversation_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="eligibleConversationCount"
+    )
+    """Conversations eligible for classification in the window (coverage
+    denominator). Windowed on conversation completion time; the
+    classified/eligible ratio can read above 100% because the two
+    counts use different time axes (see classifiedConversationCount).
+    """
+
+    classified_conversation_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="classifiedConversationCount"
+    )
+    """Conversations with a current-taxonomy assignment in the window
+    (coverage numerator). Windowed on classification time
+    (classified_at), not conversation completion, so the
+    classified/eligible ratio can read above 100% on freshly-enabled
+    or -refreshed spaces.
+    """
 
 
 class ConversationClusteringSpaceConnection(sgqlc.types.relay.Connection):
@@ -37100,7 +37285,13 @@ class LinearIntegrationResult(sgqlc.types.Type):
     """The account's configured Linear integration."""
 
     __schema__ = schema
-    __field_names__ = ("uuid", "webhook_url", "webhook_enabled", "default_team_id")
+    __field_names__ = (
+        "uuid",
+        "webhook_url",
+        "webhook_enabled",
+        "default_team_id",
+        "integration_name",
+    )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Integration external ID."""
 
@@ -37119,6 +37310,14 @@ class LinearIntegrationResult(sgqlc.types.Type):
 
     default_team_id = sgqlc.types.Field(String, graphql_name="defaultTeamId")
     """Linear team ID new tickets default to."""
+
+    integration_name = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="integrationName"
+    )
+    """Human-readable name for this integration. To rename it, pass this
+    integration's uuid to setIntegrationName with integration type
+    'linear'.
+    """
 
 
 class LinearTeam(sgqlc.types.Type):
@@ -63651,6 +63850,56 @@ class PauseTableMonitor(sgqlc.types.Type):
     table_monitor = sgqlc.types.Field("TableMonitor", graphql_name="tableMonitor")
 
 
+class PerformancePageInsightOutput(sgqlc.types.Type):
+    """A single insight surfaced on the Performance Page."""
+
+    __schema__ = schema
+    __field_names__ = ("title", "content", "related_mcons", "related_warehouses")
+    title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
+    """Short insight headline."""
+
+    content = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="content")
+    """Insight body."""
+
+    related_mcons = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="relatedMcons",
+    )
+    """MCONs of the catalog objects this insight references."""
+
+    related_warehouses = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="relatedWarehouses",
+    )
+    """UUIDs of the warehouses this insight references."""
+
+
+class PerformancePageInsightsOutput(sgqlc.types.Type):
+    """Cost insights surfaced on the Performance Page."""
+
+    __schema__ = schema
+    __field_names__ = ("is_enabled", "insights", "thread_id")
+    is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
+    """Whether cost insights are enabled for the caller's account. When
+    false, the Performance Page insights section should not be shown.
+    """
+
+    insights = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(PerformancePageInsightOutput))
+        ),
+        graphql_name="insights",
+    )
+    """Insights from the latest completed cost-insights run for the
+    caller's account. Empty until a run has produced insights.
+    """
+
+    thread_id = sgqlc.types.Field(String, graphql_name="threadId")
+    """Identifier of the run that produced these insights. Null when
+    insights are unavailable for the caller's account.
+    """
+
+
 class PermissionAccessResult(sgqlc.types.Type):
     """Result of a data authorization check.  Each result identifies what
     was checked (permission or resourcePath), which data object it
@@ -64991,6 +65240,7 @@ class Query(sgqlc.types.Type):
         "get_custom_dashboard_widget_as_definition",
         "get_open_telemetry_data_stores",
         "get_conversation_clustering_spaces",
+        "get_conversation_clustering",
         "get_agent_metadata",
         "get_agent_metadata_v2",
         "get_agent_observability_billing_info",
@@ -65108,6 +65358,7 @@ class Query(sgqlc.types.Type):
         "get_etl_task_runs_v3",
         "get_etl_group_v3",
         "get_etl_groups_v3",
+        "get_etl_task_performance_v3",
         "get_informatica_mapping_task_runs",
         "get_adf_job_runs",
         "get_adf_task_runs",
@@ -65194,6 +65445,7 @@ class Query(sgqlc.types.Type):
         "simulate_query_perf_monitor_evaluation",
         "get_query_perf_monitor_explanation_for_event",
         "get_query_perf_monitor_explanation",
+        "get_performance_page_insights",
         "get_indexed_field_specs",
         "get_query_logs",
         "get_query_log_timeline",
@@ -66113,6 +66365,38 @@ class Query(sgqlc.types.Type):
     * `after` (`String`)None
     * `first` (`Int`)None
     * `last` (`Int`)None
+    """
+
+    get_conversation_clustering = sgqlc.types.Field(
+        ConversationClusteringResult,
+        graphql_name="getConversationClustering",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetConversationsFiltersDataInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+                (
+                    "scope_workflow",
+                    sgqlc.types.Arg(String, graphql_name="scopeWorkflow", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Conversation-clustering panel for one (agent,
+    scope) over the requested [startTime, endTime] window: enablement
+    state, the space, per-cluster stats, and eligible/classified
+    coverage. Returns a result even before opt-in (state OPT_IN).
+
+    Arguments:
+
+    * `input` (`GetConversationsFiltersDataInput!`)None
+    * `scope_workflow` (`String`): Null = agent-wide taxonomy; a
+      workflow selects that scope's taxonomy.
     """
 
     get_agent_metadata = sgqlc.types.Field(
@@ -69467,6 +69751,41 @@ class Query(sgqlc.types.Type):
       key with `-` for descending.
     """
 
+    get_etl_task_performance_v3 = sgqlc.types.Field(
+        "TaskPerformanceData",
+        graphql_name="getEtlTaskPerformanceV3",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(EtlTaskPerformanceV3FilterInput),
+                        graphql_name="filters",
+                        default=None,
+                    ),
+                ),
+                (
+                    "paging",
+                    sgqlc.types.Arg(
+                        EtlTaskPerformanceV3PagingInput, graphql_name="paging", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Per-task performance data for a unified-ETL (V3)
+    job — the V3 equivalent of getTasksPerformanceData.
+
+    Arguments:
+
+    * `filters` (`EtlTaskPerformanceV3FilterInput!`): Job scope and
+      time window: parent job MCON plus the start/end of the period to
+      query.
+    * `paging` (`EtlTaskPerformanceV3PagingInput`): Relay-style cursor
+      pagination plus task-summary sort field and direction. Defaults
+      to the first 20 by LAST_RUN_START_TIME.
+    """
+
     get_informatica_mapping_task_runs = sgqlc.types.Field(
         InformaticaMappingTaskRunsConnection,
         graphql_name="getInformaticaMappingTaskRuns",
@@ -71773,6 +72092,15 @@ class Query(sgqlc.types.Type):
 
     * `request` (`GetExplanationRequestType!`)None
     * `config` (`QPMonitorConfigInputType!`): QP monitor config
+    """
+
+    get_performance_page_insights = sgqlc.types.Field(
+        sgqlc.types.non_null(PerformancePageInsightsOutput),
+        graphql_name="getPerformancePageInsights",
+    )
+    """(experimental) Cost insights for the caller's account, shown on
+    the Performance Page: whether the feature is enabled and the
+    latest completed run's insights.
     """
 
     get_indexed_field_specs = sgqlc.types.Field(

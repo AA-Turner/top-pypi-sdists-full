@@ -2854,7 +2854,7 @@ class PythonProject(
         :param projenrc_js_options: (experimental) Options related to projenrc in JavaScript. Default: - default options
         :param projenrc_python: (experimental) Use projenrc in Python. This will install ``projen`` as a Python dependency and add a ``synth`` task which will run ``.projenrc.py``. Default: true
         :param projenrc_python_options: (experimental) Options related to projenrc in python. Default: - default options
-        :param projenrc_ts: (experimental) Use projenrc in TypeScript. This will create a tsconfig file (default: ``tsconfig.projen.json``) and use ``ts-node`` in the default task to parse the project source files. Default: false
+        :param projenrc_ts: (experimental) Use projenrc in TypeScript. This will create a tsconfig file (default: ``tsconfig.projen.json``) and use a typescript runner in the default task to parse the project source files. Default: false
         :param projenrc_ts_options: (experimental) Options related to projenrc in TypeScript. Default: - default options
         :param pytest: (experimental) Include pytest tests. Default: true
         :param pytest_options: (experimental) pytest options. Default: - defaults
@@ -3260,7 +3260,7 @@ class PythonProjectOptions(
         :param projenrc_js_options: (experimental) Options related to projenrc in JavaScript. Default: - default options
         :param projenrc_python: (experimental) Use projenrc in Python. This will install ``projen`` as a Python dependency and add a ``synth`` task which will run ``.projenrc.py``. Default: true
         :param projenrc_python_options: (experimental) Options related to projenrc in python. Default: - default options
-        :param projenrc_ts: (experimental) Use projenrc in TypeScript. This will create a tsconfig file (default: ``tsconfig.projen.json``) and use ``ts-node`` in the default task to parse the project source files. Default: false
+        :param projenrc_ts: (experimental) Use projenrc in TypeScript. This will create a tsconfig file (default: ``tsconfig.projen.json``) and use a typescript runner in the default task to parse the project source files. Default: false
         :param projenrc_ts_options: (experimental) Options related to projenrc in TypeScript. Default: - default options
         :param pytest: (experimental) Include pytest tests. Default: true
         :param pytest_options: (experimental) pytest options. Default: - defaults
@@ -4050,7 +4050,7 @@ class PythonProjectOptions(
         '''(experimental) Use projenrc in TypeScript.
 
         This will create a tsconfig file (default: ``tsconfig.projen.json``)
-        and use ``ts-node`` in the default task to parse the project source files.
+        and use a typescript runner in the default task to parse the project source files.
 
         :default: false
 

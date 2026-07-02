@@ -1060,16 +1060,31 @@ def _resolve_transforms(names: list[str], *, adapter_model: str | None = None) -
 def _build_target(model: str, max_tokens: int = 1024) -> t.Any:
     """Build a target task function for the given model."""
     from dreadnode import task
+    from dreadnode.generators.proxy import resolve_dn_model_to_generator
 
     @task
     async def target(prompt: str) -> str:
         from litellm import acompletion
 
-        resp = await acompletion(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=max_tokens,
-        )
+        resolved_model = resolve_dn_model_to_generator(model) if model.startswith("dn/") else model
+
+        request_kwargs: dict[str, t.Any] = {
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+        }
+        if isinstance(resolved_model, str):
+            request_kwargs["model"] = resolved_model
+        else:
+            request_kwargs.update(
+                {
+                    "model": resolved_model.model,
+                    "api_key": resolved_model.api_key,
+                    "api_base": resolved_model.params.api_base,
+                    "custom_llm_provider": "litellm_proxy",
+                }
+            )
+
+        resp = await acompletion(**request_kwargs)
         return resp.choices[0].message.content
 
     return target

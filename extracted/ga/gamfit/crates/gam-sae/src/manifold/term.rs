@@ -176,8 +176,36 @@ pub(crate) const SAE_FIT_DATA_COLLAPSE_EV_FLOOR: f64 = 0.10;
 /// at every collapse-guard site.
 pub(crate) const SAE_COLLAPSE_PCA_EV_FRACTION: f64 = 0.5;
 
+/// #1189/#1217/#1610 — the finite BFGS INFEASIBILITY WALL substituted for a
+/// non-finite / collapsed REML criterion so the outer line search REJECTS the
+/// step and backtracks toward the feasible basin instead of aborting the whole
+/// outer solve (the `opt` BFGS treats a non-finite probe as "line search failed"
+/// and gives up at the current iterate — observed on real OLMo K=2, stall at
+/// iter 2 with |g|≈65; see [`super::outer_objective`]). It is deliberately a
+/// FINITE wall, not `∞`: an `∞` probe is non-differentiable and un-backtrackable,
+/// whereas a large finite value presents as an ordinary infeasible step. The
+/// magnitude is NOT a tuned operating point — it is a sentinel chosen only to
+/// DOMINATE any realizable REML criterion for a non-collapsed SAE fit (which is
+/// `O(N·p·log σ²)` — tens to thousands in magnitude) by many orders, so a
+/// collapsed/infeasible probe always loses the line-search comparison. `1e12`
+/// clears that with headroom while staying far below `f64::MAX` (the sum path
+/// clamps to `2·wall` so a near-`f64::MAX` finite base can never overflow to
+/// `∞`). The non-collapsed, finite-cost path is byte-for-byte unchanged.
 pub(crate) const SAE_FIT_DATA_COLLAPSE_COST: f64 = 1.0e12;
 
+/// #1026 — reconstruction EV-improvement / EV-degradation tolerance for the
+/// inner-fit reconstruction INCUMBENT. A new inner iterate is recorded as the
+/// best-reconstruction state only when its explained variance improves by more
+/// than this; the pre-degradation incumbent is restored only when EV degrades by
+/// more than this ([`super::fit_drivers`], [`super::outer_objective`]). EV is a
+/// dimensionless quantity in `[0,1]`, so this is a scale-invariant "0.1% of
+/// variance" negligibility tolerance (the SAME dimensionless negligibility point
+/// as [`crate::hybrid_split`]'s collapse gate): it debounces round-off-level EV
+/// wobble between iterates from a material EV move, without a corpus-tuned
+/// magnitude. Where it instead gates an OBJECTIVE (not an EV) it is applied
+/// scale-relative as `TOL·(1 + |objective|)` (`fit_drivers.rs` accept floor), so
+/// the same constant reads as a relative tolerance on that scale-bearing
+/// quantity.
 pub(crate) const SAE_FINAL_EV_DEGRADATION_TOL: f64 = 1.0e-3;
 
 /// #1026 — per-row coordinate re-projection grid resolution for the final
@@ -284,11 +312,11 @@ pub(crate) const SAE_COACTIVE_RELATIVE_MASS_FLOOR: f64 = 1.0e-3;
 static SAE_SEP_STRENGTH_OVERRIDE_BITS: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0x7ff8_0000_0000_0000);
 /// #1026/#1522/#1610 — read the process-global separation-barrier-strength
-/// override, or `None` when unset. `None` ⇒ the data-derived μ_C (the
-/// overcompleteness ratio from
-/// [`super::penalties::SaeManifoldTerm::separation_barrier_strength`]) is used.
-/// A quiet-NaN sentinel means "unset → derive from the problem"; `0.0` stays a
-/// legitimate swept value (barrier disabled).
+/// override, or `None` when unset. `None` ⇒ the evidence-derived per-pair μ_jk
+/// (the data-fit inseparability strength from
+/// [`super::penalties::SaeManifoldTerm::barrier_pair_strength_with_gates`]) is
+/// used. A quiet-NaN sentinel means "unset → derive from the problem"; `0.0`
+/// stays a legitimate swept value (barrier disabled).
 pub(crate) fn sae_separation_barrier_override() -> Option<f64> {
     let v =
         f64::from_bits(SAE_SEP_STRENGTH_OVERRIDE_BITS.load(std::sync::atomic::Ordering::Relaxed));
@@ -297,22 +325,37 @@ pub(crate) fn sae_separation_barrier_override() -> Option<f64> {
 
 /// Set the process-global SAE separation-barrier strength override (one wheel,
 /// many configs). `sep_strength` is NaN to clear the override back to the
-/// data-derived μ_C (`K / reachable_rank`); there is no compiled-constant
-/// default any more.
+/// evidence-derived per-pair μ_jk (`γ_jk / (1 - γ_jk)`, the data-fit
+/// inseparability strength — see
+/// [`super::penalties::SaeManifoldTerm::barrier_pair_strength_with_gates`]); there
+/// is no compiled-constant default any more.
 /// The amplitude (keep-alive) barrier and its active-atom gate were removed
 /// (surplus features are allowed to die into a ridge-parked state), so this
 /// takes only the separation strength. Called from the gamfit Python FFI.
+///
+/// CONCURRENCY: this is a PROCESS-GLOBAL atomic, so it is NOT safe to use across
+/// concurrent in-process fits — a parallel candidate/rung/layer sweep that sets
+/// different strengths in different threads will leak the override between fits
+/// (last writer wins for all readers). It is intended for a single-fit-at-a-time
+/// CLI/notebook sweep where the process runs one configuration at a time. The
+/// proper fix is to migrate this to a per-fit configuration field threaded
+/// through the solver rather than a global; that refactor is out of scope here.
 pub fn set_sae_barrier_overrides(sep_strength: f64) {
     SAE_SEP_STRENGTH_OVERRIDE_BITS
         .store(sep_strength.to_bits(), std::sync::atomic::Ordering::Relaxed);
 }
 
-// #1026/#1522/#1610 — the SEPARATION barrier strength `μ_C` is NO LONGER a
-// hand-picked absolute constant (it was `10.0`, matched to no problem scale).
-// It is now DATA-DERIVED from the dictionary's overcompleteness — see the full
-// derivation on [`super::penalties::SaeManifoldTerm::separation_barrier_strength`]
-// (the penalty form `P_sep = -μ_C Σ q_jk log(1-c²+ε)` on the normalized decoder
-// shapes is documented there). The runtime override
+// #1026/#1522/#1610 — the SEPARATION barrier strength is NO LONGER a hand-picked
+// absolute constant (it was `10.0`, matched to no problem scale), nor the
+// overcompleteness rank ratio `Σ min(M_k,p)/min(n,p)` (a geometry heuristic).
+// It is now EVIDENCE-DERIVED PER PAIR from the reconstruction objective: the
+// data-fit inseparability `γ_jk` (largest canonical correlation of the two atoms'
+// coactivation-weighted chart designs — the quantity that governs whether the
+// joint inner Laplace/REML Hessian stays PD) sets `μ_jk = γ_jk/(1-γ_jk)`. See the
+// full derivation on
+// [`super::penalties::SaeManifoldTerm::barrier_pair_strength_with_gates`] (the
+// penalty form `P_sep = Σ μ_jk q_jk [-log(1-c²+ε)]` on the normalized decoder
+// shapes is documented on `separation_barrier_value`). The runtime override
 // (`set_sae_barrier_overrides`) still takes precedence over the derived value.
 
 /// #1026/#1522 SEPARATION barrier softening `ε` in `log(1 - c_jk² + ε)`. Bounds
@@ -551,7 +594,15 @@ pub struct SaeManifoldTerm {
     /// no pair co-fires (`K < 2`, or a fully-disjoint routing — the strict no-op);
     /// callers fall back to the live coactivation in that case. Transient: not part
     /// of the persisted term identity (Clone starts `None`, rebuilt next assembly).
-    pub(crate) barrier_coactivation_gate: Option<Vec<(usize, usize, f64)>>,
+    /// #1610 — per-assembly FROZEN separation-barrier pairs
+    /// `(j, k, q_jk, μ_jk)`: the co-firing atom indices, their normalized
+    /// coactivation weight `q_jk`, and the EVIDENCE-DERIVED per-pair barrier
+    /// strength `μ_jk` (the data-fit inseparability strength, see
+    /// [`super::penalties::SaeManifoldTerm::barrier_pair_strength`]). Both the
+    /// coactivation and the strength are functions of the frozen design (chart
+    /// basis + routing), so freezing them here keeps the barrier value, gradient,
+    /// and curvature reading the SAME weights across an inner line search.
+    pub(crate) barrier_coactivation_gate: Option<Vec<(usize, usize, f64, f64)>>,
     /// #1026: the load-bearing curved-vs-linear hybrid-split verdict, computed
     /// once in [`Self::canonicalize_charts_post_fit`] after the joint fit
     /// converges. Each eligible `d = 1` atom's fitted curved image is adjudicated
@@ -582,6 +633,40 @@ pub struct SaeManifoldTerm {
     /// [`Self::set_hybrid_linear_images`]. Consulted by
     /// [`Self::hybrid_linear_image_map`] so train and OOS share one collapse map.
     pub(crate) oos_linear_images: Option<Vec<crate::hybrid_split::AtomLinearImage>>,
+    /// #1777 PER-FIT separation-barrier strength override `μ_C` — the source of
+    /// truth for the barrier strength when set, replacing the process-global
+    /// [`set_sae_barrier_overrides`] atomic. `Some(μ_C)` forces the absolute
+    /// strength (bypassing the #1610 evidence-derived per-pair reciprocal-margin
+    /// strengths), scoped to THIS term/fit so concurrent in-process fits are
+    /// isolated; `0.0` disables the barrier. `None` ⇒ fall back to the deprecated
+    /// process-global override, then the evidence-derived strength (bit-identical
+    /// to the historical path when neither override is set). Read via
+    /// [`super::penalties::SaeManifoldTerm::separation_barrier_strength`]; set from
+    /// the FFI through [`SaeManifoldTerm::set_fit_config`]. Carried across clones
+    /// (persisted configuration, like the assignment mode).
+    pub(crate) separation_barrier_strength_override: Option<f64>,
+}
+
+/// #1777 — PER-FIT configuration overrides the FFI sets on a term to isolate a
+/// fit from the deprecated process-global atomics
+/// ([`set_sae_barrier_overrides`] / [`crate::assignment::set_ibp_alpha_override`]).
+///
+/// This is the additive, back-compatible config surface the Python/FFI layer
+/// consumes: build it, then apply it with [`SaeManifoldTerm::set_fit_config`]. Any
+/// `None` field leaves the corresponding axis on its historical fallback
+/// (process-global override, then the compiled/data-derived default), so an
+/// all-`None` config is a strict no-op. Both fields are the SOURCE OF TRUTH for
+/// their axis when `Some`, so two terms carrying different configs produce
+/// correspondingly-different barrier/α WITHOUT touching any global — concurrent
+/// fits are isolatable.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct SaeFitConfig {
+    /// Per-fit separation-barrier strength `μ_C`. `Some` bypasses both the global
+    /// override and the #1610 evidence-derived per-pair strengths (`0.0` = barrier off).
+    pub separation_barrier_strength_override: Option<f64>,
+    /// Per-fit truncated-IBP concentration `α`. `Some` bypasses both the global
+    /// override and the mode's own `α` / learnable schedule.
+    pub ibp_alpha_override: Option<f64>,
 }
 
 impl Clone for SaeManifoldTerm {
@@ -620,6 +705,9 @@ impl Clone for SaeManifoldTerm {
             hybrid_split_report: self.hybrid_split_report.clone(),
             atom_inner_fits: self.atom_inner_fits.clone(),
             oos_linear_images: self.oos_linear_images.clone(),
+            // #1777 — persisted per-fit config, carried across clones like the
+            // assignment mode so a cloned term keeps the same barrier override.
+            separation_barrier_strength_override: self.separation_barrier_strength_override,
         }
     }
 }

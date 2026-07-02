@@ -182,3 +182,118 @@ async def catalog_health():
     except Exception as exc:
         info["error"] = str(exc)
     return info
+
+
+# ─── Dynamic Copilot Models ─────────────────────────────────────────────────
+#
+# GitHub Copilot's available model set is account-scoped — different
+# plans (Individual / Business / Enterprise) and different orgs enable
+# different models. The static fallback_models in cvc/providers/base.py
+# is just a hint and is wrong whenever a new model launches.
+#
+# This endpoint hits GitHub Copilot's ``GET /models`` endpoint with the
+# exchanged API token, returns the live list, and caches it for 10 min.
+# The dashboard uses this to populate the model dropdown for the
+# ``github``/``copilot`` provider AND to short-circuit requests that
+# would otherwise 400 because of a wrong model pick.
+#
+# If the user has no Copilot token configured (no
+# COPILOT_GITHUB_TOKEN / GH_TOKEN / GITHUB_TOKEN env var and no
+# ``gh auth token``), we return an empty list — the catalog endpoint
+# already serves the static fallback list as a backup.
+
+@router.get("/providers/copilot/models")
+async def list_copilot_models(force_refresh: bool = False):
+    """Return the live list of models available on the user's Copilot plan.
+
+    Args:
+        force_refresh: if True, bypass the 10-min in-process cache.
+
+    Returns:
+        {
+          "ok": bool,
+          "models": [
+            {"id": "claude-sonnet-5", "name": "...", "owned_by": "anthropic",
+             "capabilities": {...}, "billing": {...}, "version": "..."},
+            ...
+          ],
+          "source": "copilot_api" | "cache" | "static_fallback",
+          "cached_at": float | None,
+          "account": "individual" | "business" | "enterprise" | "unknown"
+        }
+    """
+    t0 = time.time()
+    try:
+        from cvc.auth.copilot_auth import (
+            resolve_copilot_token,
+            list_copilot_models as _list_copilot_models,
+            clear_copilot_models_cache,
+        )
+    except Exception as exc:
+        return {
+            "ok": False,
+            "models": [],
+            "source": "unavailable",
+            "error": f"copilot_auth import failed: {exc}",
+            "duration_ms": int((time.time() - t0) * 1000),
+        }
+
+    try:
+        token, source = resolve_copilot_token()
+    except Exception as exc:
+        token, source = "", ""
+
+    if not token:
+        # No Copilot credentials — return empty; the frontend should
+        # fall back to the static list from /api/catalog/providers.
+        return {
+            "ok": True,
+            "models": [],
+            "source": "no_token",
+            "cached_at": None,
+            "account": "unknown",
+            "note": "no COPILOT_GITHUB_TOKEN/GH_TOKEN/GITHUB_TOKEN env var and no gh auth token",
+            "duration_ms": int((time.time() - t0) * 1000),
+        }
+
+    if force_refresh:
+        clear_copilot_models_cache(token)
+
+    try:
+        models = _list_copilot_models(token, force_refresh=force_refresh)
+    except Exception as exc:
+        logger.exception("copilot/models: list failed: %s", exc)
+        return {
+            "ok": False,
+            "models": [],
+            "source": "error",
+            "error": str(exc),
+            "duration_ms": int((time.time() - t0) * 1000),
+        }
+
+    # Determine account type from the api_url returned by the exchange
+    account = "unknown"
+    try:
+        from cvc.auth.copilot_auth import _jwt_cache, _token_fingerprint
+        fp = _token_fingerprint(token)
+        cached = _jwt_cache.get(fp)
+        if cached and len(cached) == 3:
+            api_url = cached[2]
+            if "business" in api_url:
+                account = "business"
+            elif "enterprise" in api_url:
+                account = "enterprise"
+            elif "individual" in api_url:
+                account = "individual"
+    except Exception:
+        pass
+
+    return {
+        "ok": True,
+        "models": models,
+        "source": "copilot_api" if not force_refresh else "copilot_api_refresh",
+        "cached_at": time.time(),
+        "account": account,
+        "token_source": source,
+        "duration_ms": int((time.time() - t0) * 1000),
+    }

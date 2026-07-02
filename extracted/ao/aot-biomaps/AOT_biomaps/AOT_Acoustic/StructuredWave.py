@@ -325,6 +325,7 @@ class StructuredWave(AcousticField):
 
             with open(os.path.join(pathFolder, "field.hdr"), "w") as f_hdr2:
                 f_hdr2.write(headerFieldGlob)
+
         except Exception as e:
             print(f"Error saving HDR/IMG files: {e}")
 

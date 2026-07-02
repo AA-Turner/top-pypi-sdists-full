@@ -8,7 +8,7 @@ dynamic = ["version", "description"]
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.8"
-authors = [{ name = "Erik Kalkoken", email = "kalkoken87@gmail.com" }]
+authors = [{ name = "Erik Kalkoken", email = "erik.kalkoken@gmail.com" }]
 classifiers = [
     "Environment :: Web Environment",
     "Framework :: Django",
@@ -29,11 +29,10 @@ classifiers = [
 dependencies = ["allianceauth>=4,<6", "requests", "pytz", "typing_extensions"]
 
 [project.urls]
-Homepage = "https://gitlab.com/ErikKalkoken/allianceauth-app-utils"
+Homepage = "https://github.com/AllianceAuth-Apps/allianceauth-app-utils"
 Documentation = "https://allianceauth-app-utils.readthedocs.io/en/latest/"
-Source = "https://gitlab.com/ErikKalkoken/allianceauth-app-utils"
-Changelog = "https://gitlab.com/ErikKalkoken/allianceauth-app-utils/-/blob/master/CHANGELOG.md"
-Tracker = "https://gitlab.com/ErikKalkoken/allianceauth-app-utils/-/issues"
+Source = "https://github.com/AllianceAuth-Apps/allianceauth-app-utils"
+Tracker = "https://github.com/AllianceAuth-Apps/allianceauth-app-utils/issues"
 
 [tool.flit.module]
 name = "app_utils"

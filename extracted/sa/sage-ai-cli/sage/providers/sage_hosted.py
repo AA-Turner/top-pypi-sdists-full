@@ -253,6 +253,13 @@ class SageHostedProvider(ProviderBase):
         # someone calls us with just "qwen-coder-7b", re-prefix.
         full_id = model_name if model_name.startswith("cloud:") else f"cloud:{model_name}"
 
+        # Backward compatibility: Translate new canonical IDs back to legacy IDs
+        # before sending to the backend, ensuring compatibility with backends
+        # that haven't been updated with the new environment variables.
+        _NEW_TO_LEGACY = {v: k for k, v in _LEGACY_ID_ALIASES.items()}
+        if full_id in _NEW_TO_LEGACY:
+            full_id = _NEW_TO_LEGACY[full_id]
+
         # The sage backend's /chat schema caps max_tokens at 4096. The CLI's
         # run command sets 65536 for external API models to get large context
         # windows — clamp here so the backend never sees an out-of-range value.
@@ -483,6 +490,8 @@ class SageHostedProvider(ProviderBase):
                     "service unavailable", "gateway timeout",
                     "overloaded", "rate limit", "timeout",
                 ))
+                if "is not deployed" in _exc_msg:
+                    _retryable = False
                 if _retryable:
                     _last_exc = exc
                     if _attempt < _MAX_RETRIES - 1:

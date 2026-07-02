@@ -15,13 +15,19 @@ from filelock import FileLock
 
 from weblate.auth.models import Group, Permission, Role
 from weblate.checks.models import Check
+from weblate.trans import defaults
 from weblate.trans.actions import ActionEvents
-from weblate.trans.forms import ComponentSettingsForm, ProjectSettingsForm
+from weblate.trans.forms import (
+    CategorySettingsForm,
+    ComponentSettingsForm,
+    ProjectSettingsForm,
+)
 from weblate.trans.models import (
     Category,
     CommitPolicyChoices,
     Component,
     ContributorAgreement,
+    PendingUnitChange,
     Project,
     Translation,
     Unit,
@@ -29,12 +35,32 @@ from weblate.trans.models import (
 from weblate.trans.models.component import ComponentQuerySet
 from weblate.trans.tests.test_views import ViewTestCase
 from weblate.trans.tests.utils import create_test_billing
+from weblate.utils.render import (
+    validate_render_addon,
+    validate_render_commit,
+    validate_render_component,
+)
 from weblate.utils.views import get_form_data
 from weblate.vcs.base import RepositoryLock
+from weblate.vcs.github import GitHubInstallation
+from weblate.vcs.models import VCS_REGISTRY
 from weblate.workspaces.models import Workspace
 
 
 class SettingsTest(ViewTestCase):
+    def test_default_message_templates_render(self) -> None:
+        validators = (
+            (defaults.DEFAULT_COMMIT_MESSAGE, validate_render_commit),
+            (defaults.DEFAULT_ADD_MESSAGE, validate_render_commit),
+            (defaults.DEFAULT_DELETE_MESSAGE, validate_render_commit),
+            (defaults.DEFAULT_MERGE_MESSAGE, validate_render_component),
+            (defaults.DEFAULT_ADDON_MESSAGE, validate_render_addon),
+            (defaults.DEFAULT_PULL_MESSAGE, validate_render_addon),
+        )
+        for template, validator in validators:
+            with self.subTest(template=template):
+                validator(template)
+
     def consolidate_inherited_settings(self) -> None:
         migration = import_module(
             "weblate.trans.migrations.0084_consolidate_inherited_settings"
@@ -52,6 +78,12 @@ class SettingsTest(ViewTestCase):
             "weblate.trans.migrations.0087_consolidate_category_inherited_settings"
         )
         migration.consolidate_category_settings(apps, None)
+
+    def repair_license_inheritance(self) -> None:
+        migration = import_module(
+            "weblate.trans.migrations.0089_repair_license_inheritance"
+        )
+        migration.repair_license_inheritance(apps, None)
 
     def assert_huge_inherited_settings_deferred(self, component: Component) -> None:
         for field in ("commit_message",):
@@ -174,6 +206,36 @@ class SettingsTest(ViewTestCase):
         self.assertContains(response, 'name="license"')
         self.assertContains(response, "disabled")
 
+    @override_settings(DEFAULT_COMMIT_MESSAGE="Site default commit")
+    def test_message_setting_site_default_widget_state(self) -> None:
+        category = Category.objects.create(
+            name="Site defaults category",
+            slug="site-defaults-category",
+            project=self.project,
+        )
+
+        for form in (
+            ProjectSettingsForm(self.get_request(), instance=self.project),
+            CategorySettingsForm(self.get_request(), instance=category),
+            ComponentSettingsForm(self.get_request(), instance=self.component),
+        ):
+            with self.subTest(form=form.__class__.__name__):
+                self.assertEqual(
+                    form.fields["commit_message"].widget.attrs[
+                        "data-site-default-value"
+                    ],
+                    "Site default commit",
+                )
+
+    @override_settings(DEFAULT_COMMIT_MESSAGE="Site default commit")
+    def test_message_setting_site_default_form_rendering(self) -> None:
+        self.project.add_user(self.user, "Administration")
+
+        response = self.client.get(reverse("settings", kwargs=self.kw_component))
+
+        self.assertContains(response, 'data-site-default-value="Site default commit"')
+        self.assertContains(response, "Restore site default")
+
     def test_workspace_less_project_has_no_inheritance_wrapper(self) -> None:
         self.assertIsNone(self.project.workspace_id)
 
@@ -187,6 +249,27 @@ class SettingsTest(ViewTestCase):
 
         self.assertContains(response, 'name="license"')
         self.assertNotContains(response, 'data-inherited-setting="license"')
+
+    @override_settings(OFFER_HOSTING=True)
+    def test_hosted_project_settings_mirror_workspace_tm_contribution(self) -> None:
+        form = ProjectSettingsForm(self.get_request(), instance=self.project)
+        self.assertTrue(form.fields["contribute_shared_tm"].widget.is_hidden)
+        self.assertTrue(form.fields["contribute_workspace_tm"].widget.is_hidden)
+
+        data = get_form_data(form.initial)
+        data["use_shared_tm"] = False
+        data["contribute_shared_tm"] = True
+        data["use_workspace_tm"] = True
+        data["contribute_workspace_tm"] = False
+        form = ProjectSettingsForm(
+            self.get_request(),
+            data,
+            instance=self.project,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertFalse(form.cleaned_data["contribute_shared_tm"])
+        self.assertTrue(form.cleaned_data["contribute_workspace_tm"])
 
     def test_checked_inherited_setting_preserves_override(self) -> None:
         self.project.license = "MIT"
@@ -507,6 +590,136 @@ class SettingsTest(ViewTestCase):
             ).exists()
         )
 
+    def test_license_repair_uses_most_common_component_license(self) -> None:
+        second_component = self.create_po(name="license-second", project=self.project)
+        third_component = self.create_po(name="license-third", project=self.project)
+        Project.objects.filter(pk=self.project.pk).update(
+            license="proprietary", inherit_license=True
+        )
+        Component.objects.filter(
+            pk__in=[self.component.pk, second_component.pk]
+        ).update(license="MIT", inherit_license=False)
+        Component.objects.filter(pk=third_component.pk).update(
+            license="GPL-3.0-or-later", inherit_license=False
+        )
+
+        self.repair_license_inheritance()
+
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.license, "MIT")
+        self.assertFalse(self.project.inherit_license)
+
+    def test_license_repair_tie_uses_earliest_component_license(self) -> None:
+        second_component = self.create_po(name="license-second", project=self.project)
+        Project.objects.filter(pk=self.project.pk).update(
+            license="proprietary", inherit_license=True
+        )
+        Component.objects.filter(pk=self.component.pk).update(
+            license="GPL-3.0-or-later", inherit_license=False
+        )
+        Component.objects.filter(pk=second_component.pk).update(
+            license="MIT", inherit_license=False
+        )
+
+        self.repair_license_inheritance()
+
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.license, "GPL-3.0-or-later")
+        self.assertFalse(self.project.inherit_license)
+
+    def test_license_repair_ignores_inherited_component_license(self) -> None:
+        second_component = self.create_po(name="license-second", project=self.project)
+        Project.objects.filter(pk=self.project.pk).update(
+            license="proprietary", inherit_license=True
+        )
+        Component.objects.filter(pk=self.component.pk).update(
+            license="MIT", inherit_license=False
+        )
+        Component.objects.filter(pk=second_component.pk).update(
+            license="GPL-3.0-or-later", inherit_license=True
+        )
+
+        self.repair_license_inheritance()
+
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.license, "MIT")
+        self.assertFalse(self.project.inherit_license)
+
+    def test_license_repair_backfills_workspace_from_corrected_project(self) -> None:
+        workspace = Workspace.objects.create(
+            name="License repair workspace", license="proprietary"
+        )
+        second_project = self.create_project(
+            name="License repair second project",
+            slug="license-repair-second-project",
+            workspace=workspace,
+            license="GPL-3.0-or-later",
+            inherit_license=False,
+        )
+        Project.objects.filter(pk=self.project.pk).update(
+            workspace=workspace, license="proprietary", inherit_license=True
+        )
+        Component.objects.filter(pk=self.component.pk).update(
+            license="MIT", inherit_license=False
+        )
+
+        self.repair_license_inheritance()
+
+        self.project.refresh_from_db()
+        second_project.refresh_from_db()
+        workspace.refresh_from_db()
+        self.assertEqual(self.project.license, "MIT")
+        self.assertFalse(self.project.inherit_license)
+        self.assertEqual(second_project.license, "GPL-3.0-or-later")
+        self.assertEqual(workspace.license, "MIT")
+
+    def test_license_repair_keeps_workspace_license_with_inheriting_project(
+        self,
+    ) -> None:
+        workspace = Workspace.objects.create(
+            name="License repair workspace", license="proprietary"
+        )
+        second_project = self.create_project(
+            name="License repair second project",
+            slug="license-repair-second-project",
+            workspace=workspace,
+            license="GPL-3.0-or-later",
+            inherit_license=True,
+        )
+        Project.objects.filter(pk=self.project.pk).update(
+            workspace=workspace, license="MIT", inherit_license=True
+        )
+
+        self.repair_license_inheritance()
+
+        self.project.refresh_from_db()
+        second_project.refresh_from_db()
+        workspace.refresh_from_db()
+        self.assertEqual(workspace.license, "proprietary")
+        self.assertTrue(self.project.inherit_license)
+        self.assertTrue(second_project.inherit_license)
+        self.assertEqual(self.project.license, "MIT")
+        self.assertEqual(second_project.license, "GPL-3.0-or-later")
+
+    def test_license_repair_keeps_explicit_workspace_license(self) -> None:
+        workspace = Workspace.objects.create(
+            name="License repair workspace", license="GPL-3.0-or-later"
+        )
+        Project.objects.filter(pk=self.project.pk).update(
+            workspace=workspace, license="proprietary", inherit_license=True
+        )
+        Component.objects.filter(pk=self.component.pk).update(
+            license="MIT", inherit_license=False
+        )
+
+        self.repair_license_inheritance()
+
+        self.project.refresh_from_db()
+        workspace.refresh_from_db()
+        self.assertEqual(self.project.license, "MIT")
+        self.assertFalse(self.project.inherit_license)
+        self.assertEqual(workspace.license, "GPL-3.0-or-later")
+
     def test_profile_agreement_links_open_agreement_view(self) -> None:
         workspace = Workspace.objects.create(
             name="Settings workspace", agreement="Workspace agreement"
@@ -794,6 +1007,8 @@ class SettingsTest(ViewTestCase):
         self.project.enable_hooks = False
         self.project.use_shared_tm = False
         self.project.contribute_shared_tm = False
+        self.project.use_workspace_tm = True
+        self.project.contribute_workspace_tm = True
         self.project.check_flags = "strict-same"
         self.project.save()
 
@@ -850,6 +1065,28 @@ class SettingsTest(ViewTestCase):
             change.get_details_display(),
             'Project moved from "Current workspace" to "Target workspace".',
         )
+
+    @modify_settings(INSTALLED_APPS={"append": "weblate.billing"})
+    def test_project_move_to_billing_workspace_updates_name(self) -> None:
+        self.project.add_user(self.user, "Administration")
+        current_workspace = Workspace.objects.create(name="Current workspace")
+        Project.objects.filter(pk=self.project.pk).update(workspace=current_workspace)
+        self.project.refresh_from_db()
+        current_workspace.add_owner(self.user)
+        billing = create_test_billing(self.user)
+        self.user.clear_cache()
+
+        response = self.client.post(
+            reverse("move", kwargs={"path": self.project.get_url_path()}),
+            {"workspace": str(billing.workspace_id)},
+            follow=True,
+        )
+
+        self.assertContains(response, "Project moved.")
+        self.project.refresh_from_db()
+        billing.workspace.refresh_from_db()
+        self.assertEqual(self.project.workspace_id, billing.workspace_id)
+        self.assertEqual(billing.workspace.name, self.project.name)
 
     def test_project_move_requires_target_add_project(self) -> None:
         self.project.add_user(self.user, "Administration")
@@ -991,7 +1228,8 @@ class SettingsTest(ViewTestCase):
         self.component.inherit_license = True
         self.component.save(update_fields=["license", "inherit_license"])
 
-        field = Component._meta.get_field("license")  # noqa: SLF001
+        # ruff: ignore[private-member-access]
+        field = Component._meta.get_field("license")
         old_blank = field.blank
         field.blank = False
         try:
@@ -1170,6 +1408,53 @@ class SettingsTest(ViewTestCase):
             1,
         )
 
+    def test_linked_component_reuses_repository_lock_during_setup_commit(self) -> None:
+        linked_component = self.create_link_existing(
+            name="Settings linked lock", slug="settings-linked-lock"
+        )
+        new_target = self.create_po(name="settings-new-target", project=self.project)
+        translation = (
+            linked_component.translation_set.exclude(filename="")
+            .exclude(language_id=linked_component.source_language_id)
+            .first()
+        )
+        if translation is None:
+            self.fail("Expected a linked component translation with a filename.")
+        unit = translation.unit_set.first()
+        if unit is None:
+            self.fail("Expected at least one linked component unit.")
+        PendingUnitChange.store_unit_change(unit=unit, author=self.user)
+
+        self.component.drop_repository_cache()
+        linked_component.drop_repository_cache()
+        if linked_component.linked_component is not None:
+            linked_component.linked_component.drop_repository_cache()
+
+        with (
+            override_settings(CELERY_TASK_ALWAYS_EAGER=False),
+            patch("weblate.utils.lock.is_redis_cache", return_value=False),
+            patch.object(Component, "queue_background_task", autospec=True),
+            patch.object(
+                Translation, "_commit_pending", autospec=True, return_value=False
+            ) as commit_pending,
+            patch.object(FileLock, "acquire", autospec=True) as acquire,
+            patch.object(FileLock, "release", autospec=True) as release,
+            linked_component.locked_for_update() as locked_component,
+        ):
+            locked_component.repo = new_target.get_repo_link_url()
+            locked_component.edit_template = False
+            locked_component.save()
+
+        commit_pending.assert_called_once()
+        acquire.assert_called_once()
+        self.assertEqual(
+            sum(
+                call.kwargs.get("force", False) is False
+                for call in release.call_args_list
+            ),
+            1,
+        )
+
     def test_linked_component_repository_settings_show_effective_values(self) -> None:
         self.project.add_user(self.user, "Administration")
         self.component.push_on_commit = True
@@ -1226,6 +1511,70 @@ class SettingsTest(ViewTestCase):
         self.assertFalse(linked_component.push_on_commit)
         self.assertEqual(linked_component.commit_pending_age, 1)
         self.assertTrue(linked_component.auto_lock_error)
+
+    def test_github_app_component_settings_lock_push_settings(self) -> None:
+        self.project.add_user(self.user, "Administration")
+        workspace = Workspace.objects.create(name="GitHub App settings")
+        self.project.workspace = workspace
+        self.project.save(update_fields=["workspace"])
+        GitHubInstallation.objects.create(
+            installation_id="12345",
+            target_type="Organization",
+            target_login="test-org",
+            workspace=workspace,
+            repositories=[{"full_name": "test-org/repo"}],
+        )
+        self.component.vcs = "github-app"
+        self.component.repo = "https://github.com/test-org/repo.git"
+        self.component.push = "https://example.com/other/repo.git"
+        self.component.push_branch = "translations"
+        self.component.save(update_fields=["vcs", "repo", "push", "push_branch"])
+
+        url = reverse("settings", kwargs=self.kw_component)
+        response = self.client.get(url)
+        self.assertContains(response, "Settings")
+        form = response.context["form"]
+
+        for field in ("vcs", "repo", "push", "push_branch"):
+            self.assertTrue(form.fields[field].disabled)
+        self.assertEqual(form.initial["push"], "")
+        self.assertEqual(form.initial["push_branch"], "")
+
+        data = get_form_data(form.initial)
+        data["push"] = "https://example.com/other/repo.git"
+        data["push_branch"] = "translations"
+        form = ComponentSettingsForm(
+            self.get_request(),
+            data,
+            instance=self.component,
+        )
+        with patch.object(Component, "validate_repository_access", return_value=None):
+            self.assertTrue(form.is_valid(), form.errors)
+            form.save()
+
+        self.component.refresh_from_db()
+        self.assertEqual(self.component.push, "")
+        self.assertEqual(self.component.push_branch, "")
+
+    def test_component_settings_reject_manual_github_app_vcs(self) -> None:
+        self.project.add_user(self.user, "Administration")
+
+        VCS_REGISTRY.clear_cache()
+        form = ComponentSettingsForm(self.get_request(), instance=self.component)
+
+        self.assertNotIn("github-app", dict(form.fields["vcs"].choices))
+
+        data = get_form_data(form.initial)
+        data["vcs"] = "github-app"
+        data["repo"] = "https://github.com/test-org/repo.git"
+        form = ComponentSettingsForm(
+            self.get_request(),
+            data,
+            instance=self.component,
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("vcs", form.errors)
 
     def test_component_settings_drop_repository_setting_overrides_on_link(self) -> None:
         self.project.add_user(self.user, "Administration")

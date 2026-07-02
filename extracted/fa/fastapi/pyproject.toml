@@ -52,7 +52,7 @@ dependencies = [
     "typing-inspection>=0.4.2",
     "annotated-doc>=0.0.2",
 ]
-version = "0.138.2"
+version = "0.139.0"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/fastapi"

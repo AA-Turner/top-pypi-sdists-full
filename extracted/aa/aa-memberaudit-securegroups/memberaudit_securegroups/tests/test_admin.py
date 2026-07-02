@@ -1,16 +1,11 @@
-# Django
-from django.contrib.auth.models import User
+from http import HTTPStatus
+
 from django.test import TestCase
 from django.urls import reverse
 
-# Alliance Auth
-from allianceauth.eveonline.models import EveCorporationInfo
-
-# Member Audit
+from app_utils.testdata_factories import EveCorporationInfoFactory, UserFactory
 from memberaudit.models import CharacterRole
-from memberaudit.tests.testdata.load_entities import load_entities
 
-# Memberaudit Securegroups
 from memberaudit_securegroups.models import (
     CorporationRoleFilter,
     CorporationTitleFilter,
@@ -22,12 +17,8 @@ class TestCorporationRoleFilter(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        load_entities()
-        cls.corporation_2001 = EveCorporationInfo.objects.get(corporation_id=2001)
-        cls.corporation_2101 = EveCorporationInfo.objects.get(corporation_id=2101)
-        cls.user = User.objects.create(
-            username="superman", is_staff=True, is_superuser=True
-        )
+        cls.corporation = EveCorporationInfoFactory()
+        cls.user = UserFactory(is_staff=True, is_superuser=True)
         cls.admin_add_url = reverse(
             "admin:memberaudit_securegroups_corporationrolefilter_add"
         )
@@ -38,16 +29,17 @@ class TestCorporationRoleFilter(TestCase):
         data = {
             "description": "dummy",
             "role": CharacterRole.Role.DIRECTOR,
-            "corporations": f"{self.corporation_2001.id}",
+            "corporations": f"{self.corporation.id}",
         }
         # when
         response = self.client.post(self.admin_add_url, data)
         # then
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
         obj = CorporationRoleFilter.objects.first()
         self.assertEqual(obj.role, CharacterRole.Role.DIRECTOR)
         self.assertEqual(
-            {2001}, set(obj.corporations.values_list("corporation_id", flat=True))
+            {self.corporation.corporation_id},
+            set(obj.corporations.values_list("corporation_id", flat=True)),
         )
 
     def test_should_not_allow_creating_filter_without_defining_at_least_one_corporation(
@@ -59,19 +51,15 @@ class TestCorporationRoleFilter(TestCase):
         # when
         response = self.client.post(self.admin_add_url, data)
         # then
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, HTTPStatus.OK)
 
 
 class TestCorporationTitleFilter(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        load_entities()
-        cls.corporation_2001 = EveCorporationInfo.objects.get(corporation_id=2001)
-        cls.corporation_2101 = EveCorporationInfo.objects.get(corporation_id=2101)
-        cls.user = User.objects.create(
-            username="superman", is_staff=True, is_superuser=True
-        )
+        cls.corporation = EveCorporationInfoFactory()
+        cls.user = UserFactory(is_staff=True, is_superuser=True)
         cls.admin_add_url = reverse(
             "admin:memberaudit_securegroups_corporationtitlefilter_add"
         )
@@ -82,16 +70,17 @@ class TestCorporationTitleFilter(TestCase):
         data = {
             "description": "dummy",
             "title": "Alpha",
-            "corporations": f"{self.corporation_2001.id}",
+            "corporations": f"{self.corporation.id}",
         }
         # when
         response = self.client.post(self.admin_add_url, data)
         # then
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
         obj = CorporationTitleFilter.objects.first()
         self.assertEqual(obj.title, "Alpha")
         self.assertEqual(
-            {2001}, set(obj.corporations.values_list("corporation_id", flat=True))
+            {self.corporation.corporation_id},
+            set(obj.corporations.values_list("corporation_id", flat=True)),
         )
 
     def test_should_not_allow_creating_filter_without_defining_at_least_one_corporation(
@@ -103,16 +92,14 @@ class TestCorporationTitleFilter(TestCase):
         # when
         response = self.client.post(self.admin_add_url, data)
         # then
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, HTTPStatus.OK)
 
 
 class TestTimeInCorpFilter(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.user = User.objects.create(
-            username="superman", is_staff=True, is_superuser=True
-        )
+        cls.user = UserFactory(is_staff=True, is_superuser=True)
         cls.admin_add_url = reverse(
             "admin:memberaudit_securegroups_timeincorporationfilter_add"
         )
@@ -127,6 +114,6 @@ class TestTimeInCorpFilter(TestCase):
         # when
         response = self.client.post(self.admin_add_url, data)
         # then
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
         obj = TimeInCorporationFilter.objects.first()
         self.assertEqual(obj.minimum_days, 45)

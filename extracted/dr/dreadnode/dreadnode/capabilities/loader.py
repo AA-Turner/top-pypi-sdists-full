@@ -1006,6 +1006,11 @@ def _agent_from_markdown(file_path: Path) -> AgentDef:
     if frontmatter and isinstance(frontmatter.get("model"), str) and frontmatter["model"].strip():
         model = frontmatter["model"].strip()
 
+    # Engine (loop owner) — resolves with the same precedence as model
+    engine = "inherit"
+    if frontmatter and isinstance(frontmatter.get("engine"), str) and frontmatter["engine"].strip():
+        engine = frontmatter["engine"].strip()
+
     # Tool rules: dict[str, bool] with fnmatch patterns
     tools = _read_tools_dict(frontmatter, "tools", file_path)
 
@@ -1028,6 +1033,7 @@ def _agent_from_markdown(file_path: Path) -> AgentDef:
         name=name,
         description=description,
         model=model,
+        engine=engine,
         system_prompt=system_prompt,
         tools=tools,
         skills=skills,

@@ -159,6 +159,78 @@ _DISABLE_SCREENSAVER_CMD = (
     "pkill -x xfce4-screensaver 2>/dev/null || true"
 )
 
+# -- Timezone offset setup ----------------------------------------------------
+# Pin the VM clock to a whole-hour UTC offset. The two providers need different
+# commands, so the OS branch (via ``_is_qemu``) picks the right one:
+#
+# * Ubuntu (firecracker) uses the tz database. Note the POSIX sign inversion —
+#   ``UTC+4`` is the zone ``Etc/GMT-4`` and ``UTC-3`` is ``Etc/GMT+3``. We try
+#   ``timedatectl`` first and fall back to symlinking ``/etc/localtime`` for
+#   images where systemd isn't managing the clock.
+# * Windows (qemu) has no tz database / symlink path, so we set the zone by its
+#   Windows registry ID via ``tzutil``. Windows lacks a pure ``UTC±NN`` ID for
+#   most offsets, so each offset maps to a representative *non-DST* regional
+#   zone — that keeps the offset fixed year-round instead of jumping with DST.
+#
+# Supported offsets span the Windows table below (-12..+14), which is also the
+# range of valid ``Etc/GMT`` zones; anything outside raises ``ValueError``.
+_WINDOWS_TZID_BY_OFFSET: dict[int, str] = {
+    -12: "Dateline Standard Time",
+    -11: "UTC-11",
+    -10: "Hawaiian Standard Time",
+    -9: "UTC-09",
+    -8: "UTC-08",
+    -7: "US Mountain Standard Time",
+    -6: "Central America Standard Time",
+    -5: "SA Pacific Standard Time",
+    -4: "SA Western Standard Time",
+    -3: "SA Eastern Standard Time",
+    -2: "UTC-02",
+    -1: "Cape Verde Standard Time",
+    0: "UTC",
+    1: "W. Central Africa Standard Time",
+    2: "South Africa Standard Time",
+    3: "E. Africa Standard Time",
+    4: "Arabian Standard Time",
+    5: "West Asia Standard Time",
+    6: "Central Asia Standard Time",
+    7: "SE Asia Standard Time",
+    8: "Singapore Standard Time",
+    9: "Tokyo Standard Time",
+    10: "West Pacific Standard Time",
+    11: "Central Pacific Standard Time",
+    12: "UTC+12",
+    13: "UTC+13",
+    14: "Line Islands Standard Time",
+}
+
+_MIN_UTC_OFFSET = min(_WINDOWS_TZID_BY_OFFSET)
+_MAX_UTC_OFFSET = max(_WINDOWS_TZID_BY_OFFSET)
+
+
+def _validate_utc_offset(utc_offset: int) -> None:
+    if not isinstance(utc_offset, int) or isinstance(utc_offset, bool):
+        raise ValueError(f"utc_offset must be an int (whole hours), got {utc_offset!r}")
+    if not _MIN_UTC_OFFSET <= utc_offset <= _MAX_UTC_OFFSET:
+        raise ValueError(f"utc_offset {utc_offset:+d} out of range [{_MIN_UTC_OFFSET:+d}, {_MAX_UTC_OFFSET:+d}]")
+
+
+def _ubuntu_set_timezone_cmd(utc_offset: int) -> str:
+    """Bash to set an Ubuntu VM to a whole-hour UTC offset (POSIX sign inverted)."""
+    _validate_utc_offset(utc_offset)
+    zone = f"Etc/GMT{-utc_offset:+d}"  # UTC+4 -> Etc/GMT-4, UTC-3 -> Etc/GMT+3
+    return (
+        f'timedatectl set-timezone "{zone}" 2>/dev/null || '
+        f'{{ ln -sf "/usr/share/zoneinfo/{zone}" /etc/localtime && '
+        f"printf '%s\\n' \"{zone}\" > /etc/timezone; }}"
+    )
+
+
+def _windows_set_timezone_cmd(utc_offset: int) -> str:
+    """Command to set a Windows (qemu) VM to a whole-hour UTC offset via tzutil."""
+    _validate_utc_offset(utc_offset)
+    return f'tzutil /s "{_WINDOWS_TZID_BY_OFFSET[utc_offset]}"'
+
 
 class Client:
     """Sync HTTP client for Desktop Agent API."""
@@ -342,6 +414,29 @@ class Client:
         self._ensure_init()
         return _status_sync(self._client)
 
+    def set_timezone_offset(self, utc_offset: int, timeout: int = 30) -> ToolResult:
+        """Pin the VM clock to a whole-hour UTC offset.
+
+        Runs the OS-appropriate command over the desktop_agent bash endpoint,
+        branching on provider: Ubuntu (firecracker) sets the ``Etc/GMT`` zone via
+        ``timedatectl`` (with a symlink fallback); Windows (qemu) sets the zone by
+        its registry ID via ``tzutil``. See the module-level timezone helpers for
+        the sign-inversion and Windows-mapping details.
+
+        Args:
+            utc_offset: Signed whole-hour offset from UTC, e.g. ``4`` for UTC+4,
+                ``-3`` for UTC-3. Must be within ``[-12, +14]``.
+            timeout: Bash command timeout in seconds.
+
+        Returns:
+            The bash :class:`ToolResult`.
+
+        Raises:
+            ValueError: If ``utc_offset`` is not a whole hour in range.
+        """
+        command = _windows_set_timezone_cmd(utc_offset) if self._is_qemu() else _ubuntu_set_timezone_cmd(utc_offset)
+        return self.bash(BashRequest(command=command, timeout=timeout))
+
     # -- CDP helpers ----------------------------------------------------------
 
     def get_cdp_url(self, port: int | None = None) -> str:
@@ -512,8 +607,19 @@ class Client:
         """Open *url* in a new Chrome tab via CDP."""
         port = self._resolve_cdp_port(port)
         if self._is_qemu():
+            # The CDP endpoint sits behind the two-tier sims proxy: the
+            # {job}--{port} subdomain 302s to the base host to complete the
+            # routing/cookie dance (see prepare_cdp_connection). A bare PUT that
+            # blindly follows that 302 lands on web routing and 405s — and a
+            # target URL carrying its own query (e.g. ?_plato_router_target=...)
+            # makes it worse by re-triggering web routing. So prime the cookie +
+            # resolve the base host with GET /json/version first, then PUT there.
+            cdp_proxy_url = self.get_cdp_url(port)
             with httpx.Client(follow_redirects=True, timeout=30) as tmp:
-                response = tmp.put(f"{self.get_cdp_url(port)}/json/new?{url}")
+                primer = tmp.get(f"{cdp_proxy_url}/json/version")
+                primer.raise_for_status()
+                base_url = f"{primer.url.scheme}://{primer.url.host}"
+                response = tmp.put(f"{base_url}/json/new?{url}")
                 response.raise_for_status()
                 return response.json()
 
@@ -957,6 +1063,11 @@ class AsyncClient:
         await self._ensure_init()
         return await _status_async(self._client)
 
+    async def set_timezone_offset(self, utc_offset: int, timeout: int = 30) -> ToolResult:
+        """Async version of :meth:`Client.set_timezone_offset`."""
+        command = _windows_set_timezone_cmd(utc_offset) if self._is_qemu() else _ubuntu_set_timezone_cmd(utc_offset)
+        return await self.bash(BashRequest(command=command, timeout=timeout))
+
     # -- CDP helpers ----------------------------------------------------------
 
     def get_cdp_url(self, port: int | None = None) -> str:
@@ -1095,8 +1206,14 @@ class AsyncClient:
         """Open *url* in a new Chrome tab via CDP."""
         port = self._resolve_cdp_port(port)
         if self._is_qemu():
+            # See the sync open_url for why we prime the cookie / base host
+            # first instead of firing a bare PUT that follows the proxy 302.
+            cdp_proxy_url = self.get_cdp_url(port)
             async with httpx.AsyncClient(follow_redirects=True, timeout=30) as tmp:
-                response = await tmp.put(f"{self.get_cdp_url(port)}/json/new?{url}")
+                primer = await tmp.get(f"{cdp_proxy_url}/json/version")
+                primer.raise_for_status()
+                base_url = f"{primer.url.scheme}://{primer.url.host}"
+                response = await tmp.put(f"{base_url}/json/new?{url}")
                 response.raise_for_status()
                 return response.json()
 

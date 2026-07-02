@@ -172,6 +172,109 @@ def _spartan_conn_monitor_command() -> str:
     )
 
 
+# 1 MiB — the size at which the per-job log is rotated to ``<log>.1``
+# before the job runs. Mirrors ``_creds._cron._LOG_ROTATE_BYTES`` (the
+# ad-hoc creds-rotate installer this federation subsumes) so the
+# managed line keeps the exact rotation behaviour the host line had.
+_LOG_ROTATE_BYTES = 1_048_576
+
+
+def _log_rotate_guard(log: str) -> str:
+    """Inline shell that rotates ``log`` to ``<log>.1`` when it exceeds 1 MiB.
+
+    Same shell-fu as ``_creds._cron.build_cron_line``: when the log grows
+    past ``_LOG_ROTATE_BYTES`` move it aside so the running line re-opens a
+    fresh file. Returned with a trailing ``; `` so it composes directly in
+    front of the command body.
+    """
+    return (
+        f'[ -f {log} ] && [ "$(stat -c%s {log} 2>/dev/null || echo 0)" '
+        f"-gt {_LOG_ROTATE_BYTES} ] && mv {log} {log}.1; "
+    )
+
+
+def _creds_rotate_all_command() -> str:
+    """The shell line installed for the ``creds-rotate-all`` cron job.
+
+    This federates the operator's pre-existing ad-hoc crontab line
+    (tagged ``# scitex-dev creds-rotate (managed)`` — see
+    ``_creds._cron``) into the managed block. The body is identical to
+    that installer's: ``mkdir -p`` the log dir, run the 1-MiB log-
+    rotation guard, then run ``scitex-dev creds rotate-all --yes``
+    appending to ``~/.scitex/dev/logs/creds-rotate.log``.
+
+    NOTE the log slug is ``creds-rotate.log`` (NO ``cron-`` prefix) to
+    match the existing ad-hoc line byte-for-byte — the line this entry
+    retires writes to exactly that path, and operators / dashboards that
+    tail it must keep working across the move.
+    """
+    log = "$HOME/.scitex/dev/logs/creds-rotate.log"
+    return (
+        f"mkdir -p $(dirname {log}); {_log_rotate_guard(log)}"
+        f"scitex-dev creds rotate-all --yes >> {log} 2>&1"
+    )
+
+
+def _ci_runner_ensure_command() -> str:
+    """The shell line installed for the ``ci-runner-ensure`` cron job.
+
+    Federates the operator's ad-hoc ``ci-runner-ensure`` crontab line into
+    the managed block. The job body is the standalone host script
+    ``~/.scitex/dev/ci-runner-ensure-cron.sh`` (already deployed on the
+    host); this entry only records the resulting cron line so the
+    federation materialises it. ``mkdir -p`` the log dir first, then run
+    the script appending to ``~/.scitex/dev/logs/ci-runner-ensure.log``.
+    """
+    log = "$HOME/.scitex/dev/logs/ci-runner-ensure.log"
+    script = "$HOME/.scitex/dev/ci-runner-ensure-cron.sh"
+    return f"mkdir -p $(dirname {log}); {script} >> {log} 2>&1"
+
+
+def _ci_runner_workgc_command() -> str:
+    """The shell line installed for the ``ci-runner-workgc`` cron job.
+
+    Federates the operator's ad-hoc ``ci-runner-workgc`` crontab line into
+    the managed block. The job body is the standalone host script
+    ``~/.scitex/dev/ci-runner-workgc-cron.sh`` (already deployed on the
+    host); this entry only records the resulting cron line so the
+    federation materialises it. ``mkdir -p`` the log dir first, then run
+    the script appending to ``~/.scitex/dev/logs/ci-runner-workgc.log``.
+    """
+    log = "$HOME/.scitex/dev/logs/ci-runner-workgc.log"
+    script = "$HOME/.scitex/dev/ci-runner-workgc-cron.sh"
+    return f"mkdir -p $(dirname {log}); {script} >> {log} 2>&1"
+
+
+def _ecosystem_sync_command() -> str:
+    """The shell line installed for the ``ecosystem-sync`` cron job.
+
+    Runs the WRITE self-pull ``scitex-dev ecosystem sync --yes`` (see
+    ``_cmds/_sync.py``), which fast-forwards every editable checkout's
+    ``develop`` to ``origin/develop``. Safe by construction: develop-only,
+    ``git merge --ff-only``, and dirty / off-develop / diverged checkouts
+    are reported and SKIPPED — never clobbered, so the operator's
+    un-pushed work is never touched.
+
+    Why this is a MANAGED job and not merely an available command: the
+    ecosystem runs on editable installs that import their own working
+    tree, but ``origin/develop`` advances on its own (CI commits docs-HTML
+    and version bumps back). Without a periodic self-pull a checkout
+    silently serves stale code — the workstation's own ``scitex-dev``
+    checkout was found 18 commits behind tag v0.21.0 (2026-07-01) and the
+    Spartan runner 145 behind. Scheduling the sweep closes that self-pull
+    leg of the loop so no editable install drifts unnoticed again.
+
+    ``mkdir -p`` the log dir, run the 1-MiB log-rotation guard (a sweep
+    over ~60 repos writes a table each run), then append output to
+    ``~/.scitex/dev/logs/cron-ecosystem-sync.log``.
+    """
+    log = "$HOME/.scitex/dev/logs/cron-ecosystem-sync.log"
+    return (
+        f"mkdir -p $(dirname {log}); {_log_rotate_guard(log)}"
+        f"scitex-dev ecosystem sync --yes >> {log} 2>&1"
+    )
+
+
 JOB_REGISTRY: Mapping[str, JobSpec] = {
     "ci-watch": JobSpec(
         name="ci-watch",
@@ -268,6 +371,74 @@ JOB_REGISTRY: Mapping[str, JobSpec] = {
             "audio-notify + PHONE-CALL the operator if ssh-agents>15, srun>50, "
             "or procs>250 (early warning before the HPC admin notices). See "
             "_spartan_conn_monitor.run_once."
+        ),
+    ),
+    "creds-rotate-all": JobSpec(
+        name="creds-rotate-all",
+        # Top of every hour. Matches the operator's pre-existing ad-hoc
+        # `# scitex-dev creds-rotate (managed)` crontab line (the
+        # default `creds rotate-all` install cadence, see
+        # `_creds._cron._interval_to_schedule(60)` => "0 * * * *") that
+        # this entry federates into the managed block.
+        schedule="0 * * * *",
+        command=_creds_rotate_all_command(),
+        description=(
+            "Push the freshest local ~/.claude/.credentials.json to every "
+            "managed ecosystem checkout via `scitex-dev creds rotate-all "
+            "--yes`. Federates the ad-hoc host line "
+            "(# scitex-dev creds-rotate (managed)) into the managed block; "
+            "keeps that line's 1-MiB log-rotation guard and writes to "
+            "~/.scitex/dev/logs/creds-rotate.log. See _creds._cron / "
+            "_creds._rotate."
+        ),
+    ),
+    "ci-runner-ensure": JobSpec(
+        name="ci-runner-ensure",
+        # Every 30 minutes. Federates the operator's ad-hoc
+        # ci-runner-ensure crontab line; the body is the standalone host
+        # script ~/.scitex/dev/ci-runner-ensure-cron.sh (already
+        # deployed). Schedule mirrors the retired ad-hoc line exactly.
+        schedule="*/30 * * * *",
+        command=_ci_runner_ensure_command(),
+        description=(
+            "Ensure the self-hosted GitHub Actions runners are present & "
+            "alive by running ~/.scitex/dev/ci-runner-ensure-cron.sh. "
+            "Federates the ad-hoc host crontab line into the managed "
+            "block. Log at ~/.scitex/dev/logs/ci-runner-ensure.log."
+        ),
+    ),
+    "ci-runner-workgc": JobSpec(
+        name="ci-runner-workgc",
+        # Every 6 hours on the hour. Federates the operator's ad-hoc
+        # ci-runner-workgc crontab line; the body is the standalone host
+        # script ~/.scitex/dev/ci-runner-workgc-cron.sh (already
+        # deployed). Schedule mirrors the retired ad-hoc line exactly.
+        schedule="0 */6 * * *",
+        command=_ci_runner_workgc_command(),
+        description=(
+            "Garbage-collect the self-hosted CI runners' _work/ staging "
+            "trees by running ~/.scitex/dev/ci-runner-workgc-cron.sh. "
+            "Federates the ad-hoc host crontab line into the managed "
+            "block. Log at ~/.scitex/dev/logs/ci-runner-workgc.log."
+        ),
+    ),
+    "ecosystem-sync": JobSpec(
+        name="ecosystem-sync",
+        # Top of every hour. A git fetch of an already-current checkout is
+        # a couple KB and the ff-merge only runs when actually behind, so
+        # hourly is cheap even across ~60 repos while bounding drift to
+        # <=1h. Tunable: change THIS schedule (one diff + one test) and
+        # re-install. See _ecosystem_sync_command for why it exists.
+        schedule="0 * * * *",
+        command=_ecosystem_sync_command(),
+        description=(
+            "Fast-forward every editable ecosystem checkout's develop to "
+            "origin (self-pull) via `scitex-dev ecosystem sync --yes`. "
+            "ff-only, develop-only, skips dirty/off-develop/diverged so "
+            "un-pushed work is never clobbered. Closes the drift loop that "
+            "let checkouts silently serve stale code (the workstation's own "
+            "scitex-dev was 18 commits behind v0.21.0; the Spartan runner "
+            "145 behind). Log at ~/.scitex/dev/logs/cron-ecosystem-sync.log."
         ),
     ),
     # Future entries land here. Suggested naming pattern: short

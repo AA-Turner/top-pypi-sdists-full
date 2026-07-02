@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from .messaging.messaging_request_builder import MessagingRequestBuilder
     from .slack.slack_request_builder import SlackRequestBuilder
     from .teams.teams_request_builder import TeamsRequestBuilder
+    from .voice.voice_request_builder import VoiceRequestBuilder
     from .whatsapp.whatsapp_request_builder import WhatsappRequestBuilder
 
 class ChannelsRequestBuilder(BaseRequestBuilder):
@@ -100,6 +101,15 @@ class ChannelsRequestBuilder(BaseRequestBuilder):
         from .teams.teams_request_builder import TeamsRequestBuilder
 
         return TeamsRequestBuilder(self.request_adapter, self.path_parameters)
+
+    @property
+    def voice(self) -> VoiceRequestBuilder:
+        """
+        The voice property
+        """
+        from .voice.voice_request_builder import VoiceRequestBuilder
+
+        return VoiceRequestBuilder(self.request_adapter, self.path_parameters)
 
     @property
     def whatsapp(self) -> WhatsappRequestBuilder:

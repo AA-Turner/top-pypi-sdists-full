@@ -1,0 +1,114 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "*"
+  pull_request:
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.1
+
+  test:
+    runs-on: ubuntu-latest
+    needs: [pre-commit]
+    strategy:
+      matrix:
+        django-version: ["42", "52"]
+        python-version: ["8", "9", "10", "11", "12"]
+        exclude:
+          - django-version: "52"
+            python-version: "8"
+          - django-version: "52"
+            python-version: "9"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.${{ matrix.python-version }}"
+
+      - name: Install redis
+        uses: shogo82148/actions-setup-redis@v1
+        with:
+          redis-version: latest
+
+      - name: Verify that redis is up
+        run: redis-cli ping
+
+      - name: Run Tests
+        run: |
+          pip install tox
+          cd utils-test-app
+          tox -e py3${{ matrix.python-version }}-django${{ matrix.django-version }}
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: AllianceAuth-Apps/allianceauth-app-utils
+
+  test-docs:
+    runs-on: ubuntu-latest
+    needs: [pre-commit]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install redis
+        uses: shogo82148/actions-setup-redis@v1
+        with:
+          redis-version: latest
+
+      - name: Verify that redis is up
+        run: redis-cli ping
+
+      - name: Run docs test
+        run: |
+          pip install tox
+          cd utils-test-app
+          tox -e docs
+
+  deploy-pypi:
+    needs: [test, test-docs]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Flit
+        run: pip install flit
+
+      - name: Build and Publish
+        run: flit publish
+        env:
+          FLIT_USERNAME: ${{ secrets.FLIT_USERNAME }}
+          FLIT_PASSWORD: ${{ secrets.FLIT_PASSWORD }}

@@ -151,16 +151,32 @@ class BigArray(list):
         with self._lock:
             if not self.chunks[-1] and len(self.chunks) > 1:
                 self.chunks.pop()
+                filename = self.chunks[-1]
+                idx = len(self.chunks) - 1
+
+                if self.cache and self.cache.index == idx and self.cache.dirty:
+                    self.chunks[-1] = self.cache.data
+                    self.cache.dirty = False
+                else:
+                    try:
+                        with open(filename, "rb") as f:
+                            self.chunks[-1] = pickle.loads(zlib.decompress(f.read()))
+                    except IOError as ex:
+                        errMsg = "exception occurred while retrieving data "
+                        errMsg += "from a temporary file ('%s')" % ex
+                        raise SqlmapSystemException(errMsg)
+
                 try:
-                    filename = self.chunks[-1]
-                    with open(filename, "rb") as f:
-                        self.chunks[-1] = pickle.loads(zlib.decompress(f.read()))
                     self._os_remove(filename)
                     self.filenames.discard(filename)
-                except IOError as ex:
-                    errMsg = "exception occurred while retrieving data "
-                    errMsg += "from a temporary file ('%s')" % ex
-                    raise SqlmapSystemException(errMsg)
+                except OSError:
+                    pass
+
+                # Note: the formerly on-disk chunk is now an in-memory list (and its file has been
+                # removed), so any cache entry still pointing at it is stale; dropping it prevents
+                # serving outdated data if that chunk index is later re-dumped (e.g. append after pop)
+                if isinstance(self.cache, Cache) and self.cache.index == idx:
+                    self.cache = None
 
         return self.chunks[-1].pop()
 
@@ -200,9 +216,9 @@ class BigArray(list):
         except (OSError, IOError) as ex:
             errMsg = "exception occurred while storing data "
             errMsg += "to a temporary file ('%s'). Please " % ex
-            errMsg += "make sure that there is enough disk space left. If problem persists, "
+            errMsg += "make sure that there is enough disk space left. If the problem persists, "
             errMsg += "try to set environment variable 'TEMP' to a location "
-            errMsg += "writeable by the current user"
+            errMsg += "writable by the current user"
             raise SqlmapSystemException(errMsg)
 
     def _checkcache(self, index):
@@ -210,8 +226,18 @@ class BigArray(list):
             self.cache = None
 
         if (self.cache and self.cache.index != index and self.cache.dirty):
+            old_filename = self.chunks[self.cache.index]
             filename = self._dump(self.cache.data)
             self.chunks[self.cache.index] = filename
+
+            # Note: remove the now-superseded chunk file (mirrors __getstate__); otherwise every
+            # cross-chunk dirty flush orphans one temp file on disk and in self.filenames
+            if isinstance(old_filename, STRING_TYPES):
+                try:
+                    self._os_remove(old_filename)
+                    self.filenames.discard(old_filename)
+                except OSError:
+                    pass
 
         if not (self.cache and self.cache.index == index):
             try:
@@ -223,12 +249,22 @@ class BigArray(list):
                 raise SqlmapSystemException(errMsg)
 
     def __getstate__(self):
-        if self.cache and self.cache.dirty:
-            filename = self._dump(self.cache.data)
-            self.chunks[self.cache.index] = filename
-            self.cache.dirty = False
+        with self._lock:
+            if self.cache and self.cache.dirty:
+                old_filename = self.chunks[self.cache.index]
+                filename = self._dump(self.cache.data)
+                self.chunks[self.cache.index] = filename
 
-        return self.chunks, self.filenames, self.chunk_length
+                if isinstance(old_filename, STRING_TYPES):
+                    try:
+                        self._os_remove(old_filename)
+                        self.filenames.discard(old_filename)
+                    except OSError:
+                        pass
+
+                self.cache.dirty = False
+
+            return self.chunks, self.filenames, self.chunk_length
 
     def __setstate__(self, state):
         self.__init__()

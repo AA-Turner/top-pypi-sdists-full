@@ -14,8 +14,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
 
+import anyio
 import httpx
 from loguru import logger
+from mcp.shared.exceptions import McpError
+from mcp.types import CONNECTION_CLOSED
 
 from dreadnode.agents.mcp.config import (
     DEFAULT_HTTP_TIMEOUT,
@@ -44,6 +47,11 @@ if t.TYPE_CHECKING:
 # localhost callback server's wait (_DEFAULT_CALLBACK_TIMEOUT = 300s).
 # Background connects keep the normal, tight init timeout.
 _INTERACTIVE_AUTH_INIT_TIMEOUT = 330.0
+
+# Transport-level retry for tool calls. A retry is only useful if we rebuild
+# the underlying session first; retrying the same dead session cannot recover.
+_TOOL_CALL_RETRIES = 1
+_TOOL_CALL_RETRY_DELAY = 1.0  # seconds
 
 
 class _StderrCapture:
@@ -317,9 +325,65 @@ class MCPClient:
             raise RuntimeError("Session not initialized — call connect() first")
         return self._session
 
+    def _is_retryable_tool_call_error(self, exc: BaseException) -> bool:
+        if isinstance(exc, (anyio.BrokenResourceError, anyio.ClosedResourceError)):
+            return True
+        if isinstance(exc, McpError):
+            # The MCP SDK normalizes transport breakage into McpError codes:
+            #   - REQUEST_TIMEOUT (408): the server was unresponsive and the
+            #     request read timed out (``mcp/shared/session.py``).
+            #   - CONNECTION_CLOSED (-32000): the read stream closed while a
+            #     call was in flight, so the receive loop drained every pending
+            #     request with this code (``mcp/shared/session.py`` finally
+            #     block). This is the dominant "server flaked mid-call" case.
+            # Both are transport-class and recover with a reconnect; all other
+            # codes are protocol-level errors the server meant to send.
+            return exc.error.code in (httpx.codes.REQUEST_TIMEOUT, CONNECTION_CLOSED)
+        return (
+            isinstance(exc, RuntimeError)
+            and self._owner_task is not None
+            and str(exc) == "Session not initialized — call connect() first"
+        )
+
+    async def _reconnect_for_tool_retry(
+        self, tool_name: str, attempt: int, exc: BaseException
+    ) -> None:
+        logger.debug(
+            "MCP tool '{}' transport failure (attempt {}), reconnecting before retry: {}",
+            tool_name,
+            attempt + 1,
+            exc,
+        )
+        await self._shutdown()
+        await asyncio.sleep(_TOOL_CALL_RETRY_DELAY)
+        await self.connect(interactive=self._auth_interactive)
+
     def _make_execute_on_server(self, tool_name: str) -> t.Callable[..., t.Any]:
         async def execute_on_server(**kwargs: t.Any) -> t.Any:
-            result = await self.session.call_tool(tool_name, kwargs)
+            last_exc: BaseException | None = None
+            for attempt in range(_TOOL_CALL_RETRIES + 1):
+                try:
+                    result = await self.session.call_tool(tool_name, kwargs)
+                except Exception as exc:
+                    if not self._is_retryable_tool_call_error(exc) or attempt >= _TOOL_CALL_RETRIES:
+                        raise
+                    last_exc = exc
+                    await self._reconnect_for_tool_retry(tool_name, attempt, exc)
+                    continue
+                else:
+                    if attempt > 0:
+                        logger.info(
+                            "MCP tool '{}' recovered after reconnect on attempt {}",
+                            tool_name,
+                            attempt + 1,
+                        )
+                    break
+            else:
+                # Should not be reached (raise above covers it), but
+                # satisfy the type checker.
+                assert last_exc is not None
+                raise last_exc
+
             # Protocol-level failures (``isError=true``) are reported as a
             # successful response carrying error content. Lift them into
             # an ``ErrorModel`` so ``Tool.handle_tool_call`` routes the
@@ -459,7 +523,17 @@ class MCPClient:
                 else:
                     self._ready_future.set_exception(RuntimeError(str(cause)))
         finally:
-            await self._exit_stack.aclose()
+            try:
+                await self._exit_stack.aclose()
+            except BaseException:
+                # Transport teardown errors (BrokenResourceError, ConnectionReset,
+                # BaseExceptionGroup from anyio TaskGroups, etc.) are expected when
+                # the subprocess has already exited or the remote HTTP server is
+                # gone.  Suppressing here prevents noisy "Task exception was never
+                # retrieved" warnings during shutdown.
+                logger.debug(
+                    "Suppressed error during MCP exit-stack teardown (transport={})", self.transport
+                )
             self._reset_connection_state()
 
     async def _load_tools(self) -> None:

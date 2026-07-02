@@ -158,7 +158,9 @@ class Model:
               (``pred["mean"]``) and column attributes (``pred.mean``,
               ``pred.std_error``, ``pred.mean_lower``, ``pred.mean_upper``).
             * Bernoulli marginal-slope: a 1-D ``ndarray`` of probabilities.
-            * Transformation-normal: a 1-D ``ndarray`` of z-scores.
+            * Transformation-normal: a 1-D ``ndarray`` of the response-scale
+              conditional mean ``E[Y|x]`` (issue #1612), a covariate-only
+              quantity that does not require the outcome column.
             * Survival models: :class:`SurvivalPrediction`.
             * Competing-risks models: :class:`CompetingRisksPrediction`.
 
@@ -651,68 +653,6 @@ class Model:
         except Exception as exc:
             raise map_exception(exc) from exc
 
-    def posterior_predictive_check(
-        self,
-        data: Any,
-        *,
-        n_draws: int = 200,
-        seed: int = 0,
-    ) -> dict[str, float]:
-        """Posterior-predictive Bayesian p-values per discrepancy statistic (#1057).
-
-        Draws ``n_draws`` replicate datasets at ``data`` (which must include the
-        fitted response column), then for each summary statistic ``T`` reports
-        the posterior-predictive p-value ``P(T(y_rep) >= T(y_obs))`` — the
-        fraction of replicates whose statistic is at least as extreme as the
-        observed one. Values near 0 or 1 flag a statistic the model fails to
-        reproduce; values near 0.5 indicate calibration on that statistic.
-
-        Parameters
-        ----------
-        data : table-like
-            New rows including the response column (so ``T(y_obs)`` is defined).
-        n_draws : int, default 200
-            Number of replicate datasets used to estimate each p-value.
-        seed : int, default 0
-            Seed for the deterministic draw stream.
-
-        Returns
-        -------
-        dict[str, float]
-            Bayesian p-value per statistic (``mean``, ``sd``, ``min``, ``max``).
-        """
-        import numpy as np
-
-        response = self.response_name
-        if response is None:
-            raise ValueError(
-                "posterior_predictive_check requires a model with a named response "
-                "column; this model's formula does not expose one"
-            )
-        headers, rows, _ = normalize_table(data)
-        if response not in headers:
-            raise ValueError(
-                f"posterior_predictive_check requires the response column "
-                f"'{response}' in data so the observed statistics are defined"
-            )
-        col = headers.index(response)
-        y_obs = np.asarray([float(r[col]) for r in rows], dtype=float)
-        reps = self.sample_replicates(data, n_draws, seed=seed)
-        reps = np.asarray(reps, dtype=float)
-
-        statistics = {
-            "mean": np.mean,
-            "sd": np.std,
-            "min": np.min,
-            "max": np.max,
-        }
-        out: dict[str, float] = {}
-        for name, fn in statistics.items():
-            t_obs = float(fn(y_obs))
-            t_rep = np.asarray([float(fn(reps[d])) for d in range(reps.shape[0])])
-            out[name] = float(np.mean(t_rep >= t_obs))
-        return out
-
     def design_matrix(self, data: Any) -> Any:
         """Materialised design matrix for ``data`` against the saved model."""
         headers, rows, _ = normalize_table(data)
@@ -920,29 +860,27 @@ class Model:
         grid: Any | None = None,
         n_points: int = 100,
     ) -> dict[str, Any]:
-        """Per-term partial-dependence plot data with delta-method SE.
+        """Per-term partial dependence with delta-method SE.
 
-        Analogue of mgcv's ``plot.gam()`` per-term plot, and term-wise
-        contribution computation. For the requested ``term`` this evaluates
-        f_t(x) = X_t(x) beta_t and the matching delta-method SE
-        sqrt(diag(X_t V_t X_t^T)) where V_t is the corresponding diagonal
-        block of the joint coefficient covariance.
+        Analogue of mgcv's ``plot.gam()`` per-term plot: for ``term`` this
+        returns ``f_t(x) = X_t(x) β_t`` and the delta-method standard error
+        ``sqrt(diag(X_t V_t X_tᵀ))``. The evaluation ``f_t`` and its SE are
+        computed by the Rust core (``model_partial_dependence``); Python only
+        constructs the evaluation grid table.
 
         Parameters
         ----------
         term:
-            Term name as it appears in :attr:`term_blocks` (e.g.
-            ``"s(x1)"`` for a 1D smooth).
+            Term name as it appears in :attr:`term_blocks` (e.g. ``"s(x1)"``).
         data:
-            Reference table; non-``term`` columns supply template values
-            for the constructed grid rows.
+            Reference table; non-``term`` columns supply template values for
+            the constructed grid rows.
         grid:
-            Optional explicit grid. For 1D smooths, a 1-D array of input
-            values. For multi-D smooths, a 2-D array of shape
-            ``(n_points, d)`` whose columns align with the smooth's input
-            features in formula order.
+            Optional explicit grid (1-D for a single-axis smooth, or 2-D
+            ``(n_points, d)`` for a multi-axis smooth). When ``None`` a
+            1-D linspace over the term's training range is used.
         n_points:
-            Number of grid points for 1D smooths when ``grid`` is ``None``.
+            Grid resolution when ``grid`` is ``None``.
 
         Returns
         -------
@@ -951,37 +889,22 @@ class Model:
         """
         import numpy as np
 
-        block = next(
-            (b for b in self.term_blocks if b.name == term),
-            None,
-        )
+        block = next((b for b in self.term_blocks if b.name == term), None)
         if block is None:
             available = [b.name for b in self.term_blocks]
             raise ValueError(
                 f"partial_dependence: term {term!r} not found; available: {available}"
             )
         state = self._coefficient_state()
-        beta_full = np.asarray(state.get("beta", []), dtype=float)
-        cov_n = int(state.get("covariance_n", 0))
-        cov_flat = np.asarray(state.get("covariance_flat", []), dtype=float)
-        if cov_flat.size != cov_n * cov_n or beta_full.size != cov_n:
-            raise ValueError("coefficient covariance payload has inconsistent dimensions")
-        cov = cov_flat.reshape(cov_n, cov_n)
-        cov = 0.5 * (cov + cov.T)
-        cols = slice(block.start, block.end)
-        beta_term = beta_full[cols]
-        cov_term = cov[cols, cols]
-
         schema_cols = list((state.get("schema") or {}).get("columns") or [])
         ranges = state.get("training_feature_ranges") or []
         names = [str(c.get("name")) for c in schema_cols]
 
-        # Build a template row from the supplied data.
         template: dict[str, Any] = {}
-        headers, rows, _ = normalize_table(data)
-        if rows:
-            first = rows[0]
-            template.update({h: first[i] for i, h in enumerate(headers)})
+        data_headers, data_rows, _ = normalize_table(data)
+        if data_rows:
+            first = data_rows[0]
+            template.update({h: first[i] for i, h in enumerate(data_headers)})
         for idx, col in enumerate(schema_cols):
             name = str(col.get("name"))
             if name in template:
@@ -995,9 +918,6 @@ class Model:
             else:
                 template[name] = "0"
 
-        # Heuristic axis inference: a smooth named e.g. ``s(x1)`` owns the
-        # schema column ``x1``. Tensor / multi-d smooths expose multiple
-        # arguments in the same parenthesized list.
         term_args: tuple[str, ...] = ()
         if "(" in term and ")" in term:
             inside = term[term.index("(") + 1 : term.rindex(")")]
@@ -1015,13 +935,11 @@ class Model:
                 )
             term_argument = term_args[0]
             col_idx = names.index(term_argument)
-            if col_idx < len(ranges):
-                lo, hi = map(float, ranges[col_idx])
-            else:
-                lo, hi = 0.0, 1.0
+            lo, hi = (map(float, ranges[col_idx]) if col_idx < len(ranges) else (0.0, 1.0))
+            lo, hi = float(lo), float(hi)
             if not (np.isfinite(lo) and np.isfinite(hi)) or lo == hi:
                 lo, hi = 0.0, 1.0
-            grid_arr = np.linspace(float(lo), float(hi), int(n_points))
+            grid_arr = np.linspace(lo, hi, int(n_points))
             sweep_columns: tuple[str, ...] = (term_argument,)
             grid_matrix = grid_arr.reshape(-1, 1)
             grid_out: Any = grid_arr
@@ -1040,30 +958,28 @@ class Model:
                 if len(term_args) != grid_matrix.shape[1]:
                     raise ValueError(
                         "partial_dependence: explicit grid shape "
-                        f"{grid_matrix.shape} does not match term axes "
-                        f"{term_args!r}"
+                        f"{grid_matrix.shape} does not match term axes {term_args!r}"
                     )
                 sweep_columns = term_args
                 grid_out = grid_matrix
             else:
                 raise ValueError("partial_dependence: grid must be 1-D or 2-D")
 
-        eval_rows = []
+        headers = list(template.keys())
+        rows: list[list[str]] = []
         for row_vals in grid_matrix:
             row = dict(template)
             for col_name, value in zip(sweep_columns, row_vals, strict=False):
                 row[col_name] = str(float(value))
-            eval_rows.append(row)
+            rows.append([str(row[h]) for h in headers])
 
-        design = np.asarray(self.design_matrix(eval_rows), dtype=float)
-        x_term = design[:, cols]
-        predicted = x_term @ beta_term
-        var = np.einsum("ij,jk,ik->i", x_term, cov_term, x_term)
-        se = np.sqrt(np.maximum(var, 0.0))
+        predicted, se = rust_module().model_partial_dependence(
+            self._model_bytes, term, headers, rows
+        )
         return {
             "grid": grid_out,
-            "predicted": predicted,
-            "standard_error": se,
+            "predicted": np.asarray(predicted, dtype=float),
+            "standard_error": np.asarray(se, dtype=float),
         }
 
     def variance_share(
@@ -1071,58 +987,26 @@ class Model:
         data: Any,
         term: str | None = None,
     ) -> dict[str, float] | float:
-        """Term-wise variance decomposition on ``data``.
+        """Term-wise variance decomposition ``var(X_t β_t) / var(X β)``.
 
-        Analogous to mgcv's ``summary(model)`` per-row ``edf`` and
-        ``p-value`` columns, but reporting variance fractions instead:
-        variance_share(t) = Var(X_t beta_t) / Var(X beta), with all
-        variances computed empirically on the rows of ``data``.
-
-        ``data`` is required because :class:`Model` does not persist
-        training fitted values. The intercept is excluded from the
-        per-term decomposition.
-
-        Parameters
-        ----------
-        data:
-            Table-like input used to evaluate the design matrix.
-        term:
-            If ``None``, returns ``{term_name: fraction}`` for every
-            non-intercept term. If given, returns the scalar fraction.
+        Computed by the Rust core (``model_variance_share``) on the rows of
+        ``data``; the intercept is excluded. Returns ``{term: fraction}`` for
+        every non-intercept term, or the scalar fraction when ``term`` is given.
         """
-        import numpy as np
-
-        beta_full = np.asarray(self._coefficient_state().get("beta", []), dtype=float)
-        design = np.asarray(self.design_matrix(data), dtype=float)
-        if design.shape[1] != beta_full.size:
-            raise ValueError(
-                "variance_share: design matrix and beta dimensions disagree: "
-                f"design has {design.shape[1]} columns, beta has {beta_full.size}"
-            )
-        eta_total = design @ beta_full
-        total_var = float(np.var(eta_total))
-
-        def share_for(block: TermBlock) -> float:
-            if not np.isfinite(total_var) or total_var <= 0.0:
-                return 0.0
-            cols = slice(block.start, block.end)
-            contribution = design[:, cols] @ beta_full[cols]
-            return float(np.var(contribution)) / total_var
-
+        headers, data_rows, _ = normalize_table(data)
+        rows = [[str(v) for v in row] for row in data_rows]
+        pairs = rust_module().model_variance_share(
+            self._model_bytes, list(headers), rows, term
+        )
+        shares = {str(name): float(frac) for name, frac in pairs}
         if term is not None:
-            block = next((b for b in self.term_blocks if b.name == term), None)
-            if block is None:
+            if term not in shares:
                 available = [b.name for b in self.term_blocks]
                 raise ValueError(
                     f"variance_share: term {term!r} not found; available: {available}"
                 )
-            return share_for(block)
-
-        return {
-            block.name: share_for(block)
-            for block in self.term_blocks
-            if block.kind != "intercept"
-        }
+            return shares[term]
+        return shares
 
     @property
     def evidence(self) -> float:

@@ -1,0 +1,28 @@
+
+[package]
+name = "solders-rpc-request-params"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders RPC request params crate."
+
+[dependencies]
+bincode = { workspace = true }
+serde = { workspace = true }
+serde_with = { workspace = true }
+solana-rpc-client-types = { workspace = true }
+solders-base64-string = { workspace = true }
+solders-commitment-config = { workspace = true }
+solders-hash = { workspace = true }
+solders-pubkey = { workspace = true }
+solders-rpc-account-info-config = { workspace = true }
+solders-rpc-config-no-filter = { workspace = true }
+solders-rpc-program-accounts-config = { workspace = true }
+solders-rpc-request-airdrop-config = { workspace = true }
+solders-rpc-send-transaction-config = { workspace = true }
+solders-rpc-sig-status-config = { workspace = true }
+solders-rpc-sigs-for-address-config = { workspace = true }
+solders-rpc-sim-transaction-config = { workspace = true }
+solders-signature = { workspace = true }

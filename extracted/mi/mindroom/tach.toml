@@ -43,7 +43,7 @@ depends_on = []
 path = "mindroom.tool_schema_cache"
 depends_on = []
 visibility = [
-    "mindroom.history.compaction",
+    "mindroom.history.prompt_tokens",
     "mindroom.tool_system.plugins",
 ]
 
@@ -294,6 +294,7 @@ depends_on = [
     "mindroom.entity_resolution",
     "mindroom.logging_config",
     "mindroom.matrix.identity",
+    "mindroom.tool_system.approval_exemptions",
 ]
 visibility = [
     "mindroom.agents",
@@ -755,6 +756,7 @@ depends_on = [
     "mindroom.custom_tools.matrix_helpers",
     "mindroom.custom_tools.tool_payloads",
     "mindroom.matrix.client_delivery",
+    "mindroom.matrix.voice_message",
     "mindroom.model_defaults",
     "mindroom.tool_system.runtime_context",
 ]
@@ -870,6 +872,7 @@ depends_on = [
     "mindroom.history.agno_team_patch",
     "mindroom.history.compaction",
     "mindroom.history.policy",
+    "mindroom.history.prompt_tokens",
     "mindroom.history.runtime",
     "mindroom.history.storage",
     "mindroom.history.types",
@@ -889,9 +892,16 @@ depends_on = [
     "mindroom.hooks",
     "mindroom.logging_config",
     "mindroom.timing",
-    "mindroom.tool_schema_cache",
     "mindroom.token_budget",
     "mindroom.tool_system.runtime_context",
+]
+
+[[modules]]
+path = "mindroom.history.prompt_tokens"
+depends_on = [
+    "mindroom.timing",
+    "mindroom.token_budget",
+    "mindroom.tool_schema_cache",
 ]
 
 [[modules]]
@@ -906,7 +916,6 @@ depends_on = [
 [[modules]]
 path = "mindroom.history.policy"
 depends_on = [
-    "mindroom.history.compaction",
     "mindroom.history.types",
     "mindroom.token_budget",
 ]
@@ -928,6 +937,7 @@ path = "mindroom.history.interrupted_replay"
 depends_on = [
     "mindroom.agent_storage",
     "mindroom.constants",
+    "mindroom.history.storage",
     "mindroom.tool_system.events",
 ]
 visibility = [
@@ -953,6 +963,7 @@ depends_on = [
     "mindroom.constants",
     "mindroom.history.compaction",
     "mindroom.history.policy",
+    "mindroom.history.prompt_tokens",
     "mindroom.history.storage",
     "mindroom.history.types",
     "mindroom.logging_config",
@@ -1251,11 +1262,16 @@ path = "mindroom.config.memory"
 depends_on = ["mindroom.path_globs"]
 
 [[modules]]
+path = "mindroom.config.entity_view"
+depends_on = []
+
+[[modules]]
 path = "mindroom.config.main"
 depends_on = [
     "mindroom.agent_policy",
     "mindroom.config.agent",
     "mindroom.config.auth",
+    "mindroom.config.entity_view",
     "mindroom.config.knowledge",
     "mindroom.config.matrix",
     "mindroom.config.memory",
@@ -1750,6 +1766,11 @@ visibility = [
     "mindroom.streaming",
     "mindroom.thread_summary",
 ]
+
+[[modules]]
+path = "mindroom.matrix.voice_message"
+depends_on = []
+visibility = ["mindroom.custom_tools.matrix_voice_message"]
 
 [[modules]]
 path = "mindroom.matrix.client_room_admin"
@@ -2307,7 +2328,6 @@ depends_on = ["mindroom.tool_system.plugin_imports"]
 [[modules]]
 path = "mindroom.tool_system.worker_routing"
 depends_on = [
-    "mindroom.mcp.registry",
     "mindroom.tool_system.context_bound_streams",
 ]
 
@@ -2321,6 +2341,10 @@ depends_on = ["mindroom.tool_system.worker_routing"]
 
 [[modules]]
 path = "mindroom.tool_system.events"
+depends_on = []
+
+[[modules]]
+path = "mindroom.tool_system.approval_exemptions"
 depends_on = []
 
 [[modules]]
@@ -2786,7 +2810,6 @@ expose = [
     "dashboard_credentials_supported_for_scope",
     "resolve_agent_policy_from_data",
     "get_agent_delegation_closure",
-    "get_private_team_targets",
     "get_unsupported_team_agents",
     "unsupported_team_agent_message",
     "resolve_agent_policy_index",
@@ -3080,6 +3103,13 @@ from = ["mindroom.matrix.client_delivery"]
 
 [[interfaces]]
 expose = [
+    "PreparedVoiceAudio",
+    "prepare_voice_audio_bytes",
+]
+from = ["mindroom.matrix.voice_message"]
+
+[[interfaces]]
+expose = [
     "ResolvedVisibleMessage",
     "apply_latest_edits_to_messages",
     "extract_visible_edit_body",
@@ -3351,19 +3381,16 @@ from = ["mindroom.tool_system.worker_routing"]
 
 [[interfaces]]
 expose = [
-    "AgentStaticTokenEstimator",
     "CompactionOutcome",
     "HistoryPolicy",
     "HistoryScope",
-    "HistoryScopeState",
     "PreparedHistoryState",
     "PreparedScopeHistory",
-    "ResolvedHistoryExecutionPlan",
     "ResolvedHistorySettings",
     "ResolvedReplayPlan",
     "ScopeSessionContext",
-    "TeamStaticTokenEstimator",
-    "add_pending_force_compaction_scope",
+    "StaticTokenEstimator",
+    "agent_static_token_estimator",
     "agent_tool_definition_payloads_for_logging",
     "apply_replay_plan",
     "close_agent_runtime_state_dbs",
@@ -3371,26 +3398,21 @@ expose = [
     "compute_prompt_token_breakdown",
     "context_budget_after_reserve",
     "create_scope_session_storage",
-    "estimate_preparation_static_tokens",
-    "estimate_preparation_static_tokens_for_team",
     "finalize_history_preparation",
     "has_pending_force_compaction_scope",
-    "manual_compaction_unavailable_message",
-    "normalize_compaction_budget_tokens",
     "note_prepared_history_timing",
     "open_bound_scope_session_context",
     "open_resolved_scope_session_context",
-    "open_scope_session_context",
     "prepare_bound_scope_history",
-    "prepare_history_for_run",
     "prepare_scope_history",
     "read_scope_seen_event_ids",
     "read_scope_state",
+    "resolve_agent_preparation_inputs",
     "resolve_bound_team_scope_context",
     "resolve_history_execution_plan",
+    "team_static_token_estimator",
     "team_tool_definition_payloads_for_logging",
     "update_scope_seen_event_ids",
-    "write_scope_state",
 ]
 from = ["mindroom.history"]
 

@@ -7,20 +7,27 @@ from homeassistant.core import HomeAssistant as HomeAssistant, callback as callb
 from homeassistant.exceptions import ConfigEntryAuthFailed as ConfigEntryAuthFailed
 from homeassistant.helpers.httpx_client import get_async_client as get_async_client
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator as DataUpdateCoordinator, UpdateFailed as UpdateFailed
+from typing import override
 
 UPDATE_INTERVAL_CONNECTED: Incomplete
 UPDATE_INTERVAL_DISCONNECTED: Incomplete
 type AnthropicConfigEntry = ConfigEntry[AnthropicCoordinator]
-_model_short_form: Incomplete
 
+async def async_create_client(hass: HomeAssistant, api_key: str) -> anthropic.AsyncAnthropic: ...
 @callback
 def model_alias(model_id: str) -> str: ...
 
 class AnthropicCoordinator(DataUpdateCoordinator[list[anthropic.types.ModelInfo]]):
-    client: anthropic.AsyncAnthropic
+    config_entry: AnthropicConfigEntry
+    _client: anthropic.AsyncAnthropic
     def __init__(self, hass: HomeAssistant, config_entry: AnthropicConfigEntry) -> None: ...
+    @property
+    def client(self) -> anthropic.AsyncAnthropic: ...
+    @override
+    async def _async_setup(self) -> None: ...
     update_interval: Incomplete
     @callback
+    @override
     def async_set_updated_data(self, data: list[anthropic.types.ModelInfo]) -> None: ...
     async def async_update_data(self) -> list[anthropic.types.ModelInfo]: ...
     last_update_success: bool

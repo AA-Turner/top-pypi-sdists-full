@@ -16,6 +16,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from hindsight_api.engine.llm_interface import LLMInterface
+from hindsight_api.engine.llm_trace import LLMResponseUsage, stash_response_usage
 from hindsight_api.engine.response_models import LLMToolCall, LLMToolCallResult, TokenUsage
 from hindsight_api.metrics import get_metrics_collector
 
@@ -118,12 +119,14 @@ class ClaudeCodeLLM(LLMInterface):
         Raises:
             RuntimeError: If the connection test fails.
         """
+        from ...config import get_config
+
         try:
             test_messages = [{"role": "user", "content": "test"}]
             await self.call(
                 messages=test_messages,
                 max_completion_tokens=10,
-                temperature=0.0,
+                temperature=get_config().llm_temperature_verification,
                 scope="verification",
                 max_retries=0,
             )
@@ -225,6 +228,16 @@ class ClaudeCodeLLM(LLMInterface):
                         for block in message.content:
                             if isinstance(block, TextBlock):
                                 full_text += block.text
+
+                # The Claude Agent SDK doesn't report exact counts; stash the same
+                # char/4 estimate the success path traces so a later parse/validate
+                # failure records consistent (estimated) tokens, not zero (#2387).
+                stash_response_usage(
+                    LLMResponseUsage(
+                        input_tokens=sum(len(m.get("content", "")) for m in messages) // 4,
+                        output_tokens=len(full_text) // 4,
+                    )
+                )
 
                 # Handle structured output
                 if response_format is not None:

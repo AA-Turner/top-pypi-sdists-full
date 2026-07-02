@@ -1,0 +1,18 @@
+
+[package]
+name = "solders-pubkey"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders pubkey crate."
+
+[dependencies]
+derive_more = { workspace = true }
+pyo3 = { workspace = true, features = ["macros"] }
+serde = { workspace = true }
+solana-pubkey = { workspace = true }
+solders-macros = { workspace = true }
+solders-traits = { workspace = true }
+solders-traits-core = { workspace = true }

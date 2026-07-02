@@ -12,10 +12,15 @@ from plato.chronos.models import WorkspaceRepoCredentialsResponse
 
 def _build_request_args(
     repo_public_id: str,
+    read_only: bool = False,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
     url = f"/api/workspace-repos/{repo_public_id}/credentials"
+
+    params: dict[str, Any] = {}
+    if read_only:
+        params["read_only"] = read_only
 
     headers: dict[str, str] = {}
     if x_api_key is not None:
@@ -24,6 +29,7 @@ def _build_request_args(
     return {
         "method": "POST",
         "url": url,
+        "params": params,
         "headers": headers,
     }
 
@@ -31,12 +37,14 @@ def _build_request_args(
 def sync(
     client: httpx.Client,
     repo_public_id: str,
+    read_only: bool = False,
     x_api_key: str | None = None,
 ) -> WorkspaceRepoCredentialsResponse:
     """Get STS credentials scoped to a repo's S3 prefix."""
 
     request_args = _build_request_args(
         repo_public_id=repo_public_id,
+        read_only=read_only,
         x_api_key=x_api_key,
     )
 
@@ -48,12 +56,14 @@ def sync(
 async def asyncio(
     client: httpx.AsyncClient,
     repo_public_id: str,
+    read_only: bool = False,
     x_api_key: str | None = None,
 ) -> WorkspaceRepoCredentialsResponse:
     """Get STS credentials scoped to a repo's S3 prefix."""
 
     request_args = _build_request_args(
         repo_public_id=repo_public_id,
+        read_only=read_only,
         x_api_key=x_api_key,
     )
 

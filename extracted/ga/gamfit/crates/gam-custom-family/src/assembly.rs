@@ -683,6 +683,7 @@ fn assembled_operator_fingerprint(
     beta_flat: &Array1<f64>,
     h_joint_unpen: &JointHessianSource,
     scaled_s_lambdas: &[Array2<f64>],
+    scaled_joint_penalty: Option<&Array2<f64>>,
     robust_jeffreys_hphi_for_operator: Option<&Array2<f64>>,
     ranges: &[(usize, usize)],
     total: usize,
@@ -723,6 +724,24 @@ fn assembled_operator_fingerprint(
             1u8.hash(&mut hasher);
             hphi.dim().hash(&mut hasher);
             for &v in hphi.iter() {
+                hash_f64(v, &mut hasher);
+            }
+        }
+        None => 0u8.hash(&mut hasher),
+    }
+    // gam#1587/#561: the full-width joint penalty `Σ_t λ_t (M⊗S_t)` is part of
+    // the assembled operator `H + S_λ`, but its λ live in the OUTER ρ
+    // coordinates, NOT in the physical `rho` hashed above (which is empty when
+    // the family rides entirely on joint penalties, e.g. multinomial). Without
+    // hashing the joint penalty's content, two outer evaluations at different
+    // joint λ but a coincident β̂ collide on the same fingerprint and the second
+    // reuses the first's STALE operator — the silent gam#1395 logdet divergence.
+    // Hash presence + content so the cache key tracks the joint λ exactly.
+    match scaled_joint_penalty {
+        Some(joint) => {
+            1u8.hash(&mut hasher);
+            joint.dim().hash(&mut hasher);
+            for &v in joint.iter() {
                 hash_f64(v, &mut hasher);
             }
         }
@@ -991,6 +1010,7 @@ pub(crate) fn joint_outer_evaluate(
         beta_flat,
         &h_joint_unpen,
         &scaled_s_lambdas,
+        scaled_joint_penalty.as_ref(),
         robust_jeffreys_hphi_for_operator.as_ref(),
         ranges,
         total,
@@ -1281,6 +1301,7 @@ pub(crate) fn joint_outer_evaluate(
             total,
             scaled_joint_trace_diagonal_ridge,
             scaled_robust_jeffreys_hphi.as_ref(),
+            scaled_joint_penalty.as_ref(),
         )?;
         let correction = projected_logdet - hessian_op.logdet();
         if kernel.is_some() {
@@ -1295,7 +1316,25 @@ pub(crate) fn joint_outer_evaluate(
     };
     let hessian_logdet_correction = hessian_logdet_correction + projected_logdet_correction;
 
+    // gam#1587/#561: `unified_joint_cost_gradient` appends one coordinate per
+    // full-width joint penalty (the centered `M⊗S_t` multinomial penalty) AFTER
+    // the per-block ρ coordinates — the returned gradient/Hessian have length
+    // `rho.len() + n_joint + ext`. The dimension contract validated below was
+    // written before #1587 and omitted `n_joint`, so for any family whose
+    // smoothing rides ENTIRELY on joint penalties (multinomial: per-block
+    // penalties are emptied, so `rho.len() == 0`) every outer ρ-evaluation
+    // returned a length-`n_joint` gradient against an `expected == 0` and was
+    // rejected at startup validation — silently killing the entire REML/LAML
+    // smoothing-parameter search (λ pinned at its seed, EDF near-unpenalized).
+    // Count the joint coordinates so the contract matches the gradient the
+    // evaluator actually produces.
+    let n_joint = options
+        .joint_penalties
+        .as_deref()
+        .map(|bundle| bundle.len())
+        .unwrap_or(0);
     let expected_theta_dim = rho.len()
+        + n_joint
         + ext_bundle
             .as_ref()
             .map(|bundle| bundle.coords.len())
@@ -1516,12 +1555,33 @@ pub(crate) fn joint_outer_evaluate_efs(
         })
         .collect();
 
+    // gam#1587/#561: the full-width centered joint penalty must enter the EFS
+    // path's operator AND its projected-logdet kernel, identically to the ARC
+    // path above — otherwise the EFS step optimizes a criterion missing
+    // `½log|H_pen|` (see `joint_penalty_subspace_trace_parts`). `None` for
+    // every per-block-only family keeps this byte-identical.
+    let scaled_joint_penalty: Option<Array2<f64>> = options.joint_penalties.as_deref().and_then(
+        |bundle| {
+            if bundle.is_empty() {
+                return None;
+            }
+            let mut matrix = Array2::<f64>::zeros((total, total));
+            bundle.add_to_matrix(&mut matrix);
+            if rho_curvature_scale != 1.0 {
+                matrix.mapv_inplace(|value| rho_curvature_scale * value);
+            }
+            Some(matrix)
+        },
+    );
+
     let hessian_op: Arc<dyn HessianOperator> = if use_joint_matrix_free_path(
         total,
         joint_observation_count(&inner.block_states),
     ) {
         let ranges_vec = ranges.to_vec();
         let s_lambdas = Arc::new(scaled_s_lambdas.clone());
+        let joint_penalty_arc: Option<Arc<Array2<f64>>> =
+            scaled_joint_penalty.clone().map(Arc::new);
         let trace_diagonal_ridge =
             scaled_joint_trace_diagonal_ridge + rho_curvature_scale * JOINT_TRACE_STABILITY_RIDGE;
         match &h_joint_unpen {
@@ -1530,6 +1590,7 @@ pub(crate) fn joint_outer_evaluate_efs(
                 let apply_h = Arc::clone(&h_joint);
                 let apply_ranges = ranges_vec.clone();
                 let apply_s = Arc::clone(&s_lambdas);
+                let apply_joint = joint_penalty_arc.clone();
                 Arc::new(MatrixFreeSpdOperator::new_with_mode(
                     total,
                     move |v| {
@@ -1542,6 +1603,9 @@ pub(crate) fn joint_outer_evaluate_efs(
                             None,
                         );
                         out += &penalty;
+                        if let Some(joint) = apply_joint.as_ref() {
+                            out += &joint.dot(v);
+                        }
                         out
                     },
                     pseudo_logdet_mode,
@@ -1555,6 +1619,8 @@ pub(crate) fn joint_outer_evaluate_efs(
                 let apply_h = Arc::clone(apply);
                 let apply_ranges = ranges_vec.clone();
                 let apply_s = Arc::clone(&s_lambdas);
+                let apply_joint = joint_penalty_arc.clone();
+                let dense_joint = joint_penalty_arc.clone();
                 // Single-pass dense assembly of the SAME penalized operator
                 // `H_unpen + S_λ` (this fixed-point path carries no Jeffreys
                 // term). One chunked BLAS-3 `XᵀWX` row pass via `dense_forced`
@@ -1586,6 +1652,9 @@ pub(crate) fn joint_outer_evaluate_efs(
                             trace_diagonal_ridge,
                             None,
                         );
+                        if let Some(joint) = dense_joint.as_ref() {
+                            matrix += joint.as_ref();
+                        }
                         Some(matrix)
                     },
                 );
@@ -1609,6 +1678,9 @@ pub(crate) fn joint_outer_evaluate_efs(
                             None,
                         );
                         out += &penalty;
+                        if let Some(joint) = apply_joint.as_ref() {
+                            out += &joint.dot(v);
+                        }
                         out
                     },
                     pseudo_logdet_mode,
@@ -1629,6 +1701,9 @@ pub(crate) fn joint_outer_evaluate_efs(
             scaled_joint_trace_diagonal_ridge,
             None,
         );
+        if let Some(joint) = scaled_joint_penalty.as_ref() {
+            j_for_traces += joint;
+        }
         Arc::new(
             BlockCoupledOperator::from_joint_hessian_with_mode(&j_for_traces, pseudo_logdet_mode)
                 .map_err(|e| format!("BlockCoupledOperator from joint Hessian: {e}"))?,
@@ -1647,6 +1722,7 @@ pub(crate) fn joint_outer_evaluate_efs(
             total,
             scaled_joint_trace_diagonal_ridge,
             None,
+            scaled_joint_penalty.as_ref(),
         )?;
         let correction = projected_logdet - hessian_op.logdet();
         if kernel.is_some() {

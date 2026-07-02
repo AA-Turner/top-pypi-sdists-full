@@ -4253,6 +4253,32 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Sync an external post",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def analytics_sync_external_posts(
+        account_id: str, url: str | None = None, post_id: str | None = None
+    ) -> str:
+        """Sync an external post
+
+        Args:
+            account_id: SocialAccount ID whose posts to sync. Must be connected to Zernio. (required)
+            url: The post URL to locate. Optional. Provide `url` or `postId` to return a specific post; omit both to just refresh and return the account's recent posts.
+            post_id: The platform post/media/video id to locate, as an alternative to `url`. Optional."""
+        client = _get_client()
+        try:
+            response = client.analytics.sync_external_posts(
+                account_id=account_id, url=url, post_id=post_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get LinkedIn aggregate stats",
             readOnlyHint=True,
             destructiveHint=False,
@@ -7637,18 +7663,35 @@ def register_generated_tools(mcp, _get_client):
         days: int = 90,
         limit: int = 50,
         skip: int = 0,
+        account_id: str | None = None,
+        event: str | None = None,
+        request_id: str | None = None,
+        from_: str | None = None,
+        to: str | None = None,
+        status_code: int | None = None,
+        api_key_id: str | None = None,
+        include_read_receipts: bool = False,
     ) -> str:
         """List activity logs
 
-        Args:
-            type: Log category to query
-            status: Filter by status
-            platform: Filter by platform
-            action: Filter by action (e.g., post.published, message.sent, account.connected, webhook.delivered)
-            search: Free-text search across log fields
-            days: Number of days to look back (max 90)
-            limit: Maximum number of logs to return (max 100)
-            skip: Number of logs to skip (for pagination)"""
+            Args:
+                type: Log category to query. Use `all` for the unified view across every category,
+        or `api_request` for your API request logs (method, path, status, latency).
+                status: Filter by status
+                platform: Filter by platform
+                action: Filter by action (e.g., post.published, message.sent, account.connected, webhook.delivered)
+                search: Free-text search across log fields
+                days: Number of days to look back (max 90)
+                limit: Maximum number of logs to return (max 100)
+                skip: Number of logs to skip (for pagination)
+                account_id: Filter by connected account ID
+                event: Filter webhook logs by event (e.g. post.published, message.received)
+                request_id: Correlation ID — returns every log spawned by a single API request
+                from_: Precise start instant (ISO 8601); narrows within the day range
+                to: Precise end instant (ISO 8601)
+                status_code: Filter by exact HTTP status code (api_request logs)
+                api_key_id: Filter by the API key that made the request (api_request logs)
+                include_read_receipts: Include message.read / message.delivered events (hidden by default for messaging logs)"""
         client = _get_client()
         try:
             response = client.logs.list_logs(
@@ -7660,6 +7703,14 @@ def register_generated_tools(mcp, _get_client):
                 days=days,
                 limit=limit,
                 skip=skip,
+                account_id=account_id,
+                event=event,
+                request_id=request_id,
+                from_=from_,
+                to=to,
+                status_code=status_code,
+                api_key_id=api_key_id,
+                include_read_receipts=include_read_receipts,
             )
             return _format_response(response)
         except Exception as e:
@@ -7923,6 +7974,7 @@ def register_generated_tools(mcp, _get_client):
         message: str | None = None,
         attachment_url: str | None = None,
         attachment_type: str | None = None,
+        attachment_name: str | None = None,
         voice_note: bool | None = None,
         quick_replies: list[dict[str, Any]] | None = None,
         buttons: list[dict[str, Any]] | None = None,
@@ -7943,6 +7995,7 @@ def register_generated_tools(mcp, _get_client):
                 message: Message text
                 attachment_url: URL of the attachment to send (image, video, audio, or file). The URL must be publicly accessible. For binary file uploads, use multipart/form-data instead.
                 attachment_type: Type of attachment. Defaults to file if not specified.
+                attachment_name: WhatsApp only. Display name for a document sent via attachmentUrl with attachmentType: file (e.g. "Report.pdf"). Maps to the recipient's file name; without it WhatsApp derives the name from the URL and shows "Untitled". Ignored for image/video/audio and for binary uploads (which use the uploaded file's name).
                 voice_note: WhatsApp only. When `true` on an audio attachment, the message is sent
         as a voice message (PTT) — the recipient sees the waveform + voice-note
         UI instead of a basic audio attachment. The audio file MUST be `.ogg`
@@ -8008,6 +8061,7 @@ def register_generated_tools(mcp, _get_client):
                 message=message,
                 attachment_url=attachment_url,
                 attachment_type=attachment_type,
+                attachment_name=attachment_name,
                 voice_note=voice_note,
                 quick_replies=quick_replies,
                 buttons=buttons,

@@ -328,6 +328,7 @@ pub(crate) fn joint_penalty_subspace_trace_matches_projected_logdet_derivative()
         3,
         0.0,
         None,
+        None,
     )
     .expect("projection parts build");
     let kernel = kernel.expect("rank-deficient penalty still has an identified subspace");
@@ -353,6 +354,7 @@ pub(crate) fn joint_penalty_subspace_trace_matches_projected_logdet_derivative()
         3,
         0.0,
         None,
+        None,
     )
     .expect("plus projection parts build");
     let (logdet_minus, _) = joint_penalty_subspace_trace_parts(
@@ -361,6 +363,7 @@ pub(crate) fn joint_penalty_subspace_trace_matches_projected_logdet_derivative()
         &penalties,
         3,
         0.0,
+        None,
         None,
     )
     .expect("minus projection parts build");
@@ -508,6 +511,7 @@ pub(crate) fn joint_outer_gradient_uses_projected_trace_for_rank_deficient_penal
         3,
         0.0,
         None,
+        None,
     )
     .expect("projection kernel builds");
     let projected_trace = kernel
@@ -644,6 +648,7 @@ pub(crate) fn joint_outer_gradient_projected_trace_drops_joint_null() {
         std::slice::from_ref(&s_lambda),
         3,
         0.0,
+        None,
         None,
     )
     .expect("projection kernel builds");
@@ -6971,6 +6976,32 @@ pub(crate) fn projected_stationarity_inf_norm_respects_kkt_multipliers() {
     let inf_interior =
         projected_stationarity_inf_norm(&residual_interior, &beta_interior, Some(&single1), None);
     assert_relative_eq!(inf_interior, 0.4_f64, epsilon = 1e-12);
+
+    // #1793/#1040: monotone derivative rows have `b = 0`, so a numerically
+    // pinned baseline-hazard row can sit a few 1e-3 inside the feasible cone
+    // after repeated basis projections even though the residual is entirely a
+    // valid KKT multiplier.  The projection must treat that row as an active
+    // candidate and let the nonnegative cone solve remove the multiplier.
+    let beta_nearly_pinned = array![0.004];
+    let residual_multiplier = array![2.0];
+    let near_pinned = projected_stationarity_inf_norm(
+        &residual_multiplier,
+        &beta_nearly_pinned,
+        Some(&single1),
+        None,
+    );
+    assert_relative_eq!(near_pinned, 0.0_f64, epsilon = 1e-10);
+
+    // But a row clearly in the interior remains visible, so the wider
+    // near-active band cannot erase ordinary interior non-stationarity.
+    let beta_clearly_interior = array![0.02];
+    let interior_residual = projected_stationarity_inf_norm(
+        &residual_multiplier,
+        &beta_clearly_interior,
+        Some(&single1),
+        None,
+    );
+    assert_relative_eq!(interior_residual, 2.0_f64, epsilon = 1e-12);
 }
 
 /// Pins the constrained-stationary certificate semantics.
@@ -7302,6 +7333,7 @@ pub(crate) fn joint_stationarity_from_gradient_projects_coupled_linear_constrain
         RidgePolicy::explicit_stabilization_full(),
         &[Some(constraints.clone())],
         None,
+        None,
     )
     .expect("KKT residual assembly should succeed")
     .expect("exact-gradient path should produce residual");
@@ -7360,6 +7392,7 @@ pub(crate) fn kkt_residual_uses_cached_joint_gradient_without_re_evaluating_fami
         RidgePolicy::explicit_stabilization_full(),
         None,
         Some(&cached_gradient),
+        None,
     )
     .expect("cached gradient path should not call family.evaluate()")
     .expect("cached gradient should produce a KKT residual");
@@ -7409,6 +7442,7 @@ pub(crate) fn projected_stationarity_vector_uses_penalized_residual_not_raw_scor
         0.0,
         RidgePolicy::explicit_stabilization_full(),
         &[None],
+        None,
         None,
     )
     .expect("projected stationarity residual should assemble");

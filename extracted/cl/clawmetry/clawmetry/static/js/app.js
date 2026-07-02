@@ -1168,6 +1168,19 @@ function switchTab(name) {
   tabs.forEach(function(t) { if (t.getAttribute('onclick') && t.getAttribute('onclick').indexOf("'" + name + "'") !== -1) t.classList.add('active'); });
   var leftItems = document.querySelectorAll('.left-nav-item[data-tab="' + name + '"]');
   leftItems.forEach(function(t) { t.classList.add('active'); });
+  // Phase A beginner IA: if the selected tab lives inside a collapsed drawer
+  // (Developer / Advanced), reveal that drawer so the active item is visible.
+  // Reveal only - do NOT persist, so the drawer stays collapsed-by-default on
+  // the next visit unless the user opened it themselves.
+  leftItems.forEach(function(t) {
+    var drawer = t.closest('#left-nav-live-list, #left-nav-advanced-list');
+    if (drawer && drawer.hasAttribute('hidden')) {
+      drawer.removeAttribute('hidden');
+      var toggleId = drawer.id === 'left-nav-live-list' ? 'left-nav-live-toggle' : 'left-nav-advanced-toggle';
+      var btn = document.getElementById(toggleId);
+      if (btn) btn.setAttribute('aria-expanded', 'true');
+    }
+  });
   if (!document.querySelector('.nav-tab.active') && !document.querySelector('.left-nav-item.active') && typeof event !== 'undefined' && event && event.target) event.target.classList.add('active');
   // Auto-close mobile drawer when a nav item is picked.
   var leftNav = document.getElementById('left-nav');
@@ -1178,6 +1191,11 @@ function switchTab(name) {
   if (name === 'overview') loadAll();
   if (name === 'overview') { if (typeof _velocityPollTimer !== 'undefined' && _velocityPollTimer) clearInterval(_velocityPollTimer); if (typeof loadTokenVelocity === 'function') _velocityPollTimer = visibilitySetInterval(function() { if (!_cmIsOverviewTab()) return; loadTokenVelocity(); }, 30000); }
   if (name === 'usage') loadUsage();
+  // Agent Graph (#3315): the original wiring landed in the DEAD first
+  // DASHBOARD_HTML's inline switchTab in dashboard.py, so the loader never
+  // fired and the tab sat on its static "Loading..." forever (founder
+  // report 2026-07-02). The LIVE switchTab is this one.
+  if (name === 'agents') loadAgentGraph();
   if (name === 'skills') loadSkills();
   if (name === 'crons') loadCrons();
   if (name === 'memory') loadMemory();
@@ -1232,8 +1250,8 @@ function toggleLeftNavMobile() {
   leftNav.classList.toggle('open');
 }
 
-// Live trace expandable group (IA regroup: Flow/Brain/Logs/Models/LLM Context).
-// Default-expanded; remembers user collapse via localStorage.
+// Developer expandable group (Phase A beginner IA, UX_AUDIT.md).
+// Default-collapsed; remembers an explicit user open via localStorage.
 function toggleLiveDrawer() {
   var btn = document.getElementById('left-nav-live-toggle');
   var list = document.getElementById('left-nav-live-list');
@@ -1266,16 +1284,20 @@ function toggleLiveDrawer() {
         advBtn.setAttribute('aria-expanded', 'true');
       }
     }
-    // Live trace drawer (default-expanded; collapse only if user explicitly closed).
+    // Developer drawer (Phase A beginner IA, UX_AUDIT.md: default-COLLAPSED so
+    // a first-timer sees seven plain items; re-opens only if the user
+    // explicitly opened it before).
     var liveBtn = document.getElementById('left-nav-live-toggle');
     var liveList = document.getElementById('left-nav-live-list');
     if (liveBtn && liveList) {
-      var liveOpen = true;
+      var liveOpen = false;
       try {
-        var v = localStorage.getItem('cm_live_open');
-        if (v === '0') liveOpen = false;
+        if (localStorage.getItem('cm_live_open') === '1') liveOpen = true;
       } catch (e) { /* localStorage blocked */ }
-      if (!liveOpen) {
+      if (liveOpen) {
+        liveList.removeAttribute('hidden');
+        liveBtn.setAttribute('aria-expanded', 'true');
+      } else {
         liveList.setAttribute('hidden', '');
         liveBtn.setAttribute('aria-expanded', 'false');
       }
@@ -12910,11 +12932,11 @@ async function loadUsage() {
       if (_uEmptyEl) _uEmptyEl.remove();
     }
 
-    // Display cost warnings
-    displayCostWarnings(data.warnings || []);
-    
-    // Display trend analysis
-    displayTrendAnalysis(data.trend || {}, data);
+    // Display cost warnings + trend. Wrapped so a render bug in either card
+    // cannot abort the rest of loadUsage and leave every card below stuck on
+    // "Loading…" (the Cost-tab-blank regression).
+    try { displayCostWarnings(data.warnings || []); } catch (_eCW) { console.error('displayCostWarnings failed', _eCW); }
+    try { displayTrendAnalysis(data.trend || {}, data); } catch (_eTA) { console.error('displayTrendAnalysis failed', _eTA); }
     // Bar chart — QW4: with no data at all, hide the whole section (title +
     // card) instead of an empty box; render as before when data exists.
     var _uDays = Array.isArray(data.days) ? data.days : [];
@@ -13764,8 +13786,12 @@ function displayCostWarnings(warnings) {
 
 function displayTrendAnalysis(trend, usageData) {
   var card = document.getElementById('trend-card');
-  if (!trend || trend.trend === 'insufficient_data') {
-    card.style.display = 'none';
+  // Guard an empty/partial trend object ({}), not just null. When /api/usage
+  // returns trend:{} (no history yet), trend.trend is undefined; reaching the
+  // `trend.trend.charAt(0)` below threw and, since this runs early inside
+  // loadUsage's try, aborted every Cost card after it (all stuck on "Loading…").
+  if (!trend || !trend.trend || trend.trend === 'insufficient_data') {
+    if (card) card.style.display = 'none';
     return;
   }
   
@@ -22265,13 +22291,24 @@ function loadAgentGraph() {
   var now   = Math.floor(Date.now() / 1000);
   var since = now - win;
   fetch('/api/local/agent-graph?since=' + since + '&until=' + now)
-    .then(function(r) { return r.ok ? r.json() : {nodes: [], edges: []}; })
+    .then(function(r) {
+      // The cloud disables /api/local/* (no local DuckDB) with HTTP 410.
+      // Say so honestly instead of pretending there is no data.
+      if (r.status === 410) return {_cloud_disabled: true};
+      return r.ok ? r.json() : {nodes: [], edges: []};
+    })
     .then(function(data) {
+      if (data && data._cloud_disabled) {
+        statusEl.style.display = 'block';
+        statusEl.textContent = t('app.agent_graph_local_only', null,
+          'The agent graph is built from your local data store, so it is only available on the dashboard running on your machine (http://localhost:8900).');
+        return;
+      }
       statusEl.style.display = 'none';
       _renderAgentGraph(data.nodes || [], data.edges || []);
     })
     .catch(function() {
-      statusEl.textContent = 'Could not load agent graph — is the daemon running?';
+      statusEl.textContent = 'Could not load agent graph. Is the daemon running?';
     });
 }
 

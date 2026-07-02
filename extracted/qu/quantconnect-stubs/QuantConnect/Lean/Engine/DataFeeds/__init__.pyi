@@ -584,8 +584,14 @@ class UniverseSelection(System.Object):
         """
         ...
 
-    def ensure_currency_data_feeds(self, security_changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
-        """Checks the current subscriptions and adds necessary currency pair feeds to provide real time conversion data"""
+    def ensure_currency_data_feeds(self, security_changes: QuantConnect.Data.UniverseSelection.SecurityChanges, seed_new_currencies: bool = True) -> None:
+        """
+        Checks the current subscriptions and adds necessary currency pair feeds to provide real time conversion data
+        
+        :param security_changes: The security changes to consume
+        :param seed_new_currencies: Whether to seed the conversion rate of newly added currencies with their last
+        known price. The setup handler passes false because it performs its own (optionally white-listed) seeding
+        """
         ...
 
     def handle_delisting(self, data: QuantConnect.Data.BaseData, is_internal_feed: bool) -> QuantConnect.Data.UniverseSelection.SecurityChanges:
@@ -1711,8 +1717,14 @@ class CurrencySubscriptionDataConfigManager(System.Object):
         """
         ...
 
-    def ensure_currency_subscription_data_configs(self, security_changes: QuantConnect.Data.UniverseSelection.SecurityChanges, brokerage_model: QuantConnect.Brokerages.IBrokerageModel) -> None:
-        """Checks the current SubscriptionDataConfig and adds new necessary currency pair feeds to provide real time conversion data"""
+    def ensure_currency_subscription_data_configs(self, security_changes: QuantConnect.Data.UniverseSelection.SecurityChanges, brokerage_model: QuantConnect.Brokerages.IBrokerageModel) -> bool:
+        """
+        Checks the current SubscriptionDataConfig and adds new necessary currency pair feeds to provide real time conversion data
+        
+        :returns: True if a new currency was introduced, either as a new internal conversion feed or as a new cash
+        entry added to the cashbook. Lets callers skip follow up work like seeding the new conversion rates when
+        nothing was added.
+        """
         ...
 
     def get_pending_subscription_data_configs(self) -> typing.Sequence[QuantConnect.Data.SubscriptionDataConfig]:

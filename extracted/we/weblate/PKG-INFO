@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weblate
-Version: 2026.6.1
+Version: 2026.7
 Summary: A web-based continuous localization system with tight version control integration
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: GPL-3.0-or-later
@@ -34,59 +34,59 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: aeidon==1.16
 Requires-Dist: ahocorasick-rs==1.0.3
-Requires-Dist: altcha==2.0.0
+Requires-Dist: altcha==2.0.2
 Requires-Dist: argon2-cffi-bindings==25.1.0
 Requires-Dist: argon2-cffi==25.1.0
 Requires-Dist: borgbackup==1.4.4
 Requires-Dist: celery[redis]==5.6.3
-Requires-Dist: certifi>=2026.5.20
+Requires-Dist: certifi>=2026.6.17
 Requires-Dist: cffi==2.0.0
 Requires-Dist: charset-normalizer==3.4.7
 Requires-Dist: confusable-homoglyphs==3.3.1
 Requires-Dist: crispy-bootstrap5==2026.3
-Requires-Dist: cryptography==48.0.0
+Requires-Dist: cryptography==49.0.0
 Requires-Dist: cssselect==1.4.0
 Requires-Dist: cyrtranslit==1.2.0
-Requires-Dist: dateparser==1.4.0
+Requires-Dist: dateparser==1.4.1
 Requires-Dist: diff-match-patch==20241021
-Requires-Dist: disposable-email-domains==0.0.192
+Requires-Dist: disposable-email-domains==0.0.209
 Requires-Dist: django-appconf==1.2.0
 Requires-Dist: django-celery-beat==2.9.0
 Requires-Dist: django-compressor==4.6.0
 Requires-Dist: django-cors-headers==4.9.0
 Requires-Dist: django-crispy-forms==2.6
 Requires-Dist: django-filter==25.2
-Requires-Dist: django-otp-webauthn==0.8.0
+Requires-Dist: django-otp-webauthn==0.9.0
 Requires-Dist: django-otp==1.7.0
-Requires-Dist: django-redis==6.0.0
-Requires-Dist: Django[argon2]==6.0.5
+Requires-Dist: django-redis==7.0.0
+Requires-Dist: Django[argon2]==6.0.6
 Requires-Dist: djangorestframework-csv==3.0.2
 Requires-Dist: djangorestframework==3.17.1
 Requires-Dist: docutils==0.21.2
 Requires-Dist: drf-spectacular[sidecar]==0.29.0
 Requires-Dist: drf-standardized-errors[openapi]==0.16.0
-Requires-Dist: fedora-messaging==3.9.0
-Requires-Dist: filelock==3.29.0
+Requires-Dist: fedora-messaging==3.9.1
+Requires-Dist: filelock==3.29.4
 Requires-Dist: fluent.syntax==0.19.0
 Requires-Dist: GitPython==3.1.50
-Requires-Dist: hiredis==3.3.1
+Requires-Dist: hiredis==3.4.0
 Requires-Dist: html2text==2025.4.15
 Requires-Dist: iniparse==0.5
 Requires-Dist: jsonschema==4.26.0
 Requires-Dist: lxml==6.1.1
 Requires-Dist: mistletoe==1.5.1
-Requires-Dist: nh3==0.3.5
+Requires-Dist: nh3==0.3.6
 Requires-Dist: openpyxl==3.1.5
-Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.42.1
-Requires-Dist: opentelemetry-instrumentation-celery==0.63b1
-Requires-Dist: opentelemetry-instrumentation-django==0.63b1
-Requires-Dist: opentelemetry-instrumentation-psycopg==0.63b1
-Requires-Dist: opentelemetry-instrumentation-redis==0.63b1
-Requires-Dist: opentelemetry-instrumentation-requests==0.63b1
-Requires-Dist: opentelemetry-sdk==1.42.1
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.43.0
+Requires-Dist: opentelemetry-instrumentation-celery==0.64b0
+Requires-Dist: opentelemetry-instrumentation-django==0.64b0
+Requires-Dist: opentelemetry-instrumentation-psycopg==0.64b0
+Requires-Dist: opentelemetry-instrumentation-redis==0.64b0
+Requires-Dist: opentelemetry-instrumentation-requests==0.64b0
+Requires-Dist: opentelemetry-sdk==1.43.0
 Requires-Dist: packaging==26.2
 Requires-Dist: phply==1.2.6
-Requires-Dist: Pillow==12.2.0
+Requires-Dist: Pillow==12.3.0
 Requires-Dist: pyaskalono==0.2.0
 Requires-Dist: pyasn1==0.6.3
 Requires-Dist: pycairo==1.29.0
@@ -94,23 +94,23 @@ Requires-Dist: Pygments==2.20.0
 Requires-Dist: PyGObject==3.56.3
 Requires-Dist: pyicumessageformat==1.0.0
 Requires-Dist: PyJWT==2.13.0
-Requires-Dist: pyOpenSSL==26.2.0
+Requires-Dist: pyOpenSSL==26.3.0
 Requires-Dist: pyparsing==3.3.2
 Requires-Dist: python-dateutil==2.9.0.post0
 Requires-Dist: qrcode==8.2
 Requires-Dist: rapidfuzz==3.14.5
 Requires-Dist: redis==6.4.0
-Requires-Dist: regex==2026.5.9
+Requires-Dist: regex==2026.6.28
 Requires-Dist: requests==2.34.2
 Requires-Dist: ruamel.yaml==0.19.1
-Requires-Dist: sentry-sdk==2.61.0
+Requires-Dist: sentry-sdk==2.64.0
 Requires-Dist: siphashc==2.7
-Requires-Dist: social-auth-app-django==5.9.0
-Requires-Dist: social-auth-core==4.9.1
+Requires-Dist: social-auth-app-django==6.0.0
+Requires-Dist: social-auth-core==5.0.2
 Requires-Dist: tesserocr==2.10.0
 Requires-Dist: tomlkit==0.15.0
-Requires-Dist: translate-toolkit[chardet,fluent,ini,markdown,php,rc,subtitles,toml,yaml]==3.19.11
-Requires-Dist: translation-finder==3.1
+Requires-Dist: translate-toolkit[chardet,fluent,ini,markdown,php,rc,subtitles,toml,yaml]==3.19.13
+Requires-Dist: translation-finder==3.2.0
 Requires-Dist: twisted==26.4.0
 Requires-Dist: unicode-segmentation-rs==0.2.4
 Requires-Dist: unidecode==1.4.0
@@ -118,24 +118,24 @@ Requires-Dist: urllib3[brotli,zstd]==2.7.0
 Requires-Dist: user-agents==2.2.0
 Requires-Dist: weblate-fonts==2026.1
 Requires-Dist: weblate-language-data==2026.8
-Requires-Dist: weblate-schemas==2026.4
+Requires-Dist: weblate-schemas==2026.5
 Provides-Extra: all
 Requires-Dist: weblate[amazon,gelf,gerrit,google,google-errors,ldap,mercurial,postgres,rollbar,sphinx,zxcvbn]; extra == "all"
 Provides-Extra: amazon
-Requires-Dist: boto3==1.43.18; extra == "amazon"
+Requires-Dist: boto3==1.43.36; extra == "amazon"
 Provides-Extra: gelf
 Requires-Dist: logging-gelf==0.0.32; extra == "gelf"
 Provides-Extra: gerrit
 Requires-Dist: git-review==2.5.0; extra == "gerrit"
 Provides-Extra: google
-Requires-Dist: google-cloud-storage==3.10.1; extra == "google"
-Requires-Dist: google-cloud-translate==3.26.0; extra == "google"
+Requires-Dist: google-cloud-storage==3.12.0; extra == "google"
+Requires-Dist: google-cloud-translate==3.27.0; extra == "google"
 Provides-Extra: google-errors
-Requires-Dist: google-cloud-error-reporting==1.15.0; extra == "google-errors"
+Requires-Dist: google-cloud-error-reporting==1.16.0; extra == "google-errors"
 Provides-Extra: ldap
 Requires-Dist: django-auth-ldap==5.3.0; extra == "ldap"
 Provides-Extra: mercurial
-Requires-Dist: mercurial==7.2.2; extra == "mercurial"
+Requires-Dist: mercurial==7.2.3; extra == "mercurial"
 Provides-Extra: postgres
 Requires-Dist: psycopg[binary]==3.3.4; extra == "postgres"
 Provides-Extra: rollbar
@@ -150,9 +150,9 @@ Requires-Dist: Sphinx==8.2.3; extra == "sphinx"
 Provides-Extra: wllegal
 Requires-Dist: wllegal==2026.4; extra == "wllegal"
 Provides-Extra: wsgi
-Requires-Dist: granian==2.7.5; extra == "wsgi"
+Requires-Dist: granian==2.7.8; extra == "wsgi"
 Provides-Extra: zxcvbn
-Requires-Dist: django-zxcvbn-password-validator==1.6.0; extra == "zxcvbn"
+Requires-Dist: django-zxcvbn-password-validator==1.7.0; extra == "zxcvbn"
 Dynamic: license-file
 
 .. image:: https://s.weblate.org/cdn/Logo-Darktext-borders.png

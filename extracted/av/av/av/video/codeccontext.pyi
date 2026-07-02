@@ -1,5 +1,6 @@
+from collections.abc import Iterator
 from fractions import Fraction
-from typing import Iterator, Literal
+from typing import Literal
 
 from av.codec.context import CodecContext
 from av.packet import Packet
@@ -13,6 +14,10 @@ class VideoCodecContext(CodecContext):
     height: int
     bits_per_coded_sample: int
     pix_fmt: str | None
+    @property
+    def sw_format(self) -> VideoFormat | None: ...
+    @sw_format.setter
+    def sw_format(self, value: str) -> None: ...
     framerate: Fraction
     rate: Fraction
     gop_size: int

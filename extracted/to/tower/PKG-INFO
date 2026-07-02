@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tower
-Version: 0.3.67
+Version: 0.3.68
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -37,7 +37,7 @@ License-File: LICENSE
 Summary: Tower CLI and runtime environment for Tower.
 Keywords: automation,flake8,pycodestyle,pyflakes,pylint,clippy
 Author-email: "Tower Computing Inc." <brad@tower.dev>
-Requires-Python: >=3.10
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
 # Tower CLI

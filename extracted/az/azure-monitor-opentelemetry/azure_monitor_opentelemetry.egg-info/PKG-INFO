@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-monitor-opentelemetry
-Version: 1.8.8
+Version: 1.8.9
 Summary: Microsoft Azure Monitor Opentelemetry Distro Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/monitor/azure-monitor-opentelemetry
 Author: Microsoft Corporation
@@ -23,16 +23,16 @@ License-File: LICENSE
 License-File: NOTICE.txt
 Requires-Dist: azure-core<2.0.0,>=1.28.0
 Requires-Dist: azure-core-tracing-opentelemetry~=1.0.0b11
-Requires-Dist: azure-monitor-opentelemetry-exporter~=1.0.0b52
-Requires-Dist: opentelemetry-sdk==1.40
-Requires-Dist: opentelemetry-instrumentation-django==0.61b0
-Requires-Dist: opentelemetry-instrumentation-fastapi==0.61b0
-Requires-Dist: opentelemetry-instrumentation-flask==0.61b0
-Requires-Dist: opentelemetry-instrumentation-psycopg2==0.61b0
-Requires-Dist: opentelemetry-instrumentation-requests==0.61b0
-Requires-Dist: opentelemetry-instrumentation-urllib==0.61b0
-Requires-Dist: opentelemetry-instrumentation-urllib3==0.61b0
-Requires-Dist: opentelemetry-instrumentation-logging==0.61b0
+Requires-Dist: azure-monitor-opentelemetry-exporter~=1.0.0b54
+Requires-Dist: opentelemetry-sdk~=1.43.0
+Requires-Dist: opentelemetry-instrumentation-django<0.65.0,>=0.64b0
+Requires-Dist: opentelemetry-instrumentation-fastapi<0.65.0,>=0.64b0
+Requires-Dist: opentelemetry-instrumentation-flask<0.65.0,>=0.64b0
+Requires-Dist: opentelemetry-instrumentation-psycopg2<0.65.0,>=0.64b0
+Requires-Dist: opentelemetry-instrumentation-requests<0.65.0,>=0.64b0
+Requires-Dist: opentelemetry-instrumentation-urllib<0.65.0,>=0.64b0
+Requires-Dist: opentelemetry-instrumentation-urllib3<0.65.0,>=0.64b0
+Requires-Dist: opentelemetry-instrumentation-logging<0.65.0,>=0.64b0
 Requires-Dist: opentelemetry-resource-detector-azure<1.0.0,>=0.1.5
 Dynamic: author
 Dynamic: author-email

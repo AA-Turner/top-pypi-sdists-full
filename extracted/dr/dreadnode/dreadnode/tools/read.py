@@ -311,13 +311,22 @@ async def read(
 
     stat = filepath.stat()
 
+    # ".ts"/".mts" TypeScript source maps to the "video/mp2t" MIME type in the
+    # stdlib, since ".ts" is also the MPEG transport stream extension. Reading
+    # such a file would otherwise ship TypeScript source to the model as a video,
+    # which the provider rejects and which fails the whole generation. So the
+    # video branch is additionally gated on the content actually being binary.
+    # Image and PDF routing stays MIME-based — no plain-text extension collides
+    # with those types (SVG, the one text-based image type, is excluded below).
+    is_binary = await _is_binary_file(filepath, stat.st_size)
+
     # --- Image / Video / PDF → structured content or base64 ---
     mime_type, _ = mimetypes.guess_type(str(filepath))
     if mime_type:
         is_image = mime_type.startswith("image/") and mime_type not in (
             "image/svg+xml",  # SVG is XML-based text
         )
-        is_video = mime_type.startswith("video/")
+        is_video = mime_type.startswith("video/") and is_binary
         is_pdf = mime_type == "application/pdf"
 
         if is_image or is_video or is_pdf:
@@ -362,7 +371,8 @@ async def read(
             return result
 
     # --- Binary detection ---
-    if await _is_binary_file(filepath, stat.st_size):
+    # Binary files that aren't recognized media (handled above) can't be read.
+    if is_binary:
         _cleanup_temp_file(remote_temp_path)
         raise ValueError(f"Cannot read binary file: {filepath}")
 

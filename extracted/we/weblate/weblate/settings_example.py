@@ -294,7 +294,6 @@ SOCIAL_AUTH_PIPELINE = (
     "weblate.accounts.pipeline.handle_invite",
     "social_core.pipeline.social_auth.load_extra_data",
     "weblate.accounts.pipeline.second_factor",
-    "weblate.accounts.pipeline.cleanup_next",
     "weblate.accounts.pipeline.user_full_name",
     "weblate.accounts.pipeline.store_email",
     "weblate.accounts.pipeline.notify_connect",
@@ -308,7 +307,6 @@ SOCIAL_AUTH_DISCONNECT_PIPELINE = (
     "weblate.accounts.pipeline.adjust_primary_mail",
     "weblate.accounts.pipeline.notify_disconnect",
     "social_core.pipeline.disconnect.disconnect",
-    "weblate.accounts.pipeline.cleanup_next",
 )
 
 # Custom authentication strategy
@@ -728,6 +726,7 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 # List of quality checks
 # CHECK_LIST = (
 #     "weblate.checks.same.SameCheck",
+#     "weblate.checks.chars.AcceleratorKeyCheck",
 #     "weblate.checks.chars.BeginNewlineCheck",
 #     "weblate.checks.chars.EndNewlineCheck",
 #     "weblate.checks.chars.BeginSpaceCheck",
@@ -791,6 +790,7 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 #     "weblate.checks.markup.RSTReferencesCheck",
 #     "weblate.checks.markup.RSTSyntaxCheck",
 #     "weblate.checks.placeholders.PlaceholderCheck",
+#     "weblate.checks.mdx.SafeMDXCheck",
 #     "weblate.checks.placeholders.RegexCheck",
 #     "weblate.checks.duplicate.DuplicateCheck",
 #     "weblate.checks.source.OptionalPluralCheck",
@@ -904,7 +904,13 @@ REST_FRAMEWORK = get_drf_settings(
     user_throttle="5000/hour",
 )
 DRF_STANDARDIZED_ERRORS = get_drf_standardized_errors_settings()
-SPECTACULAR_SETTINGS = get_spectacular_settings(INSTALLED_APPS, SITE_URL, SITE_TITLE)
+SPECTACULAR_SETTINGS = get_spectacular_settings(
+    INSTALLED_APPS,
+    SITE_URL,
+    SITE_TITLE,
+    legal_hidden_documents=globals().get("LEGAL_HIDDEN_DOCUMENTS", ()),
+    legal_url=globals().get("LEGAL_URL"),
+)
 
 # Fonts CDN URL
 FONTS_CDN_URL = None

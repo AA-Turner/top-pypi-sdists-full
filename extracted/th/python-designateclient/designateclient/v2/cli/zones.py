@@ -140,7 +140,8 @@ class CreateZoneCommand(command.ShowOne):
         parser = super().get_parser(prog_name)
 
         parser.add_argument('name', help='Zone Name')
-        parser.add_argument('--email', help='Zone Email', required=True)
+        parser.add_argument('--email',
+                            help='Zone Email. Required for PRIMARY zone type')
         parser.add_argument('--type', help='Zone Type',
                             choices=['PRIMARY', 'SECONDARY'],
                             default='PRIMARY')
@@ -171,7 +172,7 @@ class CreateZoneCommand(command.ShowOne):
                 except ValueError:
                     raise osc_exc.CommandError(
                         f"Attribute '{attr}' is in an incorrect format. "
-                        "Attributes are <key>:<value> formated"
+                        "Attributes are <key>:<value> formatted"
                     )
 
         if parsed_args.type == 'PRIMARY':
@@ -256,7 +257,7 @@ class DeleteZoneCommand(command.ShowOne):
 
         parser.add_argument('--delete-shares', default=False,
                             action='store_true',
-                            help='Delete existing zone shares. Default: False')
+                            help='Delete existing zone shares.')
 
         common.add_all_common_options(parser)
         common.add_hard_delete_option(parser)
@@ -267,17 +268,35 @@ class DeleteZoneCommand(command.ShowOne):
         client = self.app.client_manager.dns
         common.set_all_common_headers(client, parsed_args)
 
-        delete_shares = False
-        if (hasattr(parsed_args, 'delete_shares') and
-                parsed_args.delete_shares is not None and
-                isinstance(parsed_args.delete_shares, bool)):
-            delete_shares = parsed_args.delete_shares
-
-        data = client.zones.delete(parsed_args.id, delete_shares=delete_shares)
+        data = client.zones.delete(
+            parsed_args.id, delete_shares=parsed_args.delete_shares)
         LOG.info('Zone %s was deleted', parsed_args.id)
 
         _format_zone(data)
         return zip(*sorted(data.items()))
+
+
+class ListZoneNameserversCommand(command.Lister):
+    """List Zone Nameservers"""
+
+    columns = ['hostname', 'priority']
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+
+        parser.add_argument('id', help='Zone ID or Name')
+        common.add_all_common_options(parser)
+
+        return parser
+
+    def take_action(self, parsed_args):
+        client = self.app.client_manager.dns
+        common.set_all_common_headers(client, parsed_args)
+
+        data = client.zones.nameservers(parsed_args.id)
+
+        cols = self.columns
+        return cols, (utils.get_item_properties(s, cols) for s in data)
 
 
 class AbandonZoneCommand(command.Command):
@@ -385,6 +404,9 @@ class ListTransferRequestsCommand(command.Lister):
         parser = super().get_parser(
             prog_name)
 
+        parser.add_argument('--status', help='Zone Transfer Request Status',
+                            required=False)
+
         common.add_all_common_options(parser)
 
         return parser
@@ -393,7 +415,11 @@ class ListTransferRequestsCommand(command.Lister):
         client = self.app.client_manager.dns
         common.set_all_common_headers(client, parsed_args)
 
-        data = client.zone_transfers.list_requests()
+        criterion = {}
+        if parsed_args.status is not None:
+            criterion['status'] = parsed_args.status
+
+        data = get_all(client.zone_transfers.list_requests, criterion)
 
         cols = self.columns
         return cols, (utils.get_item_properties(s, cols) for s in data)
@@ -513,6 +539,10 @@ class ListTransferAcceptsCommand(command.Lister):
         parser = super().get_parser(
             prog_name)
 
+        parser.add_argument('--status',
+                            help='Zone Transfer Accept Status',
+                            required=False)
+
         common.add_all_common_options(parser)
 
         return parser
@@ -521,7 +551,11 @@ class ListTransferAcceptsCommand(command.Lister):
         client = self.app.client_manager.dns
         common.set_all_common_headers(client, parsed_args)
 
-        data = client.zone_transfers.list_accepts()
+        criterion = {}
+        if parsed_args.status is not None:
+            criterion['status'] = parsed_args.status
+
+        data = get_all(client.zone_transfers.list_accepts, criterion)
 
         cols = self.columns
         return cols, (utils.get_item_properties(s, cols) for s in data)
@@ -587,6 +621,10 @@ class ListZoneExportsCommand(command.Lister):
         parser = super().get_parser(
             prog_name)
 
+        parser.add_argument('--status', help='Zone Export Status',
+                            required=False)
+        parser.add_argument('--zone-id', help='Zone ID', required=False)
+
         common.add_all_common_options(parser)
 
         return parser
@@ -595,11 +633,16 @@ class ListZoneExportsCommand(command.Lister):
         client = self.app.client_manager.dns
         common.set_all_common_headers(client, parsed_args)
 
-        data = client.zone_exports.list()
+        criterion = {}
+        if parsed_args.status is not None:
+            criterion['status'] = parsed_args.status
+        if parsed_args.zone_id is not None:
+            criterion['zone_id'] = parsed_args.zone_id
+
+        data = get_all(client.zone_exports.list, criterion)
 
         cols = self.columns
-        return cols, (utils.get_item_properties(s, cols)
-                      for s in data['exports'])
+        return cols, (utils.get_item_properties(s, cols) for s in data)
 
 
 class ShowZoneExportCommand(command.ShowOne):
@@ -679,6 +722,8 @@ class ImportZoneCommand(command.ShowOne):
 
         parser.add_argument('zone_file_path',
                             help='Path to a zone file', type=str)
+        parser.add_argument('--attributes', help='Zone Attributes',
+                            nargs='+')
 
         common.add_all_common_options(parser)
 
@@ -691,7 +736,20 @@ class ImportZoneCommand(command.ShowOne):
         with open(parsed_args.zone_file_path) as f:
             zone_file_contents = f.read()
 
-        data = client.zone_imports.create(zone_file_contents)
+        attributes = None
+        if parsed_args.attributes:
+            attributes = {}
+            for attr in parsed_args.attributes:
+                try:
+                    k, v = attr.split(':')
+                    attributes[k] = v
+                except ValueError:
+                    raise osc_exc.CommandError(
+                        "Attribute '%s' is in an incorrect format. "
+                        "Attributes are <key>:<value> formatted" % attr
+                    )
+
+        data = client.zone_imports.create(zone_file_contents, attributes)
         _format_zone_import_record(data)
 
         LOG.info('Zone Import %s was created', data['id'])
@@ -714,6 +772,12 @@ class ListZoneImportsCommand(command.Lister):
         parser = super().get_parser(
             prog_name)
 
+        parser.add_argument('--status', help='Zone Import Status',
+                            required=False)
+        parser.add_argument('--zone-id', help='Zone ID', required=False)
+        parser.add_argument('--message', help='Zone Import Message',
+                            required=False)
+
         common.add_all_common_options(parser)
 
         return parser
@@ -722,11 +786,18 @@ class ListZoneImportsCommand(command.Lister):
         client = self.app.client_manager.dns
         common.set_all_common_headers(client, parsed_args)
 
-        data = client.zone_imports.list()
+        criterion = {}
+        if parsed_args.status is not None:
+            criterion['status'] = parsed_args.status
+        if parsed_args.zone_id is not None:
+            criterion['zone_id'] = parsed_args.zone_id
+        if parsed_args.message is not None:
+            criterion['message'] = parsed_args.message
+
+        data = get_all(client.zone_imports.list, criterion)
 
         cols = self.columns
-        return cols, (utils.get_item_properties(s, cols)
-                      for s in data['imports'])
+        return cols, (utils.get_item_properties(s, cols) for s in data)
 
 
 class ShowZoneImportCommand(command.ShowOne):

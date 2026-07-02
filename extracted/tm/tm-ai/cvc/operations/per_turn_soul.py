@@ -431,6 +431,23 @@ def update_soul_after_turn(
                 um.save_model(model, trigger="per_turn_auto")
                 result["snapshot_written"] = True
 
+                # v3.5.1 — TIME PORTAL day consolidation. After every
+                # per_turn_auto snapshot, check if TODAY now has enough
+                # snapshots to consolidate into a day_canonical frame.
+                # Cheap (one indexed lookup, in-memory merge) and idempotent
+                # (skips if a day_canonical already exists for the date).
+                # Runs in the same try-block as save_model so any exception
+                # here is swallowed alongside other non-fatal soul writes.
+                try:
+                    from cvc.gateway.soul import auto_consolidate_day_if_needed
+                    _today = time.strftime("%Y-%m-%d")
+                    auto_consolidate_day_if_needed(_today)
+                except Exception as consol_exc:  # noqa: BLE001
+                    logger.debug(
+                        "per-turn day consolidation check failed (non-fatal): %s",
+                        consol_exc,
+                    )
+
                 # C4: spine capture — log what changed in the soul.
                 # One event per change type so the Timeline shows
                 # "soul: wrote 3 entities" as a single line.

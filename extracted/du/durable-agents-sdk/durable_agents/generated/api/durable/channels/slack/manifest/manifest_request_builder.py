@@ -14,6 +14,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ......models.channel_message_access import ChannelMessageAccess
     from ......models.channel_setup_guide import ChannelSetupGuide
     from ......models.error_envelope import ErrorEnvelope
 
@@ -28,7 +29,7 @@ class ManifestRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/api/durable/channels/slack/manifest{?name*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/api/durable/channels/slack/manifest{?message_access*,name*}", path_parameters)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[ManifestRequestBuilderGetQueryParameters]] = None) -> Optional[ChannelSetupGuide]:
         """
@@ -76,6 +77,8 @@ class ManifestRequestBuilder(BaseRequestBuilder):
         """
         Get the BYO Slack app manifest.
         """
+        message_access: Optional[ChannelMessageAccess] = None
+
         name: Optional[str] = None
 
     

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import secrets
@@ -11,6 +12,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import zipfile
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,10 +35,13 @@ from plato.cli.utils import console
 from plato.git_ops.repo import trust_git_directory
 from plato.markers import WorkspaceMarker
 from plato.worlds.dvc_models import (
+    DVCManifest,
     S3Config,
     _archive_s3_key,
     _build_ignore_matchers,
+    dvc_file_key,
     parse_dvc_format,
+    s3_download_batch_sync,
     s3_download_bytes_sync,
     smart_commit_archive,
 )
@@ -330,18 +335,34 @@ def _build_s3_config(
     chronos_url: str,
     api_key: str,
     timeout: float = 60.0,
+    read_only: bool = False,
+    repo_public_id: str | None = None,
 ) -> S3Config:
     """Resolve a workspace repo and build its S3Config in one place.
 
     Mirrors ``Workspace._s3_config`` (including ``credential_refresh`` so a
     long transfer can re-fetch STS creds) instead of hand-assembling the config
     at each call site.
+
+    ``read_only`` requests GetObject-only STS credentials (see the Chronos
+    ``/credentials`` endpoint) — use it for downloads so a reader can't
+    overwrite or delete repo data.
+
+    Pass ``repo_public_id`` to target a specific repo directly and skip
+    name resolution. A workspace ref's content-addressed objects live under
+    *its own* repo prefix, which is not necessarily the repo the ``--repo``
+    name resolves to (refs from other repos can surface for a session), so
+    download callers pass the ref's ``repo_public_id`` to hit the right prefix.
     """
     with httpx.Client(base_url=chronos_url.rstrip("/"), timeout=timeout, headers={"X-API-Key": api_key}) as client:
-        resolved = resolve_workspace_repo.sync(
-            client, body=WorkspaceRepoResolveRequest(name=repo_name), x_api_key=api_key
+        if repo_public_id is None:
+            resolved = resolve_workspace_repo.sync(
+                client, body=WorkspaceRepoResolveRequest(name=repo_name), x_api_key=api_key
+            )
+            repo_public_id = resolved.repo_id
+        creds = get_workspace_repo_credentials.sync(
+            client, repo_public_id=repo_public_id, read_only=read_only, x_api_key=api_key
         )
-        creds = get_workspace_repo_credentials.sync(client, repo_public_id=resolved.repo_id, x_api_key=api_key)
     return S3Config(
         bucket=creds.bucket,
         prefix=creds.prefix,
@@ -353,7 +374,7 @@ def _build_s3_config(
         },
         credential_refresh={
             "chronos_url": chronos_url.rstrip("/"),
-            "repo_id": resolved.repo_id,
+            "repo_id": repo_public_id,
             "api_key": api_key,
             "refresh_margin_seconds": 300,
         },
@@ -563,6 +584,99 @@ def download_session_workspace_archive(
     return total
 
 
+def _md5_file(path: Path) -> str:
+    """Streaming md5 of a local file (DVC cache objects are keyed by content md5)."""
+    h = hashlib.md5()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(4 * 1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def download_manifest_workspace(
+    output_zip: Path,
+    *,
+    repo_name: str,
+    repo_public_id: str,
+    dvc_files: dict[str, str],
+    chronos_url: str,
+    api_key: str,
+    timeout: float = 60.0,
+) -> tuple[int, int]:
+    """Materialize a manifest-format workspace ref by pulling directly from S3.
+
+    Replaces the server-side byte-proxy ZIP endpoint (``download_workspace_files``),
+    which streamed every file through the Chronos backend, buffered whole files
+    in RAM, and silently truncated large files at 1 KB boundaries when an S3
+    read errored mid-stream. Here we:
+
+      1. request read-only STS creds scoped to the repo prefix,
+      2. parse each DVC ``.dir`` manifest to enumerate content-addressed objects,
+      3. pull them in parallel with s5cmd (resumable, non-zero exit on failure),
+      4. verify every file's md5 against the manifest (content-addressed, so a
+         truncated/corrupt object fails its hash), and
+      5. zip the tree locally.
+
+    Mirrors the arc-path layout of the old endpoint: ``{dir_name}/{relpath}``.
+    ``repo_public_id`` is the ref's own repo — its objects live under that
+    repo's prefix, which may differ from what ``repo_name`` resolves to.
+    Returns ``(file_count, total_uncompressed_bytes)``.
+    """
+    s3_config = _build_s3_config(
+        repo_name,
+        chronos_url=chronos_url,
+        api_key=api_key,
+        timeout=timeout,
+        read_only=True,
+        repo_public_id=repo_public_id,
+    )
+
+    with tempfile.TemporaryDirectory(prefix="plato-ws-dl-") as staging_str:
+        staging = Path(staging_str)
+        downloads: list[tuple[str, str]] = []  # (s3_key, local_path)
+        expected_md5: dict[str, str] = {}  # local_path -> md5
+        total_bytes = 0
+
+        for dir_name, dvc_content in dvc_files.items():
+            if parse_dvc_format(dvc_content) == "archive":
+                # Archive refs are restored by the git-workspace path, not here.
+                continue
+            manifest = asyncio.run(DVCManifest.from_dvc_file(dvc_content, s3_config))
+            for entry in manifest.entries_list:
+                if entry.isdir or not entry.md5:
+                    continue
+                arc_rel = f"{dir_name}/{entry.relpath}" if dir_name else entry.relpath
+                local_path = staging / arc_rel
+                local_path.parent.mkdir(parents=True, exist_ok=True)
+                downloads.append((dvc_file_key(s3_config, entry.md5), str(local_path)))
+                expected_md5[str(local_path)] = entry.md5
+                total_bytes += entry.size or 0
+
+        s3_download_batch_sync(s3_config, downloads)
+
+        # Integrity gate: a content-addressed object whose md5 no longer matches
+        # was truncated or corrupted in transit — fail loudly rather than write a
+        # silently-broken archive (the failure mode this whole change fixes).
+        for local_path, want in expected_md5.items():
+            path = Path(local_path)
+            if not path.exists():
+                raise RuntimeError(f"s5cmd did not produce expected file: {local_path}")
+            got = _md5_file(path)
+            if got != want:
+                raise RuntimeError(
+                    f"Integrity check failed for {path.relative_to(staging)}: "
+                    f"expected md5 {want}, got {got} (size {path.stat().st_size} bytes)"
+                )
+
+        output_zip.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
+            for local_path in sorted(expected_md5):
+                path = Path(local_path)
+                zf.write(path, path.relative_to(staging))
+
+        return len(expected_md5), total_bytes
+
+
 def extract_git_workspace_archive(
     archive: Path,
     destination: Path,
@@ -766,6 +880,8 @@ def register_git_workspace_ref(
                 git_hash=head_sha,
                 branch="main",
                 changed=True,
+                # Manual CLI upload (vs "runtime" world commit).
+                upload_mode="manual",
             ),
         )
 

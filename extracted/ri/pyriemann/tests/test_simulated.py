@@ -10,14 +10,16 @@ from pyriemann.datasets.simulated import (
     make_gaussian_blobs,
     make_outliers,
 )
-from pyriemann.utils.base import ctranspose
-from pyriemann.utils.test import (
+from pyriemann.geometry.base import ctranspose
+from pyriemann.geometry.test import (
     is_real, is_sym, is_hermitian,
     is_sym_pos_def as is_spd,
     is_sym_pos_semi_def as is_spsd,
     is_herm_pos_def as is_hpd,
     is_herm_pos_semi_def as is_hpsd,
 )
+
+pytestmark = pytest.mark.numpy_only
 
 
 @pytest.mark.parametrize("kind", mat_kinds)

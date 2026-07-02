@@ -81,6 +81,40 @@ class ViewTest(FixtureTestCase):
         self.assertEqual(uploaded_changes.count(), 1)
         self.assertEqual(uploaded_changes[0].user, self.user)
 
+    def test_upload_redirect_next(self) -> None:
+        self.make_manager()
+        next_url = "/projects/weblate/weblate/cs/translate/"
+        with open(TEST_SCREENSHOT, "rb") as handle:
+            response = self.client.post(
+                reverse("screenshots", kwargs=self.kw_component),
+                {
+                    "image": handle,
+                    "name": "Obrazek",
+                    "translation": self.component.source_translation.pk,
+                    "next": next_url,
+                },
+            )
+        self.assertRedirects(response, next_url, fetch_redirect_response=False)
+        self.assertEqual(Screenshot.objects.count(), 1)
+
+    def test_upload_redirect_next_invalid(self) -> None:
+        self.make_manager()
+        with open(TEST_SCREENSHOT, "rb") as handle:
+            response = self.client.post(
+                reverse("screenshots", kwargs=self.kw_component),
+                {
+                    "image": handle,
+                    "name": "Obrazek",
+                    "translation": self.component.source_translation.pk,
+                    "next": "https://evil.com/redirect",
+                },
+            )
+        self.assertEqual(Screenshot.objects.count(), 1)
+        screenshot = Screenshot.objects.get()
+        self.assertRedirects(
+            response, screenshot.get_absolute_url(), fetch_redirect_response=False
+        )
+
     def test_upload_fail(self) -> None:
         self.make_manager()
         response = self.do_upload(name="")
@@ -145,6 +179,22 @@ class ViewTest(FixtureTestCase):
         self.assertContains(
             response,
             "Suggests source strings by recognizing text in this screenshot.",
+        )
+        self.assertContains(response, 'id="screenshots-search-form"')
+        self.assertContains(
+            response,
+            f'data-href="{reverse("screenshot-js-search", kwargs={"pk": screenshot.pk})}"',
+        )
+        self.assertContains(response, '<textarea class="textarea form-control"')
+        self.assertContains(response, 'name="q"')
+        self.assertContains(response, 'aria-describedby="screenshots-search-help"')
+        self.assertContains(
+            response,
+            "Use query syntax; boolean operators like",
+        )
+        self.assertContains(response, "<code>AND</code>")
+        self.assertContains(
+            response, get_doc_url("user/search", "search-boolean", user=self.user)
         )
         self.assertContains(response, 'id="screenshots-toggle-selection"')
 
@@ -261,6 +311,65 @@ class ViewTest(FixtureTestCase):
         screenshot = Screenshot.objects.all()[0]
         response = self.client.post(
             reverse("screenshot-delete", kwargs={"pk": screenshot.pk})
+        )
+        self.assertEqual(Screenshot.objects.count(), 0)
+        self.assertRedirects(response, reverse("screenshots", kwargs=self.kw_component))
+
+    def test_delete_redirect_next(self) -> None:
+        self.make_manager()
+        self.do_upload(name="Unassigned")
+        screenshot = Screenshot.objects.get()
+        url = reverse("screenshots", kwargs=self.kw_component)
+        next_url = f"{url}?q=NOT+has%3Astring"
+
+        response = self.client.get(next_url)
+
+        self.assertContains(response, f'value="{next_url}"')
+
+        response = self.client.post(
+            reverse("screenshot-delete", kwargs={"pk": screenshot.pk}),
+            {"next": next_url},
+        )
+
+        self.assertEqual(Screenshot.objects.count(), 0)
+        self.assertRedirects(response, next_url, fetch_redirect_response=False)
+
+    def test_delete_redirect_next_strips_page(self) -> None:
+        self.make_manager()
+        Screenshot.objects.bulk_create(
+            Screenshot(
+                image="screenshots/screenshot.png",
+                name=f"Unassigned {index:02d}",
+                translation=self.component.source_translation,
+                user=self.user,
+            )
+            for index in range(49)
+        )
+        url = reverse("screenshots", kwargs=self.kw_component)
+        next_url = f"{url}?q=NOT+has%3Astring&sort_by=-timestamp&page=2"
+        expected_url = f"{url}?q=NOT+has%3Astring&sort_by=-timestamp"
+
+        response = self.client.get(next_url)
+
+        self.assertContains(response, f'value="{expected_url.replace("&", "&amp;")}"')
+        self.assertEqual(len(response.context["object_list"]), 1)
+        screenshot = response.context["object_list"][0]
+
+        response = self.client.post(
+            reverse("screenshot-delete", kwargs={"pk": screenshot.pk}),
+            {"next": expected_url},
+        )
+
+        self.assertEqual(Screenshot.objects.count(), 48)
+        self.assertRedirects(response, expected_url)
+
+    def test_delete_redirect_next_invalid(self) -> None:
+        self.make_manager()
+        self.do_upload()
+        screenshot = Screenshot.objects.get()
+        response = self.client.post(
+            reverse("screenshot-delete", kwargs={"pk": screenshot.pk}),
+            {"next": "https://evil.com/redirect"},
         )
         self.assertEqual(Screenshot.objects.count(), 0)
         self.assertRedirects(response, reverse("screenshots", kwargs=self.kw_component))
@@ -1126,6 +1235,7 @@ class ScreenshotVCSTest(APITestCase, RepoTestCase):
             "intermediate/*.json",
             screenshot_filemask="*.png",
         )
+        self.project = self.component.project
 
         # Add a screenshot linked to the component
         shot = Screenshot.objects.create(
@@ -1201,6 +1311,22 @@ class ScreenshotVCSTest(APITestCase, RepoTestCase):
             repository_filename="test-update.png",
         )[0].image.size
         self.assertNotEqual(existing_ss_size, updated_ss_size)
+
+    def test_linked_screenshots_reuse_changed_files(self) -> None:
+        repository = self.component.repository
+        last_revision = repository.last_revision
+        self.create_link_existing()
+
+        with patch.object(
+            repository, "get_changed_files", return_value=["test-update.png"]
+        ) as get_changed_files:
+            self.component.trigger_post_update(
+                previous_head=last_revision,
+                skip_push=True,
+                user=None,
+            )
+
+        get_changed_files.assert_called_once_with(compare_to=last_revision)
 
     def test_update_screenshots_from_repo_rejects_symlinked_directory(self) -> None:
         repository = self.component.repository

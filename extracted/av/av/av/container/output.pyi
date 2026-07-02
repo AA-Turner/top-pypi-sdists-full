@@ -1,8 +1,10 @@
+from collections.abc import Sequence
 from fractions import Fraction
-from typing import Sequence, TypeVar, overload
+from typing import TypeVar, overload
 
 from av.audio import _AudioCodecName
 from av.audio.stream import AudioStream
+from av.codec.hwaccel import HWAccel
 from av.packet import Packet
 from av.stream import AttachmentStream, DataStream, Stream
 from av.subtitles.stream import SubtitleStream
@@ -14,7 +16,6 @@ from .core import Container
 _StreamT = TypeVar("_StreamT", bound=Stream)
 
 class OutputContainer(Container):
-    def __enter__(self) -> OutputContainer: ...
     @overload
     def add_stream(
         self,
@@ -29,6 +30,7 @@ class OutputContainer(Container):
         codec_name: _VideoCodecName,
         rate: Fraction | int | None = None,
         options: dict[str, str] | None = None,
+        hwaccel: HWAccel | None = None,
         **kwargs,
     ) -> VideoStream: ...
     @overload
@@ -37,6 +39,7 @@ class OutputContainer(Container):
         codec_name: str,
         rate: Fraction | int | None = None,
         options: dict[str, str] | None = None,
+        hwaccel: HWAccel | None = None,
         **kwargs,
     ) -> VideoStream | AudioStream | SubtitleStream: ...
     def add_mux_stream(

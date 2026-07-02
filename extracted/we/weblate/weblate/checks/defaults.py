@@ -6,6 +6,7 @@ from __future__ import annotations
 
 DEFAULT_CHECK_LIST: tuple[str, ...] = (
     "weblate.checks.same.SameCheck",
+    "weblate.checks.chars.AcceleratorKeyCheck",
     "weblate.checks.chars.BeginNewlineCheck",
     "weblate.checks.chars.EndNewlineCheck",
     "weblate.checks.chars.BeginSpaceCheck",
@@ -69,11 +70,13 @@ DEFAULT_CHECK_LIST: tuple[str, ...] = (
     "weblate.checks.markup.SafeHTMLCheck",
     "weblate.checks.markup.RSTReferencesCheck",
     "weblate.checks.markup.RSTSyntaxCheck",
+    "weblate.checks.mdx.SafeMDXCheck",
     "weblate.checks.placeholders.PlaceholderCheck",
     "weblate.checks.placeholders.RegexCheck",
     "weblate.checks.duplicate.DuplicateCheck",
     "weblate.checks.source.OptionalPluralCheck",
     "weblate.checks.source.EllipsisCheck",
+    "weblate.checks.source.SourceMaxLengthCheck",
     "weblate.checks.source.MultipleFailingCheck",
     "weblate.checks.source.LongUntranslatedCheck",
     "weblate.checks.format.MultipleUnnamedFormatsCheck",

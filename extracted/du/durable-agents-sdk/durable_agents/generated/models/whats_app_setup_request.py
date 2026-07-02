@@ -4,6 +4,9 @@ from dataclasses import dataclass, field
 from kiota_abstractions.serialization import Parsable, ParseNode, SerializationWriter
 from typing import Any, Optional, TYPE_CHECKING, Union
 
+if TYPE_CHECKING:
+    from .whats_app_setup_request_message_access import WhatsAppSetupRequest_message_access
+
 @dataclass
 class WhatsAppSetupRequest(Parsable):
     # The access_token property
@@ -14,6 +17,8 @@ class WhatsAppSetupRequest(Parsable):
     connector: Optional[str] = None
     # The create_or_update_connector property
     create_or_update_connector: Optional[bool] = None
+    # The message_access property
+    message_access: Optional[WhatsAppSetupRequest_message_access] = None
     # The name property
     name: Optional[str] = None
     # The phone_number_id property
@@ -39,11 +44,16 @@ class WhatsAppSetupRequest(Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
+        from .whats_app_setup_request_message_access import WhatsAppSetupRequest_message_access
+
+        from .whats_app_setup_request_message_access import WhatsAppSetupRequest_message_access
+
         fields: dict[str, Callable[[Any], None]] = {
             "access_token": lambda n : setattr(self, 'access_token', n.get_str_value()),
             "app_secret": lambda n : setattr(self, 'app_secret', n.get_str_value()),
             "connector": lambda n : setattr(self, 'connector', n.get_str_value()),
             "create_or_update_connector": lambda n : setattr(self, 'create_or_update_connector', n.get_bool_value()),
+            "message_access": lambda n : setattr(self, 'message_access', n.get_enum_value(WhatsAppSetupRequest_message_access)),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "phone_number_id": lambda n : setattr(self, 'phone_number_id', n.get_str_value()),
             "sync_route_registry": lambda n : setattr(self, 'sync_route_registry', n.get_bool_value()),
@@ -63,6 +73,7 @@ class WhatsAppSetupRequest(Parsable):
         writer.write_str_value("app_secret", self.app_secret)
         writer.write_str_value("connector", self.connector)
         writer.write_bool_value("create_or_update_connector", self.create_or_update_connector)
+        writer.write_enum_value("message_access", self.message_access)
         writer.write_str_value("name", self.name)
         writer.write_str_value("phone_number_id", self.phone_number_id)
         writer.write_bool_value("sync_route_registry", self.sync_route_registry)

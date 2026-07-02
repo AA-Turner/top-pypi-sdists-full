@@ -225,6 +225,7 @@ define_bms_flex_row_kernel_input_types! {
         z_obs,
         y,
         w,
+        e_obs,
         cell_c0,
         cell_c1,
         cell_c2,
@@ -299,6 +300,7 @@ impl<'a> BmsFlexRowKernelInputs<'a> {
         check_len("z_obs", self.z_obs.len(), n)?;
         check_len("y", self.y.len(), n)?;
         check_len("w", self.w.len(), n)?;
+        check_len("e_obs", self.e_obs.len(), n)?;
         check_len("chi_obs", self.chi_obs.len(), n)?;
         check_len("xi_obs", self.xi_obs.len(), n)?;
         check_len("rho_u", self.rho_u.len(), n * self.r)?;
@@ -447,6 +449,7 @@ extern "C" __global__ void bms_flex_row_kernel(
     const double * __restrict__ row_rho,      // [n_rows, r]
     const double * __restrict__ row_tau,      // [n_rows, r]
     const double * __restrict__ row_ruv,      // [n_rows, r*r]
+    const double * __restrict__ row_e_obs,    // [n_rows] observed predictor VALUE
     double       * __restrict__ out_neglog,
     double       * __restrict__ out_grad,
     double       * __restrict__ out_hess)
@@ -691,16 +694,14 @@ extern "C" __global__ void bms_flex_row_kernel(
     double y    = row_y[row];
     double w    = row_w[row];
     double s    = 2.0 * y - 1.0;
-    // The "observed predictor" e_obs is the value (degree-0) term of the
-    // observed jet — same convention as the CPU path. CPU parity:
-    // `e_obs = chi · a_0 + rho_0`... well, no: `bar_e_u` is the *first*
-    // derivative jet, not the value. The observed predictor value comes
-    // from the host pre-evaluation as `rho_u[0]` of the value jet —
-    // pre-baked into the host's `m = s · e_obs` payload. For Stage 2 we
-    // expose it via the `bar_e_u[0]` slot which is `chi·a_0 + rho_0`; the
-    // host wiring lands in the dispatcher wave that bridges this kernel
-    // and the row evaluator in `bernoulli_marginal_slope.rs`.
-    double e_obs = bar_e_u[0];
+    // The "observed predictor" e_obs is the VALUE (degree-0 term) of the
+    // observed jet η(a(θ), θ; z_obs) — NOT `bar_e_u[0]`, which is the u=0
+    // FIRST-derivative jet (`chi·a_0 + rho_0 = dη_obs/dq`). The host packs
+    // the observed value directly in `row_e_obs[row]` (see
+    // `pack_bms_flex_row_kernel_inputs`, `eta_val = eval_coeff4_at(obs.coeff,
+    // z_obs)`), matching the CPU family `compute_row_analytic_flex_from_parts_into`
+    // which forms `signed_margin = s_y · eta_val`. #415 parity lock.
+    double e_obs = row_e_obs[row];
     double m_arg = s * e_obs;
     double log_cdf, lambda;
     log_ndtr_and_mills(m_arg, &log_cdf, &lambda);
@@ -762,10 +763,11 @@ impl RowKernelBackend {
                     // the real device arch, and this keeps every BMS-flex compile
                     // site consistent with the SAE arrow/Schur kernels that do
                     // require the sm_60 pin for native `atomicAdd(double*,double)`.
-                    let ptx = gam_gpu::device_cache::compile_ptx_arch(&row_kernel_source)
-                        .map_err(|err| GpuError::DriverCallFailed {
+                    let ptx = gam_gpu::device_cache::compile_ptx_arch(&row_kernel_source).map_err(
+                        |err| GpuError::DriverCallFailed {
                             reason: format!("bms_flex_row NVRTC compile failed: {err}"),
-                        })?;
+                        },
+                    )?;
                     let module =
                         parts
                             .ctx
@@ -870,6 +872,7 @@ pub(crate) fn launch_linux(
     let d_rho = upload_f64(inputs.rho_u, "rho_u")?;
     let d_tau = upload_f64(inputs.tau_u, "tau_u")?;
     let d_ruv = upload_f64(inputs.r_uv, "r_uv")?;
+    let d_e_obs = upload_f64(inputs.e_obs, "e_obs")?;
 
     let n = inputs.n_rows;
     let r = inputs.r;
@@ -949,6 +952,7 @@ pub(crate) fn launch_linux(
         .arg(&d_rho)
         .arg(&d_tau)
         .arg(&d_ruv)
+        .arg(&d_e_obs)
         .arg(&mut d_neglog)
         .arg(&mut d_grad)
         .arg(&mut d_hess);
@@ -1849,10 +1853,11 @@ impl HvpKernelBackend {
                     // #1551: arch-aware compile (see launch_bms_flex_row_kernel) —
                     // pin `--gpu-architecture` to the device capability and supply
                     // the standard include paths via the shared NVRTC entry point.
-                    let ptx = gam_gpu::device_cache::compile_ptx_arch(HVP_KERNEL_SOURCE)
-                        .map_err(|err| GpuError::DriverCallFailed {
+                    let ptx = gam_gpu::device_cache::compile_ptx_arch(HVP_KERNEL_SOURCE).map_err(
+                        |err| GpuError::DriverCallFailed {
                             reason: format!("bms_flex_row hvp NVRTC compile failed: {err}"),
-                        })?;
+                        },
+                    )?;
                     let module =
                         parts
                             .ctx
@@ -1996,6 +2001,7 @@ pub(crate) fn launch_bms_flex_row_kernel_device_resident(
     let d_rho = upload_f64(inputs.rho_u, "rho_u")?;
     let d_tau = upload_f64(inputs.tau_u, "tau_u")?;
     let d_ruv = upload_f64(inputs.r_uv, "r_uv")?;
+    let d_e_obs = upload_f64(inputs.e_obs, "e_obs")?;
 
     let d_marginal = upload_f64(marginal_design_row_major, "marginal_design")?;
     let d_logslope = upload_f64(logslope_design_row_major, "logslope_design")?;
@@ -2082,6 +2088,7 @@ pub(crate) fn launch_bms_flex_row_kernel_device_resident(
         .arg(&d_rho)
         .arg(&d_tau)
         .arg(&d_ruv)
+        .arg(&d_e_obs)
         .arg(&mut d_neglog)
         .arg(&mut d_grad)
         .arg(&mut d_hess);
@@ -2913,232 +2920,13 @@ pub fn launch_bms_flex_row_dense_block(
 // absent and these tests do not compile — the build.rs ban scanner
 // explicitly rejects `#[cfg(any(..., test))]` on the struct definitions
 // themselves as a dead-code escape hatch.
-#[cfg(all(test, target_os = "linux"))]
-mod tests {
+// #415 parity lock: the CPU host oracle for the BMS-FLEX row kernel lives in a
+// non-linux-gated `#[cfg(test)]` module so it can be exercised on the macOS dev
+// box + CPU CI (the sibling `mod tests` is linux-gated because it also builds
+// CUDA-only fixture types). `cpu_oracle_outputs` itself is platform-independent.
+#[cfg(test)]
+mod oracle_parity_tests {
     use super::*;
-
-    pub(crate) fn minimal_inputs<'a>(buffers: &'a TestBuffers) -> BmsFlexRowKernelInputs<'a> {
-        BmsFlexRowKernelInputs {
-            n_rows: 1,
-            r: 4,
-            p_h: 1,
-            p_w: 1,
-            q: &buffers.q,
-            b: &buffers.b,
-            mu_1: &buffers.mu_1,
-            mu_2: &buffers.mu_2,
-            z_obs: &buffers.z_obs,
-            y: &buffers.y,
-            w: &buffers.w,
-            s_f: 1.0,
-            cell_offsets: &buffers.cell_offsets,
-            cell_c0: &buffers.cell_c0,
-            cell_c1: &buffers.cell_c1,
-            cell_c2: &buffers.cell_c2,
-            cell_c3: &buffers.cell_c3,
-            cell_a: &buffers.cell_a,
-            cell_aa: &buffers.cell_aa,
-            cell_r: &buffers.cell_r,
-            cell_ar: &buffers.cell_ar,
-            cell_sbb: &buffers.cell_sbb,
-            cell_sbh: &buffers.cell_sbh,
-            cell_sbw: &buffers.cell_sbw,
-            cell_moments: CellMomentsSource::Host(&buffers.cell_moments),
-            chi_obs: &buffers.chi_obs,
-            xi_obs: &buffers.xi_obs,
-            rho_u: &buffers.rho_u,
-            tau_u: &buffers.tau_u,
-            r_uv: &buffers.r_uv,
-        }
-    }
-
-    pub(crate) struct TestBuffers {
-        pub(crate) q: Vec<f64>,
-        pub(crate) b: Vec<f64>,
-        pub(crate) mu_1: Vec<f64>,
-        pub(crate) mu_2: Vec<f64>,
-        pub(crate) z_obs: Vec<f64>,
-        pub(crate) y: Vec<f64>,
-        pub(crate) w: Vec<f64>,
-        pub(crate) cell_offsets: Vec<u32>,
-        pub(crate) cell_c0: Vec<f64>,
-        pub(crate) cell_c1: Vec<f64>,
-        pub(crate) cell_c2: Vec<f64>,
-        pub(crate) cell_c3: Vec<f64>,
-        pub(crate) cell_a: Vec<f64>,
-        pub(crate) cell_aa: Vec<f64>,
-        pub(crate) cell_r: Vec<f64>,
-        pub(crate) cell_ar: Vec<f64>,
-        pub(crate) cell_sbb: Vec<f64>,
-        pub(crate) cell_sbh: Vec<f64>,
-        pub(crate) cell_sbw: Vec<f64>,
-        pub(crate) cell_moments: Vec<f64>,
-        pub(crate) chi_obs: Vec<f64>,
-        pub(crate) xi_obs: Vec<f64>,
-        pub(crate) rho_u: Vec<f64>,
-        pub(crate) tau_u: Vec<f64>,
-        pub(crate) r_uv: Vec<f64>,
-    }
-
-    pub(crate) fn make_buffers(n_cells: u32, r: usize, p_h: usize, p_w: usize) -> TestBuffers {
-        let cells = n_cells as usize;
-        TestBuffers {
-            q: vec![0.1; 1],
-            b: vec![0.5; 1],
-            mu_1: vec![0.3; 1],
-            mu_2: vec![0.07; 1],
-            z_obs: vec![0.0; 1],
-            y: vec![1.0; 1],
-            w: vec![1.0; 1],
-            cell_offsets: vec![0, n_cells],
-            cell_c0: vec![0.2; cells],
-            cell_c1: vec![-0.1; cells],
-            cell_c2: vec![0.05; cells],
-            cell_c3: vec![-0.02; cells],
-            cell_a: vec![0.1; cells * 4],
-            cell_aa: vec![0.0; cells * 4],
-            cell_r: vec![0.05; cells * (r - 1) * 4],
-            cell_ar: vec![0.0; cells * (r - 1) * 4],
-            cell_sbb: vec![0.0; cells * 4],
-            cell_sbh: vec![0.0; cells * p_h * 4],
-            cell_sbw: vec![0.0; cells * p_w * 4],
-            cell_moments: vec![1.0; cells * MOMENT_STRIDE],
-            chi_obs: vec![1.0; 1],
-            xi_obs: vec![0.0; 1],
-            rho_u: vec![0.0; r],
-            tau_u: vec![0.0; r],
-            r_uv: vec![0.0; r * r],
-        }
-    }
-
-    #[test]
-    pub(crate) fn validate_accepts_minimal_inputs() {
-        let buffers = make_buffers(2, 4, 1, 1);
-        let inputs = minimal_inputs(&buffers);
-        assert!(inputs.validate().is_ok());
-    }
-
-    #[test]
-    pub(crate) fn validate_rejects_r_above_max() {
-        let r = MAX_R + 1;
-        let p_h = (r - 2) / 2;
-        let p_w = (r - 2) - p_h;
-        let buffers = make_buffers(1, r, p_h, p_w);
-        let bad_inputs = BmsFlexRowKernelInputs {
-            r,
-            p_h,
-            p_w,
-            rho_u: &buffers.rho_u, // length matches `r` we wrote
-            tau_u: &buffers.tau_u,
-            r_uv: &buffers.r_uv,
-            cell_r: &buffers.cell_r,
-            cell_ar: &buffers.cell_ar,
-            cell_sbh: &buffers.cell_sbh,
-            cell_sbw: &buffers.cell_sbw,
-            ..minimal_inputs(&buffers)
-        };
-        let err = bad_inputs.validate().expect_err("r > MAX_R must fail");
-        let msg = err.to_string();
-        assert!(msg.contains("MAX_R"), "expected MAX_R hint, got: {msg}");
-    }
-
-    #[test]
-    pub(crate) fn validate_rejects_mismatched_r_decomposition() {
-        let buffers = make_buffers(1, 4, 1, 1);
-        let bad_inputs = BmsFlexRowKernelInputs {
-            r: 4,
-            p_h: 1,
-            p_w: 2, // inconsistent with r = 4
-            ..minimal_inputs(&buffers)
-        };
-        let err = bad_inputs
-            .validate()
-            .expect_err("inconsistent r vs p_h+p_w must fail");
-        let msg = err.to_string();
-        assert!(msg.contains("p_h"), "got: {msg}");
-        assert!(msg.contains("p_w"), "got: {msg}");
-    }
-
-    #[test]
-    pub(crate) fn validate_rejects_non_monotone_offsets() {
-        // `minimal_inputs` hard-codes `n_rows = 1`, so the CSR-style row
-        // pointer length is `n + 1 = 2`. Pin both `offsets[1] = total_cells`
-        // and `cell_c0.len() = total_cells = 2` from `make_buffers(2, …)`,
-        // then violate monotonicity by setting `offsets[0] > offsets[1]`;
-        // every length / per-cell-count check is satisfied so the only
-        // failure mode left is the monotonicity guard.
-        let mut buffers = make_buffers(2, 4, 1, 1);
-        buffers.cell_offsets = vec![5, 2];
-        let inputs = minimal_inputs(&buffers);
-        let err = inputs
-            .validate()
-            .expect_err("non-monotone offsets must fail");
-        let msg = err.to_string();
-        assert!(msg.contains("monotone"), "got: {msg}");
-    }
-
-    #[test]
-    pub(crate) fn validate_rejects_mismatched_cell_moments_length() {
-        let mut buffers = make_buffers(2, 4, 1, 1);
-        buffers.cell_moments.pop(); // length now 2*10 - 1
-        let inputs = minimal_inputs(&buffers);
-        let err = inputs.validate().expect_err("short cell_moments must fail");
-        let msg = err.to_string();
-        assert!(msg.contains("cell_moments"), "got: {msg}");
-    }
-
-    #[test]
-    pub(crate) fn launch_on_non_linux_reports_driver_library_unavailable() {
-        // Mac/Windows builds must surface a typed `DriverLibraryUnavailable`
-        // rather than panicking or returning Ok. On Linux this test is
-        // skipped because the kernel actually launches.
-        #[cfg(target_os = "linux")]
-        {
-            // Linux builds may or may not have a device; the dispatcher
-            // contract is that without a runtime, probe() returns
-            // DriverLibraryUnavailable. Either outcome (NoDeviceKernel,
-            // DriverLibraryUnavailable, or DriverCallFailed) is acceptable
-            // here; success would mean the kernel actually ran which is a
-            // V100-only outcome we don't gate the unit test on.
-            let buffers = make_buffers(1, 4, 1, 1);
-            let inputs = minimal_inputs(&buffers);
-            match launch_bms_flex_row_kernel(inputs) {
-                Ok(_) => { /* V100 host: real launch */ }
-                Err(GpuError::DriverLibraryUnavailable { .. })
-                | Err(GpuError::DriverCallFailed { .. })
-                | Err(GpuError::DriverSymbolMissing { .. })
-                | Err(GpuError::NoDeviceKernel { .. }) => { /* expected on CPU-only */ }
-                Err(other) => panic!("unexpected GpuError variant: {other:?}"),
-            }
-        }
-        #[cfg(not(target_os = "linux"))]
-        {
-            let buffers = make_buffers(1, 4, 1, 1);
-            let inputs = minimal_inputs(&buffers);
-            match launch_bms_flex_row_kernel(inputs) {
-                Err(GpuError::DriverLibraryUnavailable { reason }) => {
-                    assert!(
-                        reason.contains("Linux-only"),
-                        "expected Linux-only hint, got: {reason}"
-                    );
-                }
-                other => panic!("expected DriverLibraryUnavailable on non-Linux, got {other:?}"),
-            }
-        }
-    }
-
-    #[test]
-    pub(crate) fn s_f_must_be_positive_and_finite() {
-        let buffers = make_buffers(1, 4, 1, 1);
-        let mut inputs = minimal_inputs(&buffers);
-        inputs.s_f = 0.0;
-        match launch_bms_flex_row_kernel(inputs) {
-            Err(GpuError::DriverCallFailed { reason }) => {
-                assert!(reason.contains("s_f"), "got: {reason}");
-            }
-            other => panic!("expected DriverCallFailed for s_f=0, got {other:?}"),
-        }
-    }
 
     // ── CPU oracle that mirrors ROW_KERNEL_BODY bit-for-bit ──────────────────
     //
@@ -3413,7 +3201,11 @@ mod tests {
             let y = inputs.y[row];
             let w = inputs.w[row];
             let s = 2.0 * y - 1.0;
-            let e_obs = bar_e_u[0];
+            // #415 parity: the observed predictor VALUE is packed directly
+            // (`inputs.e_obs`), matching the CPU family's `signed_margin =
+            // s_y * eta_val`. `bar_e_u[0]` is the u=0 first-derivative jet and
+            // is used only for the gradient/Hessian, never as the Mills margin.
+            let e_obs = inputs.e_obs[row];
             let m_arg = s * e_obs;
             let (log_cdf, lambda) = oracle_log_ndtr_and_mills(m_arg);
             let a_i = -w * s * lambda;
@@ -3434,6 +3226,535 @@ mod tests {
         }
 
         BmsFlexRowKernelOutputs { neglog, grad, hess }
+    }
+
+    // #415 parity lock. This test lives HERE (a descendant of `bms::gpu::row`)
+    // rather than in `bms::row_primary_hessian` because the host oracle
+    // `cpu_oracle_outputs` must live in a PRIVATE `#[cfg(test)]` mod (the
+    // build.rs ban-scanner forbids `#[cfg(test)]` on a non-private mod), so a
+    // sibling module cannot reach it. Nested here, the test sees the private
+    // oracle directly while the packer/CPU-family methods it drives are
+    // `pub(in crate::bms)` and stay reachable. The nested module carries no
+    // `#[cfg(test)]` attribute of its own (it inherits the parent's), so it is
+    // ban-scanner-clean.
+    mod parity_415 {
+        //! #415 parity lock: the GPU-host oracle `cpu_oracle_outputs` (which
+        //! GATES the device row kernel via
+        //! `bms_flex_row_kernel_matches_cpu_oracle_when_cuda_available`) must
+        //! reproduce the CPU family reference
+        //! `compute_row_analytic_flex_from_parts_into` element-for-element, from
+        //! ONE fitted `(family, block_states, cache)`.
+        //!
+        //! Before this test the only ties between the two were (1) an FD lock on
+        //! the outer scalar Mills layer and (2) a string-contains comment guard —
+        //! neither pins the cell-contraction algebra (`F_a`, `F_aa`, `F_au`,
+        //! `F_uv` → value/grad/Hessian). This closes that gap: the SAME fitted
+        //! state is packed into `BmsFlexRowKernelInputs` and run through
+        //! `cpu_oracle_outputs` for all rows, and independently run through the
+        //! CPU family per row; every row value, full gradient, and full r×r
+        //! Hessian must agree to ~1e-10.
+
+        use super::cpu_oracle_outputs;
+        use crate::bms::family::*;
+        use crate::bms::hessian_paths::*;
+        use crate::bms::{DeviationBlockConfig, LatentMeasureKind, exact_kernel};
+        use gam_linalg::matrix::{DenseDesignMatrix, DesignMatrix};
+        use gam_problem::{InverseLink, ParameterBlockState, StandardLink};
+        use ndarray::{Array1, Array2};
+        use std::sync::{Arc, Mutex};
+
+        /// Build a small but REAL flex BMS family in the `StandardNormal`
+        /// latent-measure branch with BOTH a score-warp (`p_h > 0`) and a
+        /// link-deviation (`p_w > 0`) block active, plus mixed labels y ∈ {0,1}.
+        /// Ported from the `gradient_paths` flex oracle fixture so the cache is
+        /// populated by the production cell-moment assembly (never hand-faked).
+        fn make_flex_parity_family(
+            n: usize,
+        ) -> (BernoulliMarginalSlopeFamily, Vec<ParameterBlockState>) {
+            let score_seed = Array1::linspace(-2.0, 2.0, n.max(6));
+            let link_seed = Array1::linspace(-1.8, 1.8, n.max(6));
+            let cfg = DeviationBlockConfig {
+                num_internal_knots: 3,
+                ..DeviationBlockConfig::default()
+            };
+            let score_prepared = build_score_warp_deviation_block_from_seed(&score_seed, &cfg)
+                .expect("build score warp block");
+            let link_prepared = build_link_deviation_block_from_knots_design_seed_and_weights(
+                &link_seed, &link_seed, &cfg,
+            )
+            .expect("build link deviation block");
+
+            // Mixed labels y ∈ {0,1} so both s_y = ±1 Mills branches are exercised.
+            let y: Array1<f64> =
+                Array1::from_iter((0..n).map(|i| if (i * 17 + 3) % 7 >= 4 { 1.0 } else { 0.0 }));
+            let weights: Array1<f64> =
+                Array1::from_iter((0..n).map(|i| 0.75 + ((i * 11 + 5) % 5) as f64 * 0.05));
+            let z: Array1<f64> =
+                Array1::from_iter((0..n).map(|i| -1.7 + 3.4 * (i as f64 + 0.5) / n as f64));
+            let marginal_x = Array2::from_shape_fn((n, 2), |(i, j)| {
+                if j == 0 {
+                    1.0
+                } else {
+                    -0.4 + 0.8 * ((i * 19 + 7) % n) as f64 / n as f64
+                }
+            });
+            let logslope_x = Array2::from_shape_fn((n, 2), |(i, j)| {
+                if j == 0 {
+                    1.0
+                } else {
+                    0.3 - 0.6 * ((i * 23 + 11) % n) as f64 / n as f64
+                }
+            });
+
+            let family = BernoulliMarginalSlopeFamily {
+                y: Arc::new(y),
+                weights: Arc::new(weights),
+                z: Arc::new(z.clone()),
+                latent_measure: LatentMeasureKind::StandardNormal,
+                gaussian_frailty_sd: Some(0.15),
+                base_link: InverseLink::Standard(StandardLink::Probit),
+                marginal_design: DesignMatrix::Dense(DenseDesignMatrix::from(marginal_x.clone())),
+                logslope_design: DesignMatrix::Dense(DenseDesignMatrix::from(logslope_x.clone())),
+                score_warp: Some(score_prepared.runtime.clone()),
+                link_dev: Some(link_prepared.runtime.clone()),
+                policy: gam_runtime::resource::ResourcePolicy::default_library(),
+                cell_moment_lru: Arc::new(exact_kernel::CellMomentLruCache::new(1024)),
+                cell_moment_cache_stats: Arc::new(exact_kernel::CellMomentCacheStats::default()),
+                intercept_warm_starts: None,
+                auto_subsample_phase_counter: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+                auto_subsample_last_rho: Arc::new(Mutex::new(None)),
+            };
+
+            let beta_m = Array1::from_vec(vec![0.12, -0.04]);
+            let beta_g = Array1::from_vec(vec![0.35, 0.03]);
+            let beta_h = Array1::from_iter(
+                (0..score_prepared.runtime.basis_dim()).map(|idx| 0.0015 * (idx as f64 + 1.0)),
+            );
+            let beta_w = Array1::from_iter(
+                (0..link_prepared.runtime.basis_dim()).map(|idx| -0.001 * (idx as f64 + 1.0)),
+            );
+            let states = vec![
+                ParameterBlockState {
+                    eta: marginal_x.dot(&beta_m),
+                    beta: beta_m,
+                },
+                ParameterBlockState {
+                    eta: logslope_x.dot(&beta_g),
+                    beta: beta_g,
+                },
+                ParameterBlockState {
+                    beta: beta_h,
+                    eta: Array1::zeros(z.len()),
+                },
+                ParameterBlockState {
+                    beta: beta_w,
+                    eta: Array1::zeros(z.len()),
+                },
+            ];
+            (family, states)
+        }
+
+        /// The non-vacuous #415 lock: pack once, run the host oracle for all
+        /// rows, run the CPU family per row, and assert value/gradient/Hessian
+        /// parity.
+        #[test]
+        fn cpu_oracle_matches_cpu_family_row_analytic_flex_415() {
+            let n = 12usize;
+            let (family, states) = make_flex_parity_family(n);
+            let cache = family
+                .build_exact_eval_cache(&states)
+                .expect("flex exact eval cache");
+
+            // Preconditions that make the lock non-vacuous: the row-cell-moments
+            // bundle (which the oracle consumes) must actually be materialised,
+            // and the deviation blocks must both be present so p_h > 0 AND p_w > 0.
+            assert!(
+                cache.row_cell_moments.is_some(),
+                "#415 fixture must materialise the row-cell-moments bundle; the pack \
+                 and both compared paths read it"
+            );
+            let primary = &cache.primary;
+            let r = primary.total;
+            let p_h = primary.h.as_ref().map(|range| range.len()).unwrap_or(0);
+            let p_w = primary.w.as_ref().map(|range| range.len()).unwrap_or(0);
+            assert!(
+                p_h > 0 && p_w > 0,
+                "#415 fixture must be full-flex: p_h={p_h} p_w={p_w}"
+            );
+            assert_eq!(r, 2 + p_h + p_w, "#415 fixture primary layout");
+
+            // Pack the SAME fitted state the CPU family will consume, then run the
+            // GPU host oracle over every row.
+            let owned = family
+                .pack_bms_flex_row_kernel_inputs(&states, &cache)
+                .expect("pack must not error")
+                .expect("pack must succeed for the StandardNormal full-flex fixture");
+            let inputs = owned.as_borrowed();
+            let oracle = cpu_oracle_outputs(&inputs);
+            assert_eq!(oracle.neglog.len(), n);
+            assert_eq!(oracle.grad.len(), n * r);
+            assert_eq!(oracle.hess.len(), n * r * r);
+
+            // Non-vacuity guard for the original #415/BMS-FLEX failure mode:
+            // the Mills margin must be the packed observed predictor VALUE
+            // `e_obs`, not the q-axis first derivative `bar_e_u[0]`. The oracle
+            // does not expose `bar_e_u`, but its gradient obeys
+            // `grad[0] = A(e_obs) · bar_e_u[0]`; recover that derivative from
+            // the written output and prove this fixture separates it from
+            // `e_obs` on at least one row. Otherwise a kernel/oracle that
+            // accidentally substituted `bar_e_u[0]` for `e_obs` could pass a
+            // vacuous fixture where both scalars coincide.
+            let mut separates_observed_value_from_q_derivative = false;
+            for row in 0..n {
+                let y = inputs.y[row];
+                let w = inputs.w[row];
+                let s = 2.0 * y - 1.0;
+                let e_obs = inputs.e_obs[row];
+                let (_, lambda) = super::oracle_log_ndtr_and_mills(s * e_obs);
+                let a_i = -w * s * lambda;
+                if a_i.abs() > 1e-12 {
+                    let recovered_bar_e_q = oracle.grad[row * r] / a_i;
+                    if (recovered_bar_e_q - e_obs).abs() > 1e-8 {
+                        separates_observed_value_from_q_derivative = true;
+                        break;
+                    }
+                }
+            }
+            assert!(
+                separates_observed_value_from_q_derivative,
+                "#415 fixture must distinguish e_obs from bar_e_u[0]; otherwise \
+                 the observed-value Mills-margin regression is not exercised"
+            );
+
+            // Both sides are exact f64 CPU math over the SAME cached moments, so
+            // the only slack is FP summation ordering. Anything looser than this
+            // would hide a real algebraic drift.
+            let tol_abs = 1e-9_f64;
+            let tol_rel = 1e-10_f64;
+
+            let mut scratch = BernoulliMarginalSlopeFlexRowScratch::new(r);
+            let mut max_rel = 0.0_f64;
+            let mut checked_labels = [false, false];
+
+            for row in 0..n {
+                let row_ctx = BernoulliMarginalSlopeFamily::row_ctx(&cache, row);
+                let row_moments = cache
+                    .row_cell_moments
+                    .as_ref()
+                    .and_then(|bundle| bundle.row(row, 9));
+                assert!(
+                    row_moments.is_some(),
+                    "row {row} must carry degree-9 cell moments (the oracle reads them)"
+                );
+                let label = family.y[row] as usize;
+                if label < 2 {
+                    checked_labels[label] = true;
+                }
+
+                let value = family
+                    .compute_row_analytic_flex_into_with_moments(
+                        row,
+                        &states,
+                        primary,
+                        row_ctx,
+                        row_moments,
+                        cache.cell_family_forest.as_ref(),
+                        true,
+                        &mut scratch,
+                    )
+                    .expect("cpu family row analytic flex");
+
+                // ── value ────────────────────────────────────────────────────
+                let o_val = oracle.neglog[row];
+                if o_val.is_nan() || value.is_nan() {
+                    assert!(
+                        o_val.is_nan() && value.is_nan(),
+                        "row {row}: NaN parity broke — oracle={o_val} family={value}"
+                    );
+                    continue;
+                }
+                let vd = (o_val - value).abs();
+                let vtol = tol_abs + tol_rel * o_val.abs();
+                max_rel = max_rel.max(vd / o_val.abs().max(1.0));
+                assert!(
+                    vd <= vtol,
+                    "row {row} value drift: oracle={o_val:.17e} family={value:.17e} \
+                     |Δ|={vd:.3e} > tol={vtol:.3e}"
+                );
+
+                // ── gradient ─────────────────────────────────────────────────
+                for u in 0..r {
+                    let o_g = oracle.grad[row * r + u];
+                    let f_g = scratch.grad[u];
+                    let gd = (o_g - f_g).abs();
+                    let gtol = tol_abs + tol_rel * o_g.abs();
+                    max_rel = max_rel.max(gd / o_g.abs().max(1.0));
+                    assert!(
+                        gd <= gtol,
+                        "row {row} grad[{u}] drift: oracle={o_g:.17e} family={f_g:.17e} \
+                         |Δ|={gd:.3e} > tol={gtol:.3e}"
+                    );
+                }
+
+                // ── full r×r Hessian ─────────────────────────────────────────
+                for u in 0..r {
+                    for v in 0..r {
+                        let o_h = oracle.hess[row * r * r + u * r + v];
+                        let f_h = scratch.hess[[u, v]];
+                        let hd = (o_h - f_h).abs();
+                        let htol = tol_abs + tol_rel * o_h.abs();
+                        max_rel = max_rel.max(hd / o_h.abs().max(1.0));
+                        assert!(
+                            hd <= htol,
+                            "row {row} hess[{u},{v}] drift: oracle={o_h:.17e} \
+                             family={f_h:.17e} |Δ|={hd:.3e} > tol={htol:.3e}"
+                        );
+                    }
+                }
+            }
+
+            // Edge coverage: both label branches must have been exercised (the
+            // q-row overrides F_q=-mu_1 / F_qq=-mu_2 and both Mills sign branches).
+            assert!(
+                checked_labels[0] && checked_labels[1],
+                "#415 fixture must exercise both y=0 and y=1 rows: {checked_labels:?}"
+            );
+            eprintln!(
+                "#415 parity lock: n={n} r={r} p_h={p_h} p_w={p_w} max_rel(oracle−family)={max_rel:.3e}"
+            );
+        }
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::oracle_parity_tests::*;
+    use super::*;
+
+    pub(crate) fn minimal_inputs<'a>(buffers: &'a TestBuffers) -> BmsFlexRowKernelInputs<'a> {
+        BmsFlexRowKernelInputs {
+            n_rows: 1,
+            r: 4,
+            p_h: 1,
+            p_w: 1,
+            q: &buffers.q,
+            b: &buffers.b,
+            mu_1: &buffers.mu_1,
+            mu_2: &buffers.mu_2,
+            z_obs: &buffers.z_obs,
+            y: &buffers.y,
+            w: &buffers.w,
+            e_obs: &buffers.e_obs,
+            s_f: 1.0,
+            cell_offsets: &buffers.cell_offsets,
+            cell_c0: &buffers.cell_c0,
+            cell_c1: &buffers.cell_c1,
+            cell_c2: &buffers.cell_c2,
+            cell_c3: &buffers.cell_c3,
+            cell_a: &buffers.cell_a,
+            cell_aa: &buffers.cell_aa,
+            cell_r: &buffers.cell_r,
+            cell_ar: &buffers.cell_ar,
+            cell_sbb: &buffers.cell_sbb,
+            cell_sbh: &buffers.cell_sbh,
+            cell_sbw: &buffers.cell_sbw,
+            cell_moments: CellMomentsSource::Host(&buffers.cell_moments),
+            chi_obs: &buffers.chi_obs,
+            xi_obs: &buffers.xi_obs,
+            rho_u: &buffers.rho_u,
+            tau_u: &buffers.tau_u,
+            r_uv: &buffers.r_uv,
+        }
+    }
+
+    pub(crate) struct TestBuffers {
+        pub(crate) q: Vec<f64>,
+        pub(crate) b: Vec<f64>,
+        pub(crate) mu_1: Vec<f64>,
+        pub(crate) mu_2: Vec<f64>,
+        pub(crate) z_obs: Vec<f64>,
+        pub(crate) y: Vec<f64>,
+        pub(crate) w: Vec<f64>,
+        pub(crate) e_obs: Vec<f64>,
+        pub(crate) cell_offsets: Vec<u32>,
+        pub(crate) cell_c0: Vec<f64>,
+        pub(crate) cell_c1: Vec<f64>,
+        pub(crate) cell_c2: Vec<f64>,
+        pub(crate) cell_c3: Vec<f64>,
+        pub(crate) cell_a: Vec<f64>,
+        pub(crate) cell_aa: Vec<f64>,
+        pub(crate) cell_r: Vec<f64>,
+        pub(crate) cell_ar: Vec<f64>,
+        pub(crate) cell_sbb: Vec<f64>,
+        pub(crate) cell_sbh: Vec<f64>,
+        pub(crate) cell_sbw: Vec<f64>,
+        pub(crate) cell_moments: Vec<f64>,
+        pub(crate) chi_obs: Vec<f64>,
+        pub(crate) xi_obs: Vec<f64>,
+        pub(crate) rho_u: Vec<f64>,
+        pub(crate) tau_u: Vec<f64>,
+        pub(crate) r_uv: Vec<f64>,
+    }
+
+    pub(crate) fn make_buffers(n_cells: u32, r: usize, p_h: usize, p_w: usize) -> TestBuffers {
+        let cells = n_cells as usize;
+        TestBuffers {
+            q: vec![0.1; 1],
+            b: vec![0.5; 1],
+            mu_1: vec![0.3; 1],
+            mu_2: vec![0.07; 1],
+            z_obs: vec![0.0; 1],
+            y: vec![1.0; 1],
+            w: vec![1.0; 1],
+            e_obs: vec![0.15; 1],
+            cell_offsets: vec![0, n_cells],
+            cell_c0: vec![0.2; cells],
+            cell_c1: vec![-0.1; cells],
+            cell_c2: vec![0.05; cells],
+            cell_c3: vec![-0.02; cells],
+            cell_a: vec![0.1; cells * 4],
+            cell_aa: vec![0.0; cells * 4],
+            cell_r: vec![0.05; cells * (r - 1) * 4],
+            cell_ar: vec![0.0; cells * (r - 1) * 4],
+            cell_sbb: vec![0.0; cells * 4],
+            cell_sbh: vec![0.0; cells * p_h * 4],
+            cell_sbw: vec![0.0; cells * p_w * 4],
+            cell_moments: vec![1.0; cells * MOMENT_STRIDE],
+            chi_obs: vec![1.0; 1],
+            xi_obs: vec![0.0; 1],
+            rho_u: vec![0.0; r],
+            tau_u: vec![0.0; r],
+            r_uv: vec![0.0; r * r],
+        }
+    }
+
+    #[test]
+    pub(crate) fn validate_accepts_minimal_inputs() {
+        let buffers = make_buffers(2, 4, 1, 1);
+        let inputs = minimal_inputs(&buffers);
+        assert!(inputs.validate().is_ok());
+    }
+
+    #[test]
+    pub(crate) fn validate_rejects_r_above_max() {
+        let r = MAX_R + 1;
+        let p_h = (r - 2) / 2;
+        let p_w = (r - 2) - p_h;
+        let buffers = make_buffers(1, r, p_h, p_w);
+        let bad_inputs = BmsFlexRowKernelInputs {
+            r,
+            p_h,
+            p_w,
+            rho_u: &buffers.rho_u, // length matches `r` we wrote
+            tau_u: &buffers.tau_u,
+            r_uv: &buffers.r_uv,
+            cell_r: &buffers.cell_r,
+            cell_ar: &buffers.cell_ar,
+            cell_sbh: &buffers.cell_sbh,
+            cell_sbw: &buffers.cell_sbw,
+            ..minimal_inputs(&buffers)
+        };
+        let err = bad_inputs.validate().expect_err("r > MAX_R must fail");
+        let msg = err.to_string();
+        assert!(msg.contains("MAX_R"), "expected MAX_R hint, got: {msg}");
+    }
+
+    #[test]
+    pub(crate) fn validate_rejects_mismatched_r_decomposition() {
+        let buffers = make_buffers(1, 4, 1, 1);
+        let bad_inputs = BmsFlexRowKernelInputs {
+            r: 4,
+            p_h: 1,
+            p_w: 2, // inconsistent with r = 4
+            ..minimal_inputs(&buffers)
+        };
+        let err = bad_inputs
+            .validate()
+            .expect_err("inconsistent r vs p_h+p_w must fail");
+        let msg = err.to_string();
+        assert!(msg.contains("p_h"), "got: {msg}");
+        assert!(msg.contains("p_w"), "got: {msg}");
+    }
+
+    #[test]
+    pub(crate) fn validate_rejects_non_monotone_offsets() {
+        // `minimal_inputs` hard-codes `n_rows = 1`, so the CSR-style row
+        // pointer length is `n + 1 = 2`. Pin both `offsets[1] = total_cells`
+        // and `cell_c0.len() = total_cells = 2` from `make_buffers(2, …)`,
+        // then violate monotonicity by setting `offsets[0] > offsets[1]`;
+        // every length / per-cell-count check is satisfied so the only
+        // failure mode left is the monotonicity guard.
+        let mut buffers = make_buffers(2, 4, 1, 1);
+        buffers.cell_offsets = vec![5, 2];
+        let inputs = minimal_inputs(&buffers);
+        let err = inputs
+            .validate()
+            .expect_err("non-monotone offsets must fail");
+        let msg = err.to_string();
+        assert!(msg.contains("monotone"), "got: {msg}");
+    }
+
+    #[test]
+    pub(crate) fn validate_rejects_mismatched_cell_moments_length() {
+        let mut buffers = make_buffers(2, 4, 1, 1);
+        buffers.cell_moments.pop(); // length now 2*10 - 1
+        let inputs = minimal_inputs(&buffers);
+        let err = inputs.validate().expect_err("short cell_moments must fail");
+        let msg = err.to_string();
+        assert!(msg.contains("cell_moments"), "got: {msg}");
+    }
+
+    #[test]
+    pub(crate) fn launch_on_non_linux_reports_driver_library_unavailable() {
+        // Mac/Windows builds must surface a typed `DriverLibraryUnavailable`
+        // rather than panicking or returning Ok. On Linux this test is
+        // skipped because the kernel actually launches.
+        #[cfg(target_os = "linux")]
+        {
+            // Linux builds may or may not have a device; the dispatcher
+            // contract is that without a runtime, probe() returns
+            // DriverLibraryUnavailable. Either outcome (NoDeviceKernel,
+            // DriverLibraryUnavailable, or DriverCallFailed) is acceptable
+            // here; success would mean the kernel actually ran which is a
+            // V100-only outcome we don't gate the unit test on.
+            let buffers = make_buffers(1, 4, 1, 1);
+            let inputs = minimal_inputs(&buffers);
+            match launch_bms_flex_row_kernel(inputs) {
+                Ok(_) => { /* V100 host: real launch */ }
+                Err(GpuError::DriverLibraryUnavailable { .. })
+                | Err(GpuError::DriverCallFailed { .. })
+                | Err(GpuError::DriverSymbolMissing { .. })
+                | Err(GpuError::NoDeviceKernel { .. }) => { /* expected on CPU-only */ }
+                Err(other) => panic!("unexpected GpuError variant: {other:?}"),
+            }
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            let buffers = make_buffers(1, 4, 1, 1);
+            let inputs = minimal_inputs(&buffers);
+            match launch_bms_flex_row_kernel(inputs) {
+                Err(GpuError::DriverLibraryUnavailable { reason }) => {
+                    assert!(
+                        reason.contains("Linux-only"),
+                        "expected Linux-only hint, got: {reason}"
+                    );
+                }
+                other => panic!("expected DriverLibraryUnavailable on non-Linux, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    pub(crate) fn s_f_must_be_positive_and_finite() {
+        let buffers = make_buffers(1, 4, 1, 1);
+        let mut inputs = minimal_inputs(&buffers);
+        inputs.s_f = 0.0;
+        match launch_bms_flex_row_kernel(inputs) {
+            Err(GpuError::DriverCallFailed { reason }) => {
+                assert!(reason.contains("s_f"), "got: {reason}");
+            }
+            other => panic!("expected DriverCallFailed for s_f=0, got {other:?}"),
+        }
     }
 
     /// Build a non-trivial fixture: `n = 4` rows, `r = 5` (p_h = 2, p_w = 1),
@@ -3465,6 +3786,7 @@ mod tests {
         let z_obs = (0..n).map(|i| -0.2 + 0.1 * (i as f64)).collect::<Vec<_>>();
         let y = [1.0, 0.0, 1.0, 0.0].to_vec();
         let w = vec![1.0; n];
+        let e_obs = (0..n).map(|i| -0.3 + 0.2 * (i as f64)).collect::<Vec<_>>();
 
         let cell_c0 = (0..total_cells).map(|c| f(c + 1001)).collect::<Vec<_>>();
         let cell_c1 = (0..total_cells)
@@ -3514,6 +3836,7 @@ mod tests {
             z_obs,
             y,
             w,
+            e_obs,
             cell_offsets,
             cell_c0,
             cell_c1,
@@ -3548,6 +3871,7 @@ mod tests {
             z_obs: &buffers.z_obs,
             y: &buffers.y,
             w: &buffers.w,
+            e_obs: &buffers.e_obs,
             s_f: 1.0,
             cell_offsets: &buffers.cell_offsets,
             cell_c0: &buffers.cell_c0,
@@ -3626,8 +3950,9 @@ mod tests {
     ///     H_uv    = B · bar_e_u · bar_e_v + A · bar_e_uv
     /// ```
     ///
-    /// Holding the observed jets `bar_e` fixed, the row neglog is a function
-    /// of the single scalar `e := bar_e_u[0] = e_obs`, and by the assembled
+    /// Holding the observed derivative jets `bar_e_u`/`bar_e_uv` fixed, the
+    /// row neglog is a function of the observed predictor VALUE `e := e_obs`,
+    /// not of the q-axis first derivative `bar_e_u[0]`; by the assembled
     /// formula `∂neglog/∂e = A` and `∂²neglog/∂e² = B`. This test reconstructs
     /// `A`, `B`, and `neglog` exactly as the oracle does (same
     /// `oracle_log_ndtr_and_mills`, same sign convention), then verifies the

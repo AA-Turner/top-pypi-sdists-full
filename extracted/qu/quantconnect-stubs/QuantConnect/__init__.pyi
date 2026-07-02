@@ -1627,6 +1627,18 @@ class AlgorithmUtils(System.Object):
     """Provides utility methods for or related to algorithms"""
 
     @staticmethod
+    def seed_currency_conversion_rates(algorithm: QuantConnect.Interfaces.IAlgorithm, currencies_to_update_white_list: typing.Sequence[str] = None) -> None:
+        """
+        Seeds an initial conversion rate for the cashbook currencies that don't have one yet, so they are
+        non-zero right away instead of waiting for the first conversion pair bar to arrive
+        
+        :param algorithm: The algorithm instance
+        :param currencies_to_update_white_list: If passed, only the currencies in the CashBook contained in this list will be updated.
+        By default, if not passed (null), all currencies in the cashbook without a properly set up currency conversion will be updated.
+        """
+        ...
+
+    @staticmethod
     def seed_securities(securities: typing.Sequence[QuantConnect.Securities.Security], algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
         """
         Seeds the provided securities with their last known prices from the algorithm

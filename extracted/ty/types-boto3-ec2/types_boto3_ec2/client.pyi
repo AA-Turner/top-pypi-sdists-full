@@ -711,6 +711,8 @@ from .type_defs import (
     DeregisterTransitGatewayMulticastGroupSourcesResultTypeDef,
     DescribeAccountAttributesRequestTypeDef,
     DescribeAccountAttributesResultTypeDef,
+    DescribeAccountVpcEncryptionControlRequestTypeDef,
+    DescribeAccountVpcEncryptionControlResultTypeDef,
     DescribeAddressesAttributeRequestTypeDef,
     DescribeAddressesAttributeResultTypeDef,
     DescribeAddressesRequestTypeDef,
@@ -1384,6 +1386,8 @@ from .type_defs import (
     ListVolumesInRecycleBinResultTypeDef,
     LockSnapshotRequestTypeDef,
     LockSnapshotResultTypeDef,
+    ModifyAccountVpcEncryptionControlRequestTypeDef,
+    ModifyAccountVpcEncryptionControlResultTypeDef,
     ModifyAddressAttributeRequestTypeDef,
     ModifyAddressAttributeResultTypeDef,
     ModifyAvailabilityZoneGroupRequestTypeDef,
@@ -4530,6 +4534,17 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_account_attributes.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_account_attributes)
+        """
+
+    def describe_account_vpc_encryption_control(
+        self, **kwargs: Unpack[DescribeAccountVpcEncryptionControlRequestTypeDef]
+    ) -> DescribeAccountVpcEncryptionControlResultTypeDef:
+        """
+        Describes the account-level VPC Encryption Control configuration for your
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_account_vpc_encryption_control.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_account_vpc_encryption_control)
         """
 
     def describe_address_transfers(
@@ -8056,6 +8071,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/lock_snapshot.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#lock_snapshot)
+        """
+
+    def modify_account_vpc_encryption_control(
+        self, **kwargs: Unpack[ModifyAccountVpcEncryptionControlRequestTypeDef]
+    ) -> ModifyAccountVpcEncryptionControlResultTypeDef:
+        """
+        Modifies the account-level VPC Encryption Control configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_account_vpc_encryption_control.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#modify_account_vpc_encryption_control)
         """
 
     def modify_address_attribute(

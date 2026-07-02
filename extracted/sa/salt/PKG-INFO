@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: salt
-Version: 3008.1
+Version: 3008.2
 Summary: Portable, distributed, remote execution and configuration management system
 Author-email: Thomas S Hatch <thatch45@gmail.com>
 License: Apache Software License 2.0
@@ -30,6 +30,7 @@ Requires-Dist: aiohttp<3.14.0,>=3.13.5; python_version < "3.10"
 Requires-Dist: aiohttp>=3.14.1; python_version >= "3.10"
 Requires-Dist: apache-libcloud<3.9.1,>=3.8.0; python_version < "3.10"
 Requires-Dist: apache-libcloud>=3.9.1; python_version >= "3.10"
+Requires-Dist: certifi>=2026.5.20
 Requires-Dist: cffi>=2.0.0
 Requires-Dist: cheroot>=11.1.2
 Requires-Dist: cherrypy>=18.10.0
@@ -57,6 +58,7 @@ Requires-Dist: more-itertools<11.0.0,>=10.8.0; python_version < "3.10"
 Requires-Dist: more-itertools>=11.1.0; python_version >= "3.10"
 Requires-Dist: msgpack>=1.1.2; python_version < "3.13"
 Requires-Dist: msgpack>=1.1.0; python_version >= "3.13"
+Requires-Dist: multidict>=6.6.0
 Requires-Dist: opentelemetry-api>=1.41.1
 Requires-Dist: opentelemetry-sdk>=1.41.1
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.41.1
@@ -99,7 +101,7 @@ Requires-Dist: wmi>=1.5.1; sys_platform == "win32"
 Requires-Dist: xmltodict>=1.0.4; sys_platform == "win32"
 Requires-Dist: zipp>=3.23.1
 Requires-Dist: pyzmq>=27.1.0; python_version < "3.13"
-Requires-Dist: pyzmq>=26.2.0; python_version >= "3.13"
+Requires-Dist: pyzmq>=27.1.0; python_version >= "3.13"
 Requires-Dist: pycryptodomex>=3.23.0
 Provides-Extra: crypto
 Requires-Dist: pycryptodomex>=3.23.0; extra == "crypto"
@@ -136,6 +138,11 @@ Dynamic: requires-dist
 
 * `Latest Salt Documentation`_
 * `Open an issue`_ (bug report, feature request, etc.)
+
+.. note::
+   When using ``salt-cloud -p`` with a profile, pass only the VM name on the
+   command line. Specify VM attributes (memory, cpu, vcpu, etc.) in the profile
+   configuration, not as command-line arguments.
 
 *Salt is the world's fastest, most intelligent and scalable automation*
 *engine.*

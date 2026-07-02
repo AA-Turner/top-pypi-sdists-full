@@ -28,11 +28,13 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import replace
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from agno.db.base import SessionType
 from agno.run.agent import RunOutput
 from agno.run.team import TeamRunOutput
+from agno.session.agent import AgentSession
 from agno.session.team import TeamSession
 
 from mindroom.constants import (
@@ -45,15 +47,36 @@ from mindroom.history.types import HistoryScope, HistoryScopeState
 from mindroom.metadata_merge import deep_merge_metadata
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
     from agno.db.base import BaseDb
-    from agno.session.agent import AgentSession
 
 _COMPACTION_METADATA_VERSION = 2
 _MATRIX_HISTORY_METADATA_VERSION = 1
 _PENDING_COMPACTION_SCOPE_KEYS_SESSION_STATE_KEY = "mindroom_pending_compaction_scope_keys"
 _COMPACTED_RUN_ID_RETENTION_LIMIT = 1_024
+
+
+def new_scope_session(*, session_id: str, scope_id: str, is_team: bool) -> AgentSession | TeamSession:
+    """Return one empty session row for a scope with no stored session yet."""
+    created_at = int(datetime.now(UTC).timestamp())
+    if is_team:
+        return TeamSession(
+            session_id=session_id,
+            team_id=scope_id,
+            metadata={},
+            runs=[],
+            created_at=created_at,
+            updated_at=created_at,
+        )
+    return AgentSession(
+        session_id=session_id,
+        agent_id=scope_id,
+        metadata={},
+        runs=[],
+        created_at=created_at,
+        updated_at=created_at,
+    )
 
 
 def read_scope_state(session: AgentSession | TeamSession, scope: HistoryScope) -> HistoryScopeState:
@@ -381,7 +404,7 @@ def prune_reintroduced_runs(
     return True
 
 
-def latest_persisted_session(
+def _latest_persisted_session(
     storage: BaseDb,
     session: AgentSession | TeamSession,
 ) -> AgentSession | TeamSession:
@@ -391,7 +414,7 @@ def latest_persisted_session(
     return latest_session if isinstance(latest_session, type(session)) else session
 
 
-def adopt_session_fields(
+def _adopt_session_fields(
     session: AgentSession | TeamSession,
     source: AgentSession | TeamSession,
 ) -> None:
@@ -399,6 +422,27 @@ def adopt_session_fields(
     session.metadata = source.metadata
     session.runs = source.runs
     session.summary = source.summary
+
+
+def update_scope_state_on_latest(
+    storage: BaseDb,
+    session: AgentSession | TeamSession,
+    scope: HistoryScope,
+    update: Callable[[HistoryScopeState], HistoryScopeState],
+) -> HistoryScopeState:
+    """Apply one scope-state update against the freshest stored row and sync the session.
+
+    The update callable sees the latest persisted state, so it can refuse to write
+    (return its input unchanged) when the durable row moved since the caller read it.
+    """
+    target_session = _latest_persisted_session(storage, session)
+    latest_state = read_scope_state(target_session, scope)
+    next_state = update(latest_state)
+    if next_state != latest_state:
+        write_scope_state(target_session, scope, next_state)
+        storage.upsert_session(target_session)
+    _adopt_session_fields(session, target_session)
+    return next_state
 
 
 def record_compaction_chunk(
@@ -425,7 +469,7 @@ def record_compaction_chunk(
         replace(working_state, compacted_run_ids=compacted_run_ids_with(working_state, chunk_run_ids)),
     )
 
-    target_session = latest_persisted_session(storage, persisted_session)
+    target_session = _latest_persisted_session(storage, persisted_session)
     preexisting_tombstones = read_scope_state(target_session, scope).compacted_run_ids
     target_session.summary = working_session.summary
     target_session.metadata = _metadata_with_merged_seen_event_ids(
@@ -456,7 +500,7 @@ def record_compaction_chunk(
             working_session.runs or [],
         )
     storage.upsert_session(target_session)
-    adopt_session_fields(persisted_session, target_session)
+    _adopt_session_fields(persisted_session, target_session)
 
 
 def _sync_remaining_runs_from_working(

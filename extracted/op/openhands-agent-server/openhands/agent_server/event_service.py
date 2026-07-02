@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 from pydantic import ValidationError
 
 from openhands.agent_server.conversation_lease import (
+    DEFAULT_LEASE_TTL_SECONDS,
     ConversationLease,
     ConversationOwnershipLostError,
 )
@@ -81,6 +82,7 @@ class EventService:
     conversations_dir: Path
     cipher: Cipher | None = None
     owner_instance_id: str = field(default_factory=lambda: uuid4().hex)
+    lease_ttl_seconds: float = DEFAULT_LEASE_TTL_SECONDS
     _conversation: LocalConversation | None = field(default=None, init=False)
     _pub_sub: PubSub[Event] = field(
         default_factory=lambda: PubSub[Event](max_subscribers=50), init=False
@@ -733,12 +735,16 @@ class EventService:
 
         # self.stored contains an Agent configuration we can instantiate
         self.conversation_dir.mkdir(parents=True, exist_ok=True)
-        self._lease = ConversationLease(
-            conversation_dir=self.conversation_dir,
-            owner_instance_id=self.owner_instance_id,
-        )
-        lease_claim = self._lease.claim()
-        self._lease_generation = lease_claim.generation
+        # lease_ttl_seconds=0 disables leasing for single-instance deployments
+        # where shared-storage stale leases would otherwise block pod restarts.
+        if self.lease_ttl_seconds > 0:
+            self._lease = ConversationLease(
+                conversation_dir=self.conversation_dir,
+                owner_instance_id=self.owner_instance_id,
+                ttl_seconds=self.lease_ttl_seconds,
+            )
+            lease_claim = self._lease.claim()
+            self._lease_generation = lease_claim.generation
         workspace = self.stored.workspace
         assert isinstance(workspace, LocalWorkspace)
         working_dir = Path(workspace.working_dir)
@@ -825,6 +831,7 @@ class EventService:
             user_id=self.stored.user_id,
             observability_metadata=self.stored.observability_metadata,
             observability_tags=self.stored.observability_tags,
+            observability_span_name=self.stored.observability_span_name,
         )
 
         conversation.set_confirmation_policy(self.stored.confirmation_policy)
@@ -1361,6 +1368,13 @@ class EventService:
         await loop.run_in_executor(
             None, self._conversation.set_security_analyzer, security_analyzer
         )
+
+    async def load_plugin(self, plugin_ref: str) -> None:
+        """Load a marketplace plugin into the active conversation."""
+        if self._conversation is None:
+            raise ValueError("inactive_service")
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self._conversation.load_plugin, plugin_ref)
 
     async def switch_acp_model(self, model: str) -> None:
         """Switch the model on an ACP conversation.

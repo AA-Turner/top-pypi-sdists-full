@@ -616,7 +616,7 @@ def _finalize(retVal, results, processes, attack_info=None):
             removals.add((user, hash_))
             hashDBWrite(hash_, word)
 
-        for item in attack_info or []:
+        for item in list(attack_info or []):
             if (item[0][0], item[0][1]) in removals:
                 attack_info.remove(item)
 
@@ -1047,7 +1047,7 @@ def dictionaryAttack(attack_dict):
                             hash_ = hash_.lower()
 
                         if hash_regex in (HASH.MD5_BASE64, HASH.SHA1_BASE64, HASH.SHA256_BASE64, HASH.SHA512_BASE64):
-                            item = [(user, encodeHex(decodeBase64(hash_, binary=True))), {}]
+                            item = [(user, encodeHex(decodeBase64(hash_, binary=True), binary=False)), {}]
                         elif hash_regex in (HASH.MYSQL, HASH.MYSQL_OLD, HASH.MD5_GENERIC, HASH.SHA1_GENERIC, HASH.SHA224_GENERIC, HASH.SHA256_GENERIC, HASH.SHA384_GENERIC, HASH.SHA512_GENERIC, HASH.APACHE_SHA1):
                             if hash_.startswith("0x"):  # Reference: https://docs.microsoft.com/en-us/sql/t-sql/functions/hashbytes-transact-sql?view=sql-server-2017
                                 hash_ = hash_[2:]
@@ -1081,7 +1081,7 @@ def dictionaryAttack(attack_dict):
 
                         if item and hash_ not in keys:
                             resumed = hashDBRetrieve(hash_)
-                            if not resumed:
+                            if resumed is None:
                                 attack_info.append(item)
                                 user_hash.append(item[0])
                             else:

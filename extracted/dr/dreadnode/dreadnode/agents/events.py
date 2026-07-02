@@ -541,6 +541,11 @@ class ToolEnd(AgentEvent):
     output_file: str | None = None
     error: str | None = None
     error_type: str | None = None
+    cost_usd: float | None = None
+    """Estimated USD cost contributed by this tool call, when the tool
+    ran an internal LLM (e.g. ``spawn_agent``). ``None`` for ordinary
+    tools — the TUI only accumulates this into the sub-agent cost
+    display, never the main session cost."""
 
     def _get_data(self) -> dict[str, t.Any]:
         return {
@@ -553,6 +558,7 @@ class ToolEnd(AgentEvent):
             "stop": self.stop,
             "error": self.error,
             "error_type": self.error_type,
+            "cost_usd": self.cost_usd,
         }
 
     def __repr__(self) -> str:

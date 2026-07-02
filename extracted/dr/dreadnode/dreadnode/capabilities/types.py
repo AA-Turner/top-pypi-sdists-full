@@ -96,6 +96,10 @@ class AgentDef:
     name: str
     description: str
     model: str = "inherit"
+    engine: str = "inherit"
+    """Loop owner: ``inherit`` (→ runtime default → ``native``), a built-in engine
+    name (e.g. ``claude-code``), or a ``mod:attr`` reference. Resolves with the
+    same precedence as ``model``."""
     system_prompt: str = ""
     tools: dict[str, bool] = field(default_factory=dict)
     skills: list[str] = field(default_factory=list)

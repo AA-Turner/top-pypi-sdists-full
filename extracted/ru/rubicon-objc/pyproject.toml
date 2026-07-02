@@ -1,7 +1,7 @@
 [build-system]
 requires = [
     "setuptools==82.0.1",
-    "setuptools_scm==10.0.5",
+    "setuptools_scm==10.2.0",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -54,7 +54,7 @@ pre-commit = [
 ]
 
 setuptools-scm = [
-    "setuptools_scm == 10.0.5",
+    "setuptools_scm==10.2.0",
 ]
 
 towncrier = [
@@ -62,13 +62,13 @@ towncrier = [
 ]
 
 tox-uv = [
-    "tox-uv == 1.35.1",
+    "tox-uv == 1.35.2",
 ]
 
 test = [
-    "coverage[toml] == 7.13.5",
+    "coverage[toml] == 7.14.3",
     "coverage-conditional-plugin == 0.9.0",
-    "pytest == 9.0.3",
+    "pytest == 9.1.1",
 ]
 
 dev = [

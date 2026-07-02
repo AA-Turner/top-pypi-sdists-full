@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from django.conf import settings
+from django.urls import reverse
 
+from weblate.auth.data import SELECTION_ALL
 from weblate.auth.forms import ProjectTeamForm, WorkspaceTeamForm
 from weblate.auth.models import Group, Permission, Role, TeamMembership, User
 from weblate.lang.models import Language
@@ -113,6 +115,26 @@ class TeamsTest(FixtureTestCase):
         self.assertNotIn(global_role, roles)
         self.assertNotIn(project_role, roles)
 
+    def test_workspace_team_form_uses_all_languages(self) -> None:
+        workspace = Workspace.objects.create(name="Workspace")
+        group = Group.objects.create(name="Test group", defining_workspace=workspace)
+
+        form = WorkspaceTeamForm(
+            workspace,
+            {
+                "name": group.name,
+                "roles": [],
+                "autogroup_set-TOTAL_FORMS": "0",
+                "autogroup_set-INITIAL_FORMS": "0",
+            },
+            instance=group,
+        )
+
+        self.assertTrue(form.is_valid())
+        form.save()
+        group.refresh_from_db()
+        self.assertEqual(group.language_selection, SELECTION_ALL)
+
     def test_workspace_internal_team_delete(self) -> None:
         workspace = Workspace.objects.create(name="Workspace")
         workspace.add_owner(self.user)
@@ -121,6 +143,10 @@ class TeamsTest(FixtureTestCase):
         response = self.client.post(group.get_absolute_url(), {"delete": "1"})
 
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"],
+            reverse("workspace-access", kwargs={"pk": workspace.pk}),
+        )
         self.assertTrue(Group.objects.filter(pk=group.pk).exists())
 
     def test_add_users(self) -> None:

@@ -11,7 +11,7 @@ from collections import defaultdict
 from datetime import datetime
 from itertools import chain
 from secrets import token_hex
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Protocol, cast
 
 import jsonschema
 from crispy_forms.bootstrap import InlineCheckboxes, InlineRadios, Tab, TabHolder
@@ -37,7 +37,7 @@ from django.utils.html import format_html, format_html_join
 from django.utils.http import urlencode
 from django.utils.safestring import mark_safe
 from django.utils.text import normalize_newlines, slugify
-from django.utils.translation import gettext, gettext_lazy
+from django.utils.translation import get_language, gettext, gettext_lazy
 from translation_finder import DiscoveryResult, discover
 
 from weblate.accounts.models import AuditLog
@@ -72,6 +72,7 @@ from weblate.trans.file_format_params import (
 )
 from weblate.trans.filter import FILTERS
 from weblate.trans.inherited_settings import (
+    COMPONENT_MESSAGE_SETTINGS,
     INHERITABLE_COMPONENT_FLAGS,
     INHERITABLE_COMPONENT_SETTINGS,
     get_inherit_field_name,
@@ -133,6 +134,7 @@ from weblate.utils.validators import (
     validate_translation_upload_size,
 )
 from weblate.utils.views import get_sort_name
+from weblate.vcs.git import GitMergeRequestBase
 from weblate.vcs.models import VCS_REGISTRY
 from weblate.workspaces.models import Workspace
 
@@ -150,6 +152,37 @@ if TYPE_CHECKING:
     )
     from weblate.trans.models.translation import NewUnitParams
     from weblate.utils.stats import CategoryLanguage, ProjectLanguage
+
+
+def clean_integration_component_data(
+    form: forms.BaseForm, data: dict[str, Any], *, vcs: str | None = None
+) -> bool:
+    """Normalize settings owned by integration-backed VCS backends."""
+    vcs_backend = VCS_REGISTRY.get(vcs or data.get("vcs", ""))
+    if vcs_backend is None:
+        return True
+
+    for field in vcs_backend.component_clear_fields:
+        if field in data:
+            data[field] = ""
+
+    if (
+        vcs_backend.component_requires_branch
+        and not data.get("branch")
+        and not is_repo_link(data.get("repo") or "")
+    ):
+        form.add_error(
+            "branch",
+            gettext("Repository branch is required for this integration."),
+        )
+        return False
+    return True
+
+
+class SiteDefaultField(Protocol):
+    site_default: bool
+    widget: forms.Widget
+
 
 BUTTON_TEMPLATE = """
 <button type="button" class="btn btn-outline-primary {0}" title="{1}" {2}>{3}</button>
@@ -196,10 +229,12 @@ class DateRangeField(forms.CharField):
             return None
         try:
             start, end = value.split(" - ")
-            start_date = datetime.strptime(start, "%m/%d/%Y").replace(  # noqa: DTZ007
+            # ruff: ignore[call-datetime-strptime-without-zone]
+            start_date = datetime.strptime(start, "%m/%d/%Y").replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
-            end_date = datetime.strptime(end, "%m/%d/%Y").replace(  # noqa: DTZ007
+            # ruff: ignore[call-datetime-strptime-without-zone]
+            end_date = datetime.strptime(end, "%m/%d/%Y").replace(
                 hour=23, minute=59, second=59, microsecond=999999
             )
             return {
@@ -243,8 +278,40 @@ class ChecksumField(forms.CharField):
             raise ValidationError(gettext("Invalid checksum specified!")) from error
 
 
+class FlagEditorWidget(forms.TextInput):
+    """Text input for interactive flag editor."""
+
+    def __init__(self, attrs=None) -> None:
+        attrs = {**(attrs or {})}
+        existing = attrs.get("class", "").split()
+        if "flag-editor" not in existing:
+            existing.append("flag-editor")
+        attrs["class"] = " ".join(existing)
+        attrs.setdefault("autocomplete", "off")
+        attrs.setdefault("autocapitalize", "off")
+        attrs.setdefault("spellcheck", "false")
+        super().__init__(attrs)
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        # Embed active language in the URL so the browser cache key varies on it
+        language = get_language() or ""
+        url = reverse("js-flag-choices")
+        if language:
+            url = f"{url}?{urlencode({'lang': language})}"
+        context["widget"]["attrs"].setdefault("data-flag-choices-url", url)
+        return context
+
+
 class FlagField(forms.CharField):
-    default_validators = [validate_check_flags]  # noqa: RUF012
+    # ruff: ignore[mutable-class-default]
+    default_validators = [validate_check_flags]
+    widget = FlagEditorWidget
+
+    def __init__(self, *args, **kwargs) -> None:
+        # Force the tag-based editor widget
+        kwargs["widget"] = FlagEditorWidget()
+        super().__init__(*args, **kwargs)
 
 
 class PluralTextarea(forms.Textarea):
@@ -267,7 +334,8 @@ class PluralTextarea(forms.Textarea):
                     name,
                     format_html(
                         'data-value="{}"',
-                        mark_safe(  # noqa: S308
+                        # ruff: ignore[suspicious-mark-safe-usage]
+                        mark_safe(
                             value.encode("ascii", "xmlcharrefreplace").decode("ascii")
                         ),
                     ),
@@ -339,7 +407,8 @@ class PluralTextarea(forms.Textarea):
                     name,
                     format_html(
                         'data-value="{}" tabindex="-1"',
-                        mark_safe(  # noqa: S308
+                        # ruff: ignore[suspicious-mark-safe-usage]
+                        mark_safe(
                             value.encode("ascii", "xmlcharrefreplace").decode("ascii")
                         ),
                     ),
@@ -384,7 +453,9 @@ class PluralTextarea(forms.Textarea):
         plural = translation.plural
         placeables_set: set[str] = set()
         for text in plurals:
-            placeables_set.update(hl[2] for hl in highlight_string(text, unit))
+            placeables_set.update(
+                highlight.text for highlight in highlight_string(text, unit)
+            )
         placeables = list(placeables_set)
         show_plural_labels = len(values) > 1 and not translation.component.is_multivalue
 
@@ -526,6 +597,7 @@ class FuzzyField(forms.BooleanField):
 class TranslationForm(UnitForm):
     """Form used for translation of single string."""
 
+    checksum = ChecksumField(required=True)
     contentsum = ChecksumField(required=True)
     translationsum = ChecksumField(required=True)
     target = PluralField(required=False)
@@ -601,6 +673,7 @@ class TranslationForm(UnitForm):
                 )
             ]
             self.fields["review"].disabled = True
+        self.user_can_edit = user_can_edit
         self.user = user
         self.fields["target"].widget.profile = user.profile
         # Avoid failing validation on untranslated string
@@ -613,6 +686,7 @@ class TranslationForm(UnitForm):
         self.helper.layout = Layout(
             Field("target"),
             Field("fuzzy"),
+            Field("checksum"),
             Field("contentsum"),
             Field("translationsum"),
             InlineRadios("review", css_class="review_radio"),
@@ -690,18 +764,17 @@ class TranslationForm(UnitForm):
 
 
 class ZenTranslationForm(TranslationForm):
-    checksum = ChecksumField(required=True)
-
-    def __init__(self, user: User, unit, *args, **kwargs) -> None:
+    def __init__(
+        self, user: User, unit, *args, form_action: str | None = None, **kwargs
+    ) -> None:
         super().__init__(user, unit, *args, **kwargs)
-        self.helper.form_action = reverse(
+        self.helper.form_action = form_action or reverse(
             "save_zen", kwargs={"path": unit.translation.get_url_path()}
         )
         self.helper.form_tag = True
         self.helper.disable_csrf = False
-        self.helper.layout.append(Field("checksum"))
         self.fields["target"].widget.attrs["zen-mode"] = True
-        if not user.has_perm("unit.edit", unit):
+        if not self.user_can_edit:
             for field in ["target", "fuzzy", "review"]:
                 self.fields[field].widget.attrs["disabled"] = 1
 
@@ -1017,13 +1090,14 @@ class RevertForm(UnitForm):
         if "revert" not in self.cleaned_data:
             return None
         try:
-            self.cleaned_data["revert_change"] = Change.objects.get(
-                pk=self.cleaned_data["revert"], unit=self.unit
-            )
+            change = Change.objects.get(pk=self.cleaned_data["revert"], unit=self.unit)
         except Change.DoesNotExist as error:
             raise ValidationError(
                 gettext("Could not find the reverted change.")
             ) from error
+        if not change.can_revert():
+            raise ValidationError(gettext("Could not find the reverted change."))
+        self.cleaned_data["revert_change"] = change
         return self.cleaned_data
 
 
@@ -1086,6 +1160,13 @@ class AutoForm(forms.Form):
         """Generate choices for other components in the same project."""
         auto_id = kwargs.pop("auto_id", "id_auto_%s")
         super().__init__(*args, auto_id=auto_id, **kwargs)
+        if (
+            self.is_bound
+            and self.data.get("auto_source") == "mt"
+            and self.data.get("component")
+        ):
+            self.data = self.data.copy()
+            self.data["component"] = ""
         self.obj = obj
         self.project: Project | None = None
         machinery_settings = {}
@@ -1161,7 +1242,7 @@ class AutoForm(forms.Form):
             (engine.get_identifier(), engine.name) for engine in engines
         ]
         if "weblate" in engine_ids:
-            self.fields["engines"].initial = "weblate"
+            self.fields["engines"].initial = ["weblate"]
 
         if "q" not in self.initial:
             self.initial["q"] = "state:<translated"
@@ -1185,6 +1266,8 @@ class AutoForm(forms.Form):
         )
 
     def clean_component(self):
+        if self.cleaned_data.get("auto_source") == "mt":
+            return None
         component = self.cleaned_data["component"]
         if not component:
             return None
@@ -1410,9 +1493,14 @@ class ContextForm(FieldDocsMixin, forms.ModelForm):
     class Meta:
         model = Unit
         fields = ("explanation", "labels", "extra_flags")
-        widgets = {  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        widgets = {
             "labels": forms.CheckboxSelectMultiple(),
             "explanation": MarkdownTextarea,
+        }
+        # ruff: ignore[mutable-class-default]
+        field_classes = {
+            "extra_flags": FlagField,
         }
 
     doc_links: ClassVar[dict[str, tuple[str, str]]] = {
@@ -1428,7 +1516,7 @@ class ContextForm(FieldDocsMixin, forms.ModelForm):
         kwargs["initial"] = {"labels": list(instance.all_labels)}
         super().__init__(data=data, instance=instance, **kwargs)
         project = instance.translation.component.project
-        self.fields["labels"].queryset = project.label_set.all()
+        self.fields["labels"].queryset = project.label_set.order()
         self.helper = FormHelper(self)
         self.helper.disable_csrf = True
         self.helper.form_tag = False
@@ -1773,7 +1861,8 @@ class SettingsBaseForm(CleanRepoMixin, forms.ModelForm):
 
     class Meta:
         model = Component
-        fields = []  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        fields = []
 
     def __init__(self, request: AuthenticatedHttpRequest, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -1782,7 +1871,18 @@ class SettingsBaseForm(CleanRepoMixin, forms.ModelForm):
         self.helper.form_tag = False
 
 
-class InheritedSettingsFormMixin:
+InheritedSettingsScope = Literal["workspace", "project", "category"]
+
+
+def get_inherited_settings_label(parent_scope: InheritedSettingsScope) -> str:
+    if parent_scope == "workspace":
+        return gettext("Inherit from workspace")
+    if parent_scope == "project":
+        return gettext("Inherit from project")
+    return gettext("Inherit from category")
+
+
+class InheritedSettingsFormMixin(forms.ModelForm):
     _inherited_setting_fields: set[str]
     _inherited_setting_restore_values: dict[str, Any]
 
@@ -1820,15 +1920,18 @@ class InheritedSettingsFormMixin:
             "" if override_value is None else override_value
         )
 
-    def setup_inherited_settings(self, parent_name: str, *, has_parent: bool) -> None:
+    def setup_inherited_settings(
+        self, parent_scope: InheritedSettingsScope, *, has_parent: bool
+    ) -> None:
+        setup_message_setting_site_defaults(self.fields)
         self._inherited_setting_fields = set()
         for field_name in INHERITABLE_COMPONENT_SETTINGS:
             inherit_field = get_inherit_field_name(field_name)
             if inherit_field not in self.fields:
                 continue
-            self.fields[inherit_field].label = gettext("Inherit from %(scope)s") % {
-                "scope": parent_name
-            }
+            self.fields[inherit_field].label = get_inherited_settings_label(
+                parent_scope
+            )
             if not has_parent:
                 self.fields[inherit_field].initial = False
                 self.fields[inherit_field].widget = forms.HiddenInput()
@@ -1882,6 +1985,16 @@ class InheritedSettingsFormMixin:
             super()._post_clean()
         finally:
             self.restore_inherited_values()
+
+
+def setup_message_setting_site_defaults(fields: dict[str, forms.Field]) -> None:
+    for field_name in COMPONENT_MESSAGE_SETTINGS:
+        if field_name not in fields:
+            continue
+        setting_name = f"DEFAULT_{field_name.upper()}"
+        field = cast("SiteDefaultField", fields[field_name])
+        field.site_default = True
+        field.widget.attrs["data-site-default-value"] = getattr(settings, setting_name)
 
 
 class SelectChecksWidget(SortedSelectMultiple):
@@ -2029,6 +2142,19 @@ class ProjectAntispamMixin(SpamCheckMixin):
     spam_fields = ("web", "instructions")
 
 
+def get_vcs_push_categories() -> str:
+    """Return JSON mapping of VCS identifier to push behavior category."""
+    categories: dict[str, str] = {}
+    for identifier, cls in VCS_REGISTRY.items():
+        if issubclass(cls, GitMergeRequestBase):
+            categories[identifier] = "merge_request"
+        elif cls.pushes_to_different_location:
+            categories[identifier] = "gerrit"
+        else:
+            categories[identifier] = "direct"
+    return json.dumps(categories)
+
+
 class ComponentSettingsForm(
     InheritedSettingsFormMixin,
     SettingsBaseForm,
@@ -2100,24 +2226,27 @@ class ComponentSettingsForm(
             "is_glossary",
             "glossary_color",
         )
-        widgets = {  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        widgets = {
             "enforced_checks": SelectChecksWidget,
             "source_language": SortedSelect,
             "secondary_language": SortedSelect,
             "language_code_style": SortedSelect,
             "license": SearchableSelect,
         }
-        field_classes = {  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        field_classes = {
             "enforced_checks": SelectChecksField,
             "file_format_params": FormParamsField,
+            "check_flags": FlagField,
         }
 
     def __init__(self, request: AuthenticatedHttpRequest, *args, **kwargs) -> None:
         super().__init__(request, *args, **kwargs)
-        parent_name = (
-            gettext("category") if self.instance.category_id else gettext("project")
+        parent_scope: InheritedSettingsScope = (
+            "category" if self.instance.category_id else "project"
         )
-        self.setup_inherited_settings(parent_name, has_parent=True)
+        self.setup_inherited_settings(parent_scope, has_parent=True)
         if self.hide_restricted:
             self.fields["restricted"].widget = forms.HiddenInput()
         self.helper.layout = Layout(
@@ -2184,6 +2313,10 @@ class ComponentSettingsForm(
                         "branch",
                         "push",
                         "push_branch",
+                        ContextDiv(
+                            template="trans/vcs_push_help.html",
+                            context={"vcs_push_categories": get_vcs_push_categories()},
+                        ),
                         "repoweb",
                     ),
                     Fieldset(
@@ -2241,12 +2374,28 @@ class ComponentSettingsForm(
                 template="layout/pills.html",
             )
         )
-        vcses: set[str] = VCS_REGISTRY.git_based
-        if self.instance.vcs not in vcses:
-            vcses = (self.instance.vcs,)
+        vcses: set[str] = {
+            identifier
+            for identifier in VCS_REGISTRY.git_based
+            if VCS_REGISTRY[identifier].manual_component_creation
+            or identifier == self.instance.vcs
+        }
+        if self.instance.vcs not in VCS_REGISTRY.git_based:
+            vcses = {self.instance.vcs}
         self.fields["vcs"].choices = [
             c for c in self.fields["vcs"].choices if c[0] in vcses
         ]
+        vcs_backend = VCS_REGISTRY.get(self.instance.vcs)
+        if vcs_backend is not None and vcs_backend.component_lock_fields:
+            # Integration-backed repository settings are managed by the
+            # provider import flow; editing them would break authentication.
+            for locked_field in vcs_backend.component_lock_fields:
+                if locked_field in self.fields:
+                    self.fields[locked_field].disabled = True
+            for cleared_field in vcs_backend.component_clear_fields:
+                if cleared_field in self.fields:
+                    self.initial[cleared_field] = ""
+                    self.fields[cleared_field].initial = ""
         self.patch_unlinking_linked_repository_settings()
         self.patch_linked_repository_settings()
 
@@ -2309,6 +2458,7 @@ class ComponentSettingsForm(
         data = self.cleaned_data
         if self.hide_restricted:
             data["restricted"] = self.instance.restricted
+        clean_integration_component_data(self, data, vcs=self.instance.vcs)
 
         repo = data.get("repo") or ""
         if is_repo_link(repo):
@@ -2345,7 +2495,8 @@ class ComponentCreateForm(
 
     class Meta:
         model = Component
-        fields = [  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        fields = [
             "project",
             "category",
             "name",
@@ -2374,41 +2525,55 @@ class ComponentCreateForm(
             "source_language",
             "is_glossary",
         ]
-        widgets = {  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        widgets = {
             "source_language": SortedSelect,
             "language_code_style": SortedSelect,
             "license": SearchableSelect,
         }
-        field_classes = {  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        field_classes = {
             "file_format_params": FormParamsField,
         }
 
     def __init__(self, request: AuthenticatedHttpRequest, *args, **kwargs) -> None:
+        source_component = None
         if (
             source_component_text := request.GET.get("source_component")
         ) and "file_format" in kwargs["initial"]:
-            source_component = Component.objects.get(pk=int(source_component_text))
-            if source_component.file_format_params:
-                supported_params = {
-                    param.get_identifier()
-                    for param in get_params_for_file_format(
-                        kwargs["initial"]["file_format"]
-                    )
-                }
-                source_file_format_params = {
-                    k: v
-                    for k, v in source_component.file_format_params.items()
-                    if k in supported_params
-                }
-                initial_file_format_params = kwargs["initial"].get(
-                    "file_format_params", {}
+            try:
+                source_component_id = int(source_component_text)
+            except (TypeError, ValueError):
+                source_component_id = None
+            if source_component_id is not None:
+                source_component = (
+                    Component.objects.filter_access(request.user)
+                    .filter(pk=source_component_id)
+                    .first()
                 )
-                if not isinstance(initial_file_format_params, dict):
-                    initial_file_format_params = {}
-                kwargs["initial"]["file_format_params"] = {
-                    **source_file_format_params,
-                    **initial_file_format_params,
-                }
+        if (
+            source_component is not None
+            and "file_format" in kwargs["initial"]
+            and source_component.file_format_params
+        ):
+            supported_params = {
+                param.get_identifier()
+                for param in get_params_for_file_format(
+                    kwargs["initial"]["file_format"]
+                )
+            }
+            source_file_format_params = {
+                k: v
+                for k, v in source_component.file_format_params.items()
+                if k in supported_params
+            }
+            initial_file_format_params = kwargs["initial"].get("file_format_params", {})
+            if not isinstance(initial_file_format_params, dict):
+                initial_file_format_params = {}
+            kwargs["initial"]["file_format_params"] = {
+                **source_file_format_params,
+                **initial_file_format_params,
+            }
         super().__init__(request, *args, **kwargs)
         self.setup_create_inherited_settings()
         self.helper.layout = Layout(
@@ -2421,6 +2586,10 @@ class ComponentCreateForm(
             "branch",
             "push",
             "push_branch",
+            ContextDiv(
+                template="trans/vcs_push_help.html",
+                context={"vcs_push_categories": get_vcs_push_categories()},
+            ),
             "repoweb",
             "file_format",
             "file_format_params",
@@ -2462,15 +2631,16 @@ class ComponentCreateForm(
 
     def setup_create_inherited_settings(self) -> None:
         parent = self.get_selected_parent()
+        parent_scope: InheritedSettingsScope
         if isinstance(parent, Category):
             self.instance.category = parent
             self.instance.project = parent.project
-            parent_name = gettext("category")
+            parent_scope = "category"
         elif isinstance(parent, Project):
             self.instance.project = parent
-            parent_name = gettext("project")
+            parent_scope = "project"
         else:
-            parent_name = gettext("project")
+            parent_scope = "project"
 
         for field_name in self.CREATE_INHERITABLE_SETTINGS:
             if field_name in self.initial:
@@ -2500,7 +2670,7 @@ class ComponentCreateForm(
             self.initial["inherit_license"] = False
             self.instance.inherit_license = False
 
-        self.setup_inherited_settings(parent_name, has_parent=parent is not None)
+        self.setup_inherited_settings(parent_scope, has_parent=parent is not None)
 
     def disables_inheritance_for_explicit_setting(self, field: str) -> bool:
         inherit_field = get_inherit_field_name(field)
@@ -2519,6 +2689,7 @@ class ComponentCreateForm(
     def clean(self) -> None:
         super().clean()
         data = self.cleaned_data
+        clean_integration_component_data(self, data)
 
         if "file_format_params" in data:
             data["file_format_params"] = strip_unused_file_format_params(
@@ -2683,7 +2854,8 @@ class ComponentZipCreateForm(ComponentProjectForm):
         widget=forms.FileInput(attrs={"accept": ".zip,application/zip"}),
     )
 
-    field_order = [  # noqa: RUF012
+    # ruff: ignore[mutable-class-default]
+    field_order = [
         "zipfile",
         "project",
         "name",
@@ -2698,7 +2870,7 @@ class ComponentZipCreateForm(ComponentProjectForm):
 class ComponentDocCreateForm(ComponentProjectForm):
     docfile = forms.FileField(
         label=gettext_lazy("Document to translate"),
-        validators=[validate_file_extension],
+        validators=[validate_translation_upload_size, validate_file_extension],
     )
 
     target_language = forms.ModelChoiceField(
@@ -2708,7 +2880,8 @@ class ComponentDocCreateForm(ComponentProjectForm):
         queryset=Language.objects.all(),
         required=False,
     )
-    field_order = [  # noqa: RUF012
+    # ruff: ignore[mutable-class-default]
+    field_order = [
         "docfile",
         "project",
         "name",
@@ -2742,6 +2915,16 @@ class ComponentInitCreateForm(CleanRepoMixin, ComponentProjectForm):
     )
     instance: Component  # type: ignore[assignment]
 
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        # Integration-backed backends are selected by provider import flows,
+        # not manually from the generic VCS chooser.
+        self.fields["vcs"].choices = [
+            choice
+            for choice in self.fields["vcs"].choices
+            if VCS_REGISTRY[choice[0]].manual_component_creation
+        ]
+
     def clean_instance(self, data) -> None:
         params = copy.copy(data)
         for field in ("detected_license", "discovery", "source_component"):
@@ -2771,6 +2954,8 @@ class ComponentInitCreateForm(CleanRepoMixin, ComponentProjectForm):
             self.clean_instance(data)
 
     def clean(self) -> None:
+        if not clean_integration_component_data(self, self.cleaned_data):
+            return
         self.clean_instance(self.cleaned_data)
 
 
@@ -2878,7 +3063,8 @@ class ComponentRenameForm(SettingsBaseForm, ComponentDocsMixin):
 
     class Meta:
         model = Component
-        fields = ["name", "slug", "project", "category"]  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        fields = ["name", "slug", "project", "category"]
 
     def __init__(self, request: AuthenticatedHttpRequest, *args, **kwargs) -> None:
         super().__init__(request, *args, **kwargs)
@@ -2963,7 +3149,8 @@ class CategoryRenameForm(SettingsBaseForm):
 
     class Meta:
         model = Category
-        fields = ["name", "slug", "project", "category"]  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        fields = ["name", "slug", "project", "category"]
 
     def __init__(self, request: AuthenticatedHttpRequest, *args, **kwargs) -> None:
         super().__init__(request, *args, **kwargs)
@@ -2976,7 +3163,8 @@ class CategoryRenameForm(SettingsBaseForm):
 class AddCategoryForm(SettingsBaseForm):
     class Meta:
         model = Category
-        fields = ["name", "slug"]  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        fields = ["name", "slug"]
 
     def __init__(
         self, request: AuthenticatedHttpRequest, parent, *args, **kwargs
@@ -3029,7 +3217,8 @@ class CategorySettingsForm(
             "inherit_pull_message",
             "pull_message",
         )
-        widgets = {  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        widgets = {
             "secondary_language": SortedSelect,
             "language_code_style": SortedSelect,
             "license": SearchableSelect,
@@ -3037,10 +3226,10 @@ class CategorySettingsForm(
 
     def __init__(self, request: AuthenticatedHttpRequest, *args, **kwargs) -> None:
         super().__init__(request, *args, **kwargs)
-        parent_name = (
-            gettext("category") if self.instance.category_id else gettext("project")
+        parent_scope: InheritedSettingsScope = (
+            "category" if self.instance.category_id else "project"
         )
-        self.setup_inherited_settings(parent_name, has_parent=True)
+        self.setup_inherited_settings(parent_scope, has_parent=True)
         self.helper.layout = Layout(
             TabHolder(
                 Tab(
@@ -3103,6 +3292,8 @@ class ProjectSettingsForm(
             "instructions",
             "use_shared_tm",
             "contribute_shared_tm",
+            "use_workspace_tm",
+            "contribute_workspace_tm",
             "autoclean_tm",
             "enable_hooks",
             "language_aliases",
@@ -3135,13 +3326,18 @@ class ProjectSettingsForm(
             "inherit_pull_message",
             "pull_message",
         )
-        widgets = {  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        widgets = {
             "access_control": forms.RadioSelect,
             "instructions": MarkdownTextarea,
             "language_aliases": forms.TextInput,
             "secondary_language": SortedSelect,
             "language_code_style": SortedSelect,
             "license": SearchableSelect,
+        }
+        # ruff: ignore[mutable-class-default]
+        field_classes = {
+            "check_flags": FlagField,
         }
 
     def get_unlicensed_components(self, project_license: str) -> list[Component]:
@@ -3183,12 +3379,14 @@ class ProjectSettingsForm(
         data = self.cleaned_data
         if settings.OFFER_HOSTING:
             data["contribute_shared_tm"] = data["use_shared_tm"]
+            data["contribute_workspace_tm"] = data["use_workspace_tm"]
 
         # ACCESS_PUBLIC = 0, so the condition can not be simplified to not data["access_control"]
         if (
             "access_control" not in data
             or data["access_control"] is None
-            or data["access_control"] == ""  # noqa: PLC1901
+            # ruff: ignore[compare-to-empty-string]
+            or data["access_control"] == ""
         ):
             data["access_control"] = self.instance.access_control
         access = data["access_control"]
@@ -3263,8 +3461,9 @@ class ProjectSettingsForm(
 
     def __init__(self, request: AuthenticatedHttpRequest, *args, **kwargs) -> None:
         super().__init__(request, *args, **kwargs)
+        parent_scope: InheritedSettingsScope = "workspace"
         self.setup_inherited_settings(
-            gettext("workspace"), has_parent=self.instance.workspace_id is not None
+            parent_scope, has_parent=self.instance.workspace_id is not None
         )
         self.user = request.user
         self.user_can_change_access = request.user.has_perm(
@@ -3315,6 +3514,8 @@ class ProjectSettingsForm(
                     gettext("Workflow"),
                     "use_shared_tm",
                     "contribute_shared_tm",
+                    "use_workspace_tm",
+                    "contribute_workspace_tm",
                     "autoclean_tm",
                     "check_flags",
                     "enable_hooks",
@@ -3367,6 +3568,11 @@ class ProjectSettingsForm(
                 "Uses and contributes to the pool of shared translations "
                 "between projects."
             )
+            self.fields["contribute_workspace_tm"].widget = forms.HiddenInput()
+            self.fields["use_workspace_tm"].help_text = gettext(
+                "Uses and contributes to the pool of shared translations "
+                "between projects in the workspace."
+            )
             self.fields["access_control"].choices = [
                 choice
                 for choice in self.fields["access_control"].choices
@@ -3379,7 +3585,8 @@ class ProjectRenameForm(SettingsBaseForm, ProjectDocsMixin):
 
     class Meta:
         model = Project
-        fields = ["name", "slug"]  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        fields = ["name", "slug"]
 
 
 class ProjectMoveForm(forms.Form):
@@ -3467,7 +3674,11 @@ class ProjectCreateForm(
 
     class Meta:
         model = Project
-        fields = ("name", "slug", "web", "instructions", "workspace")
+        fields = ("name", "slug", "web", "instructions", "license", "workspace")
+        # ruff: ignore[mutable-class-default]
+        widgets = {
+            "license": SearchableSelect,
+        }
 
 
 class ProjectImportCreateForm(ProjectCreateForm):
@@ -3576,10 +3787,19 @@ class ReplaceForm(forms.Form):
 
 
 class ReplaceConfirmForm(forms.Form):
+    q = forms.CharField(required=False, widget=forms.HiddenInput)
+    path = forms.CharField(required=False, widget=forms.HiddenInput)
+    search = forms.CharField(
+        min_length=1, required=True, strip=False, widget=forms.HiddenInput
+    )
+    replacement = forms.CharField(
+        min_length=1, required=True, strip=False, widget=forms.HiddenInput
+    )
     units = forms.ModelMultipleChoiceField(queryset=Unit.objects.none(), required=False)
     confirm = forms.BooleanField(required=True, initial=True, widget=forms.HiddenInput)
 
     def __init__(self, units, *args, **kwargs) -> None:
+        kwargs.setdefault("auto_id", False)
         super().__init__(*args, **kwargs)
         self.fields["units"].queryset = units
 
@@ -3879,7 +4099,7 @@ class BulkEditForm(forms.Form):
             # Labels are project-scoped, so non-project bulk edit scopes do not
             # offer label operations to avoid applying labels across projects.
             labels = (
-                Label.objects.none() if project is None else project.label_set.all()
+                Label.objects.none() if project is None else project.label_set.order()
             )
         if labels:
             self.fields["remove_labels"].queryset = labels
@@ -4036,8 +4256,10 @@ class AnnouncementForm(forms.ModelForm):
 
     class Meta:
         model = Announcement
-        fields = ["message", "severity", "expiry", "notify"]  # noqa: RUF012
-        widgets = {  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        fields = ["message", "severity", "expiry", "notify"]
+        # ruff: ignore[mutable-class-default]
+        widgets = {
             "expiry": WeblateDateInput(),
             "message": MarkdownTextarea,
         }
@@ -4094,7 +4316,8 @@ class LabelForm(forms.ModelForm):
     class Meta:
         model = Label
         fields = ("name", "description", "color", "project")
-        widgets = {  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        widgets = {
             "color": ColorWidget(),
             "project": forms.HiddenInput(),
         }
@@ -4114,8 +4337,10 @@ class LabelForm(forms.ModelForm):
 class ProjectTokenCreateForm(forms.ModelForm):
     class Meta:
         model = User
-        fields = ["full_name", "date_expires"]  # noqa: RUF012
-        widgets = {  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        fields = ["full_name", "date_expires"]
+        # ruff: ignore[mutable-class-default]
+        widgets = {
             "date_expires": WeblateDateInput(),
         }
 
@@ -4278,7 +4503,8 @@ class WorkflowSettingForm(FieldDocsMixin, forms.ModelForm):
 
     class Meta:
         model = WorkflowSetting
-        fields = [  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        fields = [
             "translation_review",
             "enable_suggestions",
             "suggestion_voting",

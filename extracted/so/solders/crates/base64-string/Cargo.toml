@@ -1,0 +1,18 @@
+
+[package]
+name = "solders-base64-string"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders base64 string crate."
+
+[dependencies]
+base64 = { workspace = true }
+bincode = { workspace = true }
+serde = { workspace = true }
+solana-message = { workspace = true }
+solana-transaction = { workspace = true }
+solders-message = { workspace = true }
+solders-transaction = { workspace = true }

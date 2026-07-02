@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: python-designateclient
-Version: 6.4.0
+Version: 7.0.0
 Summary: OpenStack DNS-as-a-Service - Client
-Home-page: https://docs.openstack.org/python-designateclient/latest
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
-License: Apache License, Version 2.0
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License-Expression: Apache-2.0
+Project-URL: Bug Tracker, https://bugs.launchpad.net/python-designateclient/
+Project-URL: Documentation, https://docs.openstack.org/python-designateclient/latest
+Project-URL: Source Code, https://opendev.org/openstack/python-designateclient
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: Implementation :: CPython
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet :: Name Service (DNS)
 Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: cliff!=2.9.0,>=2.8.0
 Requires-Dist: jsonschema>=3.2.0
@@ -32,13 +33,8 @@ Requires-Dist: keystoneauth1>=3.4.0
 Requires-Dist: requests>=2.14.2
 Requires-Dist: stevedore>=1.20.0
 Requires-Dist: debtcollector>=1.2.0
-Dynamic: author
-Dynamic: author-email
-Dynamic: license
 Dynamic: license-file
 Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 =====================================
 Python bindings to the Designate API

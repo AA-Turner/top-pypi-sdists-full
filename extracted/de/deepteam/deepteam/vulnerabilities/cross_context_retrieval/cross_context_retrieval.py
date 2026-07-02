@@ -12,11 +12,16 @@ from deepteam.vulnerabilities.cross_context_retrieval import (
 )
 from deepteam.vulnerabilities.utils import validate_vulnerability_types
 from deepteam.metrics import CrossContextRetrievalMetric, BaseRedTeamingMetric
+from deepteam.metrics.types import EvaluationExample
 from deepteam.attacks.multi_turn.types import CallbackType
+from deepteam.attacks.attack_engine import AttackEngine
 from deepteam.test_case import RTTestCase
 from deepteam.attacks.attack_simulator.schema import SyntheticDataList
 from deepteam.risks import getRiskCategory
 from .template import CrossContextRetrievalTemplate
+from deepeval.tracing.types import Trace
+from deepteam.trace_scanner.schema import BatchFinding
+from deepteam.trace_scanner import TraceScanner
 
 CrossContextRetrievalLiteralType = Literal["tenant", "user", "role"]
 
@@ -25,6 +30,7 @@ class CrossContextRetrieval(BaseVulnerability):
     name: str = "Cross-Context Retrieval"
     description = "Unauthorized disclosure of information across boundaries, such as cross-tenant, cross-user, or cross-role data leakage in RAG or multi-tenant systems."
     ALLOWED_TYPES = [type.value for type in CrossContextRetrievalType]
+    category = "Security"
 
     def __init__(
         self,
@@ -38,6 +44,9 @@ class CrossContextRetrieval(BaseVulnerability):
             type.value for type in CrossContextRetrievalType
         ],
         purpose: Optional[str] = None,
+        evaluation_examples: Optional[List[EvaluationExample]] = None,
+        evaluation_guidelines: Optional[List[str]] = None,
+        attack_engine: Optional[AttackEngine] = None,
     ):
         enum_types = validate_vulnerability_types(
             self.get_name(), types=types, allowed_type=CrossContextRetrievalType
@@ -47,7 +56,10 @@ class CrossContextRetrieval(BaseVulnerability):
         self.simulator_model = simulator_model
         self.evaluation_model = evaluation_model
         self.purpose = purpose
+        self.evaluation_examples = evaluation_examples
+        self.evaluation_guidelines = evaluation_guidelines
         super().__init__(types=enum_types)
+        self.attack_engine = attack_engine
 
     def assess(
         self,
@@ -191,8 +203,9 @@ class CrossContextRetrieval(BaseVulnerability):
 
         for type in self.types:
             for prompt in templates[type]:
+                simulation_cost = 0 if self.using_native_model else None
                 if self.using_native_model:
-                    res, _ = self.simulator_model.generate(
+                    res, simulation_cost = self.simulator_model.generate(
                         prompt, schema=SyntheticDataList
                     )
                     local_attacks = [item.input for item in res.data]
@@ -207,18 +220,24 @@ class CrossContextRetrieval(BaseVulnerability):
                         data = trimAndLoadJson(res)
                         local_attacks = [item["input"] for item in data["data"]]
 
+            per_attack_cost = (
+                simulation_cost / len(local_attacks)
+                if simulation_cost is not None and local_attacks
+                else simulation_cost
+            )
             simulated_test_cases.extend(
                 [
                     RTTestCase(
                         vulnerability=self.get_name(),
                         vulnerability_type=type,
                         input=local_attack,
+                        simulation_cost=per_attack_cost,
                     )
                     for local_attack in local_attacks
                 ]
             )
 
-        return simulated_test_cases
+        return self._refine_simulated_attacks(simulated_test_cases, purpose)
 
     async def a_simulate_attacks(
         self,
@@ -245,9 +264,12 @@ class CrossContextRetrieval(BaseVulnerability):
 
         for type in self.types:
             for prompt in templates[type]:
+                simulation_cost = 0 if self.using_native_model else None
                 if self.using_native_model:
-                    res, _ = await self.simulator_model.a_generate(
-                        prompt, schema=SyntheticDataList
+                    res, simulation_cost = (
+                        await self.simulator_model.a_generate(
+                            prompt, schema=SyntheticDataList
+                        )
                     )
                     local_attacks = [item.input for item in res.data]
                 else:
@@ -263,18 +285,75 @@ class CrossContextRetrieval(BaseVulnerability):
                         data = trimAndLoadJson(res)
                         local_attacks = [item["input"] for item in data["data"]]
 
+            per_attack_cost = (
+                simulation_cost / len(local_attacks)
+                if simulation_cost is not None and local_attacks
+                else simulation_cost
+            )
             simulated_test_cases.extend(
                 [
                     RTTestCase(
                         vulnerability=self.get_name(),
                         vulnerability_type=type,
                         input=local_attack,
+                        simulation_cost=per_attack_cost,
                     )
                     for local_attack in local_attacks
                 ]
             )
 
-        return simulated_test_cases
+        return await self._a_refine_simulated_attacks(
+            simulated_test_cases, purpose
+        )
+
+    def _assess_trace(
+        self,
+        trace: Trace,
+    ) -> List[BatchFinding]:
+        """
+        Evaluates an entire execution trace for Cross-Context Retrieval vulnerabilities using bottoms-up batching.
+        """
+        if self.async_mode:
+            loop = get_or_create_event_loop()
+            return loop.run_until_complete(self._a_assess_trace(trace=trace))
+
+        self.evaluation_model, self.using_native_model = initialize_model(
+            self.evaluation_model
+        )
+        trace_scanner = TraceScanner(
+            model=self.evaluation_model,
+            template=CrossContextRetrievalTemplate,
+        )
+
+        findings = trace_scanner.process_trace(trace)
+
+        self.trace_findings = findings
+        self.vulnerable = any(f.outcome == "materialized" for f in findings)
+
+        return findings
+
+    async def _a_assess_trace(
+        self,
+        trace: Trace,
+    ) -> List[BatchFinding]:
+        """
+        Asynchronously evaluates an entire execution trace for Cross-Context Retrieval vulnerabilities.
+        """
+        self.evaluation_model, self.using_native_model = initialize_model(
+            self.evaluation_model
+        )
+
+        trace_scanner = TraceScanner(
+            model=self.evaluation_model,
+            template=CrossContextRetrievalTemplate,
+        )
+
+        findings = await trace_scanner.a_process_trace(trace)
+
+        self.trace_findings = findings
+        self.vulnerable = any(f.outcome == "materialized" for f in findings)
+
+        return findings
 
     def _get_metric(
         self,
@@ -286,6 +365,8 @@ class CrossContextRetrieval(BaseVulnerability):
             model=self.evaluation_model,
             async_mode=self.async_mode,
             verbose_mode=self.verbose_mode,
+            evaluation_examples=self.evaluation_examples,
+            evaluation_guidelines=self.evaluation_guidelines,
         )
 
     def is_vulnerable(self) -> bool:

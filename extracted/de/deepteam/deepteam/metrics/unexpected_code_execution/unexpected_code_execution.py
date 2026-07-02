@@ -2,6 +2,9 @@ from typing import Optional, List, Tuple, Union
 
 
 from deepteam.test_case import RTTestCase
+from deepteam.metrics.evaluation_prompt_blocks import (
+    format_vulnerability_type_label,
+)
 from deepeval.utils import get_or_create_event_loop
 from deepeval.metrics.utils import (
     construct_verbose_logs,
@@ -12,6 +15,12 @@ from deepeval.models import DeepEvalBaseLLM
 from deepeval.metrics.indicator import metric_progress_indicator
 
 from deepteam.metrics import BaseRedTeamingMetric
+from deepteam.metrics.types import EvaluationExample
+from deepteam.metrics.model_reply_screening import (
+    single_turn_reply_bypasses_llm_judge,
+    DECLINE_OR_EMPTY_PASS_REASON,
+)
+
 from deepteam.metrics.unexpected_code_execution.schema import *
 from deepteam.metrics.unexpected_code_execution.template import (
     UnexpectedCodeExecutionTemplate,
@@ -29,6 +38,8 @@ class UnexpectedCodeExecutionMetric(BaseRedTeamingMetric):
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         async_mode: bool = True,
         verbose_mode: bool = False,
+        evaluation_examples: Optional[List[EvaluationExample]] = None,
+        evaluation_guidelines: Optional[List[str]] = None,
     ):
         self.execution_type = execution_type
         self.purpose = purpose  # Added: store purpose for template
@@ -36,10 +47,12 @@ class UnexpectedCodeExecutionMetric(BaseRedTeamingMetric):
         self.evaluation_model = self.model.get_model_name()
         self.async_mode = async_mode
         self.verbose_mode = verbose_mode
+        self.evaluation_examples = evaluation_examples
+        self.evaluation_guidelines = evaluation_guidelines
 
     def measure(self, test_case: RTTestCase) -> float:
 
-        self.evaluation_cost = 0 if self.using_native_model else None
+        self.evaluation_cost = None
         with metric_progress_indicator(self, _show_indicator=False):
             if self.async_mode:
                 loop = get_or_create_event_loop()
@@ -65,7 +78,7 @@ class UnexpectedCodeExecutionMetric(BaseRedTeamingMetric):
         _show_indicator: bool = False,
     ) -> float:
 
-        self.evaluation_cost = 0 if self.using_native_model else None
+        self.evaluation_cost = None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -90,6 +103,8 @@ class UnexpectedCodeExecutionMetric(BaseRedTeamingMetric):
         if test_case.turns is not None:
             actual_output = format_turns(test_case.turns)
         else:
+            if single_turn_reply_bypasses_llm_judge(test_case.actual_output):
+                return 1, DECLINE_OR_EMPTY_PASS_REASON
             actual_output = (
                 "AI'S ACTUAL OUTPUT TO EVALUATE: \n"
                 + test_case.actual_output
@@ -120,6 +135,9 @@ class UnexpectedCodeExecutionMetric(BaseRedTeamingMetric):
             all_retrieval_contexts if all_retrieval_contexts else None
         )
 
+        vulnerability_type_label = format_vulnerability_type_label(
+            test_case.vulnerability_type
+        )
         prompt = UnexpectedCodeExecutionTemplate.generate_evaluation_results(
             input=test_case.input,
             actual_output=actual_output,
@@ -127,12 +145,16 @@ class UnexpectedCodeExecutionMetric(BaseRedTeamingMetric):
             purpose=self.purpose,  # Added: pass purpose to template
             retrieval_context=retrieval_context,
             tools_called=tools_called,
+            evaluation_examples=self.evaluation_examples,
+            evaluation_guidelines=self.evaluation_guidelines,
+            vulnerability_type_label=vulnerability_type_label,
         )
         if self.using_native_model:
             res, cost = await self.model.a_generate(
                 prompt=prompt, schema=ReasonScore
             )
-            self.evaluation_cost += cost
+            if cost is not None:
+                self.evaluation_cost = (self.evaluation_cost or 0) + cost
             return res.score, res.reason
         else:
             try:
@@ -150,6 +172,8 @@ class UnexpectedCodeExecutionMetric(BaseRedTeamingMetric):
         if test_case.turns is not None:
             actual_output = format_turns(test_case.turns)
         else:
+            if single_turn_reply_bypasses_llm_judge(test_case.actual_output):
+                return 1, DECLINE_OR_EMPTY_PASS_REASON
             actual_output = (
                 "AI'S ACTUAL OUTPUT TO EVALUATE: \n"
                 + test_case.actual_output
@@ -180,6 +204,9 @@ class UnexpectedCodeExecutionMetric(BaseRedTeamingMetric):
             all_retrieval_contexts if all_retrieval_contexts else None
         )
 
+        vulnerability_type_label = format_vulnerability_type_label(
+            test_case.vulnerability_type
+        )
         prompt = UnexpectedCodeExecutionTemplate.generate_evaluation_results(
             input=test_case.input,
             actual_output=actual_output,
@@ -187,10 +214,14 @@ class UnexpectedCodeExecutionMetric(BaseRedTeamingMetric):
             purpose=self.purpose,  # Added: pass purpose to template
             retrieval_context=retrieval_context,
             tools_called=tools_called,
+            evaluation_examples=self.evaluation_examples,
+            evaluation_guidelines=self.evaluation_guidelines,
+            vulnerability_type_label=vulnerability_type_label,
         )
         if self.using_native_model:
             res, cost = self.model.generate(prompt=prompt, schema=ReasonScore)
-            self.evaluation_cost += cost
+            if cost is not None:
+                self.evaluation_cost = (self.evaluation_cost or 0) + cost
             return res.score, res.reason
         else:
             try:

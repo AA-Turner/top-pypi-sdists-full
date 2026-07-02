@@ -1,0 +1,19 @@
+
+[package]
+name = "solders-compute-budget"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders compute budget crate."
+
+[dependencies]
+pyo3 = { workspace = true, features = ["macros"] }
+solana-compute-budget = { workspace = true }
+solana-compute-budget-interface = { workspace = true }
+solana-sdk-ids = { workspace = true }
+solders-instruction = { workspace = true }
+solders-macros = { workspace = true }
+solders-pubkey = { workspace = true }
+solders-traits-core = { workspace = true }

@@ -398,6 +398,40 @@ providers: list[Provider] = [
                 ],
             ),
             ModelInfo(
+                id='claude-sonnet-5',
+                match=ClauseOr(
+                    or_=[
+                        ClauseStartsWith(starts_with='claude-sonnet-5'),
+                        ClauseStartsWith(starts_with='claude-sonnet-5.0'),
+                        ClauseStartsWith(starts_with='claude-5-sonnet'),
+                        ClauseStartsWith(starts_with='claude-5.0-sonnet'),
+                    ]
+                ),
+                name='Claude Sonnet 5',
+                description='Our most agentic Sonnet model, approaching Opus 4.8 capability at lower cost',
+                context_window=1000000,
+                price_comments='Flat pricing across full 1M context window (no tiered pricing). Introductory pricing ($2/$10 per MTok) applies through 2026-08-31; standard pricing ($3/$15) applies from 2026-09-01. Ref: https://www.anthropic.com/news/claude-sonnet-5',
+                prices=[
+                    ConditionalPrice(
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2'),
+                            cache_write_mtok=Decimal('2.5'),
+                            cache_read_mtok=Decimal('0.2'),
+                            output_mtok=Decimal('10'),
+                        )
+                    ),
+                    ConditionalPrice(
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 9, 1)),
+                        prices=ModelPrice(
+                            input_mtok=Decimal('3'),
+                            cache_write_mtok=Decimal('3.75'),
+                            cache_read_mtok=Decimal('0.3'),
+                            output_mtok=Decimal('15'),
+                        ),
+                    ),
+                ],
+            ),
+            ModelInfo(
                 id='claude-v1',
                 match=ClauseEquals(equals='claude-v1'),
                 description='Retired, here to match price sources',
@@ -650,6 +684,30 @@ providers: list[Provider] = [
                 ),
             ),
             ModelInfo(
+                id='global.anthropic.claude-sonnet-5-v1:0',
+                match=ClauseContains(contains='global.anthropic.claude-sonnet-5'),
+                price_comments='Flat pricing across full 1M context window (no tiered pricing). Promotional launch pricing ($2/$10 per MTok) through 2026-08-31; standard ($3/$15) from 2026-09-01. Ref: https://aws.amazon.com/bedrock/pricing/',
+                prices=[
+                    ConditionalPrice(
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2'),
+                            cache_write_mtok=Decimal('2.5'),
+                            cache_read_mtok=Decimal('0.2'),
+                            output_mtok=Decimal('10'),
+                        )
+                    ),
+                    ConditionalPrice(
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 9, 1)),
+                        prices=ModelPrice(
+                            input_mtok=Decimal('3'),
+                            cache_write_mtok=Decimal('3.75'),
+                            cache_read_mtok=Decimal('0.3'),
+                            output_mtok=Decimal('15'),
+                        ),
+                    ),
+                ],
+            ),
+            ModelInfo(
                 id='google.gemma-3-12b-it',
                 match=ClauseContains(contains='google.gemma-3-12b-it'),
                 name='Gemma 3 12B IT',
@@ -828,6 +886,22 @@ providers: list[Provider] = [
                 match=ClauseContains(contains='nvidia.nemotron-super-3-120b'),
                 name='Nemotron 3 Super 120B',
                 prices=ModelPrice(input_mtok=Decimal('0.15'), output_mtok=Decimal('0.65')),
+            ),
+            ModelInfo(
+                id='openai.gpt-5.4',
+                match=ClauseEquals(equals='openai.gpt-5.4'),
+                name='GPT-5.4',
+                prices=ModelPrice(
+                    input_mtok=Decimal('2.75'), cache_read_mtok=Decimal('0.275'), output_mtok=Decimal('16.5')
+                ),
+            ),
+            ModelInfo(
+                id='openai.gpt-5.5',
+                match=ClauseEquals(equals='openai.gpt-5.5'),
+                name='GPT-5.5',
+                prices=ModelPrice(
+                    input_mtok=Decimal('5.5'), cache_read_mtok=Decimal('0.55'), output_mtok=Decimal('33')
+                ),
             ),
             ModelInfo(
                 id='openai.gpt-oss-120b-1:0',
@@ -1174,6 +1248,41 @@ providers: list[Provider] = [
                     ),
                     output_mtok=TieredPrices(base=Decimal('16.5'), tiers=[Tier(start=200000, price=Decimal('24.75'))]),
                 ),
+            ),
+            ModelInfo(
+                id='regional.anthropic.claude-sonnet-5-v1:0',
+                match=ClauseOr(
+                    or_=[
+                        ClauseStartsWith(starts_with='anthropic.claude-sonnet-5'),
+                        ClauseStartsWith(starts_with='claude-sonnet-5'),
+                        ClauseContains(contains='us.anthropic.claude-sonnet-5'),
+                        ClauseContains(contains='au.anthropic.claude-sonnet-5'),
+                        ClauseContains(contains='apac.anthropic.claude-sonnet-5'),
+                        ClauseContains(contains='eu.anthropic.claude-sonnet-5'),
+                        ClauseContains(contains='us-gov.anthropic.claude-sonnet-5'),
+                        ClauseContains(contains='jp.anthropic.claude-sonnet-5'),
+                    ]
+                ),
+                price_comments='Regional/cross-region endpoints carry a 10% premium over global (AWS published only the global promo rate; regional computed as global +10%, per the documented regional premium). Promotional launch pricing through 2026-08-31; standard from 2026-09-01. Ref: https://aws.amazon.com/bedrock/pricing/',
+                prices=[
+                    ConditionalPrice(
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2.2'),
+                            cache_write_mtok=Decimal('2.75'),
+                            cache_read_mtok=Decimal('0.22'),
+                            output_mtok=Decimal('11'),
+                        )
+                    ),
+                    ConditionalPrice(
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 9, 1)),
+                        prices=ModelPrice(
+                            input_mtok=Decimal('3.3'),
+                            cache_write_mtok=Decimal('4.125'),
+                            cache_read_mtok=Decimal('0.33'),
+                            output_mtok=Decimal('16.5'),
+                        ),
+                    ),
+                ],
             ),
         ],
     ),
@@ -1927,6 +2036,16 @@ providers: list[Provider] = [
                 ),
             ),
             ModelInfo(
+                id='glm-5p2',
+                match=ClauseEquals(equals='accounts/fireworks/models/glm-5p2'),
+                name='GLM-5.2',
+                description='GLM-5.2 introduces a robust 1M-token context and advanced, multi-effort coding capabilities to significantly enhance performance on long-horizon tasks. Features a new IndexShare architecture and improved MTP layer for greater efficiency. 743B parameter MoE model from Z.ai.',
+                context_window=1040000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('1.4'), cache_read_mtok=Decimal('0.14'), output_mtok=Decimal('4.4')
+                ),
+            ),
+            ModelInfo(
                 id='gpt-oss-120b',
                 match=ClauseEquals(equals='accounts/fireworks/models/gpt-oss-120b'),
                 name='OpenAI gpt-oss-120b',
@@ -1960,6 +2079,16 @@ providers: list[Provider] = [
                 name='Kimi K2.6',
                 prices=ModelPrice(
                     input_mtok=Decimal('0.95'), cache_read_mtok=Decimal('0.16'), output_mtok=Decimal('4')
+                ),
+            ),
+            ModelInfo(
+                id='kimi-k2p7-code',
+                match=ClauseEquals(equals='accounts/fireworks/models/kimi-k2p7-code'),
+                name='Kimi K2.7 Code',
+                description='Kimi K2.7 Code is a coding-focused agentic model built upon Kimi K2.6, delivering substantial improvements on real-world long-horizon coding tasks while reducing thinking tokens by roughly 30% compared to its predecessor.',
+                context_window=262144,
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.95'), cache_read_mtok=Decimal('0.19'), output_mtok=Decimal('4')
                 ),
             ),
             ModelInfo(
@@ -2006,6 +2135,16 @@ providers: list[Provider] = [
                 ),
             ),
             ModelInfo(
+                id='nemotron-3-ultra-nvfp4',
+                match=ClauseEquals(equals='accounts/fireworks/models/nemotron-3-ultra-nvfp4'),
+                name='NVIDIA Nemotron 3 Ultra NVFP4',
+                description='Frontier-scale LLM from NVIDIA using a hybrid Latent Mixture-of-Experts (LatentMoE) architecture with interleaved Mamba-2 and MoE layers plus select Attention layers. Features 55B active parameters out of 550B total and Multi-Token Prediction layers for faster generation, optimized for complex multi-step agents, long-context analysis, and high-accuracy reasoning over code, math, and science.',
+                context_window=262000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.6'), cache_read_mtok=Decimal('0.12'), output_mtok=Decimal('2.4')
+                ),
+            ),
+            ModelInfo(
                 id='qwen2p5-vl-72b-instruct',
                 match=ClauseEquals(equals='accounts/fireworks/models/qwen2p5-vl-72b-instruct'),
                 name='Qwen2.5-VL 72B Instruct',
@@ -2027,6 +2166,16 @@ providers: list[Provider] = [
                 match=ClauseEquals(equals='accounts/fireworks/models/qwen3p6-plus'),
                 name='Qwen3.6 Plus',
                 prices=ModelPrice(input_mtok=Decimal('0.5'), cache_read_mtok=Decimal('0.1'), output_mtok=Decimal('3')),
+            ),
+            ModelInfo(
+                id='qwen3p7-plus',
+                match=ClauseEquals(equals='accounts/fireworks/models/qwen3p7-plus'),
+                name='Qwen3.7 Plus',
+                description="Qwen3.7 Plus is Alibaba's latest flagship closed model, available exclusively through Fireworks AI outside of Alibaba's own infrastructure.",
+                context_window=262144,
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.4'), cache_read_mtok=Decimal('0.08'), output_mtok=Decimal('1.6')
+                ),
             ),
         ],
     ),
@@ -5121,6 +5270,33 @@ providers: list[Provider] = [
             UsageExtractor(
                 root='usage',
                 mappings=[
+                    UsageExtractorMapping(path='input_tokens', dest='input_tokens', required=True),
+                    UsageExtractorMapping(path='cache_creation_input_tokens', dest='input_tokens', required=False),
+                    UsageExtractorMapping(path='cache_read_input_tokens', dest='input_tokens', required=False),
+                    UsageExtractorMapping(
+                        path='cache_creation_input_tokens', dest='cache_write_tokens', required=False
+                    ),
+                    UsageExtractorMapping(path='cache_read_input_tokens', dest='cache_read_tokens', required=False),
+                    UsageExtractorMapping(path='output_tokens', dest='output_tokens', required=True),
+                ],
+                api_flavor='default',
+                model_path='model',
+            ),
+            UsageExtractor(
+                root='usage',
+                mappings=[
+                    UsageExtractorMapping(path='input_tokens', dest='input_tokens', required=True),
+                    UsageExtractorMapping(
+                        path=['input_tokens_details', 'cached_tokens'], dest='cache_read_tokens', required=False
+                    ),
+                    UsageExtractorMapping(path='output_tokens', dest='output_tokens', required=True),
+                ],
+                api_flavor='responses',
+                model_path='model',
+            ),
+            UsageExtractor(
+                root='usage',
+                mappings=[
                     UsageExtractorMapping(path='prompt_tokens', dest='input_tokens', required=True),
                     UsageExtractorMapping(
                         path=['prompt_tokens_details', 'cached_tokens'], dest='cache_read_tokens', required=False
@@ -5129,7 +5305,7 @@ providers: list[Provider] = [
                 ],
                 api_flavor='chat',
                 model_path='model',
-            )
+            ),
         ],
         models=[
             ModelInfo(
@@ -7195,6 +7371,36 @@ providers: list[Provider] = [
                 ),
             ),
             ModelInfo(
+                id='anthropic/claude-sonnet-5',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='anthropic/claude-sonnet-5'),
+                        ClauseEquals(equals='anthropic/claude-sonnet-5:beta'),
+                    ]
+                ),
+                context_window=1000000,
+                price_comments='Flat pricing across full 1M context window (no tiered pricing). Introductory pricing ($2/$10 per MTok) applies through 2026-08-31; standard ($3/$15) from 2026-09-01. OpenRouter mirrors Anthropic first-party pricing; $2/$10 verified live via the OpenRouter API on 2026-06-30. Ref: https://openrouter.ai/anthropic/claude-sonnet-5',
+                prices=[
+                    ConditionalPrice(
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2'),
+                            cache_write_mtok=Decimal('2.5'),
+                            cache_read_mtok=Decimal('0.2'),
+                            output_mtok=Decimal('10'),
+                        )
+                    ),
+                    ConditionalPrice(
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 9, 1)),
+                        prices=ModelPrice(
+                            input_mtok=Decimal('3'),
+                            cache_write_mtok=Decimal('3.75'),
+                            cache_read_mtok=Decimal('0.3'),
+                            output_mtok=Decimal('15'),
+                        ),
+                    ),
+                ],
+            ),
+            ModelInfo(
                 id='anubis-pro-105b-v1',
                 match=ClauseEquals(equals='anubis-pro-105b-v1'),
                 name='Anubis Pro 105B V1',
@@ -8172,7 +8378,12 @@ providers: list[Provider] = [
             ),
             ModelInfo(
                 id='google/gemini-3.5-flash',
-                match=ClauseEquals(equals='google/gemini-3.5-flash'),
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='google/gemini-3.5-flash'),
+                        ClauseRegex(regex='^google/gemini-3\\.5-flash-\\d{8}$'),
+                    ]
+                ),
                 name='Gemini 3.5 Flash',
                 prices=ModelPrice(
                     input_mtok=Decimal('1.5'),
@@ -11164,7 +11375,9 @@ providers: list[Provider] = [
             ),
             ModelInfo(
                 id='x-ai/grok-4.3',
-                match=ClauseEquals(equals='x-ai/grok-4.3'),
+                match=ClauseOr(
+                    or_=[ClauseEquals(equals='x-ai/grok-4.3'), ClauseRegex(regex='^x-ai/grok-4\\.3-\\d{8}$')]
+                ),
                 name='Grok 4.3',
                 prices=ModelPrice(
                     input_mtok=Decimal('1.25'), cache_read_mtok=Decimal('0.2'), output_mtok=Decimal('2.5')
@@ -12418,6 +12631,9 @@ providers: list[Provider] = [
                 match=ClauseOr(
                     or_=[
                         ClauseEquals(equals='grok-4.3'),
+                        ClauseRegex(regex='^grok-4\\.3-\\d{8}$'),
+                        ClauseEquals(equals='x-ai/grok-4.3'),
+                        ClauseRegex(regex='^x-ai/grok-4\\.3-\\d{8}$'),
                         ClauseEquals(equals='grok-4.3-latest'),
                         ClauseEquals(equals='grok-latest'),
                     ]

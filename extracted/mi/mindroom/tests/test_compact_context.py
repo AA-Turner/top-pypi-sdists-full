@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, get_type_hints
@@ -30,7 +31,6 @@ from mindroom.history.runtime import ScopeSessionContext, open_scope_session_con
 from mindroom.history.storage import read_scope_state, write_scope_state
 from mindroom.history.types import (
     CompactionLifecycleStart,
-    CompactionLifecycleSuccess,
     CompactionOutcome,
     HistoryScope,
     HistoryScopeState,
@@ -437,7 +437,7 @@ async def test_compact_context_can_use_compaction_model_window_when_active_model
     outcome = prepared.compaction_outcomes[0]
     assert outcome.window_tokens == 0
     assert outcome.history_budget_tokens is None
-    assert outcome.to_notice_metadata()["version"] == 1
+    assert outcome.to_notice_metadata()["version"] == 3
     assert outcome.to_notice_metadata()["window_tokens"] == 0
     assert "history budget" not in outcome.format_notice()
     assert "/ 0 " not in outcome.format_notice()
@@ -471,7 +471,6 @@ async def test_compaction_lifecycle_success_omits_zero_breakdown_fields_in_html_
         after_tokens=12_000,
         window_tokens=100_000,
         threshold_tokens=80_000,
-        reserve_tokens=4_096,
         runs_before=20,
         runs_after=8,
         compacted_run_count=12,
@@ -509,11 +508,7 @@ async def test_compaction_lifecycle_success_omits_zero_breakdown_fields_in_html_
         )
         await bot._delivery_gateway.edit_compaction_lifecycle_success(
             target=target,
-            event=CompactionLifecycleSuccess(
-                notice_event_id=event_id,
-                outcome=outcome,
-                duration_ms=123,
-            ),
+            outcome=replace(outcome, lifecycle_notice_event_id=event_id, duration_ms=123),
         )
 
     assert event_id == "$notice"
@@ -522,7 +517,7 @@ async def test_compaction_lifecycle_success_omits_zero_breakdown_fields_in_html_
     assert start_content["io.mindroom.compaction"]["threshold_tokens"] == 80_000
     assert mock_edit.await_args is not None
     sent_content = mock_edit.await_args.args[3]
-    assert sent_content["io.mindroom.compaction"]["version"] == 2
+    assert sent_content["io.mindroom.compaction"]["version"] == 3
     assert sent_content["io.mindroom.compaction"]["history_budget_tokens"] == 100_000
     assert sent_content["io.mindroom.compaction"]["threshold_tokens"] == 80_000
     assert sent_content["io.mindroom.compaction"]["duration_ms"] == 123

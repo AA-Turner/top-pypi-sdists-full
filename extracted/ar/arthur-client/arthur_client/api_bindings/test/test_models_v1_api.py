@@ -68,6 +68,13 @@ class TestModelsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_organization_models(self) -> None:
+        """Test case for get_organization_models
+
+        Get Organization Models.
+        """
+        pass
+
     def test_patch_model(self) -> None:
         """Test case for patch_model
 

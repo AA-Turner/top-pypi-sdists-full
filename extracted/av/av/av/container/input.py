@@ -101,7 +101,7 @@ class InputContainer(Container):
                 "Hardware accelerated decode requested but no stream is compatible"
             )
 
-        self.metadata = avdict_to_dict(
+        self._metadata = avdict_to_dict(
             self.ptr.metadata, self.metadata_encoding, self.metadata_errors
         )
 
@@ -238,8 +238,7 @@ class InputContainer(Container):
         """
         self._assert_open()
         for packet in self.demux(*args, **kwargs):
-            for frame in packet.decode():
-                yield frame
+            yield from packet.decode()
 
     def seek(
         self,

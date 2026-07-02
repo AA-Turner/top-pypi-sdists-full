@@ -151,6 +151,7 @@ class PlatformScopeArgs(PlatformArgs):
 
 
 TUI_GROUP = cyclopts.Group("Session")
+RESUME_PICK_SENTINEL = "__dreadnode_pick_session__"
 
 
 @cyclopts.Parameter(name="*")

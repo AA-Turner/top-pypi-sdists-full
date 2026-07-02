@@ -94,7 +94,7 @@ def get_config_from_pkg_config():
 
     known, unknown = parse_cflags(raw_cflags.decode("utf-8"))
     if unknown:
-        print("pkg-config returned flags we don't understand: {}".format(unknown))
+        print(f"pkg-config returned flags we don't understand: {unknown}")
         if "-pthread" in unknown:
             print("Building PyAV against static FFmpeg libraries is not supported.")
         exit(1)
@@ -163,7 +163,7 @@ loudnorm_extension = Extension(
 
 compiler_directives = {
     "c_string_type": "str",
-    "c_string_encoding": "ascii",
+    "c_string_encoding": "utf8",
     "embedsignature": True,
     "binding": False,
     "language_level": 3,

@@ -25,13 +25,13 @@ use crate::inference::formula_dsl::{
     option_usize_any, option_usize_any_strict, option_usize_strict, strip_quotes,
 };
 use crate::smooth::{
-    ByVarKind, FactorSmoothFlavour, FactorSmoothSpec, LinearCoefficientGeometry, LinearTermSpec,
-    RandomEffectTermSpec, ShapeConstraint, SmoothBasisSpec, SmoothTermSpec,
-    TensorBSplineIdentifiability, TensorBSplinePenaltyDecomposition, TensorBSplineSpec,
-    TermCollectionSpec,
+    BySmoothKind, ByVarKind, ByVariableSpec, FactorSmoothFlavour, FactorSmoothSpec,
+    LinearCoefficientGeometry, LinearTermSpec, RandomEffectTermSpec, ShapeConstraint,
+    SmoothBasisSpec, SmoothTermSpec, TensorBSplineIdentifiability,
+    TensorBSplinePenaltyDecomposition, TensorBSplineSpec, TermCollectionSpec,
 };
-use gam_problem::types::ColIdx;
 use gam_data::{ColumnKindTag, DataError, EncodedDataset as Dataset};
+use gam_problem::types::ColIdx;
 use gam_runtime::resource::ResourcePolicy;
 
 /// Default B-spline degree when a smooth's `degree=` option is absent. Cubic
@@ -474,6 +474,39 @@ pub fn build_termspec(
                     policy,
                     smooth_coordinate_count,
                 )?;
+                let inner_basis = match inner_basis {
+                    SmoothBasisSpec::FactorSmooth {
+                        spec:
+                            FactorSmoothSpec {
+                                continuous_cols,
+                                group_col,
+                                marginal,
+                                flavour: FactorSmoothFlavour::Sz,
+                                frozen_global_orthogonality,
+                                ..
+                            },
+                    } => {
+                        if continuous_cols.len() != 1 {
+                            return Err(TermBuilderError::incompatible_config(format!(
+                                "sz factor-smooth currently expects exactly one continuous covariate, found {}",
+                                continuous_cols.len()
+                            )));
+                        }
+                        SmoothBasisSpec::FactorSumToZero {
+                            inner: Box::new(SmoothBasisSpec::BSpline1D {
+                                feature_col: continuous_cols[0],
+                                spec: marginal,
+                            }),
+                            by_col: group_col,
+                            levels: encoded_levels_for_column(ds, ColIdx::new(group_col))
+                                .into_iter()
+                                .map(|(bits, _)| bits)
+                                .collect(),
+                            frozen_global_orthogonality,
+                        }
+                    }
+                    other => other,
+                };
                 if let Some(by_name) = by_name {
                     let by_col = resolve_col(col_map, &by_name)?;
                     match ds.column_kinds.get(by_col).copied().ok_or_else(|| {
@@ -528,34 +561,37 @@ pub fn build_termspec(
                                     frozen_levels: None,
                                 });
                             }
-                            // Route to a single BySmooth::Factor term with
-                            // frozen levels pre-populated from the training data.
-                            // Design building later gates each level into its own
-                            // column block (see build_by_smooth_local in term_specs).
-                            let frozen_levels: Vec<u64> =
-                                levels.iter().map(|(bits, _)| *bits).collect();
-                            smooth_terms.push(SmoothTermSpec {
-                                name: label.clone(),
-                                basis: SmoothBasisSpec::BySmooth {
-                                    smooth: Box::new(inner_basis),
-                                    by_kind: ByVarKind::Factor {
-                                        feature_col: by_col,
-                                        ordered: option_bool(options, "ordered").unwrap_or(false),
-                                        frozen_levels: Some(frozen_levels),
+                            // Unordered factor-by smooths are independent
+                            // level-specific smooths. Preserve that
+                            // term-spec structure explicitly so later
+                            // hierarchy/identifiability passes can see the
+                            // per-level ownership rather than a generic
+                            // BySmooth envelope.
+                            for (level_bits, level_label) in levels {
+                                smooth_terms.push(SmoothTermSpec {
+                                    name: format!("{label}:by={by_name}[{level_label}]"),
+                                    basis: SmoothBasisSpec::ByVariable {
+                                        inner: Box::new(inner_basis.clone()),
+                                        by_col,
+                                        kind: BySmoothKind::Level { level_bits },
+                                        by: ByVariableSpec::Level {
+                                            value_bits: level_bits,
+                                            label: level_label,
+                                        },
                                     },
-                                },
-                                shape,
-                                joint_null_rotation: None,
-                            });
+                                    shape: shape.clone(),
+                                    joint_null_rotation: None,
+                                });
+                            }
                         }
                         ColumnKindTag::Binary | ColumnKindTag::Continuous => {
                             smooth_terms.push(SmoothTermSpec {
                                 name: label.clone(),
-                                basis: SmoothBasisSpec::BySmooth {
-                                    smooth: Box::new(inner_basis),
-                                    by_kind: ByVarKind::Numeric {
-                                        feature_col: by_col,
-                                    },
+                                basis: SmoothBasisSpec::ByVariable {
+                                    inner: Box::new(inner_basis),
+                                    by_col,
+                                    kind: BySmoothKind::Numeric,
+                                    by: ByVariableSpec::Numeric,
                                 },
                                 shape,
                                 joint_null_rotation: None,
@@ -935,7 +971,16 @@ fn parse_periodic_axes_option(
     let lowered = raw_axes.trim().to_ascii_lowercase();
     match lowered.as_str() {
         "true" | "yes" | "y" => return Ok(Some(periods)),
-        "false" | "no" | "n" => return Ok(Some(vec![None; dim])),
+        // `false` means NO axis is periodic. Return `None` — NOT
+        // `Some(vec![None; dim])` — because the radial 1-D consumer treats a
+        // `Some([None])` as "periodicity requested, derive the wrap period from
+        // the data range" (see the Duchon builder arm below, which back-fills
+        // `axes[0] = data_span` for a lone `None`) and the 1-D builder routes on
+        // `spec.periodic.is_some()`. Emitting `Some([None])` here therefore
+        // silently produced a *periodic* smooth for an explicit `periodic=false`
+        // — the exact regression this arm now avoids, matching the bracketed
+        // `[false]` form handled by the per-axis boolean block below.
+        "false" | "no" | "n" => return Ok(None),
         _ => {}
     }
     let axes = split_list_option(raw_axes);
@@ -1238,8 +1283,8 @@ fn parse_tensor_periodic_axes(
                 // is what makes the leading tensor margin honor its periodic flag
                 // (#1751: `periodic=c(1,1)` previously parsed `1,1` as axis
                 // indices, marking only axis 1 and dropping axis 0).
-                let all_zero_one = !entries.is_empty()
-                    && entries.iter().all(|v| v == "0" || v == "1");
+                let all_zero_one =
+                    !entries.is_empty() && entries.iter().all(|v| v == "0" || v == "1");
                 let has_repeat = {
                     let mut seen = std::collections::BTreeSet::new();
                     !entries.iter().all(|v| seen.insert(v.clone()))
@@ -1295,10 +1340,7 @@ fn parse_tensor_periodic_axes(
         let per_margin = parse_option_list(raw);
         if per_margin.len() == dim {
             for (axis, margin_bs) in per_margin.iter().enumerate() {
-                if matches!(
-                    canonicalize_smooth_type(margin_bs),
-                    "cc" | "cp" | "cyclic"
-                ) {
+                if matches!(canonicalize_smooth_type(margin_bs), "cc" | "cp" | "cyclic") {
                     axes[axis] = true;
                 }
             }
@@ -1307,20 +1349,28 @@ fn parse_tensor_periodic_axes(
     Ok(axes)
 }
 
-/// Reject endpoint boundary conditions (`clamped`/`anchored`) requested on a
-/// tensor-product margin.
+/// Validate the per-margin `boundary=`/`bc=` tokens on a tensor-product smooth.
 ///
-/// Tensor smooths support `bc=`/`boundary=` only for *periodic* margin
-/// selection (`periodic`/`cyclic`/`cc`), which [`parse_tensor_periodic_axes`]
-/// consumes. Endpoint boundary conditions are a 1-D B-spline structural
-/// reparameterization and are NOT implemented for tensor margins, but the
-/// periodic-axes parser silently ignores every non-periodic token — so
-/// `te(x, y, bc=['clamped', 'natural'])` used to be accepted as a no-op and
-/// fit an ordinary unconstrained tensor, dropping the user's clamp without a
-/// word. Surface it as a clean, explicit error instead of a silent drop. The
-/// inert margin tokens (`natural`/`free`/`none`/empty) and the periodic
-/// selectors are accepted; anything else is an unsupported endpoint BC.
-fn reject_tensor_endpoint_boundary_conditions(
+/// The tensor `boundary`/`bc` list selects, per margin, whether the margin
+/// *wraps* (a `periodic`/`cyclic`/`cc` token, consumed by
+/// [`parse_tensor_periodic_axes`]) or is an ordinary non-periodic margin. In the
+/// tensor DSL a *non-periodic* margin is spelled `clamped` — in the B-spline
+/// sense of a **clamped knot vector**, i.e. the standard open spline that is
+/// free at its two ends and does not wrap (exactly how the callers document it:
+/// "non-periodic / clamped … free at the two ends, no wrap"). It is therefore an
+/// inert marker here, not a zero-derivative endpoint reparameterization: a
+/// cylinder `te(theta, z, boundary=['periodic','clamped'], …)` is a cyclic θ
+/// margin tensor-producted with an ordinary open z margin, the direct analog of
+/// mgcv `te(bs=c("cc","ps"))` / `te(bs=c("cc","cr"))`.
+///
+/// The periodic selectors and the inert non-periodic markers
+/// (`clamped`/`open`/`natural`/`free`/`none`/empty) are accepted; anything else
+/// (e.g. a genuine `anchored` zero-value endpoint constraint, which has no
+/// ordinary-margin meaning in a tensor) is surfaced as a clean
+/// unsupported-feature error rather than silently dropped. Previously `clamped`
+/// itself was rejected, so the cylinder/torus mixed-boundary tensors — the exact
+/// construction the manifold quality suite builds — could not be fit at all.
+fn validate_tensor_boundary_tokens(
     options: &BTreeMap<String, String>,
     dim: usize,
 ) -> Result<(), String> {
@@ -1330,15 +1380,15 @@ fn reject_tensor_endpoint_boundary_conditions(
     let entries = parse_option_list(raw);
     for (axis, value) in entries.iter().enumerate() {
         let inert = matches!(
-            value.as_str(),
-            "natural" | "free" | "none" | "" | "periodic" | "cyclic" | "cc"
+            value.trim().to_ascii_lowercase().as_str(),
+            "clamped" | "open" | "natural" | "free" | "none" | "" | "periodic" | "cyclic" | "cc"
         );
         if !inert {
             return Err(TermBuilderError::unsupported_feature(format!(
-                "tensor smooth margin {axis} endpoint boundary condition '{value}' is not supported \
-                 (got bc/boundary={raw:?} on a {dim}-D tensor); tensor margins accept only periodic \
-                 selection (periodic/cyclic/cc) or the inert natural/free token. Apply clamped/anchored \
-                 endpoint boundary conditions with a 1-D s(x, bc=...) term instead."
+                "tensor smooth margin {axis} boundary token '{value}' is not supported \
+                 (got bc/boundary={raw:?} on a {dim}-D tensor); tensor margins accept the periodic \
+                 selectors (periodic/cyclic/cc) or the non-periodic markers (clamped/open/natural/free). \
+                 Apply anchored/zero-value endpoint constraints with a 1-D s(x, bc=...) term instead."
             ))
             .to_string());
         }
@@ -2094,10 +2144,36 @@ pub fn build_smooth_basis(
             let periodic_axes = [true];
             let periods = parse_periods(options, &periodic_axes)?;
             let origins = parse_period_origins(options, &periodic_axes)?;
+            // Distinguish a *cyclic basis selector* (`bs='cc'`/`cp'`/`cyclic`,
+            // this whole arm) from a generic B-spline forced periodic by a
+            // `periodic=`/`boundary=` flag (the `ps`/`bspline` arm). Only the
+            // latter carries the sample-dependent off-by-ε seam that #1771's
+            // guard in `parse_periodic_domain_1d` requires an explicit period
+            // to avoid. A bare `s(x, bs='cc')` opts INTO mgcv's `bs="cc"`
+            // semantics — the wrap IS the observed data range — exactly like
+            // the tensor cc-margin fallback (`te(x, z, bs=c('cc','cc'))`). The
+            // cyclic arm was left routing through the now-strict helper when
+            // #1771 tightened it, so a bare cyclic smooth hard-errored with
+            // "periodic B-spline smooth requires an explicit period" even
+            // though its period is well-defined. Honor `period=`/`periods=`
+            // first, then the half-open `period_start`/`period_end` endpoint
+            // form, and only otherwise wrap at the observed `[min, max]` span.
+            let has_endpoint_decl = ["period_start", "start", "period_end", "end"]
+                .iter()
+                .any(|key| options.contains_key(*key));
             let (domain_start, period) = if let Some(p) = periods[0] {
                 (origins[0].unwrap_or(minv), p)
-            } else {
+            } else if has_endpoint_decl {
                 parse_periodic_domain_1d(options, minv, maxv)?
+            } else {
+                let span = maxv - minv;
+                if !(span.is_finite() && span > 0.0) {
+                    return Err(format!(
+                        "cyclic smooth requires a positive observed data range to derive \
+                         its period, got [{minv}, {maxv}]"
+                    ));
+                }
+                (origins[0].unwrap_or(minv), span)
             };
             Ok(SmoothBasisSpec::BSpline1D {
                 feature_col: c,
@@ -2832,7 +2908,7 @@ pub fn build_smooth_basis(
                 input_scales: None,
             })
         }
-        "duchon" => {
+        "duchon" | "ds" => {
             validate_known_options(
                 "duchon",
                 options,
@@ -2924,14 +3000,13 @@ pub fn build_smooth_basis(
                             // Rather than emit the fractional cubic and let it truncate
                             // into an inadmissible kernel, resolve the SMALLEST
                             // admissible integer `(nullspace, s)` at the requested
-                            // nullspace order, honoring the collocation order of the
-                            // default operator penalties (mass + tension ⇒ D1). This
-                            // recovers the canonical thin-plate smoothness order
-                            // `m = p + s = ⌊d/2⌋ + 1` for the hybrid kernel and agrees
-                            // with the fractional cubic default for odd `d` (where the
-                            // collocation floor already forces `s = (d-1)/2`).
+                            // nullspace order. The formula default is the same
+                            // native-Gram Duchon smoother as the scale-free path, so
+                            // there is no collocation-operator floor to honor here.
+                            // Users that opt into operator penalties get the stricter
+                            // gate at basis-build time from the requested operators.
                             let max_op = crate::basis::duchon_max_active_operator_derivative_order(
-                                &DuchonOperatorPenaltySpec::default(),
+                                &DuchonOperatorPenaltySpec::all_disabled(),
                             );
                             let (ns, s) = crate::basis::resolve_duchon_orders(
                                 cols.len(),
@@ -2954,11 +3029,6 @@ pub fn build_smooth_basis(
             )
             .map_err(|e| e.to_string())?;
             let centers_explicit = has_explicit_countwith_basis_alias(options, "centers");
-            let requested_centers = parse_countwith_basis_alias(
-                options,
-                "centers",
-                cap_default_spatial_centers(options, plan.centers),
-            )?;
             let polynomial_cols = match nullspace_order {
                 DuchonNullspaceOrder::Zero => 1,
                 DuchonNullspaceOrder::Linear => cols.len() + 1,
@@ -2966,6 +3036,17 @@ pub fn build_smooth_basis(
                     crate::basis::duchon_nullspace_dimension(cols.len(), degree)
                 }
             };
+            let default_centers = default_duchon_center_count(
+                ds.values.nrows(),
+                cols.len(),
+                plan.centers,
+                polynomial_cols,
+            );
+            let requested_centers = parse_countwith_basis_alias(
+                options,
+                "centers",
+                cap_default_spatial_centers(options, default_centers),
+            )?;
             if requested_centers <= polynomial_cols {
                 return Err(TermBuilderError::incompatible_config(format!(
                     "Duchon smooth '{}' requested basis dimension {} but order={:?} in {}D needs {} polynomial null-space columns; choose centers/k > {}",
@@ -2992,9 +3073,15 @@ pub fn build_smooth_basis(
             } else {
                 None
             };
-            // The default is the full Hilbert scale (curvature `Primary` + trend
-            // ridge + mass + tension); REML deselects what the data don't support.
-            let operator_penalties = DuchonOperatorPenaltySpec::default();
+            // Formula-level `duchon(...)` is the native Duchon reproducing-norm
+            // smoother: the always-on Primary Gram plus the polynomial trend
+            // ridge. Do not silently add collocated mass/tension penalties here.
+            // They add extra REML hyperparameters and an O(k)-support quadrature
+            // build to the default 2-D path, making `duchon(x, z)` materially
+            // slower than the equivalent thin-plate fit without a principled
+            // accuracy gain (gam#1718). Lower-order Hilbert-scale penalties remain
+            // available to callers that construct an explicit DuchonBasisSpec.
+            let operator_penalties = DuchonOperatorPenaltySpec::all_disabled();
             // For a 1-D periodic Duchon with no EXPLICIT period, anchor the wrap
             // to the covariate DATA range rather than letting the basis builder
             // derive it from the (k-subsampled) center span. The center span is a
@@ -3127,7 +3214,7 @@ pub fn build_smooth_basis(
                 }
             }
             let periodic_axes = parse_tensor_periodic_axes(options, dim)?;
-            reject_tensor_endpoint_boundary_conditions(options, dim)?;
+            validate_tensor_boundary_tokens(options, dim)?;
             let periods_opt = parse_periods(options, &periodic_axes)?;
             let origins_opt = parse_period_origins(options, &periodic_axes)?;
             let degree = option_usize(options, "degree").unwrap_or(DEFAULT_BSPLINE_DEGREE);
@@ -3189,6 +3276,7 @@ pub fn build_smooth_basis(
                     None | Some("cr") | Some("cs") | Some("tp") | Some("tps")
                 )
             };
+            let requested_knot_placement = parse_knot_placement(options)?;
             let mut margins: Vec<BSplineBasisSpec> = Vec::with_capacity(dim);
             let mut emitted_periods: Vec<Option<f64>> = Vec::with_capacity(dim);
             for axis in 0..dim {
@@ -3229,18 +3317,14 @@ pub fn build_smooth_basis(
                 // THAT axis only to the largest feasible spline, and track the
                 // penalty order so the marginal difference penalty stays
                 // well-defined (`order < num_basis_functions` is required by
-                // `create_difference_penalty_matrix`). Periodic axes still
-                // need enough basis functions to wrap; reject k there.
+                // `create_difference_penalty_matrix`). Apply the same
+                // per-margin degree shrinkage to periodic tensor margins too:
+                // a cyclic marginal basis with k=3 cannot be cubic, but it is
+                // still a valid lower-degree cyclic margin with dimension k,
+                // matching mgcv's small-k tensor-margin behavior.
                 if k_axis < 2 {
                     return Err(TermBuilderError::invalid_option(format!(
                         "tensor smooth: k[{axis}]={k_axis} too small; tensor margins require k >= 2"
-                    ))
-                    .to_string());
-                }
-                if periodic_axes[axis] && k_axis < degree + 1 {
-                    return Err(TermBuilderError::invalid_option(format!(
-                        "tensor smooth: periodic axis {axis} requires k >= {} for degree {degree}, got k={k_axis}",
-                        degree + 1
                     ))
                     .to_string());
                 }
@@ -3307,7 +3391,10 @@ pub fn build_smooth_basis(
                         },
                         Some(period_value),
                     )
-                } else if margin_wants_cr(&per_axis_bs[axis]) && k_axis >= 3 {
+                } else if margin_wants_cr(&per_axis_bs[axis])
+                    && requested_knot_placement != crate::basis::BSplineKnotPlacement::Quantile
+                    && k_axis >= 3
+                {
                     // mgcv `te()`/`ti()` default cr margin: place exactly
                     // `k_axis` Lancaster–Salkauskas value-knots at data
                     // quantiles. The cr basis dimension equals the knot count,
@@ -3316,10 +3403,13 @@ pub fn build_smooth_basis(
                     // (one interior); a `k_axis < 3` margin (e.g. a binary
                     // tensor axis requesting a linear margin) falls through to
                     // the B-spline branch below, exactly as before #1074 — mgcv
-                    // likewise does not build a `cr` margin below k=3.
-                    let cr_knots =
-                        crate::basis::select_cr_knots(ds.values.column(c), k_axis)
-                            .map_err(|e| e.to_string())?;
+                    // likewise does not build a `cr` margin below k=3. An
+                    // explicit `knot_placement=quantile` also falls through:
+                    // that option selects the generated B-spline knot strategy
+                    // represented by `Automatic { Quantile }`, whereas the cr
+                    // margin has already materialized its quantile value-knots.
+                    let cr_knots = crate::basis::select_cr_knots(ds.values.column(c), k_axis)
+                        .map_err(|e| e.to_string())?;
                     (
                         BSplineKnotSpec::NaturalCubicRegression { knots: cr_knots },
                         OneDimensionalBoundary::Open,
@@ -3337,7 +3427,7 @@ pub fn build_smooth_basis(
                     } else {
                         k_axis.saturating_sub(degree + 1).max(1)
                     };
-                    let knotspec = match parse_knot_placement(options)? {
+                    let knotspec = match requested_knot_placement {
                         crate::basis::BSplineKnotPlacement::Uniform => BSplineKnotSpec::Generate {
                             data_range: (data_min, data_max),
                             num_internal_knots,
@@ -4319,6 +4409,27 @@ fn default_matern_center_count(n: usize, d: usize, planned_count: usize) -> usiz
     planned_count.max(low_n_floor).max(1)
 }
 
+fn default_duchon_center_count(
+    n: usize,
+    d: usize,
+    planned_count: usize,
+    polynomial_cols: usize,
+) -> usize {
+    // Duchon fits pay a larger setup cost than Matérn/TPS because the
+    // constrained radial block is rotated through its center Gram and several
+    // operator-collocation penalties.  The old generic spatial default handed a
+    // 2-D Gaussian Duchon at n≈500 more than one hundred centers, so cold fits
+    // spent most of their time in dense O(k³) eigensolves even though the REML
+    // smoother uses a low-rank basis.  mgcv's Duchon spline default is the
+    // thin-plate-style `k = 10 * 3^(d - 1)` (30 in 2-D); use that as the
+    // implicit low-rank cap while preserving the user's explicit `centers=`/`k=`
+    // request above.  The polynomial null space must still fit, so tiny
+    // high-order bases are raised to the smallest admissible count.
+    let mgcv_default = 10usize.saturating_mul(3usize.saturating_pow(d.saturating_sub(1) as u32));
+    let low_n_floor = (polynomial_cols + 1).min(n).max(1);
+    planned_count.min(mgcv_default).max(low_n_floor)
+}
+
 pub fn parse_countwith_basis_alias(
     options: &BTreeMap<String, String>,
     primarykey: &str,
@@ -4605,6 +4716,7 @@ fn parse_spatial_identifiability(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::basis::OperatorPenaltySpec;
     use crate::inference::formula_dsl::parse_formula;
     use gam_data::{DataSchema, SchemaColumn};
     use ndarray::Array2;
@@ -4805,8 +4917,7 @@ mod tests {
             SmoothBasisSpec::Matern { spec, .. } => spec.length_scale,
             other => panic!("expected Matern basis after auto-init, got {other:?}"),
         };
-        let expected =
-            crate::smooth::auto_initial_length_scale(ds.values.view(), &feature_cols);
+        let expected = crate::smooth::auto_initial_length_scale(ds.values.view(), &feature_cols);
         assert!(
             (realized - expected).abs() <= 1e-12,
             "auto-init must seed the wiggly-side length scale max_range/sqrt(n) \
@@ -4822,6 +4933,137 @@ mod tests {
             "matern seed length_scale {realized} must be in the resolving regime, \
              not the over-smoothed diameter corner (n={n}, max_range≈{max_range})",
         );
+    }
+
+    /// gam#1778: `matern(..., periodic=true)` and `thinplate(..., periodic=true)`
+    /// must be ACCEPTED. The squash-merge that wired periodic support into the
+    /// matern/thinplate basis specs forgot to add the periodic option keys to
+    /// those two builders' `validate_known_options` whitelists (only `duchon`
+    /// got both), so `periodic=`/`period=`/`cyclic=`/`period_start=`/`period_end=`
+    /// were rejected as unknown options even though the spec/builder consume them.
+    /// Before the whitelist fix this returned an "unknown option" error.
+    #[test]
+    fn matern_and_thinplate_accept_periodic_option() {
+        let n = 200usize;
+        let rows: Vec<Vec<f64>> = (0..n)
+            .map(|i| {
+                let x = -3.0 + 6.0 * (i as f64) / ((n - 1) as f64);
+                vec![x.sin(), x]
+            })
+            .collect();
+        let ds = continuous_dataset(&["y", "x"], rows);
+
+        // matern() with periodic=true must build without an unknown-option error.
+        let mut matern_opts = BTreeMap::new();
+        matern_opts.insert("bs".to_string(), "gp".to_string()); // gp ⇒ Matérn
+        matern_opts.insert("periodic".to_string(), "true".to_string());
+        let mut notes = Vec::new();
+        let matern_basis = build_smooth_basis(
+            SmoothKind::S,
+            &["x".to_string()],
+            &[1],
+            &matern_opts,
+            &ds,
+            &mut notes,
+            &ResourcePolicy::default_library(),
+            1,
+        )
+        .expect("matern(x, periodic=true) must be accepted");
+        match &matern_basis {
+            SmoothBasisSpec::Matern { spec, .. } => assert!(
+                spec.periodic.is_some(),
+                "periodic=true must thread a Some(periodic) into the matern spec",
+            ),
+            other => panic!("expected Matern basis, got {other:?}"),
+        }
+
+        // thinplate()/tps() with periodic=true must likewise be accepted.
+        let mut tps_opts = BTreeMap::new();
+        tps_opts.insert("bs".to_string(), "tp".to_string());
+        tps_opts.insert("periodic".to_string(), "true".to_string());
+        let mut notes = Vec::new();
+        let tps_basis = build_smooth_basis(
+            SmoothKind::S,
+            &["x".to_string()],
+            &[1],
+            &tps_opts,
+            &ds,
+            &mut notes,
+            &ResourcePolicy::default_library(),
+            1,
+        )
+        .expect("thinplate(x, periodic=true) must be accepted");
+        match &tps_basis {
+            SmoothBasisSpec::ThinPlate { spec, .. } => assert!(
+                spec.periodic.is_some(),
+                "periodic=true must thread a Some(periodic) into the thinplate spec",
+            ),
+            other => panic!("expected ThinPlate basis, got {other:?}"),
+        }
+    }
+
+    /// Regression: an explicit scalar `periodic=false` on a radial spatial smooth
+    /// must build a NON-periodic basis. The scalar-boolean shortcut used to emit
+    /// `Some(vec![None; dim])`, which the 1-D radial builders route on via
+    /// `spec.periodic.is_some()` (and the Duchon arm even back-fills the data
+    /// range into a lone `None`), so `periodic=false` silently produced a
+    /// *periodic* smooth — the opposite of what was asked. The spec's `periodic`
+    /// field must be `None` for every radial base (matern / thinplate / duchon),
+    /// matching the bracketed `[false]` form.
+    #[test]
+    fn scalar_periodic_false_builds_non_periodic_radial_smooth() {
+        let n = 200usize;
+        let rows: Vec<Vec<f64>> = (0..n)
+            .map(|i| {
+                let x = -3.0 + 6.0 * (i as f64) / ((n - 1) as f64);
+                vec![x.sin(), x]
+            })
+            .collect();
+        let ds = continuous_dataset(&["y", "x"], rows);
+
+        let build = |bs: &str| -> SmoothBasisSpec {
+            let mut opts = BTreeMap::new();
+            opts.insert("bs".to_string(), bs.to_string());
+            opts.insert("periodic".to_string(), "false".to_string());
+            let mut notes = Vec::new();
+            build_smooth_basis(
+                SmoothKind::S,
+                &["x".to_string()],
+                &[1],
+                &opts,
+                &ds,
+                &mut notes,
+                &ResourcePolicy::default_library(),
+                1,
+            )
+            .unwrap_or_else(|e| panic!("s(x, bs={bs}, periodic=false) must be accepted: {e}"))
+        };
+
+        match &build("gp") {
+            SmoothBasisSpec::Matern { spec, .. } => assert!(
+                spec.periodic.is_none(),
+                "periodic=false must leave the matern spec non-periodic, got {:?}",
+                spec.periodic
+            ),
+            other => panic!("expected Matern basis, got {other:?}"),
+        }
+        match &build("tp") {
+            SmoothBasisSpec::ThinPlate { spec, .. } => assert!(
+                spec.periodic.is_none(),
+                "periodic=false must leave the thinplate spec non-periodic, got {:?}",
+                spec.periodic
+            ),
+            other => panic!("expected ThinPlate basis, got {other:?}"),
+        }
+        match &build("duchon") {
+            SmoothBasisSpec::Duchon { spec, .. } => assert!(
+                spec.periodic.is_none(),
+                "periodic=false must leave the duchon spec non-periodic (no data-range \
+                 back-fill), got {:?}",
+                spec.periodic
+            ),
+            other => panic!("expected Duchon basis, got {other:?}"),
+        }
     }
 
     fn inferred_tensor_basis_product(ds: &Dataset) -> usize {
@@ -5036,6 +5278,57 @@ mod tests {
         assert_eq!(unicode_axes, vec![true, true]);
         assert!((unicode_periods[0].unwrap() - 2.0 * std::f64::consts::PI).abs() < 1e-12);
         assert!((unicode_periods[1].unwrap() - std::f64::consts::TAU).abs() < 1e-12);
+    }
+
+    /// The tensor boundary-token guard must ACCEPT `clamped`/`open` (the
+    /// B-spline-clamped, non-periodic margin spelling) alongside the periodic
+    /// selectors and the other inert non-periodic markers, and still REJECT a
+    /// genuine endpoint constraint like `anchored`. This locks the #415 /
+    /// cylinder fix (`te(theta, z, boundary=['periodic','clamped'])`, mgcv
+    /// `te(bs=c("cc","ps"))`) in the fast unit lane — the end-to-end cylinder
+    /// recovery test is R-gated (`run_r` + mgcv), so without this the guard
+    /// regressing back to rejecting `clamped` would slip through CPU CI.
+    #[test]
+    fn tensor_boundary_tokens_accept_clamped_open_reject_anchored() {
+        fn boundary(raw: &str, dim: usize) -> Result<(), String> {
+            let mut opts = BTreeMap::new();
+            opts.insert("boundary".to_string(), raw.to_string());
+            validate_tensor_boundary_tokens(&opts, dim)
+        }
+
+        // Mixed periodic + clamped (the cylinder) and its bare/case/quote
+        // variants are all accepted.
+        for raw in [
+            "['periodic', 'clamped']",
+            "['periodic', 'open']",
+            "['cc', 'clamped']",
+            "['clamped', 'natural']",
+            "[Periodic, CLAMPED]",
+            "c('cc', 'clamped')", // mgcv-style c(...) vector form round-trips
+        ] {
+            assert!(
+                boundary(raw, 2).is_ok(),
+                "boundary={raw:?} must be accepted (clamped/open/inert non-periodic markers)"
+            );
+        }
+
+        // `bc=` is an accepted alias for `boundary=`.
+        let mut bc_opts = BTreeMap::new();
+        bc_opts.insert("bc".to_string(), "['periodic', 'clamped']".to_string());
+        assert!(validate_tensor_boundary_tokens(&bc_opts, 2).is_ok());
+
+        // A genuine endpoint constraint has no ordinary-margin meaning on a
+        // tensor and must still be surfaced as a clean unsupported-feature error
+        // rather than silently dropped.
+        let err = boundary("['periodic', 'anchored']", 2)
+            .expect_err("anchored endpoint constraint must be rejected on a tensor margin");
+        assert!(
+            err.contains("anchored") && err.contains("not supported"),
+            "rejection must name the offending token and be an unsupported-feature error: {err}"
+        );
+
+        // Absent boundary/bc is a no-op success.
+        assert!(validate_tensor_boundary_tokens(&BTreeMap::new(), 2).is_ok());
     }
 
     #[test]
@@ -5302,6 +5595,46 @@ mod tests {
     }
 
     #[test]
+    fn formula_duchon_default_does_not_enable_collocation_operators() {
+        let ds = continuous_dataset(
+            &["y", "x", "z"],
+            (0..40)
+                .map(|i| {
+                    let x = (i as f64 / 39.0).fract();
+                    let z = ((7 * i) as f64 / 39.0).fract();
+                    vec![x + z, x, z]
+                })
+                .collect(),
+        );
+        let parsed = parse_formula("y ~ duchon(x, z)").expect("parse");
+        let col_map = ds.column_map();
+        let mut notes = Vec::new();
+        let terms = build_termspec(
+            &parsed.terms,
+            &ds,
+            &col_map,
+            &mut notes,
+            &gam_runtime::resource::ResourcePolicy::default_library(),
+        )
+        .expect("build default 2D duchon termspec");
+        let SmoothBasisSpec::Duchon { spec, .. } = &terms.smooth_terms[0].basis else {
+            panic!("expected Duchon term");
+        };
+        assert!(matches!(
+            spec.operator_penalties.mass,
+            OperatorPenaltySpec::Disabled
+        ));
+        assert!(matches!(
+            spec.operator_penalties.tension,
+            OperatorPenaltySpec::Disabled
+        ));
+        assert!(matches!(
+            spec.operator_penalties.stiffness,
+            OperatorPenaltySpec::Disabled
+        ));
+    }
+
+    #[test]
     fn one_dimensional_duchon_length_scale_opts_into_hybrid_mode() {
         let ds = continuous_dataset(
             &["y", "x"],
@@ -5327,6 +5660,41 @@ mod tests {
             panic!("expected Duchon term");
         };
         assert_eq!(spec.length_scale, Some(0.25));
+    }
+
+    #[test]
+    fn multidimensional_duchon_default_uses_low_rank_mgcv_sized_basis() {
+        let ds = continuous_dataset(
+            &["y", "x1", "x2"],
+            (0..500)
+                .map(|i| {
+                    let x1 = 2.0 * (i as f64 / 499.0) - 1.0;
+                    let x2 = (((37 * i) % 500) as f64 / 499.0) * 2.0 - 1.0;
+                    vec![(2.0 * x1).sin() + (1.5 * x2).cos(), x1, x2]
+                })
+                .collect(),
+        );
+        let parsed = parse_formula("y ~ duchon(x1, x2)").expect("parse");
+        let col_map = ds.column_map();
+        let mut notes = Vec::new();
+        let terms = build_termspec(
+            &parsed.terms,
+            &ds,
+            &col_map,
+            &mut notes,
+            &gam_runtime::resource::ResourcePolicy::default_library(),
+        )
+        .expect("build default 2D duchon termspec");
+        let SmoothBasisSpec::Duchon { spec, .. } = &terms.smooth_terms[0].basis else {
+            panic!("expected Duchon term");
+        };
+        let CenterStrategy::Auto(inner) = &spec.center_strategy else {
+            panic!("expected auto center strategy");
+        };
+        assert!(matches!(
+            inner.as_ref(),
+            CenterStrategy::FarthestPoint { num_centers: 30 }
+        ));
     }
 
     #[test]
@@ -6186,9 +6554,7 @@ mod tests {
                     ..
                 } => num_internal_knots + m.degree + 1,
                 BSplineKnotSpec::PeriodicUniform { num_basis, .. } => num_basis,
-                BSplineKnotSpec::Provided(ref knots) => {
-                    knots.len().saturating_sub(m.degree + 1)
-                }
+                BSplineKnotSpec::Provided(ref knots) => knots.len().saturating_sub(m.degree + 1),
                 BSplineKnotSpec::NaturalCubicRegression { ref knots } => knots.len(),
                 BSplineKnotSpec::Automatic {
                     num_internal_knots: None,

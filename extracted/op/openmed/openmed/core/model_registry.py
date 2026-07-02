@@ -29,7 +29,10 @@ class ModelInfo:
     architecture: Optional[str] = None
     base_model: Optional[str] = None
     formats: List[str] = field(default_factory=list)
-    benchmark: Dict[str, Any] = field(default_factory=dict)
+    benchmark: Dict[str, Any] | List[Dict[str, Any]] = field(default_factory=dict)
+    latency_ms: Dict[str, float] = field(default_factory=dict)
+    peak_ram_mb: Dict[str, float] = field(default_factory=dict)
+    recommended_tier: Optional[str] = None
     arxiv: Optional[str] = None
     license: Optional[str] = None
     reproducibility_hash: Optional[str] = None
@@ -92,12 +95,15 @@ _LANGUAGE_NAME_TO_CODE = {
     "english": "en",
     "french": "fr",
     "german": "de",
+    "hebrew": "he",
     "hindi": "hi",
+    "indonesian": "id",
     "italian": "it",
     "japanese": "ja",
     "portuguese": "pt",
     "spanish": "es",
     "telugu": "te",
+    "thai": "th",
     "turkish": "tr",
 }
 _LOCALIZED_PII_LANGUAGE_KEYS = {
@@ -170,6 +176,7 @@ _CATEGORY_ENTITY_TYPES = {
     "Genomics": ["GENE_OR_GENE_PRODUCT", "GENE", "PROTEIN", "DNA", "RNA"],
     "Chemical": ["SIMPLE_CHEMICAL", "CHEM"],
     "Species": ["ORGANISM", "SPECIES"],
+    "Microbiology": ["MICROORGANISM", "ANTIBIOTIC", "SUSCEPTIBILITY"],
     "Protein": ["GENE_OR_GENE_PRODUCT", "PROTEIN"],
     "Pathology": ["DISEASE", "PATHOLOGY"],
     "Hematology": ["CANCER", "DISEASE"],
@@ -181,6 +188,15 @@ _CATEGORY_ENTITY_TYPES = {
         "EJECTION_FRACTION",
         "CARDIAC_PROCEDURE",
         "CARDIAC_DEVICE",
+        "ANATOMY",
+    ],
+    # Forward metadata for future Dermatology/Ophthalmology models; no such
+    # model is registered today (see issue #318).
+    "Dermatology": ["SKIN_LESION", "MORPHOLOGY", "DISTRIBUTION", "ANATOMY"],
+    "Ophthalmology": [
+        "EYE_FINDING",
+        "VISUAL_ACUITY",
+        "INTRAOCULAR_PRESSURE",
         "ANATOMY",
     ],
     "Privacy": _PII_ENTITY_TYPES,
@@ -388,12 +404,37 @@ def _model_info_from_row(row: Dict[str, Any]) -> ModelInfo:
         architecture=row.get("architecture"),
         base_model=row.get("base_model"),
         formats=list(row.get("formats") or []),
-        benchmark=dict(row.get("benchmark") or {}),
+        benchmark=_benchmark_from_row(row),
+        latency_ms=_number_map_from_row(row, "latency_ms"),
+        peak_ram_mb=_number_map_from_row(row, "peak_ram_mb"),
+        recommended_tier=row.get("recommended_tier")
+        if isinstance(row.get("recommended_tier"), str)
+        else None,
         arxiv=row.get("arxiv"),
         license=row.get("license"),
         reproducibility_hash=row.get("reproducibility_hash"),
         released=row.get("released"),
     )
+
+
+def _benchmark_from_row(row: Dict[str, Any]) -> Dict[str, Any] | List[Dict[str, Any]]:
+    benchmark = row.get("benchmark")
+    if isinstance(benchmark, list):
+        return [dict(entry) for entry in benchmark if isinstance(entry, dict)]
+    if isinstance(benchmark, dict):
+        return dict(benchmark)
+    return {}
+
+
+def _number_map_from_row(row: Dict[str, Any], field_name: str) -> Dict[str, float]:
+    value = row.get(field_name)
+    if not isinstance(value, dict):
+        return {}
+    return {
+        str(device): float(measurement)
+        for device, measurement in value.items()
+        if isinstance(measurement, (int, float)) and not isinstance(measurement, bool)
+    }
 
 
 def _language_prefix(row: Dict[str, Any]) -> str:
@@ -469,6 +510,16 @@ def _pii_compatibility_aliases(row: Dict[str, Any]) -> List[str]:
     if _category_from_row(row) != "Privacy":
         return []
     repo_id = row["repo_id"]
+    if "privacy-filter-multilingual" in repo_id:
+        aliases = []
+        tokens = _clean_model_tokens(_split_repo_tokens(repo_id))
+        if tokens and tokens[0].lower() == "privacy":
+            tokens = ["privacy_filter"] + tokens[2:] if len(tokens) > 1 else tokens
+        suffix = _slug("_".join(tokens))
+        for lang in row.get("languages") or []:
+            if lang != "en":
+                aliases.append(f"pii_{lang}_{suffix}")
+        return aliases
     if "/OpenMed-PII-" not in repo_id:
         return []
 
@@ -481,9 +532,25 @@ def _pii_compatibility_aliases(row: Dict[str, Any]) -> List[str]:
     return aliases
 
 
+def _multilingual_pii_aliases(row: Dict[str, Any]) -> List[str]:
+    if _category_from_row(row) != "Privacy":
+        return []
+    repo_id = row["repo_id"].lower()
+    languages = row.get("languages") or []
+    if "privacy-filter" not in repo_id or "multilingual" not in repo_id:
+        return []
+    if len(languages) <= 1:
+        return []
+
+    base_key = _pii_registry_key(row)
+    suffix = base_key.removeprefix("pii_")
+    return [f"pii_{lang}_{suffix}" for lang in languages if lang != "en"]
+
+
 def _compatibility_aliases(row: Dict[str, Any]) -> List[str]:
     aliases = list(_LEGACY_MODEL_ALIASES.get(row["repo_id"], []))
     aliases.extend(_pii_compatibility_aliases(row))
+    aliases.extend(_multilingual_pii_aliases(row))
     return aliases
 
 
@@ -648,9 +715,21 @@ _CATEGORY_KEYWORDS: Dict[str, Tuple[str, str]] = {
         "Cardiology",
         "Contains cardiology terms",
     ),
+    "rash|lesion|macule|papule|erythema|pruritus|biopsy of skin|dermatolog|skin": (
+        "Dermatology",
+        "Contains dermatology terms",
+    ),
+    "visual acuity|intraocular pressure|retina|cornea|glaucoma|fundus|ophthalmolog": (
+        "Ophthalmology",
+        "Contains ophthalmology terms",
+    ),
     "heart|lung|brain|liver|kidney|organ": (
         "Anatomy",
         "Contains anatomical terms",
+    ),
+    "culture|gram\\s*stain|susceptib|\\bmic\\b|resistant|sensitive|e\\.\\s*coli|mrsa|oxacillin": (
+        "Microbiology",
+        "Contains microbiology terms",
     ),
     "bacteria|virus|organism|species": (
         "Species",
@@ -731,11 +810,29 @@ def get_pii_models_by_language(lang: str) -> Dict[str, ModelInfo]:
         }
 
     prefix = f"pii_{lang}_"
-    return {
+    language_models = {
         key: info
         for key, info in OPENMED_MODELS.items()
         if key.startswith(prefix)
         and info.category == "Privacy"
+        and lang in (info.languages or [])
+    }
+    if language_models:
+        return language_models
+
+    from .pii_i18n import DEFAULT_PII_MODELS
+
+    default_model_id = DEFAULT_PII_MODELS.get(lang)
+    if not default_model_id:
+        return {}
+    # Internal fallback: DEFAULT_PII_MODELS is the validated source of truth,
+    # so language-pack callers can reuse multilingual privacy filters safely.
+    return {
+        key: info
+        for key, info in OPENMED_MODELS.items()
+        if key.startswith("pii_")
+        and info.category == "Privacy"
+        and info.model_id == default_model_id
         and lang in (info.languages or [])
     }
 

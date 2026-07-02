@@ -13,11 +13,16 @@ from deepteam.vulnerabilities.indirect_instruction import (
 )
 from deepteam.vulnerabilities.utils import validate_vulnerability_types
 from deepteam.metrics import IndirectInstructionMetric, BaseRedTeamingMetric
+from deepteam.metrics.types import EvaluationExample
 from deepteam.attacks.multi_turn.types import CallbackType
+from deepteam.attacks.attack_engine import AttackEngine
 from deepteam.test_case import RTTestCase
 from deepteam.attacks.attack_simulator.schema import SyntheticDataList
 from deepteam.risks import getRiskCategory
 from .template import IndirectInstructionTemplate
+from deepeval.tracing.types import Trace
+from deepteam.trace_scanner.schema import BatchFinding
+from deepteam.trace_scanner import TraceScanner
 
 IndirectInstructionLiteral = Literal[
     "rag_injection",
@@ -31,6 +36,7 @@ class IndirectInstruction(BaseVulnerability):
     name: str = "Indirect Instruction"
     description = "Manipulation of model or agent behavior through instructions embedded in external data sources such as retrieved documents, tool outputs, or prior context."
     ALLOWED_TYPES = [type.value for type in IndirectInstructionType]
+    category = "Agentic"
 
     def __init__(
         self,
@@ -44,6 +50,9 @@ class IndirectInstruction(BaseVulnerability):
             type.value for type in IndirectInstructionType
         ],
         purpose: Optional[str] = None,
+        evaluation_examples: Optional[List[EvaluationExample]] = None,
+        evaluation_guidelines: Optional[List[str]] = None,
+        attack_engine: Optional[AttackEngine] = None,
     ):
         enum_types = validate_vulnerability_types(
             self.get_name(), types=types, allowed_type=IndirectInstructionType
@@ -53,7 +62,10 @@ class IndirectInstruction(BaseVulnerability):
         self.simulator_model = simulator_model
         self.evaluation_model = evaluation_model
         self.purpose = purpose
+        self.evaluation_examples = evaluation_examples
+        self.evaluation_guidelines = evaluation_guidelines
         super().__init__(types=enum_types)
+        self.attack_engine = attack_engine
 
     def assess(
         self,
@@ -197,8 +209,9 @@ class IndirectInstruction(BaseVulnerability):
 
         for type in self.types:
             for prompt in templates[type]:
+                simulation_cost = 0 if self.using_native_model else None
                 if self.using_native_model:
-                    res, _ = self.simulator_model.generate(
+                    res, simulation_cost = self.simulator_model.generate(
                         prompt, schema=SyntheticDataList
                     )
                     local_attacks = [item.input for item in res.data]
@@ -213,18 +226,24 @@ class IndirectInstruction(BaseVulnerability):
                         data = trimAndLoadJson(res)
                         local_attacks = [item["input"] for item in data["data"]]
 
+            per_attack_cost = (
+                simulation_cost / len(local_attacks)
+                if simulation_cost is not None and local_attacks
+                else simulation_cost
+            )
             simulated_test_cases.extend(
                 [
                     RTTestCase(
                         vulnerability=self.get_name(),
                         vulnerability_type=type,
                         input=local_attack,
+                        simulation_cost=per_attack_cost,
                     )
                     for local_attack in local_attacks
                 ]
             )
 
-        return simulated_test_cases
+        return self._refine_simulated_attacks(simulated_test_cases, purpose)
 
     async def a_simulate_attacks(
         self,
@@ -251,9 +270,12 @@ class IndirectInstruction(BaseVulnerability):
 
         for type in self.types:
             for prompt in templates[type]:
+                simulation_cost = 0 if self.using_native_model else None
                 if self.using_native_model:
-                    res, _ = await self.simulator_model.a_generate(
-                        prompt, schema=SyntheticDataList
+                    res, simulation_cost = (
+                        await self.simulator_model.a_generate(
+                            prompt, schema=SyntheticDataList
+                        )
                     )
                     local_attacks = [item.input for item in res.data]
                 else:
@@ -269,18 +291,75 @@ class IndirectInstruction(BaseVulnerability):
                         data = trimAndLoadJson(res)
                         local_attacks = [item["input"] for item in data["data"]]
 
+            per_attack_cost = (
+                simulation_cost / len(local_attacks)
+                if simulation_cost is not None and local_attacks
+                else simulation_cost
+            )
             simulated_test_cases.extend(
                 [
                     RTTestCase(
                         vulnerability=self.get_name(),
                         vulnerability_type=type,
                         input=local_attack,
+                        simulation_cost=per_attack_cost,
                     )
                     for local_attack in local_attacks
                 ]
             )
 
-        return simulated_test_cases
+        return await self._a_refine_simulated_attacks(
+            simulated_test_cases, purpose
+        )
+
+    def _assess_trace(
+        self,
+        trace: Trace,
+    ) -> List[BatchFinding]:
+        """
+        Evaluates an entire execution trace for Indirect Instruction vulnerabilities using bottoms-up batching.
+        """
+        if self.async_mode:
+            loop = get_or_create_event_loop()
+            return loop.run_until_complete(self._a_assess_trace(trace=trace))
+
+        self.evaluation_model, self.using_native_model = initialize_model(
+            self.evaluation_model
+        )
+        trace_scanner = TraceScanner(
+            model=self.evaluation_model,
+            template=IndirectInstructionTemplate,
+        )
+
+        findings = trace_scanner.process_trace(trace)
+
+        self.trace_findings = findings
+        self.vulnerable = any(f.outcome == "materialized" for f in findings)
+
+        return findings
+
+    async def _a_assess_trace(
+        self,
+        trace: Trace,
+    ) -> List[BatchFinding]:
+        """
+        Asynchronously evaluates an entire execution trace for Indirect Instruction vulnerabilities.
+        """
+        self.evaluation_model, self.using_native_model = initialize_model(
+            self.evaluation_model
+        )
+
+        trace_scanner = TraceScanner(
+            model=self.evaluation_model,
+            template=IndirectInstructionTemplate,
+        )
+
+        findings = await trace_scanner.a_process_trace(trace)
+
+        self.trace_findings = findings
+        self.vulnerable = any(f.outcome == "materialized" for f in findings)
+
+        return findings
 
     def _get_metric(
         self,
@@ -292,6 +371,8 @@ class IndirectInstruction(BaseVulnerability):
             model=self.evaluation_model,
             async_mode=self.async_mode,
             verbose_mode=self.verbose_mode,
+            evaluation_examples=self.evaluation_examples,
+            evaluation_guidelines=self.evaluation_guidelines,
         )
 
     def is_vulnerable(self) -> bool:

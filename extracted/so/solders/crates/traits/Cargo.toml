@@ -1,0 +1,27 @@
+
+[package]
+name = "solders-traits"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+description = "A collection of traits and helpers for Solders."
+license = { workspace = true }
+repository = { workspace = true }
+
+[dependencies]
+bincode = { workspace = true }
+litesvm = { workspace = true, optional = true }
+pyo3 = { workspace = true }
+serde_cbor = { workspace = true }
+serde_json = { workspace = true }
+solana-commitment-config = { workspace = true }
+solana-hash = { workspace = true }
+solana-pubkey = { workspace = true }
+solana-sanitize = { workspace = true }
+solana-signature = { workspace = true }
+solana-signer = { workspace = true }
+solana-transaction-error = { workspace = true }
+solders-traits-core = { workspace = true }
+
+[features]
+litesvm = ["dep:litesvm"]

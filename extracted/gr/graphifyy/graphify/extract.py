@@ -1456,6 +1456,234 @@ def _python_collect_param_refs(params_node, source: bytes) -> list[tuple[str, st
     return out
 
 
+def _python_param_names(params_node, source: bytes) -> set[str]:
+    """Plain parameter identifiers declared on a Python `parameters` node.
+
+    Covers positional/keyword params plus `*args` / `**kwargs` and typed or
+    default forms — anything that binds a local name the function body can shadow
+    a module-level definition with.
+    """
+    out: set[str] = set()
+    if params_node is None:
+        return out
+    for child in params_node.children:
+        if child.type == "identifier":
+            out.add(_read_text(child, source))
+        elif child.type in (
+            "typed_parameter",
+            "default_parameter",
+            "typed_default_parameter",
+            "list_splat_pattern",
+            "dictionary_splat_pattern",
+        ):
+            # The bound name is the first identifier child (the rest is type/default).
+            name_n = child.child_by_field_name("name")
+            if name_n is None:
+                name_n = next(
+                    (c for c in child.children if c.type == "identifier"), None
+                )
+            if name_n is not None:
+                out.add(_read_text(name_n, source))
+    return out
+
+
+def _python_collect_assignment_targets(node, source: bytes, out: set[str]) -> None:
+    """Identifiers bound as `pattern` targets under a Python AST subtree.
+
+    Recurses through `pattern_list` / `tuple_pattern` / `list_pattern` so tuple
+    unpacking (`a, b = ...`, `for a, b in ...`) contributes every bound name.
+    """
+    if node is None:
+        return
+    if node.type == "identifier":
+        out.add(_read_text(node, source))
+        return
+    if node.type in ("pattern_list", "tuple_pattern", "list_pattern"):
+        for c in node.children:
+            _python_collect_assignment_targets(c, source, out)
+
+
+def _python_local_bound_names(func_def_node, source: bytes) -> set[str]:
+    """Names bound LOCALLY inside a Python function: parameters plus assignment,
+    `for`, `with ... as`, and comprehension targets.
+
+    Used by the indirect-dispatch guard to reject a call-argument identifier that
+    is a parameter or a local binding — it names a local value, not the module-
+    level function/class that happens to share the name. Nested `function_definition`
+    and `class_definition` subtrees are NOT descended into: their bindings belong
+    to a different scope.
+    """
+    bound: set[str] = set()
+    bound |= _python_param_names(func_def_node.child_by_field_name("parameters"), source)
+
+    def walk(n) -> None:
+        for child in n.children:
+            t = child.type
+            if t in ("function_definition", "class_definition", "lambda"):
+                continue  # inner scope — its bindings are not this function's locals
+            if t == "assignment":
+                _python_collect_assignment_targets(
+                    child.child_by_field_name("left"), source, bound
+                )
+            elif t in ("for_statement", "for_in_clause"):
+                _python_collect_assignment_targets(
+                    child.child_by_field_name("left"), source, bound
+                )
+            elif t == "with_statement":
+                for item in child.children:
+                    if item.type == "with_clause":
+                        for wi in item.children:
+                            if wi.type == "with_item":
+                                alias = wi.child_by_field_name("alias")
+                                _python_collect_assignment_targets(alias, source, bound)
+            elif t == "named_expression":  # walrus :=
+                _python_collect_assignment_targets(
+                    child.child_by_field_name("name"), source, bound
+                )
+            walk(child)
+
+    body = func_def_node.child_by_field_name("body")
+    if body is not None:
+        walk(body)
+    return bound
+
+
+def _python_module_bound_names(root, source: bytes) -> set[str]:
+    """Names rebound by assignment at MODULE scope (top-level `x = ...`, `for`, walrus).
+
+    The module-scope analogue of the per-function shadow set: a dispatch-table value
+    whose name is reassigned to data at module level (`handler = build()`) names that
+    value, not a same-named function, so it must not manufacture an indirect edge.
+    Function and class bodies are not descended into — their bindings are local.
+    """
+    bound: set[str] = set()
+
+    def walk(n) -> None:
+        for child in n.children:
+            t = child.type
+            if t in ("function_definition", "class_definition", "lambda"):
+                continue  # inner scope — not a module-level binding
+            if t == "assignment":
+                _python_collect_assignment_targets(
+                    child.child_by_field_name("left"), source, bound
+                )
+            elif t in ("for_statement", "for_in_clause"):
+                _python_collect_assignment_targets(
+                    child.child_by_field_name("left"), source, bound
+                )
+            elif t == "named_expression":  # walrus :=
+                _python_collect_assignment_targets(
+                    child.child_by_field_name("name"), source, bound
+                )
+            walk(child)
+
+    walk(root)
+    return bound
+
+
+_JS_SCOPE_BOUNDARY = frozenset({
+    "function_declaration", "function_expression", "function", "arrow_function",
+    "method_definition", "class_declaration", "class", "generator_function",
+    "generator_function_declaration",
+})
+
+
+def _js_collect_pattern_idents(node, source: bytes, bound: set) -> None:
+    """Collect binding identifier names from a JS/TS pattern (a parameter, or a
+    declarator LHS). Recurses through destructuring (object/array patterns, rest)
+    but never into the default-value side of `x = default` or a type annotation,
+    so only names actually bound by the pattern are collected."""
+    t = node.type
+    if t in ("identifier", "shorthand_property_identifier_pattern"):
+        bound.add(_read_text(node, source))
+        return
+    if t == "type_annotation":
+        return  # `(h: Handler)` — Handler is a type, not a bound name
+    if t == "assignment_pattern":  # `x = default` — only x is bound
+        left = node.child_by_field_name("left")
+        if left is not None:
+            _js_collect_pattern_idents(left, source, bound)
+        return
+    if t == "pair_pattern":  # `{ a: localName }` — localName is bound
+        val = node.child_by_field_name("value")
+        if val is not None:
+            _js_collect_pattern_idents(val, source, bound)
+        return
+    for c in node.children:
+        if c.is_named:
+            _js_collect_pattern_idents(c, source, bound)
+
+
+def _js_local_bound_names(func_node, source: bytes) -> set[str]:
+    """Names bound locally inside a JS/TS function: parameters plus `const`/`let`/
+    `var` declarator targets. Mirrors `_python_local_bound_names`: an argument that
+    is a parameter or local binding names a local value, not a same-named module
+    function, so it must not manufacture an indirect_call edge. Nested function and
+    class scopes are not descended into."""
+    bound: set[str] = set()
+    params = func_node.child_by_field_name("parameters")
+    if params is not None:
+        _js_collect_pattern_idents(params, source, bound)
+
+    def walk(n) -> None:
+        for c in n.children:
+            if c.type in _JS_SCOPE_BOUNDARY:
+                continue  # inner scope — its bindings are not this function's locals
+            if c.type == "variable_declarator":
+                name = c.child_by_field_name("name")
+                if name is not None:
+                    _js_collect_pattern_idents(name, source, bound)
+            walk(c)
+
+    body = func_node.child_by_field_name("body")
+    if body is not None:
+        walk(body)
+    return bound
+
+
+def _js_module_bound_names(root, source: bytes) -> set[str]:
+    """Module-scope names rebound to NON-function data (`const X = {...}`, `let y = 5`).
+
+    The JS/TS module-scope shadow set. Unlike the per-function set, a declarator
+    whose value is itself a function (`const cb = () => {}`) is EXCLUDED: that name
+    IS a callable we want dispatch tables to resolve to, not a data shadow.
+    """
+    bound: set[str] = set()
+
+    def walk(n) -> None:
+        for c in n.children:
+            if c.type in _JS_SCOPE_BOUNDARY:
+                continue
+            if c.type == "variable_declarator":
+                value = c.child_by_field_name("value")
+                if value is None or value.type not in _JS_FUNCTION_VALUE_TYPES:
+                    name = c.child_by_field_name("name")
+                    if name is not None:
+                        _js_collect_pattern_idents(name, source, bound)
+            walk(c)
+
+    walk(root)
+    return bound
+
+
+def _js_dispatch_value_idents(coll_node):
+    """Yield identifier value-nodes of a JS/TS object/array literal that are
+    function-reference candidates: object property VALUES and shorthand properties
+    (`{ handler }`), and array elements. Keys and inline methods are not references."""
+    if coll_node.type == "object":
+        for c in coll_node.children:
+            if c.type == "pair":
+                val = c.child_by_field_name("value")
+                if val is not None and val.type == "identifier":
+                    yield val
+            elif c.type == "shorthand_property_identifier":
+                yield c
+    else:  # array
+        for el in coll_node.children:
+            if el.type == "identifier":
+                yield el
+
+
 def _resolve_name(node, source: bytes, config: LanguageConfig) -> str | None:
     """Get the name from a node using config.name_field, falling back to child types."""
     if config.resolve_function_name_fn is not None:
@@ -2180,7 +2408,9 @@ def _js_member_assignment_target(left, source: bytes):
 
 def _js_extra_walk(node, source: bytes, file_nid: str, stem: str, str_path: str,
                    nodes: list, edges: list, seen_ids: set, function_bodies: list,
-                   parent_class_nid: str | None, add_node_fn, add_edge_fn) -> bool:
+                   parent_class_nid: str | None, add_node_fn, add_edge_fn,
+                   callable_def_nids: set | None = None,
+                   local_bound_names: dict | None = None) -> bool:
     """Handle lexical_declaration (arrow functions, CJS requires, module-level const literals) for JS/TS. Returns True if handled."""
     # CommonJS / prototype member assignments whose value is a function:
     #   exports.X = () => {}     → file-contained function  X()
@@ -2212,6 +2442,10 @@ def _js_extra_walk(node, source: bytes, file_nid: str, stem: str, str_path: str,
                         add_edge_fn(owner_nid, nid, "method", line)
                         handled = True
                     if handled:
+                        if callable_def_nids is not None:
+                            callable_def_nids.add(nid)  # CJS/prototype fn is callable
+                        if local_bound_names is not None:
+                            local_bound_names[nid] = _js_local_bound_names(value, source)
                         body = value.child_by_field_name("body")
                         if body:
                             function_bodies.append((nid, body))
@@ -2232,6 +2466,10 @@ def _js_extra_walk(node, source: bytes, file_nid: str, stem: str, str_path: str,
                 nid = _make_id(parent_class_nid, field_name)
                 add_node_fn(nid, f".{field_name}()", line)
                 add_edge_fn(parent_class_nid, nid, "method", line)
+                if callable_def_nids is not None:
+                    callable_def_nids.add(nid)  # arrow class-field is callable
+                if local_bound_names is not None:
+                    local_bound_names[nid] = _js_local_bound_names(value, source)
                 body = value.child_by_field_name("body")
                 if body:
                     function_bodies.append((nid, body))
@@ -2271,6 +2509,10 @@ def _js_extra_walk(node, source: bytes, file_nid: str, stem: str, str_path: str,
                             func_nid = _make_id(stem, func_name)
                             add_node_fn(func_nid, f"{func_name}()", line)
                             add_edge_fn(file_nid, func_nid, "contains", line)
+                            if callable_def_nids is not None:
+                                callable_def_nids.add(func_nid)  # `const f = () =>` is callable
+                            if local_bound_names is not None:
+                                local_bound_names[func_nid] = _js_local_bound_names(value, source)
                             body = value.child_by_field_name("body")
                             if body:
                                 function_bodies.append((func_nid, body))
@@ -2843,6 +3085,16 @@ def _extract_generic(
     namespace_stack: list[str] = []
     scope_stack: list[str] = []
     function_bodies: list[tuple[str, object]] = []
+    # nids of function / method / class definitions in this file. The indirect-
+    # dispatch guard (Python) resolves a call-argument identifier to an edge only
+    # when it names one of these callable defs — never an arbitrary same-named
+    # node — so `process(config)` can't manufacture an edge to a non-callable.
+    callable_def_nids: set[str] = set()
+    # Python only: per-function set of locally-bound names (params + local
+    # assignment / for / with-as / comprehension targets). The indirect-dispatch
+    # guard skips any call-argument identifier in the enclosing function's set,
+    # so a param/local that shadows a module function name yields no edge.
+    local_bound_names: dict[str, set[str]] = {}
     pending_listen_edges: list[tuple[str, str, int]] = []
     # tree-sitter-swift parses both `class Foo` and `extension Foo` as
     # `class_declaration`. Same-file pairs collapse via seen_ids, but cross-file
@@ -2992,6 +3244,7 @@ def _extract_generic(
             if config.ts_module == "tree_sitter_c_sharp" and parent_class_nid:
                 metadata = {"is_nested_type": True}
             add_node(class_nid, class_name, line, metadata=metadata)
+            callable_def_nids.add(class_nid)  # a class is callable (constructor)
             add_edge(file_nid, class_nid, "contains", line)
 
             if config.ts_module == "tree_sitter_swift" and any(
@@ -3173,6 +3426,37 @@ def _extract_generic(
                                             add_edge(class_nid, target, "references", line,
                                                      context="generic_arg")
 
+            # Ruby: `class Dog < Animal` puts the base class in the `superclass`
+            # field (a `<` token followed by a constant or scope_resolution).
+            # There was no Ruby branch, so every Ruby inherits edge was dropped.
+            if config.ts_module == "tree_sitter_ruby":
+                sup = node.child_by_field_name("superclass")
+                if sup is not None:
+                    base = ""
+                    for sub in sup.children:
+                        if sub.type == "constant":
+                            base = _read_text(sub, source)
+                            break
+                        if sub.type == "scope_resolution":
+                            consts = [c for c in sub.children if c.type == "constant"]
+                            if consts:
+                                base = _read_text(consts[-1], source)
+                            break
+                    if base:
+                        base_nid = _make_id(stem, base)
+                        if base_nid not in seen_ids:
+                            base_nid = _make_id(base)
+                            if base_nid not in seen_ids:
+                                nodes.append({
+                                    "id": base_nid,
+                                    "label": base,
+                                    "file_type": "code",
+                                    "source_file": "",
+                                    "source_location": "",
+                                })
+                                seen_ids.add(base_nid)
+                        add_edge(class_nid, base_nid, "inherits", line)
+
             # C#-specific: inheritance / interface implementation via base_list
             if config.ts_module == "tree_sitter_c_sharp":
                 csharp_type_params = _csharp_type_parameters_in_scope(node, source)
@@ -3229,7 +3513,7 @@ def _extract_generic(
                                                  context="generic_arg", metadata=metadata)
 
             # Java-specific: extends (superclass) / implements (interfaces) / interface-extends
-            if config.ts_module == "tree_sitter_java":
+            if config.ts_module in ("tree_sitter_java", "tree_sitter_groovy"):
                 def _emit_java_parent(base_name: str, rel: str, at_line: int) -> None:
                     if not base_name:
                         return
@@ -3671,6 +3955,11 @@ def _extract_generic(
                 func_nid = _make_id(stem, func_name)
                 add_node(func_nid, f"{func_name}()", line)
                 add_edge(file_nid, func_nid, "contains", line)
+            callable_def_nids.add(func_nid)  # function / method def is callable
+            if config.ts_module == "tree_sitter_python":
+                local_bound_names[func_nid] = _python_local_bound_names(node, source)
+            elif config.ts_module in ("tree_sitter_javascript", "tree_sitter_typescript"):
+                local_bound_names[func_nid] = _js_local_bound_names(node, source)
 
             if config.ts_module == "tree_sitter_python":
                 params_node = node.child_by_field_name("parameters")
@@ -4004,7 +4293,8 @@ def _extract_generic(
         if config.ts_module in ("tree_sitter_javascript", "tree_sitter_typescript"):
             if _js_extra_walk(node, source, file_nid, stem, str_path,
                               nodes, edges, seen_ids, function_bodies,
-                              parent_class_nid, add_node, add_edge):
+                              parent_class_nid, add_node, add_edge,
+                              callable_def_nids, local_bound_names):
                 return
 
         if config.ts_module == "tree_sitter_c_sharp":
@@ -4043,7 +4333,13 @@ def _extract_generic(
     # ── Call-graph pass ───────────────────────────────────────────────────────
     label_to_nid: dict[str, str] = {}     # case-sensitive (Ruby, C#, Java, Kotlin, etc.)
     label_to_nid_ci: dict[str, str] = {}  # case-insensitive (PHP functions/classes)
+    # nid -> source_file, so the indirect-dispatch guard can tell a genuine local
+    # non-callable (reject) from an import-resolved foreign symbol whose definition
+    # lives in another file (defer to the cross-file resolver). JS/TS named imports
+    # surface the imported symbol's REAL node into this file's label map.
+    nid_to_sf: dict[str, str] = {}
     for n in nodes:
+        nid_to_sf[n["id"]] = str(n.get("source_file") or "")
         if n.get("type") == "namespace":
             continue
         raw = n["label"]
@@ -4052,6 +4348,7 @@ def _extract_generic(
         label_to_nid_ci[normalised.lower()] = n["id"]
 
     seen_call_pairs: set[tuple[str, str]] = set()
+    seen_indirect_pairs: set[tuple[str, str]] = set()  # Python indirect_call dedup
     seen_dyn_import_pairs: set[tuple[str, str]] = set()
     seen_static_ref_pairs: set[tuple[str, str, str]] = set()
     seen_helper_ref_pairs: set[tuple[str, str, str]] = set()
@@ -4061,6 +4358,133 @@ def _extract_generic(
     # populated before walk_calls runs. Lets member-call raw_calls carry a
     # receiver_type so the cross-file pass resolves `var.method` by type (#ruby).
     ruby_var_types: dict[str, dict[str, str | None]] = {}
+
+    def _emit_indirect_by_name(ident_name: str, loc_node, scope_nid: str,
+                               context: str) -> None:
+        """Resolve a name that is referenced AS A VALUE to a real callable def and emit
+        one INFERRED ``indirect_call`` edge — deferring an unknown / foreign name to the
+        cross-file resolver, which applies the single-definition god-node guard and the
+        GLOBAL callable-target check. The name is already extracted; scope filtering is
+        the CALLER's job: an identifier reference must reject param/local shadows (a bare
+        name IS a binding — see ``_emit_indirect_ref``), whereas a ``getattr(obj, "x")``
+        string names an ATTRIBUTE and is never shadowed by a local, so that path passes
+        the name straight through. ``loc_node`` supplies the source line.
+        """
+        ref_nid = label_to_nid.get(ident_name)
+        # Defer to the cross-file resolver when the name is not defined in this file
+        # (`from .h import fn`), or resolves to an import-surfaced FOREIGN symbol whose
+        # definition (and callability) lives in another file (JS/TS named imports map
+        # the real node into this file's label map). The cross-file pass applies the
+        # single-definition god-node guard plus the GLOBAL callable-target check, so a
+        # foreign non-callable (an imported data const) still produces no edge.
+        if ref_nid is None or (
+            ref_nid not in callable_def_nids and nid_to_sf.get(ref_nid, "") != str_path
+        ):
+            raw_calls.append({
+                "caller_nid": scope_nid,
+                "callee": ident_name,
+                "is_member_call": False,
+                "indirect": True,
+                "context": context,
+                "source_file": str_path,
+                "source_location": f"L{loc_node.start_point[0] + 1}",
+            })
+            return
+        if ref_nid == scope_nid or ref_nid not in callable_def_nids:
+            return  # self-ref, or a same-named LOCAL non-callable data node — no edge
+        if (scope_nid, ref_nid) in seen_call_pairs:
+            return  # already a direct call to this target
+        if (scope_nid, ref_nid) in seen_indirect_pairs:
+            return
+        seen_indirect_pairs.add((scope_nid, ref_nid))
+        edges.append({
+            "source": scope_nid,
+            "target": ref_nid,
+            "relation": "indirect_call",
+            "context": context,
+            "confidence": "INFERRED",
+            "source_file": str_path,
+            "source_location": f"L{loc_node.start_point[0] + 1}",
+            "weight": 1.0,
+        })
+
+    def _emit_indirect_ref(ident, scope_nid: str, enclosing_locals, context: str) -> None:
+        """A function referenced BY NAME — passed as a call argument, or listed as a
+        value in a dispatch table — is an indirect dependency of ``scope_nid``. Emit
+        it as a distinct INFERRED ``indirect_call`` (kept out of the precise ``calls``
+        relation) only when the name resolves to a real callable and is NOT shadowed
+        by a parameter / local binding. A callback defined in another file is deferred
+        to the cross-file resolver via an ``indirect`` raw_call carrying its context.
+        Language-agnostic; shared by the call-argument and dispatch-table capture
+        paths for Python and JS/TS (#1565, #1566).
+        """
+        if ident is None or ident.type not in ("identifier", "shorthand_property_identifier"):
+            return
+        ident_name = _read_text(ident, source)
+        # shadowing: a param / local binding names a local value, not the module fn
+        if ident_name in enclosing_locals or ident_name in ("self", "cls"):
+            return
+        _emit_indirect_by_name(ident_name, ident, scope_nid, context)
+
+    def _python_dispatch_value_idents(coll_node):
+        """Yield the identifier value-nodes of a dict/list/set/tuple literal that are
+        function-reference candidates: dict VALUES (never keys), and the elements of a
+        list/set/tuple. Nested collections are reached by the caller's own recursion."""
+        if coll_node.type == "dictionary":
+            for pair in coll_node.children:
+                if pair.type == "pair":
+                    val = pair.child_by_field_name("value")
+                    if val is not None and val.type == "identifier":
+                        yield val
+        else:  # list / set / tuple
+            for el in coll_node.children:
+                if el.type == "identifier":
+                    yield el
+
+    def _python_ref_value_idents(value_node):
+        """Identifiers on the VALUE side of an assignment RHS or a return: a bare name
+        (`cb = handler`, `return handler`) or the elements of a bare unpack
+        (`a, b = f, g`). A collection LITERAL on the RHS (`cb = [f]`, `cb = (f, g)`) is a
+        dispatch table reached by the normal recursion, so it is not handled here."""
+        if value_node is None:
+            return
+        if value_node.type == "identifier":
+            yield value_node
+        elif value_node.type == "expression_list":
+            for ch in value_node.children:
+                if ch.type == "identifier":
+                    yield ch
+
+    def _getattr_ref_name(call_node):
+        """If ``call_node`` is a builtin ``getattr(obj, "name"[, default])`` whose name
+        argument is a PLAIN string literal, return ``(name, string_node)``: the string
+        names an attribute looked up by that exact name, so it resolves to a callable
+        def of the same label. A dynamic name — a variable, an f-string, a concatenation,
+        any expression — is not statically resolvable and yields ``None`` (no edge is
+        manufactured), as do the 1-arg form and ``obj.getattr(...)`` (a method, not the
+        builtin). Unlike an identifier, a string is an attribute name and is never
+        shadowed by a param/local, so callers resolve it without the shadow guard.
+        """
+        fn = call_node.child_by_field_name("function")
+        if fn is None or fn.type != "identifier" or _read_text(fn, source) != "getattr":
+            return None
+        args = call_node.child_by_field_name("arguments")
+        if args is None:
+            return None
+        positional = [c for c in args.children
+                      if c.is_named and c.type not in ("keyword_argument", "comment")]
+        if len(positional) < 2:
+            return None
+        name_node = positional[1]
+        if name_node.type != "string" or any(
+            ch.type == "interpolation" for ch in name_node.children
+        ):
+            return None  # variable, f-string, concatenation, or expression — dynamic
+        content = next(
+            (ch for ch in name_node.children if ch.type == "string_content"), None)
+        if content is None:
+            return None  # empty string "" — no attribute name
+        return _read_text(content, source), name_node
 
     def _php_class_const_scope(n) -> str | None:
         scope = n.child_by_field_name("scope")
@@ -4314,6 +4738,54 @@ def _extract_generic(
                         rc_entry["lang"] = "cpp"
                     raw_calls.append(rc_entry)
 
+            # Indirect dispatch: a function passed BY NAME as a call argument
+            # (executor.submit(fn), Thread(target=fn), map(fn, xs)) is a real dependency
+            # the callee-only scan above can't see. Emit it as a distinct `indirect_call`
+            # relation so strict `calls` queries stay precise while affected/blast-radius
+            # picks up the edge. Python only for now; dispatch via dict literals, getattr
+            # or decorators lives in other AST nodes and is left to a follow-up.
+            #
+            # Emission is general across call targets (no submit/map/Thread allow-list):
+            # the value is catching a callback passed to ANY function. Two guards keep
+            # it sound — without them an identifier merely matching a node label produced
+            # false edges for the idiomatic shadow case and for plain data variables:
+            #   1. SHADOWING — skip an argument that is a parameter or local binding of
+            #      the enclosing function; it names a local value, not the module fn.
+            #   2. CALLABLE TARGET — resolve only to a function / method / class def, so
+            #      `process(config)` can't point at a same-named non-callable node.
+            if config.ts_module == "tree_sitter_python":
+                args_node = node.child_by_field_name("arguments")
+                if args_node is not None:
+                    enclosing_locals = local_bound_names.get(caller_nid, frozenset())
+                    for arg in args_node.children:
+                        if arg.type == "identifier":
+                            _emit_indirect_ref(arg, caller_nid, enclosing_locals, "argument")
+                        elif arg.type == "keyword_argument":
+                            _emit_indirect_ref(
+                                arg.child_by_field_name("value"),
+                                caller_nid, enclosing_locals, "argument")
+                # Reflective dispatch: getattr(obj, "handler") names a callable by
+                # string literal (#1566 slice 3). The string is an ATTRIBUTE name, not
+                # an identifier binding, so it is never shadowed by a param/local — it
+                # resolves straight to the callable, bypassing the identifier shadow
+                # guard. A dynamic name (getattr(obj, name)) is unresolvable → no edge.
+                getattr_ref = _getattr_ref_name(node)
+                if getattr_ref is not None:
+                    ref_name, loc = getattr_ref
+                    _emit_indirect_by_name(ref_name, loc, caller_nid, "getattr")
+            elif config.ts_module in ("tree_sitter_javascript", "tree_sitter_typescript"):
+                # JS/TS: a callback passed by name (`arr.map(fn)`, `setTimeout(fn)`,
+                # `el.addEventListener("x", fn)`). Positional identifier args only —
+                # inline arrows/function expressions are direct definitions, not a
+                # by-name reference. No keyword args in JS (named args are objects,
+                # handled by the collection pass).
+                args_node = node.child_by_field_name("arguments")
+                if args_node is not None:
+                    enclosing_locals = local_bound_names.get(caller_nid, frozenset())
+                    for arg in args_node.children:
+                        if arg.type == "identifier":
+                            _emit_indirect_ref(arg, caller_nid, enclosing_locals, "argument")
+
             # Helper function calls: config('foo.bar') → uses_config edge to "foo"
             if (callee_name and callee_name in config.helper_fn_names):
                 args_node = node.child_by_field_name("arguments")
@@ -4438,6 +4910,37 @@ def _extract_generic(
                             "weight": 1.0,
                         })
 
+        # Dispatch tables (#1566): a function listed as a value in a dict/list/set/
+        # tuple literal inside this body is an indirect dependency of the enclosing
+        # function. Reuses the shared resolve-and-emit guard (callable-target-only,
+        # not shadowed by a param/local, cross-file deferral).
+        if config.ts_module == "tree_sitter_python" and node.type in (
+            "dictionary", "list", "set", "tuple"
+        ):
+            enclosing_locals = local_bound_names.get(caller_nid, frozenset())
+            for ident in _python_dispatch_value_idents(node):
+                _emit_indirect_ref(ident, caller_nid, enclosing_locals, "collection")
+        elif config.ts_module in ("tree_sitter_javascript", "tree_sitter_typescript") \
+                and node.type in ("object", "array"):
+            enclosing_locals = local_bound_names.get(caller_nid, frozenset())
+            for ident in _js_dispatch_value_idents(node):
+                _emit_indirect_ref(ident, caller_nid, enclosing_locals, "collection")
+
+        # Assignment / return references (#1566 slice 2): a function bound to a name
+        # (cb = handler) or returned from a factory (return handler) is an indirect
+        # dependency of the enclosing function. The VALUE side only -- the assignment
+        # TARGET is a new local binding, not a reference -- so the shared shadow guard
+        # still holds (a param/local named on the RHS is the local, not the module fn).
+        if config.ts_module == "tree_sitter_python" and node.type == "assignment":
+            enclosing_locals = local_bound_names.get(caller_nid, frozenset())
+            for ident in _python_ref_value_idents(node.child_by_field_name("right")):
+                _emit_indirect_ref(ident, caller_nid, enclosing_locals, "assignment")
+        elif config.ts_module == "tree_sitter_python" and node.type == "return_statement":
+            enclosing_locals = local_bound_names.get(caller_nid, frozenset())
+            value = next((c for c in node.children if c.is_named), None)
+            for ident in _python_ref_value_idents(value):
+                _emit_indirect_ref(ident, caller_nid, enclosing_locals, "return")
+
         for child in node.children:
             walk_calls(child, caller_nid)
 
@@ -4484,6 +4987,60 @@ def _extract_generic(
             "weight": 1.0,
         })
 
+    # ── Module-level dispatch tables (#1566) ──────────────────────────────────
+    # A function listed as a value in a TOP-LEVEL dict/list/set/tuple literal (a
+    # route / handler registry) is an indirect dependency of the file. Attributed
+    # to the file node. Function and class bodies are walked above, so this scan
+    # stops at their boundaries — it must not re-attribute a method's local table
+    # to the file, and class-attribute tables are a later refinement.
+    if config.ts_module == "tree_sitter_python":
+        module_bound = _python_module_bound_names(root, source)
+
+        def _scan_module_dispatch(n) -> None:
+            if n.type in ("function_definition", "class_definition"):
+                return
+            if n.type in ("dictionary", "list", "set", "tuple"):
+                for ident in _python_dispatch_value_idents(n):
+                    _emit_indirect_ref(ident, file_nid, module_bound, "collection")
+            elif n.type == "assignment":
+                # Module-level alias / re-export: CALLBACK = handler
+                for ident in _python_ref_value_idents(n.child_by_field_name("right")):
+                    _emit_indirect_ref(ident, file_nid, module_bound, "assignment")
+            elif n.type == "call":
+                # Module-level reflective dispatch: HANDLER = getattr(mod, "handler")
+                # (#1566 slice 3). Attributed to the file node, like a module table.
+                getattr_ref = _getattr_ref_name(n)
+                if getattr_ref is not None:
+                    ref_name, loc = getattr_ref
+                    _emit_indirect_by_name(ref_name, loc, file_nid, "getattr")
+            for c in n.children:
+                _scan_module_dispatch(c)
+
+        _scan_module_dispatch(root)
+    elif config.ts_module in ("tree_sitter_javascript", "tree_sitter_typescript"):
+        js_module_bound = _js_module_bound_names(root, source)
+
+        def _scan_js_module_dispatch(n) -> None:
+            if n.type in _JS_SCOPE_BOUNDARY:
+                return  # function / class bodies are walked separately
+            if n.type in ("object", "array"):
+                for ident in _js_dispatch_value_idents(n):
+                    _emit_indirect_ref(ident, file_nid, js_module_bound, "collection")
+            elif n.type in ("call_expression", "new_expression"):
+                # Module-level callback registration is idiomatic in JS — Express
+                # routes (`app.get("/", handler)`), event wiring (`emitter.on("e",
+                # handler)`), `setTimeout(fn)`. Capture identifier args as indirect
+                # refs of the file (inline arrows are direct defs, not by-name refs).
+                margs = n.child_by_field_name("arguments")
+                if margs is not None:
+                    for marg in margs.children:
+                        if marg.type == "identifier":
+                            _emit_indirect_ref(marg, file_nid, js_module_bound, "argument")
+            for c in n.children:
+                _scan_js_module_dispatch(c)
+
+        _scan_js_module_dispatch(root)
+
     # ── Clean edges ───────────────────────────────────────────────────────────
     valid_ids = seen_ids
     clean_edges = []
@@ -4493,6 +5050,12 @@ def _extract_generic(
             clean_edges.append(edge)
 
     result = {"nodes": nodes, "edges": clean_edges, "raw_calls": raw_calls}
+    if callable_def_nids:
+        # Function / method / class def ids in this file. The cross-file
+        # indirect_call resolvers use the union of these to ensure a callback
+        # passed by name resolves only to a real callable, never a same-named
+        # data symbol (mirrors the in-file `callable_def_nids` guard).
+        result["callable_nids"] = sorted(callable_def_nids)
     if swift_extensions:
         result["swift_extensions"] = swift_extensions
     if type_table:
@@ -14619,10 +15182,15 @@ def extract(
     all_nodes: list[dict] = []
     all_edges: list[dict] = []
     all_raw_calls: list[dict] = []
+    # Union of every file's function / method / class def ids. The cross-file
+    # indirect_call pass resolves a callback passed by name only to one of these,
+    # so a same-named data symbol can never become an indirect-dispatch target.
+    callable_nids: set[str] = set()
     for result in per_file:
         all_nodes.extend(result.get("nodes", []))
         all_edges.extend(result.get("edges", []))
         all_raw_calls.extend(result.get("raw_calls", []))
+        callable_nids.update(result.get("callable_nids", ()))
 
     _augment_symbol_resolution_edges(paths, all_nodes, all_edges, root)
 
@@ -14840,6 +15408,13 @@ def extract(
         nid_to_file_nid[n["id"]] = _file_node_id(sf_rel)
 
     existing_pairs = {(e["source"], e["target"]) for e in all_edges}
+    # Call-like pairs only, for the indirect_call dedup: an `imports` edge from a
+    # file to the symbol it imports is EXPECTED and must not suppress an
+    # indirect_call to that same symbol (JS/TS named imports create such an edge).
+    call_like_pairs = {
+        (e["source"], e["target"]) for e in all_edges
+        if e.get("relation") in ("calls", "indirect_call")
+    }
     for rc in all_raw_calls:
         callee = rc.get("callee", "")
         if not callee:
@@ -14907,6 +15482,30 @@ def extract(
                     if tgt is None:
                         continue
                     has_import_evidence = False
+        if rc.get("indirect"):
+            # Cross-file indirect dispatch: a callback passed BY NAME
+            # (`from .h import fn; pool.submit(fn)`, or listed in a dispatch
+            # table). Resolved through the same single-definition / import-evidence
+            # candidate logic as a direct call, but emitted as a distinct INFERRED
+            # `indirect_call` and ONLY when the target is a real callable def —
+            # never a same-named data symbol. Stays INFERRED even with import
+            # evidence: the name is referenced as a value here, not invoked. Dedup
+            # is call-aware (an existing direct `calls` edge pre-empts it; a benign
+            # `imports` edge to the same symbol does NOT suppress it).
+            if tgt != caller and (caller, tgt) not in call_like_pairs and tgt in callable_nids:
+                call_like_pairs.add((caller, tgt))
+                all_edges.append({
+                    "source": caller,
+                    "target": tgt,
+                    "relation": "indirect_call",
+                    "context": rc.get("context", "argument"),
+                    "confidence": "INFERRED",
+                    "confidence_score": 0.8,
+                    "source_file": rc.get("source_file", ""),
+                    "source_location": rc.get("source_location"),
+                    "weight": 1.0,
+                })
+            continue
         if tgt != caller and (caller, tgt) not in existing_pairs:
             existing_pairs.add((caller, tgt))
             # Promote to EXTRACTED when there's a direct import edge from the

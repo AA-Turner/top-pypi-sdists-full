@@ -57,6 +57,7 @@ def main():
     benchmark = fev.Benchmark.from_yaml(args.benchmark)
     tasks = benchmark.tasks[: args.num_tasks]
 
+    extra_info = {"model_class": args.model, "model_kwargs": args.model_kwargs}
     summaries = []
     for task in tqdm(tasks):
         tqdm.write(f"Evaluating {task.task_name}")
@@ -67,11 +68,12 @@ def main():
             training_time_s=model.training_time,
             inference_time_s=model.inference_time,
             trained_on_this_dataset=task.dataset_config in model.trained_on_datasets,
+            extra_info=extra_info,
         )
         summaries.append(summary)
 
     df = pd.DataFrame(summaries)
-    print(df.to_string())
+    print(df[["model_name", "task_name", "test_error", "inference_time_s"]].to_string())
     output_path = f"{display_name}.csv"
     df.to_csv(output_path, index=False)
     print(f"Saved to {output_path}")

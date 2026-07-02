@@ -32,11 +32,12 @@ from rest_framework.exceptions import PermissionDenied
 
 from weblate.accounts.models import Subscription
 from weblate.addons.models import ADDONS, Addon
+from weblate.auth.data import SELECTION_ALL, SELECTION_MANUAL
 from weblate.auth.models import Group, Permission, Role, User
 from weblate.auth.results import PermissionResult
 from weblate.checks.models import CHECKS
 from weblate.lang.models import Language, Plural, validate_language_code
-from weblate.memory.models import Memory
+from weblate.memory.models import Memory, MemoryScope
 from weblate.screenshots.models import Screenshot
 from weblate.trans.component_copy import (
     get_inherited_component_fields,
@@ -74,6 +75,7 @@ from weblate.utils.state import STATE_READONLY, StringState
 from weblate.utils.validators import (
     validate_bitmap,
     validate_component_zip_upload_size,
+    validate_file_extension,
     validate_plural_formula_range,
     validate_translation_upload_size,
 )
@@ -193,7 +195,7 @@ class MultiFieldHyperlinkedIdentityField(serializers.HyperlinkedIdentityField):
         self.lookup_field = lookup_field
 
     # pylint: disable-next=redefined-builtin
-    def get_url(self, obj, view_name, request: AuthenticatedHttpRequest, format):  # noqa: A002
+    def get_url(self, obj, view_name, request: AuthenticatedHttpRequest, format):  # ruff: ignore[builtin-argument-shadowing]
         """
         Given an object, return the URL that hyperlinks to the object.
 
@@ -273,7 +275,7 @@ class LanguageSerializer(serializers.ModelSerializer[Language]):
             "url",
             "statistics_url",
         )
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "url": {"view_name": "api:language-detail", "lookup_field": "code"},
             "code": {"validators": [validate_language_code]},
         }
@@ -402,7 +404,7 @@ class FullUserSerializer(serializers.ModelSerializer[User]):
             "date_joined",
             "last_login",
         )
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "url": {"view_name": "api:user-detail", "lookup_field": "username"}
         }
 
@@ -421,7 +423,7 @@ class SelfUserSerializer(serializers.ModelSerializer[User]):
             "username",
         )
         # Self-service PUT must accept the fields returned by the basic self view.
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "email": {"required": False},
         }
 
@@ -475,6 +477,25 @@ class DefiningProjectField(serializers.HyperlinkedRelatedField):
             raise
 
 
+class DefiningWorkspaceField(serializers.PrimaryKeyRelatedField):
+    def get_queryset(self):
+        request = self.context.get("request")
+        if request is None:
+            return Workspace.objects.none()
+        if request.user.has_perm("group.edit"):
+            return Workspace.objects.all()
+        return request.user.workspaces_with_perm("workspace.edit_members")
+
+    def to_internal_value(self, data):
+        try:
+            return super().to_internal_value(data)
+        except serializers.ValidationError:
+            request = self.context.get("request")
+            if request is not None and not request.user.has_perm("group.edit"):
+                raise PermissionDenied from None
+            raise
+
+
 class RoleSerializer(serializers.ModelSerializer[Role]):
     permissions = PermissionSerializer(many=True)
 
@@ -486,7 +507,7 @@ class RoleSerializer(serializers.ModelSerializer[Role]):
             "permissions",
             "url",
         )
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "url": {"view_name": "api:role-detail", "lookup_field": "id"},
         }
 
@@ -653,9 +674,7 @@ class GroupSerializer(serializers.ModelSerializer[Group]):
         lookup_field="slug",
         required=False,
     )
-    defining_workspace = serializers.PrimaryKeyRelatedField(
-        queryset=Workspace.objects.all(), required=False, allow_null=True
-    )
+    defining_workspace = DefiningWorkspaceField(required=False, allow_null=True)
     admins = serializers.HyperlinkedRelatedField(
         view_name="api:user-detail",
         lookup_field="username",
@@ -681,18 +700,34 @@ class GroupSerializer(serializers.ModelSerializer[Group]):
             "enforced_2fa",
             "admins",
         )
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "url": {"view_name": "api:group-detail", "lookup_field": "id"},
         }
         validators = ()
 
     def validate(self, attrs):
+        defining_workspace = attrs.get(
+            "defining_workspace",
+            self.instance.defining_workspace if self.instance is not None else None,
+        )
+        if defining_workspace is not None:
+            attrs["language_selection"] = SELECTION_ALL
         if self.instance is not None and self.instance.internal:
-            errors = {
-                field: gettext_lazy("Cannot change this on a built-in team.")
-                for field in self.internal_fields
-                if field in attrs and attrs[field] != getattr(self.instance, field)
-            }
+            errors = {}
+            for field in self.internal_fields:
+                if field not in attrs:
+                    continue
+                value = attrs[field]
+                instance_value = getattr(self.instance, field)
+                if (
+                    field == "language_selection"
+                    and self.instance.defining_workspace_id
+                ):
+                    instance_value = SELECTION_ALL
+                if value != instance_value:
+                    errors[field] = gettext_lazy(
+                        "Cannot change this on a built-in team."
+                    )
             if errors:
                 raise serializers.ValidationError(errors)
         if (
@@ -727,10 +762,6 @@ class GroupSerializer(serializers.ModelSerializer[Group]):
                     )
                 }
             )
-        defining_workspace = attrs.get(
-            "defining_workspace",
-            self.instance.defining_workspace if self.instance is not None else None,
-        )
         name = attrs.get(
             "name", self.instance.name if self.instance is not None else None
         )
@@ -748,18 +779,38 @@ class GroupSerializer(serializers.ModelSerializer[Group]):
                     )
                 }
             )
-        request = self.context.get("request")
         if (
             self.instance is not None
-            and self.instance.defining_project is not None
+            and (
+                self.instance.defining_project is not None
+                or self.instance.defining_workspace is not None
+            )
             and (
                 "project_selection" in attrs
                 and attrs["project_selection"] != self.instance.project_selection
             )
-            and (request is None or not request.user.has_perm("group.edit"))
         ):
-            raise PermissionDenied
+            raise serializers.ValidationError(
+                {
+                    "project_selection": gettext_lazy(
+                        "Cannot change this on a scoped team."
+                    )
+                }
+            )
         return attrs
+
+    def create(self, validated_data):
+        defining_project = validated_data.get("defining_project")
+        defining_workspace = validated_data.get("defining_workspace")
+        if defining_project is not None or defining_workspace is not None:
+            validated_data["project_selection"] = SELECTION_MANUAL
+        if defining_workspace is not None:
+            validated_data["language_selection"] = SELECTION_ALL
+
+        group = super().create(validated_data)
+        if defining_project is not None:
+            group.projects.add(defining_project)
+        return group
 
 
 class ProjectSerializer(serializers.ModelSerializer[Project]):
@@ -879,7 +930,7 @@ class ProjectSerializer(serializers.ModelSerializer[Project]):
             "locked",
             "announcements_url",
         )
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "url": {"view_name": "api:project-detail", "lookup_field": "slug"}
         }
 
@@ -984,7 +1035,7 @@ class RelatedTaskField(serializers.HyperlinkedRelatedField):
         return instance
 
     # pylint: disable-next=redefined-builtin
-    def get_url(self, obj, view_name, request: Request, format):  # noqa: A002
+    def get_url(self, obj, view_name, request: Request, format):  # ruff: ignore[builtin-argument-shadowing]
         if not obj.in_progress():
             return None
         return super().get_url(obj, view_name, request, format)
@@ -1085,7 +1136,10 @@ class ComponentSerializer(RemovableSerializer[Component]):
     zipfile = serializers.FileField(
         required=False, validators=[validate_component_zip_upload_size]
     )
-    docfile = serializers.FileField(required=False)
+    docfile = serializers.FileField(
+        required=False,
+        validators=[validate_translation_upload_size, validate_file_extension],
+    )
     from_component = ComponentReferenceField(required=False, write_only=True)
     disable_autoshare = serializers.BooleanField(required=False)
 
@@ -1247,7 +1301,7 @@ class ComponentSerializer(RemovableSerializer[Component]):
             "linked_component",
             "locked",
         )
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "url": {
                 "view_name": "api:component-detail",
                 "lookup_field": ("project__slug", "slug"),
@@ -1291,6 +1345,9 @@ class ComponentSerializer(RemovableSerializer[Component]):
             result["filemask"] = None
             result["screenshot_filemask"] = None
             result["push"] = None
+            result["git_export"] = None
+            result["push_branch"] = None
+            result["repoweb"] = None
         return result
 
     def to_internal_value(self, data):
@@ -1308,7 +1365,7 @@ class ComponentSerializer(RemovableSerializer[Component]):
             )
             self.populate_from_component_input_defaults(data, source_component)
         # Provide a reasonable default
-        if "manage_units" not in data and data.get("template"):
+        if "manage_units" not in data and data.get("template") and not self.partial:
             data["manage_units"] = "1"
 
         # File uploads indicate usage of a local repo
@@ -1339,7 +1396,7 @@ class ComponentSerializer(RemovableSerializer[Component]):
             result["project"] = self.instance.project
 
         # Workaround for https://github.com/encode/django-rest-framework/issues/7489
-        if "category" not in result:
+        if "category" not in result and not self.partial:
             result["category"] = None
 
         if source_component is not None:
@@ -1712,7 +1769,7 @@ class TranslationSerializer(RemovableSerializer[Translation]):
             "units_list_url",
             "announcements_url",
         )
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "url": {
                 "view_name": "api:translation-detail",
                 "lookup_field": (
@@ -2197,6 +2254,13 @@ class PluralField(serializers.ListField):
 
 
 class MemorySerializer(serializers.ModelSerializer[Memory]):
+    visible_project_ids_loaded = False
+    visible_project_ids: set[int] | None = None
+
+    project = serializers.SerializerMethodField()
+    from_file = serializers.SerializerMethodField()
+    shared = serializers.SerializerMethodField()
+
     class Meta:
         model = Memory
         fields = (
@@ -2210,6 +2274,84 @@ class MemorySerializer(serializers.ModelSerializer[Memory]):
             "from_file",
             "shared",
         )
+
+    def get_project(self, obj: Memory) -> int | None:
+        project_scopes = [
+            scope
+            for scope in self.get_scopes(obj)
+            if scope.scope
+            in {
+                MemoryScope.SCOPE_PROJECT,
+                MemoryScope.SCOPE_PROJECT_FILE,
+            }
+            and scope.project_id is not None
+        ]
+        request = self.context.get("request")
+        if request is not None:
+            project_slug = request.query_params.get("project")
+            visible_project_ids = self.get_visible_project_ids()
+            if project_slug:
+                for scope in project_scopes:
+                    if (
+                        scope.project is not None
+                        and scope.project.slug == project_slug
+                        and (
+                            visible_project_ids is None
+                            or scope.project_id in visible_project_ids
+                        )
+                    ):
+                        return scope.project_id
+                return None
+            if visible_project_ids is not None:
+                project_scopes = [
+                    scope
+                    for scope in project_scopes
+                    if scope.project_id in visible_project_ids
+                ]
+
+        project_ids = {scope.project_id for scope in project_scopes}
+        if len(project_ids) == 1:
+            return project_scopes[0].project_id
+        return None
+
+    def get_visible_project_ids(self) -> set[int] | None:
+        if not self.visible_project_ids_loaded:
+            request = self.context.get("request")
+            user = getattr(request, "user", None)
+            if (
+                user is None
+                or not user.is_authenticated
+                or user.is_superuser
+                or user.has_perm("memory.manage")
+            ):
+                self.visible_project_ids = None
+            else:
+                self.visible_project_ids = set(
+                    user.allowed_projects.values_list("id", flat=True)
+                )
+            self.visible_project_ids_loaded = True
+        return self.visible_project_ids
+
+    def get_from_file(self, obj: Memory) -> bool:
+        return bool(
+            any(
+                scope.scope
+                in {
+                    MemoryScope.SCOPE_GLOBAL_FILE,
+                    MemoryScope.SCOPE_PROJECT_FILE,
+                    MemoryScope.SCOPE_USER_FILE,
+                }
+                for scope in self.get_scopes(obj)
+            )
+        )
+
+    def get_shared(self, obj: Memory) -> bool:
+        return any(
+            scope.scope == MemoryScope.SCOPE_SHARED for scope in self.get_scopes(obj)
+        )
+
+    def get_scopes(self, obj: Memory) -> list[MemoryScope]:
+        return obj.get_scope_list()
 
 
 class MemoryLookupRequestSerializer(serializers.Serializer):
@@ -2354,7 +2496,7 @@ class UnitSerializer(serializers.ModelSerializer[Unit]):
             "last_updated",
             "automatically_translated",
         )
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "url": {"view_name": "api:unit-detail"},
         }
 
@@ -2447,6 +2589,7 @@ class CategorySerializer(RemovableSerializer[Category]):
         view_name="api:category-detail",
         queryset=Category.objects.none(),
         required=False,
+        allow_null=True,
     )
     statistics_url = serializers.HyperlinkedIdentityField(
         view_name="api:category-statistics",
@@ -2516,7 +2659,7 @@ class CategorySerializer(RemovableSerializer[Category]):
             "inherit_pull_message",
             "effective_pull_message",
         )
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "url": {"view_name": "api:category-detail"},
         }
 
@@ -2600,7 +2743,7 @@ class CategorySerializer(RemovableSerializer[Category]):
             result["project"] = self.instance.project
 
         # Workaround for https://github.com/encode/django-rest-framework/issues/7489
-        if "category" not in result:
+        if "category" not in result and not self.partial:
             result["category"] = None
         return result
 
@@ -2633,7 +2776,7 @@ class ScreenshotSerializer(RemovableSerializer[Screenshot]):
             "units",
             "url",
         )
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "url": {"view_name": "api:screenshot-detail"}
         }
 
@@ -2650,7 +2793,7 @@ class ScreenshotCreateSerializer(ScreenshotSerializer):
             "url",
             "image",
         )
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "url": {"view_name": "api:screenshot-detail"}
         }
 
@@ -2661,7 +2804,7 @@ class ScreenshotFileSerializer(serializers.ModelSerializer[Screenshot]):
     class Meta:
         model = Screenshot
         fields = ("image",)
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "url": {"view_name": "api:screenshot-file"}
         }
 
@@ -2709,7 +2852,7 @@ class ChangeSerializer(RemovableSerializer[Change]):
             "action_name",
             "url",
         )
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "url": {"view_name": "api:change-detail"}
         }
 
@@ -2745,7 +2888,7 @@ class ComponentListSerializer(serializers.ModelSerializer[ComponentList]):
             "auto_assign",
             "url",
         )
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "url": {"view_name": "api:componentlist-detail", "lookup_field": "slug"}
         }
 
@@ -2781,7 +2924,7 @@ class AddonSerializer(serializers.ModelSerializer[Addon]):
             "configuration",
             "url",
         )
-        extra_kwargs = {  # noqa: RUF012
+        extra_kwargs: ClassVar[dict[str, Any]] = {
             "url": {"view_name": "api:addon-detail"}
         }
 
@@ -2980,6 +3123,12 @@ class ProjectMachinerySettingsSerializerExtension(OpenApiSerializerExtension):
 
     def map_serializer(self, auto_schema: AutoSchema, direction):
         return build_object_type(properties={"service_name": build_basic_type(dict)})
+
+
+class BackupSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    timestamp = serializers.DateTimeField()
+    size = serializers.IntegerField()
 
 
 class MessageResponseSerializer(serializers.Serializer):

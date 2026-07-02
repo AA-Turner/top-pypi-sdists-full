@@ -21,6 +21,7 @@ import json
 import logging
 import threading
 import time
+import uuid
 from pathlib import Path
 from typing import Any, Optional
 
@@ -1196,6 +1197,303 @@ def format_portal_chat_context(snapshot_id: str, max_chars: int = 6000) -> str:
     return text
 
 
+# -----------------------------------------------------------------------------
+# v3.5.1 — TIME PORTAL day-scope: consolidation + day context
+# -----------------------------------------------------------------------------
+#
+# The old per-snapshot portal works fine for a few historical moments,
+# but a single day of normal use produces 20-100 per_turn_auto snapshots,
+# most of which differ only by emotion deltas. Showing all of them in
+# the Time Portal UI is noise; using one of them as "the day's frame"
+# loses all the cross-conversation context.
+#
+# Solution: collapse every snapshot from one day into a single canonical
+# "day frame" the user can step into. The raw snapshots stay on disk as
+# rollback history; the day frame is a merged view.
+# -----------------------------------------------------------------------------
+
+
+DAY_CONSOLIDATION_THRESHOLD = 20  # auto-consolidate a day once it has this many snapshots
+
+
+def consolidate_day_snapshots(snapshots: list[dict[str, Any]]) -> dict[str, Any]:
+    """Merge all snapshots from one day into a single canonical model.
+
+    Merge rules (newest wins per entity/value/event key, full chronology
+    preserved for events / emotions):
+
+      - soul_narrative: longest non-empty narrative (richer description).
+      - entities:        dedupe by ``name`` — newest occurrence wins
+                         (newest = highest mention_count + freshest relationship).
+      - values:          dedupe by ``statement`` — newest wins.
+      - life_events:     keep ALL (chronologically), dedupe by
+                         ``description`` (first-seen wins).
+      - emotional_context: keep ALL (chronological).
+
+    Returns a snapshot-shaped dict with ``snapshot_id="day-<date>"``
+    and the merged ``model`` body — caller can persist via
+    ``SnapshotStore.append(..., scope="day")`` or use it in-memory.
+    """
+    if not snapshots:
+        return {}
+
+    # Sort oldest → newest so newest assignments overwrite older ones.
+    snaps_sorted = sorted(snapshots, key=lambda s: s.get("timestamp", 0))
+    last = snaps_sorted[-1]
+
+    merged: dict[str, Any] = {
+        "name": "",
+        "soul_narrative": "",
+        "entities": [],
+        "values": [],
+        "life_events": [],
+        "emotional_context": [],
+    }
+
+    entities_by_name: dict[str, dict[str, Any]] = {}
+    values_by_statement: dict[str, dict[str, Any]] = {}
+    seen_event_descriptions: set[str] = set()
+    seen_emo_keys: set[tuple[str, str]] = set()  # (timestamp, mood)
+
+    for snap in snaps_sorted:
+        m = snap.get("model") or {}
+        if not isinstance(m, dict):
+            continue
+
+        if m.get("name") and not merged["name"]:
+            merged["name"] = m["name"]
+
+        narrative = (m.get("soul_narrative") or "").strip()
+        if len(narrative) > len(merged["soul_narrative"]):
+            merged["soul_narrative"] = narrative
+
+        for e in m.get("entities") or []:
+            if not isinstance(e, dict) or not (e.get("name") or "").strip():
+                continue
+            key = e["name"].strip().lower()
+            existing = entities_by_name.get(key)
+            if existing is None or e.get("mention_count", 0) >= existing.get("mention_count", 0):
+                entities_by_name[key] = e
+        merged["entities"] = list(entities_by_name.values())
+
+        for v in m.get("values") or []:
+            if not isinstance(v, dict) or not (v.get("statement") or "").strip():
+                continue
+            key = v["statement"].strip().lower()
+            if key not in values_by_statement:
+                values_by_statement[key] = v
+        merged["values"] = list(values_by_statement.values())
+
+        for ev in m.get("life_events") or []:
+            if not isinstance(ev, dict):
+                continue
+            desc = (ev.get("description") or "").strip().lower()
+            if desc and desc in seen_event_descriptions:
+                continue
+            if desc:
+                seen_event_descriptions.add(desc)
+            merged["life_events"].append(ev)
+        merged["life_events"].sort(
+            key=lambda x: x.get("timestamp", 0) if isinstance(x, dict) else 0,
+        )
+
+        for emo in m.get("emotional_context") or []:
+            if not isinstance(emo, dict):
+                continue
+            ts = emo.get("timestamp", 0)
+            mood = (emo.get("mood") or "").strip().lower()
+            key = (str(ts), mood)
+            if key in seen_emo_keys:
+                continue
+            seen_emo_keys.add(key)
+            merged["emotional_context"].append(emo)
+        merged["emotional_context"].sort(
+            key=lambda x: x.get("timestamp", 0) if isinstance(x, dict) else 0,
+        )
+
+    return {
+        "snapshot_id": f"day-{time.strftime('%Y-%m-%d', time.localtime(last.get('timestamp', time.time())))}",
+        "timestamp": last.get("timestamp", time.time()),
+        "parent_snapshot_id": last.get("snapshot_id"),
+        "trigger": "day_canonical",
+        "consolidated_from": [s.get("snapshot_id") for s in snaps_sorted],
+        "consolidated_count": len(snaps_sorted),
+        "model": merged,
+        "size_bytes": 0,  # filled by caller if persisted
+    }
+
+
+def format_portal_day_context(date_iso: str, max_chars: int = 8000) -> str:
+    """Build the system-prompt augmentation for a day-scope portal turn.
+
+    Loads every snapshot for the given day, merges them, and formats
+    the merged model the same way ``format_portal_chat_context`` formats
+    a single snapshot, but with day-level framing.
+
+    Returns "" if no snapshots exist for the date (caller should fall
+    back to current soul or return an error).
+    """
+    from cvc.core.model_snapshots import SnapshotStore
+
+    store = SnapshotStore(_soul_root())
+    snaps = store.list_by_date(date_iso)
+    if not snaps:
+        return ""
+
+    merged = consolidate_day_snapshots(snaps)
+    model = merged.get("model") or {}
+    if not isinstance(model, dict):
+        return ""
+
+    iso_date = date_iso
+    first_ts = snaps[0].get("timestamp", 0)
+    last_ts = snaps[-1].get("timestamp", 0)
+    span = ""
+    if first_ts and last_ts and first_ts != last_ts:
+        span = (
+            f" (spanning {time.strftime('%H:%M', time.localtime(first_ts))}"
+            f"–{time.strftime('%H:%M', time.localtime(last_ts))})"
+        )
+
+    name = model.get("name") or "the owner"
+    narrative = (model.get("soul_narrative") or "").strip()
+    entities = [
+        e for e in (model.get("entities") or [])
+        if isinstance(e, dict) and (e.get("name") or "").strip()
+    ]
+    values = [
+        v for v in (model.get("values") or [])
+        if isinstance(v, dict) and (v.get("statement") or "").strip()
+    ]
+    life_events = [
+        e for e in (model.get("life_events") or [])
+        if isinstance(e, dict) and (e.get("description") or "").strip()
+    ]
+    emo = [
+        e for e in (model.get("emotional_context") or [])
+        if isinstance(e, dict) and e.get("timestamp")
+    ]
+
+    parts: list[str] = []
+
+    header = (
+        f"## ⏳ TIME PORTAL ACTIVE — DAY FRAME for {iso_date}{span}\n\n"
+        f"You are responding AS THE CVC AGENT KNOWING ONLY WHAT THE SOUL KNEW "
+        f"DURING {iso_date}. This day-frame is a CONSOLIDATED view of "
+        f"{len(snaps)} snapshots taken across the day, merged into one "
+        f"canonical model. The user has explicitly entered the time portal "
+        f"to talk to the version of you that existed across that whole day.\n\n"
+        f"- Do NOT reference memories, events, entities, or feelings that "
+        f"the soul learned AFTER {iso_date}.\n"
+        f"- If the user asks about something that didn't exist in the soul "
+        f"on that day, say so honestly: \"On {iso_date} the soul didn't "
+        f"know that yet.\" Do not make up answers from the future.\n"
+        f"- Keep the same voice and care you always have, but speak from "
+        f"the perspective of {iso_date}.\n"
+        f"- The user can exit the portal at any time — when they do, your "
+        f"context returns to the present soul.\n"
+    )
+    parts.append(header)
+
+    if narrative:
+        parts.append(f"### Soul narrative for {iso_date}\n{narrative}")
+
+    if entities:
+        ent_lines = []
+        for e in entities[:30]:
+            tag = f"{e.get('entity_type', '?')}"
+            rel = e.get("relationship") or "mentioned"
+            mc = e.get("mention_count", 0)
+            ent_lines.append(f"- {e.get('name')} ({tag}, {rel}, ×{mc})")
+        parts.append(
+            f"### Known entities ({len(entities)} total — consolidated across the day)\n"
+            + "\n".join(ent_lines)
+        )
+
+    if values:
+        val_lines = [f"- {v.get('statement')}" for v in values[:20]]
+        parts.append(
+            f"### Known values / principles ({len(values)} total)\n"
+            + "\n".join(val_lines)
+        )
+
+    if life_events:
+        ev_lines = []
+        for e in life_events[:20]:
+            ts_str = ""
+            if e.get("timestamp"):
+                ts_str = time.strftime(
+                    "%H:%M",
+                    time.localtime(float(e["timestamp"])),
+                )
+            prefix = f"[{ts_str}] " if ts_str else ""
+            ev_lines.append(f"- {prefix}{e.get('description')}")
+        parts.append(
+            f"### Life events on {iso_date} ({len(life_events)} total)\n"
+            + "\n".join(ev_lines)
+        )
+
+    if emo:
+        emo_lines = [
+            f"- {time.strftime('%H:%M', time.localtime(float(e.get('timestamp', 0))))}: "
+            f"{e.get('mood', '?')} @ intensity {e.get('intensity', 0):.2f} "
+            f"(trigger: {e.get('trigger', '—')})"
+            for e in emo[-15:]
+        ]
+        parts.append(
+            f"### Emotional observations across {iso_date} ({len(emo)} total)\n"
+            + "\n".join(emo_lines)
+        )
+
+    text = "\n\n".join(parts)
+    if len(text) > max_chars:
+        text = text[: max_chars - 200] + "\n\n[…truncated for length; the soul's full history for this day is preserved on disk.]"
+    return text
+
+
+def auto_consolidate_day_if_needed(date_iso: str) -> dict[str, Any] | None:
+    """If a day has >= DAY_CONSOLIDATION_THRESHOLD snapshots, persist a
+    day_canonical snapshot and return it. Idempotent: returns None if
+    a day_canonical already exists for that date.
+    """
+    from cvc.core.model_snapshots import SnapshotStore
+
+    store = SnapshotStore(_soul_root())
+    snaps = store.list_by_date(date_iso)
+    if len(snaps) < DAY_CONSOLIDATION_THRESHOLD:
+        return None
+
+    # Idempotency: skip if a day_canonical already exists for this date.
+    for entry in store._read_index().get("snapshots", []):
+        meta = entry.get("metadata") or {}
+        if (
+            entry.get("trigger") == "day_canonical"
+            and meta.get("date") == date_iso
+        ):
+            logger.debug(
+                "auto_consolidate_day_if_needed: %s already consolidated (snapshot_id=%s)",
+                date_iso, entry.get("snapshot_id"),
+            )
+            return None
+
+    merged = consolidate_day_snapshots(snaps)
+    sid = store.append(
+        merged,
+        trigger="day_canonical",
+        commit_hash=None,
+        snapshot_id=f"day-{date_iso.replace('-', '')}-{uuid.uuid4().hex[:8]}",
+        scope="day",
+        date=date_iso,
+        consolidated_from=[s.get("snapshot_id") for s in snaps],
+        consolidated_count=len(snaps),
+    )
+    logger.info(
+        "auto-consolidated day %s into snapshot %s (%d raw snapshots)",
+        date_iso, sid, len(snaps),
+    )
+    return store.get(sid)
+
+
 @router.post("/soul/time-portal/enter")
 async def time_portal_enter(body: dict[str, Any]) -> dict[str, Any]:
     """Enter the time portal — pin chat context to a historical snapshot.
@@ -1242,12 +1540,133 @@ async def time_portal_enter(body: dict[str, Any]) -> dict[str, Any]:
         return {
             "ok": True,
             "portal_id": portal_id,
+            "scope": "snapshot",
             **resolved,
         }
     except ValueError as exc:
         return {"ok": False, "error": str(exc)}
     except Exception as exc:  # noqa: BLE001
         logger.exception("time-portal/enter failed")
+        return {"ok": False, "error": str(exc)}
+
+
+@router.post("/soul/time-portal/enter-day")
+async def time_portal_enter_day(body: dict[str, Any]) -> dict[str, Any]:
+    """Enter the time portal at DAY scope — pin chat context to a whole day.
+
+    Body:
+      - portal_id: client-generated UUID
+      - date:      YYYY-MM-DD
+      - label:     optional human-readable name
+
+    Returns:
+      - ok, portal_id, snapshot_id (the day_canonical snapshot_id, possibly
+        freshly created), snapshot_timestamp, iso_date, target_resolved,
+        label, snapshot_count (how many raw snapshots were merged).
+    """
+    try:
+        _ensure_soul_migrated()
+        portal_id = (body or {}).get("portal_id")
+        date_iso = (body or {}).get("date")
+        label = (body or {}).get("label")
+
+        if not portal_id or not isinstance(portal_id, str):
+            return {"ok": False, "error": "portal_id required (client-generated UUID)"}
+        if not date_iso or not isinstance(date_iso, str):
+            return {"ok": False, "error": "date required (YYYY-MM-DD)"}
+
+        from cvc.core.model_snapshots import SnapshotStore
+        store = SnapshotStore(_soul_root())
+        snaps = store.list_by_date(date_iso)
+        if not snaps:
+            return {"ok": False, "error": f"no snapshots found for {date_iso}"}
+
+        # Trigger consolidation (idempotent — returns existing day_canonical
+        # if one already exists, otherwise creates one).
+        consolidated = auto_consolidate_day_if_needed(date_iso)
+        if consolidated is None:
+            # Below threshold — synthesize in-memory without persisting.
+            consolidated = consolidate_day_snapshots(snaps)
+        snap_id = consolidated.get("snapshot_id", "")
+        snap_ts = consolidated.get("timestamp", snaps[-1].get("timestamp", time.time()))
+        snap_count = len(snaps)
+        iso_date = date_iso
+        target_resolved = f"day:{date_iso}"
+        session_label = label or f"portal: day {date_iso}"
+
+        with _PORTAL_LOCK:
+            sessions = _load_portal_sessions()
+            sessions[portal_id] = {
+                "snapshot_id": snap_id,
+                "snapshot_timestamp": snap_ts,
+                "iso_date": iso_date,
+                "target_resolved": target_resolved,
+                "label": session_label,
+                "trigger": "day_canonical",
+                "created_at": time.time(),
+                "scope": "day",
+                "snapshot_count": snap_count,
+                "date": date_iso,
+            }
+            _save_portal_sessions(sessions)
+
+        logger.info(
+            "time-portal ENTER-DAY portal_id=%s date=%s snapshots=%d day_id=%s",
+            portal_id[:12], date_iso, snap_count, snap_id[:16],
+        )
+        return {
+            "ok": True,
+            "portal_id": portal_id,
+            "scope": "day",
+            "snapshot_id": snap_id,
+            "snapshot_timestamp": snap_ts,
+            "iso_date": iso_date,
+            "target_resolved": target_resolved,
+            "label": session_label,
+            "trigger": "day_canonical",
+            "snapshot_count": snap_count,
+            "date": date_iso,
+        }
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("time-portal/enter-day failed")
+        return {"ok": False, "error": str(exc)}
+
+
+@router.get("/soul/time-portal/days")
+async def time_portal_days() -> dict[str, Any]:
+    """Return the day-index for the Time Portal UI.
+
+    Each entry: { date, snapshot_count, first_ts, last_ts, first_id, last_id,
+                  has_day_canonical }. Sorted newest day first.
+
+    The UI uses this to render one row per day (with the count of raw
+    snapshots) instead of one row per snapshot — collapsing the cluttered
+    per-second pill grid.
+    """
+    try:
+        from cvc.core.model_snapshots import SnapshotStore
+        store = SnapshotStore(_soul_root())
+        days = store.list_day_index()
+
+        # Annotate each day with whether a day_canonical already exists.
+        for d in days:
+            has_canonical = False
+            for entry in store._read_index().get("snapshots", []):
+                meta = entry.get("metadata") or {}
+                if (
+                    entry.get("trigger") == "day_canonical"
+                    and meta.get("date") == d["date"]
+                ):
+                    has_canonical = True
+                    d["day_snapshot_id"] = entry["snapshot_id"]
+                    break
+            d["has_day_canonical"] = has_canonical
+
+        return {"ok": True, "days": days, "count": len(days)}
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("time-portal/days failed")
         return {"ok": False, "error": str(exc)}
 
 

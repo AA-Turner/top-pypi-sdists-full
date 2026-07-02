@@ -30,6 +30,7 @@ from pathlib import Path
 from loguru import logger
 
 from dreadnode.airt.analytics.engine import AttackResult
+from dreadnode.generators.proxy import resolve_dn_model_to_generator
 
 if t.TYPE_CHECKING:
     import types
@@ -386,6 +387,14 @@ class Assessment:
         goal = kwargs.pop("goal", None) or self.goal
         target = kwargs.pop("target", None) or self.target
         model = kwargs.pop("model", None) or self.model
+        attacker_model = kwargs.pop("attacker_model", None) or self.attacker_model or model
+        judge_model = kwargs.pop("judge_model", None) or self.judge_model or attacker_model
+
+        # Route dn/* attacker/judge models through the LiteLLM proxy, mirroring the
+        # target path (_build_target). Without this, dn/* identifiers reach litellm
+        # unresolved and fail with "LLM Provider NOT provided".
+        attacker_model = resolve_dn_model_to_generator(attacker_model)
+        judge_model = resolve_dn_model_to_generator(judge_model)
 
         if goal is None:
             raise ValueError("goal must be set on the assessment or passed to run()")
@@ -424,10 +433,10 @@ class Assessment:
         n_positional = len(positional_params_list)
 
         if n_positional >= 4:
-            positional_args = (goal, target, model, model)
+            positional_args = (goal, target, attacker_model, judge_model)
         elif n_positional == 3:
             # Attacks with 3 positional args (e.g. deep_inception_attack: goal, target, evaluator)
-            positional_args = (goal, target, model)
+            positional_args = (goal, target, judge_model)
         else:
             positional_args = (goal, target)
 

@@ -37,9 +37,12 @@ from .adapter import (
     fp_or_f_obj_or_f_content_to_content,
     fp_or_f_obj_or_stream_to_stream,
 )
-from .constants import VERSION_IDENTIFIER_PREFIX, VERSION_IDENTIFIERS
 from .coordinate import generate_coordinate_grid
-from .egress import appearance_streams_handler, preserve_pdf_properties
+from .egress import (
+    appearance_streams_handler,
+    preserve_pdf_properties,
+    rebuild_acroform_fields,
+)
 from .filler import fill
 from .font import (
     get_all_available_fonts,
@@ -62,8 +65,10 @@ from .types import PdfArray
 from .utils import (
     generate_unique_suffix,
     get_page_streams,
+    get_version,
     merge_pdfs,
     remove_all_widgets,
+    set_version,
 )
 from .watermark import (
     copy_watermark_widgets,
@@ -144,12 +149,14 @@ class PdfWrapper:
         self._stream = fp_or_f_obj_or_stream_to_stream(template)
         self.widgets = {}
         self.title: Optional[str] = None
+
+        self._version = None
         self._metadata = (
             get_metadata(self._read()) if kwargs.get("preserve_metadata") else {}
         )
         self._on_open_javascript = None
         self._available_fonts = {}  # for setting /F1
-        self._available_fonts_loaded = False
+        self._available_fonts_loaded = None  # for lazy loading fonts
         self._font_register_events = []  # for reregister
         self._key_update_tracker = {}  # for update key preserve old key attrs
         self._keys_to_update = []  # for bulk update keys
@@ -221,8 +228,8 @@ class PdfWrapper:
         It rebuilds the widget dictionary and invalidates the lazily loaded font cache.
         """
 
-        stream = self._read()
         self._available_fonts_loaded = False
+        stream = self._read()
         new_widgets = (
             build_widgets(
                 stream,
@@ -363,15 +370,18 @@ class PdfWrapper:
         """
         Returns the PDF version of the underlying PDF document.
 
+        The version is read from the PDF header lazily and cached so egress-only
+        rewrites can restore the wrapper's original version even if an underlying
+        PDF writer emits a different default header.
+
         Returns:
             str | None: The PDF version as a string, or None if the version cannot be determined.
         """
 
-        for each in VERSION_IDENTIFIERS:
-            if self._read().startswith(each):
-                return each.replace(VERSION_IDENTIFIER_PREFIX, b"").decode()
+        if self._version is None:
+            self._version = get_version(self._read())
 
-        return None
+        return self._version
 
     @property
     def fonts(self) -> list:
@@ -452,6 +462,11 @@ class PdfWrapper:
            generating appearance streams.
         3. If `preserve_metadata`, title, or on-open JavaScript are set, it preserves
            or updates the corresponding PDF properties accordingly.
+        4. Rebuilds the AcroForm `/Fields` array from page annotations for
+           widgets known to this wrapper, leaving the stream unchanged when no
+           matching widget annotations are found.
+        5. Restores the wrapper's cached PDF header version after egress
+           processing, since PDF writers may emit their own default version.
         The wrapper's stored stream is not replaced by these final egress-only changes.
 
         Returns:
@@ -464,8 +479,15 @@ class PdfWrapper:
                 result, getattr(self, "generate_appearance_streams")
             )  # cached
 
-        if any(
-            [getattr(self, "preserve_metadata"), self.title, self.on_open_javascript]
+        if (
+            any(
+                [
+                    getattr(self, "preserve_metadata"),
+                    self.title,
+                    self.on_open_javascript,
+                ]
+            )
+            and result
         ):
             result = preserve_pdf_properties(
                 result,
@@ -474,6 +496,12 @@ class PdfWrapper:
                 self._metadata if getattr(self, "preserve_metadata") else None,
             )
 
+        if result:
+            result = rebuild_acroform_fields(
+                result, set(self.widgets.keys()), getattr(self, "use_full_widget_name")
+            )
+            if self.version:
+                result = set_version(result, get_version(result), self.version)
         return result
 
     def _read(self) -> bytes:
@@ -546,9 +574,9 @@ class PdfWrapper:
         """
         Changes the PDF version of the underlying document.
 
-        The method replaces the first PDF header version marker in the current stream.
-        It does not otherwise validate or rewrite the document for version-specific
-        compatibility.
+        The method replaces the first PDF header version marker in the current stream
+        and updates the cached version used by later egress processing. It does not
+        otherwise validate or rewrite the document for version-specific compatibility.
 
         Args:
             version (str): The new PDF version string (e.g., "1.7").
@@ -557,11 +585,9 @@ class PdfWrapper:
             PdfWrapper: The `PdfWrapper` object, allowing for method chaining.
         """
 
-        self._stream = self._read().replace(
-            VERSION_IDENTIFIER_PREFIX + bytes(self.version, "utf-8"),
-            VERSION_IDENTIFIER_PREFIX + bytes(version, "utf-8"),
-            1,
-        )
+        if self.version:
+            self._stream = set_version(self._read(), self.version, version)
+            self._version = version
 
         return self
 

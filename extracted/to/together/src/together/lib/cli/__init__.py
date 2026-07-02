@@ -477,6 +477,10 @@ clusters_app.command(
     help="Get credentials for a cluster",
     help_epilogue=BETA_CLUSTERS_GET_CREDENTIALS_HELP_EXAMPLES,
 )
+clusters_app.command(
+    (f"{_CLI}.beta.clusters.ssh:ssh"),
+    help="SSH into a cluster via an OIDC-signed certificate",
+)
 
 ### Clusters > Storage API commands
 storage_app = clusters_app.command(

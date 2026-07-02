@@ -1,0 +1,88 @@
+"""Update command help text in markdown documentation files."""
+
+from __future__ import annotations
+
+import argparse
+import io
+import os
+import re
+import sys
+from pathlib import Path
+
+from datamodel_code_generator.__main__ import Exit, arg_parser
+
+os.environ["COLUMNS"] = "94"
+os.environ["LINES"] = "24"
+
+START_MARK: str = "<!-- start command help -->"
+END_MARK: str = "<!-- end command help -->"
+BASH_CODE_BLOCK: str = "```bash"
+CODE_BLOCK_END: str = "```"
+
+CURRENT_DIR = Path(__file__).parent
+PROJECT_DIR = CURRENT_DIR.parent
+DOC_DIR = PROJECT_DIR / "docs"
+
+# CLI help is now auto-generated in docs/cli-reference/ by build_cli_docs.py
+# These files no longer contain command help markers
+TARGET_MARKDOWN_FILES: list[Path] = []
+
+REPLACE_MAP = {"(default: UTF-8)": "(default: utf-8)", "'": r"''"}
+
+
+def get_help() -> str:
+    """Get formatted help text from argument parser."""
+    with io.StringIO() as f:
+        arg_parser.print_help(file=f)
+        output = f.getvalue()
+    for k, v in REPLACE_MAP.items():
+        output = output.replace(k, v)
+    # Remove any terminal codes
+    return re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+
+
+def inject_help(markdown_text: str, help_text: str) -> str:
+    """Inject help text into markdown between start and end markers."""
+    start_pos = markdown_text.find(START_MARK)
+    end_pos = markdown_text.find(END_MARK)
+    if start_pos == -1 or end_pos == -1:
+        msg = f"Could not find {START_MARK} or {END_MARK} in markdown_text"
+        raise ValueError(msg)
+    return (
+        markdown_text[: start_pos + len(START_MARK)]
+        + "\n"
+        + BASH_CODE_BLOCK
+        + "\n"
+        + help_text
+        + CODE_BLOCK_END
+        + "\n"
+        + markdown_text[end_pos:]
+    )
+
+
+def main() -> Exit:
+    """Update or validate command help in target markdown files."""
+    help_text = get_help()
+    script_parser = argparse.ArgumentParser(description="Update command help in markdown files")
+    script_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Check if the file content is up to date without modifying",
+    )
+    args = script_parser.parse_args()
+    check: bool = args.check
+
+    for file_path in TARGET_MARKDOWN_FILES:
+        with file_path.open("r") as f:
+            markdown_text = f.read()
+        new_markdown_text = inject_help(markdown_text, help_text)
+        if new_markdown_text != markdown_text:
+            if check:
+                return Exit.ERROR
+            with file_path.open("w") as f:
+                f.write(new_markdown_text)
+    return Exit.OK
+
+
+if __name__ == "__main__":
+    sys.exit(main())

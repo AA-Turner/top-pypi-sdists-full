@@ -5,6 +5,7 @@ from kiota_abstractions.serialization import Parsable, ParseNode, SerializationW
 from typing import Any, Optional, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
+    from .channel_message_access import ChannelMessageAccess
     from .whats_app_setup_guide_recommended_credentials import WhatsAppSetupGuide_recommended_credentials
     from .whats_app_setup_guide_required_credentials import WhatsAppSetupGuide_required_credentials
     from .whats_app_setup_guide_webhook_fields import WhatsAppSetupGuide_webhook_fields
@@ -13,8 +14,16 @@ if TYPE_CHECKING:
 class WhatsAppSetupGuide(Parsable):
     # The callback_url property
     callback_url: Optional[str] = None
+    # The effective_message_access property
+    effective_message_access: Optional[ChannelMessageAccess] = None
     # The endpoint_identifier property
     endpoint_identifier: Optional[str] = None
+    # The message_access property
+    message_access: Optional[ChannelMessageAccess] = None
+    # The message_access_capabilities property
+    message_access_capabilities: Optional[list[ChannelMessageAccess]] = None
+    # The permission_notes property
+    permission_notes: Optional[list[str]] = None
     # The preflight_questions property
     preflight_questions: Optional[list[str]] = None
     # The provider property
@@ -46,17 +55,23 @@ class WhatsAppSetupGuide(Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
+        from .channel_message_access import ChannelMessageAccess
         from .whats_app_setup_guide_recommended_credentials import WhatsAppSetupGuide_recommended_credentials
         from .whats_app_setup_guide_required_credentials import WhatsAppSetupGuide_required_credentials
         from .whats_app_setup_guide_webhook_fields import WhatsAppSetupGuide_webhook_fields
 
+        from .channel_message_access import ChannelMessageAccess
         from .whats_app_setup_guide_recommended_credentials import WhatsAppSetupGuide_recommended_credentials
         from .whats_app_setup_guide_required_credentials import WhatsAppSetupGuide_required_credentials
         from .whats_app_setup_guide_webhook_fields import WhatsAppSetupGuide_webhook_fields
 
         fields: dict[str, Callable[[Any], None]] = {
             "callback_url": lambda n : setattr(self, 'callback_url', n.get_str_value()),
+            "effective_message_access": lambda n : setattr(self, 'effective_message_access', n.get_enum_value(ChannelMessageAccess)),
             "endpoint_identifier": lambda n : setattr(self, 'endpoint_identifier', n.get_str_value()),
+            "message_access": lambda n : setattr(self, 'message_access', n.get_enum_value(ChannelMessageAccess)),
+            "message_access_capabilities": lambda n : setattr(self, 'message_access_capabilities', n.get_collection_of_enum_values(ChannelMessageAccess)),
+            "permission_notes": lambda n : setattr(self, 'permission_notes', n.get_collection_of_primitive_values(str)),
             "preflight_questions": lambda n : setattr(self, 'preflight_questions', n.get_collection_of_primitive_values(str)),
             "provider": lambda n : setattr(self, 'provider', n.get_str_value()),
             "recommended_credentials": lambda n : setattr(self, 'recommended_credentials', n.get_collection_of_enum_values(WhatsAppSetupGuide_recommended_credentials)),
@@ -76,7 +91,11 @@ class WhatsAppSetupGuide(Parsable):
         if writer is None:
             raise TypeError("writer cannot be null.")
         writer.write_str_value("callback_url", self.callback_url)
+        writer.write_enum_value("effective_message_access", self.effective_message_access)
         writer.write_str_value("endpoint_identifier", self.endpoint_identifier)
+        writer.write_enum_value("message_access", self.message_access)
+        writer.write_collection_of_enum_values("message_access_capabilities", self.message_access_capabilities)
+        writer.write_collection_of_primitive_values("permission_notes", self.permission_notes)
         writer.write_collection_of_primitive_values("preflight_questions", self.preflight_questions)
         writer.write_str_value("provider", self.provider)
         writer.write_collection_of_enum_values("recommended_credentials", self.recommended_credentials)

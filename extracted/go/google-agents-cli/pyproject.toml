@@ -1,6 +1,6 @@
 [project]
 name = "google-agents-cli"
-version = "0.6.1"
+version = "1.0.0"
 description = "Agents CLI — Agent Development Lifecycle toolchain for ADK"
 readme = "README.md"
 license = "Apache-2.0"
@@ -25,6 +25,8 @@ dependencies = [
   "a2a-sdk~=0.3.22",
   "tomlkit>=0.13.0,<1",
   "psutil>=5.9.0",
+  "python-dotenv>=1.0.0",
+  "pathspec>=0.12.1",
 ]
 
 [project.urls]

@@ -1,0 +1,18 @@
+
+[package]
+name = "solders-rpc-errors-no-tx-status"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders RPC errors-no-tx-status crate."
+
+[dependencies]
+derive_more = { workspace = true }
+pyo3 = { workspace = true, features = ["macros"] }
+serde = { workspace = true }
+solders-macros = { workspace = true }
+solders-rpc-errors-common = { workspace = true }
+solders-traits-core = { workspace = true }
+solders-transaction-error = { workspace = true }

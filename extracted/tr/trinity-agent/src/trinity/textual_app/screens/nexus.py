@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from textual import events
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
@@ -66,6 +67,9 @@ class NexusScreen(Screen[None]):
         def __init__(self, text: str) -> None:
             super().__init__()
             self.text = text
+
+    class WorkspaceRequested(Message):
+        """Posted when the user opens the workspace picker from Nexus."""
 
     class QuestionAnswered(Message):
         """Posted when the user selects a synthesized question answer."""
@@ -155,14 +159,19 @@ class NexusScreen(Screen[None]):
                     )
                     self._provider_panels[state.name] = panel
                     yield panel
-            workspace_label_text = self.workspace_label()
-            workspace_label = Static(
-                workspace_label_text,
-                id="nexus-target-workspace",
-            )
-            self._workspace_label_widget = workspace_label
-            self._workspace_label_key = workspace_label_text
-            yield workspace_label
+            with Horizontal(id="nexus-workspace-row"):
+                workspace_label_text = self.workspace_label()
+                workspace_label = Static(
+                    workspace_label_text,
+                    id="nexus-target-workspace",
+                )
+                self._workspace_label_widget = workspace_label
+                self._workspace_label_key = workspace_label_text
+                yield workspace_label
+                yield Static(
+                    self.label_text("select_workspace"),
+                    id="nexus-select-workspace",
+                )
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):
                     central = CentralAgentView(id="central-agent", lang=self.config.lang)
@@ -204,6 +213,12 @@ class NexusScreen(Screen[None]):
             self._apply_agent_selection()
         self._apply_model_choices()
         self._prompt_composer().focus_text_area()
+
+    def on_click(self, event: events.Click) -> None:
+        if event.widget.id != "nexus-select-workspace":
+            return
+        event.stop()
+        self.post_message(self.WorkspaceRequested())
 
     def set_initial_prompt(self, prompt: str) -> None:
         next_prompt = prompt.strip()

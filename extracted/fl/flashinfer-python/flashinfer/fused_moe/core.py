@@ -1053,7 +1053,7 @@ def cutlass_fused_moe(
 
 
 @dataclass
-class MoEInputs:
+class MoeRunnerInputs:
     """MoERunner inputs.
 
     Field order defines the flat-list index used by the autotuner.
@@ -1094,15 +1094,22 @@ class MoEInputs:
     }
 
     def to_list(self) -> List[Optional[torch.Tensor]]:
-        return [getattr(self, name) for name in MoEInputs._FIELDS]
+        return [getattr(self, name) for name in MoeRunnerInputs._FIELDS]
 
     @classmethod
-    def from_list(cls, lst: List) -> "MoEInputs":
+    def from_list(cls, lst: List) -> "MoeRunnerInputs":
         return cls(**{name: lst[i] for i, name in enumerate(cls._FIELDS)})
 
     @classmethod
     def idx(cls, name: str) -> int:
         return cls._FIELDS.index(name)
+
+
+# Backward-compatible alias: this class was previously named ``MoEInputs``.
+# Renamed to ``MoeRunnerInputs`` to disambiguate from the unified-API input
+# grouping (the ``MoEActivationPack`` / ``MoEWeightPack`` lifetime split) — see
+# PR #3093 review G6.  Old name kept working for out-of-tree importers and tests.
+MoEInputs = MoeRunnerInputs
 
 
 def _unpack_trtllm_moe_output(
@@ -1183,7 +1190,7 @@ def get_trtllm_moe_sm100_module():
 
         def _make_tuning_config(
             self,
-            moe_inputs: "MoEInputs",
+            moe_inputs: "MoeRunnerInputs",
             tune_max_num_tokens: int = 8192,
             **kwargs,
         ) -> TuningConfig:
@@ -1240,7 +1247,7 @@ def get_trtllm_moe_sm100_module():
                 ).to(dtype)
 
             sorted_inputs = sorted(
-                (MoEInputs.idx(name), name, init) for name, init in spec.items()
+                (MoeRunnerInputs.idx(name), name, init) for name, init in spec.items()
             )
             input_idx = tuple(i for i, _, _ in sorted_inputs)
 
@@ -1263,7 +1270,7 @@ def get_trtllm_moe_sm100_module():
                         f"expected layout (num_tokens={num_tokens}, ...)"
                     )
                     return 0
-                return MoEInputs._DYNAMIC_DIM[name]
+                return MoeRunnerInputs._DYNAMIC_DIM[name]
 
             dim_idx = tuple(_dynamic_dim(name) for _, name, _ in sorted_inputs)
             initializers = [init for _, _, init in sorted_inputs]
@@ -1286,7 +1293,7 @@ def get_trtllm_moe_sm100_module():
             inputs: List[torch.Tensor],
             profile: OptimizationProfile,
         ) -> List[int]:
-            moe_inputs = MoEInputs.from_list(inputs)
+            moe_inputs = MoeRunnerInputs.from_list(inputs)
             num_tokens = moe_inputs.hidden_states.shape[0]
 
             has_gemm1_lora_delta = moe_inputs.gemm1_lora_delta is not None
@@ -1324,7 +1331,7 @@ def get_trtllm_moe_sm100_module():
             do_preparation: bool = False,
             **kwargs,
         ):
-            moe_inputs = MoEInputs.from_list(inputs)
+            moe_inputs = MoeRunnerInputs.from_list(inputs)
             output = moe_inputs.output
             routing_logits = moe_inputs.routing_logits
             topk_ids = moe_inputs.topk_ids
@@ -1608,6 +1615,7 @@ def get_trtllm_moe_sm100_module():
         gemm1_alpha: Optional[torch.Tensor] = None,
         gemm1_beta: Optional[torch.Tensor] = None,
         gemm1_clamp_limit: Optional[torch.Tensor] = None,
+        output: Optional[torch.Tensor] = None,
     ) -> List[torch.Tensor]:
         assert routing_logits is not None or topk_ids is not None, (
             "either routing_logits or topk_ids must be provided"
@@ -1629,10 +1637,21 @@ def get_trtllm_moe_sm100_module():
         num_tokens = hidden_states.shape[0]
         hidden_size = hidden_states.shape[-1]
 
-        # Create workspace buffers
-        output = torch.empty(
-            num_tokens, hidden_size, dtype=torch.bfloat16, device=hidden_states.device
-        )
+        if output is None:
+            output = torch.empty(
+                num_tokens,
+                hidden_size,
+                dtype=torch.bfloat16,
+                device=hidden_states.device,
+            )
+        else:
+            check_shape_dtype_device(
+                output,
+                (num_tokens, hidden_size),
+                torch.bfloat16,
+                hidden_states.device,
+                "output",
+            )
         if routing_logits is not None:
             # When routing_logits is provided, we must pass topk_ids/expert_weights with no allocation
             topk_ids = torch.empty(0, dtype=torch.int32, device=hidden_states.device)
@@ -1667,7 +1686,7 @@ def get_trtllm_moe_sm100_module():
             num_experts=num_experts,
         )
 
-        moe_inputs = MoEInputs(
+        moe_inputs = MoeRunnerInputs(
             output=output,
             routing_logits=routing_logits,
             topk_ids=topk_ids,
@@ -1776,6 +1795,7 @@ def get_trtllm_moe_sm100_module():
         gemm1_alpha: Optional[torch.Tensor] = None,
         gemm1_beta: Optional[torch.Tensor] = None,
         gemm1_clamp_limit: Optional[torch.Tensor] = None,
+        output: Optional[torch.Tensor] = None,
     ) -> List[torch.Tensor]:
         _ = routing_replay_out
         seq_len = hidden_states.shape[0]
@@ -1812,6 +1832,7 @@ def get_trtllm_moe_sm100_module():
         activation_type: int = ActivationType.Swiglu.value,
         norm_topk_prob: bool = True,
         routing_replay_out: Optional[torch.Tensor] = None,
+        output: Optional[torch.Tensor] = None,
     ) -> List[torch.Tensor]:
         if enable_pdl is None:
             enable_pdl = device_support_pdl(hidden_states.device)
@@ -1821,10 +1842,21 @@ def get_trtllm_moe_sm100_module():
         num_tokens = hidden_states.shape[0]
         hidden_size = hidden_states.shape[-1]
 
-        # Create workspace buffers
-        output = torch.empty(
-            num_tokens, hidden_size, dtype=torch.bfloat16, device=hidden_states.device
-        )
+        if output is None:
+            output = torch.empty(
+                num_tokens,
+                hidden_size,
+                dtype=torch.bfloat16,
+                device=hidden_states.device,
+            )
+        else:
+            check_shape_dtype_device(
+                output,
+                (num_tokens, hidden_size),
+                torch.bfloat16,
+                hidden_states.device,
+                "output",
+            )
         topk_ids = torch.empty(
             num_tokens, top_k, dtype=torch.int32, device=hidden_states.device
         )
@@ -1849,7 +1881,7 @@ def get_trtllm_moe_sm100_module():
             num_experts=num_experts,
         )
 
-        moe_inputs = MoEInputs(
+        moe_inputs = MoeRunnerInputs(
             output=output,
             routing_logits=routing_logits,
             topk_ids=topk_ids,
@@ -1952,6 +1984,7 @@ def get_trtllm_moe_sm100_module():
         activation_type: int = ActivationType.Swiglu.value,
         norm_topk_prob: bool = True,
         routing_replay_out: Optional[torch.Tensor] = None,
+        output: Optional[torch.Tensor] = None,
     ):
         _ = routing_replay_out
         seq_len = hidden_states.shape[0]
@@ -2060,13 +2093,6 @@ def get_trtllm_moe_sm100_module():
             if fp8_quantization_type == Fp8QuantizationType.DeepSeekFp8
             else DtypeTrtllmGen.MxE4m3
         )  # FP8 weights
-        if (
-            gemm1_lora_delta is not None
-            and fp8_quantization_type != Fp8QuantizationType.MxFp8
-        ):
-            raise NotImplementedError(
-                "LoRA delta is only supported for MxFp8 block-scale MoE."
-            )
         _validate_fp8_block_scale_gemm1_activation_params(
             fp8_quantization_type,
             activation_type,
@@ -2089,7 +2115,7 @@ def get_trtllm_moe_sm100_module():
             num_experts=num_experts,
         )
 
-        moe_inputs = MoEInputs(
+        moe_inputs = MoeRunnerInputs(
             output=output,
             routing_logits=routing_logits,
             topk_ids=topk_ids,
@@ -2329,7 +2355,7 @@ def get_trtllm_moe_sm100_module():
             use_per_token_scaling=per_token_scale is not None,
             num_experts=num_experts,
         )
-        moe_inputs = MoEInputs(
+        moe_inputs = MoeRunnerInputs(
             output=output,
             routing_logits=routing_logits,
             topk_ids=topk_ids,
@@ -2555,7 +2581,7 @@ def get_trtllm_moe_sm100_module():
             num_experts=num_experts,
         )
 
-        moe_inputs = MoEInputs(
+        moe_inputs = MoeRunnerInputs(
             output=output,
             routing_logits=routing_logits,
             topk_ids=topk_ids,
@@ -2674,6 +2700,11 @@ def get_trtllm_moe_sm100_module():
         trtllm_fp8_block_scale_moe=trtllm_fp8_block_scale_moe_op,
         trtllm_fp4_block_scale_moe=trtllm_fp4_block_scale_moe_op,
         trtllm_mxint4_block_scale_moe=trtllm_mxint4_block_scale_moe_op,
+        # Canonical tactic-aware TunableRunner (closes over the raw moe_op and
+        # trtllm_get_valid_moe_configs).  Exposed so the unified MoE API's
+        # TrtllmFp4RoutedRunner can delegate to it instead of re-deriving the
+        # raw op's positional call.
+        MoERunner=MoERunner,
     )
 
 
@@ -2777,6 +2808,7 @@ def trtllm_bf16_moe(
     gemm1_alpha: Optional[torch.Tensor] = None,
     gemm1_beta: Optional[torch.Tensor] = None,
     gemm1_clamp_limit: Optional[torch.Tensor] = None,
+    output: Optional[torch.Tensor] = None,
 ) -> Union[List[torch.Tensor], torch.Tensor]:
     r"""BF16 MoE operation with autotuning support.
 
@@ -2890,6 +2922,9 @@ def trtllm_bf16_moe(
         ``X1 = clamp(X1, -limit, limit)`` and
         ``X2 = clamp(X2, max=limit)``.  When ``None`` (default), no clamp
         is applied.
+    output : Optional[torch.Tensor]
+        Optional in-place output tensor of shape ``[seq_len, hidden_size]``.
+        Allocated internally when ``None`` (default).
 
     Returns
     -------
@@ -2936,6 +2971,7 @@ def trtllm_bf16_moe(
         gemm1_alpha,
         gemm1_beta,
         gemm1_clamp_limit,
+        output,
     )
 
     if do_finalize:
@@ -2973,6 +3009,7 @@ def trtllm_bf16_routed_moe(
     gemm1_alpha: Optional[torch.Tensor] = None,
     gemm1_beta: Optional[torch.Tensor] = None,
     gemm1_clamp_limit: Optional[torch.Tensor] = None,
+    output: Optional[torch.Tensor] = None,
 ) -> Union[torch.Tensor, List[torch.Tensor]]:
     r"""Pre-routed BF16 MoE operation with autotuning support.
 
@@ -3081,6 +3118,9 @@ def trtllm_bf16_routed_moe(
         ``X1 = clamp(X1, -limit, limit)`` and
         ``X2 = clamp(X2, max=limit)``.  When ``None`` (default), no clamp
         is applied.
+    output : Optional[torch.Tensor]
+        Optional in-place output tensor of shape ``[seq_len, hidden_size]``.
+        Allocated internally when ``None`` (default).
 
     Returns
     -------
@@ -3134,6 +3174,7 @@ def trtllm_bf16_routed_moe(
         gemm1_alpha,
         gemm1_beta,
         gemm1_clamp_limit,
+        output,
     )
 
     if do_finalize and gemm1_lora_delta is None:
@@ -3171,6 +3212,7 @@ def trtllm_fp8_per_tensor_scale_moe(
     activation_type: int = ActivationType.Swiglu.value,
     norm_topk_prob: bool = True,
     routing_replay_out: Optional[torch.Tensor] = None,
+    output: Optional[torch.Tensor] = None,
 ) -> Union[List[torch.Tensor], torch.Tensor]:
     r"""FP8 per-tensor-scale MoE operation.
 
@@ -3250,6 +3292,9 @@ def trtllm_fp8_per_tensor_scale_moe(
         kernel skips the write entirely.  The buffer may be larger than
         ``num_tokens`` for CUDA-graph pre-allocation; only rows
         ``[0, num_tokens)`` are written.
+    output : Optional[torch.Tensor]
+        Optional in-place output tensor of shape ``[seq_len, hidden_size]``.
+        Allocated internally when ``None`` (default).
 
     Returns
     -------
@@ -3283,6 +3328,7 @@ def trtllm_fp8_per_tensor_scale_moe(
         activation_type,
         norm_topk_prob,
         routing_replay_out,
+        output,
     )
 
     if do_finalize:
@@ -3325,6 +3371,7 @@ def trtllm_fp8_block_scale_moe(
     gemm1_alpha: Optional[torch.Tensor] = None,
     gemm1_beta: Optional[torch.Tensor] = None,
     gemm1_clamp_limit: Optional[torch.Tensor] = None,
+    output: Optional[torch.Tensor] = None,
 ) -> Union[List[torch.Tensor], torch.Tensor]:
     r"""FP8 block-scaled MoE operation.
 
@@ -3432,6 +3479,9 @@ def trtllm_fp8_block_scale_moe(
         ``X1 = clamp(X1, -limit, limit)`` and
         ``X2 = clamp(X2, max=limit)``.  When ``None`` (default), no clamp
         is applied.
+    output : Optional[torch.Tensor]
+        Optional in-place output tensor of shape ``[seq_len, hidden_size]``.
+        Allocated internally when ``None`` (default).
 
     Returns
     -------
@@ -3446,9 +3496,6 @@ def trtllm_fp8_block_scale_moe(
         gemm1_alpha,
         gemm1_beta,
         gemm1_clamp_limit,
-    )
-    output = torch.empty(
-        hidden_states.shape, dtype=torch.bfloat16, device=hidden_states.device
     )
     result = get_trtllm_moe_sm100_module().trtllm_fp8_block_scale_moe(
         routing_logits,

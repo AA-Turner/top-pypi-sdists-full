@@ -4,6 +4,33 @@
 
 use super::*;
 
+/// Reduced-Schur dimension `k` at/above which the SAE evidence log-determinant
+/// switches from the exact dense `O(k³/3)` Cholesky to the matrix-free
+/// Stochastic Lanczos Quadrature estimate ([`crate::arrow_schur::slq_logdet`]).
+///
+/// Below this, the exact dense factor is kept for bit-reproducibility on the
+/// small problems where the Cholesky is cheap. Chosen at 4096: the Cholesky
+/// flop count (`~k³/3 ≈ 2.3e10`) and the dense `S` memory (`k² · 8 B ≈ 134 MiB`)
+/// both start to dominate around here, while SLQ's `O(probes·steps·k²)` cost is
+/// an order of magnitude smaller.
+pub const SCHUR_SLQ_LOGDET_MIN_DIM: usize = 4096;
+
+/// Number of Rademacher probe vectors for the SAE-evidence SLQ log-determinant.
+/// 32 probes give a sub-percent relative standard error on the well-conditioned
+/// reduced-Schur operators the Laplace evidence forms (the per-probe variance is
+/// modest because the spectrum is tight after penalisation).
+pub const SCHUR_SLQ_LOGDET_PROBES: usize = 32;
+
+/// Lanczos steps per probe for the SAE-evidence SLQ log-determinant. 64 Gauss
+/// quadrature nodes resolve the reduced-Schur spectrum to well within the probe
+/// (Monte-Carlo) error for the conditioning the penalised evidence produces.
+pub const SCHUR_SLQ_LOGDET_LANCZOS_STEPS: usize = 64;
+
+/// Fixed base seed for the SAE-evidence SLQ probes. The estimate MUST be
+/// reproducible (the REML outer loop differentiates a deterministic objective),
+/// so the probe vectors are derived from this constant — never a system RNG.
+pub const SCHUR_SLQ_LOGDET_SEED: u64 = 0x5121_0901_4C0D_E700;
+
 /// Schur-eliminate the per-row latent block and solve with an explicit BA
 /// mode, returning the factor cache alongside the increments.
 ///
@@ -149,7 +176,15 @@ pub fn solve_arrow_newton_step_with_options(
             cache.cross_row_woodbury = Some(woodbury);
         }
     }
-    cache.joint_hessian_log_det = cache.compute_undamped_arrow_log_det();
+    // Evidence log-determinant. On the matrix-free large-`k` SAE path the step
+    // carries a precomputed reduced-Schur `log|S|` from Stochastic Lanczos
+    // Quadrature (no dense `k × k` Cholesky was formed, so `schur_factor` is
+    // `None`); fold it into the joint log-det directly. Every other path has a
+    // dense `schur_factor` (or `k == 0`) and uses the exact diagonal-sum form.
+    cache.joint_hessian_log_det = match step.schur_log_det_override {
+        Some(schur_log_det) => cache.undamped_arrow_log_det_with_schur(schur_log_det),
+        None => cache.compute_undamped_arrow_log_det(),
+    };
     Ok((delta_t, delta_beta, cache))
 }
 
@@ -282,8 +317,7 @@ pub(crate) fn maybe_inject_gpu_schur_matvec(
         return None;
     }
     let matvec =
-        crate::gpu_kernels::arrow_schur::gpu_schur_matvec_backend(sys, ridge_t, ridge_beta)
-            .ok()?;
+        crate::gpu_kernels::arrow_schur::gpu_schur_matvec_backend(sys, ridge_t, ridge_beta).ok()?;
     let mut device_options = options.clone();
     device_options.gpu_matvec = Some(matvec);
     Some(device_options)
@@ -394,6 +428,13 @@ pub(crate) fn try_device_arrow_direct(
 /// caller then falls through to the bit-identical CPU dense Direct path
 /// unchanged.
 ///
+/// SCOPE — only the Newton STEP is matrix-free here. The Laplace evidence still
+/// needs `½log|H|`, which with `k > 0` requires a dense reduced Schur
+/// (`schur_factor`); this function therefore still forms and Cholesky-factors a
+/// dense `k×k` Schur on the CPU (see the inline note at the build site). That is
+/// O(k²) memory and O(k³) flops and does NOT scale to very large K, so this path
+/// is NOT a fully matrix-free / device-resident EVIDENCE path — only the step is.
+///
 /// The framed-vs-legacy split (`G ⊗ W_{ij}` factored frames vs full-`B`
 /// `⊗ I_p`) is handled inside `solve_sae_matrix_free_pcg` by its existing
 /// dispatch guard (`data.frame.is_some()`), so this site is agnostic to it.
@@ -497,40 +538,113 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
             // dense reduced Schur). But every production SAE inner solve consumes
             // the cache's joint-Hessian log-det (½log|H| Laplace normaliser, read
             // through `arrow_log_det_from_cache`), which with `k > 0` REQUIRES a
-            // dense `schur_factor` — without it the cache yields `None` and the
-            // evidence solve errors out. So we must still emit a reduced-Schur
-            // Cholesky factor for the determinant. Build it from the (already
-            // computed) per-row factors and factor the dense K×K block; this keeps
-            // the determinant bit-identical to the CPU Direct path while the Newton
-            // STEP itself was solved on the device (`used_device_arrow == true`).
+            // reduced-Schur determinant — without it the cache yields `None` and the
+            // evidence solve errors out. So we must still produce `log|S|`.
+            //
+            // We assemble the dense reduced Schur `S` (`O(n·d·k²)`, the cost the
+            // dense Direct path already pays) and then split on `k`:
+            //
+            //   * Small k (< SCHUR_SLQ_LOGDET_MIN_DIM): the exact dense Cholesky
+            //     log-determinant, bit-identical to the CPU Direct path (including
+            //     the #1026 `schur_pd_floor` handling). Cheap and reproducible.
+            //
+            //   * Large k (≥ SCHUR_SLQ_LOGDET_MIN_DIM): Stochastic Lanczos
+            //     Quadrature (`crate::arrow_schur::slq_logdet`) on the SPD
+            //     reduced-Schur operator `v ↦ S·v`. This DROPS the `O(k³/3)`
+            //     Cholesky entirely, replacing it with
+            //     `O(num_probes·lanczos_steps·k²)` matvec work — a real flop
+            //     reduction at scale. The estimate is seeded deterministically so
+            //     the REML outer loop stays reproducible. We carry `log|S|` as the
+            //     cache's `schur_log_det_override` and leave `schur_factor = None`,
+            //     so the Laplace normaliser reads the SLQ value directly.
+            //
+            // MEMORY note (do not over-read): SLQ here is FLOP-matrix-free, not yet
+            // MEMORY-matrix-free — it still assembles the dense `S` (`O(k²)`) to
+            // supply `S·v`. A fully memory-matrix-free evidence path additionally
+            // needs the device-resident reduced-Schur apply (`Σ_i Y_iᵀ(Y_i x)`,
+            // the same operator the PCG hot loop already runs on-device) fed as the
+            // SLQ `matvec`; wiring that closure here removes the `O(k²)` assembly
+            // too. That device-apply plumbing is the remaining future work.
             //
             // On any failure forming/factoring the Schur (non-PD pivot the LM
             // escalation must respond to), surface the error rather than returning a
-            // cache that would silently starve the evidence of its log-det. We route
-            // through `solve_dense_reduced_system` (the exact CPU Direct reduce) so
-            // the emitted factor — and therefore the log-det — is bit-identical to
-            // the non-device path, including the #1026 `schur_pd_floor` handling.
-            let schur = match build_dense_schur_direct(sys, htt_factors, ridge_beta, backend) {
-                Ok(schur) => schur,
-                Err(err) => return Some(Err(err)),
-            };
-            let schur_factor = match solve_dense_reduced_system(&schur, rhs_beta, options, None) {
-                Ok((_cpu_delta_beta, Some(factor), _diag)) => factor,
-                Ok((_, None, _)) => {
-                    // Direct mode always returns a dense factor; a `None` here would
-                    // be an InexactPCG artifact that cannot happen on this branch.
+            // cache that would silently starve the evidence of its log-det.
+            let (schur_factor, schur_log_det_override) = if sys.k >= SCHUR_SLQ_LOGDET_MIN_DIM {
+                // Matrix-free log|S| via SLQ on the exact reduced-Schur apply.
+                //
+                // IMPORTANT (#1017): do not build the dense `k×k` Schur here.
+                // The old implementation still called `build_dense_schur_direct`
+                // before this branch and then ran SLQ over `schur.dot(v)`, which
+                // removed the Cholesky but left the production color/Qwen path
+                // paying (or refusing/OOMing) the dense assembly.  The whole
+                // point of the SAE Direct device-PCG seam is that the step is
+                // solved matrix-free; the evidence log-det must consume the same
+                // matrix-free reduced operator.  `slq_reduced_schur_log_det`
+                // stages the CPU resident row factors when available and then
+                // applies
+                //
+                //     S v = (H_ββ + ρ_β I)v
+                //           - Σ_i H_βt_i (H_tt_i + ρ_t I)⁻¹ H_tβ_i v
+                //
+                // without materialising `S`.
+                let resident = SaeResidentReducedSchur::build(sys, htt_factors, backend);
+                let slq = crate::arrow_schur::slq_reduced_schur_log_det(
+                    sys,
+                    htt_factors,
+                    ridge_beta,
+                    backend,
+                    resident.as_ref(),
+                    SCHUR_SLQ_LOGDET_PROBES,
+                    SCHUR_SLQ_LOGDET_LANCZOS_STEPS,
+                    SCHUR_SLQ_LOGDET_SEED,
+                );
+                if !slq.estimate.is_finite() {
                     return Some(Err(ArrowSchurError::SchurFactorFailed {
-                        reason: "device SAE Direct: reduced solve returned no dense factor"
-                            .to_string(),
+                        reason: format!(
+                            "device SAE Direct: SLQ reduced-Schur log-det non-finite ({})",
+                            slq.estimate
+                        ),
                     }));
                 }
-                Err(err) => return Some(Err(err)),
+                log::debug!(
+                    "arrow-schur SAE evidence: SLQ log|S| estimate={:.6} std_err={:.3e} \
+                     (k={}, probes={}, steps={})",
+                    slq.estimate,
+                    slq.std_err,
+                    sys.k,
+                    SCHUR_SLQ_LOGDET_PROBES,
+                    SCHUR_SLQ_LOGDET_LANCZOS_STEPS,
+                );
+                (None, Some(slq.estimate))
+            } else {
+                // Exact dense Cholesky log-determinant for small k. We route through
+                // `solve_dense_reduced_system` (the exact CPU Direct reduce) so the
+                // emitted factor — and therefore the log-det — is bit-identical to
+                // the non-device path.
+                let schur = match build_dense_schur_direct(sys, htt_factors, ridge_beta, backend) {
+                    Ok(schur) => schur,
+                    Err(err) => return Some(Err(err)),
+                };
+                let factor = match solve_dense_reduced_system(&schur, rhs_beta, options, None) {
+                    Ok((_cpu_delta_beta, Some(factor), _diag)) => factor,
+                    Ok((_, None, _)) => {
+                        // Direct mode always returns a dense factor; a `None` here
+                        // would be an InexactPCG artifact that cannot happen here.
+                        return Some(Err(ArrowSchurError::SchurFactorFailed {
+                            reason: "device SAE Direct: reduced solve returned no dense factor"
+                                .to_string(),
+                        }));
+                    }
+                    Err(err) => return Some(Err(err)),
+                };
+                (Some(factor), None)
             };
             Some(Ok(ArrowNewtonStepArtifacts {
                 delta_t,
                 delta_beta,
                 htt_factors: htt_factors.clone(),
-                schur_factor: Some(schur_factor),
+                schur_factor,
+                schur_log_det_override,
                 pcg_diagnostics: diag,
                 gauge_deflated_directions,
                 deflated_row_directions: deflated_row_directions.to_vec(),
@@ -554,7 +668,10 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
         // Unavailable / transient / framed-mismatch all mean "device declined" —
         // fall through to the CPU dense Direct path transparently.
         Err(other) => {
-            trace_decline!("device kernel returned {:?} — falling back to CPU dense", other);
+            trace_decline!(
+                "device kernel returned {:?} — falling back to CPU dense",
+                other
+            );
             None
         }
     }
@@ -993,6 +1110,14 @@ pub(crate) struct ArrowNewtonStepArtifacts {
     pub(crate) delta_beta: Array1<f64>,
     pub(crate) htt_factors: ArrowFactorSlab,
     pub(crate) schur_factor: Option<Array2<f64>>,
+    /// Precomputed reduced-Schur log-determinant `log|S|`, set by the large-`k`
+    /// matrix-free evidence path (Stochastic Lanczos Quadrature) so the Laplace
+    /// normaliser need not Cholesky-factor a dense `k × k` Schur. When `Some`, it
+    /// supersedes the `schur_factor` diagonal sum in
+    /// [`ArrowFactorCache::compute_undamped_arrow_log_det`]; `None` on every
+    /// exact dense-factor path (small `k`, streaming, cross-row CG), which keeps
+    /// the bit-identical Cholesky log-determinant.
+    pub(crate) schur_log_det_override: Option<f64>,
     pub(crate) pcg_diagnostics: PcgDiagnostics,
     pub(crate) gauge_deflated_directions: usize,
     /// Per-row unit-norm deflated directions surfaced for the outer-gradient
@@ -1041,8 +1166,7 @@ pub(crate) fn factor_blocks_for_system<B: BatchedBlockSolver>(
     };
     let mut blocks = Vec::with_capacity(sys.rows.len());
     let mut count = 0usize;
-    let mut deflated_row_directions: Vec<Vec<Array1<f64>>> =
-        Vec::with_capacity(sys.rows.len());
+    let mut deflated_row_directions: Vec<Vec<Array1<f64>>> = Vec::with_capacity(sys.rows.len());
     let mut deflation_row_spectra: Vec<Option<RowDeflationSpectrum>> =
         Vec::with_capacity(sys.rows.len());
     for (row_idx, row) in sys.rows.iter().enumerate() {
@@ -1194,8 +1318,14 @@ pub(crate) fn try_mixed_precision_arrow_solve(
         }));
     }
 
-    let schur_factor =
-        cholesky_lower(schur).map_err(|e| ArrowSchurError::SchurFactorFailed { reason: e })?;
+    let (schur_factor, floored_schur) =
+        factor_dense_reduced_schur(schur, options.schur_pd_floor, false)?;
+    if floored_schur.is_some() {
+        return Ok(Some(MixedPrecisionAttempt::Fallback {
+            reason: "reduced Schur required the spectral PD-floor; using the f64 dense solve"
+                .to_string(),
+        }));
+    }
     if !options.tolerate_ill_conditioning {
         let schur_kappa = cholesky_factor_kappa_estimate(&schur_factor);
         if !schur_kappa.is_finite() || schur_kappa > safe_spd_kappa_max(schur.nrows()) {
@@ -1629,6 +1759,7 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
             delta_beta,
             htt_factors: ArrowFactorSlab::from_blocks(Vec::new()),
             schur_factor,
+            schur_log_det_override: None,
             pcg_diagnostics: PcgDiagnostics::default(),
             gauge_deflated_directions: 0,
             deflated_row_directions: Vec::new(),
@@ -1701,6 +1832,7 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
                             delta_beta,
                             htt_factors,
                             schur_factor: Some(schur_factor),
+                            schur_log_det_override: None,
                             pcg_diagnostics,
                             gauge_deflated_directions,
                             deflated_row_directions,
@@ -1742,6 +1874,7 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
                             delta_beta,
                             htt_factors,
                             schur_factor: Some(schur_factor),
+                            schur_log_det_override: None,
                             pcg_diagnostics,
                             gauge_deflated_directions,
                             deflated_row_directions,
@@ -1812,6 +1945,7 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
                                 delta_beta: delta,
                                 htt_factors,
                                 schur_factor: None,
+                                schur_log_det_override: None,
                                 pcg_diagnostics: diag,
                                 gauge_deflated_directions,
                                 deflated_row_directions,
@@ -1879,6 +2013,7 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
         delta_beta,
         htt_factors,
         schur_factor,
+        schur_log_det_override: None,
         pcg_diagnostics,
         gauge_deflated_directions,
         deflated_row_directions,
@@ -1906,6 +2041,7 @@ impl<'a, B: BatchedBlockSolver> ArrowBlockDiagInverse<'a, B> {
         sys: &'a ArrowSchurSystem,
         ridge_t: f64,
         ridge_beta: f64,
+        schur_pd_floor: Option<f64>,
         tolerate_ill_conditioning: bool,
         backend: &'a B,
     ) -> Result<Self, ArrowSchurError>
@@ -1915,8 +2051,7 @@ impl<'a, B: BatchedBlockSolver> ArrowBlockDiagInverse<'a, B> {
         let htt_factors =
             backend.factor_blocks(&sys.rows, ridge_t, sys.d, tolerate_ill_conditioning)?;
         let schur = build_dense_schur_direct(sys, &htt_factors, ridge_beta, backend)?;
-        let schur_factor =
-            cholesky_lower(&schur).map_err(|e| ArrowSchurError::SchurFactorFailed { reason: e })?;
+        let (schur_factor, _) = factor_dense_reduced_schur(&schur, schur_pd_floor, false)?;
         Ok(Self {
             sys,
             backend,
@@ -2216,6 +2351,7 @@ pub(crate) fn solve_arrow_newton_step_cross_row(
         sys,
         ridge_t,
         ridge_beta,
+        options.schur_pd_floor,
         options.tolerate_ill_conditioning,
         &backend,
     )?;
@@ -2338,6 +2474,7 @@ pub(crate) fn solve_arrow_newton_step_cross_row(
         delta_beta: x_beta,
         htt_factors: precond.htt_factors,
         schur_factor: Some(precond.schur_factor),
+        schur_log_det_override: None,
         pcg_diagnostics: diag,
         gauge_deflated_directions: 0,
         // The cross-row-penalty CG preconditioner path does not run the SAE

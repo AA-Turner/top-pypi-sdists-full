@@ -688,7 +688,13 @@ class LocalClient:
         random.shuffle(minions)
         f_tgt = []
         for minion in minions:
-            if fun in minion_ret[minion]:
+            # Minions that failed to respond to ``sys.list_functions`` are
+            # represented as ``False`` (see the failed-minion handling in
+            # ``cmd``). Skip them rather than letting ``in`` raise.
+            functions = minion_ret[minion]
+            if not isinstance(functions, (list, tuple, set, dict)):
+                continue
+            if fun in functions:
                 f_tgt.append(minion)
             if len(f_tgt) >= subset:
                 break
@@ -2276,6 +2282,18 @@ class LocalClient:
         if self.event is not None:
             self.event.destroy()
             self.event = None
+        if hasattr(self, "returners") and self.returners is not None:
+            if hasattr(self.returners, "destroy"):
+                self.returners.destroy()
+            self.returners = {}
+        if hasattr(self, "functions") and self.functions is not None:
+            if hasattr(self.functions, "destroy"):
+                self.functions.destroy()
+            self.functions = {}
+        if hasattr(self, "utils") and self.utils is not None:
+            if hasattr(self.utils, "destroy"):
+                self.utils.destroy()
+            self.utils = {}
 
     def __enter__(self):
         return self

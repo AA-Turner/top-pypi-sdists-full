@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poethepoet
-Version: 0.47.0
+Version: 0.47.1
 Summary: A task runner that works well with poetry and uv.
 License-Expression: MIT
 License-File: LICENSE

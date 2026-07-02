@@ -20,7 +20,7 @@ from lib.core.enums import OS
 from thirdparty import six
 
 # sqlmap version (<major>.<minor>.<month>.<monthly commit>)
-VERSION = "1.10.6"
+VERSION = "1.10.7"
 TYPE = "pip"
 TYPE_COLORS = {"dev": 33, "stable": 90, "pip": 34}
 VERSION_STRING = "sqlmap/%s#%s" % ('.'.join(VERSION.split('.')[:-1]) if VERSION.count('.') > 2 and VERSION.split('.')[-1] == '0' else VERSION, TYPE)
@@ -54,6 +54,38 @@ IPS_WAF_CHECK_RATIO = 0.5
 # Timeout used in heuristic check for WAF/IPS protected targets
 IPS_WAF_CHECK_TIMEOUT = 10
 
+# HTTP status codes a WAF/IPS typically returns when it blocks a request. Used to reject a boolean
+# "injection" whose only TRUE/FALSE difference is the always-true payload being blocked (a status-code
+# false positive) rather than the back-end actually answering.
+WAF_BLOCK_HTTP_CODES = (403, 406, 429, 451, 501, 503)
+
+# Candidate tamper scripts for automatic WAF-bypass, ordered by empirical WAF-bypass value
+# (structural token-substitution first, camouflage last; per identYwaf data). The back-end DBMS
+# is not pre-filtered here: semantics-preservation is verified at runtime by re-running detection
+# through each candidate, so a DBMS-incompatible script simply fails the trial and is discarded.
+WAF_BYPASS_TAMPERS = (
+    "equaltolike",
+    "between",
+    "greatest",
+    "charencode",
+    "randomcase",
+    "space2comment",
+    "versionedkeywords",
+    "space2hash",
+)
+
+# Maximum number of candidate tamper (chains) trialled during automatic WAF-bypass
+WAF_BYPASS_MAX_TRIALS = 8
+
+# Browser-like request headers applied alongside the random (non-scanner) User-Agent during
+# automatic WAF bypass: sqlmap's defaults ('Accept: */*', no 'Accept-Language') are themselves a
+# non-browser tell that header/behavioral WAFs key on, so the whole request fingerprint - not just
+# the UA - is made to look like a real browser. Kept standard so it cannot skew content negotiation.
+WAF_BYPASS_HTTP_HEADERS = (
+    ("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"),
+    ("Accept-Language", "en-US,en;q=0.5"),
+)
+
 # Timeout used in checking for existence of live-cookies file
 LIVE_COOKIES_TIMEOUT = 120
 
@@ -62,7 +94,7 @@ LOWER_RATIO_BOUND = 0.02
 UPPER_RATIO_BOUND = 0.98
 
 # For filling in case of dumb push updates
-DUMMY_JUNK = "fooj0Zo4"
+DUMMY_JUNK = "Phah5jue"
 
 # Markers for special cases when parameter values contain html encoded characters
 PARAMETER_AMP_MARKER = "__PARAMETER_AMP__"
@@ -148,6 +180,29 @@ DUMMY_SEARCH_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:141.0) Gecko/20100
 # Regular expression used for extracting content from "textual" tags
 TEXT_TAG_REGEX = r"(?si)<(abbr|acronym|b|blockquote|br|center|cite|code|dt|em|font|h[1-6]|i|li|p|pre|q|strong|sub|sup|td|th|title|tt|u)(?!\w).*?>(?P<result>[^<]+)"
 
+# Regular expressions used for extracting a value-free structural skeleton of a (HTML) page (tag
+# names and class/id attribute hooks), for structure-aware comparison of pages whose textual
+# content is dynamic but whose layout is stable
+STRUCTURAL_TAG_REGEX = r"(?si)<\s*([a-z][a-z0-9]*)((?:\s+[^<>]*)?)/?>"
+STRUCTURAL_CLASS_REGEX = r"""(?si)\bclass\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>]+))"""
+STRUCTURAL_ID_REGEX = r"""(?si)\bid\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>]+))"""
+
+# Minimum response size (in bytes) for the 'skip-read' NULL connection method to be used. Unlike
+# HEAD/Range, 'skip-read' leaves the body unread and must therefore close the connection (an unread
+# body cannot be reused), paying a fresh TCP/TLS handshake per request. That only pays off when
+# avoiding the body transfer outweighs the reconnect - i.e. for large responses; for small ones it
+# is a net slowdown, so it is gated by this size
+NULL_CONNECTION_SKIP_READ_MIN_LENGTH = 256 * 1024
+
+# Coarse plausibility band for a NULL connection method's reported length, relative to the known
+# original page length (len(kb.originalPage)). A method is accepted only if its length falls within
+# it; this rejects a method whose length does not track the real GET response (e.g. HEAD returning
+# 'Content-Length: 0', HEAD served from a different code path, or sneaked-in compression). The band
+# is deliberately generous (byte-vs-character size and moderate page dynamism are expected, and a
+# false reject merely forgoes the optimization, which is safe) - it only catches gross mismatches
+NULL_CONNECTION_LENGTH_TOLERANCE_LOW = 0.5
+NULL_CONNECTION_LENGTH_TOLERANCE_HIGH = 4.0
+
 # Regular expression used for recognition of IP addresses
 IP_ADDRESS_REGEX = r"\b(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\b"
 
@@ -193,6 +248,9 @@ MAX_TECHNIQUES_PER_VALUE = 2
 
 # In case of missing piece of partial union dump, buffered array must be flushed after certain size
 MAX_BUFFERED_PARTIAL_UNION_LENGTH = 1024
+
+# Initial number of rows aggregated per request when a full (single-shot) JSON-agg UNION dump is too large and falls back to chunked windowed aggregation (halved adaptively if a chunk response still gets truncated)
+JSON_AGG_CHUNK_ROWS = 1000
 
 # Maximum size of cache used in @cachedmethod decorator
 MAX_CACHE_ITEMS = 1024
@@ -279,7 +337,7 @@ FIREBIRD_SYSTEM_DBS = ("RDB$BACKUP_HISTORY", "RDB$CHARACTER_SETS", "RDB$CHECK_CO
 MAXDB_SYSTEM_DBS = ("SYSINFO", "DOMAIN")
 SYBASE_SYSTEM_DBS = ("master", "model", "sybsystemdb", "sybsystemprocs", "tempdb")
 DB2_SYSTEM_DBS = ("NULLID", "SQLJ", "SYSCAT", "SYSFUN", "SYSIBM", "SYSIBMADM", "SYSIBMINTERNAL", "SYSIBMTS", "SYSPROC", "SYSPUBLIC", "SYSSTAT", "SYSTOOLS", "SYSDEBUG", "SYSINST")
-HSQLDB_SYSTEM_DBS = ("INFORMATION_SCHEMA", "SYSTEM_LOB")
+HSQLDB_SYSTEM_DBS = ("INFORMATION_SCHEMA", "SYSTEM_LOBS")
 H2_SYSTEM_DBS = ("INFORMATION_SCHEMA",) + ("IGNITE", "ignite-sys-cache")
 INFORMIX_SYSTEM_DBS = ("sysmaster", "sysutils", "sysuser", "sysadmin")
 MONETDB_SYSTEM_DBS = ("tmp", "json", "profiler")
@@ -334,7 +392,7 @@ SPANNER_ALIASES = ("spanner", "google cloud spanner", "google spanner")
 
 DBMS_DIRECTORY_DICT = dict((getattr(DBMS, _), getattr(DBMS_DIRECTORY_NAME, _)) for _ in dir(DBMS) if not _.startswith("_"))
 
-SUPPORTED_DBMS = set(MSSQL_ALIASES + MYSQL_ALIASES + PGSQL_ALIASES + ORACLE_ALIASES + SQLITE_ALIASES + ACCESS_ALIASES + FIREBIRD_ALIASES + MAXDB_ALIASES + SYBASE_ALIASES + DB2_ALIASES + HSQLDB_ALIASES + H2_ALIASES + INFORMIX_ALIASES + MONETDB_ALIASES + DERBY_ALIASES + VERTICA_ALIASES + MCKOI_ALIASES + PRESTO_ALIASES + ALTIBASE_ALIASES + MIMERSQL_ALIASES + CLICKHOUSE_ALIASES + CRATEDB_ALIASES + CUBRID_ALIASES + CACHE_ALIASES + EXTREMEDB_ALIASES + RAIMA_ALIASES + VIRTUOSO_ALIASES + SNOWFLAKE_ALIASES + SPANNER_ALIASES)
+SUPPORTED_DBMS = set(MSSQL_ALIASES + MYSQL_ALIASES + PGSQL_ALIASES + ORACLE_ALIASES + SQLITE_ALIASES + ACCESS_ALIASES + FIREBIRD_ALIASES + MAXDB_ALIASES + SYBASE_ALIASES + DB2_ALIASES + HSQLDB_ALIASES + H2_ALIASES + INFORMIX_ALIASES + MONETDB_ALIASES + DERBY_ALIASES + VERTICA_ALIASES + MCKOI_ALIASES + PRESTO_ALIASES + ALTIBASE_ALIASES + MIMERSQL_ALIASES + CLICKHOUSE_ALIASES + CRATEDB_ALIASES + CUBRID_ALIASES + CACHE_ALIASES + EXTREMEDB_ALIASES + FRONTBASE_ALIASES + RAIMA_ALIASES + VIRTUOSO_ALIASES + SNOWFLAKE_ALIASES + SPANNER_ALIASES)
 SUPPORTED_OS = ("linux", "windows")
 
 DBMS_ALIASES = ((DBMS.MSSQL, MSSQL_ALIASES), (DBMS.MYSQL, MYSQL_ALIASES), (DBMS.PGSQL, PGSQL_ALIASES), (DBMS.ORACLE, ORACLE_ALIASES), (DBMS.SQLITE, SQLITE_ALIASES), (DBMS.ACCESS, ACCESS_ALIASES), (DBMS.FIREBIRD, FIREBIRD_ALIASES), (DBMS.MAXDB, MAXDB_ALIASES), (DBMS.SYBASE, SYBASE_ALIASES), (DBMS.DB2, DB2_ALIASES), (DBMS.HSQLDB, HSQLDB_ALIASES), (DBMS.H2, H2_ALIASES), (DBMS.INFORMIX, INFORMIX_ALIASES), (DBMS.MONETDB, MONETDB_ALIASES), (DBMS.DERBY, DERBY_ALIASES), (DBMS.VERTICA, VERTICA_ALIASES), (DBMS.MCKOI, MCKOI_ALIASES), (DBMS.PRESTO, PRESTO_ALIASES), (DBMS.ALTIBASE, ALTIBASE_ALIASES), (DBMS.MIMERSQL, MIMERSQL_ALIASES), (DBMS.CLICKHOUSE, CLICKHOUSE_ALIASES), (DBMS.CRATEDB, CRATEDB_ALIASES), (DBMS.CUBRID, CUBRID_ALIASES), (DBMS.CACHE, CACHE_ALIASES), (DBMS.EXTREMEDB, EXTREMEDB_ALIASES), (DBMS.FRONTBASE, FRONTBASE_ALIASES), (DBMS.RAIMA, RAIMA_ALIASES), (DBMS.VIRTUOSO, VIRTUOSO_ALIASES), (DBMS.SNOWFLAKE, SNOWFLAKE_ALIASES), (DBMS.SPANNER, SPANNER_ALIASES))
@@ -431,7 +489,8 @@ ERROR_PARSING_REGEXES = (
     r"error '[0-9a-f]{8}'((<[^>]+>)|\s)+(?P<result>[^<>]+)",
     r"\[[^\n\]]{1,100}(ODBC|JDBC)[^\n\]]+\](\[[^\]]+\])?(?P<result>[^\n]+(in query expression|\(SQL| at /[^ ]+pdo)[^\n<]+)",
     r"(?P<result>query error: SELECT[^<>]+)",
-    r"(?P<result>(?:(?:ORA|PLS)-[0-9]{5}:|SQLCODE[ =:]+-?[0-9]+|SQLSTATE[ =:]+[0-9A-Z]{5}|Dynamic SQL Error|DB2 SQL error:|SAP DBTech JDBC:|SQLiteException:|You have an error in your SQL syntax;|Incorrect syntax near |Unclosed quotation mark after the character string|near \"[^\"]+\": syntax error)[^\n<]*)"
+    r"(?P<result>(?:(?:ORA|PLS)-[0-9]{5}:|SQLCODE[ =:]+-?[0-9]+|SQLSTATE[ =:]+[0-9A-Z]{5}|Dynamic SQL Error|DB2 SQL error:|SAP DBTech JDBC:|SQLiteException:|You have an error in your SQL syntax;|Incorrect syntax near |Unclosed quotation mark after the character string|near \"[^\"]+\": syntax error)[^\n<]*)",
+    r'"(?:errmsg|errorMessage|reason|msg)"\s*:\s*"(?P<result>[^"]+)"'      # generic JSON error-message field (NoSQL document/REST back-ends)
 )
 
 # Regular expression used for parsing charset info from meta html headers
@@ -474,10 +533,37 @@ URI_INJECTABLE_REGEX = r"//[^/]*/([^\.*?]+)\Z"
 SENSITIVE_DATA_REGEX = r"(\s|=)(?P<result>[^\s=]*\b%s\b[^\s]*)\s"
 
 # Options to explicitly mask in anonymous (unhandled exception) reports (along with anything carrying the <hostname> inside)
-SENSITIVE_OPTIONS = ("hostname", "answers", "data", "dnsDomain", "googleDork", "authCred", "proxyCred", "tbl", "db", "col", "user", "cookie", "proxy", "fileRead", "fileWrite", "fileDest", "testParameter", "authCred", "sqlQuery", "requestFile", "csrfToken", "csrfData", "csrfUrl", "testParameter")
+SENSITIVE_OPTIONS = ("hostname", "answers", "data", "dnsDomain", "googleDork", "proxyCred", "tbl", "db", "col", "user", "cookie", "proxy", "fileRead", "fileWrite", "fileDest", "authCred", "sqlQuery", "requestFile", "csrfToken", "csrfData", "csrfUrl", "testParameter")
 
 # Maximum number of threads (avoiding connection issues and/or DoS)
 MAX_NUMBER_OF_THREADS = 10
+
+# Wrapper applied to MySQL UNION-based retrieval values to neutralize "Illegal mix of collations" errors (e.g. utf8mb4_0900_ai_ci tables vs a utf8mb4_general_ci connection on MySQL 8+). CONVERT normalizes the (possibly binary) charset to utf8mb4 and the explicit COLLATE then wins the UNION column merge (highest coercibility)
+MYSQL_UNION_VALUE_CAST = "CONVERT(%s USING utf8mb4) COLLATE utf8mb4_bin"
+
+# Row count at/above which keyset (seek) pagination is used automatically for table dumps when a usable integer-key cursor exists (smaller tables keep the plain LIMIT/OFFSET path; '--keyset' forces it regardless of size)
+KEYSET_MIN_ROWS = 1000
+
+# Number of consecutive Huffman (set-membership) character attempts allowed to decline/escape without a single validated success before the technique latches itself off (safety against trimmed/blocked long IN() payloads)
+HUFFMAN_PROBE_LIMIT = 8
+
+# Cold-start (prior) weights for the order-0 Huffman model used in adaptive blind retrieval. Gently
+# biases the initial tree toward bytes that dominate real DBMS output (lowercase text, digits, common
+# identifier punctuation) so SHORT extractions don't pay the full balanced-tree depth before the online
+# frequency model warms up. Magnitude is small so genuine learned counts overtake it within a few dozen
+# characters (kept low-risk for uniform/hex columns: hex digits 0-9a-f are themselves favored here).
+HUFFMAN_PRIOR_WEIGHTS = {}
+for _weight, _chars in ((6, " etaoinsrhldcumfgypwbvkxjqz"), (4, "0123456789"), (3, "_.-/@:,'")):
+    for _char in _chars:
+        HUFFMAN_PRIOR_WEIGHTS[ord(_char)] = _weight
+
+# Bounds for feeding extracted values back into the "good samaritan" (--predict-output) common-output
+# pool for their enumeration context, so later same-context items that share structure (e.g.
+# wp_posts / wp_users / wp_options ...) are predicted faster. MAX_LENGTH keeps large data cells from
+# bloating/polluting the pool (identifiers are short); MAX_ITEMS bounds per-context growth so a huge
+# enumeration cannot make the per-character prediction scan costly. Misses always fall back to bisection.
+PREDICTION_FEEDBACK_MAX_LENGTH = 128
+PREDICTION_FEEDBACK_MAX_ITEMS = 10000
 
 # Minimum range between minimum and maximum of statistical set
 MIN_STATISTICAL_RANGE = 0.01
@@ -552,7 +638,7 @@ UNSAFE_DUMP_FILEPATH_REPLACEMENT = '_'
 RESTORE_MERGED_OPTIONS = ("col", "db", "dbms", "os", "dnsDomain", "privEsc", "tbl", "regexp", "string", "textOnly", "threads", "timeSec", "tmpPath", "uChar", "user")
 
 # Parameters to be ignored in detection phase (upper case)
-IGNORE_PARAMETERS = ("__VIEWSTATE", "__VIEWSTATEENCRYPTED", "__VIEWSTATEGENERATOR", "__EVENTARGUMENT", "__EVENTTARGET", "__EVENTVALIDATION", "ASPSESSIONID", "ASP.NET_SESSIONID", "JSESSIONID", "CFID", "CFTOKEN")
+IGNORE_PARAMETERS = ("__VIEWSTATE", "__VIEWSTATEENCRYPTED", "__VIEWSTATEGENERATOR", "__EVENTARGUMENT", "__EVENTTARGET", "__EVENTVALIDATION", "__SCROLLPOSITIONX", "__SCROLLPOSITIONY", "__PREVIOUSPAGE", "ASPSESSIONID", "ASP.NET_SESSIONID", "JSESSIONID", "PHPSESSID", "SESSID", "CFID", "CFTOKEN")
 
 # Regular expression used for recognition of ASP.NET control parameters
 ASP_NET_CONTROL_REGEX = r"(?i)\Actl\d+\$"
@@ -624,7 +710,7 @@ DUMMY_SQL_INJECTION_CHARS = ";()'"
 DUMMY_USER_INJECTION = r"(?i)[^\w](AND|OR)\s+[^\s]+[=><]|\bUNION\b.+\bSELECT\b|\bSELECT\b.+\bFROM\b|\b(CONCAT|information_schema|SLEEP|DELAY|FLOOR\(RAND)\b"
 
 # Extensions skipped by crawler
-CRAWL_EXCLUDE_EXTENSIONS = frozenset(("3ds", "3g2", "3gp", "7z", "DS_Store", "a", "aac", "accdb", "access", "adp", "ai", "aif", "aiff", "apk", "ar", "asf", "au", "avi", "bak", "bin", "bin", "bk", "bkp", "bmp", "btif", "bz2", "c", "cab", "caf", "cfg", "cgm", "cmx", "com", "conf", "config", "cpio", "cpp", "cr2", "cue", "dat", "db", "dbf", "deb", "debug", "djvu", "dll", "dmg", "dmp", "dng", "doc", "docx", "dot", "dotx", "dra", "dsk", "dts", "dtshd", "dvb", "dwg", "dxf", "dylib", "ear", "ecelp4800", "ecelp7470", "ecelp9600", "egg", "elf", "env", "eol", "eot", "epub", "error", "exe", "f4v", "fbs", "fh", "fla", "flac", "fli", "flv", "fpx", "fst", "fvt", "g3", "gif", "go", "gz", "h", "h261", "h263", "h264", "ico", "ief", "img", "ini", "ipa", "iso", "jar", "java", "jpeg", "jpg", "jpgv", "jpm", "js", "jxr", "ktx", "lock", "log", "lvp", "lz", "lzma", "lzo", "m3u", "m4a", "m4v", "mar", "mdb", "mdi", "mid", "mj2", "mka", "mkv", "mmr", "mng", "mov", "movie", "mp3", "mp4", "mp4a", "mpeg", "mpg", "mpga", "msi", "mxu", "nef", "npx", "nrg", "o", "oga", "ogg", "ogv", "old", "otf", "ova", "ovf", "pbm", "pcx", "pdf", "pea", "pgm", "php", "pic", "pid", "pkg", "png", "pnm", "ppm", "pps", "ppt", "pptx", "ps", "psd", "py", "pya", "pyc", "pyo", "pyv", "qt", "rar", "ras", "raw", "rb", "rgb", "rip", "rlc", "rs", "run", "rz", "s3m", "s7z", "scm", "scpt", "service", "sgi", "shar", "sil", "smv", "so", "sock", "socket", "sqlite", "sqlitedb", "sub", "svc", "swf", "swo", "swp", "sys", "tar", "tbz2", "temp", "tga", "tgz", "tif", "tiff", "tlz", "tmp", "toast", "torrent", "ts", "ts", "ttf", "uvh", "uvi", "uvm", "uvp", "uvs", "uvu", "vbox", "vdi", "vhd", "vhdx", "viv", "vmdk", "vmx", "vob", "vxd", "war", "wav", "wax", "wbmp", "wdp", "weba", "webm", "webp", "whl", "wm", "wma", "wmv", "wmx", "woff", "woff2", "wvx", "xbm", "xif", "xls", "xlsx", "xlt", "xm", "xpi", "xpm", "xwd", "xz", "yaml", "yml", "z", "zip", "zipx"))
+CRAWL_EXCLUDE_EXTENSIONS = frozenset(("3ds", "3g2", "3gp", "7z", "DS_Store", "a", "aac", "accdb", "access", "adp", "ai", "aif", "aiff", "apk", "ar", "asf", "au", "avi", "bak", "bin", "bk", "bkp", "bmp", "btif", "bz2", "c", "cab", "caf", "cfg", "cgm", "cmx", "com", "conf", "config", "cpio", "cpp", "cr2", "cue", "dat", "db", "dbf", "deb", "debug", "djvu", "dll", "dmg", "dmp", "dng", "doc", "docx", "dot", "dotx", "dra", "dsk", "dts", "dtshd", "dvb", "dwg", "dxf", "dylib", "ear", "ecelp4800", "ecelp7470", "ecelp9600", "egg", "elf", "env", "eol", "eot", "epub", "error", "exe", "f4v", "fbs", "fh", "fla", "flac", "fli", "flv", "fpx", "fst", "fvt", "g3", "gif", "go", "gz", "h", "h261", "h263", "h264", "ico", "ief", "img", "ini", "ipa", "iso", "jar", "java", "jpeg", "jpg", "jpgv", "jpm", "js", "jxr", "ktx", "lock", "log", "lvp", "lz", "lzma", "lzo", "m3u", "m4a", "m4v", "mar", "mdb", "mdi", "mid", "mj2", "mka", "mkv", "mmr", "mng", "mov", "movie", "mp3", "mp4", "mp4a", "mpeg", "mpg", "mpga", "msi", "mxu", "nef", "npx", "nrg", "o", "oga", "ogg", "ogv", "old", "otf", "ova", "ovf", "pbm", "pcx", "pdf", "pea", "pgm", "pic", "pid", "pkg", "png", "pnm", "ppm", "pps", "ppt", "pptx", "ps", "psd", "py", "pya", "pyc", "pyo", "pyv", "qt", "rar", "ras", "raw", "rb", "rgb", "rip", "rlc", "rs", "run", "rz", "s3m", "s7z", "scm", "scpt", "service", "sgi", "shar", "sil", "smv", "so", "sock", "socket", "sqlite", "sqlitedb", "sub", "svc", "swf", "swo", "swp", "sys", "tar", "tbz2", "temp", "tga", "tgz", "tif", "tiff", "tlz", "tmp", "toast", "torrent", "ts", "ttf", "uvh", "uvi", "uvm", "uvp", "uvs", "uvu", "vbox", "vdi", "vhd", "vhdx", "viv", "vmdk", "vmx", "vob", "vxd", "war", "wav", "wax", "wbmp", "wdp", "weba", "webm", "webp", "whl", "wm", "wma", "wmv", "wmx", "woff", "woff2", "wvx", "xbm", "xif", "xls", "xlsx", "xlt", "xm", "xpi", "xpm", "xwd", "xz", "yaml", "yml", "z", "zip", "zipx"))
 
 # Patterns often seen in HTTP headers containing custom injection marking character '*'
 PROBLEMATIC_CUSTOM_INJECTION_PATTERNS = r"(;q=[^;']+)|(\*/\*)"
@@ -681,6 +767,9 @@ TRIM_STDOUT_DUMP_SIZE = 256
 # Reference: https://web.archive.org/web/20150407141500/https://support.microsoft.com/en-us/kb/899149
 DUMP_FILE_BUFFER_SIZE = 1024
 
+# Block size used for the in-place secure-overwrite passes of '--purge' (bounds peak memory regardless of file size)
+PURGE_BLOCK_SIZE = 1024 * 1024
+
 # Parse response headers only first couple of times
 PARSE_HEADERS_LIMIT = 3
 
@@ -713,6 +802,9 @@ FORCE_COOKIE_EXPIRATION_TIME = "9999999999"
 
 # Restricted PAT token for automated crash reporting (last rotation: 2026-04-24)
 GITHUB_REPORT_PAT_TOKEN = "0EZh0n8npcacTH4oBcdKKWvfZLcdGWx0N5XFHD2xYaQDOkmI9LWaeDvZRZUMDz8l96RDH3+LVsbwGE5zUtaau0kld9VXG20fVbYES3ooFpNv+U9J5OTnaT2OlZcYzk4w5veT+GiHV5cuCngOJ6QgL1+qRpZDX1gzFecXbm2sNfQ2SGjT5McQe1mtxMTN7WsS1fQfPH+RhMUgbnwXJ5YG6EsBNZWOyk0C16QnekrVtuQpK0/ZVvU560uQhoMsP1/FBguBwJe"
+
+# Age (in days) past which a resumed session file is considered stale (triggers a one-time nudge)
+HASHDB_STALE_DAYS = 7
 
 # Flush HashDB threshold number of cached items
 HASHDB_FLUSH_THRESHOLD_ITEMS = 200
@@ -759,6 +851,11 @@ MAX_STABILITY_DELAY = 0.5
 # Reference: http://www.tcpipguide.com/free/t_DNSLabelsNamesandSyntaxRules.htm
 MAX_DNS_LABEL = 63
 
+# Maximum number of (most recent) DNS resolution requests retained by the DNS server (bounded so
+# that unrelated/stray traffic to the listening :53 socket cannot grow memory without limit; the
+# value is popped right after it is triggered, so only recent entries ever matter)
+MAX_DNS_REQUESTS = 1000
+
 # Alphabet used for prefix and suffix strings of name resolution requests in DNS technique (excluding hexadecimal chars for not mixing with inner content)
 DNS_BOUNDARIES_ALPHABET = re.sub(r"[a-fA-F]", "", string.ascii_letters)
 
@@ -769,10 +866,207 @@ HEURISTIC_CHECK_ALPHABET = ('"', '\'', ')', '(', ',', '.')
 BANNER = re.sub(r"\[.\]", lambda _: "[\033[01;41m%s\033[01;49m]" % random.sample(HEURISTIC_CHECK_ALPHABET, 1)[0], BANNER)
 
 # String used for dummy non-SQLi (e.g. XSS) heuristic checks of a tested parameter value
-DUMMY_NON_SQLI_CHECK_APPENDIX = "<'\">"
+DUMMY_NON_SQLI_CHECK_APPENDIX = "<'\">)"
 
 # Regular expression used for recognition of file inclusion errors
 FI_ERROR_REGEX = r"(?i)[^\n]{0,100}(no such file|failed (to )?open)[^\n]{0,100}"
+
+# Regular expressions (per back-end, anchored to actual error-message structure - not product names) used for heuristic recognition of NoSQL injection
+NOSQL_ERRORS = (
+    ("MongoDB", r"Mongo(?:Server|Parse|Network|Runtime|Bulk|WriteConcern)?Error\b|\bBSON(?:Type)?Error\b|\bMongooseError\b|CastError: Cast to|unknown (?:top.level )?operator: ?\$|\$(?:regex|where|expr|in|nin|ne|gt|lt|elemMatch) (?:has to be|is not allowed|must be|not supported|requires)|Regular expression is invalid"),
+    ("CouchDB", r'"error"\s*:\s*"(?:bad_request|query_parse_error|missing_named_query)"|invalid operator: ?\$'),
+    ("Elasticsearch", r'"type"\s*:\s*"[a-z_]*?(?:query_shard|x_content_parse|parsing|search_phase_execution|illegal_argument|too_many_clauses|number_format|script)_exception"|Failed to parse query \['),
+    ("Solr", r"org\.apache\.solr\.[\w.]*(?:SyntaxError|SolrException)"),
+    ("Neo4j", r"Neo\.(?:ClientError|DatabaseError|TransientError|ClientNotification)\.|\bNeo4jError\b|even number of non-escaped quotes|Failed to parse string literal|expected an expression|'(?:UNWIND|OPTIONAL|DETACH|FOREACH|MERGE|LOAD CSV)'"),
+    ("ArangoDB", r"\bArangoError\b|AQL: (?:syntax|parse) error"),
+    ("Cassandra", r"line \d+:\d+ (?:no viable alternative at input|(?:mismatched|extraneous) input '.*?' expecting)|org\.apache\.cassandra|com\.datastax|\bInvalid(?:Request|Query)Exception\b"),
+    ("Redis", r"\bWRONGTYPE\b|ERR Error (?:compiling|running) script|@user_script|\bReplyError\b"),
+    ("Memcached", r"CLIENT_ERROR bad|SERVER_ERROR object too large"),
+    ("InfluxDB", r"error parsing query|unable to parse '[^']*': found"),
+    ("HBase/Phoenix", r"org\.apache\.phoenix|PhoenixParserException|org\.apache\.hadoop\.hbase"),
+)
+NOSQL_ERROR_REGEX = "(?:%s)" % '|'.join(regex for _, regex in NOSQL_ERRORS)
+
+# Printable-ASCII codepoint bounds bisected (via regexp character-class ranges) during NoSQL blind extraction
+NOSQL_CHAR_MIN = 0x20
+NOSQL_CHAR_MAX = 0x7e
+
+# Maximum number of document fields enumerated during a NoSQL ($where server-side JavaScript) document dump
+NOSQL_MAX_FIELDS = 64
+
+# Maximum number of records walked during a NoSQL blind multi-record (ordered key paging) collection dump
+NOSQL_MAX_RECORDS = 100
+
+# Upper bound for the length search during NoSQL blind extraction
+NOSQL_MAX_LENGTH = 1024
+
+# GraphQL endpoint paths to probe when the user supplies a base URL with --graphql (no explicit /graphql)
+GRAPHQL_ENDPOINT_PATHS = ("/graphql", "/api/graphql", "/v1/graphql", "/api/v1/graphql", "/graphql/api", "/graphql/console", "/graphql.php", "/graphiql", "/graph", "/gql", "/query")
+
+# Seed field/argument names used to recover a GraphQL schema from "Did you mean" suggestion error
+# messages when introspection is disabled (the field-suggestion / "Clairvoyance" technique)
+GRAPHQL_FIELD_WORDLIST = ("user", "users", "me", "search", "login", "node", "post", "posts",
+    "account", "accounts", "profile", "product", "products", "order", "orders", "item", "items",
+    "customer", "find", "get", "list", "comment", "comments", "message", "messages", "updateUser")
+GRAPHQL_ARG_WORDLIST = ("id", "username", "user", "name", "term", "query", "q", "search",
+    "email", "input", "password", "key", "filter", "slug", "title", "uid")
+
+# Canonical GraphQL introspection query (the one everyone copy-pastes). Returned schema carries the
+# full type system: query/mutation/subscription roots, OBJECT/INPUT_OBJECT/ENUM/SCALAR types, their
+# fields/arguments/inputFields with type chains, directives, and deprecation metadata.
+GRAPHQL_INTROSPECTION_QUERY = """query IntrospectionForSqlmap {
+  __schema {
+    queryType { name }
+    mutationType { name }
+    subscriptionType { name }
+    directives { name args { name type { kind name ofType { kind name ofType { kind name } } } } }
+    types {
+      kind
+      name
+      fields(includeDeprecated: true) {
+        name
+        args {
+          name
+          defaultValue
+          type { kind name ofType { kind name ofType { kind name ofType { kind name } } } }
+        }
+        type { kind name ofType { kind name ofType { kind name } } }
+      }
+      inputFields {
+        name
+        defaultValue
+        type { kind name ofType { kind name ofType { kind name ofType { kind name } } } }
+      }
+      enumValues(includeDeprecated: true) { name }
+      specifiedByURL
+    }
+  }
+}"""
+
+# GraphQL error patterns that identify the response as originating from a GraphQL layer (parse,
+# validation, execution, or APQ errors). Used by the heuristic in checks.py and for error-based
+# detection inside the GraphQL engine.
+GRAPHQL_PARSE_ERRORS = (
+    r'"code"\s*:\s*"GRAPHQL_PARSE_FAILED"',
+    r"\bSyntax Error:\s*[^\"]",
+    r"\bExpected Name,\s*found\b",
+    r"\bUnexpected\s+<EOF>\b",
+)
+GRAPHQL_VALIDATION_ERRORS = (
+    r'"code"\s*:\s*"GRAPHQL_VALIDATION_FAILED"',
+    r"\bCannot query field\s+\"[^\"]+\"\s+on type\s+\"[^\"]+\"",
+    r"\bUnknown argument\s+\"[^\"]+\"\s+on field\s+\"[^\"]+\"",
+    r"\bField\s+\"[^\"]+\"\s+argument\s+\"[^\"]+\"\s+of type\s+\"[^\"]+\"\s+is required\b",
+    r"\bVariable\s+\"\$[^\"]+\"\s+got invalid value\b",
+    r"\bExpected type\s+[^,]+,\s*found\b",
+    r"\bDid you mean\s+\"[^\"]+\"\b",
+)
+GRAPHQL_APQ_ERRORS = (
+    r"\bPersistedQueryNotFound\b",
+    r"\bPersistedQueryNotSupported\b",
+)
+GRAPHQL_RUNTIME_ERRORS = (
+    r"\bGraphQL\s+(?:resolver\s+)?error\b",
+)
+GRAPHQL_ERROR_REGEX = "(?:%s)" % '|'.join(GRAPHQL_PARSE_ERRORS + GRAPHQL_VALIDATION_ERRORS + GRAPHQL_APQ_ERRORS + GRAPHQL_RUNTIME_ERRORS)
+
+# LDAP error signatures per back-end for error-based detection and fingerprinting (matched against
+# HTTP response bodies). Each tuple is (backend_name, regex_fragment).
+LDAP_ERROR_SIGNATURES = (
+    ("Microsoft Active Directory", r"AcceptSecurityContext error, data [0-9a-fA-F]+"),
+    ("Microsoft Active Directory", r"LdapErr: DSID-[0-9a-fA-F]+"),
+    ("Microsoft Active Directory", r"80090308:\s*LdapErr"),
+    ("OpenLDAP", r"(?:Bad search filter|ldap_search_ext:\s*Bad search filter)(?:\s*\(-7\))?"),
+    ("OpenLDAP", r"Invalid DN syntax(?:\s*\(34\))?"),
+    ("ApacheDS", r"javax\.naming\.(?:directory\.)?(?:Naming|Authentication|InvalidName|InvalidSearchFilter|OperationNotSupported)Exception"),
+    ("ApacheDS", r"org\.apache\.directory\.api\.ldap\.model\.exception\.Ldap(?:InvalidSearchFilter|InvalidDn|SchemaViolation)?Exception"),
+    ("ApacheDS", r"LDAPException=\d+\s+msg=ERR_\d+"),
+    ("Oracle Directory Server", r"(?:attribute syntax error:|ACL parsing error:|Oracle (?:Unified )?Directory)"),
+    ("389 Directory Server", r"(?:Filter Syntax Verification|389[- ]Directory(?:[ /]Server)?)"),
+    ("Java JNDI", r"javax\.naming\.(?:InvalidNameException|InvalidSearchFilterException)"),
+    ("python-ldap", r"ldap\.(?:INVALID_DN_SYNTAX|FILTER_ERROR|NO_SUCH_OBJECT)"),
+)
+
+# Combined LDAP error regex used for heuristic detection (checks.py) and for recognising
+# that an error response originates from an LDAP back-end rather than a generic HTTP 500
+LDAP_ERROR_REGEX = r"(?i)(?:%s)" % '|'.join(regex for _, regex in LDAP_ERROR_SIGNATURES)
+
+# Printable-ASCII codepoint bounds bisected during LDAP blind extraction via >= lexicographic comparison
+LDAP_CHAR_MIN = 0x20
+LDAP_CHAR_MAX = 0x7e
+
+# Upper bound for the value-length search during LDAP blind extraction
+LDAP_MAX_LENGTH = 256
+
+# Maximum number of directory entries enumerated during LDAP blind dumping
+LDAP_MAX_RECORDS = 20
+
+# Attributes that definitively identify the backend vendor when probed on the RootDSE or
+# a well-known directory entry. Each tuple is (attribute, expected_value_substring, backend).
+LDAP_FINGERPRINT_ATTRIBUTES = (
+    ("objectGUID", None, "Microsoft Active Directory"),
+    ("vendorName", "OpenLDAP", "OpenLDAP"),
+    ("vendorName", "Apache Software Foundation", "ApacheDS"),
+    ("vendorName", "Oracle Corporation", "Oracle Directory Server"),
+    ("vendorName", "Red Hat", "389 Directory Server"),
+)
+
+# XPath error signatures per parser implementation for error-based detection and
+# fingerprinting (matched against HTTP response bodies). Each tuple is
+# (backend_name, regex_fragment).
+XPATH_ERROR_SIGNATURES = (
+    ("Java JAXP / Xalan", r"(?:javax\.xml\.(?:xpath\.XPathExpressionException|transform\.Transformer(?:Configuration)?Exception)|com\.sun\.org\.apache\.xpath\.(?:XPathException|XPathProcessorException)|org\.apache\.xpath|org\.xml\.sax\.SAX(?:Parse)?Exception)"),
+    ("Java JAXP / Xalan", r"XPath (?:expression|syntax) error"),
+    ("Java JAXP / Saxon", r"net\.sf\.saxon\.(?:trans\.XPathException|s9api\.SaxonApiException)"),
+    ("Java JAXP / Saxon", r"(?:XPST|XPTY|XPDY|XQST|XTDE)\d{4}:"),
+    (".NET XPathNavigator", r"System\.Xml\.(?:XPath\.XPathException|XmlException)"),
+    (".NET XPathNavigator", r"Expression must evaluate to a node-set"),
+    (".NET XPathNavigator", r"has an invalid (?:token|qualified name)"),
+    ("lxml / libxml2", r"(?:lxml\.etree\.(?:XPath(?:Eval|Document|Syntax)?Error)|libxml2|xmlXPath(?:CompOp|Eval|Err))"),
+    ("lxml / libxml2", r"(?:XPath error|Invalid (?:expression|predicate))"),
+    ("PHP SimpleXML / DOMXPath", r"(?:SimpleXMLElement::xpath\(\)|DOMXPath::(?:query|evaluate)\(\))"),
+    ("PHP SimpleXML / DOMXPath", r"Invalid expression|xmlXPathEval"),
+    ("Saxon (standalone)", r"(?:net\.sf\.saxon\.(?:s9api\.SaxonApiException|trans\.XPathException)|Saxon error)"),
+    ("Saxon (standalone)", r"Static error\(s\) in query"),
+    ("BaseX", r"org\.basex\.(?:query\.QueryException|core\.BaseXException)"),
+    ("BaseX", r"\[(?:XPST|XPTY|XPDY)\d{4}\]"),
+    ("eXist", r"org\.exist\.xquery\.(?:XPathException|XQueryException)"),
+    ("eXist", r"exerr:ERROR"),
+    ("Python ElementTree", r"xml\.etree\.ElementTree\.(?:ParseError|Element)"),
+    ("Generic XPath", r"(?:XPath|XSLT).*?(?:error|exception|syntax)"),
+    ("Generic XPath", r"Invalid XPath|XPath evaluation failed"),
+)
+
+XPATH_ERROR_REGEX = r"(?i)(?:%s)" % '|'.join(regex for _, regex in XPATH_ERROR_SIGNATURES)
+
+# Printable-ASCII codepoint bounds bisected during XPath blind character extraction
+XPATH_CHAR_MIN = 0x20
+XPATH_CHAR_MAX = 0x7e
+
+# Maximum tree depth for recursive XML walking during XPath blind extraction
+XPATH_MAX_DEPTH = 32
+
+# Upper bound for the value-length search during XPath blind extraction
+XPATH_MAX_LENGTH = 256
+
+# SSTI error signatures per template engine for detection and fingerprinting.
+# Each tuple is (engine_name, regex_fragment).
+SSTI_ERROR_SIGNATURES = (
+    ("Jinja2", r"jinja2\.exceptions\.\w+|TemplateSyntaxError|UndefinedError|TemplateNotFound|TemplateAssertionError"),
+    ("Twig", r"Twig[\\_]Error|Twig[\\_]Environment|Unknown (?:filter|function|test|tag)"),
+    ("Freemarker", r"freemarker\.(?:core|template|extract|cache)\.\w+|ParseException|InvalidReferenceException|TemplateException"),
+    ("Velocity", r"org\.apache\.velocity\.(?:runtime|exception)\.\w+|ParseErrorException|MethodInvocationException|ResourceNotFoundException"),
+    ("Spring EL / Thymeleaf", r"org\.springframework\.expression\.\w+|org\.thymeleaf\.\w+|SpelEvaluationException|TemplateProcessingException|ExpressionParsingException"),
+    ("ERB", r"\(erb\):\d+|NameError.*undefined local variable"),
+    ("Pug/Jade", r"pug|jade|ParseError"),
+    ("Handlebars", r"handlebars|Handlebars|Parse error on line"),
+    ("Generic SSTI", r"template.*?(?:error|syntax|exception)"),
+)
+
+SSTI_ERROR_REGEX = r"(?i)(?:%s)" % '|'.join(regex for _, regex in SSTI_ERROR_SIGNATURES)
+
+# Upper bound for SSTI value extraction (reserved for future use)
+SSTI_MAX_LENGTH = 256
 
 # Length of prefix and suffix used in non-SQLI heuristic checks
 NON_SQLI_CHECK_PREFIX_SUFFIX_LENGTH = 6
@@ -782,6 +1076,12 @@ MAX_CONNECTION_READ_SIZE = 10 * 1024 * 1024
 
 # Maximum response total page size (trimmed if larger)
 MAX_CONNECTION_TOTAL_SIZE = 100 * 1024 * 1024
+
+# Maximum number of requests served over a single persistent (Keep-Alive) connection before it is recycled
+KEEPALIVE_MAX_REQUESTS = 1000
+
+# Maximum idle time (in seconds) a pooled persistent (Keep-Alive) connection is considered reusable before being recycled
+KEEPALIVE_IDLE_TIMEOUT = 30
 
 # For preventing MemoryError exceptions (caused when using large sequences in difflib.SequenceMatcher)
 MAX_DIFFLIB_SEQUENCE_LENGTH = 10 * 1024 * 1024
@@ -826,7 +1126,7 @@ MAX_HELP_OPTION_LENGTH = 18
 MAX_CONNECT_RETRIES = 100
 
 # Strings for detecting formatting errors
-FORMAT_EXCEPTION_STRINGS = ("Type mismatch", "Error converting", "Please enter a", "Conversion failed", "String or binary data would be truncated", "Failed to convert", "unable to interpret text value", "Input string was not in a correct format", "System.FormatException", "java.lang.NumberFormatException", "ValueError: invalid literal", "TypeMismatchException", "CF_SQL_INTEGER", "CF_SQL_NUMERIC", " for CFSQLTYPE ", "cfqueryparam cfsqltype", "InvalidParamTypeException", "Invalid parameter type", "Attribute validation error for tag", "is not of type numeric", "<cfif Not IsNumeric(", "invalid input syntax for integer", "invalid input syntax for type", "invalid number", "character to number conversion error", "unable to interpret text value", "String was not recognized as a valid", "Convert.ToInt", "cannot be converted to a ", "InvalidDataException", "Arguments are of the wrong type", "Invalid conversion")
+FORMAT_EXCEPTION_STRINGS = ("Type mismatch", "Error converting", "Please enter a", "Conversion failed", "String or binary data would be truncated", "Failed to convert", "unable to interpret text value", "Input string was not in a correct format", "System.FormatException", "java.lang.NumberFormatException", "ValueError: invalid literal", "TypeMismatchException", "CF_SQL_INTEGER", "CF_SQL_NUMERIC", " for CFSQLTYPE ", "cfqueryparam cfsqltype", "InvalidParamTypeException", "Invalid parameter type", "Attribute validation error for tag", "is not of type numeric", "<cfif Not IsNumeric(", "invalid input syntax for integer", "invalid input syntax for type", "invalid number", "character to number conversion error", "String was not recognized as a valid", "Convert.ToInt", "cannot be converted to a ", "InvalidDataException", "Arguments are of the wrong type", "Invalid conversion")
 
 # Regular expression used for extracting ASP.NET view state values
 VIEWSTATE_REGEX = r'(?i)(?P<name>__VIEWSTATE[^"]*)[^>]+value="(?P<result>[^"]+)'
@@ -840,14 +1140,23 @@ LIMITED_ROWS_TEST_NUMBER = 15
 # Default adapter to use for bottle server
 RESTAPI_DEFAULT_ADAPTER = "wsgiref"
 
-# Default REST-JSON API server listen address
+# REST API / scan-data contract version (semantic versioning), INDEPENDENT of the sqlmap version.
+# Bump MAJOR for breaking changes (removed/renamed field, changed type, restructured response),
+# MINOR for additive backward-compatible changes (new field/endpoint), PATCH for non-contract fixes.
+# Exposed at GET /version (as "api_version"), in the --report-json "meta", and as the OpenAPI
+# info.version (keep sqlmapapi.yaml in sync). Maintained by hand when the contract changes.
+# 2.0.0: first explicitly-versioned contract; a MAJOR break from the old implicit shape
+# (TECHNIQUES is now a named list, DUMP_TABLE restructured, internal fields dropped, type_name added).
+RESTAPI_VERSION = "2.0.0"
+
+# Default REST API server listen address
 RESTAPI_DEFAULT_ADDRESS = "127.0.0.1"
 
-# Default REST-JSON API server listen port
+# Default REST API server listen port
 RESTAPI_DEFAULT_PORT = 8775
 
-# Unsupported options by REST-JSON API server
-RESTAPI_UNSUPPORTED_OPTIONS = ("sqlShell", "wizard", "evalCode", "alert")
+# Unsupported options by REST API server
+RESTAPI_UNSUPPORTED_OPTIONS = ("sqlShell", "wizard", "evalCode", "alert", "reportJson")
 
 # Use "Supplementary Private Use Area-A"
 INVALID_UNICODE_PRIVATE_AREA = False
@@ -971,14 +1280,19 @@ for key, value in os.environ.items():
         _ = key[len(SQLMAP_ENVIRONMENT_PREFIX) + 1:].upper()
         if _ in globals():
             original = globals()[_]
-            if isinstance(original, int):
+            if isinstance(original, bool):
+                globals()[_] = value.lower() in ('1', 'true')
+            elif isinstance(original, int):
                 try:
                     globals()[_] = int(value)
                 except ValueError:
                     pass
-            elif isinstance(original, bool):
-                globals()[_] = value.lower() in ('1', 'true')
+            elif isinstance(original, float):
+                try:
+                    globals()[_] = float(value)
+                except ValueError:
+                    pass
             elif isinstance(original, (list, tuple)):
-                globals()[_] = [__.strip() for __ in _.split(',')]
+                globals()[_] = [__.strip() for __ in value.split(',')]
             else:
                 globals()[_] = value

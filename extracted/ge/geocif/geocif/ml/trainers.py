@@ -347,6 +347,51 @@ def auto_train(
             # model = AutoTabPFNRegressor(max_time=600,
             #                            #categorical_feature_indices=cat_feature_indices,
             #                            ignore_pretraining_limits=True)
+        elif model_name == "tabfm":
+            # Google Research's TabFM (tabular foundation model) — zero-shot
+            # inference like TabPFN, so no fit-time hyperparameters and no
+            # Optuna. PyTorch CPU backend is the correct choice on this
+            # cluster (JAX-on-CPU JIT-recompiles every call → ~130s/row vs
+            # PyTorch's ~10s/row; a V100 16GB doesn't fit the ~11GB weights
+            # + working memory, so GPU is deferred).
+            #
+            # Load is heavy (~26s cold; ~0s if HF cache is warm — cluster
+            # HF_HOME lives on /gpfs so the ~13GB weights persist between
+            # runs). Loading per-call mirrors the tabpfn branch above; if
+            # this becomes a bottleneck on production runs, cache the
+            # pretrained handle at module level.
+            import tabfm as _tabfm
+
+            class _TabFMWithObjectDtype:
+                """sklearn-shaped wrapper that casts pandas category
+                columns back to object before fit/predict.
+
+                Why: TabFM's tokenizer misreads CategoricalDtype as
+                numeric codes — verified 10x worse RMSE on a synthetic
+                fixture (1.410 vs 0.149) with the same underlying data.
+                geocif casts cat_features to category at geocif.py:1270
+                because catboost/tabpfn/etc. need it; we can't unwind
+                that upstream cast without breaking the other models.
+                So this adapter locally undoes it for TabFM only."""
+                def __init__(self, pretrained):
+                    self._reg = _tabfm.TabFMRegressor(model=pretrained)
+
+                @staticmethod
+                def _cast(X):
+                    X = X.copy()
+                    for c in X.columns:
+                        if hasattr(X[c], "cat"):
+                            X[c] = X[c].astype(object)
+                    return X
+
+                def fit(self, X, y):
+                    return self._reg.fit(self._cast(X), y)
+
+                def predict(self, X):
+                    return self._reg.predict(self._cast(X))
+
+            _pretrained = _tabfm.tabfm_v1_0_0_pytorch.load(model_type="regression")
+            model = _TabFMWithObjectDtype(_pretrained)
         elif model_name == "tabpfn_ft":
             from tabpfn.finetuning import FinetunedTabPFNRegressor
 

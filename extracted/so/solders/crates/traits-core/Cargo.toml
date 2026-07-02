@@ -1,0 +1,16 @@
+
+[package]
+name = "solders-traits-core"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+description = "A collection of traits and helpers for Solders."
+license = { workspace = true }
+repository = { workspace = true }
+
+[dependencies]
+bincode = { workspace = true }
+pyo3 = { workspace = true }
+serde = { workspace = true }
+serde_cbor = { workspace = true }
+serde_json = { workspace = true }

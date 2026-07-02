@@ -46,6 +46,7 @@ import salt.utils.atomicfile
 import salt.utils.batch_manager
 import salt.utils.batch_output
 import salt.utils.batch_state
+import salt.utils.cache
 import salt.utils.ctx
 import salt.utils.event
 import salt.utils.files
@@ -348,6 +349,12 @@ class Maintenance(salt.utils.process.SignalHandlingProcess):
             self.pki_dir = self.opts["cluster_pki_dir"]
         else:
             self.pki_dir = self.opts.get("pki_dir", "")
+        # Long-lived helpers used by ``run()`` — populated in
+        # ``_post_fork_init`` (the leak-fix path that caches them across
+        # iterations).  Pre-init to ``None`` so attribute access in
+        # ``run()`` survives test paths that mock ``_post_fork_init``.
+        self._cached_mminion = None
+        self._cached_loadauth = None
 
     def _post_fork_init(self):
         """
@@ -364,6 +371,15 @@ class Maintenance(salt.utils.process.SignalHandlingProcess):
         runner_client = salt.runner.RunnerClient(ropts)
         # Load Returners
         self.returners = salt.loader.returners(self.opts, {})
+        # Cache long-lived helpers so the maintenance loop reuses them across
+        # iterations rather than constructing fresh ones. Each construction
+        # triggers a fresh LazyLoader + __virtual__ cascade + module-load chain
+        # that allocates bytecode/dicts/strings retained in sys.modules — the
+        # primary driver of the Maintenance-process slow drift.
+        self._cached_loadauth = salt.auth.LoadAuth(self.opts)
+        self._cached_mminion = salt.minion.MasterMinion(
+            self.opts, states=False, rend=False
+        )
 
         # Init Scheduler
         self.schedule = salt.utils.schedule.Schedule(
@@ -419,12 +435,27 @@ class Maintenance(salt.utils.process.SignalHandlingProcess):
         now = int(time.time())
 
         git_pillar_update_interval = self.opts.get("git_pillar_update_interval", 0)
-        old_present = set()
+        # Load the presence data from the cache on disk so a Maintenance process
+        # restart does not cause spurious "new" presence events for already-connected
+        # minions.
+        presence_cache = salt.utils.cache.CacheFactory.factory(
+            "disk",
+            3600,
+            minion_cache_path=os.path.join(self.opts["cachedir"], "presence-data"),
+        )
+        try:
+            old_present = set(presence_cache["present"])
+        except KeyError:
+            old_present = set()
         while time.time() - start < self.restart_interval:
             log.trace("Running maintenance routines")
             if not last or (now - last) >= self.loop_interval:
-                salt.daemons.masterapi.clean_old_jobs(self.opts)
-                salt.daemons.masterapi.clean_expired_tokens(self.opts)
+                salt.daemons.masterapi.clean_old_jobs(
+                    self.opts, mminion=self._cached_mminion
+                )
+                salt.daemons.masterapi.clean_expired_tokens(
+                    self.opts, loadauth=self._cached_loadauth
+                )
                 salt.daemons.masterapi.clean_pub_auth(self.opts)
                 salt.utils.master.clean_proc_dir(self.opts)
             if not last or (now - last_git_pillar_update) >= git_pillar_update_interval:
@@ -442,6 +473,31 @@ class Maintenance(salt.utils.process.SignalHandlingProcess):
             last = now
             now = int(time.time())
             time.sleep(self.loop_interval)
+
+    def destroy(self):
+        """
+        Clean up resources
+        """
+        if hasattr(self, "event") and self.event is not None:
+            self.event.destroy()
+            self.event = None
+        if hasattr(self, "ckminions") and self.ckminions is not None:
+            if hasattr(self.ckminions, "cache") and self.ckminions.cache is not None:
+                self.ckminions.cache = None
+            self.ckminions = None
+        if hasattr(self, "schedule") and self.schedule is not None:
+            self.schedule = None
+        if getattr(self, "_cached_loadauth", None) is not None:
+            self._cached_loadauth.destroy()
+            self._cached_loadauth = None
+        if getattr(self, "_cached_mminion", None) is not None:
+            if hasattr(self._cached_mminion, "destroy"):
+                self._cached_mminion.destroy()
+            self._cached_mminion = None
+
+    def _handle_signals(self, signum, sigframe):
+        self.destroy()
+        super()._handle_signals(signum, sigframe)
 
     def handle_key_cache(self):
         """
@@ -566,6 +622,14 @@ class Maintenance(salt.utils.process.SignalHandlingProcess):
             self.event.fire_event(data, tagify("present", "presence"))
             old_present.clear()
             old_present.update(present)
+            # Persist the presence list so a Maintenance restart can seed
+            # old_present without triggering spurious "new" events.
+            presence_cache = salt.utils.cache.CacheFactory.factory(
+                "disk",
+                3600,
+                minion_cache_path=os.path.join(self.opts["cachedir"], "presence-data"),
+            )
+            presence_cache["present"] = list(present)
 
     def handle_batch_jobs(self):
         """
@@ -1828,6 +1892,12 @@ class MWorker(salt.utils.process.SignalHandlingProcess):
             except Exception:  # pylint: disable=broad-except
                 # Don't stop signal handling because an exception occurred.
                 pass
+        aes_funcs = getattr(self, "aes_funcs", None)
+        if aes_funcs is not None:
+            try:
+                aes_funcs.destroy()
+            except Exception:  # pylint: disable=broad-except
+                pass
         super()._handle_signals(signum, sigframe)
 
     def __bind(self):
@@ -1891,22 +1961,6 @@ class MWorker(salt.utils.process.SignalHandlingProcess):
         """
         The _handle_payload method is the key method used to figure out what
         needs to be done with communication to the server
-
-        Example cleartext payload generated for 'salt myminion test.ping':
-
-        {'enc': 'clear',
-         'load': {'arg': [],
-                  'cmd': 'publish',
-                  'fun': 'test.ping',
-                  'jid': '',
-                  'key': 'alsdkjfa.,maljf-==adflkjadflkjalkjadfadflkajdflkj',
-                  'kwargs': {'show_jid': False, 'show_timeout': False},
-                  'ret': '',
-                  'tgt': 'myminion',
-                  'tgt_type': 'glob',
-                  'user': 'root'}}
-
-        :param dict payload: The payload route to the appropriate handler
         """
         # Bracket the entire handler with the shared "workers in flight"
         # counter so the master's observable gauge can report queue depth.
@@ -2162,6 +2216,13 @@ class AESFuncs(TransportMethods):
         :returns: Instance for handling AES operations
         """
         self.opts = opts
+        self.event = None
+        self.ckminions = None
+        self.local = None
+        self.mminion = None
+        self.fs_ = None
+        self.masterapi = None
+        self.cache = None
         self.event = salt.utils.event.get_master_event(
             self.opts, self.opts["sock_dir"], listen=False
         )
@@ -2502,6 +2563,14 @@ class AESFuncs(TransportMethods):
                     "Failed to persist resource_grains for minion '%s': %s",
                     load["id"],
                     exc,
+                )
+            # Mirror the notification ``_pillar`` fires when ordinary minion
+            # grains are refreshed in the cache, so consumers subscribed to
+            # ``salt/minion/*/refresh/*`` see resource-grain refreshes too.
+            if self.opts.get("minion_data_cache_events") is True:
+                self.event.fire_event(
+                    {"Resource cache refresh": load["id"]},
+                    tagify(load["id"], "refresh", "resource"),
                 )
         return True
 
@@ -2962,10 +3031,42 @@ class AESFuncs(TransportMethods):
         return ret, {"fun": "send"}
 
     def destroy(self):
-        self.masterapi.destroy()
+        if self.masterapi is not None:
+            self.masterapi.destroy()
+            self.masterapi = None
         if self.local is not None:
             self.local.destroy()
             self.local = None
+        if self.mminion is not None:
+            self.mminion.destroy()
+            self.mminion = None
+        if self.event is not None:
+            self.event.destroy()
+            self.event = None
+        if self.ckminions is not None:
+            if self.ckminions.cache is not None:
+                if hasattr(self.ckminions.cache, "destroy"):
+                    self.ckminions.cache.destroy()
+                self.ckminions.cache = None
+            self.ckminions = None
+        if self.cache is not None:
+            if hasattr(self.cache, "destroy"):
+                self.cache.destroy()
+            self.cache = None
+        # Clear bound methods from fileserver
+        if self.fs_ is not None:
+            if hasattr(self.fs_, "destroy"):
+                self.fs_.destroy()
+            self.fs_ = None
+        self._serve_file = None
+        self._file_find = None
+        self._file_hash = None
+        self._file_hash_and_stat = None
+        self._file_list = None
+        self._file_list_emptydirs = None
+        self._dir_list = None
+        self._symlink_list = None
+        self._file_envs = None
 
 
 class AuthFuncs(TransportMethods):
@@ -3636,6 +3737,12 @@ class ClearFuncs(TransportMethods):
     def __init__(self, opts, key):
         self.opts = opts
         self.key = key
+        self.event = None
+        self.local = None
+        self.ckminions = None
+        self.loadauth = None
+        self.mminion = None
+        self.masterapi = None
         # Create the event manager
         self.event = salt.utils.event.get_master_event(
             self.opts, self.opts["sock_dir"], listen=False
@@ -4219,6 +4326,25 @@ class ClearFuncs(TransportMethods):
         if self.local is not None:
             self.local.destroy()
             self.local = None
+        if self.mminion is not None:
+            self.mminion.destroy()
+            self.mminion = None
+        if self.event is not None:
+            self.event.destroy()
+            self.event = None
+        if self.ckminions is not None:
+            if self.ckminions.cache is not None:
+                if hasattr(self.ckminions.cache, "destroy"):
+                    self.ckminions.cache.destroy()
+                self.ckminions.cache = None
+            self.ckminions = None
+        if self.loadauth is not None:
+            self.loadauth.destroy()
+            self.loadauth = None
+        if self.wheel_ is not None:
+            if hasattr(self.wheel_, "destroy"):
+                self.wheel_.destroy()
+            self.wheel_ = None
         while self.channels:
             chan = self.channels.pop()
             chan.close()

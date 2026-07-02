@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mindroom
-Version: 2026.7.0
+Version: 2026.7.19
 Summary: A universal interface for AI agents with persistent memory, where every conversation has a home
 Project-URL: documentation, https://github.com/mindroom-ai/mindroom
 Project-URL: homepage, https://github.com/mindroom-ai/mindroom
@@ -48,7 +48,6 @@ Requires-Dist: pyyaml>=6
 Requires-Dist: rich
 Requires-Dist: structlog>=24.1
 Requires-Dist: tenacity>=9.1.2
-Requires-Dist: tinytag>=2.2.1
 Requires-Dist: typer>=0.24
 Requires-Dist: uvicorn>=0.35
 Requires-Dist: watchfiles>=1
@@ -171,6 +170,8 @@ Requires-Dist: google-auth>=2.40.3; extra == 'google-drive'
 Provides-Extra: google-maps
 Requires-Dist: google-maps-places; extra == 'google-maps'
 Requires-Dist: googlemaps; extra == 'google-maps'
+Provides-Extra: google-scholar
+Requires-Dist: scholarly; extra == 'google-scholar'
 Provides-Extra: google-sheets
 Requires-Dist: google-api-python-client>=2.178; extra == 'google-sheets'
 Requires-Dist: google-auth-httplib2>=0.2; extra == 'google-sheets'
@@ -601,7 +602,7 @@ agents:
 models:
   default:
     provider: anthropic
-    id: claude-sonnet-4-6
+    id: claude-sonnet-5
 
 mindroom_user:
   username: mindroom_user  # Set this before first run; the account-creation request is immutable after account creation

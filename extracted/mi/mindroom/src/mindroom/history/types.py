@@ -89,7 +89,6 @@ class ResolvedHistorySettings:
     policy: HistoryPolicy
     max_tool_calls_from_history: int | None
     system_message_role: str = "system"
-    skip_history_system_role: bool = True
 
 
 @dataclass(frozen=True)
@@ -112,7 +111,6 @@ class HistoryScopeState:
 class ResolvedHistoryExecutionPlan:
     """Single source of truth for history-budget policy in one run scope."""
 
-    authored_compaction_config: bool
     authored_compaction_enabled: bool
     destructive_compaction_available: bool
     explicit_compaction_model: bool
@@ -137,8 +135,6 @@ class ResolvedReplayPlan:
     add_history_to_context: bool
     num_history_runs: int | None = None
     num_history_messages: int | None = None
-    history_limit_mode: Literal["runs", "messages"] | None = None
-    history_limit: int | None = None
 
 
 @dataclass(frozen=True)
@@ -165,15 +161,6 @@ class CompactionLifecycleStart:
     history_budget_tokens: int | None
     runs_before: int
     threshold_tokens: int | None = None
-
-
-@dataclass(frozen=True)
-class CompactionLifecycleSuccess:
-    """Visible lifecycle notice payload emitted after successful foreground compaction."""
-
-    notice_event_id: str | None
-    outcome: CompactionOutcome
-    duration_ms: int
 
 
 @dataclass(frozen=True)
@@ -251,7 +238,7 @@ class CompactionLifecycle(Protocol):
     async def start(self, event: CompactionLifecycleStart) -> str | None:
         """Send the initial compaction notice and return its Matrix event id."""
 
-    async def complete_success(self, event: CompactionLifecycleSuccess) -> None:
+    async def complete_success(self, outcome: CompactionOutcome) -> None:
         """Edit the lifecycle notice after successful compaction."""
 
     async def progress(self, event: CompactionLifecycleProgress) -> None:
@@ -295,7 +282,6 @@ class CompactionOutcome:
     after_tokens: int
     window_tokens: int
     threshold_tokens: int
-    reserve_tokens: int
     runs_before: int
     runs_after: int
     compacted_run_count: int
@@ -310,9 +296,8 @@ class CompactionOutcome:
 
     def to_notice_metadata(self) -> dict[str, object]:
         """Return serialized notice metadata for Matrix compaction messages."""
-        version = 2 if self.history_budget_tokens is not None else 1
         meta: dict[str, object] = {
-            "version": version,
+            "version": 3,
             "status": self.status,
             "mode": self.mode,
             "session_id": self.session_id,
@@ -374,4 +359,3 @@ class PreparedHistoryState:
     )
     compaction_reply_outcome: CompactionReplyOutcome = "none"
     prepared_context_tokens: int | None = None
-    estimated_context_tokens: int | None = None

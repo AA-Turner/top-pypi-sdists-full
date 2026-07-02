@@ -153,6 +153,7 @@ def create_agent(
     tool_progress_callback: Optional[Callable] = None,
     tool_start_callback: Optional[Callable] = None,
     tool_complete_callback: Optional[Callable] = None,
+    prefill_messages: Optional[list] = None,
 ) -> Any:
     """Build an AIAgent with the right provider/model/toolsets/callbacks.
 
@@ -287,6 +288,17 @@ def create_agent(
                     cached.tool_complete_callback = tool_complete_callback
                 if session_id is not None:
                     cached.session_id = session_id
+                # v3.5.0 — TIME PORTAL: refresh prefill_messages on every
+                # call so portal mode applies even on cache HIT. Stored
+                # mutable list reference (vendored AIAgent reads it at
+                # API call time).
+                if prefill_messages is not None:
+                    cached.prefill_messages = list(prefill_messages)
+                elif getattr(cached, "prefill_messages", None):
+                    # Caller didn't pass prefill this time but a prior
+                    # call left some behind (e.g. portal just exited).
+                    # Clear so we don't leak the previous framing.
+                    cached.prefill_messages = []
             except Exception:
                 pass
             # v3.4.13 — WORKSPACE-FRESH system prompt. On cache HIT the agent
@@ -371,6 +383,7 @@ def create_agent(
             session_db=_agent_state.get("session_db"),
             fallback_model=fallback_model,
             reasoning_config=reasoning_config,
+            prefill_messages=list(prefill_messages) if prefill_messages else [],
         )
         cache[sig] = agent
         _agent_state["agent_signature"] = sig

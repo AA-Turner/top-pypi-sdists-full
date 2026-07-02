@@ -14,6 +14,7 @@ import salt.crypt
 import salt.exceptions
 import salt.master
 import salt.serializers.msgpack
+import salt.utils.cache
 import salt.utils.files
 import salt.utils.platform
 import salt.utils.stringutils
@@ -145,6 +146,13 @@ def test_maintenance_duration():
         "master_job_cache": "",
         "pki_dir": "/tmp",
         "eauth_tokens": "",
+        # LoadAuth (constructed in _post_fork_init since the memory-leak
+        # caching change) reads eauth_tokens.* + cluster_id at __init__
+        # time.  Provide defaults matching salt.config so the test can
+        # exercise the real init path without hitting KeyError.
+        "eauth_tokens.cache_driver": None,
+        "eauth_tokens.cluster_id": None,
+        "cluster_id": None,
         "keys.cache_driver": "localfs_key",
         "__role": "master",
         "optimization_order": [0, 1, 2],
@@ -1704,6 +1712,73 @@ def test_register_resources_resource_grains_visible_across_aes_funcs_instances(
         salt.utils.resource_registry.reset_registry()
 
 
+def test_register_resources_fires_minion_data_cache_event(master_opts, tmp_path):
+    """
+    When ``minion_data_cache: True`` and ``minion_data_cache_events: True``,
+    ``_register_resources`` must fire a cache-refresh event on the master
+    event bus that mirrors the notification ``_pillar`` fires for ordinary
+    minion grains. Without this signal, downstream consumers subscribed to
+    cache-refresh events miss every resource registration.
+
+    Regression for #69451.
+    """
+    import salt.utils.resource_registry
+
+    aes_funcs, opts = _make_aes_funcs_for_resource_grains(master_opts, tmp_path)
+    opts["minion_data_cache_events"] = True
+    aes_funcs.opts["minion_data_cache_events"] = True
+    aes_funcs.event = MagicMock()
+    try:
+        load = {
+            "id": "minion-2",
+            "resources": {"dummy": ["m2-d1"]},
+            "resource_grains": {"dummy:m2-d1": {"k": "v1"}},
+        }
+        with patch("salt.utils.minions.update_resource_index", return_value=(1, 0)):
+            aes_funcs._register_resources(load)
+        # ``_pillar`` fires ``minion/refresh/<id>`` for grain refreshes (see
+        # the analogous ``tagify(load["id"], "refresh", "minion")`` call);
+        # the resource registration path mirrors that with ``resource`` as
+        # the namespace, yielding ``resource/refresh/<id>``.
+        aes_funcs.event.fire_event.assert_called_once_with(
+            {"Resource cache refresh": "minion-2"},
+            "resource/refresh/minion-2",
+        )
+    finally:
+        aes_funcs.destroy()
+        salt.utils.resource_registry.reset_registry()
+
+
+def test_register_resources_does_not_fire_event_when_events_disabled(
+    master_opts, tmp_path
+):
+    """
+    With ``minion_data_cache: True`` but ``minion_data_cache_events: False``,
+    ``_register_resources`` must not fire a cache-refresh event. Symmetric
+    to ``_pillar``'s behaviour.
+
+    Regression for #69451.
+    """
+    import salt.utils.resource_registry
+
+    aes_funcs, opts = _make_aes_funcs_for_resource_grains(master_opts, tmp_path)
+    opts["minion_data_cache_events"] = False
+    aes_funcs.opts["minion_data_cache_events"] = False
+    aes_funcs.event = MagicMock()
+    try:
+        load = {
+            "id": "minion-2",
+            "resources": {"dummy": ["m2-d1"]},
+            "resource_grains": {"dummy:m2-d1": {"k": "v1"}},
+        }
+        with patch("salt.utils.minions.update_resource_index", return_value=(1, 0)):
+            aes_funcs._register_resources(load)
+        aes_funcs.event.fire_event.assert_not_called()
+    finally:
+        aes_funcs.destroy()
+        salt.utils.resource_registry.reset_registry()
+
+
 async def test_collect__auth_to_master_stats():
     """
     Check if master stats is collecting _auth calls while not calling neither _handle_aes nor _handle_clear
@@ -1969,3 +2044,94 @@ async def test_handle_clear_missing_cmd_returns_empty_reply(caplog):
         ret = await salt.master.MWorker._handle_clear(worker, {})
     assert ret == ({}, {"fun": "send_clear"})
     assert "Received malformed clear command (missing 'cmd')" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "cached_present,connected_ids,change_expected",
+    [
+        (
+            # No change: same minions in cache and currently connected.
+            ["minion1", "minion2"],
+            {"minion1", "minion2"},
+            False,
+        ),
+        (
+            # A new minion appeared since last cache write.
+            ["minion1"],
+            {"minion1", "minion2"},
+            True,
+        ),
+        (
+            # A minion disappeared since last cache write.
+            ["minion1", "minion2"],
+            {"minion1"},
+            True,
+        ),
+    ],
+)
+def test_handle_presence(
+    maintenance, cached_present, connected_ids, change_expected, tmp_path
+):
+    """
+    handle_presence fires a /present event every cycle and a /change event only
+    when the set of connected minions differs from the cached presence list.
+    After each call the cache on disk must reflect the current connected set.
+    """
+    fire_event = MagicMock()
+
+    # Seed the presence cache with old (possibly stale) data.
+    presence_cache = salt.utils.cache.CacheFactory.factory(
+        "disk",
+        3600,
+        minion_cache_path=os.path.join(maintenance.opts["cachedir"], "presence-data"),
+    )
+    presence_cache.clear()
+    presence_cache["present"] = cached_present
+
+    with patch("salt.master.Maintenance.run", MagicMock()), patch(
+        "salt.master.Maintenance.presence_events", True, create=True
+    ), patch(
+        "salt.master.Maintenance.event",
+        MagicMock(
+            connect_pull=MagicMock(return_value=True),
+            fire_event=fire_event,
+        ),
+        create=True,
+    ), patch(
+        "salt.master.Maintenance.ckminions",
+        MagicMock(connected_ids=MagicMock(return_value=connected_ids)),
+        create=True,
+    ):
+        maintenance.handle_presence(set(presence_cache["present"]))
+
+        # A /present event is always fired.
+        assert fire_event.called
+
+        if change_expected:
+            # A /change event must be fired in addition to /present.
+            assert fire_event.call_count == 2
+            change_events = [
+                c[0][0] for c in fire_event.call_args_list if "/change" in c[0][1]
+            ]
+            assert change_events, "Expected a /change event but none was fired"
+        else:
+            assert fire_event.call_count == 1
+
+        present_event = [
+            c[0][0] for c in fire_event.call_args_list if "/present" in c[0][1]
+        ][0]
+        assert (
+            set(present_event["present"]) == connected_ids
+        ), "The /present event does not contain the expected minion set"
+
+        # The cache on disk must now reflect the current connected set.
+        new_presence_cache = salt.utils.cache.CacheFactory.factory(
+            "disk",
+            3600,
+            minion_cache_path=os.path.join(
+                maintenance.opts["cachedir"], "presence-data"
+            ),
+        )
+        assert (
+            set(new_presence_cache["present"]) == connected_ids
+        ), "The presence cache on disk does not reflect the current connected set"

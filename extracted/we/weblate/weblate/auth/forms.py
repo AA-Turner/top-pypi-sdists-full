@@ -18,7 +18,7 @@ from django.utils.translation import gettext, gettext_lazy, ngettext
 
 from weblate.accounts.forms import UniqueEmailMixin
 from weblate.accounts.models import AuditLog, VerifiedEmail
-from weblate.auth.data import SELECTION_MANUAL
+from weblate.auth.data import SELECTION_ALL, SELECTION_MANUAL
 from weblate.auth.models import (
     Group,
     Invitation,
@@ -255,9 +255,7 @@ class InviteUserForm(BaseInviteForm, forms.ModelForm):
     class Meta:
         model = Invitation
         fields = ("user", "group")
-        field_classes = {  # noqa: RUF012
-            "user": UserField
-        }
+        field_classes = {"user": UserField}  # ruff: ignore[mutable-class-default]
 
     def __init__(
         self,
@@ -468,7 +466,7 @@ class UserEditForm(forms.ModelForm):
             "is_active",
             "date_expires",
         )
-        widgets = {  # noqa: RUF012
+        widgets = {  # ruff: ignore[mutable-class-default]
             "date_expires": WeblateDateInput(),
         }
 
@@ -518,7 +516,7 @@ class BaseTeamForm(forms.ModelForm):
             self.instance.defining_project = None
             self.instance.defining_workspace = workspace
             self.instance.project_selection = SELECTION_MANUAL
-            self.instance.language_selection = SELECTION_MANUAL
+            self.instance.language_selection = SELECTION_ALL
 
         self.instance.save()
 

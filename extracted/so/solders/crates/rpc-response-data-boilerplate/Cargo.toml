@@ -1,0 +1,9 @@
+
+[package]
+name = "solders-rpc-response-data-boilerplate"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders RPC response data boilerplate crate."

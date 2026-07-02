@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyriemann
-Version: 0.11
+Version: 0.12
 Summary: Machine learning for multivariate data with Riemannian geometry
 Home-page: https://pyriemann.readthedocs.io
 Author: Alexandre Barachant
@@ -16,6 +16,8 @@ License-File: LICENSE
 Requires-Dist: numpy>=1.25.0
 Requires-Dist: scipy
 Requires-Dist: scikit-learn>=0.24
+Requires-Dist: array-api-compat>=1.11
+Requires-Dist: array-api-extra>=0.6
 Requires-Dist: joblib
 Requires-Dist: matplotlib
 Provides-Extra: docs
@@ -34,6 +36,7 @@ Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: seaborn; extra == "tests"
 Requires-Dist: flake8; extra == "tests"
+Requires-Dist: torch; extra == "tests"
 Dynamic: author
 Dynamic: author-email
 Dynamic: description
@@ -85,6 +88,11 @@ estimating covariance matrices over spatial coordinates of radar images using a 
 and processing them using the Riemannian geometry of
 SPD matrices for [hyperspectral](https://en.wikipedia.org/wiki/Hyperspectral_imaging) images,
 or HPD matrices for [synthetic-aperture radar](https://en.wikipedia.org/wiki/Synthetic-aperture_radar) (SAR) images.
+
+pyRiemann's core utility functions support both NumPy and PyTorch backends
+transparently through the [Python Array API](https://data-apis.org/array-api/),
+enabling optional GPU acceleration and autograd when PyTorch tensors are
+passed in directly.
 
 # Installation
 
@@ -220,9 +228,9 @@ pytest
                   Gregoire Cattan and
                   Arthur Lebeurrier},
   title        = {pyRiemann},
-  month        = april,
+  month        = july,
   year         = 2026,
-  version      = {v0.11},
+  version      = {v0.12},
   publisher    = {Zenodo},
   doi          = {10.5281/zenodo.593816},
   url          = {https://doi.org/10.5281/zenodo.593816}

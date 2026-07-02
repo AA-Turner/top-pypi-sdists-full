@@ -33,6 +33,13 @@ enable_cache_package_lockfile = conf.getboolean("cosmos", "enable_cache_package_
 enable_cache_dbt_ls = conf.getboolean("cosmos", "enable_cache_dbt_ls", fallback=True)
 enable_cache_dbt_yaml_selectors = conf.getboolean("cosmos", "enable_cache_dbt_yaml_selectors", fallback=True)
 enable_lax_selector_parsing = conf.getboolean("cosmos", "enable_lax_selector_parsing", fallback=False)
+# When RenderConfig.group_nodes_by_folder is enabled, key folder task groups by their full path so
+# that folders sharing a leaf name under different parents render as distinct task groups. Defaults
+# to False to preserve existing task-group ids (enabling it is a breaking change for DAGs that
+# reference Cosmos task groups by id); expected to become the default in Cosmos 2.0. See #2824.
+enable_hierarchical_naming_for_group_nodes_by_folder = conf.getboolean(
+    "cosmos", "enable_hierarchical_naming_for_group_nodes_by_folder", fallback=False
+)
 rich_logging = conf.getboolean("cosmos", "rich_logging", fallback=False)
 dbt_docs_dir = conf.get("cosmos", "dbt_docs_dir", fallback=None)
 dbt_docs_conn_id = conf.get("cosmos", "dbt_docs_conn_id", fallback=None)
@@ -69,13 +76,15 @@ enable_teardown_async_task = conf.getboolean("cosmos", "enable_teardown_async_ta
 # this would also be used to run the producer task
 watcher_dbt_execution_queue = conf.get("cosmos", "watcher_dbt_execution_queue", fallback=None)
 
+enable_watcher_reliable_retry = conf.getboolean("cosmos", "enable_watcher_reliable_retry", fallback=True)
+
 # The following environment variable is populated in Astro Cloud
 in_astro_cloud = os.getenv("ASTRONOMER_ENVIRONMENT") == "cloud"
 
 try:
     from airflow.sdk._shared.configuration.exceptions import AirflowConfigException as SdkConfigException
 except ImportError:
-    SdkConfigException = airflow.exceptions.AirflowConfigException  # type: ignore[misc]
+    SdkConfigException = airflow.exceptions.AirflowConfigException
 
 try:
     LINEAGE_NAMESPACE = conf.get("openlineage", "namespace")
@@ -101,3 +110,6 @@ no_analytics = convert_to_boolean(os.getenv("SCARF_NO_ANALYTICS"))
 # Debug mode - when enabled, Cosmos will track and push memory utilization to XCom
 enable_debug_mode = conf.getboolean("cosmos", "enable_debug_mode", fallback=False)
 debug_memory_poll_interval_seconds = conf.getfloat("cosmos", "debug_memory_poll_interval_seconds", fallback=0.5)
+
+# Experimental: use orjson for faster dbt manifest.json parsing (disabled by default)
+enable_orjson_parser = conf.getboolean("cosmos", "enable_orjson_parser", fallback=False)

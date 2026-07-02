@@ -14,6 +14,11 @@ from deepteam.vulnerabilities import BaseVulnerability
 from deepteam.attacks.multi_turn.types import CallbackType
 from deepteam.errors import ModelRefusalError
 from deepteam.test_case import RTTestCase
+from deepteam.attacks.attack_engine import AttackEngine
+from deepteam.attacks.attack_simulator.utils import (
+    cost_accumulator,
+    add_cost,
+)
 
 
 class BaselineAttack:
@@ -32,6 +37,7 @@ class AttackSimulator:
         purpose: str,
         max_concurrent: int,
         simulator_model: Optional[Union[str, DeepEvalBaseLLM]] = None,
+        attack_engine: Optional[AttackEngine] = None,
     ):
         # Initialize models and async mode
         self.purpose = purpose
@@ -41,6 +47,7 @@ class AttackSimulator:
         # Define list of attacks and unaligned vulnerabilities
         self.test_cases: List[RTTestCase] = []
         self.max_concurrent = max_concurrent
+        self.attack_engine = attack_engine
 
     ##################################################
     ### Generating Attacks ###########################
@@ -71,6 +78,8 @@ class AttackSimulator:
             for vulnerability in vulnerabilities:
                 if simulator_model is not None:
                     vulnerability.simulator_model = simulator_model
+                if self.attack_engine is not None:
+                    vulnerability.attack_engine = self.attack_engine
                 test_cases.extend(
                     self.simulate_baseline_attacks(
                         attacks_per_vulnerability_type=attacks_per_vulnerability_type,
@@ -135,6 +144,8 @@ class AttackSimulator:
             async def throttled_simulate_baseline_attack(vulnerability):
                 if simulator_model is not None:
                     vulnerability.simulator_model = simulator_model
+                if self.attack_engine is not None:
+                    vulnerability.attack_engine = self.attack_engine
                 async with semaphore:  # Throttling applied here
                     result = await self.a_simulate_baseline_attacks(
                         attacks_per_vulnerability_type=attacks_per_vulnerability_type,
@@ -277,32 +288,37 @@ class AttackSimulator:
             test_case.attack_method = attack.get_name()
             turns = [RTTurn(role="user", content=attack_input)]
 
-            try:
-                res: List[RTTurn] = attack._get_turns(
-                    model_callback=self.model_callback,
-                    turns=turns,
-                    vulnerability=test_case.vulnerability,
-                    vulnerability_type=test_case.vulnerability_type.value,
-                    simulator_model=self.simulator_model,
-                )
-
-                test_case.turns = res
-                test_case.actual_output = res[-1].content
-
-            except ModelRefusalError as e:
-                if ignore_errors:
-                    test_case.error = e.message
-                    return test_case
-                else:
-                    raise
-            except Exception as e:
-                if ignore_errors:
-                    test_case.error = (
-                        f"Error enhancing multi-turn attack: {str(e)}"
+            with cost_accumulator() as acc:
+                try:
+                    res: List[RTTurn] = attack._get_turns(
+                        model_callback=self.model_callback,
+                        turns=turns,
+                        vulnerability=test_case.vulnerability,
+                        vulnerability_type=test_case.vulnerability_type.value,
+                        simulator_model=self.simulator_model,
                     )
-                    return test_case
-                else:
-                    raise
+
+                    test_case.turns = res
+                    test_case.actual_output = res[-1].content
+
+                except ModelRefusalError as e:
+                    if ignore_errors:
+                        test_case.error = e.message
+                        return test_case
+                    else:
+                        raise
+                except Exception as e:
+                    if ignore_errors:
+                        test_case.error = (
+                            f"Error enhancing multi-turn attack: {str(e)}"
+                        )
+                        return test_case
+                    else:
+                        raise
+                finally:
+                    test_case.simulation_cost = add_cost(
+                        test_case.simulation_cost, acc[0]
+                    )
 
             return test_case
 
@@ -314,44 +330,51 @@ class AttackSimulator:
         test_case.attack_method = attack.get_name()
         sig = inspect.signature(attack.enhance)
 
-        try:
-            res = None
-            if (
-                "simulator_model" in sig.parameters
-                and "model_callback" in sig.parameters
-            ):
-                res = attack.enhance(
-                    attack=attack_input,
-                    simulator_model=self.simulator_model,
-                    model_callback=self.model_callback,
-                )
-            elif "simulator_model" in sig.parameters:
-                res = attack.enhance(
-                    attack=attack_input,
-                    simulator_model=self.simulator_model,
-                )
-            elif "model_callback" in sig.parameters:
-                res = attack.enhance(
-                    attack=attack_input,
-                    model_callback=self.model_callback,
-                )
-            else:
-                res = attack.enhance(attack=attack_input)
+        with cost_accumulator() as acc:
+            try:
+                res = None
+                if (
+                    "simulator_model" in sig.parameters
+                    and "model_callback" in sig.parameters
+                ):
+                    res = attack.enhance(
+                        attack=attack_input,
+                        simulator_model=self.simulator_model,
+                        model_callback=self.model_callback,
+                    )
+                elif "simulator_model" in sig.parameters:
+                    res = attack.enhance(
+                        attack=attack_input,
+                        simulator_model=self.simulator_model,
+                    )
+                elif "model_callback" in sig.parameters:
+                    res = attack.enhance(
+                        attack=attack_input,
+                        model_callback=self.model_callback,
+                    )
+                else:
+                    res = attack.enhance(attack=attack_input)
 
-            test_case.input = res
+                test_case.input = res
 
-        except ModelRefusalError as e:
-            if ignore_errors:
-                test_case.error = e.message
-                return test_case
-            else:
-                raise
-        except Exception as e:
-            if ignore_errors:
-                test_case.error = f"Error enhancing regular attack: {str(e)}"
-                return test_case
-            else:
-                raise
+            except ModelRefusalError as e:
+                if ignore_errors:
+                    test_case.error = e.message
+                    return test_case
+                else:
+                    raise
+            except Exception as e:
+                if ignore_errors:
+                    test_case.error = (
+                        f"Error enhancing regular attack: {str(e)}"
+                    )
+                    return test_case
+                else:
+                    raise
+            finally:
+                test_case.simulation_cost = add_cost(
+                    test_case.simulation_cost, acc[0]
+                )
 
         return test_case
 
@@ -376,17 +399,71 @@ class AttackSimulator:
             sig = inspect.signature(attack.a_enhance)
             turns = [RTTurn(role="user", content=attack_input)]
 
-            try:
-                res: List[RTTurn] = await attack._a_get_turns(
-                    model_callback=self.model_callback,
-                    turns=turns,
-                    vulnerability=test_case.vulnerability,
-                    vulnerability_type=test_case.vulnerability_type.value,
-                    simulator_model=self.simulator_model,
-                )
+            with cost_accumulator() as acc:
+                try:
+                    res: List[RTTurn] = await attack._a_get_turns(
+                        model_callback=self.model_callback,
+                        turns=turns,
+                        vulnerability=test_case.vulnerability,
+                        vulnerability_type=test_case.vulnerability_type.value,
+                        simulator_model=self.simulator_model,
+                    )
 
-                test_case.turns = res
-                test_case.actual_output = res[-1].content
+                    test_case.turns = res
+                    test_case.actual_output = res[-1].content
+
+                except ModelRefusalError as e:
+                    if ignore_errors:
+                        test_case.error = e.message
+                        return test_case
+                    else:
+                        raise
+                except:
+                    if ignore_errors:
+                        test_case.error = "Error enhancing attack"
+                        return test_case
+                    else:
+                        raise
+                finally:
+                    test_case.simulation_cost = add_cost(
+                        test_case.simulation_cost, acc[0]
+                    )
+
+            return test_case
+
+        attack_input = test_case.input
+        if attack_input is None:
+            return test_case
+
+        test_case.attack_method = attack.get_name()
+        sig = inspect.signature(attack.a_enhance)
+
+        with cost_accumulator() as acc:
+            try:
+                res = None
+                if (
+                    "simulator_model" in sig.parameters
+                    and "model_callback" in sig.parameters
+                ):
+                    res = await attack.a_enhance(
+                        attack=attack_input,
+                        simulator_model=self.simulator_model,
+                        model_callback=self.model_callback,
+                    )
+                elif "simulator_model" in sig.parameters:
+                    res = await attack.a_enhance(
+                        attack=attack_input,
+                        simulator_model=self.simulator_model,
+                    )
+                elif "model_callback" in sig.parameters:
+                    res = await attack.a_enhance(
+                        attack=attack_input,
+                        model_callback=self.model_callback,
+                    )
+                else:
+                    res = await attack.a_enhance(attack=attack_input)
+
+                test_case.input = res
 
             except ModelRefusalError as e:
                 if ignore_errors:
@@ -400,53 +477,9 @@ class AttackSimulator:
                     return test_case
                 else:
                     raise
-
-            return test_case
-
-        attack_input = test_case.input
-        if attack_input is None:
-            return test_case
-
-        test_case.attack_method = attack.get_name()
-        sig = inspect.signature(attack.a_enhance)
-
-        try:
-            res = None
-            if (
-                "simulator_model" in sig.parameters
-                and "model_callback" in sig.parameters
-            ):
-                res = await attack.a_enhance(
-                    attack=attack_input,
-                    simulator_model=self.simulator_model,
-                    model_callback=self.model_callback,
+            finally:
+                test_case.simulation_cost = add_cost(
+                    test_case.simulation_cost, acc[0]
                 )
-            elif "simulator_model" in sig.parameters:
-                res = await attack.a_enhance(
-                    attack=attack_input,
-                    simulator_model=self.simulator_model,
-                )
-            elif "model_callback" in sig.parameters:
-                res = await attack.a_enhance(
-                    attack=attack_input,
-                    model_callback=self.model_callback,
-                )
-            else:
-                res = await attack.a_enhance(attack=attack_input)
-
-            test_case.input = res
-
-        except ModelRefusalError as e:
-            if ignore_errors:
-                test_case.error = e.message
-                return test_case
-            else:
-                raise
-        except:
-            if ignore_errors:
-                test_case.error = "Error enhancing attack"
-                return test_case
-            else:
-                raise
 
         return test_case

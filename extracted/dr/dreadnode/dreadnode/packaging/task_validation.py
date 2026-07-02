@@ -31,6 +31,16 @@ NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # API-side cap so author-side validation predicts platform ingest).
 MAX_MODELS = 50
 
+# TSK-MOD-002 (ENG-7241): role keys upcase into ``MODEL_<ROLE>`` env vars, so they
+# must be valid POSIX env-var identifiers once uppercased. Mirrors the API-side
+# ``model_roles._ROLE_KEY_RE`` so author-side validation predicts platform ingest.
+_MODEL_ROLE_KEY_RE = re.compile(r"^[a-z0-9][a-z0-9_]*$")
+
+# Env vars the platform already injects; a role must not resolve to one of these.
+_RESERVED_MODEL_ENV_VARS: frozenset[str] = frozenset(
+    {"MODEL", "DREADNODE_LLM_API_KEY", "DREADNODE_LLM_BASE"}
+)
+
 # TSK-VER-006: supported hash algorithms with their hex digest length.
 _HASH_ALGORITHMS: dict[str, int] = {
     "sha256": 64,
@@ -387,32 +397,88 @@ class TaskYamlFields(BaseModel):
         None, description="Post-evaluation teardown configuration"
     )
     solution: SolutionConfig | None = Field(None, description="Solution configuration")
-    models: list[str] | None = Field(
+    models: list[str] | dict[str, t.Any] | None = Field(
         None,
         description=(
-            "Platform model identifiers the task's environment needs inference "
-            "access to. When present, the environment is provisioned with a "
-            "scoped inference key + base URL enumerated to exactly these ids."
+            "Models the task's environment needs inference access to. Role-keyed "
+            "map (``role -> id`` or ``role -> {model, overridable}``) — the platform "
+            "injects one ``MODEL_<ROLE>`` per role and scopes the key to those ids. "
+            "A legacy flat list is accepted as scope-only. See Inference Access."
         ),
     )
 
     @field_validator("models")
     @classmethod
-    def validate_models(cls, value: list[str] | None) -> list[str] | None:
+    def validate_models(
+        cls, value: list[str] | dict[str, t.Any] | None
+    ) -> list[str] | dict[str, t.Any] | None:
+        # ENG-7241: mirror the API-side ``model_roles.normalize_models`` so
+        # author-side validation predicts platform ingest for both the role-keyed
+        # map and the legacy flat list.
         if value is None:
             return None
-        seen: list[str] = []
-        for entry in value:
-            stripped = entry.strip()
-            if not stripped:
-                raise ValueError("models entries must be non-empty model identifiers")
-            if any(ch.isspace() for ch in stripped):
-                raise ValueError(f"models entry {entry!r} must not contain whitespace")
-            if stripped not in seen:
-                seen.append(stripped)
-        if len(seen) > MAX_MODELS:
-            raise ValueError(f"models may declare at most {MAX_MODELS} identifiers")
-        return seen or None
+
+        if isinstance(value, dict):
+            roles: dict[str, dict[str, t.Any]] = {}
+            for role, spec in value.items():
+                if not isinstance(role, str) or not _MODEL_ROLE_KEY_RE.fullmatch(role):
+                    raise ValueError(
+                        f"model role {role!r} must match [a-z0-9][a-z0-9_]* "
+                        "(lowercase, digits, underscores; starts alphanumeric)"
+                    )
+                if f"MODEL_{role.upper()}" in _RESERVED_MODEL_ENV_VARS:
+                    raise ValueError(f"model role {role!r} collides with a reserved env var")
+                if isinstance(spec, str):
+                    model_id, overridable = spec, True
+                elif isinstance(spec, dict):
+                    extra = set(spec) - {"model", "overridable"}
+                    if extra:
+                        raise ValueError(
+                            f"model role {role!r} has unexpected keys {sorted(extra)} "
+                            "(only 'model' and 'overridable' are allowed)"
+                        )
+                    if "model" not in spec:
+                        raise ValueError(f"model role {role!r} object is missing 'model'")
+                    model_id = spec["model"]
+                    overridable = spec.get("overridable", True)
+                    if not isinstance(overridable, bool):
+                        raise ValueError(  # noqa: TRY004
+                            f"model role {role!r} 'overridable' must be a boolean"
+                        )
+                else:
+                    raise ValueError(  # noqa: TRY004
+                        f"model role {role!r} must be a model id or {{model, overridable}} object"
+                    )
+                if not isinstance(model_id, str) or not model_id.strip():
+                    raise ValueError(f"model role {role!r} must name a non-empty model id")
+                if any(ch.isspace() for ch in model_id.strip()):
+                    raise ValueError(
+                        f"model role {role!r} id {model_id!r} must not contain whitespace"
+                    )
+                roles[role] = {"model": model_id.strip(), "overridable": overridable}
+            if len(roles) > MAX_MODELS:
+                raise ValueError(f"models may declare at most {MAX_MODELS} roles")
+            return roles or None
+
+        if isinstance(value, list):
+            seen: list[str] = []
+            for entry in value:
+                if not isinstance(entry, str):
+                    raise ValueError(  # noqa: TRY004
+                        "models entries must be non-empty model identifiers"
+                    )
+                stripped = entry.strip()
+                if not stripped:
+                    raise ValueError("models entries must be non-empty model identifiers")
+                if any(ch.isspace() for ch in stripped):
+                    raise ValueError(f"models entry {entry!r} must not contain whitespace")
+                if stripped not in seen:
+                    seen.append(stripped)
+            if len(seen) > MAX_MODELS:
+                raise ValueError(f"models may declare at most {MAX_MODELS} identifiers")
+            return seen or None
+
+        raise ValueError("models must be a role->id map or a list of model identifiers")
 
     @field_validator("name")
     @classmethod

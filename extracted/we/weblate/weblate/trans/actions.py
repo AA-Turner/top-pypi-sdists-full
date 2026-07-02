@@ -7,6 +7,11 @@ from django.db.models import IntegerChoices
 from django.utils.translation import gettext_lazy, pgettext_lazy
 
 
+def get_change_action_identifier(action: object) -> str:
+    """Return action identifier used in Fedora Messaging topics."""
+    return str(action).lower().replace(" ", "_")
+
+
 class ActionEvents(IntegerChoices):
     # Translators: Name of event in the history
     UPDATE = 0, gettext_lazy("Resource updated")
@@ -204,6 +209,10 @@ class ActionEvents(IntegerChoices):
     WORKSPACE_SETTING_CHANGE = 99, gettext_lazy("Workspace setting changed")
     # Translators: Name of event in the history
     MOVE_PROJECT = 100, gettext_lazy("Project moved")
+    # Translators: Name of event in the history
+    REMOTE_UPDATE = 101, gettext_lazy("Remote repository updated")
+    # Translators: Name of event in the history
+    FAILED_REMOTE_UPDATE = 102, gettext_lazy("Remote repository update failed")
 
 
 # Actions which are logged
@@ -291,6 +300,14 @@ ACTIONS_REPOSITORY = {
     ActionEvents.FORCE_SYNC,
     ActionEvents.FORCE_SCAN,
     ActionEvents.REPO_CLEANUP,
+    ActionEvents.REMOTE_UPDATE,
+    ActionEvents.FAILED_REMOTE_UPDATE,
+}
+
+# Actions considered when computing repository status from history
+ACTIONS_REPOSITORY_STATUS = ACTIONS_REPOSITORY - {
+    ActionEvents.REMOTE_UPDATE,
+    ActionEvents.FAILED_REMOTE_UPDATE,
 }
 
 # Actions where target is rendered as translation string

@@ -242,8 +242,11 @@ class TranslationUnit[U: InnerUnit, F: "TranslationFormat"]:
             _, extension = os.path.splitext(location.split(":")[0].strip())
             if extension == ".rst":
                 yield "rst-text"
-            elif extension in {".md", ".markdown", ".mdx"}:
+            elif extension in {".md", ".markdown"}:
                 yield "md-text"
+            elif extension == ".mdx":
+                yield "md-text"
+                yield "safe-mdx"
         yield from self.add_flags
 
     @cached_property
@@ -405,6 +408,7 @@ class TranslationFormat[S: InnerStore, U: InnerUnit, T: TranslationUnit]:
     supports_location: bool = False
     supports_flags: bool = False
     supports_read_only: bool = False
+    supports_remove_obsolete_units: bool = False
     has_hierarchical_contexts: ClassVar[bool] = False
     additional_states: tuple[StringState, ...] = ()
     can_edit_base: bool = True
@@ -569,6 +573,48 @@ class TranslationFormat[S: InnerStore, U: InnerUnit, T: TranslationUnit]:
     def ensure_index(self):
         return self._unit_index
 
+    def remove_duplicate_unit(self, unit: T) -> str | None:
+        """Remove a single duplicate unit from the underlying store."""
+        return self.delete_unit(unit.unit)
+
+    @classmethod
+    def supports_remove_duplicate_units(cls) -> bool:
+        """Check whether duplicate units can be removed from the underlying store."""
+        return cls.can_delete_unit and not cls.has_multiple_strings
+
+    def get_duplicate_cleanup_units(self) -> list[T]:
+        """Return actual store units used for duplicate cleanup."""
+        if not self.has_template:
+            return self._get_all_bilingual_units()
+        return [self.unit_class(self, unit, unit) for unit in self.all_store_units]
+
+    def remove_duplicate_units(self) -> list[str] | None:
+        """Remove duplicate units from the underlying store."""
+        if not self.supports_remove_duplicate_units():
+            return None
+        extra_files = []
+        seen: set[int] = set()
+        removed = False
+        for unit in self.get_duplicate_cleanup_units():
+            if not unit.has_unit() or not unit.has_content():
+                continue
+            id_hash = unit.id_hash
+            if id_hash not in seen:
+                seen.add(id_hash)
+                continue
+            extra_file = self.remove_duplicate_unit(unit)
+            if extra_file is not None:
+                extra_files.append(extra_file)
+            removed = True
+        if removed:
+            self._invalidate_units()
+            return extra_files
+        return None
+
+    def remove_obsolete_units(self) -> list[str] | None:
+        """Remove obsolete units from the underlying store."""
+        return None
+
     def add_unit(self, unit: T) -> None:
         """Add new unit to underlying store."""
         raise NotImplementedError
@@ -655,7 +701,7 @@ class TranslationFormat[S: InnerStore, U: InnerUnit, T: TranslationUnit]:
         for unit in self.content_units:
             # Just ensure that id_hash can be calculated
             # pylint: disable-next=pointless-statement
-            unit.id_hash  # noqa: B018
+            unit.id_hash  # ruff: ignore[useless-expression]
         return True
 
     @classmethod
@@ -787,11 +833,13 @@ class TranslationFormat[S: InnerStore, U: InnerUnit, T: TranslationUnit]:
         )
 
     @classmethod
-    def get_new_file_content(cls, encoding: str | None = None) -> bytes:  # noqa: ARG003
+    # ruff: ignore[unused-class-method-argument]
+    def get_new_file_content(cls, encoding: str | None = None) -> bytes:
         return b""
 
     @classmethod
-    def get_new_translation(cls, encoding: str | None = None) -> str | bytes | None:  # noqa: ARG003
+    # ruff: ignore[unused-class-method-argument]
+    def get_new_translation(cls, encoding: str | None = None) -> str | bytes | None:
         return cls.empty_file_template
 
     @classmethod
@@ -965,7 +1013,8 @@ class TranslationFormat[S: InnerStore, U: InnerUnit, T: TranslationUnit]:
         return result
 
     @staticmethod
-    def validate_context(context: str) -> None:  # noqa: ARG004
+    # ruff: ignore[unused-static-method-argument]
+    def validate_context(context: str) -> None:
         return
 
     def validate_new_context(
@@ -981,7 +1030,7 @@ class EmptyFormat(TranslationFormat):
 
     @classmethod
     # pylint: disable-next=arguments-differ
-    def load(cls, storefile, template_store):  # noqa: ARG003
+    def load(cls, storefile, template_store):  # ruff: ignore[unused-class-method-argument]
         return type("", (object,), {"units": []})()
 
     def save(self) -> None:
@@ -1076,7 +1125,8 @@ class BaseExporter:
         self.fieldnames = fieldnames
 
     @staticmethod
-    def supports(translation: Translation) -> bool:  # noqa: ARG004
+    # ruff: ignore[unused-static-method-argument]
+    def supports(translation: Translation) -> bool:
         return True
 
     @cached_property
@@ -1217,7 +1267,8 @@ class BaseExporter:
 
     def serialize(self) -> bytes:
         """Return storage content."""
-        from weblate.formats.ttkit import TTKitFormat  # noqa: PLC0415
+        # ruff: ignore[import-outside-top-level]
+        from weblate.formats.ttkit import TTKitFormat
 
         return TTKitFormat.serialize(self.storage)
 

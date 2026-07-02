@@ -1,0 +1,20 @@
+
+[package]
+name = "solders-rpc-filter"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders RPC filter crate."
+
+[dependencies]
+base64 = { workspace = true }
+bs58 = { workspace = true }
+derive_more = { workspace = true }
+pyo3 = { workspace = true, features = ["macros"] }
+serde = { workspace = true }
+solana-rpc-client-types = { workspace = true }
+solders-macros = { workspace = true }
+solders-traits-core = { workspace = true }
+thiserror = { workspace = true }

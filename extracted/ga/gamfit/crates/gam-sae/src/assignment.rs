@@ -89,7 +89,15 @@ pub(crate) fn jumprelu_in_optimization_band(logit: f64, threshold: f64, temperat
 pub enum AssignmentMode {
     /// Row-wise simplex assignment with entropy sparsity.
     Softmax { temperature: f64, sparsity: f64 },
-    /// Deterministic concrete relaxation of a truncated IBP active set.
+    /// Deterministic concrete relaxation of a truncated IBP active set: each
+    /// atom's gate is the INDEPENDENT prior-shrunk activation
+    /// `σ(logit/temperature) · π_k`, with `π_k = (α/(α+1))^{k+1}` the
+    /// stick-breaking prior mean (see [`ibp_map_row`]). These are per-atom gates,
+    /// NOT mixture/simplex responsibilities: they are computed independently per
+    /// column and do NOT sum to 1 across atoms (there is no row normalization).
+    /// Each `a_k ∈ [0, π_k] ⊂ [0, 1)` is the relaxed "atom k is active in this
+    /// row" indicator of a truncated IBP, not a share of a unit reconstruction
+    /// budget.
     IBPMap {
         temperature: f64,
         alpha: f64,
@@ -97,13 +105,21 @@ pub enum AssignmentMode {
     },
     /// Hard-thresholded bounded gate: each atom is off (gate = 0) when its logit
     /// is at or below `threshold`, and on with a threshold-centered shifted
-    /// sigmoid `σ((logit − threshold) / temperature) ∈ [0.5, 1)` above it. This
-    /// is NOT literal JumpReLU `z·1[z>θ]` — the gate carries no magnitude; it is
-    /// a member of the gate family (softmax simplex / IBP sigmoid / this hard
-    /// gate) and stays bounded in [0, 1]. Reconstruction magnitude lives entirely
-    /// in the decoder curve `g_k(t) = φ(t)ᵀ B_k`. The discontinuity at `threshold`
-    /// (0 → 0.5) is the intended "jump".
-    JumpReLU { temperature: f64, threshold: f64 },
+    /// sigmoid `σ((logit − threshold) / temperature) ∈ [0.5, 1)` above it.
+    ///
+    /// #1777 RENAMED from `JumpReLU` (an inaccurate name): this is NOT the
+    /// literature JumpReLU activation `z·1[z>θ]`, which carries the thresholded
+    /// MAGNITUDE `z`. This mode is a thresholded-logistic GATE (a hard-sigmoid
+    /// gate): it carries no magnitude at all — its output is a bounded `[0, 1)`
+    /// indicator. `ThresholdGate` names it for what it is. It is a member of the
+    /// gate family (softmax simplex / IBP sigmoid / this hard gate); reconstruction
+    /// magnitude lives entirely in the decoder curve `g_k(t) = φ(t)ᵀ B_k`. The
+    /// discontinuity at `threshold` (0 → 0.5) is the intended "jump".
+    ///
+    /// BACK-COMPAT: the constructor [`Self::threshold_gate`] is the primary
+    /// spelling; [`Self::jumprelu`] is retained as a deprecated alias, and the FFI
+    /// string parser accepts both `"threshold_gate"` and the legacy `"jumprelu"`.
+    ThresholdGate { temperature: f64, threshold: f64 },
 }
 
 /// #1033 — the fixed-form predictor that produces the ρ-invariant FROZEN routing
@@ -147,19 +163,32 @@ impl AssignmentMode {
         }
     }
 
+    /// #1777 — construct the hard-sigmoid [`Self::ThresholdGate`] (the accurate
+    /// name for what was `jumprelu`). Primary spelling; [`Self::jumprelu`] is a
+    /// deprecated alias kept for back-compat.
     #[must_use]
-    pub fn jumprelu(temperature: f64, threshold: f64) -> Self {
-        Self::JumpReLU {
+    pub fn threshold_gate(temperature: f64, threshold: f64) -> Self {
+        Self::ThresholdGate {
             temperature,
             threshold,
         }
+    }
+
+    /// Back-compat alias for [`Self::threshold_gate`] (#1777): the mode is a
+    /// hard-sigmoid gate, not the literature JumpReLU magnitude activation. Retained
+    /// (NOT `#[deprecated]`, since the workspace denies warnings and many callers
+    /// and the legacy `"jumprelu"` FFI token still use it) so existing code keeps
+    /// compiling; new code should prefer `threshold_gate`.
+    #[must_use]
+    pub fn jumprelu(temperature: f64, threshold: f64) -> Self {
+        Self::threshold_gate(temperature, threshold)
     }
 
     pub fn temperature(&self) -> f64 {
         match *self {
             AssignmentMode::Softmax { temperature, .. }
             | AssignmentMode::IBPMap { temperature, .. }
-            | AssignmentMode::JumpReLU { temperature, .. } => temperature,
+            | AssignmentMode::ThresholdGate { temperature, .. } => temperature,
         }
     }
 
@@ -172,7 +201,7 @@ impl AssignmentMode {
         match self {
             AssignmentMode::Softmax { temperature, .. }
             | AssignmentMode::IBPMap { temperature, .. }
-            | AssignmentMode::JumpReLU { temperature, .. } => {
+            | AssignmentMode::ThresholdGate { temperature, .. } => {
                 *temperature = new_temperature;
             }
         }
@@ -201,10 +230,10 @@ impl AssignmentMode {
                     ));
                 }
             }
-            AssignmentMode::JumpReLU { threshold, .. } => {
+            AssignmentMode::ThresholdGate { threshold, .. } => {
                 if !threshold.is_finite() {
                     return Err(format!(
-                        "AssignmentMode::JumpReLU: threshold must be finite; got {threshold}"
+                        "AssignmentMode::ThresholdGate: threshold must be finite; got {threshold}"
                     ));
                 }
             }
@@ -212,19 +241,31 @@ impl AssignmentMode {
         Ok(())
     }
 
-    pub(crate) fn resolved_ibp_alpha(&self, rho: &SaeManifoldRho) -> Option<f64> {
+    /// Resolve the effective truncated-IBP concentration `α` for this mode.
+    ///
+    /// `per_fit_override` is the #1777 PER-FIT override (from
+    /// [`SaeAssignment::ibp_alpha_override`]) and is the SOURCE OF TRUTH when set.
+    /// It falls back to the deprecated process-global [`ibp_alpha_override`] atomic
+    /// only when the per-fit field is unset, then to the mode's own `α` /
+    /// learnable schedule — so nothing breaks, but concurrent fits are isolatable
+    /// via the per-fit field.
+    pub(crate) fn resolved_ibp_alpha(
+        &self,
+        rho: &SaeManifoldRho,
+        per_fit_override: Option<f64>,
+    ) -> Option<f64> {
         match *self {
             AssignmentMode::IBPMap {
                 alpha,
                 learnable_alpha,
                 ..
-            } => Some(if let Some(over) = ibp_alpha_override() {
-                // #1026 — a process-global α override flattens the ordered
-                // geometric prior π_k = (α/(α+1))^{k+1} so all K atoms can
-                // contribute to the reconstruction (the production α=1 gives a
-                // (0.5)^{k+1} schedule that structurally caps atoms 4..K to a few
-                // percent → effective-K≈3). Forces the fixed value, bypassing the
-                // learnable schedule, so a sweep can attribute the EV ceiling.
+            } => Some(if let Some(over) = per_fit_override.or_else(ibp_alpha_override) {
+                // #1777 — the per-fit override (else the deprecated process-global
+                // one) flattens the ordered geometric prior π_k = (α/(α+1))^{k+1}
+                // so all K atoms can contribute to the reconstruction (the
+                // production α=1 gives a (0.5)^{k+1} schedule that structurally
+                // caps atoms 4..K → effective-K≈3). Forces the fixed value,
+                // bypassing the learnable schedule.
                 over
             } else if learnable_alpha {
                 resolve_learnable_weight(alpha, rho.log_lambda_sparse)
@@ -239,6 +280,16 @@ impl AssignmentMode {
 // #1026 — process-global IBP-α override (NaN sentinel = "unset → use the
 // AssignmentMode's compiled α"). Lets ONE wheel sweep the prior-flattening axis
 // from Python (`sae_set_ibp_alpha`) without recompiling the gam crate.
+//
+// CONCURRENCY WARNING: this is a PROCESS-GLOBAL atomic, not per-fit config. It is
+// read by `ibp_alpha_override` from every IBP assignment evaluation in the
+// process, so setting it affects ALL in-flight fits, not just the caller's. It is
+// therefore UNSAFE to use across concurrent / parallel in-process fits — one
+// fit's sweep value leaks into another's gates. It is safe only for serial,
+// whole-process sweeps (the single-wheel FFI sweep driver it exists for). This
+// should be migrated to per-fit configuration (threaded through `SaeManifoldRho`
+// / the AssignmentMode) before any concurrent multi-fit use; that refactor is
+// cross-cutting (FFI + term plumbing) and deliberately out of scope here.
 static IBP_ALPHA_OVERRIDE_BITS: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0x7ff8_0000_0000_0000);
 
@@ -253,6 +304,12 @@ pub(crate) fn ibp_alpha_override() -> Option<f64> {
 
 /// Set (or, with a non-finite/non-positive value, clear) the process-global
 /// IBP-α override. Called from the gamfit Python FFI sweep driver.
+///
+/// PROCESS-GLOBAL / NOT CONCURRENCY-SAFE: this mutates one process-wide atomic
+/// read by every IBP assignment in the process. Calling it while any other fit is
+/// running leaks the override into that fit's gates. Use only for serial,
+/// whole-process sweeps; do not use across concurrent in-process fits. See the
+/// `IBP_ALPHA_OVERRIDE_BITS` note on migrating this to per-fit config.
 pub fn set_ibp_alpha_override(alpha: f64) {
     IBP_ALPHA_OVERRIDE_BITS.store(alpha.to_bits(), std::sync::atomic::Ordering::Relaxed);
 }
@@ -297,6 +354,16 @@ pub struct SaeAssignment {
     /// gates every outer eval — the n-independent-outer-loop lever (#1033). `None`
     /// is the historical free-logit path (bit-identical).
     pub frozen_logits: Option<Array2<f64>>,
+    /// #1777 PER-FIT IBP-α override — the source of truth for the truncated-IBP
+    /// concentration `α` when set, replacing the process-global
+    /// [`set_ibp_alpha_override`] atomic. `Some(α)` forces the fixed value
+    /// (bypassing the learnable schedule), scoped to THIS assignment/fit so
+    /// concurrent in-process fits are isolated. `None` ⇒ fall back to the
+    /// deprecated process-global override, then to the `AssignmentMode`'s own `α` /
+    /// learnable schedule (bit-identical to the historical path when neither
+    /// override is set). Read via [`Self::resolved_ibp_alpha`]; set from the FFI
+    /// through the term's `set_fit_config`.
+    pub ibp_alpha_override: Option<f64>,
 }
 
 impl SaeAssignment {
@@ -344,6 +411,7 @@ impl SaeAssignment {
             mode,
             ungated: vec![false; k],
             frozen_logits: None,
+            ibp_alpha_override: None,
         })
     }
 
@@ -545,7 +613,7 @@ impl SaeAssignment {
     pub fn assignment_coord_dim(&self) -> usize {
         match self.mode {
             AssignmentMode::Softmax { .. } => self.k_atoms().saturating_sub(1),
-            AssignmentMode::IBPMap { .. } | AssignmentMode::JumpReLU { .. } => self.k_atoms(),
+            AssignmentMode::IBPMap { .. } | AssignmentMode::ThresholdGate { .. } => self.k_atoms(),
         }
     }
 
@@ -585,12 +653,28 @@ impl SaeAssignment {
         self.try_assignments_row_with_alpha(row, None)
     }
 
+    /// #1777 — the effective truncated-IBP `α` for this assignment at `rho`,
+    /// honoring the PER-FIT [`Self::ibp_alpha_override`] first (source of truth),
+    /// then the deprecated process-global override, then the mode's own schedule.
+    /// The single seam every gate/jet/prior site reads so the per-fit override is
+    /// applied consistently. `None` for non-IBP modes.
+    pub(crate) fn resolved_ibp_alpha(&self, rho: &SaeManifoldRho) -> Option<f64> {
+        self.mode.resolved_ibp_alpha(rho, self.ibp_alpha_override)
+    }
+
+    /// #1777 — install (or clear, with `None`) the PER-FIT IBP-α override on this
+    /// assignment. Source of truth used by [`Self::resolved_ibp_alpha`]; the FFI
+    /// reaches it through the term's `set_fit_config`.
+    pub fn set_ibp_alpha_override(&mut self, alpha: Option<f64>) {
+        self.ibp_alpha_override = alpha;
+    }
+
     pub(crate) fn try_assignments_row_for_rho(
         &self,
         row: usize,
         rho: &SaeManifoldRho,
     ) -> Result<Array1<f64>, String> {
-        self.try_assignments_row_with_alpha(row, self.mode.resolved_ibp_alpha(rho))
+        self.try_assignments_row_with_alpha(row, self.resolved_ibp_alpha(rho))
     }
 
     fn try_assignments_row_with_alpha(
@@ -618,7 +702,7 @@ impl SaeAssignment {
             AssignmentMode::IBPMap {
                 temperature, alpha, ..
             } => ibp_map_row(routing, temperature, resolved_ibp_alpha.unwrap_or(alpha)),
-            AssignmentMode::JumpReLU {
+            AssignmentMode::ThresholdGate {
                 temperature,
                 threshold,
             } => jumprelu_row(routing, temperature, threshold),
@@ -652,7 +736,7 @@ impl SaeAssignment {
         rho: &SaeManifoldRho,
         out: &mut [f64],
     ) -> Result<(), String> {
-        self.try_assignments_row_with_alpha_into(row, self.mode.resolved_ibp_alpha(rho), out)
+        self.try_assignments_row_with_alpha_into(row, self.resolved_ibp_alpha(rho), out)
     }
 
     /// #1557 — fill-into-caller-buffer twin of [`Self::try_assignments_row_with_alpha`].
@@ -689,7 +773,7 @@ impl SaeAssignment {
                 resolved_ibp_alpha.unwrap_or(alpha),
                 out,
             ),
-            AssignmentMode::JumpReLU {
+            AssignmentMode::ThresholdGate {
                 temperature,
                 threshold,
             } => jumprelu_row_into(routing, temperature, threshold, out),
@@ -809,7 +893,7 @@ pub(crate) fn neutral_gate_weights(mode: AssignmentMode, k_atoms: usize) -> Arra
         AssignmentMode::IBPMap {
             temperature, alpha, ..
         } => ibp_map_row(Array1::<f64>::zeros(k_atoms).view(), temperature, alpha),
-        AssignmentMode::JumpReLU { .. } => Array1::from_elem(k_atoms, 0.5),
+        AssignmentMode::ThresholdGate { .. } => Array1::from_elem(k_atoms, 0.5),
     }
 }
 
@@ -900,6 +984,31 @@ pub(crate) fn ordered_geometric_shrinkage_prior(k_atoms: usize, alpha: f64) -> A
     out
 }
 
+/// #1784 — K-aware default IBP concentration.
+///
+/// The ordered stick-breaking prior mean `π_k = (α/(α+1))^{k+1}` decays
+/// GEOMETRICALLY in the atom INDEX, so a fixed small concentration (the
+/// historical default `α = 1`, i.e. the `(0.5)^{k+1}` schedule) collapses to a
+/// near-hard mask past atom ~3: a K-atom dictionary can then only ever place
+/// mass on its first handful of atoms. That is exactly why the manifold SAE
+/// UNDERFITS a linear dictionary of equal K on real activations, and why its
+/// late atoms carry zero mass and leave the per-row joint Hessian rank-deficient
+/// (the K = 128 `RemlConvergenceError`).
+///
+/// For a K-atom dictionary to actually USE all K atoms the IBP concentration must
+/// scale with K. Choosing `α` so the LAST atom retains prior mass
+/// `π_{K-1} = (α/(α+1))^K ≈ e^{-1}` spans the whole dictionary while keeping the
+/// prior monotone (still an honest ordered stick-breaking prior — no atom is
+/// structurally masked). Solving `(α/(α+1))^K = e^{-1}` gives
+/// `α = 1/(exp(1/K) − 1) ≈ K − 1/2`. Floored at `1.0` so `K = 1` keeps the
+/// historical `α = 1`.
+pub fn default_ibp_concentration_for_k_atoms(k_atoms: usize) -> f64 {
+    let k = k_atoms.max(1) as f64;
+    // π_{K-1} = (α/(α+1))^K = e^{-1}  ⇒  α = 1/(e^{1/K} − 1).
+    let alpha = 1.0 / ((1.0 / k).exp() - 1.0);
+    alpha.max(1.0)
+}
+
 /// IBP-MAP row activations: per-atom sigmoid likelihood times the truncated
 /// stick-breaking prior mean `π_k = (α/(α+1))^{k+1}`. With tied logits the prior
 /// dominates and yields strictly decreasing activations in atom index, with the
@@ -951,6 +1060,119 @@ pub fn jumprelu_row(logits: ArrayView1<'_, f64>, temperature: f64, threshold: f6
         }
     }
     out
+}
+
+/// Bounded threshold-gate activations together with the straight-through
+/// derivative `∂a_k/∂l_k` of the smooth surrogate, shared with the torch
+/// autograd `Function` so the torch `jumprelu` lane applies the SAME bounded
+/// gate as the closed-form fit (`jumprelu_row`): `a_k = σ((l_k − θ_k)/τ)` for
+/// `l_k > θ_k` and exactly `0` otherwise — magnitude lives in the decoder, the
+/// gate stays in `[0, 1)`. The returned derivative is the smooth surrogate's
+/// `σ'((l_k − θ_k)/τ)/τ` evaluated on BOTH sides of the jump (a straight-through
+/// estimator: the hard forward has zero derivative below threshold, which would
+/// permanently kill gradient flow to gated-off atoms). `∂a_k/∂θ_k` is the
+/// negation of the returned logit derivative; callers negate. `thresholds` is
+/// per-atom (the torch lane learns one threshold per atom); the scalar
+/// closed-form threshold is the constant-vector special case and the value
+/// arithmetic matches `jumprelu_row` exactly there.
+#[must_use]
+pub fn jumprelu_row_value_grad(
+    logits: ArrayView1<'_, f64>,
+    temperature: f64,
+    thresholds: ArrayView1<'_, f64>,
+) -> (Array1<f64>, Array1<f64>) {
+    assert_eq!(
+        logits.len(),
+        thresholds.len(),
+        "jumprelu_row_value_grad: logits/thresholds length mismatch"
+    );
+    let inv_tau = 1.0 / temperature;
+    let mut value = Array1::<f64>::zeros(logits.len());
+    let mut grad = Array1::<f64>::zeros(logits.len());
+    for i in 0..logits.len() {
+        let sig = gam_linalg::utils::stable_logistic((logits[i] - thresholds[i]) * inv_tau);
+        if logits[i] > thresholds[i] {
+            value[i] = sig;
+        }
+        grad[i] = sig * (1.0 - sig) * inv_tau;
+    }
+    (value, grad)
+}
+
+/// Batched bounded threshold-gate value+grad over an `(N, K)` logit matrix,
+/// sharing the EXACT per-atom arithmetic of [`jumprelu_row_value_grad`] (same
+/// `stable_logistic`, same `(l − θ) * inv_tau` order, same hard-jump gate) so a
+/// single batched call is bit-identical to invoking the row kernel row-by-row.
+///
+/// `thresholds` is per-atom (length `K`, broadcast across the `N` rows). Returns
+/// `(value, grad)`, each `(N, K)`:
+///   * `value[i, k] = σ((l − θ)/τ) · 1[l > θ]` — the bounded `[0, 1)` gate,
+///   * `grad[i, k]  = σ·(1 − σ)/τ` — the straight-through diagonal derivative
+///     `∂a/∂l`, alive on BOTH sides of the jump (`∂a/∂θ = −∂a/∂l`).
+///
+/// This is the single source of truth for `gamfit.torch`'s bounded jumprelu
+/// gate: the torch autograd `Function` crosses the FFI boundary ONCE with the
+/// whole matrix instead of once per row.
+#[must_use]
+pub fn jumprelu_batch_value_grad(
+    logits: ArrayView2<'_, f64>,
+    temperature: f64,
+    thresholds: ArrayView1<'_, f64>,
+) -> (Array2<f64>, Array2<f64>) {
+    let (n, k) = logits.dim();
+    assert_eq!(
+        k,
+        thresholds.len(),
+        "jumprelu_batch_value_grad: logits columns {k} != thresholds length {}",
+        thresholds.len()
+    );
+    let inv_tau = 1.0 / temperature;
+    let mut value = Array2::<f64>::zeros((n, k));
+    let mut grad = Array2::<f64>::zeros((n, k));
+    for i in 0..n {
+        for j in 0..k {
+            let sig =
+                gam_linalg::utils::stable_logistic((logits[[i, j]] - thresholds[j]) * inv_tau);
+            if logits[[i, j]] > thresholds[j] {
+                value[[i, j]] = sig;
+            }
+            grad[[i, j]] = sig * (1.0 - sig) * inv_tau;
+        }
+    }
+    (value, grad)
+}
+
+#[cfg(test)]
+mod jumprelu_batch_tests {
+    use super::*;
+
+    #[test]
+    fn jumprelu_batch_matches_row_kernel_bit_for_bit() {
+        // Deterministic (N, K) logit matrix with per-atom thresholds spanning
+        // both sides of the jump.
+        let n = 5usize;
+        let k = 7usize;
+        let temperature = 0.41_f64;
+        let logits = Array2::from_shape_fn((n, k), |(i, j)| {
+            ((i as f64) * 0.37 - (j as f64) * 0.19 + 0.11).sin()
+        });
+        let thresholds = Array1::from_shape_fn(k, |j| 0.2 - 0.05 * j as f64);
+
+        let (value, grad) =
+            jumprelu_batch_value_grad(logits.view(), temperature, thresholds.view());
+        assert_eq!(value.dim(), (n, k));
+        assert_eq!(grad.dim(), (n, k));
+
+        // The batch kernel must reproduce the row kernel EXACTLY (same ops, same
+        // order) — bit-for-bit, not merely within a tolerance.
+        for i in 0..n {
+            let (rv, rg) = jumprelu_row_value_grad(logits.row(i), temperature, thresholds.view());
+            for j in 0..k {
+                assert_eq!(value[[i, j]], rv[j], "value mismatch at row {i} atom {j}");
+                assert_eq!(grad[[i, j]], rg[j], "grad mismatch at row {i} atom {j}");
+            }
+        }
+    }
 }
 
 // #1557 — fill-into-caller-buffer variants of the three per-mode row functions.
@@ -1077,7 +1299,7 @@ pub(crate) fn fill_active_atom_logit_jvp(
                 jac_compact[[compact_index, out_col]] = dz * decoded_k[out_col];
             }
         }
-        AssignmentMode::JumpReLU {
+        AssignmentMode::ThresholdGate {
             temperature,
             threshold,
         } => {
@@ -1154,7 +1376,7 @@ pub(crate) fn fill_assignment_logit_jvp_rows(
                 }
             }
         }
-        AssignmentMode::JumpReLU {
+        AssignmentMode::ThresholdGate {
             temperature,
             threshold,
         } => {
@@ -1230,7 +1452,7 @@ pub(crate) fn assignment_prior_value(assignment: &SaeAssignment, rho: &SaeManifo
             };
             penalty.value(target.view(), rho_view.view())
         }
-        AssignmentMode::JumpReLU {
+        AssignmentMode::ThresholdGate {
             temperature,
             threshold,
         } => {
@@ -1262,7 +1484,7 @@ pub(crate) fn assignment_prior_log_strength_derivative(
         return 0.0;
     }
     match assignment.mode {
-        AssignmentMode::Softmax { .. } | AssignmentMode::JumpReLU { .. } => {
+        AssignmentMode::Softmax { .. } | AssignmentMode::ThresholdGate { .. } => {
             assignment_prior_value(assignment, rho)
         }
         AssignmentMode::IBPMap {
@@ -1311,7 +1533,7 @@ pub(crate) fn assignment_prior_log_strength_hdiag(
                     "softmax assignment log-strength hessian diag unavailable".to_string()
                 })
         }
-        AssignmentMode::JumpReLU {
+        AssignmentMode::ThresholdGate {
             temperature,
             threshold,
         } => {
@@ -1449,7 +1671,7 @@ pub(crate) fn assignment_prior_grad_hdiag(
                 .ok_or_else(|| "IBP assignment hessian diag unavailable".to_string())?;
             (g, d)
         }
-        AssignmentMode::JumpReLU {
+        AssignmentMode::ThresholdGate {
             temperature,
             threshold,
         } => {

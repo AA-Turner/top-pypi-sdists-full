@@ -12,6 +12,8 @@ from cython.cimports.libc.errno import EAGAIN
 from cython.cimports.libc.stdint import uint8_t
 from cython.cimports.libc.string import memcpy
 
+from av.error import InvalidDataError
+
 _cinit_sentinel = cython.declare(object, object())
 
 
@@ -205,7 +207,7 @@ class CodecContext:
             if not self.ptr.extradata:
                 raise MemoryError("Cannot allocate extradata")
             memcpy(self.ptr.extradata, source.ptr, source.length)
-            self.ptr.extradata_size = source.length
+            self.ptr.extradata_size = cython.cast(cython.int, source.length)
 
     @property
     def extradata_size(self):
@@ -243,6 +245,8 @@ class CodecContext:
             else:
                 self.ptr.time_base.num = 1
                 self.ptr.time_base.den = lib.AV_TIME_BASE
+
+        self._setup_encode_hwframes()
 
         err_check(
             lib.avcodec_open2(self.ptr, self.codec.ptr, cython.address(options.ptr)),
@@ -292,7 +296,9 @@ class CodecContext:
         source: ByteSource = bytesource(raw_input, allow_none=True)
 
         in_data: cython.p_uchar = source.ptr if source is not None else cython.NULL
-        in_size: cython.int = source.length if source is not None else 0
+        in_size: cython.int = (
+            cython.cast(cython.int, source.length) if source is not None else 0
+        )
 
         out_data: cython.p_uchar
         out_size: cython.int
@@ -377,6 +383,59 @@ class CodecContext:
             packet = self._recv_packet()
 
     @cython.cfunc
+    def _setup_encode_hwframes(self) -> cython.void:
+        # Build the hardware frames context for hardware-accelerated encoding.
+        #
+        # Unlike the device context (attached at construction time), the frames
+        # context depends on the final width/height/pixel format, which the user
+        # sets after add_stream(). We therefore defer it until just before the
+        # codec is opened.
+        if self.hwaccel_ctx is None or not self.is_encoder:
+            return
+        if self.ptr.hw_frames_ctx:
+            return  # Already set up.
+
+        hw_format: lib.AVPixelFormat = self.hwaccel_ctx.config.ptr.pix_fmt
+        sw_format: lib.AVPixelFormat = cython.cast(
+            lib.AVPixelFormat, self.ptr.sw_pix_fmt
+        )
+
+        # The codec context's sw_pix_fmt holds the software format the user
+        # wants the hardware frames context to use. Fall back to pix_fmt to
+        # preserve the existing stream.pix_fmt configuration path.
+        if sw_format == lib.AV_PIX_FMT_NONE:
+            sw_format = cython.cast(lib.AVPixelFormat, self.ptr.pix_fmt)
+
+        # If they left it as the hardware format (or unset), pick a sane default.
+        if sw_format == hw_format or sw_format == lib.AV_PIX_FMT_NONE:
+            sw_format = lib.av_get_pix_fmt(b"nv12")
+
+        frames_ref: cython.pointer[lib.AVBufferRef] = lib.av_hwframe_ctx_alloc(
+            self.hwaccel_ctx.ptr
+        )
+        if frames_ref == cython.NULL:
+            raise MemoryError("av_hwframe_ctx_alloc() failed")
+
+        try:
+            frames_ctx: cython.pointer[lib.AVHWFramesContext] = cython.cast(
+                cython.pointer[lib.AVHWFramesContext], frames_ref.data
+            )
+            frames_ctx.format = hw_format
+            frames_ctx.sw_format = sw_format
+            frames_ctx.width = self.ptr.width
+            frames_ctx.height = self.ptr.height
+            frames_ctx.initial_pool_size = 32
+            err_check(lib.av_hwframe_ctx_init(frames_ref))
+        except Exception:
+            lib.av_buffer_unref(cython.address(frames_ref))
+            raise
+
+        # Ownership of frames_ref transfers to the codec context.
+        self.ptr.hw_frames_ctx = frames_ref
+        self.ptr.sw_pix_fmt = sw_format
+        self.ptr.pix_fmt = hw_format
+
+    @cython.cfunc
     def _prepare_frames_for_encode(self, frame: Frame | None) -> list:
         return [frame]
 
@@ -428,6 +487,17 @@ class CodecContext:
     def _prepare_and_time_rebase_frames_for_encode(self, frame: Frame):
         if self.ptr.codec_type not in [lib.AVMEDIA_TYPE_VIDEO, lib.AVMEDIA_TYPE_AUDIO]:
             raise NotImplementedError("Encoding is only supported for audio and video.")
+
+        # A hardware frame (e.g. a CUDA frame from DLPack) carries its own frames
+        # context. Encoders like h264_nvenc require hw_frames_ctx to be set before
+        # avcodec_open2, so adopt the frame's if we don't already have one.
+        if (
+            not self.is_open
+            and frame is not None
+            and frame.ptr.hw_frames_ctx != cython.NULL
+            and self.ptr.hw_frames_ctx == cython.NULL
+        ):
+            self.ptr.hw_frames_ctx = lib.av_buffer_ref(frame.ptr.hw_frames_ctx)
 
         self.open(strict=False)
 
@@ -498,11 +568,17 @@ class CodecContext:
         err_check(res, "avcodec_send_packet()")
 
         out: list = []
-        frame = self._recv_frame()
-        while frame:
+        while True:
+            try:
+                frame = self._recv_frame()
+            except InvalidDataError:
+                if out:
+                    break
+                raise
+            if frame is None:
+                break
             self._setup_decoded_frame(frame, packet)
             out.append(frame)
-            frame = self._recv_frame()
         return out
 
     @cython.ccall
@@ -634,7 +710,7 @@ class CodecContext:
         return self.ptr.bit_rate if self.ptr.bit_rate > 0 else None
 
     @bit_rate.setter
-    def bit_rate(self, value: cython.int):
+    def bit_rate(self, value: cython.longlong):
         self.ptr.bit_rate = value
 
     @property

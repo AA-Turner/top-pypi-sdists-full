@@ -7,12 +7,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import importlib
 import inspect
 import os
 import re
-import subprocess  # noqa: S404
+import subprocess  # ruff: ignore[suspicious-subprocess-import]
 from copy import copy
 from io import StringIO
 from pathlib import Path
@@ -76,7 +77,9 @@ from weblate.lang.data import FORMULA_WITH_ZERO, ZERO_PLURAL_TYPES
 from weblate.lang.models import Plural
 from weblate.trans.exceptions import is_expected_parse_error
 from weblate.trans.file_format_params import (
+    CSVFormulaEscaping,
     GettextLastTranslator,
+    GettextRemoveObsolete,
     GettextXGenerator,
     get_encoding_param,
 )
@@ -423,7 +426,7 @@ class BaseTTKitFormat[S: TranslationStore, U: TranslateToolkitUnit, T: TTKitUnit
         template_store: TranslationFormat | None,
     ) -> S:
         """Load file using defined loader."""
-        from weblate.trans.file_format_params import (  # noqa: PLC0415
+        from weblate.trans.file_format_params import (  # ruff: ignore[import-outside-top-level]
             get_params_for_file_format,
         )
 
@@ -455,6 +458,28 @@ class BaseTTKitFormat[S: TranslationStore, U: TranslateToolkitUnit, T: TTKitUnit
             self.store.addunit(unit.unit, new=True)
         else:
             self.store.addunit(unit.unit)
+
+    def remove_duplicate_unit(self, unit: T) -> str | None:
+        """Remove duplicate unit from Translate Toolkit store."""
+        ttkit_unit = unit.unit
+        xmlelement = getattr(ttkit_unit, "xmlelement", None)
+        if xmlelement is None:
+            return super().remove_duplicate_unit(unit)
+
+        for index, existing in enumerate(self.store.units):
+            if existing is ttkit_unit:
+                del self.store.units[index]
+                break
+        else:
+            return super().remove_duplicate_unit(unit)
+
+        with contextlib.suppress(AttributeError, KeyError, ValueError):
+            self.store.remove_unit_from_index(ttkit_unit)
+
+        parent = xmlelement.getparent()
+        if parent is not None:
+            parent.remove(xmlelement)
+        return None
 
     def save_content(self, handle: IO[bytes]) -> None:
         """Store content to file."""
@@ -493,7 +518,8 @@ class BaseTTKitFormat[S: TranslationStore, U: TranslateToolkitUnit, T: TTKitUnit
         else:
             unit = self.store.UnitClass(source, **self.get_unit_class_kwargs())
         # Needed by some formats (Android) to set target
-        unit._store = self.store  # noqa: SLF001
+        # ruff: ignore[private-member-access]
+        unit._store = self.store
         return unit
 
     def create_unit_key(
@@ -1299,7 +1325,7 @@ class CSVUnit(MonolingualSimpleUnit):
         return tuple(getattr(self.mainunit, "target_plural_forms", ()))
 
     @staticmethod
-    def unescape_csv(string):
+    def unescape_csv(string, *, escape_formulas: bool = False):
         r"""
         Remove Excel-specific escaping from CSV.
 
@@ -1314,7 +1340,22 @@ class CSVUnit(MonolingualSimpleUnit):
             and string[1] in {"=", "+", "-", "@", "\\", "%"}
         ):
             return get_string(string[1:-1].replace("\\|", "|"))
+        if (
+            escape_formulas
+            and len(string) > 1
+            and string[0] == "'"
+            and string[1] in csvunit.spreadsheetescapes
+        ):
+            return get_string(string[1:])
         return get_string(string)
+
+    def _unescape_csv(self, string):
+        return self.unescape_csv(
+            string,
+            escape_formulas=CSVFormulaEscaping.get_value(
+                self.parent.file_format_params
+            ),
+        )
 
     @cached_property
     def context(self):
@@ -1331,7 +1372,7 @@ class CSVUnit(MonolingualSimpleUnit):
             return get_context(self.template)
         if self.parent.is_template:
             return get_context(self.unit)
-        return self.unescape_csv(self.mainunit.getcontext())
+        return self._unescape_csv(self.mainunit.getcontext())
 
     @cached_property
     def locations(self):
@@ -1342,8 +1383,8 @@ class CSVUnit(MonolingualSimpleUnit):
         # Needed to avoid Translate Toolkit construct ID
         # as context\04source
         if self.template is None:
-            return self.unescape_csv(get_string(self.mainunit.source))
-        return self.unescape_csv(super().source)
+            return self._unescape_csv(get_string(self.mainunit.source))
+        return self._unescape_csv(super().source)
 
     @cached_property
     def target(self):
@@ -1357,7 +1398,7 @@ class CSVUnit(MonolingualSimpleUnit):
             target = get_string(self.unit.source)
         else:
             target = super().target
-        return self.unescape_csv(target)
+        return self._unescape_csv(target)
 
     def set_target(self, target: str | list[str]) -> None:
         plural_rows = getattr(self.mainunit, "plural_rows", ())
@@ -1655,6 +1696,7 @@ class BasePoFormat[S: pofile, U: pounit, T: BasePoUnit](
     supports_context = True
     supports_location = True
     supports_flags = True
+    supports_remove_obsolete_units = True
     additional_states = (STATE_FUZZY,)
 
     def add_unit(self, unit: TranslationUnit) -> None:
@@ -1664,6 +1706,23 @@ class BasePoFormat[S: pofile, U: pounit, T: BasePoUnit](
         if old_unit and old_unit.isobsolete():
             self.store.removeunit(old_unit)
         super().add_unit(unit)
+
+    def remove_obsolete_units(self) -> list[str] | None:
+        """Remove obsolete units from the underlying store."""
+        removed = False
+        for unit in list(self.store.units):
+            if unit.isobsolete():
+                self.store.removeunit(unit)
+                removed = True
+        if not removed:
+            return None
+        self._invalidate_units()
+        return []
+
+    def save_content(self, handle: IO[bytes]) -> None:
+        if GettextRemoveObsolete.get_value(self.file_format_params):
+            self.remove_obsolete_units()
+        super().save_content(handle)
 
 
 class PoFormat(BasePoFormat, BilingualUpdateMixin):
@@ -1675,7 +1734,8 @@ class PoFormat(BasePoFormat, BilingualUpdateMixin):
     unit_class = PoUnit
 
     @classmethod
-    def get_new_file_content(cls, encoding: str | None = None) -> bytes:  # noqa: ARG003
+    # ruff: ignore[unused-class-method-argument]
+    def get_new_file_content(cls, encoding: str | None = None) -> bytes:
         """Empty PO file content."""
         return b""
 
@@ -1688,6 +1748,7 @@ class PoFormat(BasePoFormat, BilingualUpdateMixin):
 
         Wrapper around msgmerge.
         """
+        file_format_params = kwargs.pop("file_format_params", None)
         cmd = [
             "msgmerge",
             *kwargs.pop("args", ["--previous"]),
@@ -1701,7 +1762,7 @@ class PoFormat(BasePoFormat, BilingualUpdateMixin):
             raise ValueError(msg)
 
         try:
-            result = subprocess.run(  # noqa: S603
+            result = subprocess.run(
                 cmd,
                 env=get_clean_env(),
                 cwd=os.path.dirname(out_file),
@@ -1734,6 +1795,11 @@ class PoFormat(BasePoFormat, BilingualUpdateMixin):
             errors.append(line)
         if errors:
             raise UpdateError(" ".join(cmd), "\n".join(errors))
+        if GettextRemoveObsolete.get_value(file_format_params):
+            cls(
+                out_file,
+                file_format_params=file_format_params,
+            ).save()
 
 
 class PoMonoFormat(BasePoFormat):
@@ -2386,12 +2452,18 @@ class CSVFormat(TTKitFormat[WeblateCSVFile, WeblateCSVUnit, CSVUnit]):
             result[index] = value
         return result
 
+    def _unescape_csv(self, string):
+        return CSVUnit.unescape_csv(
+            string,
+            escape_formulas=CSVFormulaEscaping.get_value(self.file_format_params),
+        )
+
     def _get_plural_group_source(self, group: CSVPluralGroup) -> str:
         first = group["first"]
         return join_plural(
             self._forms_to_list(
                 group["source_forms"],
-                CSVUnit.unescape_csv(get_string(first.source)),
+                self._unescape_csv(get_string(first.source)),
             )
         )
 
@@ -2482,7 +2554,7 @@ class CSVFormat(TTKitFormat[WeblateCSVFile, WeblateCSVUnit, CSVUnit]):
                 )
 
             source_forms = group["source_forms"]
-            source = CSVUnit.unescape_csv(get_string(unit.source))
+            source = self._unescape_csv(get_string(unit.source))
             if source_form in source_forms:
                 if source_forms[source_form] != source:
                     raise CSVMetadataError(
@@ -2491,7 +2563,7 @@ class CSVFormat(TTKitFormat[WeblateCSVFile, WeblateCSVUnit, CSVUnit]):
                     )
             else:
                 source_forms[source_form] = source
-            target_forms[target_form] = CSVUnit.unescape_csv(get_string(unit.target))
+            target_forms[target_form] = self._unescape_csv(get_string(unit.target))
 
         if not grouped:
             return units
@@ -2574,6 +2646,9 @@ class CSVFormat(TTKitFormat[WeblateCSVFile, WeblateCSVUnit, CSVUnit]):
         for row in plural_rows:
             self._remove_store_unit(row)
         return None
+
+    def get_duplicate_cleanup_units(self) -> list[CSVUnit]:
+        return self._get_all_bilingual_units()
 
     def _get_all_bilingual_units(self) -> list[CSVUnit]:
         return [
@@ -2960,7 +3035,8 @@ class XWikiPropertiesFormat(PropertiesBaseFormat):
             if unit.has_content() and not unit.has_unit():
                 # Materialize missing units before saving to avoid passing None
                 # into Translate Toolkit's addunit() implementation.
-                unit._unit = copy(unit.mainunit)  # noqa: SLF001
+                # ruff: ignore[private-member-access]
+                unit._unit = copy(unit.mainunit)
                 unit.unit.target = unit.mainunit.source
                 unit.unit.missing = True
             elif unit.has_content() and unit.unit.missing:
@@ -2971,7 +3047,8 @@ class XWikiPropertiesFormat(PropertiesBaseFormat):
             # if the unit was only a comment, we take back the original source file unit
             # to avoid any change.
             elif not unit.has_content():
-                unit._unit = unit.mainunit  # noqa: SLF001
+                # ruff: ignore[private-member-access]
+                unit._unit = unit.mainunit
             self.add_unit(unit)
 
         self.store.serialize(handle)
@@ -3019,9 +3096,11 @@ class TBXUnit[U: tbxunit, F: "TBXFormat"](TTKitUnit[U, F]):
             if note:
                 notes.append(note)
 
-        for node in self.unit._getnotenodes(origin="definition"):  # noqa: SLF001
+        # ruff: ignore[private-member-access]
+        for node in self.unit._getnotenodes(origin="definition"):
             if self._is_usage_node(node):
-                notes.append(self.unit._getnodetext(node))  # noqa: SLF001
+                # ruff: ignore[private-member-access]
+                notes.append(self.unit._getnodetext(node))
                 break
 
         return "\n".join(notes)
@@ -3048,10 +3127,13 @@ class TBXUnit[U: tbxunit, F: "TBXFormat"](TTKitUnit[U, F]):
     def source_explanation(self) -> str:
         seen_notes = set()
         notes = []
-        for node in self.unit._getnotenodes(origin="definition"):  # noqa: SLF001
-            if self._is_usage_node(node) or self.unit._is_translation_needed_node(node):  # noqa: SLF001
+        # ruff: ignore[private-member-access]
+        for node in self.unit._getnotenodes(origin="definition"):
+            # ruff: ignore[private-member-access]
+            if self._is_usage_node(node) or self.unit._is_translation_needed_node(node):
                 continue
-            note = self.unit._getnodetext(node)  # noqa: SLF001
+            # ruff: ignore[private-member-access]
+            note = self.unit._getnodetext(node)
             if note not in seen_notes:
                 notes.append(note)
                 seen_notes.add(note)
@@ -3062,12 +3144,15 @@ class TBXUnit[U: tbxunit, F: "TBXFormat"](TTKitUnit[U, F]):
     def flags(self):
         flags = super().flags
 
-        for node in self.unit._getnotenodes(origin="pos"):  # noqa: SLF001
+        # ruff: ignore[private-member-access]
+        for node in self.unit._getnotenodes(origin="pos"):
             # each tig in the two langsets in the termEntry can have the
             # <termNote type="administrativeStatus">, consider forbidden
             # if either of the two is forbidden/obsolete
-            if self.unit._is_administrative_status_term_node(node):  # noqa: SLF001
-                if self.unit._getnodetext(node).strip().lower() in {  # noqa: SLF001
+            # ruff: ignore[private-member-access]
+            if self.unit._is_administrative_status_term_node(node):
+                # ruff: ignore[private-member-access]
+                if self.unit._getnodetext(node).strip().lower() in {
                     "forbidden",
                     "obsolete",
                 }:

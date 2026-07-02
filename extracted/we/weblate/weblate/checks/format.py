@@ -13,7 +13,7 @@ from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext, gettext_lazy
 
-from weblate.checks.base import SourceCheck, TargetCheck
+from weblate.checks.base import Highlight, SourceCheck, TargetCheck
 from weblate.utils.html import format_html_join_comma, list_to_tuples
 
 if TYPE_CHECKING:
@@ -281,7 +281,8 @@ def python_format_is_position_based(string: str):
     return "(" not in string and string not in {"{", "}"}
 
 
-def name_format_is_position_based(string: str) -> bool:  # noqa: FURB118
+# ruff: ignore[reimplemented-operator]
+def name_format_is_position_based(string: str) -> bool:
     return not string
 
 
@@ -516,7 +517,7 @@ class BaseFormatCheck(TargetCheck):
             return
         match_objects = self.regexp.finditer(source)
         for match in match_objects:
-            yield match.start(), match.end(), match.group()
+            yield Highlight(match.start(), match.end(), match.group(), kind="grammar")
 
     def format_result(self, result: MissingExtraDict) -> Iterable[StrOrPromise]:
         if (

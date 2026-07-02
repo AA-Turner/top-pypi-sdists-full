@@ -133,7 +133,7 @@ def cmdLineParser(argv=None):
             help="Parse target(s) from Burp or WebScarab proxy log file")
 
         target.add_argument("-m", dest="bulkFile",
-            help="Scan multiple targets given in a textual file ")
+            help="Scan multiple targets given in a textual file")
 
         target.add_argument("-r", dest="requestFile",
             help="Load HTTP request from a file")
@@ -315,8 +315,9 @@ def cmdLineParser(argv=None):
         optimization.add_argument("--predict-output", dest="predictOutput", action="store_true",
             help="Predict common queries output")
 
-        optimization.add_argument("--keep-alive", dest="keepAlive", action="store_true",
-            help="Use persistent HTTP(s) connections")
+        # Note: persistent (Keep-Alive) connections are used by default; this opts out
+        optimization.add_argument("--no-keep-alive", dest="noKeepAlive", action="store_true",
+            help="Disable persistent HTTP(s) connections (Keep-Alive)")
 
         optimization.add_argument("--null-connection", dest="nullConnection", action="store_true",
             help="Retrieve page length without actual HTTP response body")
@@ -334,7 +335,7 @@ def cmdLineParser(argv=None):
             help="Skip testing for given parameter(s)")
 
         injection.add_argument("--skip-static", dest="skipStatic", action="store_true",
-            help="Skip testing parameters that not appear to be dynamic")
+            help="Skip testing parameters that do not appear to be dynamic")
 
         injection.add_argument("--param-exclude", dest="paramExclude",
             help="Regexp to exclude parameters from testing (e.g. \"ses\")")
@@ -374,6 +375,9 @@ def cmdLineParser(argv=None):
 
         injection.add_argument("--tamper", dest="tamper",
             help="Use given script(s) for tampering injection data")
+
+        injection.add_argument("--proof", dest="proof", action="store_true",
+            help="Prove exploitation of the detected injection point(s)")
 
         # Detection options
         detection = parser.add_argument_group("Detection", "These options can be used to customize the detection phase")
@@ -439,7 +443,7 @@ def cmdLineParser(argv=None):
             help="Load second-order HTTP request from file")
 
         # Fingerprint options
-        fingerprint = parser.add_argument_group("Fingerprint")
+        fingerprint = parser.add_argument_group("Fingerprint", "These options can be used to perform a back-end database management system version fingerprint")
 
         fingerprint.add_argument("-f", "--fingerprint", dest="extensiveFp", action="store_true",
             help="Perform an extensive DBMS version fingerprint")
@@ -496,7 +500,7 @@ def cmdLineParser(argv=None):
             help="Dump DBMS database table entries")
 
         enumeration.add_argument("--dump-all", dest="dumpAll", action="store_true",
-            help="Dump all DBMS databases tables entries")
+            help="Dump entries of all DBMS database tables")
 
         enumeration.add_argument("--search", dest="search", action="store_true",
             help="Search column(s), table(s) and/or database name(s)")
@@ -506,6 +510,9 @@ def cmdLineParser(argv=None):
 
         enumeration.add_argument("--statements", dest="getStatements", action="store_true",
             help="Retrieve SQL statements being run on DBMS")
+
+        enumeration.add_argument("--procs", dest="getProcs", action="store_true",
+            help="Retrieve stored procedures/functions and their source")
 
         enumeration.add_argument("-D", dest="db",
             help="DBMS database to enumerate")
@@ -598,11 +605,10 @@ def cmdLineParser(argv=None):
             help="Prompt for an OOB shell, Meterpreter or VNC")
 
         takeover.add_argument("--os-smbrelay", dest="osSmb", action="store_true",
-            help="One click prompt for an OOB shell, Meterpreter or VNC")
+            help="One-click prompt for an OOB shell, Meterpreter or VNC")
 
         takeover.add_argument("--os-bof", dest="osBof", action="store_true",
-            help="Stored procedure buffer overflow "
-                                 "exploitation")
+            help="Stored procedure buffer overflow exploitation")
 
         takeover.add_argument("--priv-esc", dest="privEsc", action="store_true",
             help="Database process user privilege escalation")
@@ -686,7 +692,7 @@ def cmdLineParser(argv=None):
             help="Store dumped data to a custom file")
 
         general.add_argument("--dump-format", dest="dumpFormat",
-            help="Format of dumped data (CSV (default), HTML or SQLITE)")
+            help="Dump data format (CSV (default), HTML, SQLITE, JSONL)")
 
         general.add_argument("--encoding", dest="encoding",
             help="Character encoding used for data retrieval (e.g. GBK)")
@@ -727,6 +733,9 @@ def cmdLineParser(argv=None):
         general.add_argument("--repair", dest="repair", action="store_true",
             help="Redump entries having unknown character marker (%s)" % INFERENCE_UNKNOWN_CHAR)
 
+        general.add_argument("--report-json", dest="reportJson",
+            help="Store run results to a JSON file")
+
         general.add_argument("--save", dest="saveConfig",
             help="Save options to a configuration INI file")
 
@@ -757,6 +766,24 @@ def cmdLineParser(argv=None):
         general.add_argument("--web-root", dest="webRoot",
             help="Web server document root directory (e.g. \"/var/www\")")
 
+        # Non-SQL injection options
+        nonsql = parser.add_argument_group("Non-SQL injection", "These options can be used to test for non-SQL injection types")
+
+        nonsql.add_argument("--graphql", dest="graphql", action="store_true",
+            help="Test for GraphQL injection")
+
+        nonsql.add_argument("--ldap", dest="ldap", action="store_true",
+            help="Test for LDAP injection")
+
+        nonsql.add_argument("--nosql", dest="nosql", action="store_true",
+            help="Test for NoSQL injection")
+
+        nonsql.add_argument("--xpath", dest="xpath", action="store_true",
+            help="Test for XPath injection")
+
+        nonsql.add_argument("--ssti", dest="ssti", action="store_true",
+            help="Test for server-side template injection")
+
         # Miscellaneous options
         miscellaneous = parser.add_argument_group("Miscellaneous", "These options do not fit into any other category")
 
@@ -779,7 +806,7 @@ def cmdLineParser(argv=None):
             help="Disable hash analysis on table dumps")
 
         miscellaneous.add_argument("--gui", dest="gui", action="store_true",
-            help="Experimental Tkinter GUI")
+            help="Graphical user interface (Tkinter)")
 
         miscellaneous.add_argument("--list-tampers", dest="listTampers", action="store_true",
             help="Display list of available tamper scripts")
@@ -806,7 +833,7 @@ def cmdLineParser(argv=None):
             help="Local directory for storing temporary files")
 
         miscellaneous.add_argument("--tui", dest="tui", action="store_true",
-            help="Experimental ncurses TUI")
+            help="Textual user interface (ncurses)")
 
         miscellaneous.add_argument("--unstable", dest="unstable", action="store_true",
             help="Adjust options for unstable connections")
@@ -842,6 +869,9 @@ def cmdLineParser(argv=None):
         parser.add_argument("--disable-precon", dest="disablePrecon", action="store_true",
             help=SUPPRESS)
 
+        parser.add_argument("--no-huffman", dest="noHuffman", action="store_true",
+            help=SUPPRESS)  # "Disable adaptive (Huffman) set-membership retrieval used by default to speed up blind table dumps"
+
         parser.add_argument("--profile", dest="profile", action="store_true",
             help=SUPPRESS)
 
@@ -860,16 +890,29 @@ def cmdLineParser(argv=None):
         parser.add_argument("--force-pivoting", dest="forcePivoting", action="store_true",
             help=SUPPRESS)
 
+        # Experimental: dump table rows via keyset (seek) pagination on a detected indexed
+        # primary key instead of ORDER BY ... LIMIT/OFFSET (much cheaper on huge tables).
+        # --keyset forces it for any table size; --no-keyset disables it (incl. the automatic
+        # use on large tables), falling back to the plain LIMIT/OFFSET dump.
+        parser.add_argument("--keyset", dest="keyset", action="store_true",
+            help=SUPPRESS)
+
+        parser.add_argument("--no-keyset", dest="noKeyset", action="store_true",
+            help=SUPPRESS)
+
         parser.add_argument("--ignore-stdin", dest="ignoreStdin", action="store_true",
             help=SUPPRESS)
 
         parser.add_argument("--non-interactive", dest="nonInteractive", action="store_true",
             help=SUPPRESS)
 
-        parser.add_argument("--smoke-test", dest="smokeTest", action="store_true",
+        parser.add_argument("--smoke-test", "--doc-test", dest="smokeTest", action="store_true",
             help=SUPPRESS)
 
         parser.add_argument("--vuln-test", dest="vulnTest", action="store_true",
+            help=SUPPRESS)
+
+        parser.add_argument("--api-test", dest="apiTest", action="store_true",
             help=SUPPRESS)
 
         parser.add_argument("--disable-json", dest="disableJson", action="store_true",
@@ -1126,7 +1169,7 @@ def cmdLineParser(argv=None):
         else:
             args.stdinPipe = None
 
-        if not any((args.direct, args.url, args.logFile, args.bulkFile, args.googleDork, args.configFile, args.requestFile, args.updateAll, args.smokeTest, args.vulnTest, args.wizard, args.dependencies, args.purge, args.listTampers, args.hashFile, args.stdinPipe)):
+        if not any((args.direct, args.url, args.logFile, args.bulkFile, args.googleDork, args.configFile, args.requestFile, args.updateAll, args.smokeTest, args.vulnTest, args.apiTest, args.wizard, args.dependencies, args.purge, args.listTampers, args.hashFile, args.stdinPipe)):
             errMsg = "missing a mandatory option (-d, -u, -l, -m, -r, -g, -c, --wizard, --shell, --update, --purge, --list-tampers or --dependencies). "
             errMsg += "Use -h for basic and -hh for advanced help\n"
             parser.error(errMsg)

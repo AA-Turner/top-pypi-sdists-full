@@ -134,6 +134,8 @@ class ManagedRuntimeClient(RuntimeClient):
         policy: str | dict[str, t.Any] | None = None,
         labels: dict[str, list[str]] | None = None,
         origin: str | None = None,
+        project_memory_scope_kind: str | None = None,
+        enable_project_memory_preload: bool | None = None,
     ) -> models.SessionInfo:
         """Create a session, defaulting project from the platform profile."""
         resolved_project = project or self._platform_project
@@ -147,6 +149,8 @@ class ManagedRuntimeClient(RuntimeClient):
             policy=policy,
             labels=labels,
             origin=origin,
+            project_memory_scope_kind=project_memory_scope_kind,
+            enable_project_memory_preload=enable_project_memory_preload,
         )
 
     # ── Server lifecycle ──────────────────────────────────────────

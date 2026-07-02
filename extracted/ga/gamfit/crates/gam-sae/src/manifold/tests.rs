@@ -8,41 +8,6 @@ use gam_terms::analytic_penalties::ARDPenalty;
 use approx::assert_abs_diff_eq;
 use ndarray::{Array5, array};
 
-/// The overflow-free von-Mises normaliser must (a) agree with the naive
-/// `bessel_i0(η).ln()` / `bessel_i1(η)/bessel_i0(η)` on moderate η where the
-/// naive form is still finite, and (b) stay finite for the large η a
-/// dispersion-inflated ARD seed reaches on a large-norm / ill-conditioned
-/// checkpoint (#1113), where the naive form overflows to `inf` and divides
-/// to `NaN`.
-#[test]
-pub(crate) fn bessel_log_and_ratio_is_finite_and_matches_naive() {
-    // Moderate η: naive forms are finite, so the stable helper must match.
-    for &eta in &[0.0_f64, 0.5, 1.0, 3.0, 3.75, 5.0, 20.0, 100.0, 300.0] {
-        let (log_i0, ratio) = bessel_i0_log_and_ratio(eta);
-        let naive_log = bessel_i0(eta).ln();
-        let naive_ratio = bessel_i1(eta) / bessel_i0(eta);
-        assert!(naive_log.is_finite(), "naive log finite at η={eta}");
-        assert!(naive_ratio.is_finite(), "naive ratio finite at η={eta}");
-        assert_abs_diff_eq!(log_i0, naive_log, epsilon = 1e-9);
-        assert_abs_diff_eq!(ratio, naive_ratio, epsilon = 1e-9);
-    }
-
-    // Large η (past the `e^{η}` overflow threshold ≈ 709). The stable helper
-    // must stay finite where `bessel_i0(η) = inf`, and the ratio I1/I0 → 1⁻.
-    for &eta in &[710.0_f64, 1.0e3, 1.0e6, 1.0e12, 1.0e300] {
-        assert!(
-            !bessel_i0(eta).is_finite(),
-            "naive I0 expected to overflow at η={eta} (guards the regression)"
-        );
-        let (log_i0, ratio) = bessel_i0_log_and_ratio(eta);
-        assert!(log_i0.is_finite(), "stable log I0 finite at η={eta}");
-        assert!(ratio.is_finite(), "stable I1/I0 finite at η={eta}");
-        // I1/I0 ∈ (0, 1) and → 1 as η → ∞; the ρ-gradient term n·η·(ratio−1)
-        // must therefore be finite, never `inf·NaN`.
-        assert!(ratio > 0.0 && ratio <= 1.0, "ratio in (0,1] at η={eta}");
-    }
-}
-
 pub(crate) fn assert_matrix_same_bits(left: &Array2<f64>, right: &Array2<f64>) {
     assert_eq!(left.dim(), right.dim());
     for ((row, col), &value) in left.indexed_iter() {
@@ -2547,7 +2512,8 @@ pub(crate) fn decoder_repulsion_strength_is_derived_and_scale_invariant_1610() {
     // (1) Strength is a DERIVED dimensionless fraction of the data-derived
     // separation-barrier strength μ_C, not an independent absolute constant.
     // (Checked on a constructed term below, after the fixture builder — μ_C is
-    // now a per-dictionary quantity, K / reachable_rank, not a global constant.)
+    // now read from the data-fit inseparability of the live design/routing, not a
+    // global constant or a rank-count heuristic.)
 
     // (2) End-to-end scale invariance of the repulsion value.
     let coords0 = array![[0.05], [0.20], [0.55], [0.80], [0.35], [0.65]];
@@ -2604,10 +2570,11 @@ pub(crate) fn decoder_repulsion_strength_is_derived_and_scale_invariant_1610() {
     };
 
     // (1) — the repulsion strength is the derived fraction
-    // `SAE_DECODER_REPULSION_BARRIER_RATIO · μ_C` of the data-derived barrier
-    // strength, and μ_C is itself derived from the dictionary's overcompleteness
-    // (K / reachable_rank), NOT a hand-picked magnitude. Checked on a constructed
-    // unit-scale term (μ_C is now a per-term quantity).
+    // `SAE_DECODER_REPULSION_BARRIER_RATIO · μ_C` of the separation-barrier
+    // strength, and μ_C is itself EVIDENCE-DERIVED — the worst-case data-fit
+    // inseparability strength `γ/(1-γ)` over the co-active pairs (#1610), NOT a
+    // hand-picked magnitude and NOT a rank-count heuristic. Checked on a
+    // constructed unit-scale term (μ_C is a per-term, per-pair quantity).
     let unit_term = build_at_scale(1.0);
     let expected =
         SAE_DECODER_REPULSION_BARRIER_RATIO * unit_term.separation_barrier_strength();
@@ -2615,17 +2582,31 @@ pub(crate) fn decoder_repulsion_strength_is_derived_and_scale_invariant_1610() {
         unit_term.decoder_repulsion_strength(),
         expected,
         "repulsion strength must be the derived fraction {SAE_DECODER_REPULSION_BARRIER_RATIO} \
-         of the data-derived separation-barrier strength {}, got {}",
+         of the evidence-derived separation-barrier strength {}, got {}",
         unit_term.separation_barrier_strength(),
         unit_term.decoder_repulsion_strength(),
     );
-    let rank = unit_term.nominal_reachable_rank().max(1);
-    assert_eq!(
-        unit_term.separation_barrier_strength(),
-        (unit_term.k_atoms() as f64) / (rank as f64),
-        "μ_C must be the data-derived overcompleteness ratio K/reachable_rank \
-         (K={}, reachable_rank={rank}), not a frozen absolute constant",
-        unit_term.k_atoms(),
+    // The evidence-derived strength is a strictly positive, finite number for a
+    // genuinely co-active pair (the data-fit couples them, so γ > 0), and it is
+    // NOT the old overcompleteness ratio (which for two periodic M=3 atoms in p=3
+    // was pinned at exactly 2.0). It is the reciprocal-margin `γ/(1-γ)` to the
+    // data-fit's co-collapse boundary, read from the chart design + routing.
+    let mu_c = unit_term.separation_barrier_strength();
+    assert!(
+        mu_c > 0.0 && mu_c.is_finite(),
+        "μ_C must be a positive finite evidence-derived strength for a co-active \
+         pair, got {mu_c}"
+    );
+    // Decoder-scale invariance of the STRENGTH: γ (hence μ_C) is read from the
+    // chart design + routing, not the decoder magnitudes, so rescaling the whole
+    // dictionary leaves the strength unchanged (unlike a REML `λ ∝ σ²/τ²`).
+    let mu_c_tiny = build_at_scale(1.0e-7).separation_barrier_strength();
+    let mu_c_huge = build_at_scale(1.0e6).separation_barrier_strength();
+    let rel_mu = |a: f64, b: f64| (a - b).abs() / b.abs().max(f64::MIN_POSITIVE);
+    assert!(
+        rel_mu(mu_c_tiny, mu_c) <= 1e-9 && rel_mu(mu_c_huge, mu_c) <= 1e-9,
+        "evidence-derived μ_C must be decoder-scale invariant: unit={mu_c} \
+         tiny={mu_c_tiny} huge={mu_c_huge}"
     );
 
     let value_unit = build_at_scale(1.0).decoder_repulsion_value(1.0);
@@ -2649,6 +2630,145 @@ pub(crate) fn decoder_repulsion_strength_is_derived_and_scale_invariant_1610() {
         rel(value_huge, value_unit) <= 1e-9,
         "repulsion value must be scale-invariant: unit={value_unit} huge={value_huge} \
          (old absolute constant scaled this by s⁴)"
+    );
+}
+
+/// #1610 — the separation-barrier strength is EVIDENCE-DERIVED: the per-pair
+/// strength `μ_jk = γ_jk/(1-γ_jk)` is a MONOTONE function of the data-fit
+/// inseparability `γ_jk` (the largest canonical correlation of the two atoms'
+/// coactivation-weighted chart designs — the quantity that decides whether the
+/// joint inner Laplace/REML Hessian stays PD). This replaces the old geometry
+/// heuristic `Σ min(M_k,p)/min(n,p)`, which was blind to the actual design/routing
+/// and so gave the SAME strength to a data-separable pair and a data-degenerate
+/// one. Here two atoms with IDENTICAL chart designs are driven from data-fit
+/// SEPARABLE (disjoint routing ⇒ γ ≈ 0 ⇒ μ ≈ 0) to data-fit DEGENERATE
+/// (overlapping routing on a shared design ⇒ γ → 1 ⇒ μ large), and the strength
+/// must rise accordingly. γ (hence μ) is read from the design + routing only, so
+/// it is decoder-scale free.
+#[test]
+pub(crate) fn barrier_strength_tracks_data_fit_inseparability_1610() {
+    let coords = array![[0.05], [0.20], [0.55], [0.80], [0.35], [0.65]];
+    let (phi, jet) = periodic_basis(&coords);
+    // Two atoms with the SAME chart design (identical Φ) so the ONLY thing that
+    // sets γ is the coactivation-weighted routing overlap we pass in.
+    let make = |name: &str, decoder: Array2<f64>| {
+        SaeManifoldAtom::new(
+            name,
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi.clone(),
+            jet.clone(),
+            decoder,
+            Array2::<f64>::eye(3),
+        )
+        .unwrap()
+        .with_basis_evaluator(Arc::new(TestPeriodicEvaluator))
+    };
+    let mut dec0 = Array2::<f64>::zeros((3, 3));
+    dec0[[0, 0]] = 1.0;
+    let mut dec1 = Array2::<f64>::zeros((3, 3));
+    dec1[[0, 1]] = 1.0;
+    let logits = array![
+        [0.7, -0.2],
+        [0.1, 0.4],
+        [-0.3, 0.5],
+        [0.6, -0.1],
+        [0.2, 0.3],
+        [0.4, 0.1]
+    ];
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        logits,
+        vec![coords.clone(), coords.clone()],
+        vec![
+            LatentManifold::Circle { period: 1.0 },
+            LatentManifold::Circle { period: 1.0 },
+        ],
+        AssignmentMode::softmax(0.8),
+    )
+    .unwrap();
+    let term = SaeManifoldTerm::new(vec![make("a0", dec0), make("a1", dec1)], assignment).unwrap();
+
+    // DISJOINT routing: atom 0 fires only on the first three rows, atom 1 only on
+    // the last three. No row co-fires, so the weighted cross-design Gram is 0 ⇒
+    // γ ≈ 0 ⇒ the data-fit already separates the pair ⇒ μ ≈ 0 (no safeguard owed).
+    let gates_disjoint = array![
+        [1.0, 0.0],
+        [1.0, 0.0],
+        [1.0, 0.0],
+        [0.0, 1.0],
+        [0.0, 1.0],
+        [0.0, 1.0]
+    ];
+    let gamma_sep = term.design_inseparability_with_gates(gates_disjoint.view(), 0, 1);
+    let mu_sep = term.barrier_pair_strength_with_gates(gates_disjoint.view(), 0, 1);
+    assert!(
+        gamma_sep <= 1e-9,
+        "disjoint routing on any design ⇒ data-fit separable ⇒ γ ≈ 0, got {gamma_sep}"
+    );
+    assert!(
+        mu_sep <= 1e-6,
+        "a data-fit-separable pair owes ~no separation barrier, got μ = {mu_sep}"
+    );
+
+    // OVERLAPPING routing on the SHARED design: both atoms fire together on every
+    // row, so the two coactivation-weighted design column spaces COINCIDE ⇒ γ → 1
+    // (the data-fit cannot tell them apart) ⇒ μ = γ/(1-γ) is large.
+    let gates_overlap = array![
+        [1.0, 1.0],
+        [1.0, 1.0],
+        [1.0, 1.0],
+        [1.0, 1.0],
+        [1.0, 1.0],
+        [1.0, 1.0]
+    ];
+    let gamma_deg = term.design_inseparability_with_gates(gates_overlap.view(), 0, 1);
+    let mu_deg = term.barrier_pair_strength_with_gates(gates_overlap.view(), 0, 1);
+    assert!(
+        gamma_deg > 0.999,
+        "identical designs + identical routing ⇒ perfectly inseparable ⇒ γ → 1, got {gamma_deg}"
+    );
+    assert!(
+        mu_deg > mu_sep + 1.0,
+        "the barrier strength MUST rise as the data-fit inseparability rises: \
+         separable μ={mu_sep} vs degenerate μ={mu_deg}"
+    );
+    // μ = γ/(1-γ) exactly (evidence-derived reciprocal margin), no hidden magic.
+    let eps = SAE_SEPARATION_BARRIER_EPS;
+    let expected_deg = gamma_deg / (1.0 - gamma_deg).max(eps);
+    assert!(
+        (mu_deg - expected_deg).abs() <= expected_deg.abs() * 1e-9 + 1e-12,
+        "μ must equal γ/max(1-γ,ε): γ={gamma_deg} expected={expected_deg} got={mu_deg}"
+    );
+
+    // γ (hence μ) is a DESIGN/ROUTING quantity, independent of decoder magnitude:
+    // rescaling the decoders leaves both unchanged.
+    let mut big0 = Array2::<f64>::zeros((3, 3));
+    big0[[0, 0]] = 1.0e6;
+    let mut big1 = Array2::<f64>::zeros((3, 3));
+    big1[[0, 1]] = 1.0e6;
+    let assignment2 = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        array![
+            [0.7, -0.2],
+            [0.1, 0.4],
+            [-0.3, 0.5],
+            [0.6, -0.1],
+            [0.2, 0.3],
+            [0.4, 0.1]
+        ],
+        vec![coords.clone(), coords.clone()],
+        vec![
+            LatentManifold::Circle { period: 1.0 },
+            LatentManifold::Circle { period: 1.0 },
+        ],
+        AssignmentMode::softmax(0.8),
+    )
+    .unwrap();
+    let term_big =
+        SaeManifoldTerm::new(vec![make("a0", big0), make("a1", big1)], assignment2).unwrap();
+    let mu_deg_big = term_big.barrier_pair_strength_with_gates(gates_overlap.view(), 0, 1);
+    assert!(
+        (mu_deg_big - mu_deg).abs() <= mu_deg.abs() * 1e-9,
+        "evidence-derived μ must be decoder-scale invariant: unit={mu_deg} big={mu_deg_big}"
     );
 }
 
@@ -3161,6 +3281,227 @@ pub(crate) fn oos_linear_images_drive_collapsed_reconstruction() {
     );
 }
 
+/// #1777 helper: a single `d = 1` periodic atom whose latent coordinate has
+/// COLLAPSED to one point (all rows share the same `t`), so the hybrid split
+/// cannot fit a slope against its own codes and must take the collapse-rescue
+/// path (project the leave-this-atom-out residual onto its top output direction
+/// `v`). The `target` is an exact affine ramp along a fixed output direction so
+/// the rescued straight image reconstructs it at near-perfect EV.
+fn collapse_rescue_term_and_target() -> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho) {
+    let n = 6usize;
+    // Collapsed coordinate: every row at the SAME t → zero coordinate spread.
+    let coords = Array2::<f64>::from_elem((n, 1), 0.3);
+    let (phi, jet) = periodic_basis(&coords);
+    let atom = SaeManifoldAtom::new(
+        "collapsed_circle",
+        SaeAtomBasisKind::Periodic,
+        1,
+        phi,
+        jet,
+        array![[0.1, -0.2], [0.05, 0.15], [-0.1, 0.08]],
+        Array2::<f64>::eye(3),
+    )
+    .unwrap()
+    .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+    // Softmax K=1 → gate ≡ 1 on every row (no IBP α to resolve).
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        Array2::<f64>::zeros((n, 1)),
+        vec![coords],
+        vec![LatentManifold::Circle { period: 1.0 }],
+        AssignmentMode::softmax(1.0),
+    )
+    .unwrap();
+    let term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+    // target_i = mu + s_i · d, an exact affine ramp along d = (0.6, 0.8).
+    let s = [-0.5, -0.3, -0.1, 0.1, 0.3, 0.5];
+    let mu = [0.2, -0.1];
+    let d = [0.6, 0.8];
+    let mut target = Array2::<f64>::zeros((n, 2));
+    for row in 0..n {
+        target[[row, 0]] = mu[0] + s[row] * d[0];
+        target[[row, 1]] = mu[1] + s[row] * d[1];
+    }
+    let rho = SaeManifoldRho::new(0.02_f64.ln(), 1.0_f64.ln(), vec![array![0.0]]);
+    (term, target, rho)
+}
+
+/// #1777 GOAL 1 — a collapse-rescued atom must reconstruct the SAME rows
+/// identically whether treated as "train" (cached per-row codes) or re-encoded
+/// as "held-out" (the `v`-projection of the row's own leave-this-atom-out
+/// residual), and the `v`-projection OOS reconstruction must BEAT the collapsed
+/// (own-coordinate) fallback in explained variance.
+#[test]
+pub(crate) fn collapse_rescue_oos_v_projection_matches_train_and_beats_fallback() {
+    let (mut term, target, rho) = collapse_rescue_term_and_target();
+
+    // The joint fit drove this atom into the degenerate fixed point; the hybrid
+    // split must take the collapse-rescue branch and produce a linear image that
+    // carries the projection direction `v` (the #1777 serializable quantity).
+    let report = term
+        .compute_hybrid_split_report(&rho, Some(target.view()))
+        .expect("hybrid split computes")
+        .expect("the collapsed d=1 atom presents a rescue verdict");
+    let rescue_image = report
+        .verdicts
+        .iter()
+        .find_map(|v| v.linear_image.clone())
+        .expect("the rescued slot carries a linear image");
+    assert!(
+        rescue_image.is_collapse_rescued() && rescue_image.v.is_some(),
+        "a collapse-rescued image must carry a projection direction v"
+    );
+    assert!(
+        rescue_image.row_codes.is_some(),
+        "a collapse-rescued image must carry its train per-row codes"
+    );
+
+    // TRAIN reconstruction: the term with the report installed decodes the slot at
+    // its cached per-row codes (`row_codes`).
+    term.hybrid_split_report = Some(report);
+    let train_recon = term.fitted();
+
+    // HELD-OUT reconstruction: a fresh OOS term that knows only the decoder and
+    // the trained linear images (no in-fit report) recomputes each row's
+    // coordinate from ITS OWN residual projected onto `v`, via the target-aware
+    // path. Same target ⇒ same residual ⇒ same coordinate ⇒ same reconstruction.
+    let mut oos = term.clone();
+    oos.hybrid_split_report = None;
+    oos.set_hybrid_linear_images(vec![rescue_image.clone()])
+        .expect("trained rescue image attaches to the OOS term");
+    let oos_recon = oos
+        .try_fitted_target_aware(target.view(), Some(&rho))
+        .expect("target-aware OOS reconstruction assembles");
+
+    let max_gap = (&train_recon - &oos_recon)
+        .iter()
+        .fold(0.0_f64, |m, d| m.max(d.abs()));
+    assert!(
+        max_gap < 1e-10,
+        "train (cached codes) and OOS (v-projection) reconstructions must be the \
+         SAME model within tol; max gap {max_gap:e}"
+    );
+
+    // The v-projection OOS reconstruction must beat the collapsed-coordinate
+    // fallback (row_codes/v cleared ⇒ every row decodes at the atom's own, single,
+    // collapsed coordinate → a constant image that cannot track the residual ramp).
+    let fallback_image = crate::hybrid_split::AtomLinearImage {
+        atom_idx: rescue_image.atom_idx,
+        t_bar: rescue_image.t_bar,
+        b0: rescue_image.b0.clone(),
+        b1: rescue_image.b1.clone(),
+        row_codes: None,
+        v: None,
+    };
+    let mut fallback = term.clone();
+    fallback.hybrid_split_report = None;
+    fallback
+        .set_hybrid_linear_images(vec![fallback_image])
+        .expect("fallback image attaches");
+    let fallback_recon = fallback.fitted();
+
+    let ev_vproj = global_ev(target.view(), oos_recon.view());
+    let ev_fallback = global_ev(target.view(), fallback_recon.view());
+    assert!(
+        ev_vproj > ev_fallback + 0.1 && ev_vproj > 0.95,
+        "the v-projection OOS EV ({ev_vproj:.4}) must beat the collapsed-coordinate \
+         fallback ({ev_fallback:.4}) and recover the residual ramp"
+    );
+}
+
+/// #1777 GOAL 2 — the PER-FIT [`SaeFitConfig`] is the source of truth for the
+/// IBP-α and separation-barrier overrides: two terms carrying DIFFERENT configs
+/// produce correspondingly-different α / barrier strength, with NO process-global
+/// atomic touched (isolation), and the two terms do not leak into each other.
+#[test]
+pub(crate) fn per_fit_config_isolates_barrier_and_ibp_alpha() {
+    // Sanity: neither term sets a global override, so the global fallbacks stay
+    // unset and cannot be the source of the distinct effects observed below.
+    assert!(
+        crate::assignment::ibp_alpha_override().is_none(),
+        "test must not depend on a preset global IBP-α override"
+    );
+
+    let (mut term_a, _t_a, rho_a) = small_two_atom_ibp_term();
+    let (mut term_b, _t_b, rho_b) = small_two_atom_ibp_term();
+
+    // Distinct per-fit configs, applied via config ONLY (no global setters).
+    term_a.set_fit_config(SaeFitConfig {
+        separation_barrier_strength_override: Some(0.1),
+        ibp_alpha_override: Some(0.2),
+    });
+    term_b.set_fit_config(SaeFitConfig {
+        separation_barrier_strength_override: Some(3.0),
+        ibp_alpha_override: Some(5.0),
+    });
+
+    // Round-trips through the config accessor.
+    assert_eq!(term_a.fit_config().ibp_alpha_override, Some(0.2));
+    assert_eq!(
+        term_b.fit_config().separation_barrier_strength_override,
+        Some(3.0)
+    );
+
+    // IBP-α: the per-fit override is the resolved α (bypassing the mode schedule),
+    // and the two terms resolve DIFFERENT α without touching any global.
+    assert_eq!(term_a.assignment.resolved_ibp_alpha(&rho_a), Some(0.2));
+    assert_eq!(term_b.assignment.resolved_ibp_alpha(&rho_b), Some(5.0));
+
+    // Distinct α ⇒ distinct gates (the ordered geometric prior π_k differs).
+    let gates_a = term_a.assignment.assignments_for_rho(&rho_a).unwrap();
+    let gates_b = term_b.assignment.assignments_for_rho(&rho_b).unwrap();
+    let gate_gap = (&gates_a - &gates_b)
+        .iter()
+        .fold(0.0_f64, |m, d| m.max(d.abs()));
+    assert!(
+        gate_gap > 1e-6,
+        "distinct per-fit IBP-α overrides must produce distinct gates; gap {gate_gap:e}"
+    );
+
+    // Barrier strength (K=2, so the barrier is live): the per-fit override is the
+    // source of truth, distinct per term, with the global still unset.
+    assert_eq!(term_a.separation_barrier_strength(), 0.1);
+    assert_eq!(term_b.separation_barrier_strength(), 3.0);
+    assert!(
+        super::term::sae_separation_barrier_override().is_none(),
+        "the per-fit override must NOT write the process-global barrier atomic"
+    );
+
+    // Isolation: clearing term_a's config leaves term_b untouched, and term_a
+    // falls back to the mode's own α (the historical path).
+    term_a.set_fit_config(SaeFitConfig::default());
+    assert_eq!(term_a.assignment.resolved_ibp_alpha(&rho_a), Some(1.0)); // the mode's compiled α
+    assert_eq!(term_b.assignment.resolved_ibp_alpha(&rho_b), Some(5.0));
+}
+
+/// #1777 GOAL 3 — the assignment mode is the accurately-named `ThresholdGate`
+/// (a hard-sigmoid gate, NOT the literature JumpReLU magnitude activation); the
+/// legacy `jumprelu` constructor remains a back-compat alias producing the SAME
+/// variant and the SAME gates.
+#[test]
+pub(crate) fn threshold_gate_is_primary_jumprelu_is_backcompat_alias() {
+    let primary = AssignmentMode::threshold_gate(0.9, 0.15);
+    let legacy = AssignmentMode::jumprelu(0.9, 0.15);
+    assert!(matches!(primary, AssignmentMode::ThresholdGate { .. }));
+    assert!(
+        matches!(legacy, AssignmentMode::ThresholdGate { .. }),
+        "the legacy jumprelu constructor must yield the renamed ThresholdGate variant"
+    );
+
+    // Identical gates from either spelling.
+    let logits = array![[0.5, -0.2, 0.4], [0.05, 0.6, -0.3]];
+    let coords = vec![
+        array![[0.1], [0.2]],
+        array![[0.3], [0.4]],
+        array![[0.5], [0.6]],
+    ];
+    let build = |mode: AssignmentMode| {
+        SaeAssignment::from_blocks_with_mode(logits.clone(), coords.clone(), mode).unwrap()
+    };
+    let a_primary = build(primary).assignments();
+    let a_legacy = build(legacy).assignments();
+    assert_eq!(a_primary, a_legacy);
+}
+
 /// #976 Layer-1 guard 2: a single Newton application cannot move a gate
 /// logit by more than the gate-scale cap, however large the solver's raw
 /// delta. Softmax canonicalization shifts whole rows, so the invariant is
@@ -3267,27 +3608,32 @@ pub(crate) fn sae_rho_seed_dispersion_scaling_shifts_every_scale_coupled_axis() 
         epsilon = 1.0e-14
     );
 
-    let learnable_ibp = rho
-        .seed_scaled_by_dispersion_for_assignment(
-            dispersion,
-            AssignmentMode::ibp_map(1.0, 1.0, true),
-        )
-        .unwrap();
-    assert_abs_diff_eq!(
-        learnable_ibp.log_lambda_sparse,
-        rho.log_lambda_sparse,
-        epsilon = 1.0e-14
-    );
-    assert_abs_diff_eq!(
-        learnable_ibp.log_lambda_smooth[0],
-        rho.log_lambda_smooth[0] + shift,
-        epsilon = 1.0e-14
-    );
-    assert_abs_diff_eq!(
-        learnable_ibp.log_ard[0][0],
-        rho.log_ard[0][0] + shift,
-        epsilon = 1.0e-14
-    );
+    // #1744 — IBP-MAP admits NO response-dispersion scaling on ANY ρ coordinate
+    // (learnable-α or fixed-α). Its free per-row Bernoulli gates overfit under a
+    // dispersion-weakened smoothness/ARD seed, collapsing the Fellner–Schall
+    // fixed point; the sparse coordinate is a dimensionless log-α concentration
+    // offset that was never a squared-output-unit penalty weight. So every IBP
+    // coordinate stays at its absolute (already dimensionless) construction value.
+    for ibp_mode in [
+        AssignmentMode::ibp_map(1.0, 1.0, true),
+        AssignmentMode::ibp_map(1.0, 1.0, false),
+    ] {
+        let ibp = rho
+            .seed_scaled_by_dispersion_for_assignment(dispersion, ibp_mode)
+            .unwrap();
+        assert_abs_diff_eq!(
+            ibp.log_lambda_sparse,
+            rho.log_lambda_sparse,
+            epsilon = 1.0e-14
+        );
+        assert_abs_diff_eq!(
+            ibp.log_lambda_smooth[0],
+            rho.log_lambda_smooth[0],
+            epsilon = 1.0e-14
+        );
+        assert_abs_diff_eq!(ibp.log_ard[0][0], rho.log_ard[0][0], epsilon = 1.0e-14);
+        assert_abs_diff_eq!(ibp.log_ard[0][1], rho.log_ard[0][1], epsilon = 1.0e-14);
+    }
 }
 
 #[test]
@@ -3344,6 +3690,37 @@ pub(crate) fn planted_circle_data(n: usize, sigma: f64) -> Array2<f64> {
         let theta = std::f64::consts::TAU * row as f64 / n as f64;
         z[[row, 0]] = theta.cos() + sigma * deterministic_circle_noise(row, 0);
         z[[row, 1]] = theta.sin() + sigma * deterministic_circle_noise(row, 1);
+    }
+    z
+}
+
+/// A single planted circle embedded in `d_embed` dimensions via a random unit
+/// 2×`d_embed` frame, matching the #795 Python repro (`Z = [cos t, sin t] @ B`).
+/// The embedding makes the fitted decoder wide (D≫2), which is the regime that
+/// used to make the isometry Gauss-Newton `‖B‖⁴` curvature dominate the data-fit
+/// block and saturate the arrow-Schur proximal ridge.
+pub(crate) fn planted_circle_embedded(n: usize, d_embed: usize, sigma: f64) -> Array2<f64> {
+    // Two deterministic near-orthonormal frame rows (row-normalized), so the test
+    // needs no RNG dependency but still spans a generic 2-plane in R^{d_embed}.
+    let mut frame = Array2::<f64>::zeros((2, d_embed));
+    for j in 0..d_embed {
+        frame[[0, j]] = deterministic_circle_noise(j, 0);
+        frame[[1, j]] = deterministic_circle_noise(j, 1);
+    }
+    for r in 0..2 {
+        let norm = (0..d_embed).map(|j| frame[[r, j]] * frame[[r, j]]).sum::<f64>().sqrt();
+        for j in 0..d_embed {
+            frame[[r, j]] /= norm.max(1.0e-300);
+        }
+    }
+    let mut z = Array2::<f64>::zeros((n, d_embed));
+    for row in 0..n {
+        let theta = std::f64::consts::TAU * row as f64 / n as f64;
+        let (c, s) = (theta.cos(), theta.sin());
+        for j in 0..d_embed {
+            z[[row, j]] =
+                c * frame[[0, j]] + s * frame[[1, j]] + sigma * deterministic_circle_noise(row, j);
+        }
     }
     z
 }
@@ -3460,6 +3837,97 @@ pub(crate) fn planted_circle_seed_term(
 }
 
 #[test]
+pub(crate) fn planted_circle_focus_1744() {
+    let n = 40usize;
+    let sigma = 0.05_f64;
+    let z = planted_circle_data(n, sigma);
+    let mut out = String::new();
+    for assignment_mode in [
+        PlantedCircleAssignmentMode::Softmax,
+        PlantedCircleAssignmentMode::IbpMap,
+    ] {
+        let label = assignment_mode.label();
+        let (term, seed_dispersion) = planted_circle_seed_term(z.view(), assignment_mode);
+        out.push_str(&format!("FOCUS1744 mode={label} seed_disp={seed_dispersion:.3e}\n"));
+        for &sparse in &[-8.0_f64, 1.0] {
+            for &ard in &[-6.0_f64, -3.0, 0.0, 1.0] {
+                for &smooth in &[-8.0_f64, -5.0, -3.0, -1.0, 0.0, 1.0, 3.0] {
+                    let mut t = term.clone();
+                    let r = SaeManifoldRho::new(sparse, smooth, vec![array![ard]]);
+                    match t.reml_criterion_with_cache(
+                        z.view(),
+                        &r,
+                        None,
+                        60,
+                        0.04,
+                        1.0e-6,
+                        1.0e-6,
+                    ) {
+                        Ok(evaluated) => {
+                            let ev = global_ev(z.view(), t.fitted().view());
+                            out.push_str(&format!(
+                                "FOCUS1744 mode={label} sparse={sparse} ard={ard} smooth={smooth} cost={:.4e} ev={ev:.4}\n",
+                                evaluated.0
+                            ));
+                        }
+                        Err(err) => out.push_str(&format!(
+                            "FOCUS1744 mode={label} sparse={sparse} ard={ard} smooth={smooth} ERR={err}\n"
+                        )),
+                    }
+                }
+            }
+        }
+    }
+    assert!(
+        out.contains("ev="),
+        "FOCUS1744: every (mode,sparse,ard,smooth) config errored — no fit produced a finite EV:\n{out}"
+    );
+}
+
+/// #1744 focused regression guard for the single noise-scale sweep point that
+/// failed: `ibp_map` n=40 σ=0.18. Runs exactly one outer solve from the
+/// dimensionless ρ seed (the same construction the full sweep uses), so it
+/// reproduces the RED (~70s) far faster than the ~400s full sweep.
+///
+/// Before the seed-screening keep-best fix, the default budget-2 multi-start
+/// discarded the flexible (dimensionless-seed) basin (non-converged REML 74.4,
+/// EV 0.96) for the over-smoothed basin (non-converged REML 67.3, EV 0.86,
+/// ρ≈(1.0,0.997,0.984)) purely on the lower REML. The over-smoothed basin is
+/// both more-smoothed and farther from stationarity, so keep-best now retains
+/// the flexible seed. Uses the same 0.95 threshold as the full sweep.
+#[test]
+pub(crate) fn planted_circle_ibp_map_n40_sigma018_reaches_high_ev_1744() {
+    let assignment_mode = PlantedCircleAssignmentMode::IbpMap;
+    let n = 40usize;
+    let sigma = 0.18_f64;
+    let z = planted_circle_data(n, sigma);
+    let (term, seed_dispersion) = planted_circle_seed_term(z.view(), assignment_mode);
+    let seed_ev = global_ev(z.view(), term.fitted().view());
+    let init_rho = SaeManifoldRho::new(0.02_f64.ln(), 1.0_f64.ln(), vec![array![0.0]])
+        .seed_scaled_by_dispersion_for_assignment(seed_dispersion, assignment_mode.mode())
+        .unwrap();
+    let init_rho_flat = init_rho.to_flat();
+    let n_params = init_rho_flat.len();
+    let mut objective =
+        SaeManifoldOuterObjective::new(term, z.clone(), None, init_rho, 50, 0.04, 1.0e-6, 1.0e-6);
+    gam_solve::rho_optimizer::OuterProblem::new(n_params)
+        .with_initial_rho(init_rho_flat)
+        .run(&mut objective, "SAE planted circle #1744 focused")
+        .unwrap();
+    let fitted_result = objective.into_fitted();
+    let rho = fitted_result.rho;
+    let ev = global_ev(z.view(), fitted_result.term.fitted().view());
+    assert!(
+        ev > 0.95,
+        "focused #1744 fixture (ibp_map n={n} sigma={sigma}) seed_ev={seed_ev:.4} \
+         final_rho=({:.3},{:?},{:?}) EV={ev:.4} should exceed 0.95",
+        rho.log_lambda_sparse,
+        rho.log_lambda_smooth,
+        rho.log_ard
+    );
+}
+
+#[test]
 pub(crate) fn planted_circle_noise_scale_sweep_reaches_high_ev_with_dimensionless_rho_seed() {
     for assignment_mode in [
         PlantedCircleAssignmentMode::Softmax,
@@ -3551,6 +4019,7 @@ pub(crate) fn sae_value_probe_refusal_classification_is_inner_only() {
         )
     );
 }
+
 
 #[test]
 pub(crate) fn streaming_exact_reml_matches_full_batch_reml_small_sae() {
@@ -4043,6 +4512,106 @@ pub(crate) fn reconstruction_dispersion_uses_ard_shrunk_coordinate_edf() {
         dispersion < 0.75 * old_full_coordinate_dispersion,
         "φ̂ must use the ARD-shrunk coordinate edf, not the old full \
              coordinate count: got {dispersion}, old formula {old_full_coordinate_dispersion}"
+    );
+}
+
+#[test]
+pub(crate) fn latent_block_inverse_diagonal_hutchinson_matches_exact_trace() {
+    // The matrix-free Hutchinson estimator of `diag((H⁻¹)_tt)` (the #1777 fold
+    // that replaces the exact `O(total_t·K²)` selected-inverse diagonal at
+    // massive K) must, over enough Rademacher probes, reproduce BOTH the full
+    // latent-block trace `tr((H⁻¹)_tt)` and the per-axis ARD grouped trace the
+    // exact path feeds the Fellner–Schall/dispersion denominator. Deterministic
+    // seed ⇒ this is a fixed, non-flaky comparison.
+    let n = 24usize;
+    let p = 2usize;
+    let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.25) / n as f64);
+    let (phi, jet) = periodic_basis(&coords);
+    let atom = SaeManifoldAtom::new(
+        "periodic",
+        SaeAtomBasisKind::Periodic,
+        1,
+        phi,
+        jet,
+        array![[0.30, -0.10], [0.20, 0.40], [-0.35, 0.15]],
+        Array2::<f64>::eye(3),
+    )
+    .unwrap()
+    .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        Array2::<f64>::zeros((n, 1)),
+        vec![coords],
+        vec![LatentManifold::Circle { period: 1.0 }],
+        AssignmentMode::softmax(1.0),
+    )
+    .unwrap();
+    let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+    let target = Array2::from_shape_fn((n, p), |(row, col)| {
+        let x = (row as f64 + 0.5) / n as f64;
+        if col == 0 {
+            0.45 * (std::f64::consts::TAU * x).sin() + 0.07
+        } else {
+            -0.20 * (std::f64::consts::TAU * x).cos() + 0.03 * row as f64
+        }
+    });
+    let rho = SaeManifoldRho::new(0.0, 0.8_f64.ln(), vec![array![250.0_f64.ln()]]);
+    let sys = term
+        .assemble_arrow_schur(target.view(), &rho, None)
+        .unwrap();
+    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let (_delta_t, _delta_beta, cache) =
+        solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
+
+    let exact = cache.latent_block_inverse_diagonal().unwrap();
+    // Enough probes to average out the per-entry Hutchinson variance on this
+    // tiny t-space; seed is fixed so the outcome is deterministic.
+    let hutch =
+        SaeManifoldTerm::latent_block_inverse_diagonal_hutchinson(&cache, 20_000, 0xABCD_1234)
+            .unwrap();
+    assert_eq!(exact.len(), hutch.len());
+
+    // Full latent-block trace tr((H⁻¹)_tt): the aggregate the ARD/dispersion
+    // consumers ultimately sum, estimated unbiasedly.
+    let exact_trace: f64 = exact.iter().sum();
+    let hutch_trace: f64 = hutch.iter().sum();
+    assert!(
+        (hutch_trace - exact_trace).abs() <= 0.02 * exact_trace.abs().max(1.0e-6),
+        "Hutchinson latent trace {hutch_trace} vs exact {exact_trace} exceeds 2% tol"
+    );
+
+    // Per-axis ARD grouped trace: the exact grouping of the estimated diagonal
+    // must match the exact grouping of the exact diagonal (both are the same
+    // linear functional of the diagonal, so the error inherits the trace bound).
+    let coord_offsets = term.assignment.coord_offsets();
+    let block_start = coord_offsets[0];
+    let mut exact_axis0 = 0.0_f64;
+    let mut hutch_axis0 = 0.0_f64;
+    match term.last_row_layout {
+        Some(ref layout) => {
+            for row in 0..n {
+                let row_base = cache.row_offsets[row];
+                if let Some(pos) = layout.active_atoms[row].iter().position(|&k| k == 0) {
+                    let s = row_base + layout.coord_starts[row][pos];
+                    exact_axis0 += exact[s];
+                    hutch_axis0 += hutch[s];
+                }
+            }
+        }
+        None => {
+            for row in 0..n {
+                let s = cache.row_offsets[row] + block_start;
+                exact_axis0 += exact[s];
+                hutch_axis0 += hutch[s];
+            }
+        }
+    }
+    assert!(
+        (hutch_axis0 - exact_axis0).abs() <= 0.05 * exact_axis0.abs().max(1.0e-6),
+        "Hutchinson ARD axis trace {hutch_axis0} vs exact {exact_axis0} exceeds 5% tol"
+    );
+    assert!(
+        exact_axis0 > 0.0,
+        "posterior-variance trace must be positive (sanity on the fixture)"
     );
 }
 

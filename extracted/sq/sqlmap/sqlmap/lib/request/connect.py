@@ -7,6 +7,7 @@ See the file 'LICENSE' for copying permission
 
 import binascii
 import inspect
+import io
 import logging
 import os
 import random
@@ -228,6 +229,7 @@ class Connect(object):
     @staticmethod
     def _connReadProxy(conn):
         parts = []
+        kb.respTruncated = False
 
         if not kb.dnsMode and conn:
             headers = conn.info()
@@ -254,6 +256,7 @@ class Connect(object):
                         singleTimeWarnMessage(warnMsg)
                         part = re.sub(getBytes(r"(?si)%s.+?%s" % (kb.chars.stop, kb.chars.start)), getBytes("%s%s%s" % (kb.chars.stop, LARGE_READ_TRIM_MARKER, kb.chars.start)), part)
                         parts.append(part)
+                        kb.respTruncated = True  # response exceeded the read cap and was trimmed (signal for chunked UNION dumping)
                     else:
                         parts.append(part)
                         break
@@ -261,6 +264,7 @@ class Connect(object):
                     if sum(len(_) for _ in parts) > MAX_CONNECTION_TOTAL_SIZE:
                         warnMsg = "too large response detected. Automatically trimming it"
                         singleTimeWarnMessage(warnMsg)
+                        kb.respTruncated = True
                         break
 
         if conf.yuge:
@@ -287,6 +291,7 @@ class Connect(object):
         cookie = kwargs.get("cookie", None)
         ua = kwargs.get("ua", None) or conf.agent
         referer = kwargs.get("referer", None) or conf.referer
+        host = kwargs.get("host", None)
         direct_ = kwargs.get("direct", False)
         multipart = kwargs.get("multipart", None)
         silent = kwargs.get("silent", False)
@@ -421,7 +426,7 @@ class Connect(object):
             elif target:
                 if conf.forceSSL:
                     url = re.sub(r"(?i)\A(http|ws):", r"\g<1>s:", url)
-                    url = re.sub(r"(?i):80/", ":443/", url)
+                    url = re.sub(r"(?i):80(?=[/?#]|\Z)", ":443", url)
 
                 if PLACE.GET in conf.parameters and not get:
                     get = conf.parameters[PLACE.GET]
@@ -447,7 +452,7 @@ class Connect(object):
             requestMsg += " %s" % _http_client.HTTPConnection._http_vsn_str
 
             # Prepare HTTP headers
-            headers = forgeHeaders({HTTP_HEADER.COOKIE: cookie, HTTP_HEADER.USER_AGENT: ua, HTTP_HEADER.REFERER: referer, HTTP_HEADER.HOST: getHeader(dict(conf.httpHeaders), HTTP_HEADER.HOST) or getHostHeader(url)}, base=None if target else {})
+            headers = forgeHeaders({HTTP_HEADER.COOKIE: cookie, HTTP_HEADER.USER_AGENT: ua, HTTP_HEADER.REFERER: referer, HTTP_HEADER.HOST: host or getHeader(dict(conf.httpHeaders), HTTP_HEADER.HOST) or getHostHeader(url)}, base=None if target else {})
 
             if HTTP_HEADER.COOKIE in headers:
                 cookie = headers[HTTP_HEADER.COOKIE]
@@ -505,7 +510,7 @@ class Connect(object):
 
             for key, value in list(headers.items()):
                 if key.upper() == HTTP_HEADER.ACCEPT_ENCODING.upper():
-                    value = re.sub(r"(?i)(,)br(,)?", lambda match: ',' if match.group(1) and match.group(2) else "", value) or "identity"
+                    value = ','.join(_ for _ in re.split(r"\s*,\s*", value) if _.split(';', 1)[0].lower() != "br") or "identity"
 
                 del headers[key]
                 if isinstance(value, six.string_types):
@@ -519,7 +524,7 @@ class Connect(object):
             if webSocket:
                 ws = websocket.WebSocket()
                 ws.settimeout(WEBSOCKET_INITIAL_TIMEOUT if kb.webSocketRecvCount is None else timeout)
-                wsHeaders = tuple("%s: %s" % _ for _ in headers.items() if _[0] not in ("Host",))
+                wsHeaders = tuple("%s: %s" % (getUnicode(key), getUnicode(value)) for key, value in headers.items() if getUnicode(key).upper() != HTTP_HEADER.HOST.upper())
                 ws.connect(url, header=wsHeaders, cookie=cookie)  # WebSocket will add Host field of headers automatically
                 ws.send(urldecode(post or ""))
 
@@ -529,6 +534,10 @@ class Connect(object):
                     while True:
                         try:
                             _page.append(ws.recv())
+                            if sum(len(_) for _ in _page) > MAX_CONNECTION_TOTAL_SIZE:
+                                warnMsg = "too large websocket response detected. Automatically trimming it"
+                                singleTimeWarnMessage(warnMsg)
+                                break
                         except websocket.WebSocketTimeoutException:
                             kb.webSocketRecvCount = len(_page)
                             break
@@ -540,7 +549,7 @@ class Connect(object):
 
                 ws.close()
                 code = ws.status
-                status = _http_client.responses[code]
+                status = _http_client.responses.get(code, "")
 
                 class _(dict):
                     pass
@@ -638,6 +647,9 @@ class Connect(object):
                     except (httpx.HTTPError, httpx.InvalidURL, httpx.CookieConflict, httpx.StreamError) as ex:
                         raise _http_client.HTTPException(getSafeExString(ex))
                     else:
+                        if conn.status_code >= 400:
+                            raise _urllib.error.HTTPError(url, conn.status_code, conn.reason_phrase, conn.headers, io.BytesIO(conn.read()))
+
                         conn.code = conn.status_code
                         conn.msg = conn.reason_phrase
                         conn.info = lambda c=conn: c.headers
@@ -994,7 +1006,7 @@ class Connect(object):
 
         # Dirty patch for Python3.11.0a7 (e.g. https://github.com/sqlmapproject/sqlmap/issues/5091)
         if not sys.version.startswith("3.11."):
-            if conf.retryOn and re.search(conf.retryOn, page, re.I):
+            if conf.retryOn and re.search(conf.retryOn, page or "", re.I):
                 if threadData.retriesCount < conf.retries:
                     warnMsg = "forced retry of the request because of undesired page content"
                     logger.warning(warnMsg)
@@ -1006,7 +1018,7 @@ class Connect(object):
             if conn and getattr(conn, "redurl", None):
                 _ = _urllib.parse.urlsplit(conn.redurl)
                 _ = ("%s%s" % (_.path or "/", ("?%s" % _.query) if _.query else ""))
-                requestMsg = re.sub(r"(\n[A-Z]+ ).+?( HTTP/\d)", r"\g<1>%s\g<2>" % getUnicode(_).replace("\\", "\\\\"), requestMsg, 1)
+                requestMsg = re.sub(r"(\n[A-Z]+ ).+?( HTTP/\d)", r"\g<1>%s\g<2>" % getUnicode(_).replace("\\", "\\\\"), requestMsg, count=1)
 
                 if kb.resendPostOnRedirect is False:
                     requestMsg = re.sub(r"(\[#\d+\]:\n)POST ", r"\g<1>GET ", requestMsg)
@@ -1154,7 +1166,7 @@ class Connect(object):
                         postUrlEncode = False
 
             if conf.hpp:
-                if not any(conf.url.lower().endswith(_.lower()) for _ in (WEB_PLATFORM.ASP, WEB_PLATFORM.ASPX)):
+                if (extractRegexResult(r"\.(?P<result>\w+)(?:\?|\Z)", conf.url) or "").lower() not in (WEB_PLATFORM.ASP, WEB_PLATFORM.ASPX):
                     warnMsg = "HTTP parameter pollution should work only against "
                     warnMsg += "ASP(.NET) targets"
                     singleTimeWarnMessage(warnMsg)
@@ -1370,7 +1382,8 @@ class Connect(object):
                         variables[name] = value
 
             if post and kb.postHint in (POST_HINT.JSON, POST_HINT.JSON_LIKE):
-                for name, value in (parseJson(post) or {}).items():
+                json_ = parseJson(post)
+                for name, value in (json_ if isinstance(json_, dict) else {}).items():
                     if safeVariableNaming(name) != name:
                         conf.evalCode = re.sub(r"\b%s\b" % re.escape(name), safeVariableNaming(name), conf.evalCode)
                         name = safeVariableNaming(name)
@@ -1616,10 +1629,7 @@ class Connect(object):
                         if payload is None:
                             value = value.replace(kb.customInjectionMark, "")
                         else:
-                            try:
-                                value = re.sub(r"\w*%s" % re.escape(kb.customInjectionMark), payload, value)
-                            except re.error:
-                                value = re.sub(r"\w*%s" % re.escape(kb.customInjectionMark), re.escape(payload), value)
+                            value = re.sub(r"\w*%s" % re.escape(kb.customInjectionMark), lambda _: payload, value)  # Note: function replacement inserts payload literally - avoids re.sub interpreting backslashes / group refs (e.g. \1, \g<...>) in the payload
                     return value
                 page, headers, code = Connect.getPage(url=_(kb.secondReq[0]), post=_(kb.secondReq[2]), method=kb.secondReq[1], cookie=kb.secondReq[3], silent=silent, auxHeaders=dict(auxHeaders, **dict(kb.secondReq[4])), response=response, raise404=False, ignoreTimeout=timeBasedCompare, refreshing=True)
 

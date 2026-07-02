@@ -37,6 +37,13 @@ class LinearDictionaryFit:
     top_k: int
     code_ridge: float
     training_data: np.ndarray
+    # When the K=1 centered-PCA-ceiling lane is active the model is AFFINE
+    # (mean + rank-1), so held-out transform/reconstruct must subtract/add the
+    # training column mean. `centered` is only true for the K=1 centered lane;
+    # for every other model it is False and `mean` is a zero vector, keeping the
+    # linear (mean-free) behavior byte-identical.
+    centered: bool = False
+    mean: np.ndarray | None = None
 
     def reconstruct(self, assignments: Any | None = None) -> np.ndarray:
         codes = self.assignments if assignments is None else _as_2d_float(assignments, "assignments")
@@ -44,9 +51,18 @@ class LinearDictionaryFit:
             raise ValueError(
                 f"assignments must have K={self.atoms.shape[0]} columns; got {codes.shape[1]}"
             )
-        return np.ascontiguousarray(codes @ self.atoms)
+        recon = codes @ self.atoms
+        if self.centered and self.mean is not None:
+            recon = recon + self.mean
+        return np.ascontiguousarray(recon)
 
     def transform(self, X: Any, top_k: int | None = None) -> np.ndarray:
+        """Encode held-out rows ``X`` (``M x P``) against the fitted dictionary.
+
+        Routes the top-``top_k`` ridge least-squares encode through the Rust
+        core (``linear_dictionary_transform``); Python only applies the affine
+        centering used by the K=1 centered lane. Returns the ``M x K`` codes.
+        """
         x = _as_2d_float(X, "X")
         if x.shape[1] != self.atoms.shape[1]:
             raise ValueError(
@@ -57,13 +73,13 @@ class LinearDictionaryFit:
             raise ValueError(
                 f"top_k must be in [1, K={self.atoms.shape[0]}]; got {k_active}"
             )
-        scores = x @ self.atoms.T
-        gram = self.atoms @ self.atoms.T
-        codes = np.zeros((x.shape[0], self.atoms.shape[0]), dtype=np.float64)
-        for row in range(x.shape[0]):
-            active = np.argpartition(np.abs(scores[row]), -k_active)[-k_active:]
-            system = gram[np.ix_(active, active)] + self.code_ridge * np.eye(k_active)
-            codes[row, active] = np.linalg.solve(system, scores[row, active])
+        x_eff = x - self.mean if (self.centered and self.mean is not None) else x
+        codes = rust_module().linear_dictionary_transform_ffi(
+            np.ascontiguousarray(x_eff, dtype=np.float64),
+            np.ascontiguousarray(self.atoms, dtype=np.float64),
+            int(k_active),
+            float(self.code_ridge),
+        )
         return np.ascontiguousarray(codes)
 
 
@@ -77,6 +93,7 @@ def linear_dictionary_fit(
     temperature: float = 0.25,
     code_ridge: float = 1.0e-8,
     tolerance: float = 1.0e-7,
+    center_rank_one: bool = False,
 ) -> LinearDictionaryFit:
     x = _as_2d_float(X, "X")
     payload = rust_module().linear_dictionary_fit(
@@ -88,8 +105,13 @@ def linear_dictionary_fit(
         temperature=float(temperature),
         code_ridge=float(code_ridge),
         tolerance=float(tolerance),
+        center_rank_one=bool(center_rank_one),
     )
     data = dict(payload)
+    # The Rust centered lane only engages at K=1; mirror that so the affine
+    # (mean-aware) transform/reconstruct is used exactly when the fit is centered.
+    is_centered = bool(center_rank_one) and int(K) == 1
+    mean = x.mean(axis=0) if is_centered else np.zeros(x.shape[1], dtype=np.float64)
     return LinearDictionaryFit(
         atoms=np.ascontiguousarray(data["atoms"], dtype=np.float64),
         assignments=np.ascontiguousarray(data["assignments"], dtype=np.float64),
@@ -103,6 +125,8 @@ def linear_dictionary_fit(
         top_k=int(data["top_k"]),
         code_ridge=float(code_ridge),
         training_data=x,
+        centered=is_centered,
+        mean=np.ascontiguousarray(mean, dtype=np.float64),
     )
 
 

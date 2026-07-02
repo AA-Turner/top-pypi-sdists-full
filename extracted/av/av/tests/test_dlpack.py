@@ -1,4 +1,6 @@
 import gc
+from fractions import Fraction
+from typing import cast
 
 import numpy
 import pytest
@@ -6,6 +8,7 @@ import pytest
 import av
 from av import VideoFrame
 from av.codec.hwaccel import HWAccel
+from av.video.codeccontext import VideoCodecContext
 
 from .common import assertNdarraysEqual, fate_png
 
@@ -235,15 +238,56 @@ def test_video_plane_dlpack_export_keeps_frame_alive_after_gc() -> None:
     assertNdarraysEqual(y_dl, expected)
 
 
-def test_video_plane_dlpack_unsupported_format_raises() -> None:
-    rgb = numpy.zeros((16, 16, 3), dtype=numpy.uint8)
+def test_video_plane_dlpack_export_packed_rgb_cpu() -> None:
+    # Packed formats interleave several components in one plane and export as
+    # a 3D (H, W, C) tensor (issue #2217).
+    rgb = (numpy.arange(16 * 24 * 3) % 251).astype(numpy.uint8).reshape(16, 24, 3)
     frame = VideoFrame.from_ndarray(rgb, format="rgb24")
+    plane = frame.planes[0]
+    assert plane.__dlpack_device__() == (1, 0)
+
+    arr = numpy.from_dlpack(plane)
+    assert arr.shape == (16, 24, 3)
+    assert arr.strides == (plane.line_size, 3, 1)
+    assert arr.dtype == numpy.uint8
+    assertNdarraysEqual(arr, rgb)
+
+
+def test_video_plane_dlpack_export_planar_yuv_cpu() -> None:
+    # Planar formats expose each single-component plane as a 2D (H, W) tensor
+    # (issue #2217).
+    frame = VideoFrame(16, 16, "yuv420p")
+    for index, (h, w) in enumerate([(16, 16), (8, 8), (8, 8)]):
+        plane = frame.planes[index]
+        assert plane.__dlpack_device__() == (1, 0)
+        arr = numpy.from_dlpack(plane)
+        assert arr.shape == (h, w)
+        assert arr.strides == (plane.line_size, 1)
+        assert arr.dtype == numpy.uint8
+
+
+def test_video_plane_dlpack_export_planar_yuv16_cpu() -> None:
+    # 16-bit planar formats export as uint16.
+    frame = VideoFrame(16, 16, "yuv420p10le")
+    arr = numpy.from_dlpack(frame.planes[0])
+    assert arr.shape == (16, 16)
+    assert arr.dtype == numpy.uint16
+
+
+def test_video_plane_dlpack_unsupported_format_raises() -> None:
+    # Palette formats still cannot be exported.
+    frame = VideoFrame(16, 16, "pal8")
     assert frame.planes[0].__dlpack_device__() == (1, 0)
 
     with pytest.raises(
-        NotImplementedError, match="unsupported sw_format for DLPack export"
+        NotImplementedError,
+        match="bitstream, palette, and Bayer formats are not supported",
     ):
         frame.planes[0].__dlpack__()
+
+
+def test_sw_format_none_for_software_frame() -> None:
+    assert VideoFrame(16, 16, "yuv420p").sw_format is None
 
 
 def test_video_frame_from_dlpack_requires_two_planes() -> None:
@@ -252,13 +296,104 @@ def test_video_frame_from_dlpack_requires_two_planes() -> None:
         VideoFrame.from_dlpack(y, format="nv12")
 
 
-def test_video_frame_from_dlpack_rejects_unsupported_format() -> None:
-    width, height = 64, 48
-    y = numpy.zeros((height, width), dtype=numpy.uint8)
-    uv = numpy.zeros((height // 2, width // 2, 2), dtype=numpy.uint8)
+def test_video_frame_from_dlpack_rejects_packed_format() -> None:
+    # Packed formats interleave several components in one plane and cannot be
+    # imported (only planar single-component formats and the nv12 family are).
+    rgb = numpy.zeros((16, 16, 3), dtype=numpy.uint8)
 
-    with pytest.raises(NotImplementedError, match="supports nv12, p010le, p016le only"):
-        VideoFrame.from_dlpack((y, uv), format="yuv420p")
+    with pytest.raises(NotImplementedError, match="is not supported"):
+        VideoFrame.from_dlpack((rgb,), format="rgb24")
+
+
+@pytest.mark.parametrize(
+    "fmt,dtype,planes_hw",
+    [
+        ("yuv420p", numpy.uint8, [(48, 64), (24, 32), (24, 32)]),
+        ("yuv422p", numpy.uint8, [(48, 64), (48, 32), (48, 32)]),
+        ("yuv444p", numpy.uint8, [(48, 64), (48, 64), (48, 64)]),
+        ("gray", numpy.uint8, [(48, 64)]),
+        ("yuv420p10le", numpy.uint16, [(48, 64), (24, 32), (24, 32)]),
+    ],
+)
+def test_video_frame_from_dlpack_planar_cpu(fmt, dtype, planes_hw) -> None:
+    # Issue #2217: planar formats whose planes each hold one component round
+    # trip through DLPack without a NumPy intermediate.
+    width, height = 64, 48
+    make = _make_u16 if dtype == numpy.uint16 else _make_u8
+    src = [make((h, w)) for (h, w) in planes_hw]
+
+    frame = VideoFrame.from_dlpack(tuple(src), format=fmt)
+
+    assert frame.format.name == fmt
+    assert frame.width == width and frame.height == height
+    assert len(frame.planes) == len(src)
+
+    for i, plane in enumerate(frame.planes):
+        arr = numpy.from_dlpack(plane)
+        assert arr.dtype == dtype
+        assert arr.shape == planes_hw[i]
+        assertNdarraysEqual(arr, src[i])
+
+
+def test_video_frame_from_dlpack_yuv420p_zero_copy_and_lifetime() -> None:
+    width, height = 64, 48
+    y = _make_u8((height, width))
+    u = _make_u8((height // 2, width // 2))
+    v = _make_u8((height // 2, width // 2))
+
+    frame = VideoFrame.from_dlpack((y, u, v), format="yuv420p")
+
+    # Mutating the source is visible through the frame (zero copy).
+    y[0, 0] = 200
+    assert memoryview(frame.planes[0])[0] == 200
+
+    expected = [y.copy(), u.copy(), v.copy()]
+    del y, u, v
+    gc.collect()
+
+    for i, plane in enumerate(frame.planes):
+        assertNdarraysEqual(numpy.from_dlpack(plane), expected[i])
+
+
+def test_video_frame_from_dlpack_yuv420p_with_pitch() -> None:
+    width, height = 64, 48
+    pad = 16
+
+    y = _make_u8((height, width + pad))[:, :width]
+    u = _make_u8((height // 2, (width + pad) // 2))[:, : width // 2]
+    v = _make_u8((height // 2, (width + pad) // 2))[:, : width // 2]
+
+    frame = VideoFrame.from_dlpack((y, u, v), format="yuv420p")
+
+    assert frame.planes[0].line_size == width + pad
+    assert frame.planes[1].line_size == (width + pad) // 2
+    assertNdarraysEqual(numpy.from_dlpack(frame.planes[0]), y)
+    assertNdarraysEqual(numpy.from_dlpack(frame.planes[1]), u)
+    assertNdarraysEqual(numpy.from_dlpack(frame.planes[2]), v)
+
+
+def test_video_frame_from_dlpack_planar_wrong_plane_count() -> None:
+    y = numpy.zeros((48, 64), dtype=numpy.uint8)
+    u = numpy.zeros((24, 32), dtype=numpy.uint8)
+
+    with pytest.raises(ValueError, match=r"requires 3 plane\(s\), got 2"):
+        VideoFrame.from_dlpack((y, u), format="yuv420p")
+
+
+def test_video_frame_from_dlpack_planar_rejects_odd_dimensions() -> None:
+    y = numpy.zeros((48, 63), dtype=numpy.uint8)
+    u = numpy.zeros((24, 32), dtype=numpy.uint8)
+    v = numpy.zeros((24, 32), dtype=numpy.uint8)
+
+    with pytest.raises(ValueError, match="must be even"):
+        VideoFrame.from_dlpack((y, u, v), format="yuv420p")
+
+
+def test_video_frame_from_dlpack_planar_rejects_palette() -> None:
+    idx = numpy.zeros((16, 16), dtype=numpy.uint8)
+
+    with pytest.raises(NotImplementedError, match="palette"):
+        VideoFrame.from_dlpack((idx,), format="pal8")
 
 
 def test_video_frame_from_dlpack_rejects_device_id_for_cpu() -> None:
@@ -484,3 +619,39 @@ def test_video_frame_from_dlpack_cuda_hw_frame_behavior_if_available() -> None:
                 frame.to_ndarray(format="cuda")
     except av.FFmpegError as e:
         pytest.skip(f"CUDA hwcontext not available in this build/runtime: {e}")
+
+
+def test_encode_cuda_frame_with_nvenc_if_available() -> None:
+    # Issue #2199: a CUDA frame from DLPack should encode on the GPU directly.
+    # Its hw_frames_ctx must propagate to the encoder before avcodec_open2.
+    backend = _get_cuda_backend()
+    if backend is None:
+        pytest.skip("CUDA backend (cupy/torch) not available.")
+
+    name, mod = backend
+    width, height = 256, 256
+
+    try:
+        if name == "torch":
+            y = mod.zeros((height, width), dtype=mod.uint8, device="cuda")
+            uv = mod.zeros((height // 2, width // 2, 2), dtype=mod.uint8, device="cuda")
+        else:
+            y = mod.zeros((height, width), dtype=mod.uint8)
+            uv = mod.zeros((height // 2, width // 2, 2), dtype=mod.uint8)
+
+        frame = VideoFrame.from_dlpack((y, uv), format="nv12")
+        assert frame.format.name == "cuda"
+        assert frame.sw_format is not None and frame.sw_format.name == "nv12"
+
+        cc = cast(VideoCodecContext, av.CodecContext.create("h264_nvenc", "w"))
+        cc.width = width
+        cc.height = height
+        cc.time_base = Fraction(1, 24)
+        cc.framerate = Fraction(24, 1)
+        cc.pix_fmt = "cuda"
+
+        packets = cc.encode(frame)
+        packets += cc.encode(None)  # flush
+        assert any(p.size for p in packets)
+    except av.FFmpegError as e:
+        pytest.skip(f"nvenc/CUDA not available in this build/runtime: {e}")

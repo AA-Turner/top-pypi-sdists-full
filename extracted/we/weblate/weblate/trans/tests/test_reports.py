@@ -116,7 +116,7 @@ class BaseReportsTest(ViewTestCase):
             source=source,
             target="Translation memory result",
             origin="test",
-            project=self.project,
+            legacy_project=self.project,
             status=Memory.STATUS_ACTIVE,
         )
 
@@ -617,8 +617,10 @@ class ReportsComponentTest(BaseReportsTest):
 
     def test_counts_view_year(self) -> None:
         year = timezone.now().year - 1
-        end = timezone.make_aware(datetime(year, 12, 31))  # noqa: DTZ001
-        start = timezone.make_aware(datetime(year, 1, 1))  # noqa: DTZ001
+        # ruff: ignore[call-datetime-without-tzinfo]
+        end = timezone.make_aware(datetime(year, 12, 31))
+        # ruff: ignore[call-datetime-without-tzinfo]
+        start = timezone.make_aware(datetime(year, 1, 1))
         period = f"{start.strftime('%m/%d/%Y')} - {end.strftime('%m/%d/%Y')}"
         response = self.get_counts("json", period=period)
         self.assertEqual(response.status_code, 200)
@@ -626,8 +628,10 @@ class ReportsComponentTest(BaseReportsTest):
 
     def test_counts_view_this_year(self) -> None:
         year = timezone.now().year
-        end = timezone.make_aware(datetime(year, 12, 31))  # noqa: DTZ001
-        start = timezone.make_aware(datetime(year, 1, 1))  # noqa: DTZ001
+        # ruff: ignore[call-datetime-without-tzinfo]
+        end = timezone.make_aware(datetime(year, 12, 31))
+        # ruff: ignore[call-datetime-without-tzinfo]
+        start = timezone.make_aware(datetime(year, 1, 1))
         period = f"{start.strftime('%m/%d/%Y')} - {end.strftime('%m/%d/%Y')}"
         response = self.get_counts("json", period=period)
         self.assertEqual(response.status_code, 200)

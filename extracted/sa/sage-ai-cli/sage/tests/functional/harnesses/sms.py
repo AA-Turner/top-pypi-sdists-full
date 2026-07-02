@@ -73,16 +73,23 @@ def execute(request: dict, model: str) -> TestResult:
     }
     (sage_dir / "sms_config.json").write_text(json.dumps(sms_config, indent=2))
     
-    # We must copy the REAL auth token to the test home so the bridge is fully authenticated
-    real_home_sage = Path(os.path.expanduser("~/.sage/auth.json"))
-    if real_home_sage.exists():
-        (sage_dir / "auth.json").write_text(real_home_sage.read_text())
+    # Write a mock auth token so the bridge authenticates as test-uid, matching the webhook
+    mock_auth = {
+        "uid": "test-uid",
+        "email": "test@example.com",
+        "id_token": "test-token",
+        "refresh_token": "test-refresh",
+        "expires_at": time.time() + 3600,
+        "tier": "pro"
+    }
+    (sage_dir / "auth.json").write_text(json.dumps(mock_auth))
     
     backend_url = os.environ.get("SAGE_API_BASE", "http://127.0.0.1:8091")
     
     import sys
     real_home = Path.home().resolve()
     env = os.environ.copy()
+    env["SAGE_TESTING"] = "1"
     env["HOME"] = str(test_home)
     playwright_browsers_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
     if not playwright_browsers_path:
@@ -97,12 +104,15 @@ def execute(request: dict, model: str) -> TestResult:
     env["SAGE_DISABLE_RAG"] = "1"
     
     # Ensure subprocess can import the 'sage' package
-    repo_root = Path(__file__).resolve().parent.parent.parent.parent.parent
-    env["PYTHONPATH"] = str(repo_root / "ai-platform")
+    ai_platform_dir = Path(__file__).resolve().parent.parent.parent.parent.parent
+    env["PYTHONPATH"] = str(ai_platform_dir)
     
+    # Open a file to capture bridge output
+    bridge_log = workspace / "bridge.log"
+    bridge_log_fd = open(bridge_log, "w")
     bridge_proc = subprocess.Popen(
-        [sys.executable, "-m", "sage", "sms", "start", "--name", computer_name, "--foreground", "--no-announce"],
-        cwd=workspace, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        ["sage", "sms", "start", "--name", computer_name, "--foreground", "--no-announce"],
+        cwd=workspace, env=env, stdout=bridge_log_fd, stderr=subprocess.STDOUT, text=True
     )
     
     test_email = "laynefaler@gmail.com"
@@ -132,7 +142,7 @@ def execute(request: dict, model: str) -> TestResult:
         primary_artifact = None
         
         def is_noise(p):
-            if p.name in ["prompt_history.json", "message_log.jsonl", "config.json", "CACHEDIR.TAG", "output_history.json", "file_manifest.json", "conversation_memory.json", "session_state.json"]:
+            if p.name in ["prompt_history.json", "message_log.jsonl", "config.json", "CACHEDIR.TAG", "output_history.json", "file_manifest.json", "conversation_memory.json", "session_state.json", "bridge.log"]:
                 return True
             if ".pytest_cache" in str(p) or "__pycache__" in str(p) or ".git" in str(p) or ".sage" in str(p):
                 return True

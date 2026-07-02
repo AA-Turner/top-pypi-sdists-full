@@ -27,7 +27,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from weblate.accounts.models import AuditLog
-from weblate.auth.models import Group, Invitation
+from weblate.auth.models import Group, Invitation, Permission, Role
+from weblate.memory.models import Memory, MemoryScope, MemoryScopeMigrationState
 from weblate.trans.actions import ActionEvents
 from weblate.trans.models import Announcement, Change, Project
 from weblate.trans.tests.test_views import ViewTestCase
@@ -380,6 +381,291 @@ class WorkspaceCreateTest(ViewTestCase):
         self.assertEqual(change.author, self.user)
 
 
+class ManagementAccessControlTest(ViewTestCase):
+    """Test site-wide permission checks in the management interface."""
+
+    def grant_global_permissions(
+        self, *permissions: str, enforced_2fa: bool = False
+    ) -> None:
+        role, _created = Role.objects.get_or_create(name="Test management role")
+        permission_objects = list(Permission.objects.filter(codename__in=permissions))
+        self.assertEqual(
+            {permission.codename for permission in permission_objects},
+            set(permissions),
+        )
+        role.permissions.add(*permission_objects)
+        group, _created = Group.objects.get_or_create(name="Test management team")
+        group.enforced_2fa = enforced_2fa
+        group.save(update_fields=["enforced_2fa"])
+        group.roles.add(role)
+        self.user.groups.add(group)
+        self.user.clear_cache()
+
+    def assert_forbidden(self, url_name: str, method: str = "get", **kwargs) -> None:
+        response = getattr(self.client, method)(reverse(url_name), **kwargs)
+        self.assertEqual(response.status_code, 403)
+
+    def test_management_use_only_is_limited(self) -> None:
+        self.grant_global_permissions("management.use")
+        email = cast("str", self.user.email)
+
+        response = self.client.get(reverse("manage"))
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.get(reverse("manage-performance"))
+        self.assertEqual(response.status_code, 200)
+
+        for url_name in (
+            "manage-users",
+            "manage-teams",
+            "manage-memory",
+            "manage-memory-download",
+            "manage-machinery",
+            "manage-addons",
+            "manage-backups",
+            "manage-ssh",
+            "manage-ssh-key",
+            "manage-appearance",
+            "manage-billing",
+        ):
+            self.assert_forbidden(url_name)
+
+        self.assert_forbidden("manage-users-check", data={"q": email})
+        self.assert_forbidden("manage-activate", method="post", data={"refresh": "1"})
+        self.assert_forbidden("manage-discovery", method="post", data={})
+        self.assert_forbidden(
+            "manage-performance", method="post", data={"pk": "1", "ignore": "1"}
+        )
+
+    def test_management_use_requires_enforced_2fa(self) -> None:
+        self.grant_global_permissions("management.use", enforced_2fa=True)
+
+        response = self.client.get(reverse("manage"))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_user_view_does_not_allow_user_changes(self) -> None:
+        self.grant_global_permissions("management.use", "user.view")
+        email = cast("str", self.user.email)
+
+        response = self.client.get(reverse("manage-users"))
+        self.assertContains(response, "Manage users")
+        self.assertNotContains(response, "Add new user")
+
+        response = self.client.post(
+            reverse("manage-users"),
+            {
+                "email": "noreply@example.com",
+                "group": Group.objects.get(name="Users").pk,
+            },
+        )
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.get(reverse("manage-users-check"), {"q": email})
+        self.assertEqual(response.status_code, 403)
+
+    def test_user_edit_allows_user_changes(self) -> None:
+        self.grant_global_permissions("management.use", "user.view", "user.edit")
+
+        response = self.client.get(reverse("manage-users"))
+        self.assertContains(response, "Add new user")
+
+        response = self.client.post(
+            reverse("manage-users"),
+            {
+                "email": "noreply@example.com",
+                "group": Group.objects.get(name="Users").pk,
+            },
+            follow=True,
+        )
+        self.assertContains(response, "User invitation e-mail was sent")
+        self.assertEqual(Invitation.objects.count(), 1)
+
+    def test_user_edit_requires_management_access_on_direct_user_actions(self) -> None:
+        self.grant_global_permissions("user.edit")
+
+        with patch(
+            "weblate.accounts.views.cleanup_user_contributions_task.delay"
+        ) as mocked_delay:
+            response = self.client.post(
+                self.anotheruser.get_absolute_url(),
+                {
+                    "cleanup_user_contributions": "1",
+                    "delete_comments": "on",
+                },
+            )
+
+        self.assertEqual(response.status_code, 403)
+        mocked_delay.assert_not_called()
+
+        self.grant_global_permissions("management.use")
+
+        with patch(
+            "weblate.accounts.views.cleanup_user_contributions_task.delay"
+        ) as mocked_delay:
+            response = self.client.post(
+                self.anotheruser.get_absolute_url(),
+                {
+                    "cleanup_user_contributions": "1",
+                    "delete_comments": "on",
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        mocked_delay.assert_called_once_with(
+            target_user_id=self.anotheruser.id,
+            acting_user_id=self.user.id,
+            sitewide=True,
+            reject_suggestions=False,
+            delete_comments=True,
+        )
+
+    def test_user_edit_requires_management_access_on_direct_invitations(self) -> None:
+        self.grant_global_permissions("user.edit")
+        invitation = Invitation.objects.create(
+            author=self.user,
+            group=Group.objects.get(name="Users"),
+            email="noreply@example.com",
+        )
+
+        response = self.client.post(
+            invitation.get_absolute_url(),
+            {"action": "remove"},
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Invitation.objects.filter(pk=invitation.pk).exists())
+
+        self.grant_global_permissions("management.use")
+
+        response = self.client.post(
+            invitation.get_absolute_url(),
+            {"action": "remove"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Invitation.objects.filter(pk=invitation.pk).exists())
+
+    def test_group_view_does_not_allow_team_changes(self) -> None:
+        self.grant_global_permissions("management.use", "group.view")
+
+        response = self.client.get(reverse("manage-teams"))
+        self.assertContains(response, "Manage teams")
+        self.assertNotContains(response, "Create new team")
+
+        response = self.client.post(reverse("manage-teams"), {"name": "Custom team"})
+        self.assertEqual(response.status_code, 403)
+
+    def test_group_edit_allows_team_changes(self) -> None:
+        self.grant_global_permissions("management.use", "group.edit")
+
+        response = self.client.get(reverse("manage-teams"))
+        self.assertContains(response, "Create new team")
+
+        response = self.client.post(
+            reverse("manage-teams"),
+            {
+                "name": "Custom team",
+                "project_selection": "1",
+                "language_selection": "1",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Group.objects.filter(name="Custom team").exists())
+
+    def test_group_edit_requires_management_access_on_direct_sitewide_team(
+        self,
+    ) -> None:
+        self.grant_global_permissions("group.edit")
+        group = Group.objects.create(name="Custom team")
+        edit_payload = {
+            "name": "Renamed team",
+            "language_selection": "1",
+            "project_selection": "1",
+            "autogroup_set-TOTAL_FORMS": "0",
+            "autogroup_set-INITIAL_FORMS": "0",
+        }
+
+        response = self.client.get(group.get_absolute_url())
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.post(group.get_absolute_url(), edit_payload)
+        self.assertEqual(response.status_code, 403)
+        group.refresh_from_db()
+        self.assertEqual(group.name, "Custom team")
+
+        self.grant_global_permissions("management.use")
+
+        response = self.client.post(group.get_absolute_url(), edit_payload)
+        self.assertEqual(response.status_code, 302)
+        group.refresh_from_db()
+        self.assertEqual(group.name, "Renamed team")
+
+    def test_specialized_management_permissions_allow_views(self) -> None:
+        self.grant_global_permissions(
+            "management.use",
+            "management.configure",
+            "memory.manage",
+            "machinery.edit",
+            "billing.manage",
+            "management.addons",
+            "announcement.edit",
+        )
+
+        for url_name in (
+            "manage-backups",
+            "manage-ssh",
+            "manage-appearance",
+            "manage-memory",
+            "manage-memory-download",
+            "manage-machinery",
+            "manage-addons",
+            "manage-billing",
+        ):
+            response = self.client.get(reverse(url_name))
+            self.assertEqual(response.status_code, 200)
+
+        response = self.client.get(reverse("manage-tools"))
+        self.assertContains(response, "Post announcement")
+        self.assertContains(response, "Send test e-mail")
+
+        response = self.client.post(
+            reverse("manage-tools"), {"email": "noreply@example.com"}, follow=True
+        )
+        self.assertContains(response, "Test e-mail sent")
+
+        ConfigurationError.objects.create(name="Test error", message="Test error")
+        error = ConfigurationError.objects.get()
+        response = self.client.post(
+            reverse("manage-performance"),
+            {"pk": error.pk, "ignore": "1"},
+        )
+        self.assertEqual(response.status_code, 302)
+        error.refresh_from_db()
+        self.assertTrue(error.ignored)
+
+    def test_tools_without_announcement_permission(self) -> None:
+        self.grant_global_permissions("management.use")
+
+        response = self.client.get(reverse("manage-tools"))
+        self.assertNotContains(response, "Send test e-mail")
+        self.assertNotContains(response, "Post announcement")
+
+        response = self.client.post(
+            reverse("manage-tools"), {"email": "noreply@example.com"}
+        )
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.post(reverse("manage-tools"), {"sentry": "1"})
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.post(
+            reverse("manage-tools"),
+            {"message": "Test message", "severity": "info"},
+        )
+        self.assertEqual(response.status_code, 403)
+
+
 class AdminTest(ViewTestCase):
     """Test for customized admin interface."""
 
@@ -412,6 +698,25 @@ class AdminTest(ViewTestCase):
         self.assertContains(response, workspace.get_absolute_url())
         self.assertContains(response, ">1<")
 
+    def test_alerts_are_ordered(self) -> None:
+        zulu_project = self.create_project(name="Zulu", slug="zulu")
+        zulu = self.create_json(project=zulu_project, name="Zulu")
+        alpha_project = self.create_project(name="Alpha", slug="alpha")
+        alpha = self.create_json(project=alpha_project, name="Alpha")
+
+        zulu.add_alert("MissingLicense")
+        alpha.add_alert("MissingLicense")
+
+        response = self.client.get(reverse("manage-alerts"))
+        content = response.content.decode()
+
+        self.assertContains(response, alpha.get_absolute_url())
+        self.assertContains(response, zulu.get_absolute_url())
+        self.assertLess(
+            content.index(alpha.get_absolute_url()),
+            content.index(zulu.get_absolute_url()),
+        )
+
     def test_workspaces_search(self) -> None:
         workspace = Workspace.objects.create(name="Localization workspace")
         Workspace.objects.create(name="Documentation workspace")
@@ -431,7 +736,8 @@ class AdminTest(ViewTestCase):
         self.assertNotContains(response, "Documentation workspace")
 
     def test_workspaces_search_billing_customer_name(self) -> None:
-        from weblate.billing.models import Billing, Plan  # noqa: PLC0415
+        # ruff: ignore[import-outside-top-level]
+        from weblate.billing.models import Billing, Plan
 
         plan = Plan.objects.create(
             name="Workspace plan",
@@ -486,7 +792,8 @@ class AdminTest(ViewTestCase):
         self.assertEqual(len(response.context["object_list"]), 50)
 
     def test_workspaces_avoid_billing_display_queries(self) -> None:
-        from weblate.billing.models import Billing, Plan  # noqa: PLC0415
+        # ruff: ignore[import-outside-top-level]
+        from weblate.billing.models import Billing, Plan
 
         plan = Plan.objects.create(
             name="Workspace plan",
@@ -505,7 +812,8 @@ class AdminTest(ViewTestCase):
             )
             billing.add_project(project)
 
-        project_table = Project._meta.db_table  # noqa: SLF001
+        # ruff: ignore[private-member-access]
+        project_table = Project._meta.db_table
         with CaptureQueriesContext(connection) as queries:
             response = self.client.get(reverse("manage-workspaces"))
 
@@ -651,8 +959,186 @@ class AdminTest(ViewTestCase):
         self.assertNotContains(response, settings.BACKUP_DIR)
 
     def test_performance(self) -> None:
-        response = self.client.get(reverse("manage-performance"))
+        with (
+            patch("weblate.wladmin.views.get_database_size", return_value=123456789),
+            patch(
+                "weblate.wladmin.views.get_database_disk_usage",
+                return_value=SimpleNamespace(total=987654321, free=876543210),
+            ),
+        ):
+            response = self.client.get(reverse("manage-performance"))
         self.assertContains(response, "weblate.E005")
+        self.assertContains(response, "Translation memory migration")
+        self.assertContains(response, "PostgreSQL database")
+        self.assertEqual(response.context["database_size"], 123456789)
+        self.assertEqual(response.context["database_disk_usage"].free, 876543210)
+        self.assertIn("total", response.context["memory_migration_status"])
+
+    def test_performance_memory_migration_status(self) -> None:
+        Memory.objects.all().delete()
+        MemoryScopeMigrationState.objects.all().delete()
+        memory = Memory.objects.create(
+            source="Hello",
+            target="Ahoj",
+            origin="project/component",
+            source_language_id=1,
+            target_language_id=2,
+        )
+        Memory.objects.create(
+            source=memory.source,
+            target=memory.target,
+            origin=memory.origin,
+            source_language_id=memory.source_language_id,
+            target_language_id=memory.target_language_id,
+        )
+        MemoryScopeMigrationState.objects.create(
+            name="memory-scope-backfill", last_memory_id=memory.id
+        )
+
+        response = self.client.get(reverse("manage-performance"))
+
+        self.assertContains(response, "Backfilling scopes")
+        status = response.context["memory_migration_status"]
+        first_memory = Memory.objects.order_by("-id").first()
+        assert first_memory is not None
+        self.assertEqual(status["total"], first_memory.id)
+        self.assertEqual(status["processed"], memory.id)
+        self.assertFalse(response.context["memory_migration_status"]["completed"])
+
+    def test_performance_memory_migration_status_without_state(self) -> None:
+        Memory.objects.all().delete()
+        MemoryScopeMigrationState.objects.all().delete()
+        memory = Memory.objects.create(
+            source="Hello",
+            target="Ahoj",
+            origin="project/component",
+            source_language_id=1,
+            target_language_id=2,
+        )
+        MemoryScope.objects.create(
+            memory=memory,
+            scope=MemoryScope.SCOPE_GLOBAL_FILE,
+        )
+
+        response = self.client.get(reverse("manage-performance"))
+
+        self.assertContains(response, "Not yet started")
+        self.assertContains(response, "Scanning duplicate candidates")
+        status = response.context["memory_migration_status"]
+        self.assertEqual(status["processed"], memory.id)
+        self.assertFalse(status["completed"])
+        self.assertTrue(status["compaction_active"])
+
+    def test_performance_memory_migration_status_with_duplicates(self) -> None:
+        Memory.objects.all().delete()
+        MemoryScopeMigrationState.objects.all().delete()
+        memory = Memory.objects.create(
+            source="Hello",
+            target="Ahoj",
+            origin="project/component",
+            source_language_id=1,
+            target_language_id=2,
+        )
+        Memory.objects.create(
+            source=memory.source,
+            target=memory.target,
+            origin=memory.origin,
+            source_language_id=memory.source_language_id,
+            target_language_id=memory.target_language_id,
+        )
+        MemoryScopeMigrationState.objects.create(
+            name="memory-scope-backfill", last_memory_id=memory.id, completed=True
+        )
+
+        response = self.client.get(reverse("manage-performance"))
+
+        self.assertContains(response, "Scanning duplicate candidates")
+        self.assertNotContains(response, "Candidate duplicate buckets")
+        self.assertContains(response, "Duplicate candidate scan")
+        self.assertNotContains(response, "Not calculated during active scan")
+        self.assertNotContains(response, "Duplicate groups pending consolidation")
+        self.assertFalse(response.context["memory_migration_status"]["completed"])
+        self.assertEqual(
+            response.context["memory_migration_status"]["compaction_last_memory_id"], 0
+        )
+        self.assertEqual(
+            response.context["memory_migration_status"]["compaction_max_memory_id"],
+            Memory.objects.order_by("-id").values_list("id", flat=True).first(),
+        )
+        self.assertEqual(
+            response.context["memory_migration_status"]["compaction_percent"], 0
+        )
+
+    def test_performance_memory_migration_status_with_compaction_progress(
+        self,
+    ) -> None:
+        Memory.objects.all().delete()
+        MemoryScopeMigrationState.objects.all().delete()
+        first = Memory.objects.create(
+            source="Hello",
+            target="Ahoj",
+            origin="project/component",
+            source_language_id=1,
+            target_language_id=2,
+        )
+        Memory.objects.create(
+            source=first.source,
+            target=first.target,
+            origin=first.origin,
+            source_language_id=first.source_language_id,
+            target_language_id=first.target_language_id,
+        )
+        MemoryScopeMigrationState.objects.create(
+            name="memory-scope-backfill", last_memory_id=first.id, completed=True
+        )
+        MemoryScopeMigrationState.objects.create(
+            name="memory-scope-compaction", last_memory_id=first.id
+        )
+
+        response = self.client.get(reverse("manage-performance"))
+
+        status = response.context["memory_migration_status"]
+        self.assertContains(response, "Scanning duplicate candidates")
+        self.assertTrue(status["compaction_active"])
+        self.assertFalse(status["compaction_completed"])
+        self.assertEqual(status["compaction_last_memory_id"], first.id)
+        self.assertGreater(status["compaction_percent"], 0)
+        self.assertLessEqual(status["compaction_percent"], 100)
+
+    def test_performance_memory_migration_status_completed_compaction(self) -> None:
+        Memory.objects.all().delete()
+        MemoryScopeMigrationState.objects.all().delete()
+        memory = Memory.objects.create(
+            source="Hello",
+            target="Ahoj",
+            origin="project/component",
+            source_language_id=1,
+            target_language_id=2,
+        )
+        Memory.objects.create(
+            source=memory.source,
+            target=memory.target,
+            origin=memory.origin,
+            source_language_id=memory.source_language_id,
+            target_language_id=memory.target_language_id,
+        )
+        MemoryScopeMigrationState.objects.create(
+            name="memory-scope-backfill", last_memory_id=memory.id, completed=True
+        )
+        MemoryScopeMigrationState.objects.create(
+            name="memory-scope-compaction",
+            last_memory_id=memory.id,
+            completed=True,
+        )
+
+        response = self.client.get(reverse("manage-performance"))
+
+        status = response.context["memory_migration_status"]
+        self.assertContains(response, "Completed")
+        self.assertTrue(status["completed"])
+        self.assertTrue(status["compaction_completed"])
+        self.assertFalse(status["compaction_active"])
+        self.assertEqual(status["compaction_percent"], 100)
 
     def test_performance_ordering(self) -> None:
         with (
@@ -738,6 +1224,7 @@ class AdminTest(ViewTestCase):
             {"weblate.E002": "Test Error", "weblate.C044": "Cache Error"},
         )
         # No triggered checks
+        ConfigurationError.objects.create(name="weblate.C046", message="Retired check")
         ConfigurationError.objects.configuration_health_check([])
         self.assertEqual(ConfigurationError.objects.count(), 0)
 

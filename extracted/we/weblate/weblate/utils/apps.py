@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import errno
 import os
-import subprocess  # noqa: S404
+import subprocess  # ruff: ignore[suspicious-subprocess-import]
 import time
 from datetime import timedelta
 from email.utils import parseaddr
@@ -40,6 +40,7 @@ from .db import (
     PostgreSQLRegexLookup,
     PostgreSQLSearchLookup,
     PostgreSQLSubstringLookup,
+    get_database_size,
     measure_database_latency,
 )
 from .encoding import get_filesystem_encoding, get_locale_encoding, get_python_encoding
@@ -73,7 +74,7 @@ def run_cache_exec_probe(cache_dir: Path) -> subprocess.CompletedProcess[bytes]:
         probe = Path(tempdir) / "probe"
         probe.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         probe.chmod(0o755)
-        return subprocess.run(  # noqa: S603
+        return subprocess.run(
             [probe.as_posix()],
             check=False,
             stderr=subprocess.DEVNULL,
@@ -153,7 +154,7 @@ def check_celery(
     **kwargs,
 ) -> Iterable[CheckMessage]:
     # Import this lazily to avoid evaluating settings too early
-    from weblate.utils.tasks import ping  # noqa: PLC0415
+    from weblate.utils.tasks import ping  # ruff: ignore[import-outside-top-level, unsorted-imports]
 
     errors: list[CheckMessage] = []
     if settings.CELERY_TASK_ALWAYS_EAGER:
@@ -355,7 +356,7 @@ def check_class_loader(
     **kwargs,
 ) -> Iterable[CheckMessage]:
     errors: list[CheckMessage] = []
-    for instance in ClassLoader.instances.values():
+    for instance in ClassLoader.instances:
         try:
             instance.load_data()
         except ImproperlyConfigured as error:
@@ -504,6 +505,30 @@ def check_encoding(
             "System encoding is not UTF-8, processing non-ASCII strings will break",
         )
     ]
+
+
+@register(deploy=True)
+def check_database_size(
+    *,
+    app_configs: Sequence[AppConfig] | None,
+    databases: Sequence[str] | None,
+    **kwargs,
+) -> Iterable[CheckMessage]:
+    """Check that PostgreSQL database size can be collected."""
+    connection = connections["default"]
+    if connection.vendor != "postgresql":
+        return []
+
+    database_size = get_database_size()
+    if database_size is None:
+        return [
+            weblate_check(
+                "weblate.C045",
+                "Could not determine PostgreSQL database disk usage",
+            )
+        ]
+
+    return []
 
 
 @register(deploy=True)

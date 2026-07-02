@@ -47,6 +47,7 @@ from weblate.utils.diff import Differ
 from weblate.utils.docs import get_doc_url
 from weblate.utils.hash import hash_to_checksum
 from weblate.utils.html import format_html_join_comma, list_to_tuples
+from weblate.utils.icons import load_icon
 from weblate.utils.markdown import render_markdown
 from weblate.utils.messages import get_message_kind as get_message_kind_impl
 from weblate.utils.random import get_random_identifier
@@ -111,6 +112,13 @@ NAME_MAPPING = {
 
 FLAG_TEMPLATE = '<span title="{0}" class="{1}">{2}</span>'
 
+PRIORITY_ICONS = {
+    60: ("double_arrow_up", "text-danger", gettext_lazy("Priority: Very high")),
+    80: ("single_arrow_up", "text-warning", gettext_lazy("Priority: High")),
+    120: ("single_arrow_down", "text-muted", gettext_lazy("Priority: Low")),
+    140: ("double_arrow_down", "text-secondary", gettext_lazy("Priority: Very low")),
+}
+
 SOURCE_LINK = (
     '<a href="{0}" target="_blank" rel="noopener noreferrer"'
     ' class="{2}" dir="ltr" tabindex="-1">{1}</a>'
@@ -165,7 +173,7 @@ class Formatter:
         if self.diff:
             self.parse_diff()
 
-    def parse_diff(self) -> None:  # noqa: C901
+    def parse_diff(self) -> None:  # ruff: ignore[complex-structure]
         """Highlights diff, including extra whitespace."""
         diff = self.differ.compare(self.value, self.diff[self.idx])
         offset = 0
@@ -282,10 +290,12 @@ class Formatter:
         """Highlights unit placeables."""
         highlights = highlight_string(self.value, self.unit)
         cleaned_value = list(self.value)
-        for start, end, content in highlights:
-            self.tags[start].append(format_html(HLCHECK, content))
-            self.tags[end].insert(0, "</span>")
-            cleaned_value[start:end] = [" "] * (end - start)
+        for highlight in highlights:
+            self.tags[highlight.start].append(format_html(HLCHECK, highlight.text))
+            self.tags[highlight.end].insert(0, "</span>")
+            cleaned_value[highlight.start : highlight.end] = [" "] * (
+                highlight.end - highlight.start
+            )
 
         # Prepare cleaned up value for glossary terms (we do not want to extract those
         # from format strings)
@@ -501,7 +511,7 @@ class Formatter:
     def format(self):
         # Safe to mark because format_generator escapes raw string content inline
         # and only emits formatter-controlled markup for diffs/highlights/tooltips.
-        return mark_safe("".join(self.format_generator()))  # noqa: S308
+        return mark_safe("".join(self.format_generator()))  # ruff: ignore[suspicious-mark-safe-usage]
 
 
 @register.inclusion_tag("snippets/format-translation.html")
@@ -772,6 +782,40 @@ def naturaltime(value: float | datetime, microseconds: bool = False) -> SafeStri
         timezone.localtime(value).isoformat(),
         date_format(value, "SHORT_DATE_FORMAT"),
     )
+
+
+def _get_naturaltime_bucket(
+    value: float | datetime, now: datetime
+) -> tuple[str, int | str] | None:
+    """Return the relative-time display bucket used by JavaScript."""
+    if isinstance(value, float):
+        value = datetime.fromtimestamp(value, tz=timezone.get_current_timezone())
+    if not isinstance(value, datetime):
+        return None
+
+    value = timezone.localtime(value).replace(microsecond=0)
+    difference = (timezone.localtime(now) - value).total_seconds()
+    if abs(difference) < 2:
+        return ("now", 0)
+    if difference > 0:
+        if difference < 60:
+            return ("seconds", int(difference))
+        if difference < 60 * 60:
+            return ("minutes", int(difference / 60))
+        if difference < 60 * 60 * 24:
+            return ("hours", int(difference / (60 * 60)))
+    return ("date", value.isoformat())
+
+
+@register.filter
+def same_naturaltime(value: float | datetime, other: float | datetime) -> bool:
+    """Return whether two values render to the same relative-time label."""
+    now = timezone.now()
+    first = _get_naturaltime_bucket(value, now)
+    second = _get_naturaltime_bucket(other, now)
+    if first is None or second is None:
+        return value == other
+    return first == second
 
 
 def get_stats(obj):
@@ -1244,6 +1288,20 @@ def indicate_alerts(
     # GhostProjectLanguageStats and GhostCategoryLanguageStats as these would
     # be confusing (showing alert or admin icon on ghost containers).
 
+    priority_html = ""
+    if component and (priority := component.priority) in PRIORITY_ICONS:
+        selected_svg, css_class, title_text = PRIORITY_ICONS[priority]
+
+        priority_html = format_html(
+            '<span class="state-icon {}" data-bs-toggle="tooltip" title="{}" alt="{}" style="margin: 0">{}</span>',
+            css_class,
+            title_text,
+            title_text,
+            mark_safe(  # noqa: S308
+                load_icon(f"priorities/{selected_svg}.svg", auto_prefix=False).decode()
+            ),
+        )
+
     icons = format_html_join(
         "\n",
         '{}<span class="state-icon {}" title="{}" alt="{}">{}</span>{}',
@@ -1283,7 +1341,7 @@ def indicate_alerts(
             component.effective_license,
         )
 
-    return format_html("{}{}", icons, license_badge)
+    return format_html("{}{}{}", priority_html, icons, license_badge)
 
 
 @register.filter(is_safe=True)
@@ -1314,7 +1372,7 @@ def percent_format(number: float) -> str:
         percent = 99
     else:
         percent = int(number)
-    return mark_safe(  # noqa: S308
+    return mark_safe(  # ruff: ignore[suspicious-mark-safe-usage]
         # Translators: Formatting of the translation percent, insert non-breakable space if
         # your language expects it before the percent sign.
         pgettext("Translated percents", "%(percent)s%%")
@@ -1385,9 +1443,7 @@ def any_unit_has_context(units: Iterable[Unit]) -> bool:
 def urlize_ugc(value: str, autoescape: bool = True) -> str:
     """Convert URLs in plain text into clickable links."""
     html = urlize(value, nofollow=True, autoescape=autoescape)
-    return mark_safe(  # noqa: S308
-        html.replace('rel="nofollow"', 'rel="ugc" target="_blank"')
-    )
+    return mark_safe(html.replace('rel="nofollow"', 'rel="ugc" target="_blank"'))  # ruff: ignore[suspicious-mark-safe-usage]
 
 
 @register.simple_tag
@@ -1401,7 +1457,7 @@ def get_glossary_badge(component: Component | GhostStats) -> StrOrPromise:
     return ""
 
 
-def get_breadcrumbs(  # noqa: C901
+def get_breadcrumbs(  # ruff: ignore[complex-structure]
     path_object, *, flags: bool = True, only_names: bool = False
 ) -> Generator[str | tuple[str, str]]:
     def with_url(
@@ -1487,6 +1543,15 @@ def path_object_breadcrumbs(path_object, flags: bool = True):
     return format_html_join(
         "\n",
         '<li class="breadcrumb-item"><a href="{}">{}</a></li>',
+        get_breadcrumbs(path_object, flags=flags),
+    )
+
+
+@register.simple_tag
+def path_object_links(path_object, flags: bool = True):
+    return format_html_join(
+        "/",
+        '<a href="{}">{}</a>',
         get_breadcrumbs(path_object, flags=flags),
     )
 
@@ -1617,7 +1682,7 @@ def list_objects_percent(
 
 
 @register.inclusion_tag("snippets/info.html", takes_context=True)
-def show_info(  # noqa: PLR0913
+def show_info(  # ruff: ignore[too-many-arguments]
     context: Context,
     *,
     project: Project | None = None,
@@ -1657,9 +1722,7 @@ def show_info(  # noqa: PLR0913
 
 @register.filter(is_safe=True)
 def format_json(value: dict) -> str:
-    return mark_safe(  # noqa: S308
-        linebreaks(json.dumps(value, indent=4), autoescape=True)
-    )
+    return mark_safe(linebreaks(json.dumps(value, indent=4), autoescape=True))  # ruff: ignore[suspicious-mark-safe-usage]
 
 
 @register.filter(is_safe=True)
@@ -1682,7 +1745,10 @@ def format_last_changes_content(
 
     This is a simplified version of the prepare_last_changes_context function.
     """
-    from weblate.trans.change_display import get_change_history_context  # noqa: PLC0415
+    # ruff: ignore[import-outside-top-level]
+    from weblate.trans.change_display import (
+        get_change_history_context,
+    )
 
     if isinstance(user, str):  # e.g in email digest
         user = AnonymousUser()

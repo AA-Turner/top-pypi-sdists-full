@@ -457,8 +457,15 @@ class TrinityTextualApp(App[None]):
     }
 
     #start-select-workspace {
-        width: 22;
+        width: 28;
+        min-width: 28;
         height: 3;
+        content-align: center middle;
+        text-align: center;
+        text-style: bold;
+        color: $text;
+        background: $surface;
+        pointer: pointer;
     }
 
     .ui-density-compact #start-select-workspace {
@@ -872,13 +879,31 @@ class TrinityTextualApp(App[None]):
         padding: 0 1;
     }
 
+    #nexus-workspace-row {
+        width: 100%;
+        height: 2;
+        align-vertical: middle;
+    }
+
     #nexus-target-workspace {
         width: 1fr;
         min-width: 0;
-        height: 1;
-        margin-top: 1;
+        height: 2;
+        margin-right: 1;
         content-align: left middle;
         color: $text-muted;
+    }
+
+    #nexus-select-workspace {
+        width: 28;
+        min-width: 28;
+        height: 2;
+        content-align: center middle;
+        text-align: center;
+        text-style: bold;
+        color: $text;
+        background: $surface;
+        pointer: pointer;
     }
 
     ProviderInspector {
@@ -940,25 +965,28 @@ class TrinityTextualApp(App[None]):
     }
 
     .settings-row Label {
-        width: 22;
+        width: 26;
         content-align: left middle;
     }
 
     .settings-row Select {
         width: 1fr;
-        min-width: 32;
+        min-width: 28;
     }
 
-    #theme-preview {
+    #settings-summary {
         width: 100%;
         max-width: 96;
         height: auto;
+        max-height: 14;
+        overflow-y: auto;
         border: round $accent;
         margin-top: 1;
         padding: 1 2;
     }
 
-    .ui-density-compact #theme-preview {
+    .ui-density-compact #settings-summary {
+        max-height: 10;
         margin-top: 0;
         padding: 0 1;
     }
@@ -1376,9 +1404,16 @@ class TrinityTextualApp(App[None]):
 
     .ui-color-profile-truecolor #start-geometry,
     .ui-color-profile-truecolor #start-title,
+    .ui-color-profile-truecolor #execution-header,
+    .ui-color-profile-truecolor .execution-lane-header,
+    .ui-color-profile-truecolor #execution-retry-title,
+    .ui-color-profile-truecolor #report-title,
+    .ui-color-profile-truecolor #work-package-detail-title,
     .ui-color-profile-truecolor .recipient-agent-toggle-selected,
     .ui-color-profile-truecolor .command-option-selected,
     .ui-color-profile-truecolor .command-option-first,
+    .ui-color-profile-truecolor #provider-inspector-title,
+    .ui-color-profile-truecolor #model-settings-title,
     .ui-color-profile-truecolor #settings-title {
         color: #5ce1e6;
     }
@@ -1386,15 +1421,33 @@ class TrinityTextualApp(App[None]):
     .ui-color-profile-truecolor #start-composer,
     .ui-color-profile-truecolor #nexus-composer,
     .ui-color-profile-truecolor #prompt-command-palette,
-    .ui-color-profile-truecolor #theme-preview {
+    .ui-color-profile-truecolor #execution-package-list,
+    .ui-color-profile-truecolor #execution-log,
+    .ui-color-profile-truecolor #execution-retry-modal,
+    .ui-color-profile-truecolor #execution-retry-list,
+    .ui-color-profile-truecolor #report-body,
+    .ui-color-profile-truecolor #work-package-detail-modal,
+    .ui-color-profile-truecolor #work-package-detail-body,
+    .ui-color-profile-truecolor #provider-inspector,
+    .ui-color-profile-truecolor .provider-inspector-output,
+    .ui-color-profile-truecolor #model-settings-modal,
+    .ui-color-profile-truecolor #model-choice-list,
+    .ui-color-profile-truecolor #settings-summary {
         border: round #5ce1e6;
     }
 
     .ui-color-profile-256color #start-geometry,
     .ui-color-profile-256color #start-title,
+    .ui-color-profile-256color #execution-header,
+    .ui-color-profile-256color .execution-lane-header,
+    .ui-color-profile-256color #execution-retry-title,
+    .ui-color-profile-256color #report-title,
+    .ui-color-profile-256color #work-package-detail-title,
     .ui-color-profile-256color .recipient-agent-toggle-selected,
     .ui-color-profile-256color .command-option-selected,
     .ui-color-profile-256color .command-option-first,
+    .ui-color-profile-256color #provider-inspector-title,
+    .ui-color-profile-256color #model-settings-title,
     .ui-color-profile-256color #settings-title {
         color: cyan;
     }
@@ -1402,16 +1455,34 @@ class TrinityTextualApp(App[None]):
     .ui-color-profile-256color #start-composer,
     .ui-color-profile-256color #nexus-composer,
     .ui-color-profile-256color #prompt-command-palette,
-    .ui-color-profile-256color #theme-preview {
+    .ui-color-profile-256color #execution-package-list,
+    .ui-color-profile-256color #execution-log,
+    .ui-color-profile-256color #execution-retry-modal,
+    .ui-color-profile-256color #execution-retry-list,
+    .ui-color-profile-256color #report-body,
+    .ui-color-profile-256color #work-package-detail-modal,
+    .ui-color-profile-256color #work-package-detail-body,
+    .ui-color-profile-256color #provider-inspector,
+    .ui-color-profile-256color .provider-inspector-output,
+    .ui-color-profile-256color #model-settings-modal,
+    .ui-color-profile-256color #model-choice-list,
+    .ui-color-profile-256color #settings-summary {
         border: round cyan;
     }
 
     .ui-color-profile-ascii-safe #start-geometry,
     .ui-color-profile-ascii-safe #start-title,
+    .ui-color-profile-ascii-safe #execution-header,
+    .ui-color-profile-ascii-safe .execution-lane-header,
+    .ui-color-profile-ascii-safe #execution-retry-title,
+    .ui-color-profile-ascii-safe #report-title,
+    .ui-color-profile-ascii-safe #work-package-detail-title,
     .ui-color-profile-ascii-safe .recipient-agent-toggle-selected,
     .ui-color-profile-ascii-safe .command-option-selected,
     .ui-color-profile-ascii-safe .command-option-first,
     .ui-color-profile-ascii-safe .provider-status,
+    .ui-color-profile-ascii-safe #provider-inspector-title,
+    .ui-color-profile-ascii-safe #model-settings-title,
     .ui-color-profile-ascii-safe #settings-title {
         color: $text;
     }
@@ -1422,7 +1493,18 @@ class TrinityTextualApp(App[None]):
     .ui-color-profile-ascii-safe .provider-panel,
     .ui-color-profile-ascii-safe #workflow-inspector,
     .ui-color-profile-ascii-safe #nexus-question-panel,
-    .ui-color-profile-ascii-safe #theme-preview {
+    .ui-color-profile-ascii-safe #execution-package-list,
+    .ui-color-profile-ascii-safe #execution-log,
+    .ui-color-profile-ascii-safe #execution-retry-modal,
+    .ui-color-profile-ascii-safe #execution-retry-list,
+    .ui-color-profile-ascii-safe #report-body,
+    .ui-color-profile-ascii-safe #work-package-detail-modal,
+    .ui-color-profile-ascii-safe #work-package-detail-body,
+    .ui-color-profile-ascii-safe #provider-inspector,
+    .ui-color-profile-ascii-safe .provider-inspector-output,
+    .ui-color-profile-ascii-safe #model-settings-modal,
+    .ui-color-profile-ascii-safe #model-choice-list,
+    .ui-color-profile-ascii-safe #settings-summary {
         border: round white;
     }
     """
@@ -1514,7 +1596,7 @@ class TrinityTextualApp(App[None]):
 
     def _discover_provider_models(self, *, use_cache: bool = True) -> None:
         for name, choices in iter_discovered_agent_model_choices(
-            self.config.agents.items(),
+            self.config.active_agents.items(),
             use_cache=use_cache,
         ):
             self.call_from_thread(
@@ -1565,7 +1647,9 @@ class TrinityTextualApp(App[None]):
         self.ui_settings = self.settings_store.load()
         self._apply_ui_settings(self.ui_settings)
         self.get_screen("start", StartScreen).sync_ui_settings()
-        self._sync_configured_agent_model_selectors()
+        if event.model_defaults_changed:
+            self._sync_configured_agent_model_selectors(event.changed_model_defaults)
+        self._refresh_agent_enabled_snapshot()
 
     def _apply_ui_settings(self, settings: UISettings) -> None:
         self.theme = textual_theme_for_mode(settings.theme_mode)
@@ -1578,8 +1662,11 @@ class TrinityTextualApp(App[None]):
         self.set_class(settings.motion == "reduced", "ui-motion-reduced")
         self.set_class(settings.unicode_rendering == "unicode", "ui-unicode-rendering")
 
-    def _sync_configured_agent_model_selectors(self) -> None:
-        selections = {
+    def _sync_configured_agent_model_selectors(
+        self,
+        selections: dict[str, str] | None = None,
+    ) -> None:
+        selections = selections or {
             name: spec.model or "default"
             for name, spec in self.config.agents.items()
         }
@@ -1592,6 +1679,25 @@ class TrinityTextualApp(App[None]):
                 screen.query_one(AgentRecipientModelSelector).set_model_selections(
                     selections,
                 )
+
+    def _sync_agent_enabled_surfaces(self) -> None:
+        for screen_name, screen_type in (
+            ("start", StartScreen),
+            ("nexus", NexusScreen),
+        ):
+            screen = self.get_screen(screen_name, screen_type)
+            if screen.is_mounted:
+                screen.query_one(AgentRecipientModelSelector).sync_agent_states()
+        settings = self.get_screen("settings", SettingsScreen)
+        if settings.is_mounted:
+            settings.sync_agent_enabled_states()
+
+    def _refresh_agent_enabled_snapshot(self) -> None:
+        snapshot = snapshot_with_local_command_results(
+            self._fresh_textual_snapshot(),
+            self._local_command_results,
+        )
+        self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
 
     def on_start_screen_submitted(self, event: StartScreen.Submitted) -> None:
         event.stop()
@@ -1685,6 +1791,13 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         event.stop()
         self._handle_textual_slash_command(event.text)
+
+    def on_nexus_screen_workspace_requested(
+        self,
+        event: NexusScreen.WorkspaceRequested,
+    ) -> None:
+        event.stop()
+        self._open_workspace_command()
 
     def on_nexus_screen_question_answered(
         self,
@@ -2336,6 +2449,9 @@ class TrinityTextualApp(App[None]):
 
     def _handle_textual_workspace_command(self) -> None:
         self._open_workspace_command()
+
+    def _handle_textual_settings_command(self) -> None:
+        self.action_go_settings()
 
     def _handle_textual_project_command(
         self,
@@ -3142,10 +3258,29 @@ class TrinityTextualApp(App[None]):
         command_name: str,
         args: list[str],
     ) -> None:
+        before = {
+            name: bool(spec.enabled)
+            for name, spec in self.config.agents.items()
+        }
         self._record_slash_command_presentation(
             command_name,
             agent_command_presentation(self.config.agents, args, lang=self.config.lang),
         )
+        after = {
+            name: bool(spec.enabled)
+            for name, spec in self.config.agents.items()
+        }
+        changed = {
+            name
+            for name, was_enabled in before.items()
+            if after.get(name) != was_enabled
+        }
+        if not changed:
+            return
+        self._sync_agent_enabled_surfaces()
+        self._refresh_agent_enabled_snapshot()
+        if any(after.get(name) for name in changed):
+            self._refresh_provider_models(use_cache=True)
 
     def _handle_textual_caveman_command(
         self,

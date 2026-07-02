@@ -14,6 +14,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ......models.channel_message_access import ChannelMessageAccess
     from ......models.discord_setup_guide import DiscordSetupGuide
     from ......models.discord_setup_request import DiscordSetupRequest
     from ......models.discord_setup_result import DiscordSetupResult
@@ -30,7 +31,7 @@ class SetupRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/api/durable/channels/discord/setup{?application_id*,command*,guild_id*,name*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/api/durable/channels/discord/setup{?application_id*,command*,guild_id*,message_access*,name*}", path_parameters)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[SetupRequestBuilderGetQueryParameters]] = None) -> Optional[DiscordSetupGuide]:
         """
@@ -121,6 +122,8 @@ class SetupRequestBuilder(BaseRequestBuilder):
         command: Optional[str] = None
 
         guild_id: Optional[str] = None
+
+        message_access: Optional[ChannelMessageAccess] = None
 
         name: Optional[str] = None
 

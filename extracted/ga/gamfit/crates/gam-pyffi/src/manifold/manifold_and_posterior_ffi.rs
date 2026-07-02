@@ -2662,6 +2662,7 @@ fn scan_report_html(model: &FittedModel, scan: &ScanIntrospection) -> Result<Str
         converged: true,
         outer_gradient_norm: None,
         criterion_certificate: None,
+        smoothing_forensics: Vec::new(),
         edf_total: scan.edf,
         r_squared: None,
         coefficients: Vec::new(),
@@ -2733,6 +2734,7 @@ fn report_html_impl(model_bytes: &[u8]) -> Result<String, String> {
         converged: fit.pirls_status.is_converged(),
         outer_gradient_norm: fit.outer_gradient_norm,
         criterion_certificate: None,
+        smoothing_forensics: Vec::new(),
         edf_total: fit.edf_total().unwrap_or(0.0),
         r_squared: None,
         coefficients,
@@ -2935,6 +2937,114 @@ fn sae_ibp_map_value_grad<'py>(
         value.into_pyarray(py).unbind(),
         grad.into_pyarray(py).unbind(),
     ))
+}
+
+/// Bounded threshold-gate activations and the straight-through diagonal logit
+/// derivative of their smooth surrogate.
+///
+/// Returns `(a, da_dl)` where `a_k = σ((l_k − θ_k)/τ) · 1[l_k > θ_k]` — the
+/// SAME bounded `[0, 1)` gate the closed-form `SaeAssignment` jumprelu /
+/// threshold_gate path evaluates (`jumprelu_row`; magnitude lives in the
+/// decoder) — and `da_dl_k = σ'((l_k − θ_k)/τ)/τ` is the smooth surrogate's
+/// derivative on both sides of the jump (straight-through estimator).
+/// `∂a_k/∂θ_k = −da_dl_k`; torch negates. This is the single source of truth
+/// shared with `gamfit.torch`'s bounded jumprelu gate so the torch lane trains
+/// the family the closed-form fit solves.
+#[pyfunction(signature = (logits, temperature, thresholds))]
+fn sae_jumprelu_row_value_grad<'py>(
+    py: Python<'py>,
+    logits: PyReadonlyArray1<'py, f64>,
+    temperature: f64,
+    thresholds: PyReadonlyArray1<'py, f64>,
+) -> PyResult<(Py<PyArray1<f64>>, Py<PyArray1<f64>>)> {
+    if !(temperature.is_finite() && temperature > 0.0) {
+        return Err(py_value_error(format!(
+            "sae_jumprelu_row_value_grad: temperature must be finite and positive; got {temperature}"
+        )));
+    }
+    let logits_view = logits.as_array();
+    let thresholds_view = thresholds.as_array();
+    if logits_view.len() != thresholds_view.len() {
+        return Err(py_value_error(format!(
+            "sae_jumprelu_row_value_grad: thresholds length {} does not match logits length {}",
+            thresholds_view.len(),
+            logits_view.len()
+        )));
+    }
+    for (col, &v) in logits_view.iter().enumerate() {
+        if !v.is_finite() {
+            return Err(py_value_error(format!(
+                "sae_jumprelu_row_value_grad: non-finite logit at atom {col}: {v}"
+            )));
+        }
+    }
+    for (col, &v) in thresholds_view.iter().enumerate() {
+        if !v.is_finite() {
+            return Err(py_value_error(format!(
+                "sae_jumprelu_row_value_grad: non-finite threshold at atom {col}: {v}"
+            )));
+        }
+    }
+    let (value, grad) = gam::terms::sae::assignment::jumprelu_row_value_grad(
+        logits_view.view(),
+        temperature,
+        thresholds_view.view(),
+    );
+    Ok((
+        value.into_pyarray(py).unbind(),
+        grad.into_pyarray(py).unbind(),
+    ))
+}
+
+/// Batched sibling of [`sae_jumprelu_row_value_grad`]: the whole `(N, K)` gate
+/// value+grad in ONE FFI call, so `gamfit.torch`'s bounded jumprelu gate crosses
+/// the Python↔Rust boundary once per forward pass instead of once per row.
+///
+/// Returns `(a, da_dl)`, each `(N, K)`, where `a[i,k] = σ((l−θ)/τ)·1[l>θ]` and
+/// `da_dl[i,k] = σ'((l−θ)/τ)/τ` (straight-through, both sides of the jump);
+/// `∂a/∂θ = −da_dl` (torch negates and row-sums). Bit-identical to invoking
+/// `sae_jumprelu_row_value_grad` row-by-row — the shared Rust source of truth.
+#[pyfunction(signature = (logits, temperature, thresholds))]
+fn sae_jumprelu_batch_value_grad<'py>(
+    py: Python<'py>,
+    logits: PyReadonlyArray2<'py, f64>,
+    temperature: f64,
+    thresholds: PyReadonlyArray1<'py, f64>,
+) -> PyResult<(Py<PyArray2<f64>>, Py<PyArray2<f64>>)> {
+    if !(temperature.is_finite() && temperature > 0.0) {
+        return Err(py_value_error(format!(
+            "sae_jumprelu_batch_value_grad: temperature must be finite and positive; got {temperature}"
+        )));
+    }
+    let logits_view = logits.as_array();
+    let thresholds_view = thresholds.as_array();
+    let (_n, k) = logits_view.dim();
+    if k != thresholds_view.len() {
+        return Err(py_value_error(format!(
+            "sae_jumprelu_batch_value_grad: thresholds length {} does not match logits columns {k}",
+            thresholds_view.len()
+        )));
+    }
+    for ((row, col), &v) in logits_view.indexed_iter() {
+        if !v.is_finite() {
+            return Err(py_value_error(format!(
+                "sae_jumprelu_batch_value_grad: non-finite logit at row {row} atom {col}: {v}"
+            )));
+        }
+    }
+    for (col, &v) in thresholds_view.iter().enumerate() {
+        if !v.is_finite() {
+            return Err(py_value_error(format!(
+                "sae_jumprelu_batch_value_grad: non-finite threshold at atom {col}: {v}"
+            )));
+        }
+    }
+    let (value, grad) = gam::terms::sae::assignment::jumprelu_batch_value_grad(
+        logits_view.view(),
+        temperature,
+        thresholds_view.view(),
+    );
+    Ok((value.into_pyarray(py).unbind(), grad.into_pyarray(py).unbind()))
 }
 
 #[pyfunction(signature = (
@@ -3778,6 +3888,29 @@ fn dataset_with_model_schema(
     let policy =
         UnseenCategoryPolicy::encode_unknown_for_columns(model.random_effect_group_columns());
     encode_recordswith_schema(headers, records, schema, policy)
+}
+
+/// [`dataset_with_model_schema`] with the missing-required-column case lifted
+/// into a typed [`PredictError::SchemaMismatch`] so the predict FFI can raise
+/// the documented `SchemaMismatchError` (issue #343) instead of flattening the
+/// rejection to a generic `GamError`. The header/required-column diff is the
+/// same set difference `dataset_with_model_schema` performs internally; every
+/// other failure (encoding, schema load) stays `PredictError::Other`.
+pub(crate) fn dataset_with_model_schema_typed(
+    model: &FittedModel,
+    headers: &[String],
+    rows: &[Vec<String>],
+) -> Result<EncodedDataset, PredictError> {
+    let expected_names = required_prediction_columns(model).map_err(PredictError::Other)?;
+    let present_names = headers.iter().cloned().collect::<BTreeSet<_>>();
+    let missing = expected_names
+        .difference(&present_names)
+        .map(|name| format!("missing required column '{name}'"))
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        return Err(PredictError::SchemaMismatch(missing.join(" ")));
+    }
+    dataset_with_model_schema(model, headers, rows).map_err(PredictError::Other)
 }
 
 fn dataset_from_xy_arrays(
@@ -5170,14 +5303,52 @@ struct DuchonHybridConfig {
 ///   null space, spectral power ``s = (d−1)/2``) and ships the native
 ///   reproducing-norm Gram plus a null-space shrinkage ridge, not the operator
 ///   triplet.
+///
+/// When ``any_periodic`` is set, the spec is destined for the mixed-periodicity
+/// (cylinder/torus) builder, whose additive per-axis reproducing kernel is
+/// derived only for the pure-polyharmonic spectrum (Sobolev tail ``s = 0``):
+/// the periodic Bernoulli Green's function and the non-periodic Sobolev kernel
+/// have no validated fractional-power generalization. The auto-power branch
+/// therefore pins ``power = 0`` on periodic requests, keeping the SAME cubic
+/// ``Linear`` null space (so the ``{1, y}`` polynomial block still matches
+/// ``duchon_p_from_nullspace_order``) rather than emitting the Euclidean
+/// ``s = (d−1)/2`` default the periodic builder cannot represent.
 fn resolve_duchon_hybrid_config(
     dim: usize,
     length_scale: Option<f64>,
     nullspace_order: Option<&str>,
     explicit_power: Option<f64>,
     max_op: usize,
+    any_periodic: bool,
 ) -> PyResult<DuchonHybridConfig> {
     let requested_nullspace = parse_nullspace_order(nullspace_order)?;
+    // Pure, auto-power requests (no `length_scale`, no explicit `power`) resolve
+    // via the SAME cubic structural default the formula/CLI front-ends use
+    // (`duchon_cubic_default`): an affine (`Linear`) null space plus the
+    // fractional spectral power `s = (d-1)/2`, i.e. the r³ Duchon kernel in every
+    // dimension. This is what keeps the kernel admissible — `2(p+s) = d+1 > d`
+    // with only the `d+1` affine columns — and, crucially, robust to the
+    // center-count-driven null-space degradation that the integer-power operator
+    // resolver below cannot survive: that path escalates the null space to absorb
+    // the pure-mode CPD order at an *integer* `s` (e.g. d=2 ⇒ `Degree(2)`, six
+    // polynomial columns, `s=0`), but on sparse centers the escalated polynomial
+    // block degrades back down while `s` stays put, leaving `2(p+s) ≤ d` and an
+    // inadmissible kernel (gam#880). The integer-power resolver is reserved for
+    // an explicit `power` or the hybrid Matérn-blended kernel (`length_scale`),
+    // whose partial-fraction spectrum is only defined for integer `s`.
+    if length_scale.is_none() && explicit_power.is_none() {
+        let (nullspace_order, cubic_power) = duchon_cubic_default(dim);
+        // The mixed-periodicity reproducing kernel supports only s = 0 (pure
+        // polyharmonic); pin the auto power to 0 there while keeping the cubic
+        // `Linear` null space so the periodic builder accepts the auto-resolved
+        // spec instead of rejecting the Euclidean s = (d−1)/2 default.
+        let power = if any_periodic { 0.0 } else { cubic_power };
+        return Ok(DuchonHybridConfig {
+            length_scale,
+            nullspace_order,
+            power,
+        });
+    }
     let (resolved_nullspace, auto_power) =
         resolve_duchon_orders(dim, requested_nullspace, max_op, length_scale);
     let power = explicit_power.unwrap_or(auto_power as f64);

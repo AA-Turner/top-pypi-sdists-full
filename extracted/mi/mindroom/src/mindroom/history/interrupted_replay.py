@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from agno.models.message import Message
@@ -22,11 +21,11 @@ from mindroom.constants import (
     MATRIX_SOURCE_EVENT_IDS_METADATA_KEY,
     MATRIX_SOURCE_EVENT_PROMPTS_METADATA_KEY,
 )
+from mindroom.history.storage import new_scope_session
 from mindroom.tool_system.events import (
     ToolTraceEntry,
     format_tool_completed_event,
     format_tool_started_event,
-    render_tool_trace_for_context,
 )
 
 if TYPE_CHECKING:
@@ -40,7 +39,6 @@ if TYPE_CHECKING:
 _INTERRUPTED_REPLAY_STATE_KEY = "mindroom_replay_state"
 _ORIGINAL_STATUS_KEY = "mindroom_original_status"
 _INTERRUPTED_REPLAY_STATE = "interrupted"
-_INTERRUPTED_RESPONSE_MARKER = "[interrupted]"
 _TRACE_METADATA_KEYS = (
     "room_id",
     "thread_id",
@@ -124,16 +122,23 @@ def split_interrupted_tool_trace(
     return completed, interrupted
 
 
-def _render_interrupted_tool_trace(events: Sequence[ToolTraceEntry]) -> str:
-    lines: list[str] = []
-    for event in events:
-        lines.append(f"[tool:{event.tool_name} interrupted]")
-        if event.args_preview:
-            lines.append(f"  args: {event.args_preview}")
-        lines.append("  result: <interrupted before completion>")
-        if event.truncated:
-            lines.append("  (truncated)")
-    return "\n".join(lines)
+def _render_interruption_summary(snapshot: InterruptedReplaySnapshot) -> str:
+    """Render one prose interruption summary safe for model-facing assistant history.
+
+    Raw tool traces here read as machine-formatted terminal turns and teach the model
+    to end subsequent turns with empty content, so only tool names are listed.
+    """
+    details: list[str] = []
+    if snapshot.completed_tools:
+        names = ", ".join(entry.tool_name for entry in snapshot.completed_tools)
+        details.append(f"{len(snapshot.completed_tools)} tool call(s) had completed: {names}")
+    if snapshot.interrupted_tools:
+        names = ", ".join(entry.tool_name for entry in snapshot.interrupted_tools)
+        details.append(f"{len(snapshot.interrupted_tools)} tool call(s) were still running: {names}")
+    summary = "(turn interrupted by the user before completion"
+    if details:
+        summary += "; " + "; ".join(details)
+    return summary + ")"
 
 
 def _render_interrupted_replay_content(snapshot: InterruptedReplaySnapshot) -> str:
@@ -141,15 +146,8 @@ def _render_interrupted_replay_content(snapshot: InterruptedReplaySnapshot) -> s
     parts: list[str] = []
     if snapshot.partial_text:
         parts.append(snapshot.partial_text)
-    tool_parts: list[str] = []
-    if snapshot.completed_tools:
-        tool_parts.append(render_tool_trace_for_context(list(snapshot.completed_tools)))
-    if snapshot.interrupted_tools:
-        tool_parts.append(_render_interrupted_tool_trace(snapshot.interrupted_tools))
-    if tool_parts:
-        parts.append("\n".join(tool_parts))
-    parts.append(_INTERRUPTED_RESPONSE_MARKER)
-    return "\n\n".join(part for part in parts if part)
+    parts.append(_render_interruption_summary(snapshot))
+    return "\n\n".join(parts)
 
 
 def _interrupted_replay_metadata(snapshot: InterruptedReplaySnapshot) -> dict[str, Any]:
@@ -260,7 +258,7 @@ def persist_interrupted_replay_snapshot(
     if persisted_session is None:
         persisted_session = session
     if persisted_session is None:
-        persisted_session = _new_session(
+        persisted_session = new_scope_session(
             session_id=session_id,
             scope_id=scope_id,
             is_team=is_team,
@@ -325,29 +323,3 @@ def _load_persisted_session(
     if is_team:
         return get_team_session(storage, session_id)
     return get_agent_session(storage, session_id)
-
-
-def _new_session(
-    *,
-    session_id: str,
-    scope_id: str,
-    is_team: bool,
-) -> AgentSession | TeamSession:
-    created_at = int(datetime.now(UTC).timestamp())
-    if is_team:
-        return TeamSession(
-            session_id=session_id,
-            team_id=scope_id,
-            metadata={},
-            runs=[],
-            created_at=created_at,
-            updated_at=created_at,
-        )
-    return AgentSession(
-        session_id=session_id,
-        agent_id=scope_id,
-        metadata={},
-        runs=[],
-        created_at=created_at,
-        updated_at=created_at,
-    )

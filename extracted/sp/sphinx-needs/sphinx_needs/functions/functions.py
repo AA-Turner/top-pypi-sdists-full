@@ -26,6 +26,11 @@ from sphinx_needs.logging import get_logger, log_warning
 from sphinx_needs.need_item import NeedItem, NeedLink, NeedPartItem
 from sphinx_needs.nodes import Need
 from sphinx_needs.roles.need_func import NeedFunc
+from sphinx_needs.variant_data import (
+    VariantDataError,
+    VariantDataParsed,
+    lookup_variant_data,
+)
 from sphinx_needs.variants import VariantFunctionParsed
 from sphinx_needs.views import NeedsView
 
@@ -258,7 +263,10 @@ def find_and_replace_node_content(
             for child in node.children:
                 new_child = find_and_replace_node_content(child, env, need)
                 new_children.append(new_child)
-                node.children = new_children
+
+            node.children = new_children
+            for subchild in node.children:
+                node.setup_child(subchild)
         else:
             node = nodes.Text(new_text)
         return node
@@ -270,7 +278,10 @@ def find_and_replace_node_content(
                 continue
             new_child = find_and_replace_node_content(child, env, need)
             new_children.append(new_child)
+
         node.children = new_children
+        for subchild in node.children:
+            node.setup_child(subchild)
     return node
 
 
@@ -281,6 +292,7 @@ def resolve_functions(
 ) -> None:
     """Resolve all dynamic/variant functions in all needs."""
     needs_schema = SphinxNeedsData(app.env).get_schema()
+    var_proxy = needs_config.variant_data_proxy
     for need in needs.values():
         if not need.has_dynamic_fields:
             continue
@@ -317,6 +329,8 @@ def resolve_functions(
                             **needs_config.filter_data,
                             "build_tags": set(app.builder.tags),
                         }
+                        if var_proxy is not None:
+                            var_context["var"] = var_proxy
                         if (
                             var_return := _get_variant(
                                 item, needs_config.variants, var_context
@@ -341,6 +355,27 @@ def resolve_functions(
                                 resolved.extend(var_return)
                             else:
                                 resolved.append(var_return)
+                    elif isinstance(item, VariantDataParsed):
+                        vd_return = _get_variant_data(item, needs_config.variant_data)
+                        if not (
+                            field_schema.type_check(vd_return)
+                            or (
+                                field_schema.type == "array"
+                                and field_schema.type_check_item(vd_return)
+                            )
+                        ):
+                            raise ValueError(
+                                f"variant data value {type(vd_return)} is not of type {field_schema.type!r}"
+                                + (
+                                    ""
+                                    if field_schema.type != "array"
+                                    else f" or item type {field_schema.item_type!r}"
+                                )
+                            )
+                        if isinstance(vd_return, list | tuple):
+                            resolved.extend(vd_return)
+                        else:
+                            resolved.append(vd_return)
                     else:
                         resolved.append(item)
 
@@ -374,6 +409,26 @@ def _get_variant(
         if bool(eval(expr, context.copy())):
             return value
     return variant.final_value
+
+
+def _get_variant_data(
+    variant_data: VariantDataParsed,
+    variant_data_context: dict[str, Any],
+) -> Any:
+    """Resolve a variant data reference against the ``var`` namespace.
+
+    The reference is a constrained dotted ``var.*`` path (no arbitrary
+    expression evaluation); it is resolved by walking the variant data mapping.
+
+    :param variant_data: The parsed variant data reference.
+    :param variant_data_context: The resolved variant data mapping.
+    :returns: The resolved value.
+    :raises ValueError: if the reference is invalid or cannot be resolved.
+    """
+    try:
+        return lookup_variant_data(variant_data_context, variant_data.expression)
+    except VariantDataError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 def check_and_get_content(

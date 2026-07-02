@@ -18,6 +18,16 @@ class ModelSettingsModalHarness(App[None]):
         self.push_screen(self.modal)
 
 
+def test_model_settings_modal_cancel_binding_uses_korean_label(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    modal = ModelSettingsModal(config.agents, {}, {}, lang="ko")
+    binding = next(iter(modal._bindings.get_bindings_for_key("escape")))
+
+    assert binding.key == "escape"
+    assert binding.action == "cancel"
+    assert binding.description == "취소"
+
+
 @pytest.mark.asyncio
 async def test_model_settings_modal_skips_unchanged_choice_refresh(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
@@ -69,8 +79,183 @@ async def test_model_settings_modal_skips_unchanged_choice_refresh(tmp_path) -> 
 
 
 @pytest.mark.asyncio
+async def test_model_settings_modal_refresh_preserves_selected_model(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    spec = config.agents["claude"]
+    default_choice = ProviderModelChoice(
+        provider=spec.provider,
+        model="default",
+        label="default",
+        source="static-fallback",
+        context_budget=None,
+    )
+    custom_choice = ProviderModelChoice(
+        provider=spec.provider,
+        model="custom-live",
+        label="custom-live",
+        source="static-fallback",
+        context_budget=None,
+    )
+    modal = ModelSettingsModal(
+        config.agents,
+        {"claude": (default_choice, custom_choice)},
+        {"claude": "custom-live"},
+    )
+    app = ModelSettingsModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+
+        live_choice = ProviderModelChoice(
+            provider=spec.provider,
+            model="opus-live",
+            label="opus-live",
+            source="cli-live",
+            context_budget=None,
+        )
+        modal.set_model_choices({"claude": (default_choice, live_choice)})
+        await pilot.pause()
+
+        choices = modal.choices_by_agent["claude"]
+        option_list = modal.query_one("#model-choice-list", OptionList)
+
+        assert [choice.model for choice in choices] == [
+            "default",
+            "opus-live",
+            "custom-live",
+        ]
+        assert modal.selected_models["claude"] == "custom-live"
+        assert option_list.highlighted == 2
+
+
+@pytest.mark.asyncio
+async def test_model_settings_modal_keeps_missing_default_first(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    spec = config.agents["codex"]
+    live_choice = ProviderModelChoice(
+        provider=spec.provider,
+        model="gpt-5.5",
+        label="gpt-5.5",
+        source="cli-live",
+        context_budget=None,
+    )
+    modal = ModelSettingsModal(
+        config.agents,
+        {"codex": (live_choice,)},
+        {"codex": "default"},
+    )
+    app = ModelSettingsModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+        modal.query_one("#model-agent-codex", Button).press()
+        await pilot.pause()
+
+        option_list = modal.query_one("#model-choice-list", OptionList)
+        choices = modal.choices_by_agent["codex"]
+
+        assert [choice.model for choice in choices] == ["default", "gpt-5.5"]
+        assert option_list.highlighted == 0
+
+
+@pytest.mark.asyncio
+async def test_model_settings_modal_moves_existing_default_first(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    spec = config.agents["codex"]
+    default_choice = ProviderModelChoice(
+        provider=spec.provider,
+        model="default",
+        label="codex(default)",
+        source="static-fallback",
+        context_budget=128_000,
+    )
+    live_choice = ProviderModelChoice(
+        provider=spec.provider,
+        model="gpt-5.5",
+        label="gpt-5.5",
+        source="cli-live",
+        context_budget=None,
+    )
+    modal = ModelSettingsModal(
+        config.agents,
+        {"codex": (live_choice, default_choice)},
+        {"codex": "default"},
+    )
+    app = ModelSettingsModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+        modal.query_one("#model-agent-codex", Button).press()
+        await pilot.pause()
+
+        choices = modal.choices_by_agent["codex"]
+        option_list = modal.query_one("#model-choice-list", OptionList)
+
+        assert [choice.model for choice in choices] == ["default", "gpt-5.5"]
+        assert choices[0].label == "codex(default)"
+        assert option_list.highlighted == 0
+
+
+@pytest.mark.asyncio
+async def test_model_settings_modal_starts_on_first_enabled_agent(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["claude"].enabled = False
+    config.agents["codex"].enabled = True
+    choices = {
+        name: (
+            ProviderModelChoice(
+                provider=spec.provider,
+                model="default",
+                label="default",
+                source="static-fallback",
+                context_budget=None,
+            ),
+        )
+        for name, spec in config.agents.items()
+    }
+    modal = ModelSettingsModal(config.agents, choices, {})
+    app = ModelSettingsModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+        choice_header = modal.query_one("#model-choice-header")
+
+        assert modal.active_agent == "codex"
+        assert "Codex" in str(choice_header.content)
+        assert str(modal.query_one("#model-agent-codex", Button).label).startswith("> ")
+        claude_button = modal.query_one("#model-agent-claude", Button)
+        assert "off" in str(claude_button.label)
+        assert claude_button.disabled is True
+
+        claude_button.press()
+        await pilot.pause()
+
+        assert modal.active_agent == "codex"
+
+
+@pytest.mark.asyncio
+async def test_model_settings_modal_uses_korean_disabled_agent_label(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    config.agents["claude"].enabled = False
+    config.agents["codex"].enabled = True
+    modal = ModelSettingsModal(config.agents, {}, {}, lang="ko")
+    app = ModelSettingsModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+
+        claude_button = modal.query_one("#model-agent-claude", Button)
+
+    assert "비활성" in str(claude_button.label)
+    assert "off" not in str(claude_button.label)
+
+
+@pytest.mark.asyncio
 async def test_model_settings_modal_skips_active_agent_reselect_refresh(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
     choices = {
         name: (
             ProviderModelChoice(
@@ -218,6 +403,7 @@ async def test_model_settings_modal_rebinds_choice_list_cache_after_refresh(
     tmp_path,
 ) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
     choices = {
         name: (
             ProviderModelChoice(

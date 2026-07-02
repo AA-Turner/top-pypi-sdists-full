@@ -21,7 +21,7 @@ haxby_dataset = datasets.fetch_haxby()
 
 # print basic information on the dataset
 print(
-    "First subject anatomical nifti image (3D) located is "
+    "First subject anatomical nifti image (3D) is located "
     f"at: {haxby_dataset.anat[0]}"
 )
 print(
@@ -93,7 +93,6 @@ for classifier_name in sorted(classifiers):
     decoder = Decoder(
         estimator=classifier_name,
         mask=mask_filename,
-        standardize="zscore_sample",
         cv=cv,
         screening_percentile=100,
         verbose=1,
@@ -180,7 +179,6 @@ for classifier_name in sorted(classifiers):
     decoder = Decoder(
         estimator=classifier_name,
         mask=mask_filename,
-        standardize="zscore_sample",
         cv=cv,
         screening_percentile=100,
     )

@@ -1,12 +1,12 @@
 Metadata-Version: 2.1
 Name: sqlmap
-Version: 1.10.6
+Version: 1.10.7
 Summary: Automatic SQL injection and database takeover tool
 Home-page: https://sqlmap.org
 Author: Bernardo Damele Assumpcao Guimaraes, Miroslav Stampar
 Author-email: bernardo@sqlmap.org, miroslav@sqlmap.org
 License: GNU General Public License v2 (GPLv2)
-Download-URL: https://github.com/sqlmapproject/sqlmap/archive/1.10.6.zip
+Download-URL: https://github.com/sqlmapproject/sqlmap/archive/1.10.7.zip
 Project-URL: Source, https://github.com/sqlmapproject/sqlmap/
 Project-URL: Documentation, https://github.com/sqlmapproject/sqlmap/wiki
 Project-URL: Tracker, https://github.com/sqlmapproject/sqlmap/issues

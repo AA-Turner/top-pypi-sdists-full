@@ -164,7 +164,38 @@ def _bootstrap_defaults() -> None:
             "gpt-5*": API_MODE_CODEX_RESPONSES,
             "codex*": API_MODE_CODEX_RESPONSES,
         },
-        fallback_models=["claude-sonnet-4.6", "gpt-4o"],
+        # Static fallback list — the dashboard's primary source for
+        # model dropdowns when no Copilot token is available. The live
+        # account-scoped list is fetched at runtime via
+        # GET /api/providers/copilot/models and merged with this list.
+        # Keep this in sync with the models Copilot typically enables;
+        # the dynamic endpoint is the source of truth, not this list.
+        fallback_models=[
+            # Anthropic (most recent first)
+            "claude-sonnet-5",
+            "claude-sonnet-4.6",
+            "claude-opus-4.7",
+            "claude-opus-4.6",
+            "claude-haiku-4.5",
+            # OpenAI GPT-5 family
+            "gpt-5.5",
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-codex",
+            # OpenAI GPT-4 family
+            "gpt-4.1",
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4o-mini-2024-07-18",
+            "gpt-4",
+            "gpt-4-0613",
+            # Older GPT-3.5
+            "gpt-3.5-turbo",
+            "gpt-3.5-turbo-0613",
+            # Copilot previews (org-rollout names that appear on Business plans)
+            "copilot-preview-4o-mini-a1cfd608",
+            "copilot-preview-gpt4-centralus",
+        ],
         supports_reasoning=True,
         supports_prompt_cache=True,  # Claude on Copilot still supports cache_control
         extra_headers={

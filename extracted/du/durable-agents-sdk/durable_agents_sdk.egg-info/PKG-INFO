@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: durable-agents-sdk
-Version: 1.0.20260624003
+Version: 1.0.20260701001
 Summary: Python SDK for the Durable Agents public API.
 Author: Graphlit
 License-Expression: MIT

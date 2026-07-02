@@ -502,6 +502,10 @@ class SessionsContextPort(t.Protocol):
 
     def set_cost_unknown(self, unknown: bool) -> None: ...
 
+    def subagent_cost_usd(self) -> float: ...
+
+    def set_subagent_cost_usd(self, cost: float) -> None: ...
+
     def show_thinking(self) -> bool: ...
 
     def authenticated(self) -> bool: ...
@@ -1142,6 +1146,7 @@ class SessionsManager:
             self._context.set_tool_call_count(0)
             self._context.set_cost_usd(0.0)
             self._context.set_cost_unknown(False)
+            self._context.set_subagent_cost_usd(0.0)
             return
 
         state = self.session_turn_state(session.info.session_id)
@@ -1155,12 +1160,14 @@ class SessionsManager:
             self._context.set_tool_call_count(0)
             self._context.set_cost_usd(0.0)
             self._context.set_cost_unknown(False)
+            self._context.set_subagent_cost_usd(0.0)
             return
 
         self._context.set_last_input_tokens(state.usage_last_input_tokens)
         self._context.set_tool_call_count(state.usage_tool_call_count)
         self._context.set_cost_usd(state.usage_cost_usd)
         self._context.set_cost_unknown(state.cost_unknown)
+        self._context.set_subagent_cost_usd(state.usage_subagent_cost_usd)
         if state.draft_text:
             draft.set_buffer(state.draft_text)
         else:
@@ -1436,6 +1443,7 @@ class SessionsManager:
             self._context.set_tool_call_count(next_state.usage_tool_call_count)
             self._context.set_cost_usd(next_state.usage_cost_usd)
             self._context.set_cost_unknown(next_state.cost_unknown)
+            self._context.set_subagent_cost_usd(next_state.usage_subagent_cost_usd)
 
         if isinstance(wire_event, we.Cancelled):
             logger.debug("Server confirmed turn cancellation for session {}", session_id[:8])
@@ -1529,14 +1537,12 @@ class SessionsManager:
                 error_type=tool_error_type,
                 report_url=report_url,
             )
-            # Update the in-progress widget in place, or append a new one
-            was_following = False
+            # Update the in-progress widget in place, or append a new one. The
+            # conversation view is anchored, so it stays pinned to the bottom on
+            # its own while the user is following and holds position once they
+            # scroll up — no manual follow-snapshot + scroll_end needed.
             if is_active_session:
                 conv = self._ui.query_conversation()
-                # Snapshot follow state BEFORE any content change — reflow after
-                # mount/complete extends max_scroll_y, which would falsely read
-                # a following user as scrolled-up.
-                was_following = conv.is_following
                 widget = self._tool_call_widgets.pop(run.tool_call_id if run else "", None)
                 if widget is not None:
                     widget.complete(
@@ -1550,19 +1556,15 @@ class SessionsManager:
                 else:
                     # No in-progress widget (e.g. session replay, or ToolStart
                     # arrived while the session wasn't active) — append the
-                    # final tool row synchronously so the result is guaranteed
-                    # to land in the conversation view. A deferred refresh tick
-                    # used to swallow the append intermittently when a
-                    # transcript reload landed in between.
-                    conv.append_entry(tool_message, scroll=False)
+                    # final tool row so the result is guaranteed to land in the
+                    # conversation view. The anchor pins it to the bottom when
+                    # the user is following.
+                    conv.append_entry(tool_message)
             # Always record in transcript with full details for session replay
             if session_record is not None:
                 session_record.transcript.append(tool_message)
             if is_active_session:
                 self.sync_progress_indicator(next_state)
-                if was_following:
-                    conv = self._ui.query_conversation()
-                    self._ui.call_after_refresh(conv.scroll_end, animate=False)
             return
 
         if isinstance(wire_event, we.ToolStep):

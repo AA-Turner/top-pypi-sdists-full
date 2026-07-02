@@ -26,6 +26,8 @@ __all__ = (
     "AcceleratorNameType",
     "AcceleratorTypeType",
     "AccountAttributeNameType",
+    "AccountVpcEncryptionControlModeType",
+    "AccountVpcEncryptionControlStateType",
     "ActivityStatusType",
     "AddressAttributeNameType",
     "AddressFamilyType",
@@ -38,6 +40,7 @@ __all__ = (
     "AllowedImagesSettingsEnabledStateType",
     "AllowsMultipleInstanceTypesType",
     "AmdSevSnpSpecificationType",
+    "AmdSevSnpType",
     "AnalysisStatusType",
     "ApplianceModeSupportValueType",
     "ApplyCancellationChargesType",
@@ -720,6 +723,14 @@ AcceleratorNameType = Literal[
 ]
 AcceleratorTypeType = Literal["fpga", "gpu", "inference", "media"]
 AccountAttributeNameType = Literal["default-vpc", "supported-platforms"]
+AccountVpcEncryptionControlModeType = Literal["attempt-enforce", "attempt-monitor", "unmanaged"]
+AccountVpcEncryptionControlStateType = Literal[
+    "default-state",
+    "transitions-failed",
+    "transitions-in-progress",
+    "transitions-partially-successful",
+    "transitions-successful",
+]
 ActivityStatusType = Literal["error", "fulfilled", "pending_fulfillment", "pending_termination"]
 AddressAttributeNameType = Literal["domain-name"]
 AddressFamilyType = Literal["ipv4", "ipv6"]
@@ -727,6 +738,7 @@ AddressTransferStatusType = Literal["accepted", "disabled", "pending"]
 AffinityType = Literal["default", "host"]
 AllocationStateType = Literal[
     "available",
+    "configuring",
     "pending",
     "permanent-failure",
     "released",
@@ -745,6 +757,7 @@ AllowedImagesSettingsDisabledStateType = Literal["disabled"]
 AllowedImagesSettingsEnabledStateType = Literal["audit-mode", "enabled"]
 AllowsMultipleInstanceTypesType = Literal["off", "on"]
 AmdSevSnpSpecificationType = Literal["disabled", "enabled"]
+AmdSevSnpType = Literal["disabled", "enabled"]
 AnalysisStatusType = Literal["failed", "running", "succeeded"]
 ApplianceModeSupportValueType = Literal["disable", "enable"]
 ApplyCancellationChargesType = Literal["commitment-wind-down"]

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
+from urllib.parse import urlparse
 
 import regex
 from crispy_forms.helper import FormHelper
@@ -14,10 +15,20 @@ from django import forms
 from django.http import QueryDict
 from django.utils.functional import cached_property
 from django.utils.translation import gettext, gettext_lazy, pgettext_lazy
-from fedora_messaging.exceptions import ConfigurationException
 from lxml.cssselect import CSSSelector
 
-from weblate.addons.base import BaseAddon
+from weblate.addons.base import (
+    CHANGE_EVENT_FILTER_ALL,
+    CHANGE_EVENT_FILTER_CONTENT,
+    CHANGE_EVENT_FILTER_CUSTOM,
+    BaseAddon,
+    get_change_event_filter,
+)
+from weblate.addons.defaults import (
+    DEFAULT_FEDORA_MESSAGING_CONNECTION_ATTEMPTS,
+    DEFAULT_FEDORA_MESSAGING_PUBLISH_TIMEOUT,
+    DEFAULT_FEDORA_MESSAGING_RETRY_DELAY,
+)
 from weblate.formats.models import FILE_FORMATS
 from weblate.trans.actions import ActionEvents
 from weblate.trans.discovery import (
@@ -37,7 +48,7 @@ from weblate.utils.forms import (
 from weblate.utils.regex import compile_regex, regex_match, regex_sub
 from weblate.utils.render import validate_render, validate_render_translation
 from weblate.utils.validators import (
-    DomainOrIPValidator,
+    validate_fedora_messaging_url,
     validate_filename,
     validate_re,
     validate_re_nonempty,
@@ -51,20 +62,25 @@ if TYPE_CHECKING:
         AutoTranslateAddon,
         AutoTranslateAddonStoredConfiguration,
     )
-    from weblate.addons.cdn import CDNFilesAddon, CDNJSAddon  # noqa: F401
-    from weblate.addons.consistency import LanguageConsistencyAddon  # noqa: F401
+    from weblate.addons.cdn import (  # ruff: ignore[unused-import]
+        CDNFilesAddon,
+        CDNJSAddon,
+    )
+    from weblate.addons.consistency import (
+        LanguageConsistencyAddon,  # ruff: ignore[unused-import]
+    )
     from weblate.addons.generate import (
-        GenerateFileAddon,  # noqa: F401
+        GenerateFileAddon,  # ruff: ignore[unused-import]
         GenerateFileAddonConfiguration,
     )
     from weblate.addons.gettext import MesonAddon
     from weblate.addons.git import (
-        GitSquashAddon,  # noqa: F401
+        GitSquashAddon,  # ruff: ignore[unused-import]
         GitSquashAddonStoredConfiguration,
     )
     from weblate.addons.models import Addon
     from weblate.addons.properties import (
-        PropertiesSortAddon,  # noqa: F401
+        PropertiesSortAddon,  # ruff: ignore[unused-import]
         PropertiesSortAddonStoredConfiguration,
     )
     from weblate.auth.models import User
@@ -164,8 +180,40 @@ class BaseExtractPotForm(BaseAddonForm):
             "Ensures the msgmerge add-on is installed and triggers it after the POT file is updated."
         ),
     )
+    location_mode = forms.ChoiceField(
+        label=gettext_lazy("Source locations"),
+        choices=(
+            ("file", gettext_lazy("Use file format settings")),
+            ("keep", gettext_lazy("Extract locations to the POT file")),
+            ("omit", gettext_lazy("Do not extract locations")),
+        ),
+        required=True,
+        initial="file",
+        help_text=gettext_lazy(
+            "Choose how extraction writes source locations to the POT file. "
+            "Use this to keep locations in the template while omitting them "
+            "from translated PO files."
+        ),
+    )
+
+    @staticmethod
+    def ensure_default_bound_value(data, key: str, value: str):
+        if data is None or key in data:
+            return data
+        if hasattr(data, "copy"):
+            data = data.copy()
+            if hasattr(data, "setlist"):
+                data.setlist(key, [value])
+            else:
+                data[key] = value
+        return data
 
     def __init__(self, *args, **kwargs) -> None:
+        data = self.ensure_default_bound_value(
+            kwargs.get("data"), "location_mode", "file"
+        )
+        if data is not None:
+            kwargs["data"] = data
         super().__init__(*args, **kwargs)
         self.helper = FormHelper(self)
         if self._addon.instance.pk is None and not self._addon.documentation_build:
@@ -174,6 +222,7 @@ class BaseExtractPotForm(BaseAddonForm):
             Field("interval"),
             Field("normalize_header"),
             Field("update_po_files"),
+            Field("location_mode"),
         )
 
     def serialize_form(self):
@@ -231,18 +280,6 @@ class BaseXgettextExtractPotForm(BaseExtractPotForm):
         ),
     )
 
-    @staticmethod
-    def ensure_default_bound_value(data, key: str, value: str):
-        if data is None or key in data:
-            return data
-        if hasattr(data, "copy"):
-            data = data.copy()
-            if hasattr(data, "setlist"):
-                data.setlist(key, [value])
-            else:
-                data[key] = value
-        return data
-
     def __init__(self, *args, **kwargs) -> None:
         data = self.ensure_default_bound_value(
             kwargs.get("data"), "comment_mode", "off"
@@ -261,6 +298,7 @@ class BaseXgettextExtractPotForm(BaseExtractPotForm):
             comment_tag = ""
         cleaned_data["comment_tag"] = comment_tag
         cleaned_data["keyword"] = cleaned_data.get("keyword", "").strip()
+        cleaned_data["location_mode"] = cleaned_data.get("location_mode", "file")
         return cleaned_data
 
 
@@ -280,10 +318,11 @@ class XgettextExtractPotForm(BaseXgettextExtractPotForm):
     )
     language = forms.CharField(
         label=gettext_lazy("xgettext language"),
-        required=True,
-        initial="Python",
+        required=False,
+        initial="",
         help_text=gettext_lazy(
-            "Programming language passed to xgettext, for example Python or C."
+            "Programming language passed to xgettext, for example Python or C. "
+            "Leave blank to let xgettext guess the language from file extensions."
         ),
     )
     source_patterns = forms.CharField(
@@ -333,6 +372,7 @@ class XgettextExtractPotForm(BaseXgettextExtractPotForm):
             Field("comment_tag"),
             Field("checks"),
             Field("keyword"),
+            Field("location_mode"),
         ]
 
     @staticmethod
@@ -406,6 +446,7 @@ class MesonExtractPotForm(BaseXgettextExtractPotForm):
             Field("comment_tag"),
             Field("checks"),
             Field("keyword"),
+            Field("location_mode"),
         )
 
     def clean(self) -> dict[str, Any]:
@@ -473,6 +514,7 @@ class SphinxExtractPotForm(BaseExtractPotForm):
             Field("interval"),
             Field("normalize_header"),
             Field("update_po_files"),
+            Field("location_mode"),
             Field("filter_mode"),
         )
 
@@ -1475,12 +1517,90 @@ class PropertiesSortAddonForm(
 class ChangeBaseAddonForm(BaseAddonForm):
     """Base form for Change-based addons."""
 
+    event_filter = forms.ChoiceField(
+        label=gettext_lazy("Change events to trigger"),
+        required=True,
+        initial=CHANGE_EVENT_FILTER_CONTENT,
+        choices=(
+            (
+                CHANGE_EVENT_FILTER_CONTENT,
+                gettext_lazy("Translation content events"),
+            ),
+            (
+                CHANGE_EVENT_FILTER_ALL,
+                gettext_lazy("All change events"),
+            ),
+            (
+                CHANGE_EVENT_FILTER_CUSTOM,
+                gettext_lazy("Selected change events"),
+            ),
+        ),
+        help_text=gettext_lazy(
+            "Choose which change events should trigger this add-on."
+        ),
+        widget=forms.RadioSelect(
+            attrs={
+                "data-addon-event-filter": "1",
+                "data-addon-custom-events-value": CHANGE_EVENT_FILTER_CUSTOM,
+            }
+        ),
+    )
     events = forms.MultipleChoiceField(
-        label=gettext_lazy("Change events"),
+        label=gettext_lazy("Selected change events"),
         required=False,
-        widget=SortedSelectMultiple(),
+        widget=SortedSelectMultiple(attrs={"data-addon-events": "1"}),
         choices=ActionEvents.choices,
     )
+
+    @staticmethod
+    def _data_has_events(data) -> bool:
+        if hasattr(data, "getlist"):
+            return bool(data.getlist("events"))
+        value = data.get("events")
+        if isinstance(value, (list, tuple, set)):
+            return bool(value)
+        return bool(value)
+
+    @classmethod
+    def _ensure_event_filter_data(cls, data, event_filter: str):
+        if data is None or "event_filter" in data:
+            return data
+        if cls._data_has_events(data):
+            event_filter = CHANGE_EVENT_FILTER_CUSTOM
+        if hasattr(data, "copy"):
+            data = data.copy()
+        if hasattr(data, "setlist"):
+            data.setlist("event_filter", [event_filter])
+        else:
+            data["event_filter"] = event_filter
+        return data
+
+    def __init__(self, user, addon, instance=None, *args, **kwargs) -> None:
+        event_filter = get_change_event_filter(addon.instance.configuration)
+        data = self._ensure_event_filter_data(kwargs.get("data"), event_filter)
+        if data is not None:
+            kwargs["data"] = data
+        super().__init__(user, addon, instance, *args, **kwargs)
+        self.fields["events"].initial = addon.instance.configuration.get("events") or []
+        if self.get_event_filter() != CHANGE_EVENT_FILTER_CUSTOM:
+            self.fields["events"].disabled = True
+
+    def get_event_filter(self) -> str:
+        if self.is_bound:
+            return str(
+                self.fields["event_filter"].widget.value_from_datadict(
+                    self.data, self.files, self.add_prefix("event_filter")
+                )
+            )
+        return get_change_event_filter(self._addon.instance.configuration)
+
+    def serialize_form(self):
+        result = dict(super().serialize_form())
+        if result["event_filter"] != CHANGE_EVENT_FILTER_CUSTOM and not result.get(
+            "events"
+        ):
+            result["events"] = self._addon.instance.configuration.get("events") or []
+        return result
 
 
 class BaseWebhooksAddonForm(ChangeBaseAddonForm):
@@ -1491,8 +1611,9 @@ class BaseWebhooksAddonForm(ChangeBaseAddonForm):
         required=True,
     )
 
-    field_order = [  # noqa: RUF012
+    field_order = [  # ruff: ignore[mutable-class-default]
         "webhook_url",
+        "event_filter",
         "events",
     ]
 
@@ -1516,51 +1637,121 @@ class WebhooksAddonForm(BaseWebhooksAddonForm):
         ),
     )
 
-    field_order = [  # noqa: RUF012
+    field_order = [  # ruff: ignore[mutable-class-default]
         "webhook_url",
         "secret",
+        "event_filter",
         "events",
     ]
 
 
 class FedoraMessagingAddonForm(ChangeBaseAddonForm):
-    amqp_host = forms.CharField(
-        label=gettext_lazy("AMQP broker host"),
-        help_text=gettext_lazy("The AMQP broker to connect to."),
-        validators=[DomainOrIPValidator()],
-    )
-    amqp_ssl = forms.BooleanField(
-        label=gettext_lazy("Use SSL for AMQP connection"),
-        required=False,
+    amqp_url = forms.CharField(
+        label=gettext_lazy("AMQP broker URL"),
+        help_text=gettext_lazy("The AMQP broker URL to connect to."),
+        validators=[validate_fedora_messaging_url],
     )
     ca_cert = forms.CharField(
         widget=forms.Textarea(),
-        label=gettext_lazy("CA certificates"),
+        label=gettext_lazy("CA certificate bundle (PEM)"),
         help_text=gettext_lazy(
-            "Bundle of PEM encoded CA certificates used to validate the certificate presented by the server."
+            'Paste only PEM certificate blocks, each starting with "-----BEGIN CERTIFICATE-----" and ending with "-----END CERTIFICATE-----".'
         ),
         required=False,
     )
     client_key = forms.CharField(
         widget=forms.Textarea(),
-        label=gettext_lazy("Client SSL key"),
-        help_text=gettext_lazy("PEM encoded client private SSL key."),
+        label=gettext_lazy("Client private key (PEM)"),
+        help_text=gettext_lazy(
+            "Paste a single unencrypted PEM private key block. Encrypted private keys are not supported."
+        ),
         required=False,
     )
 
     client_cert = forms.CharField(
         widget=forms.Textarea(),
-        label=gettext_lazy("Client SSL certificates"),
-        help_text=gettext_lazy("PEM encoded client SSL certificate."),
+        label=gettext_lazy("Client certificate (PEM)"),
+        help_text=gettext_lazy(
+            'Paste only the PEM certificate block starting with "-----BEGIN CERTIFICATE-----"; do not paste the output from "openssl x509 -text".'
+        ),
+        required=False,
+    )
+    publish_timeout = forms.IntegerField(
+        label=gettext_lazy("Publish timeout"),
+        help_text=gettext_lazy(
+            "How many seconds to wait for the broker delivery acknowledgement."
+        ),
+        initial=DEFAULT_FEDORA_MESSAGING_PUBLISH_TIMEOUT,
+        min_value=1,
+        max_value=60,
+        required=False,
+    )
+    connection_attempts = forms.IntegerField(
+        label=gettext_lazy("Connection attempts"),
+        help_text=gettext_lazy("How many times to try connecting to the broker."),
+        initial=DEFAULT_FEDORA_MESSAGING_CONNECTION_ATTEMPTS,
+        min_value=1,
+        max_value=10,
+        required=False,
+    )
+    retry_delay = forms.IntegerField(
+        label=gettext_lazy("Retry delay"),
+        help_text=gettext_lazy("How many seconds to wait between connection attempts."),
+        initial=DEFAULT_FEDORA_MESSAGING_RETRY_DELAY,
+        min_value=0,
+        max_value=60,
         required=False,
     )
 
-    def clean(self) -> None:
-        from .fedora_messaging import FedoraMessagingAddon  # noqa: PLC0415
+    field_order = [  # ruff: ignore[mutable-class-default]
+        "amqp_url",
+        "publish_timeout",
+        "connection_attempts",
+        "retry_delay",
+        "ca_cert",
+        "client_key",
+        "client_cert",
+        "event_filter",
+        "events",
+    ]
 
-        amqp_ssl = self.cleaned_data.get("amqp_ssl")
-        if amqp_ssl is not None:
-            if amqp_ssl:
+    def serialize_form(self):
+        # ruff: ignore[import-outside-top-level]
+        from .fedora_messaging import FedoraMessagingAddon
+
+        result = dict(super().serialize_form())
+        if result.get("amqp_url"):
+            result["amqp_url"] = FedoraMessagingAddon.get_broker_amqp_url(
+                result["amqp_url"]
+            )
+        if result.get("publish_timeout") is None:
+            result["publish_timeout"] = DEFAULT_FEDORA_MESSAGING_PUBLISH_TIMEOUT
+        if result.get("connection_attempts") is None:
+            result["connection_attempts"] = DEFAULT_FEDORA_MESSAGING_CONNECTION_ATTEMPTS
+        if result.get("retry_delay") is None:
+            result["retry_delay"] = DEFAULT_FEDORA_MESSAGING_RETRY_DELAY
+        return result
+
+    def clean(self) -> None:
+        # ruff: ignore[import-outside-top-level]
+        from fedora_messaging.exceptions import ConfigurationException
+
+        # ruff: ignore[import-outside-top-level]
+        from .fedora_messaging import (
+            FedoraMessagingAddon,
+        )
+
+        amqp_url = self.cleaned_data.get("amqp_url")
+        retry_delay = self.cleaned_data.get("retry_delay")
+        connection_attempts = (
+            self.cleaned_data.get("connection_attempts")
+            or DEFAULT_FEDORA_MESSAGING_CONNECTION_ATTEMPTS
+        )
+        if retry_delay is None:
+            retry_delay = DEFAULT_FEDORA_MESSAGING_RETRY_DELAY
+
+        if amqp_url:
+            if urlparse(amqp_url).scheme == "amqps":
                 if (
                     not self.cleaned_data.get("ca_cert")
                     or not self.cleaned_data.get("client_key")
@@ -1568,7 +1759,7 @@ class FedoraMessagingAddonForm(ChangeBaseAddonForm):
                 ):
                     raise forms.ValidationError(
                         {
-                            "amqp_ssl": gettext(
+                            "amqp_url": gettext(
                                 "The SSL certificates have to be provided for SSL connection."
                             )
                         }
@@ -1581,21 +1772,29 @@ class FedoraMessagingAddonForm(ChangeBaseAddonForm):
             ):
                 raise forms.ValidationError(
                     {
-                        "amqp_ssl": gettext(
+                        "amqp_url": gettext(
                             "The SSL certificates are not used without a SSL connection."
                         )
                     }
                 )
 
-        if amqp_host := self.cleaned_data.get("amqp_host"):
+        if amqp_url:
             try:
                 FedoraMessagingAddon.configure_fedora_messaging(
-                    amqp_host=amqp_host,
-                    amqp_ssl=self.cleaned_data.get("amqp_ssl", False),
+                    amqp_url=amqp_url,
                     ca_cert=self.cleaned_data.get("ca_cert"),
                     client_key=self.cleaned_data.get("client_key"),
                     client_cert=self.cleaned_data.get("client_cert"),
+                    connection_attempts=connection_attempts,
+                    retry_delay=retry_delay,
                     force_update=True,
+                )
+                FedoraMessagingAddon.validate_broker_tls(
+                    FedoraMessagingAddon.get_configured_amqp_url(
+                        amqp_url,
+                        connection_attempts=connection_attempts,
+                        retry_delay=retry_delay,
+                    )
                 )
             except ConfigurationException as error:
                 raise forms.ValidationError(error.message) from error

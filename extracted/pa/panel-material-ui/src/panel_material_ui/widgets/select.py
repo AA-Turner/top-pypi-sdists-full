@@ -88,6 +88,15 @@ class AutocompleteInput(MaterialSingleSelectBase):
     case_sensitive = param.Boolean(default=True, doc="""
         Enable or disable case sensitivity.""")
 
+    error_state = param.Boolean(
+        default=False,
+        doc="""
+        Whether to display in error state.""",
+    )
+
+    helper_text = param.String(default="", doc="""
+        Helper text displayed below the input field.""")
+
     color: ColorType = param.Selector(
         objects=COLORS, default="primary", doc="The color of the autocomplete input."
     )  # type: ignore[assignment]
@@ -306,6 +315,15 @@ class Select(MaterialSingleSelectBase, _PnSelect, _SelectDropdownBase):
         objects=COLORS, default="primary", doc="The color of the select widget."
     )  # type: ignore[assignment]
 
+    error_state = param.Boolean(
+        default=False,
+        doc="""
+        Whether to display in error state.""",
+    )
+
+    helper_text = param.String(default="", doc="""
+        Helper text displayed below the select field.""")
+
     groups = param.Dict(default=None, nested_refs=True, doc="""
         Dictionary whose keys are used to visually group the options
         and whose values are either a list or a dictionary of options
@@ -513,6 +531,15 @@ class MultiSelect(MaterialMultiSelectBase):
     color: ColorType = param.Selector(
         objects=COLORS, default="primary", doc="Color of the multi-select component."
     )  # type: ignore[assignment]
+
+    error_state = param.Boolean(
+        default=False,
+        doc="""
+        Whether to display in error state.""",
+    )
+
+    helper_text = param.String(default="", doc="""
+        Helper text displayed below the select field.""")
 
     max_items = param.Integer(default=None, bounds=(1, None), doc="""
         Maximum number of options that can be selected.""")
@@ -730,12 +757,20 @@ class NestedSelect(_PnNestedSelect):
         Extract the widget type and keyword arguments from the level metadata.
         """
         level = self._levels[i]
+        widget_kwargs = self._collect_layoutable_kwargs()
+        widget_kwargs.pop("visible", None)  # this will be set dynamically
         if isinstance(level, int):
-            return Select, {}
+            return Select, widget_kwargs
         elif isinstance(level, str):
-            return Select, {"name": level}
+            return Select, {"label": level, **widget_kwargs}
         widget_type = level.get("type", Select)
-        widget_kwargs = {k: v for k, v in level.items() if k != "type"}
+        overrides = {k: v for k, v in level.items() if k != "type"}
+        # Per-level sizing takes precedence over inherited layout kwargs to avoid
+        # conflicts (e.g. a fixed width alongside an inherited responsive sizing_mode).
+        if {"width", "height", "sizing_mode"} & overrides.keys():
+            for k in ("sizing_mode", "width", "height"):
+                widget_kwargs.pop(k, None)
+        widget_kwargs.update(overrides)
         return widget_type, widget_kwargs
 
 

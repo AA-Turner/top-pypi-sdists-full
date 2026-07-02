@@ -253,7 +253,6 @@ def _prepared_prompt_result(
     agent: object,
     *,
     prompt: str = "test prompt",
-    estimated_context_tokens: int | None = None,
     prepared_context_tokens: int | None = None,
     runtime_model_name: str = "default",
 ) -> _PreparedAgentRun:
@@ -262,7 +261,6 @@ def _prepared_prompt_result(
         messages=(Message(role="user", content=prompt),),
         unseen_event_ids=[],
         prepared_history=PreparedHistoryState(
-            estimated_context_tokens=estimated_context_tokens,
             prepared_context_tokens=prepared_context_tokens,
         ),
         runtime_model_name=runtime_model_name,
@@ -1407,7 +1405,7 @@ async def test_process_and_respond_streaming_persists_interrupted_history_when_d
     assert persisted_run.messages is not None
     assert [(message.role, message.content) for message in persisted_run.messages] == [
         ("user", "Hello"),
-        ("assistant", "Partial answer\n\n[interrupted]"),
+        ("assistant", "Partial answer\n\n(turn interrupted by the user before completion)"),
     ]
 
 
@@ -1479,7 +1477,8 @@ async def test_process_and_respond_streaming_persists_interrupted_history_when_m
         ("user", "Hello"),
         (
             "assistant",
-            "Partial answer\n\n[tool:run_shell_command completed]\n  args: cmd=pwd\n  result: /app\n\n[interrupted]",
+            "Partial answer\n\n(turn interrupted by the user before completion; "
+            "1 tool call(s) had completed: run_shell_command)",
         ),
     ]
 
@@ -1562,9 +1561,10 @@ async def test_process_and_respond_streaming_delivery_failure_with_visible_tools
     persisted_run = cast("RunOutput", persisted_session.runs[0])
     assistant_text = cast("str", persisted_run.messages[1].content)
     assert "🔧 `run_shell_command` [1]" not in assistant_text
-    assert assistant_text.count("[tool:run_shell_command completed]") == 1
+    assert assistant_text.count("run_shell_command") == 1
     assert assistant_text == (
-        "Partial answer\n\n[tool:run_shell_command completed]\n  args: cmd=pwd\n  result: /app\n\n[interrupted]"
+        "Partial answer\n\n(turn interrupted by the user before completion; "
+        "1 tool call(s) had completed: run_shell_command)"
     )
 
 
@@ -1792,7 +1792,7 @@ async def test_generate_response_locked_persists_minimal_interrupted_history_aft
     assert persisted_run.messages[0].role == "user"
     assert "Hello" in cast("str", persisted_run.messages[0].content)
     assert [(message.role, message.content) for message in persisted_run.messages[-1:]] == [
-        ("assistant", "[interrupted]"),
+        ("assistant", "(turn interrupted by the user before completion)"),
     ]
 
 
@@ -3372,7 +3372,7 @@ async def test_generate_team_response_helper_persists_interrupted_history_when_s
     assert persisted_run.messages is not None
     assert [(message.role, message.content) for message in persisted_run.messages] == [
         ("user", "Hello"),
-        ("assistant", "Team hello\n\n[interrupted]"),
+        ("assistant", "Team hello\n\n(turn interrupted by the user before completion)"),
     ]
 
 
@@ -3456,13 +3456,11 @@ async def test_generate_team_response_helper_stream_delivery_failure_with_visibl
     persisted_run = cast("TeamRunOutput", persisted_session.runs[0])
     assistant_text = cast("str", persisted_run.messages[1].content)
     assert "🔧 `run_shell_command` [1]" not in assistant_text
-    assert assistant_text.count("[tool:run_shell_command completed]") == 1
+    assert assistant_text.count("run_shell_command") == 1
     assert assistant_text == (
         "🤝 **Team Response** (General):\n\nTeam hello\n\n"
-        "[tool:run_shell_command completed]\n"
-        "  args: cmd=pwd\n"
-        "  result: /app\n\n"
-        "[interrupted]"
+        "(turn interrupted by the user before completion; "
+        "1 tool call(s) had completed: run_shell_command)"
     )
 
 
@@ -3540,7 +3538,7 @@ async def test_generate_team_response_helper_persists_minimal_interrupted_histor
     assert persisted_run.messages[0].role == "user"
     assert "Hello" in cast("str", persisted_run.messages[0].content)
     assert [(message.role, message.content) for message in persisted_run.messages[-1:]] == [
-        ("assistant", "[interrupted]"),
+        ("assistant", "(turn interrupted by the user before completion)"),
     ]
 
 
@@ -3602,7 +3600,7 @@ async def test_generate_team_response_helper_persists_interrupted_history_when_f
     assert persisted_run.messages is not None
     assert [(message.role, message.content) for message in persisted_run.messages] == [
         ("user", "Hello"),
-        ("assistant", "🤝 Team Response:\n\nTeam hello\n\n[interrupted]"),
+        ("assistant", "🤝 Team Response:\n\nTeam hello\n\n(turn interrupted by the user before completion)"),
     ]
 
 
@@ -3734,7 +3732,7 @@ async def test_generate_team_response_helper_preserves_structured_stream_cancel_
     assert persisted_run.messages is not None
     assert [(message.role, message.content) for message in persisted_run.messages] == [
         ("user", "Hello"),
-        ("assistant", "Team hello\n\n[interrupted]"),
+        ("assistant", "Team hello\n\n(turn interrupted by the user before completion)"),
     ]
 
 
@@ -3985,7 +3983,7 @@ async def test_generate_team_response_helper_persists_original_user_message_for_
     assert persisted_run.messages is not None
     assert [(message.role, message.content) for message in persisted_run.messages] == [
         ("user", "Hello"),
-        ("assistant", "[interrupted]"),
+        ("assistant", "(turn interrupted by the user before completion)"),
     ]
 
 
@@ -4778,14 +4776,8 @@ class TestUserIdPassthrough:
         mock_agent.additional_context = "existing context"
         prepared_execution = _PreparedExecutionContext(
             messages=(Message(role="user", content="prepared prompt"),),
-            replay_plan=None,
             unseen_event_ids=[],
-            replays_persisted_history=False,
-            compaction_outcomes=[],
-            compaction_decision=None,
-            compaction_reply_outcome="none",
-            prepared_context_tokens=None,
-            estimated_context_tokens=None,
+            prepared_history=PreparedHistoryState(),
         )
 
         with (
@@ -5180,7 +5172,8 @@ class TestUserIdPassthrough:
             ("user", "test"),
             (
                 "assistant",
-                "Half done\n\n[tool:run_shell_command completed]\n  args: cmd=pwd\n  result: /app\n\n[interrupted]",
+                "Half done\n\n(turn interrupted by the user before completion; "
+                "1 tool call(s) had completed: run_shell_command)",
             ),
         ]
 
@@ -5234,7 +5227,7 @@ class TestUserIdPassthrough:
         assert persisted_run.messages is not None
         assert [(message.role, message.content) for message in persisted_run.messages] == [
             ("user", "test"),
-            ("assistant", "Half done\n\n[interrupted]"),
+            ("assistant", "Half done\n\n(turn interrupted by the user before completion)"),
         ]
 
     @pytest.mark.asyncio
@@ -5290,10 +5283,8 @@ class TestUserIdPassthrough:
             ("user", "test"),
             (
                 "assistant",
-                "Half done\n\n[tool:run_shell_command interrupted]\n"
-                "  args: cmd=pwd\n"
-                "  result: <interrupted before completion>\n\n"
-                "[interrupted]",
+                "Half done\n\n(turn interrupted by the user before completion; "
+                "1 tool call(s) were still running: run_shell_command)",
             ),
         ]
 
@@ -6909,7 +6900,7 @@ class TestUserIdPassthrough:
         )
 
         with patch("mindroom.ai._prepare_agent_and_prompt", new_callable=AsyncMock) as mock_prepare:
-            mock_prepare.return_value = _prepared_prompt_result(mock_agent, estimated_context_tokens=1500)
+            mock_prepare.return_value = _prepared_prompt_result(mock_agent, prepared_context_tokens=1500)
             run_metadata: dict[str, object] = {}
             await ai_response(
                 agent_name="general",
@@ -7535,14 +7526,9 @@ class TestUserIdPassthrough:
             ("user", "test"),
             (
                 "assistant",
-                "Half done\n\n"
-                "[tool:run_shell_command completed]\n"
-                "  args: cmd=pwd\n"
-                "  result: /app\n"
-                "[tool:save_file interrupted]\n"
-                "  args: file_name=main.py\n"
-                "  result: <interrupted before completion>\n\n"
-                "[interrupted]",
+                "Half done\n\n(turn interrupted by the user before completion; "
+                "1 tool call(s) had completed: run_shell_command; "
+                "1 tool call(s) were still running: save_file)",
             ),
         ]
 
@@ -7620,14 +7606,9 @@ class TestUserIdPassthrough:
             ("user", "test"),
             (
                 "assistant",
-                "Half done\n\n"
-                "[tool:run_shell_command completed]\n"
-                "  args: cmd=pwd\n"
-                "  result: /app\n"
-                "[tool:run_shell_command interrupted]\n"
-                "  args: cmd=ls\n"
-                "  result: <interrupted before completion>\n\n"
-                "[interrupted]",
+                "Half done\n\n(turn interrupted by the user before completion; "
+                "1 tool call(s) had completed: run_shell_command; "
+                "1 tool call(s) were still running: run_shell_command)",
             ),
         ]
 
@@ -7686,7 +7667,7 @@ class TestUserIdPassthrough:
         assert persisted_run.messages is not None
         assert [(message.role, message.content) for message in persisted_run.messages] == [
             ("user", "test"),
-            ("assistant", "Half done\n\n[interrupted]"),
+            ("assistant", "Half done\n\n(turn interrupted by the user before completion)"),
         ]
 
     @pytest.mark.asyncio
@@ -7833,7 +7814,7 @@ class TestUserIdPassthrough:
         )
 
         with patch("mindroom.ai._prepare_agent_and_prompt", new_callable=AsyncMock) as mock_prepare:
-            mock_prepare.return_value = _prepared_prompt_result(mock_agent, estimated_context_tokens=900)
+            mock_prepare.return_value = _prepared_prompt_result(mock_agent, prepared_context_tokens=900)
             run_metadata: dict[str, object] = {}
             async for _chunk in stream_agent_response(
                 agent_name="general",
@@ -7966,7 +7947,7 @@ class TestUserIdPassthrough:
         )
 
         with patch("mindroom.ai._prepare_agent_and_prompt", new_callable=AsyncMock) as mock_prepare:
-            mock_prepare.return_value = _prepared_prompt_result(mock_agent, estimated_context_tokens=900)
+            mock_prepare.return_value = _prepared_prompt_result(mock_agent, prepared_context_tokens=900)
             run_metadata: dict[str, object] = {}
             async for _chunk in stream_agent_response(
                 agent_name="general",

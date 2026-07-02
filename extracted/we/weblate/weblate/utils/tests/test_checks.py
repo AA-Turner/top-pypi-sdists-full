@@ -7,6 +7,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 from unittest.mock import Mock, patch
+from weakref import WeakSet
 
 from django.conf import settings
 from django.core.cache import cache
@@ -18,6 +19,7 @@ from weblate.utils.apps import (
     CACHE_EXEC_CHECK_PREFIX,
     check_class_loader,
     check_data_writable,
+    check_database_size,
     check_errors,
     check_settings,
 )
@@ -27,7 +29,8 @@ from weblate.utils.unittest import tempdir_setting
 
 
 class CeleryQueueTest(SimpleTestCase):
-    databases = {"default"}  # noqa: RUF012
+    # ruff: ignore[mutable-class-default]
+    databases = {"default"}
 
     @staticmethod
     def set_cache(value) -> None:
@@ -83,25 +86,27 @@ class ClassLoaderCheckTestCase(SimpleTestCase):
     @override_settings(TEST_ADDONS="weblate.addons.cleanup.CleanupAddon")
     def test_invalid(self) -> None:
         old_instances = ClassLoader.instances
-        ClassLoader.instances = {}  # type: ignore[assignment]
+        ClassLoader.instances = WeakSet()
         try:
-            ClassLoader("TEST_ADDONS", construct=False, base_class=BaseAddon)
+            loader = ClassLoader("TEST_ADDONS", construct=False, base_class=BaseAddon)
             # This operates on ClassLoader.instances
             errors = list(check_class_loader(app_configs=None, databases=None))
             self.assertEqual(len(errors), 1)
+            self.assertIn(loader, ClassLoader.instances)
         finally:
             ClassLoader.instances = old_instances
 
     @override_settings(TEST_ADDONS=("weblate.addons.not_found",))
     def test_not_found(self) -> None:
         old_instances = ClassLoader.instances
-        ClassLoader.instances = {}  # type: ignore[assignment]
+        ClassLoader.instances = WeakSet()
         try:
-            ClassLoader("TEST_ADDONS", construct=False, base_class=BaseAddon)
+            loader = ClassLoader("TEST_ADDONS", construct=False, base_class=BaseAddon)
             # This operates on ClassLoader.instances
             errors = list(check_class_loader(app_configs=None, databases=None))
             self.assertEqual(len(errors), 1)
             self.assertIn("does not define a 'not_found' class", errors[0].msg)
+            self.assertIn(loader, ClassLoader.instances)
         finally:
             ClassLoader.instances = old_instances
 
@@ -144,6 +149,46 @@ class DataWritableCheckTestCase(SimpleTestCase):
 
         self.assertTrue(any(error.id == "weblate.C044" for error in errors))
         self.assertEqual(self.get_cache_probes(), [])
+
+
+class DatabaseSizeCheckTestCase(SimpleTestCase):
+    @patch("weblate.utils.apps.get_database_size", return_value=123456)
+    @patch("weblate.utils.apps.connections")
+    def test_database_size_available(
+        self,
+        connections_mock,
+        database_size_mock,
+    ) -> None:
+        connections_mock.__getitem__.return_value.vendor = "postgresql"
+
+        errors = list(check_database_size(app_configs=None, databases=None))
+
+        self.assertFalse(any(error.id == "weblate.C045" for error in errors))
+        database_size_mock.assert_called_once_with()
+
+    @patch("weblate.utils.apps.get_database_size", return_value=None)
+    @patch("weblate.utils.apps.connections")
+    def test_database_size_unavailable(
+        self, connections_mock, database_size_mock
+    ) -> None:
+        connections_mock.__getitem__.return_value.vendor = "postgresql"
+
+        errors = list(check_database_size(app_configs=None, databases=None))
+
+        self.assertTrue(any(error.id == "weblate.C045" for error in errors))
+        database_size_mock.assert_called_once_with()
+
+    @patch("weblate.utils.apps.get_database_size")
+    @patch("weblate.utils.apps.connections")
+    def test_database_size_non_postgresql(
+        self, connections_mock, database_size_mock
+    ) -> None:
+        connections_mock.__getitem__.return_value.vendor = "sqlite"
+
+        errors = list(check_database_size(app_configs=None, databases=None))
+
+        self.assertFalse(any(error.id == "weblate.C045" for error in errors))
+        database_size_mock.assert_not_called()
 
 
 class SettingsCheckTestCase(SimpleTestCase):

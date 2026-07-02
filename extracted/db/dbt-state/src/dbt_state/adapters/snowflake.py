@@ -18,6 +18,12 @@ from dbt_state.adapters.common import (
 from dbt_state.utils import set_invocation_context
 from query_cache_common.utils import extract_fqn_parts
 import re
+import time
+
+
+# A broad `table_schema IN (...)` / `(...) OR (...)` INFORMATION_SCHEMA fetch taking longer than this
+# triggers a one-time hint that a dedicated `snowflake_metadata_warehouse` would speed it up.
+_SLOW_METADATA_QUERY_WARNING_THRESHOLD_SECONDS = 15.0
 
 
 if t.TYPE_CHECKING:
@@ -32,6 +38,10 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
         super().__init__(*args, **kwargs)
         self._get_view_ddl_override: t.Optional[str] = kwargs.get("get_view_ddl_override")
         self._metadata_warehouse: t.Optional[str] = kwargs.get("metadata_warehouse")
+
+        # Emit the "slow metadata query" hint at most once per run. Fired from executor threads, so a
+        # rare race may surface a single duplicate, which is harmless for an informational warning.
+        self._slow_metadata_query_warning_emitted: bool = False
 
     @property
     def use_heuristic_clock_for_last_modified(self) -> bool:
@@ -106,6 +116,7 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
         events.fire_info_event("Fetching freshness metadata")
 
         claimed_fqns_by_catalog: t.Dict[str, t.List[str]] = defaultdict(list)
+        claimed_fqns_by_schema: t.Dict[t.Tuple[str, str], t.List[str]] = defaultdict(list)
         schemas_by_catalog: t.Dict[str, t.Set[str]] = defaultdict(set)
         fqns_with_custom_last_modified = (
             {
@@ -122,12 +133,15 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
                 fqn = self._sql(table)
                 if cache.claim_if_available(fqn):
                     claimed_fqns_by_catalog[table.catalog].append(fqn)
+                    claimed_fqns_by_schema[(table.catalog, table.db)].append(fqn)
                     schemas_by_catalog[table.catalog].add(table.db)
 
         if not claimed_fqns_by_catalog:
             return super().prefetch_last_modified_epochs(table_fqns)
 
-        def _prefetch_for_catalog(catalog: str, schemas: t.List[str]) -> None:
+        def _prefetch_for_catalog(
+            catalog: str, schemas: t.List[str], claimed_fqns: t.List[str]
+        ) -> None:
             set_invocation_context()
             try:
                 self._ensure_thread_connection("prefetch_last_modified_timestamps")
@@ -141,7 +155,7 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
 
                 with self._last_modified_epoch_cache as cache:
                     cache.fulfill_many(result)
-                    for fqn in claimed_fqns_by_catalog[catalog]:
+                    for fqn in claimed_fqns:
                         if fqn not in result and fqn not in fqns_with_custom_last_modified:
                             cache.fulfill(fqn, None)
             except Exception as e:
@@ -149,7 +163,7 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
                 # this assumes that the same database error will occur in the execute phase which
                 # will result in None being returned anyway, so may as well cache it now
                 with self._last_modified_epoch_cache as cache:
-                    cache.fulfill_many({fqn: None for fqn in claimed_fqns_by_catalog[catalog]})
+                    cache.fulfill_many({fqn: None for fqn in claimed_fqns})
                 events.fire_warn_event_suboptimal(
                     "Failed to prefetch last modified timestamps: {}", str(e)
                 )
@@ -171,8 +185,26 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
                 )
 
         futures: t.List[Future] = []
-        for catalog, schemas in schemas_by_catalog.items():
-            futures.append(self._executor.submit(_prefetch_for_catalog, catalog, list(schemas)))
+        if self._metadata_warehouse:
+            # A dedicated metadata warehouse is configured, so fan out one query per schema instead
+            # of a single per-catalog `IN (...)` scan. Single-schema INFORMATION_SCHEMA queries are
+            # far more selective (and faster) than a broad multi-schema scan, and the extra
+            # concurrency they create is isolated to the dedicated warehouse rather than competing
+            # with model execution on the main warehouse.
+            for (catalog, schema), claimed in claimed_fqns_by_schema.items():
+                futures.append(
+                    self._executor.submit(_prefetch_for_catalog, catalog, [schema], claimed)
+                )
+        else:
+            for catalog, schemas in schemas_by_catalog.items():
+                futures.append(
+                    self._executor.submit(
+                        _prefetch_for_catalog,
+                        catalog,
+                        list(schemas),
+                        claimed_fqns_by_catalog[catalog],
+                    )
+                )
 
         for fqn, override_fn in fqns_with_custom_last_modified.items():
             futures.append(self._executor.submit(_prefetch_for_custom, fqn, override_fn))
@@ -185,6 +217,27 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
         # in minimal bookkeeping / dealing with protecting a counter variable / dealing with
         # error handling if executor.submit() throws an exception in an interation of the loop above
         return self._executor.submit(_wait_all)
+
+    def _maybe_warn_slow_metadata_query(self, elapsed_seconds: float) -> None:
+        """Hint (once per run) that a dedicated metadata warehouse would speed up slow broad
+        INFORMATION_SCHEMA fetches. Only fires when one is not already configured, since setting it
+        is the fix: it routes these queries to an isolated warehouse and fans them out per schema.
+        """
+        if (
+            self._metadata_warehouse
+            or self._slow_metadata_query_warning_emitted
+            or elapsed_seconds < _SLOW_METADATA_QUERY_WARNING_THRESHOLD_SECONDS
+        ):
+            return
+
+        self._slow_metadata_query_warning_emitted = True
+        events.fire_warn_event(
+            "Fetching table metadata (e.g., last modified timestamps) from INFORMATION_SCHEMA took "
+            "{}s. Set the `metadata_warehouse` (or `snowflake_metadata_warehouse`) config to route "
+            "these introspection queries to a dedicated warehouse. This will lead to better parallelism "
+            "and reduced contention, resulting in these queries being executed significantly faster.",
+            round(elapsed_seconds, 1),
+        )
 
     def _fetch_last_modified_epochs_from_schemas_in_catalog(
         self, catalog: str, schemas: t.List[str]
@@ -212,7 +265,9 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
             {self._sql(schema_filter)}
         """
 
+        start = time.monotonic()
         rows = self.execute(query, fetch=True).rows
+        self._maybe_warn_slow_metadata_query(time.monotonic() - start)
 
         result: dict[str, t.Optional[int]] = {}
         for catalog, schema, name, last_modified_epoch in rows:
@@ -220,6 +275,19 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
             result[fqn] = int(last_modified_epoch) if last_modified_epoch is not None else None
 
         return result
+
+    def _batch_tables_for_last_modified(
+        self, tables: t.Collection[exp.Table]
+    ) -> t.Collection[t.Collection[exp.Table]]:
+        if not self._metadata_warehouse:
+            return super()._batch_tables_for_last_modified(tables)
+
+        # A dedicated metadata warehouse is configured, so fan out one on-demand last-modified query
+        # per schema (parallelized across the executor), mirroring prefetch_last_modified_epochs.
+        tables_by_schema: t.Dict[t.Tuple[str, str], t.List[exp.Table]] = defaultdict(list)
+        for table in tables:
+            tables_by_schema[(table.catalog, table.db)].append(table)
+        return list(tables_by_schema.values())
 
     def _fetch_last_modified_epochs(
         self, table_batch: t.Collection[exp.Table]
@@ -254,7 +322,9 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
         query = "UNION ALL\n".join(queries)
 
         try:
+            start = time.monotonic()
             rows = self.execute(query, fetch=True).rows
+            self._maybe_warn_slow_metadata_query(time.monotonic() - start)
 
             # ensure that we have an entry for all input tables, even if some are missing from information_schema
             # (can happen if theyre views OR we try to fetch last_modified for a table that doesnt exist yet)

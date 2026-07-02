@@ -25,12 +25,21 @@ class SettingsScreen(Screen[None]):
     class Applied(Message):
         """Posted when settings are saved and applied to config."""
 
+        def __init__(
+            self,
+            *,
+            changed_model_defaults: dict[str, str] | None = None,
+        ) -> None:
+            super().__init__()
+            self.changed_model_defaults = dict(changed_model_defaults or {})
+            self.model_defaults_changed = bool(self.changed_model_defaults)
+
     BINDINGS = [
-        ("ctrl+s", "apply", "Apply"),
+        ("ctrl+s", "apply", "Save & Apply"),
     ]
 
     LOCALIZED_BINDINGS = {
-        ("ctrl+s", "apply"): ("binding_apply", None),
+        ("ctrl+s", "apply"): ("binding_save_apply", None),
     }
 
     def __init__(
@@ -54,13 +63,28 @@ class SettingsScreen(Screen[None]):
         self._status_widget: Static | None = None
         self._central_provider_value = config.synthesis_agent or "auto"
         self._select_events_ready = False
+        self._pending_select_values: dict[str, str] = {}
+        self._persisted_agent_enabled = {
+            name: bool(spec.enabled)
+            for name, spec in config.agents.items()
+        }
 
     def compose(self) -> ComposeResult:
+        pending_values = (
+            self._current_select_values()
+            if self._status_key == self._label("unsaved_changes")
+            else {}
+        )
+        central_provider = pending_values.get(
+            "central-provider",
+            self.config.synthesis_agent or "auto",
+        )
+        self._pending_select_values = pending_values
         self._select_cache = {}
         self._preview_widget = None
         self._status_widget = None
         self._status_key = ""
-        self._central_provider_value = self.config.synthesis_agent or "auto"
+        self._central_provider_value = central_provider
         self._select_events_ready = False
         yield Header(show_clock=False)
         with VerticalScroll(id="settings-screen"):
@@ -71,40 +95,51 @@ class SettingsScreen(Screen[None]):
                 yield self._select(
                     "theme-mode",
                     ["dark", "light"],
-                    self.settings.theme_mode,
+                    pending_values.get("theme-mode", self.settings.theme_mode),
                 )
             with Horizontal(classes="settings-row"):
                 yield Label(self._label("color_profile"))
                 yield self._select(
                     "color-profile",
                     ["default", "truecolor", "256color", "ascii-safe"],
-                    self.settings.color_profile,
+                    pending_values.get("color-profile", self.settings.color_profile),
                 )
             with Horizontal(classes="settings-row"):
                 yield Label(self._label("density"))
                 yield self._select(
                     "density",
                     ["comfortable", "compact"],
-                    self.settings.density,
+                    pending_values.get("density", self.settings.density),
                 )
             with Horizontal(classes="settings-row"):
                 yield Label(self._label("motion"))
-                yield self._select("motion", ["normal", "reduced"], self.settings.motion)
+                yield self._select(
+                    "motion",
+                    ["normal", "reduced"],
+                    pending_values.get("motion", self.settings.motion),
+                )
             with Horizontal(classes="settings-row"):
                 yield Label(self._label("unicode"))
                 yield self._select(
                     "unicode-rendering",
                     ["ascii", "unicode"],
-                    self.settings.unicode_rendering,
+                    pending_values.get(
+                        "unicode-rendering",
+                        self.settings.unicode_rendering,
+                    ),
                 )
             yield Static(self._label("agent_models"), classes="settings-section-title")
             for name, spec in self.config.agents.items():
                 with Horizontal(classes="settings-row"):
-                    yield Label(self._agent_label(name))
+                    yield Label(
+                        self._agent_label_with_state(name),
+                        id=f"model-label-{name}",
+                    )
                     yield self._select(
                         f"model-{name}",
                         self._agent_model_values(name, spec.provider, spec.model),
-                        spec.model or "default",
+                        pending_values.get(f"model-{name}", spec.model or "default"),
+                        disabled=not spec.enabled,
                     )
             yield Static(self._label("central_agent"), classes="settings-section-title")
             with Horizontal(classes="settings-row"):
@@ -112,30 +147,52 @@ class SettingsScreen(Screen[None]):
                 yield self._select(
                     "central-provider",
                     self._central_provider_values(),
-                    self.config.synthesis_agent or "auto",
+                    central_provider,
                 )
             with Horizontal(classes="settings-row"):
                 yield Label(self._label("central_model"))
                 yield self._select(
                     "central-model",
                     self._central_model_values(
-                        self.config.synthesis_model,
-                        self.config.synthesis_agent or "auto",
+                        pending_values.get(
+                            "central-model",
+                            self.config.synthesis_model or "agent-default",
+                        ),
+                        central_provider,
                     ),
-                    self.config.synthesis_model or "agent-default",
+                    pending_values.get(
+                        "central-model",
+                        self.config.synthesis_model or "agent-default",
+                    ),
                 )
             preview_text = self.preview_text()
             self._preview_render_key = preview_text
-            preview = Static(preview_text, id="theme-preview")
+            preview = Static(preview_text, id="settings-summary")
             self._preview_widget = preview
             yield preview
             yield Button(self._label("apply"), id="apply-settings", variant="primary")
-            status = Static("", id="settings-status")
+            status_text = (
+                self._label("unsaved_changes")
+                if pending_values
+                else self._label("saved")
+            )
+            self._status_key = status_text
+            status = Static(status_text, id="settings-status")
             self._status_widget = status
             yield status
+            self.call_after_refresh(self._enable_select_events)
         yield Footer()
 
-    def on_mount(self) -> None:
+    def _current_select_values(self) -> dict[str, str]:
+        values: dict[str, str] = {}
+        for id, select in self._select_cache.items():
+            value = str(select.value)
+            if value.startswith("Select."):
+                continue
+            values[id] = value
+        return values
+
+    def _enable_select_events(self) -> None:
         self._select_events_ready = True
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -148,20 +205,26 @@ class SettingsScreen(Screen[None]):
             return
         if event.select.id != "central-provider":
             self._set_preview_text(self.preview_text())
-            self._set_status_text(self._label("unsaved_changes"))
+            self._sync_saved_status()
             return
         event.stop()
         central_provider = str(event.value)
         if central_provider == self._central_provider_value:
             return
         self._central_provider_value = central_provider
+        saved_provider = self.config.synthesis_agent or "auto"
+        central_model = (
+            self.config.synthesis_model or "agent-default"
+            if central_provider == saved_provider
+            else "agent-default"
+        )
         self._refresh_select_options(
             "central-model",
-            self._central_model_values("agent-default", central_provider),
-            current="agent-default",
+            self._central_model_values(central_model, central_provider),
+            current=central_model,
         )
         self._set_preview_text(self.preview_text())
-        self._set_status_text(self._label("unsaved_changes"))
+        self._sync_saved_status()
 
     def set_agent_model_choices(
         self,
@@ -178,20 +241,55 @@ class SettingsScreen(Screen[None]):
             changed = True
             if self.is_mounted:
                 spec = self.config.agents[name]
-                self._refresh_select_options(
-                    f"model-{name}",
-                    self._agent_model_values(name, spec.provider, spec.model),
-                )
+                with self.prevent(Select.Changed):
+                    self._refresh_select_options(
+                        f"model-{name}",
+                        self._agent_model_values(name, spec.provider, spec.model),
+                    )
         if changed and self.is_mounted:
             central_model = self._value("central-model")
             central_provider = self._value("central-provider")
+            with self.prevent(Select.Changed):
+                self._refresh_select_options(
+                    "central-model",
+                    self._central_model_values(central_model, central_provider),
+                )
+            self._set_preview_text(self.preview_text())
+
+    def sync_agent_enabled_states(self) -> None:
+        """Refresh agent model rows after `/agent` changes enabled state."""
+        if not self.is_mounted:
+            return
+        with self.prevent(Select.Changed):
+            for name, spec in self.config.agents.items():
+                self.query_one(f"#model-label-{name}", Label).update(
+                    self._agent_label_with_state(name)
+                )
+                self._select_for(f"model-{name}").disabled = not spec.enabled
+            central_provider = self._value("central-provider")
+            central_model = self._value("central-model")
+            central_values = self._central_provider_values()
+            if central_provider not in central_values:
+                central_provider = self.config.synthesis_agent or "auto"
+                central_model = self.config.synthesis_model or "agent-default"
+            self._refresh_select_options(
+                "central-provider",
+                central_values,
+                current=central_provider,
+            )
             self._refresh_select_options(
                 "central-model",
                 self._central_model_values(central_model, central_provider),
+                current=central_model,
             )
-            self._set_preview_text(self.preview_text())
+        self._set_preview_text(self.preview_text())
+        self._sync_saved_status()
 
     def action_apply(self) -> None:
+        previous_models = {
+            name: spec.model or "default"
+            for name, spec in self.config.agents.items()
+        }
         self.settings = UISettings(
             theme_mode=self._saved_setting_value("theme-mode"),
             color_profile=self._saved_setting_value("color-profile"),
@@ -200,16 +298,61 @@ class SettingsScreen(Screen[None]):
             unicode_rendering=self._saved_setting_value("unicode-rendering"),
         )
         self.settings_store.save(self.settings)
+        self._pending_select_values = {}
+        self._normalize_visual_selects()
         for name, spec in self.config.agents.items():
             selector_id = f"model-{name}"
             spec.model = self._value(selector_id)
+        next_models = {
+            name: spec.model or "default"
+            for name, spec in self.config.agents.items()
+        }
+        changed_models = {
+            name: model
+            for name, model in next_models.items()
+            if model != previous_models.get(name)
+        }
         central_provider = self._value("central-provider")
         self.config.synthesis_agent = "" if central_provider == "auto" else central_provider
         self.config.synthesis_model = self._value("central-model")
-        self.config.save(self.config.effective_state_dir / "trinity.config")
+        self._save_config_preserving_session_agent_state()
         self._set_preview_text(self.preview_text())
         self._set_status_text(self._label("saved_applied"))
-        self.post_message(self.Applied())
+        self.post_message(
+            self.Applied(changed_model_defaults=changed_models)
+        )
+
+    def _save_config_preserving_session_agent_state(self) -> None:
+        session_enabled = {
+            name: bool(spec.enabled)
+            for name, spec in self.config.agents.items()
+        }
+        try:
+            for name, enabled in self._persisted_agent_enabled.items():
+                spec = self.config.agents.get(name)
+                if spec is not None:
+                    spec.enabled = enabled
+            self.config.save(self.config.effective_state_dir / "trinity.config")
+        finally:
+            for name, enabled in session_enabled.items():
+                spec = self.config.agents.get(name)
+                if spec is not None:
+                    spec.enabled = enabled
+
+    def _normalize_visual_selects(self) -> None:
+        normalized = (
+            ("theme-mode", ["dark", "light"], self.settings.theme_mode),
+            (
+                "color-profile",
+                ["default", "truecolor", "256color", "ascii-safe"],
+                self.settings.color_profile,
+            ),
+            ("unicode-rendering", ["ascii", "unicode"], self.settings.unicode_rendering),
+        )
+        with self.prevent(Select.Changed):
+            for id, values, current in normalized:
+                if self._value(id) != current:
+                    self._refresh_select_options(id, values, current=current)
 
     def _set_preview_text(self, text: str) -> None:
         if text == self._preview_render_key:
@@ -223,13 +366,29 @@ class SettingsScreen(Screen[None]):
         self._status_static().update(text)
         self._status_key = text
 
-    def _select(self, id: str, values: list[str], current: str) -> Select[str]:
+    def _sync_saved_status(self) -> None:
+        status = (
+            self._label("unsaved_changes")
+            if self._has_unsaved_changes()
+            else self._label("saved")
+        )
+        self._set_status_text(status)
+
+    def _select(
+        self,
+        id: str,
+        values: list[str],
+        current: str,
+        *,
+        disabled: bool = False,
+    ) -> Select[str]:
         select = Select(
             self._select_options(id, values, current),
             allow_blank=False,
             value=current,
             id=id,
         )
+        select.disabled = disabled
         self._select_cache[id] = select
         return select
 
@@ -268,7 +427,7 @@ class SettingsScreen(Screen[None]):
     def _preview_static(self) -> Static:
         if self._preview_widget is not None:
             return self._preview_widget
-        self._preview_widget = self.query_one("#theme-preview", Static)
+        self._preview_widget = self.query_one("#settings-summary", Static)
         return self._preview_widget
 
     def _status_static(self) -> Static:
@@ -300,7 +459,7 @@ class SettingsScreen(Screen[None]):
                 self._current_central_provider(),
             )
         if id == "central-provider" and value != "auto":
-            return self._agent_label(value)
+            return self._agent_label_with_state(value)
         if id == "theme-mode" and value == "system":
             return self._label("dark_fallback")
         if id == "color-profile" and value in {"auto", "default"}:
@@ -322,10 +481,10 @@ class SettingsScreen(Screen[None]):
                 if model_value == "default"
                 else self._agent_model_display_value(name, spec.provider, model_value)
             )
+            model_lines.append(f"- {self._agent_label_with_state(name)}: {model}")
             model_lines.append(
                 (
-                    f"{self._agent_label(name)}: {model} · "
-                    f"{display_profile_value(spec.profile.context_profile, lang=self.lang)} · "
+                    f"  {display_profile_value(spec.profile.context_profile, lang=self.lang)} · "
                     f"{self._profile_strength_summary(spec)} · "
                     f"{self._profile_contract_summary(spec)}"
                 )
@@ -341,7 +500,7 @@ class SettingsScreen(Screen[None]):
         central_provider_label = (
             self._display_value(central_provider)
             if central_provider == "auto"
-            else self._agent_label(central_provider)
+            else self._agent_label_with_state(central_provider)
         )
         central_model_label = self._central_model_display_value(
             central_model,
@@ -361,23 +520,30 @@ class SettingsScreen(Screen[None]):
         return "\n".join(
             [
                 self._label("preview"),
+                self._label("appearance"),
                 (
-                    f"{self._label('theme_mode')}: "
+                    f"- {self._label('theme_mode')}: "
                     f"{self._settings_display_value('theme-mode', theme_mode)}"
                 ),
-                f"{self._label('density')}: {self._display_value(density)}",
+                f"- {self._label('density')}: {self._display_value(density)}",
                 (
-                    f"{self._label('color_profile')}: "
-                    f"{self._settings_display_value('color-profile', color_profile)} · "
-                    f"{self._label('motion')}: "
-                    f"{self._settings_display_value('motion', motion)} · "
-                    f"{self._label('unicode')}: "
+                    f"- {self._label('color_profile')}: "
+                    f"{self._settings_display_value('color-profile', color_profile)}"
+                ),
+                (
+                    f"- {self._label('motion')}: "
+                    f"{self._settings_display_value('motion', motion)}"
+                ),
+                (
+                    f"- {self._label('unicode')}: "
                     f"{self._settings_display_value('unicode-rendering', unicode_rendering)}"
                 ),
+                self._label("central_agent"),
                 (
-                    f"{self._label('central')}: {central_provider_label} / "
+                    f"- {central_provider_label} / "
                     f"{central_model_label}"
                 ),
+                self._label("agent_models"),
                 *model_lines,
             ]
         )
@@ -387,8 +553,36 @@ class SettingsScreen(Screen[None]):
 
     def _preview_value(self, id: str, fallback: str) -> str:
         if self.is_mounted:
-            return self._value(id)
+            value = self._value(id)
+            if value.startswith("Select."):
+                return self._pending_select_values.get(id, fallback)
+            return value
         return fallback
+
+    def _saved_select_values(self) -> dict[str, str]:
+        values = {
+            "theme-mode": self.settings.theme_mode,
+            "color-profile": self.settings.color_profile,
+            "density": self.settings.density,
+            "motion": self.settings.motion,
+            "unicode-rendering": self.settings.unicode_rendering,
+            "central-provider": self.config.synthesis_agent or "auto",
+            "central-model": self.config.synthesis_model or "agent-default",
+        }
+        values.update(
+            {
+                f"model-{name}": spec.model or "default"
+                for name, spec in self.config.agents.items()
+            }
+        )
+        return values
+
+    def _has_unsaved_changes(self) -> bool:
+        saved_values = self._saved_select_values()
+        for id, saved in saved_values.items():
+            if self._preview_value(id, saved) != saved:
+                return True
+        return False
 
     def _agent_model_values(
         self,
@@ -403,7 +597,14 @@ class SettingsScreen(Screen[None]):
         return self._dedupe_values([*values, current or "default"])
 
     def _central_provider_values(self) -> list[str]:
-        values = ["auto", *self.config.agents.keys()]
+        values = [
+            "auto",
+            *(
+                name
+                for name, spec in self.config.agents.items()
+                if spec.enabled
+            ),
+        ]
         current = self.config.synthesis_agent
         if current and current not in values:
             values.append(current)
@@ -429,10 +630,15 @@ class SettingsScreen(Screen[None]):
             if choices:
                 values.extend(choice.model for choice in choices)
         else:
-            for provider in Provider:
-                for choice in provider_model_choices(provider):
+            for spec in self.config.agents.values():
+                if not spec.enabled:
+                    continue
+                for choice in provider_model_choices(spec.provider):
                     values.append(choice.model)
-            for choices in self._agent_model_choices.values():
+            for name, choices in self._agent_model_choices.items():
+                spec = self.config.agents.get(name)
+                if spec is None or not spec.enabled:
+                    continue
                 values.extend(choice.model for choice in choices)
         return self._dedupe_values([*values, current or "agent-default"])
 
@@ -530,6 +736,13 @@ class SettingsScreen(Screen[None]):
         }
         return labels.get(name, name)
 
+    def _agent_label_with_state(self, name: str) -> str:
+        spec = self.config.agents.get(name)
+        if spec is None or spec.enabled:
+            return self._agent_label(name)
+        suffix = "비활성" if self.lang == "ko" else "off"
+        return f"{self._agent_label(name)} ({suffix})"
+
     def _display_value(self, value: str) -> str:
         labels = {
             "agent-default": self._label("agent_default"),
@@ -555,22 +768,22 @@ class SettingsScreen(Screen[None]):
             "settings": "설정",
             "appearance": "화면 설정",
             "theme_mode": "테마 모드",
-            "color_profile": "터미널 색상",
+            "color_profile": "색상 호환성",
             "density": "밀도",
             "motion": "시작 로고 애니메이션",
             "unicode": "시작 로고 글리프",
-            "agent_models": "에이전트 기본 모델",
+            "agent_models": "저장된 에이전트 기본 모델",
             "central": "중앙",
-            "central_agent": "중앙 에이전트 기본 모델",
+            "central_agent": "저장된 중앙 에이전트 기본 모델",
             "central_provider": "중앙 에이전트 프로바이더",
             "central_model": "중앙 에이전트 모델",
             "agent_default": "에이전트 기본값",
             "auto": "자동",
-            "apply": "적용",
+            "apply": "저장 및 적용",
             "saved": "저장됨",
-            "saved_applied": "저장됨 · 화면과 시작/넥서스 모델 선택에 적용됨",
-            "unsaved_changes": "미저장 변경 · 적용을 눌러 저장",
-            "preview": "미리보기",
+            "saved_applied": "저장됨 · 적용됨",
+            "unsaved_changes": "미저장 변경 · 저장 및 적용을 눌러 저장",
+            "preview": "설정 요약",
             "profile": "프로필",
             "balanced": "균형",
             "contracts": "출력 형식",
@@ -578,7 +791,7 @@ class SettingsScreen(Screen[None]):
             "fast": "빠름",
             "strong": "강력",
             "dark_fallback": "다크 모드로 대체",
-            "default_palette": "기본 팔레트",
+            "default_palette": "기본 색상",
             "ascii_fallback": "ASCII로 대체",
             "animated_motion": "애니메이션",
             "reduced_motion": "움직임 줄임",
@@ -587,7 +800,7 @@ class SettingsScreen(Screen[None]):
             "light": "라이트",
             "truecolor": "트루컬러",
             "256color": "256색",
-            "ascii_safe": "ASCII 안전",
+            "ascii_safe": "ASCII 안전 색상",
             "comfortable": "여유",
             "compact": "간결",
             "unicode_value": "유니코드",
@@ -597,22 +810,22 @@ class SettingsScreen(Screen[None]):
             "settings": "Settings",
             "appearance": "UI preferences",
             "theme_mode": "Theme mode",
-            "color_profile": "Terminal colors",
+            "color_profile": "Color compatibility",
             "density": "Density",
             "motion": "Start logo motion",
             "unicode": "Start logo glyphs",
-            "agent_models": "Agent model defaults",
+            "agent_models": "Saved agent model defaults",
             "central": "Central",
-            "central_agent": "Central agent default model",
+            "central_agent": "Saved central agent default model",
             "central_provider": "Central agent provider",
             "central_model": "Central agent model",
             "agent_default": "Agent default",
             "auto": "Auto",
-            "apply": "Apply",
+            "apply": "Save & Apply",
             "saved": "Saved",
-            "saved_applied": "Saved · applied to UI and Start/Nexus model selectors",
-            "unsaved_changes": "Unsaved changes · press Apply to save",
-            "preview": "Preview",
+            "saved_applied": "Saved · applied",
+            "unsaved_changes": "Unsaved changes · press Save & Apply to save",
+            "preview": "Settings summary",
             "profile": "profile",
             "balanced": "balanced",
             "contracts": "contracts",
@@ -620,7 +833,7 @@ class SettingsScreen(Screen[None]):
             "fast": "fast",
             "strong": "strong",
             "dark_fallback": "dark fallback",
-            "default_palette": "default palette",
+            "default_palette": "default colors",
             "ascii_fallback": "ASCII fallback",
             "animated_motion": "animated",
             "reduced_motion": "reduced motion",
@@ -629,7 +842,7 @@ class SettingsScreen(Screen[None]):
             "light": "light",
             "truecolor": "truecolor",
             "256color": "256color",
-            "ascii_safe": "ascii-safe",
+            "ascii_safe": "ascii-safe colors",
             "comfortable": "comfortable",
             "compact": "compact",
             "unicode_value": "unicode",

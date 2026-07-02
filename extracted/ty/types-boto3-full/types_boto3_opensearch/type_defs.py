@@ -41,14 +41,18 @@ from .literals import (
     DomainPackageStatusType,
     DomainProcessingStatusTypeType,
     DomainStateType,
+    DomainUseCaseType,
     DryRunModeType,
+    EngineModeType,
     EngineTypeType,
     InboundConnectionStatusCodeType,
     IndexStatusType,
     InitiatedByType,
     InsightEntityTypeType,
+    InsightFeedbackThumbsType,
     InsightFieldTypeType,
     InsightPriorityLevelType,
+    InsightResponseStatusType,
     InsightSortOrderType,
     InsightStatusType,
     InsightTypeType,
@@ -261,6 +265,7 @@ __all__ = (
     "EmptyResponseMetadataTypeDef",
     "EncryptionAtRestOptionsStatusTypeDef",
     "EncryptionAtRestOptionsTypeDef",
+    "EngineModeStatusTypeDef",
     "EnvironmentInfoTypeDef",
     "ErrorDetailsTypeDef",
     "FilterTypeDef",
@@ -296,6 +301,9 @@ __all__ = (
     "InboundConnectionStatusTypeDef",
     "InboundConnectionTypeDef",
     "InsightEntityTypeDef",
+    "InsightFeedbackEntityTypeDef",
+    "InsightFeedbackRequestTypeDef",
+    "InsightFeedbackResponseTypeDef",
     "InsightFieldTypeDef",
     "InsightTimeRangeTypeDef",
     "InsightTypeDef",
@@ -430,6 +438,7 @@ __all__ = (
     "UpgradeDomainResponseTypeDef",
     "UpgradeHistoryTypeDef",
     "UpgradeStepItemTypeDef",
+    "UseCaseStatusTypeDef",
     "VPCDerivedInfoStatusTypeDef",
     "VPCDerivedInfoTypeDef",
     "VPCOptionsTypeDef",
@@ -1117,6 +1126,15 @@ class InboundConnectionStatusTypeDef(TypedDict):
     Message: NotRequired[str]
 
 
+InsightFeedbackEntityTypeDef = TypedDict(
+    "InsightFeedbackEntityTypeDef",
+    {
+        "Type": Literal["DomainName"],
+        "Value": str,
+    },
+)
+
+
 class InsightTimeRangeTypeDef(TypedDict):
     From: int
     To: int
@@ -1411,8 +1429,18 @@ class AdvancedOptionsStatusTypeDef(TypedDict):
     Status: OptionStatusTypeDef
 
 
+class EngineModeStatusTypeDef(TypedDict):
+    Options: EngineModeType
+    Status: OptionStatusTypeDef
+
+
 class IPAddressTypeStatusTypeDef(TypedDict):
     Options: IPAddressTypeType
+    Status: OptionStatusTypeDef
+
+
+class UseCaseStatusTypeDef(TypedDict):
+    Options: DomainUseCaseType
     Status: OptionStatusTypeDef
 
 
@@ -1518,6 +1546,11 @@ class GetUpgradeStatusResponseTypeDef(TypedDict):
     UpgradeStep: UpgradeStepType
     StepStatus: UpgradeStatusType
     UpgradeName: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class InsightFeedbackResponseTypeDef(TypedDict):
+    Status: InsightResponseStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1949,6 +1982,13 @@ class DryRunProgressStatusTypeDef(TypedDict):
     CreationDate: str
     UpdateDate: str
     ValidationFailures: NotRequired[list[ValidationFailureTypeDef]]
+
+
+class InsightFeedbackRequestTypeDef(TypedDict):
+    Entity: InsightFeedbackEntityTypeDef
+    InsightId: str
+    Thumbs: InsightFeedbackThumbsType
+    FeedbackText: NotRequired[str]
 
 
 class ListInsightsRequestTypeDef(TypedDict):
@@ -2584,6 +2624,8 @@ class DomainStatusTypeDef(TypedDict):
     AIMLOptions: NotRequired[AIMLOptionsOutputTypeDef]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
     AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseOptionsTypeDef]
+    UseCase: NotRequired[DomainUseCaseType]
+    EngineMode: NotRequired[EngineModeType]
 
 
 class DescribeInstanceTypeLimitsResponseTypeDef(TypedDict):
@@ -2615,6 +2657,8 @@ class CreateDomainRequestTypeDef(TypedDict):
     AIMLOptions: NotRequired[AIMLOptionsInputTypeDef]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
     AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseRequestOptionsTypeDef]
+    UseCase: NotRequired[DomainUseCaseType]
+    EngineMode: NotRequired[EngineModeType]
 
 
 class UpdateDomainConfigRequestTypeDef(TypedDict):
@@ -2641,6 +2685,8 @@ class UpdateDomainConfigRequestTypeDef(TypedDict):
     AIMLOptions: NotRequired[AIMLOptionsInputTypeDef]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
     AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseRequestOptionsTypeDef]
+    UseCase: NotRequired[DomainUseCaseType]
+    EngineMode: NotRequired[EngineModeType]
 
 
 class DomainConfigTypeDef(TypedDict):
@@ -2667,6 +2713,8 @@ class DomainConfigTypeDef(TypedDict):
     AIMLOptions: NotRequired[AIMLOptionsStatusTypeDef]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsStatusTypeDef]
     AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseOptionsStatusTypeDef]
+    UseCase: NotRequired[UseCaseStatusTypeDef]
+    EngineMode: NotRequired[EngineModeStatusTypeDef]
 
 
 class CreateDomainResponseTypeDef(TypedDict):

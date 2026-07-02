@@ -12,6 +12,16 @@ import io
 import json
 import logging
 import multiprocessing
+
+# Eagerly import multiprocessing.connection so the lazy ``from
+# multiprocessing.connection import wait`` inside
+# multiprocessing.popen_fork.Popen.wait() is resolved at startup. If a
+# reentrant SIGTERM arrives while ProcessManager.kill_children() is mid
+# Process.join(0), a second handler invocation can hit that lazy import
+# while the module is still partially initialised, raising
+# "ImportError: cannot import name 'wait' from partially initialized
+# module 'multiprocessing.connection'". See issue #68573.
+import multiprocessing.connection  # noqa: F401
 import multiprocessing.util
 import os
 import queue
@@ -523,12 +533,14 @@ class ProcessManager:
             kwargs = {}
 
         if inspect.isclass(tgt) and issubclass(tgt, multiprocessing.Process):
-            kwargs["name"] = name or tgt.__qualname__
+            if name is None:
+                name = getattr(tgt, "__qualname__", str(tgt))
+            kwargs["name"] = name
             process = tgt(*args, **kwargs)
         else:
-            process = Process(
-                target=tgt, args=args, kwargs=kwargs, name=name or tgt.__qualname__
-            )
+            if name is None:
+                name = getattr(tgt, "__qualname__", str(tgt))
+            process = Process(target=tgt, args=args, kwargs=kwargs, name=name)
 
         process.register_finalize_method(cleanup_finalize_process, args, kwargs)
 

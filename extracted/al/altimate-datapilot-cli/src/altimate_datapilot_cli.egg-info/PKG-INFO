@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: altimate-datapilot-cli
-Version: 0.3.0
+Version: 0.3.1
 Summary: Assistant for Data Teams
 Home-page: https://github.com/AltimateAI/datapilot-cli
 Author: Altimate Inc
@@ -35,7 +35,7 @@ Requires-Dist: ruamel.yaml~=0.18.6
 Requires-Dist: tabulate~=0.9.0
 Requires-Dist: requests>=2.31
 Requires-Dist: sqlglot[c]==30.7.0
-Requires-Dist: mcp~=1.9.0
+Requires-Dist: mcp<2.0.0,>=1.9.0
 Requires-Dist: pyperclip~=1.8.2
 Requires-Dist: python-dotenv~=1.0.0
 Dynamic: author
@@ -106,6 +106,14 @@ Note, to combine the coverage data from all the tox environments run:
 
 Changelog
 =========
+
+0.3.1 (2026-07-01)
+------------------
+
+* Relax ``mcp`` dependency pin from ``~=1.9.0`` to ``>=1.9.0,<2.0.0`` so
+  downstream consumers can use newer ``mcp`` releases. Only the stable
+  client API (``ClientSession``, ``StdioServerParameters``, ``stdio_client``)
+  is used, which is unchanged across ``mcp`` 1.x.
 
 0.0.0 (2024-01-25)
 ------------------

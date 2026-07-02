@@ -15,7 +15,7 @@ from loguru import logger
 from rich.panel import Panel
 
 from dreadnode.app.cli.airt import cli as airt_cli
-from dreadnode.app.cli.args import PlatformArgs, TuiArgs
+from dreadnode.app.cli.args import RESUME_PICK_SENTINEL, PlatformArgs, TuiArgs
 from dreadnode.app.cli.capability import cli as capability_cli
 from dreadnode.app.cli.dataset import cli as dataset_cli
 from dreadnode.app.cli.environment import cli as environment_cli
@@ -30,6 +30,7 @@ from dreadnode.app.cli.secret import cli as secret_cli
 from dreadnode.app.cli.session import cli as session_cli
 from dreadnode.app.cli.shared import console, print_error, print_success
 from dreadnode.app.cli.task import cli as task_cli
+from dreadnode.app.cli.task_set import cli as task_set_cli
 from dreadnode.app.cli.train import cli as train_cli
 from dreadnode.app.cli.worlds import cli as worlds_cli
 from dreadnode.app.model_catalog import resolve_model
@@ -97,6 +98,7 @@ cli.command(sandbox_cli)
 cli.command(secret_cli)
 cli.command(session_cli)
 cli.command(task_cli)
+cli.command(task_set_cli)
 cli.command(train_cli)
 cli.command(worlds_cli)
 
@@ -605,13 +607,41 @@ def serve(
 # ---------------------------------------------------------------------------
 
 
+def _rewrite_bare_resume(argv: list[str]) -> list[str]:
+    """Rewrite bare ``--resume`` / ``-r`` into a picker sentinel when no ID follows.
+
+    Cyclopts 4.4.4 still treats ``--resume`` as requiring a value even when the
+    destination type is ``str | None``, so we pre-process argv to preserve the
+    expected ``dn --resume`` UX. The sentinel is handled in
+    ``_resume_requested_session``.
+    """
+    result: list[str] = []
+    token_index = 0
+    while token_index < len(argv):
+        token = argv[token_index]
+        if token in ("--resume", "-r"):
+            next_index = token_index + 1
+            has_resume_value = (
+                next_index < len(argv) and argv[next_index] and not argv[next_index].startswith("-")
+            )
+            if has_resume_value:
+                result.extend([token, argv[next_index]])
+                token_index += 2
+            else:
+                result.extend([token, RESUME_PICK_SENTINEL])
+                token_index += 1
+        else:
+            result.append(token)
+            token_index += 1
+    return result
+
+
 def run(argv: list[str] | None = None) -> None:
     """CLI entry point."""
     try:
-        if argv is not None:
-            cli.meta(argv)
-        else:
-            cli.meta()
+        tokens = argv if argv is not None else sys.argv[1:]
+        tokens = _rewrite_bare_resume(list(tokens))
+        cli.meta(tokens)
     except SystemExit as exc:
         if exc.code not in (None, 0):
             raise

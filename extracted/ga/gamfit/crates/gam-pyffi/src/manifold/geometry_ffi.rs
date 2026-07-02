@@ -4059,6 +4059,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(basis_with_jet, module)?)?;
     module.add_function(wrap_pyfunction!(periodic_basis_with_jet, module)?)?;
     module.add_function(wrap_pyfunction!(periodic_spline_curve_basis, module)?)?;
+    module.add_function(wrap_pyfunction!(cyclic_difference_penalty, module)?)?;
     module.add_function(wrap_pyfunction!(duchon_basis_with_jet, module)?)?;
     module.add_function(wrap_pyfunction!(duchon_basis_with_jets, module)?)?;
     module.add_function(wrap_pyfunction!(duchon_basis, module)?)?;
@@ -4136,6 +4137,8 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(analytic_penalty_hvp, module)?)?;
     module.add_function(wrap_pyfunction!(gumbel_schedule_tau, module)?)?;
     module.add_function(wrap_pyfunction!(sae_ibp_map_value_grad, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_jumprelu_row_value_grad, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_jumprelu_batch_value_grad, module)?)?;
     module.add_function(wrap_pyfunction!(jumprelu_gate_value_grad, module)?)?;
     module.add_function(wrap_pyfunction!(equivariant_penalty_value, module)?)?;
     module.add_function(wrap_pyfunction!(riemannian_retract, module)?)?;
@@ -4251,6 +4254,8 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(summary_html, module)?)?;
     module.add_function(wrap_pyfunction!(coefficient_state_json, module)?)?;
     module.add_function(wrap_pyfunction!(term_blocks_for_model, module)?)?;
+    module.add_function(wrap_pyfunction!(model_partial_dependence, module)?)?;
+    module.add_function(wrap_pyfunction!(model_variance_share, module)?)?;
     module.add_function(wrap_pyfunction!(difference_smooth_json, module)?)?;
     module.add_function(wrap_pyfunction!(difference_smooth_rows, module)?)?;
     module.add_function(wrap_pyfunction!(
@@ -4339,7 +4344,9 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(partial_supervision_solve, module)?)?;
     module.add_function(wrap_pyfunction!(thin_svd_scores, module)?)?;
     module.add_function(wrap_pyfunction!(linear_dictionary_fit, module)?)?;
+    module.add_function(wrap_pyfunction!(linear_dictionary_transform_ffi, module)?)?;
     module.add_function(wrap_pyfunction!(sparse_dictionary_fit, module)?)?;
+    module.add_function(wrap_pyfunction!(sparse_dictionary_transform_ffi, module)?)?;
     module.add_function(wrap_pyfunction!(
         identifiable_factor_select_weights_array,
         module
@@ -4688,7 +4695,8 @@ fn thin_svd_scores<'py>(
     assignment = "top_k",
     temperature = 0.25,
     code_ridge = 1.0e-8,
-    tolerance = 1.0e-7
+    tolerance = 1.0e-7,
+    center_rank_one = false
 ))]
 fn linear_dictionary_fit<'py>(
     py: Python<'py>,
@@ -4700,6 +4708,7 @@ fn linear_dictionary_fit<'py>(
     temperature: f64,
     code_ridge: f64,
     tolerance: f64,
+    center_rank_one: bool,
 ) -> PyResult<Py<PyDict>> {
     let x_values = x.as_array().to_owned();
     let assignment_kind = LinearDictionaryAssignment::parse(assignment).map_err(py_value_error)?;
@@ -4711,6 +4720,7 @@ fn linear_dictionary_fit<'py>(
         temperature,
         code_ridge,
         tolerance,
+        center_rank_one,
     };
     let fit = detach_py_result(py, "linear_dictionary_fit", move || {
         fit_linear_dictionary(x_values.view(), &config)
@@ -4727,6 +4737,25 @@ fn linear_dictionary_fit<'py>(
     out.set_item("assignment", fit.assignment.as_str())?;
     out.set_item("top_k", fit.top_k)?;
     Ok(out.unbind())
+}
+
+/// Out-of-sample encode: route held-out rows `x` (`M x P`) through a fitted
+/// linear dictionary `atoms` (`K x P`) via the Rust top-`top_k` ridge solve,
+/// returning the `(M, K)` code matrix.
+#[pyfunction(signature = (x, atoms, top_k, code_ridge = 1.0e-8))]
+fn linear_dictionary_transform_ffi<'py>(
+    py: Python<'py>,
+    x: PyReadonlyArray2<'py, f64>,
+    atoms: PyReadonlyArray2<'py, f64>,
+    top_k: usize,
+    code_ridge: f64,
+) -> PyResult<Py<PyArray2<f64>>> {
+    let x_values = x.as_array().to_owned();
+    let atoms_values = atoms.as_array().to_owned();
+    let codes = detach_py_result(py, "linear_dictionary_transform", move || {
+        linear_dictionary_transform(x_values.view(), atoms_values.view(), top_k, code_ridge)
+    })?;
+    Ok(codes.into_pyarray(py).unbind())
 }
 
 /// #1026 collapsed linear lane — fit a fixed-`K` **sparse, minibatched** linear
@@ -4784,6 +4813,35 @@ fn sparse_dictionary_fit<'py>(
     out.set_item("converged", fit.converged)?;
     out.set_item("active", fit.active)?;
     Ok(out.unbind())
+}
+
+/// Out-of-sample encode: route held-out rows `x` (`M x P`, f32) through a fitted
+/// sparse dictionary `decoder` (`K x P`) via the Rust tiled router + active-set
+/// ridge solve, returning `(indices, codes)` each `M x active`.
+#[pyfunction(signature = (x, decoder, active, score_tile = 4096, code_ridge = 1.0e-6))]
+fn sparse_dictionary_transform_ffi<'py>(
+    py: Python<'py>,
+    x: PyReadonlyArray2<'py, f32>,
+    decoder: PyReadonlyArray2<'py, f32>,
+    active: usize,
+    score_tile: usize,
+    code_ridge: f32,
+) -> PyResult<(Py<PyArray2<u32>>, Py<PyArray2<f32>>)> {
+    let x_values = x.as_array().to_owned();
+    let decoder_values = decoder.as_array().to_owned();
+    let (indices, codes) = detach_py_result(py, "sparse_dictionary_transform", move || {
+        sparse_dictionary_transform(
+            x_values.view(),
+            decoder_values.view(),
+            active,
+            score_tile,
+            code_ridge,
+        )
+    })?;
+    Ok((
+        indices.into_pyarray(py).unbind(),
+        codes.into_pyarray(py).unbind(),
+    ))
 }
 
 fn inject_scalar_fisher_rao_weight(
@@ -4856,6 +4914,52 @@ fn fit_dataset_impl(
     let (mut fit_config, training_table_kind) = parse_fit_config(config_json)?;
     if let Some(w) = fisher_rao_w {
         inject_scalar_fisher_rao_weight(&mut dataset, &mut fit_config, w)?;
+    }
+    // Expectile (Newey–Powell LAWS) family (#1777): the expectile estimator is an
+    // OUTER driver that wraps the standard Gaussian-identity GAM with iterative
+    // asymmetric reweighting, so it is selected *before* `materialize` (which has
+    // no expectile arm) — exactly as the in-process `fit_from_formula` does. We
+    // route it through the single shared dispatch seam so the Python API reaches
+    // the same estimator the library call does instead of failing with
+    // `unknown family 'expectile(τ)'`. The driver returns an ordinary
+    // `StandardFitResult`, so the persistence payload is built by the same
+    // `build_standard_payload` used for every other standard fit.
+    if let Some(expectile_result) =
+        gam::families::fit_orchestration::fit_expectile_if_requested(
+            &formula,
+            &dataset,
+            &fit_config,
+        )?
+    {
+        let family = expectile_result
+            .fit
+            .likelihood_family
+            .clone()
+            .unwrap_or_else(gam::types::LikelihoodSpec::gaussian_identity);
+        let mut payload = build_standard_payload(
+            formula,
+            &dataset,
+            &fit_config,
+            family,
+            &expectile_result.fit,
+            &expectile_result.design,
+            expectile_result.resolvedspec,
+            expectile_result.adaptive_diagnostics,
+            expectile_result.wiggle_knots.map(|knots| knots.to_vec()),
+            expectile_result.wiggle_degree,
+            expectile_result.wiggle_saved_warp_beta,
+        )?;
+        payload.group_metadata = fit_config.group_metadata.clone();
+        payload.training_table_kind = training_table_kind;
+        // The LAWS driver materializes its inner Gaussian design itself; there are
+        // no outer materialize advisories to carry (matches `fit_from_formula`).
+        payload.inference_notes = Vec::new();
+        let model = FittedModel::from_payload(payload);
+        return serde_json::to_vec(&model).map_err(|err| {
+            gam::families::fit_orchestration::WorkflowError::IntegrationFailed {
+                reason: format!("failed to serialize model: {err}"),
+            }
+        });
     }
     // Calibrated marginal-slope chain (#461): when a CTN Stage-1 recipe is present
     // (config.ctn_stage1), the marginal-slope materializer cross-fits the CTN and
@@ -5831,13 +5935,13 @@ fn predict_table_impl(
     headers: Vec<String>,
     rows: Vec<Vec<String>>,
     options_json: Option<&str>,
-) -> Result<String, String> {
+) -> Result<String, PredictError> {
     let model = load_model_impl(model_bytes)?;
     let model_class = model.predict_model_class();
-    let dataset = dataset_with_model_schema(&model, &headers, &rows)?;
+    let dataset = dataset_with_model_schema_typed(&model, &headers, &rows)?;
     drop(rows);
     drop(headers);
-    predict_dataset_impl(&model, model_class, dataset, options_json)
+    predict_dataset_impl(&model, model_class, dataset, options_json).map_err(PredictError::Other)
 }
 
 fn predict_array_impl(
@@ -6880,6 +6984,156 @@ fn design_matrix_array_impl(
     let model = load_model_impl(model_bytes)?;
     let dataset = dataset_from_x_array_with_model_schema(&model, x)?;
     design_matrix_dense(&model, dataset)
+}
+
+/// Population variance (divide by `n`, matching numpy `np.var`'s default).
+fn population_variance(values: &[f64]) -> f64 {
+    let n = values.len();
+    if n == 0 {
+        return 0.0;
+    }
+    let mean = values.iter().sum::<f64>() / n as f64;
+    values.iter().map(|v| (v - mean) * (v - mean)).sum::<f64>() / n as f64
+}
+
+/// Per-term partial dependence on a grid table.
+///
+/// For the requested `term` this evaluates `f_t(x) = X_t(x) β_t` and the
+/// matching delta-method standard error `sqrt(diag(X_t V_t X_tᵀ))`, where
+/// `V_t` is the term-block of the fitted coefficient covariance. The design
+/// build, `β`, `V`, and the term column ranges are all owned by the Rust
+/// core; the caller only supplies the evaluation grid.
+fn model_partial_dependence_impl(
+    model_bytes: &[u8],
+    term: &str,
+    headers: Vec<String>,
+    rows: Vec<Vec<String>>,
+) -> Result<(Vec<f64>, Vec<f64>), String> {
+    let raw = design_matrix_table_impl(model_bytes, headers, rows)?;
+    let x = design_matrix_payload_to_dense(&raw)?;
+    let model = load_model_impl(model_bytes)?;
+    let fit = fit_result_from_saved_model_for_prediction(&model)?;
+    let beta = &fit.beta;
+    let cov = fit.beta_covariance().ok_or_else(|| {
+        "model does not contain coefficient covariance; refit with \
+         covariance-saving inference enabled"
+            .to_string()
+    })?;
+    let blocks = term_blocks_for_model_impl(model_bytes)?;
+    let (start, end) = blocks
+        .iter()
+        .find(|(name, _, _, _)| name.as_str() == term)
+        .map(|(_, _, s, e)| (*s, *e))
+        .ok_or_else(|| {
+            let available: Vec<&str> = blocks.iter().map(|(n, _, _, _)| n.as_str()).collect();
+            format!("partial_dependence: term {term:?} not found; available: {available:?}")
+        })?;
+    let n = x.nrows();
+    let mut predicted = vec![0.0_f64; n];
+    let mut se = vec![0.0_f64; n];
+    for i in 0..n {
+        let xi = x.row(i);
+        let mut f = 0.0_f64;
+        for c in start..end {
+            f += xi[c] * beta[c];
+        }
+        predicted[i] = f;
+        let mut var = 0.0_f64;
+        for a in start..end {
+            let xa = xi[a];
+            for b in start..end {
+                var += xa * cov[[a, b]] * xi[b];
+            }
+        }
+        se[i] = var.max(0.0).sqrt();
+    }
+    Ok((predicted, se))
+}
+
+/// Per-term variance share: `var(X_t β_t) / var(X β)` for each non-intercept
+/// term block (or a single `term` when supplied). Evaluated on the caller's
+/// grid table; `β` and the term column ranges come from the Rust core.
+fn model_variance_share_impl(
+    model_bytes: &[u8],
+    headers: Vec<String>,
+    rows: Vec<Vec<String>>,
+    term: Option<String>,
+) -> Result<Vec<(String, f64)>, String> {
+    let raw = design_matrix_table_impl(model_bytes, headers, rows)?;
+    let x = design_matrix_payload_to_dense(&raw)?;
+    let model = load_model_impl(model_bytes)?;
+    let fit = fit_result_from_saved_model_for_prediction(&model)?;
+    let beta = &fit.beta;
+    let blocks = term_blocks_for_model_impl(model_bytes)?;
+    let n = x.nrows();
+    let p = beta.len();
+    let mut eta = vec![0.0_f64; n];
+    for i in 0..n {
+        let xi = x.row(i);
+        let mut s = 0.0_f64;
+        for c in 0..p {
+            s += xi[c] * beta[c];
+        }
+        eta[i] = s;
+    }
+    let total_var = population_variance(&eta);
+    let mut out: Vec<(String, f64)> = Vec::new();
+    for (name, kind, start, end) in &blocks {
+        if kind.as_str() == "intercept" {
+            continue;
+        }
+        if let Some(t) = term.as_ref() {
+            if name.as_str() != t.as_str() {
+                continue;
+            }
+        }
+        let mut contrib = vec![0.0_f64; n];
+        for i in 0..n {
+            let xi = x.row(i);
+            let mut s = 0.0_f64;
+            for c in *start..*end {
+                s += xi[c] * beta[c];
+            }
+            contrib[i] = s;
+        }
+        let share = if total_var > 0.0 {
+            population_variance(&contrib) / total_var
+        } else {
+            0.0
+        };
+        out.push((name.clone(), share));
+    }
+    Ok(out)
+}
+
+#[pyfunction]
+fn model_partial_dependence(
+    py: Python<'_>,
+    model_bytes: Vec<u8>,
+    term: String,
+    headers: Vec<String>,
+    rows: Vec<Vec<String>>,
+) -> PyResult<(Py<PyArray1<f64>>, Py<PyArray1<f64>>)> {
+    let (predicted, se) = detach_py_result(py, "model_partial_dependence", move || {
+        model_partial_dependence_impl(&model_bytes, &term, headers, rows)
+    })?;
+    Ok((
+        predicted.into_pyarray(py).unbind(),
+        se.into_pyarray(py).unbind(),
+    ))
+}
+
+#[pyfunction(signature = (model_bytes, headers, rows, term = None))]
+fn model_variance_share(
+    py: Python<'_>,
+    model_bytes: Vec<u8>,
+    headers: Vec<String>,
+    rows: Vec<Vec<String>>,
+    term: Option<String>,
+) -> PyResult<Vec<(String, f64)>> {
+    detach_py_result(py, "model_variance_share", move || {
+        model_variance_share_impl(&model_bytes, headers, rows, term)
+    })
 }
 
 fn design_matrix_dataset_impl(

@@ -225,6 +225,7 @@ class PermissionName(str, Enum):
     ORGANIZATION_LIST_UNREGISTERED_AGENTS = 'organization_list_unregistered_agents'
     ORGANIZATION_LIST_AGENT_TOOLS = 'organization_list_agent_tools'
     ORGANIZATION_LIST_AGENT_LLM_MODELS = 'organization_list_agent_llm_models'
+    ORGANIZATION_LIST_MODELS = 'organization_list_models'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

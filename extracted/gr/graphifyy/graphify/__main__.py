@@ -148,7 +148,41 @@ def _check_skill_version(skill_dst: Path) -> None:
     except OSError:
         return
     if installed != __version__:
-        print(f"  warning: skill is from graphify {installed}, package is {__version__}. Run 'graphify install' to update.", file=sys.stderr)
+        if _version_tuple(installed) > _version_tuple(__version__):
+            # The skill on disk is NEWER than the running package. `graphify install`
+            # writes the package's OWN (older) bundled skill and re-stamps the version,
+            # so following the old "run install" advice would silently DOWNGRADE the
+            # skill. The real fix is to upgrade the package (#1568). Common for a stale
+            # `uv tool` CLI, or a contributor whose dev checkout stamped a newer skill.
+            print(
+                f"  warning: skill is from graphify {installed}, but the package is "
+                f"{__version__} (older). Upgrade the package "
+                f"(e.g. 'uv tool upgrade graphifyy' or 'pip install -U graphifyy'); "
+                f"running 'graphify install' would downgrade the skill.",
+                file=sys.stderr,
+            )
+        else:
+            print(f"  warning: skill is from graphify {installed}, package is {__version__}. Run 'graphify install' to update.", file=sys.stderr)
+
+
+def _version_tuple(version: str) -> tuple[int, ...]:
+    """Parse a version string into a comparable integer tuple (``0.9.2`` -> ``(0, 9, 2)``).
+
+    Reads the leading digits of each dot-segment, so pre/post-release suffixes
+    (``1.0.0rc1``) compare by their numeric core. A non-numeric or empty segment
+    becomes 0, so a malformed stamp degrades to a conservative comparison rather
+    than raising.
+    """
+    parts: list[int] = []
+    for segment in str(version).split("."):
+        digits = ""
+        for ch in segment:
+            if ch.isdigit():
+                digits += ch
+            else:
+                break
+        parts.append(int(digits) if digits else 0)
+    return tuple(parts)
 
 
 def _refresh_all_version_stamps() -> None:
@@ -3525,17 +3559,20 @@ def main() -> None:
         else:
             # No labels file yet (or `graphify label` forced a refresh). When run
             # standalone there is no orchestrating agent to do skill.md Step 5, so
-            # auto-name communities with the configured backend rather than leave
-            # "Community N" (#1097). Degrades to placeholders if no backend/on error.
+            # auto-name communities rather than leave "Community N" (#1097).
+            from graphify.cluster import label_communities_by_hub
             from graphify.llm import generate_community_labels
             print("Labeling communities...")
-            # The final labels (LLM or placeholder fallback) are persisted to
-            # .graphify_labels.json by the unconditional write below.
+            # Deterministic, LLM-free base labels: name each community after its
+            # highest-degree hub, so the report is readable even with no backend
+            # (previously bare "Community N"). A configured LLM backend overrides these
+            # with richer names below; its no-backend placeholder fallback does NOT.
+            hub_labels = label_communities_by_hub(G, communities)
             label_communities_input = communities
-            labels = {}
+            labels = dict(hub_labels)
             if missing_only:
                 labels = {
-                    cid: existing_labels.get(cid, f"Community {cid}")
+                    cid: existing_labels.get(cid, hub_labels[cid])
                     for cid in communities
                 }
                 label_communities_input = {
@@ -3547,7 +3584,13 @@ def main() -> None:
                 G, label_communities_input, backend=label_backend, model=label_model, gods=gods,
                 max_concurrency=label_max_concurrency, batch_size=label_batch_size,
             )
-            labels.update(generated_labels)
+            # Only let the LLM OVERRIDE where it produced a real name — its no-backend
+            # fallback returns "Community {cid}" placeholders, which must not clobber
+            # the deterministic hub labels.
+            labels.update({
+                cid: v for cid, v in generated_labels.items()
+                if v and v != f"Community {cid}"
+            })
         stages.mark("label")
         questions = suggest_questions(G, communities, labels)
         tokens = {"input": 0, "output": 0}

@@ -39,7 +39,16 @@ from docutils.parsers.rst.states import Inliner
 from docutils.readers.standalone import Reader
 from docutils.writers.null import Writer
 
-from weblate.checks.base import TargetCheck
+from weblate.checks.base import Highlight, TargetCheck
+from weblate.checks.format import (
+    ES_TEMPLATE_MATCH,
+    FLAG_RULES,
+    I18NEXT_MATCH,
+    JAVA_MESSAGE_MATCH,
+    PERCENT_MATCH,
+    VUE_MATCH,
+)
+from weblate.checks.utils import pair_markup_highlights
 from weblate.utils.html import (
     MD_BROKEN_LINK,
     MD_LINK,
@@ -47,6 +56,7 @@ from weblate.utils.html import (
     MD_SYNTAX,
     MD_SYNTAX_GROUPS,
     HTMLSanitizer,
+    extract_html_attributes,
 )
 from weblate.utils.xml import parse_xml
 
@@ -69,6 +79,15 @@ DOCUTILS_PARSER_LOCK = threading.Lock()
 BBCODE_MATCH = re.compile(
     r"(?P<start>\[(?P<tag>[^]]+)(@[^]]*)?\])(.*?)(?P<end>\[\/(?P=tag)\])", re.MULTILINE
 )
+HTML_ATTRIBUTE_PLACEHOLDER_MATCHES = (
+    *(rule[0] for rule in FLAG_RULES.values()),
+    I18NEXT_MATCH,
+    ES_TEMPLATE_MATCH,
+    JAVA_MESSAGE_MATCH,
+    PERCENT_MATCH,
+    VUE_MATCH,
+)
+HTML_ATTRIBUTE_WRAPPER_CHARS = frozenset("\"'`“”„‟‘’‚‛«»‹›")
 
 
 XML_MATCH = re.compile(r"<[^>]+>")
@@ -121,6 +140,18 @@ RST_TRANSLATABLE = {
     "index",
     "samp",
 }
+RST_LLM_TRANSLATABLE = {
+    "abbr",
+    "code",
+    "dfn",
+    "guilabel",
+    "index",
+    "kbd",
+    "menuselection",
+    "samp",
+    "sub",
+    "sup",
+}
 
 RST_ROLE_RE = [
     re.compile(r"""Unknown interpreted text role "([^"]*)"\."""),
@@ -128,13 +159,18 @@ RST_ROLE_RE = [
 ]
 
 RST_LIST_START = ("- ", "* ", "+ ")
+RST_WRAPPED_ROLE_RE = re.compile(
+    r"(?<!\S)`\s+"
+    r"(?P<role>(?::[^`\s]+:`[^`]+`|`[^`]+`:[^`\s]+:))"
+    r"\s+`(?!`)"
+)
 RST_HIGHLIGHT_WHOLE = "whole"
 RST_HIGHLIGHT_ROLE_SYNTAX = "role-syntax"
 RST_HIGHLIGHT_ROLE_TARGET = "role-target"
 
 
 type RSTHighlightKind = str
-type RSTHighlight = tuple[int, int, str]
+type RSTHighlight = Highlight
 
 
 class RSTRoleMatch(NamedTuple):
@@ -147,6 +183,93 @@ class RSTRoleMatch(NamedTuple):
 def strip_entities(text):
     """Strip all HTML entities (we don't care about them)."""
     return XML_CDATA_MATCH.sub(r"\1", XML_ENTITY_MATCH.sub(" ", text))
+
+
+def is_html_attribute_placeholder(value: str | None) -> bool:
+    """Check whether an HTML attribute value is exactly one placeholder."""
+    if value is None or value in {"%", "%%", "{{", "}}"}:
+        return False
+    return any(regexp.fullmatch(value) for regexp in HTML_ATTRIBUTE_PLACEHOLDER_MATCHES)
+
+
+def strip_html_attribute_wrappers(value: str) -> str:
+    """Remove quote-like wrappers around a placeholder attribute."""
+    start = 0
+    end = len(value)
+
+    while True:
+        original = (start, end)
+
+        while start < end and value[start].isspace():
+            start += 1
+
+        if start < end and value[start] in HTML_ATTRIBUTE_WRAPPER_CHARS:
+            start += 1
+            while start < end and value[start].isspace():
+                start += 1
+        elif (
+            start + 1 < end
+            and value[start] == "\\"
+            and value[start + 1] in HTML_ATTRIBUTE_WRAPPER_CHARS
+        ):
+            start += 2
+            while start < end and value[start].isspace():
+                start += 1
+
+        while start < end and value[end - 1].isspace():
+            end -= 1
+
+        if (
+            start + 1 < end
+            and value[end - 2] == "\\"
+            and value[end - 1] in HTML_ATTRIBUTE_WRAPPER_CHARS
+        ):
+            end -= 2
+            while start < end and value[end - 1].isspace():
+                end -= 1
+        elif start < end and value[end - 1] in HTML_ATTRIBUTE_WRAPPER_CHARS:
+            end -= 1
+            while start < end and value[end - 1].isspace():
+                end -= 1
+
+        if (start, end) == original:
+            return value[start:end]
+
+
+def get_wrapped_placeholder_attribute(value: str | None) -> str | None:
+    if value is None:
+        return None
+
+    placeholder = strip_html_attribute_wrappers(value)
+    if (
+        value != placeholder
+        and placeholder in value
+        and is_html_attribute_placeholder(placeholder)
+    ):
+        return placeholder
+    return None
+
+
+def has_changed_placeholder_attributes(source: str, target: str) -> bool:
+    source_values: set[tuple[str, str, str]] = {
+        (attribute.tag, attribute.name, attribute.value)
+        for attribute in extract_html_attributes(source)
+        if is_html_attribute_placeholder(attribute.value)
+    }
+    source_attribute_names = {(tag, name) for tag, name, _placeholder in source_values}
+    if not source_attribute_names:
+        return False
+
+    for attribute in extract_html_attributes(target):
+        if (attribute.tag, attribute.name) not in source_attribute_names:
+            continue
+        if (placeholder := get_wrapped_placeholder_attribute(attribute.value)) and (
+            attribute.tag,
+            attribute.name,
+            placeholder,
+        ) in source_values:
+            return True
+    return False
 
 
 class BBCodeCheck(TargetCheck):
@@ -185,8 +308,17 @@ class BBCodeCheck(TargetCheck):
         if self.should_skip(unit):
             return
         for match in BBCODE_MATCH.finditer(source):
+            group = f"bbcode:{match.start()}:{match.end()}"
             for tag in ("start", "end"):
-                yield match.start(tag), match.end(tag), match.group(tag)
+                yield Highlight(
+                    match.start(tag),
+                    match.end(tag),
+                    match.group(tag),
+                    kind="markup",
+                    group=group,
+                    translatable=True,
+                    forbidden_text=("[", "]"),
+                )
 
 
 class BaseXMLCheck(TargetCheck):
@@ -298,11 +430,12 @@ class XMLTagsCheck(BaseXMLCheck):
             return []
         # Include XML markup
         ret = [
-            (match.start(), match.end(), match.group())
+            Highlight(match.start(), match.end(), match.group(), kind="markup")
             for match in XML_MATCH.finditer(source)
         ]
+        ret = pair_markup_highlights(ret, group_prefix="xml")
         # Add XML entities
-        skipranges = [x[:2] for x in ret]
+        skipranges = [(highlight.start, highlight.end) for highlight in ret]
         skipranges.append((len(source), len(source)))
         offset = 0
         for match in XML_ENTITY_MATCH.finditer(source):
@@ -313,7 +446,7 @@ class XMLTagsCheck(BaseXMLCheck):
             # Avoid including entities inside markup
             if start > skipranges[offset][0] and end < skipranges[offset][1]:
                 continue
-            ret.append((start, end, match.group()))
+            ret.append(Highlight(start, end, match.group(), kind="syntax"))
         return ret
 
 
@@ -463,8 +596,27 @@ class MarkdownSyntaxCheck(MarkdownBaseCheck):
                     break
             start = match.start()
             end = match.end()
-            yield (start, start + len(value), value)
-            yield (end - len(value), end, value if value != "<" else ">")
+            group = f"markdown:{start}:{end}"
+            translatable = value != "<"
+            forbidden_text = (value[0],) if translatable and len(value) > 1 else ()
+            yield Highlight(
+                start,
+                start + len(value),
+                value,
+                kind="markup",
+                group=group,
+                translatable=translatable,
+                forbidden_text=forbidden_text,
+            )
+            yield Highlight(
+                end - len(value),
+                end,
+                value if value != "<" else ">",
+                kind="markup",
+                group=group,
+                translatable=translatable,
+                forbidden_text=forbidden_text,
+            )
 
 
 class URLCheck(TargetCheck):
@@ -506,7 +658,10 @@ class SafeHTMLCheck(TargetCheck):
         sanitizer = HTMLSanitizer()
         cleaned_target = sanitizer.clean(target, source, flags)
 
-        return cleaned_target != target
+        if cleaned_target != target:
+            return True
+
+        return has_changed_placeholder_attributes(source, target)
 
 
 class RSTBaseCheck(TargetCheck):
@@ -567,27 +722,60 @@ def get_rst_role_highlight(
     end: int,
 ) -> list[RSTHighlight]:
     if (matched_role := get_rst_role_match(rawsource)) is None:
-        return [(start, end, rawsource)]
+        return [Highlight(start, end, rawsource, kind="syntax")]
 
     prefix_end = start + len(matched_role.syntax_prefix)
+    group = f"rst-role:{start}:{end}"
     if matched_role.role in RST_TRANSLATABLE:
+        translatable = matched_role.role in RST_LLM_TRANSLATABLE
         return [
-            (start, prefix_end, matched_role.syntax_prefix),
-            (end - len(matched_role.syntax_suffix), end, matched_role.syntax_suffix),
+            Highlight(
+                start,
+                prefix_end,
+                matched_role.syntax_prefix,
+                kind="markup",
+                group=group,
+                role=matched_role.role,
+                translatable=translatable,
+            ),
+            Highlight(
+                end - len(matched_role.syntax_suffix),
+                end,
+                matched_role.syntax_suffix,
+                kind="markup",
+                group=group,
+                role=matched_role.role,
+                translatable=translatable,
+            ),
         ]
 
     if matched := RST_EXPLICIT_TITLE_RE.match(matched_role.inner):
         suffix_start = prefix_end + len(matched.group(1))
+        forbidden_text = ("`", "<", ">")
         return [
-            (start, prefix_end, matched_role.syntax_prefix),
-            (
+            Highlight(
+                start,
+                prefix_end,
+                matched_role.syntax_prefix,
+                kind="markup",
+                group=group,
+                role=matched_role.role,
+                translatable=True,
+                forbidden_text=forbidden_text,
+            ),
+            Highlight(
                 suffix_start,
                 end,
                 rawsource[len(matched_role.syntax_prefix) + len(matched.group(1)) :],
+                kind="markup",
+                group=group,
+                role=matched_role.role,
+                translatable=True,
+                forbidden_text=forbidden_text,
             ),
         ]
 
-    return [(start, end, rawsource)]
+    return [Highlight(start, end, rawsource, kind="syntax", role=matched_role.role)]
 
 
 def normalize_rst_node_token(token: str) -> str:
@@ -683,12 +871,12 @@ def extract_rst_references(
             name, highlight_type = role_reference
             result.append((name, token))
             if highlight_type == RST_HIGHLIGHT_WHOLE:
-                highlights.append((start, end, token))
+                highlights.append(Highlight(start, end, token, kind="syntax"))
             else:
                 highlights.extend(get_rst_role_highlight(token, start, end))
         elif isinstance(node, (footnote_reference, substitution_reference)):
             result.append((token, token))
-            highlights.append((start, end, token))
+            highlights.append(Highlight(start, end, token, kind="syntax"))
         elif isinstance(node, reference):
             # Ignore the content as it might be localized, just differentiate
             # references with a link and without
@@ -697,10 +885,11 @@ def extract_rst_references(
             if refuri and (target_start := token.find(f"<{refuri}>")) != -1:
                 target_end = target_start + len(refuri) + 2
                 highlights.append(
-                    (
+                    Highlight(
                         start + target_start,
                         start + target_end,
                         token[target_start:target_end],
+                        kind="syntax",
                     )
                 )
         elif isinstance(node, literal):
@@ -883,6 +1072,15 @@ class RSTSyntaxCheck(RSTBaseCheck):
         _errors, source_roles = validate_rst_snippet(source)
         rst_errors, _target_roles = validate_rst_snippet(target, source_roles)
         errors = list(rst_errors)
+
+        errors.extend(
+            (
+                gettext(
+                    "The reStructuredText role should not be wrapped in backticks: {role}"
+                ).format(role=match.group("role"))
+            )
+            for match in RST_WRAPPED_ROLE_RE.finditer(target)
+        )
 
         # This is valid RST, but might mess up the document
         if not source.startswith(RST_LIST_START) and target.startswith(RST_LIST_START):

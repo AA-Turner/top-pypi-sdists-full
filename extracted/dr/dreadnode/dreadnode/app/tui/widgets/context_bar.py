@@ -5,7 +5,7 @@ SessionContextBar (Zone 1, 2 lines):
   Line 2: ^A agent                                ^K model, ^⇧K reasoning
 
 PageStatus (Zone 3, 1 line):
-                         ctx 53.4k/200k tok · ⚒ 12 · usage $0.34 · ? help
+                         ctx 53.4k/200k tok · ⚒ 12 · usage $0.34 · subagents $0.12 · ? help
 
 The token gauge shows ``last_input_tokens / model_max_tokens`` — i.e., the
 size of the prompt the model just saw against the model's context window.
@@ -210,6 +210,7 @@ class PageStatus(Static):
     tool_call_count: reactive[int] = reactive(0)
     cost_usd: reactive[float] = reactive(0.0)
     cost_unknown: reactive[bool] = reactive(False)
+    subagent_cost_usd: reactive[float] = reactive(0.0)
     runtime_issues: reactive[tuple[tuple[str, str, str, str], ...]] = reactive(())
     _show_issues: reactive[bool] = reactive(False)
     _dismiss_timer: Timer | None = None
@@ -258,6 +259,13 @@ class PageStatus(Static):
             right.append(
                 _format_cost_usd(self.cost_usd),
                 style=f"{FG_MUTED} link {PRICING_DOCS_URL}",
+            )
+            right.append(" · ", style=FG_FAINTEST)
+        if self.subagent_cost_usd > 0:
+            right.append("subagents ", style=FG_FAINTEST)
+            right.append(
+                _format_cost_usd(self.subagent_cost_usd),
+                style=FG_MUTED,
             )
             right.append(" · ", style=FG_FAINTEST)
         right.append("? help", style=FG_FAINTEST)

@@ -27,26 +27,42 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListComplianceInquiriesPaginator,
+    ListComplianceInquiryQueriesPaginator,
     ListCustomerAgreementsPaginator,
     ListReportsPaginator,
     ListReportVersionsPaginator,
 )
 from .type_defs import (
+    CreateComplianceInquiryRequestTypeDef,
+    CreateComplianceInquiryResponseTypeDef,
+    ExportComplianceInquiryRequestTypeDef,
+    ExportComplianceInquiryResponseTypeDef,
     GetAccountSettingsResponseTypeDef,
+    GetComplianceInquiryMetadataRequestTypeDef,
+    GetComplianceInquiryMetadataResponseTypeDef,
     GetReportMetadataRequestTypeDef,
     GetReportMetadataResponseTypeDef,
     GetReportRequestTypeDef,
     GetReportResponseTypeDef,
     GetTermForReportRequestTypeDef,
     GetTermForReportResponseTypeDef,
+    ListComplianceInquiriesRequestTypeDef,
+    ListComplianceInquiriesResponseTypeDef,
+    ListComplianceInquiryQueriesRequestTypeDef,
+    ListComplianceInquiryQueriesResponseTypeDef,
     ListCustomerAgreementsRequestTypeDef,
     ListCustomerAgreementsResponseTypeDef,
     ListReportsRequestTypeDef,
     ListReportsResponseTypeDef,
     ListReportVersionsRequestTypeDef,
     ListReportVersionsResponseTypeDef,
+    ListTagsForResourceRequestTypeDef,
+    ListTagsForResourceResponseTypeDef,
     PutAccountSettingsRequestTypeDef,
     PutAccountSettingsResponseTypeDef,
+    TagResourceRequestTypeDef,
+    UntagResourceRequestTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -104,12 +120,42 @@ class ArtifactClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/client/#generate_presigned_url)
         """
 
+    def create_compliance_inquiry(
+        self, **kwargs: Unpack[CreateComplianceInquiryRequestTypeDef]
+    ) -> CreateComplianceInquiryResponseTypeDef:
+        """
+        Create a new compliance inquiry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/create_compliance_inquiry.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/client/#create_compliance_inquiry)
+        """
+
+    def export_compliance_inquiry(
+        self, **kwargs: Unpack[ExportComplianceInquiryRequestTypeDef]
+    ) -> ExportComplianceInquiryResponseTypeDef:
+        """
+        Export a compliance inquiry report.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/export_compliance_inquiry.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/client/#export_compliance_inquiry)
+        """
+
     def get_account_settings(self) -> GetAccountSettingsResponseTypeDef:
         """
         Get the account settings for Artifact.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/get_account_settings.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/client/#get_account_settings)
+        """
+
+    def get_compliance_inquiry_metadata(
+        self, **kwargs: Unpack[GetComplianceInquiryMetadataRequestTypeDef]
+    ) -> GetComplianceInquiryMetadataResponseTypeDef:
+        """
+        Get the metadata for a single compliance inquiry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/get_compliance_inquiry_metadata.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/client/#get_compliance_inquiry_metadata)
         """
 
     def get_report(self, **kwargs: Unpack[GetReportRequestTypeDef]) -> GetReportResponseTypeDef:
@@ -138,6 +184,26 @@ class ArtifactClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/get_term_for_report.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/client/#get_term_for_report)
+        """
+
+    def list_compliance_inquiries(
+        self, **kwargs: Unpack[ListComplianceInquiriesRequestTypeDef]
+    ) -> ListComplianceInquiriesResponseTypeDef:
+        """
+        List available compliance inquiries.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/list_compliance_inquiries.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/client/#list_compliance_inquiries)
+        """
+
+    def list_compliance_inquiry_queries(
+        self, **kwargs: Unpack[ListComplianceInquiryQueriesRequestTypeDef]
+    ) -> ListComplianceInquiryQueriesResponseTypeDef:
+        """
+        List queries within a compliance inquiry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/list_compliance_inquiry_queries.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/client/#list_compliance_inquiry_queries)
         """
 
     def list_customer_agreements(
@@ -170,6 +236,16 @@ class ArtifactClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/client/#list_reports)
         """
 
+    def list_tags_for_resource(
+        self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
+    ) -> ListTagsForResourceResponseTypeDef:
+        """
+        List tags for a resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/list_tags_for_resource.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/client/#list_tags_for_resource)
+        """
+
     def put_account_settings(
         self, **kwargs: Unpack[PutAccountSettingsRequestTypeDef]
     ) -> PutAccountSettingsResponseTypeDef:
@@ -178,6 +254,44 @@ class ArtifactClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/put_account_settings.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/client/#put_account_settings)
+        """
+
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
+        """
+        Add tags to a resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/tag_resource.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/client/#tag_resource)
+        """
+
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
+        """
+        Remove tags from a resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/untag_resource.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/client/#untag_resource)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_compliance_inquiries"]
+    ) -> ListComplianceInquiriesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_compliance_inquiry_queries"]
+    ) -> ListComplianceInquiryQueriesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_artifact/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

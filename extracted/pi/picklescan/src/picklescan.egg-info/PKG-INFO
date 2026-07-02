@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: picklescan
-Version: 1.0.4
+Version: 1.0.5
 Summary: Security scanner detecting Python Pickle files performing suspicious actions
 Home-page: https://github.com/mmaitre314/picklescan
 Author: Matthieu Maitre
@@ -9,7 +9,7 @@ Project-URL: Bug Tracker, https://github.com/mmaitre314/picklescan/issues
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE.txt

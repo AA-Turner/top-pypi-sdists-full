@@ -21,7 +21,7 @@
 """  # noqa: E501
 
 
-__version__ = "3.4.3"
+__version__ = "3.4.4"
 
 import importlib as _importlib
 import threading as _threading
@@ -1803,6 +1803,9 @@ _LAZY_IMPORT_MAP = {
     "UserFactorSMSProfile": "okta.models.user_factor_sms_profile",
     "UserFactorSecurityQuestion": "okta.models.user_factor_security_question",
     "UserFactorSecurityQuestionProfile": "okta.models.user_factor_security_question_profile",
+    "UserFactorSignedNonce": "okta.models.user_factor_signed_nonce",
+    "UserFactorSignedNonceProfile": "okta.models.user_factor_signed_nonce_profile",
+    "UserFactorSignedNonceProfileKey": "okta.models.user_factor_signed_nonce_profile_key",
     "UserFactorStatus": "okta.models.user_factor_status",
     "UserFactorSupported": "okta.models.user_factor_supported",
     "UserFactorToken": "okta.models.user_factor_token",

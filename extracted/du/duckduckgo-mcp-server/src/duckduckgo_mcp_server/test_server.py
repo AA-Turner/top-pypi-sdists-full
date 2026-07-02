@@ -19,6 +19,9 @@ from duckduckgo_mcp_server.server import (
     SearchResult,
     SUPPORTED_FETCH_BACKENDS,
     WebContentFetcher,
+    BlockedURLError,
+    _validate_public_url,
+    _is_search_block,
 )
 
 try:
@@ -236,6 +239,155 @@ class TestDuckDuckGoSearcherParsing(unittest.TestCase):
         self.assertEqual(results, [])
 
 
+class TestDuckDuckGoSearcherBackend(unittest.TestCase):
+    def test_is_search_block_truth_table(self):
+        # 202 (fingerprint block) and 403 are block signals regardless of body.
+        self.assertTrue(_is_search_block(202, "<html>14kb block page</html>"))
+        self.assertTrue(_is_search_block(403, "forbidden"))
+        # A truly empty 200 body is a block; a 200 with any content is not.
+        self.assertTrue(_is_search_block(200, "   "))
+        self.assertFalse(_is_search_block(200, "<html>real results</html>"))
+        # Non-2xx errors are handled via raise_for_status, not this helper.
+        self.assertFalse(_is_search_block(500, ""))
+
+    def test_default_backend_is_auto(self):
+        self.assertEqual(DuckDuckGoSearcher().backend, "auto")
+
+    def test_init_rejects_unknown_backend(self):
+        with self.assertRaises(ValueError):
+            DuckDuckGoSearcher(backend="bogus")
+
+    def test_auto_falls_back_to_curl_on_202(self):
+        """A 202 fingerprint-block on httpx must transparently retry with curl."""
+        searcher = DuckDuckGoSearcher(backend="auto")
+        html = _make_ddg_html([
+            {"title": "Rescued", "href": "https://rescued.com", "snippet": "via curl"},
+        ])
+        called = {"curl": 0}
+
+        async def fake_httpx(data):
+            return 202, "<html><body>empty block page</body></html>"
+
+        async def fake_curl(data):
+            called["curl"] += 1
+            return html
+
+        with patch.object(searcher, "_request_httpx", side_effect=fake_httpx), \
+             patch.object(searcher, "_request_curl", side_effect=fake_curl):
+            results = asyncio.run(searcher.search("q", DummyCtx()))
+
+        self.assertEqual(called["curl"], 1)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].title, "Rescued")
+
+    def test_auto_falls_back_to_curl_on_403(self):
+        searcher = DuckDuckGoSearcher(backend="auto")
+        html = _make_ddg_html([
+            {"title": "Rescued", "href": "https://rescued.com", "snippet": "via curl"},
+        ])
+        mock_resp = MagicMock()
+        mock_resp.status_code = 403
+        err = httpx.HTTPStatusError("forbidden", request=MagicMock(), response=mock_resp)
+        called = {"curl": 0}
+
+        async def fake_httpx(data):
+            raise err
+
+        async def fake_curl(data):
+            called["curl"] += 1
+            return html
+
+        with patch.object(searcher, "_request_httpx", side_effect=fake_httpx), \
+             patch.object(searcher, "_request_curl", side_effect=fake_curl):
+            results = asyncio.run(searcher.search("q", DummyCtx()))
+
+        self.assertEqual(called["curl"], 1)
+        self.assertEqual(len(results), 1)
+
+    def test_auto_does_not_fall_back_on_normal_results(self):
+        searcher = DuckDuckGoSearcher(backend="auto")
+        html = _make_ddg_html([
+            {"title": "Normal", "href": "https://normal.com", "snippet": "ok"},
+        ])
+        called = {"curl": 0}
+
+        async def fake_httpx(data):
+            return 200, html
+
+        async def fake_curl(data):
+            called["curl"] += 1
+            return "<html></html>"
+
+        with patch.object(searcher, "_request_httpx", side_effect=fake_httpx), \
+             patch.object(searcher, "_request_curl", side_effect=fake_curl):
+            results = asyncio.run(searcher.search("q", DummyCtx()))
+
+        self.assertEqual(called["curl"], 0)
+        self.assertEqual(len(results), 1)
+
+    def test_auto_falls_back_to_curl_on_connect_error(self):
+        """A rejected TLS handshake (httpx.ConnectError) should retry with curl."""
+        searcher = DuckDuckGoSearcher(backend="auto")
+        html = _make_ddg_html([
+            {"title": "Rescued", "href": "https://rescued.com", "snippet": "via curl"},
+        ])
+        called = {"curl": 0}
+
+        async def fake_httpx(data):
+            raise httpx.ConnectError("TLS handshake rejected")
+
+        async def fake_curl(data):
+            called["curl"] += 1
+            return html
+
+        with patch.object(searcher, "_request_httpx", side_effect=fake_httpx), \
+             patch.object(searcher, "_request_curl", side_effect=fake_curl):
+            results = asyncio.run(searcher.search("q", DummyCtx()))
+
+        self.assertEqual(called["curl"], 1)
+        self.assertEqual(len(results), 1)
+
+    def test_empty_results_message_omits_hint_when_curl_installed(self):
+        """When curl_cffi is available the 'install [browser]' hint is dropped."""
+        searcher = DuckDuckGoSearcher()
+        with patch("duckduckgo_mcp_server.server._curl_cffi_available", return_value=True):
+            message = searcher.format_results_for_llm([])
+        self.assertIn("No results were found", message)
+        self.assertNotIn("pip install", message)
+
+    def test_empty_results_message_includes_hint_when_curl_missing(self):
+        searcher = DuckDuckGoSearcher()
+        with patch("duckduckgo_mcp_server.server._curl_cffi_available", return_value=False):
+            message = searcher.format_results_for_llm([])
+        self.assertIn("pip install 'duckduckgo-mcp-server[browser]'", message)
+
+    def test_httpx_backend_does_not_fall_back_on_202(self):
+        """Explicit httpx backend keeps legacy behavior: 202 → 0 results, no curl."""
+        searcher = DuckDuckGoSearcher(backend="httpx")
+        called = {"curl": 0}
+
+        async def fake_httpx(data):
+            return 202, "<html><body>empty block page</body></html>"
+
+        async def fake_curl(data):
+            called["curl"] += 1
+            return "should not be called"
+
+        with patch.object(searcher, "_request_httpx", side_effect=fake_httpx), \
+             patch.object(searcher, "_request_curl", side_effect=fake_curl):
+            results = asyncio.run(searcher.search("q", DummyCtx()))
+
+        self.assertEqual(called["curl"], 0)
+        self.assertEqual(results, [])
+
+    def test_curl_backend_missing_dependency_returns_empty(self):
+        """curl backend with curl_cffi absent → empty results (hint logged), no crash."""
+        searcher = DuckDuckGoSearcher(backend="curl")
+        with patch.dict(sys.modules, {"curl_cffi": None, "curl_cffi.requests": None}):
+            results = asyncio.run(searcher.search("q", DummyCtx()))
+        self.assertEqual(results, [])
+
+
 def _serve_html(html_content):
     """Spin up a throwaway local HTTP server serving html_content. Returns (url, stop_fn)."""
 
@@ -290,7 +442,8 @@ class TestWebContentFetcher(unittest.TestCase):
         try:
             for backend in _FETCH_BACKENDS_FOR_TESTING:
                 with self.subTest(backend=backend):
-                    fetcher = WebContentFetcher(backend=backend)
+                    # Local server is on 127.0.0.1, so opt into private URLs.
+                    fetcher = WebContentFetcher(backend=backend, allow_private_urls=True)
                     text = asyncio.run(fetcher.fetch_and_parse(url, DummyCtx()))
                     self.assertIn("Sample Heading", text)
                     self.assertIn("Some meaningful paragraph.", text)
@@ -305,7 +458,7 @@ class TestWebContentFetcher(unittest.TestCase):
         try:
             for backend in _FETCH_BACKENDS_FOR_TESTING:
                 with self.subTest(backend=backend):
-                    fetcher = WebContentFetcher(backend=backend)
+                    fetcher = WebContentFetcher(backend=backend, allow_private_urls=True)
                     # Fetch first 50 chars
                     text = asyncio.run(
                         fetcher.fetch_and_parse(url, DummyCtx(), start_index=0, max_length=50)
@@ -348,7 +501,8 @@ class TestWebContentFetcherErrors(unittest.TestCase):
     def test_fetch_returns_error_on_timeout(self):
         for backend in _FETCH_BACKENDS_FOR_TESTING:
             with self.subTest(backend=backend):
-                fetcher = WebContentFetcher(backend=backend)
+                # These mock the HTTP client; skip the SSRF guard (no real DNS).
+                fetcher = WebContentFetcher(backend=backend, allow_private_urls=True)
                 # Use an exception whose type-name triggers the server's curl-path
                 # error handling without needing curl_cffi's exception hierarchy.
                 exc = httpx.TimeoutException("timed out") if backend == "httpx" else TimeoutError("timed out")
@@ -362,7 +516,8 @@ class TestWebContentFetcherErrors(unittest.TestCase):
     def test_fetch_returns_error_on_http_error(self):
         for backend in _FETCH_BACKENDS_FOR_TESTING:
             with self.subTest(backend=backend):
-                fetcher = WebContentFetcher(backend=backend)
+                # These mock the HTTP client; skip the SSRF guard (no real DNS).
+                fetcher = WebContentFetcher(backend=backend, allow_private_urls=True)
                 mock_resp = MagicMock()
                 mock_resp.status_code = 500
                 mock_resp.request = MagicMock()
@@ -380,7 +535,8 @@ class TestWebContentFetcherErrors(unittest.TestCase):
     def test_fetch_handles_malformed_html(self):
         for backend in _FETCH_BACKENDS_FOR_TESTING:
             with self.subTest(backend=backend):
-                fetcher = WebContentFetcher(backend=backend)
+                # These mock the HTTP client; skip the SSRF guard (no real DNS).
+                fetcher = WebContentFetcher(backend=backend, allow_private_urls=True)
                 mock_resp = MagicMock()
                 mock_resp.text = "<<<not valid>>>"
                 mock_resp.status_code = 200
@@ -536,6 +692,99 @@ class TestWebContentFetcherAutoFallback(unittest.TestCase):
         self.assertTrue(result.startswith("Error"))
 
 
+class TestSSRFGuard(unittest.TestCase):
+    def _assert_blocked(self, url):
+        with self.assertRaises(BlockedURLError):
+            asyncio.run(_validate_public_url(url))
+
+    def test_rejects_loopback_ip(self):
+        self._assert_blocked("http://127.0.0.1/")
+        self._assert_blocked("http://127.0.0.1:8080/latest/meta-data/")
+
+    def test_rejects_localhost_hostname(self):
+        self._assert_blocked("http://localhost/")
+        self._assert_blocked("https://sub.localhost/")
+
+    def test_rejects_cloud_metadata_ip(self):
+        self._assert_blocked("http://169.254.169.254/latest/meta-data/")
+
+    def test_rejects_private_ips(self):
+        for host in ("10.0.0.1", "192.168.1.1", "172.16.5.4"):
+            with self.subTest(host=host):
+                self._assert_blocked(f"http://{host}/")
+
+    def test_rejects_unspecified_and_ipv6_loopback(self):
+        self._assert_blocked("http://0.0.0.0/")
+        self._assert_blocked("http://[::1]/")
+
+    def test_rejects_ipv4_mapped_ipv6_loopback(self):
+        # Either resolves to an IPv4 loopback or fails to resolve — both are blocked.
+        self._assert_blocked("http://[::ffff:127.0.0.1]/")
+
+    def test_rejects_cgnat_shared_address_space(self):
+        # RFC 6598 100.64.0.0/10 is not is_private/is_reserved but is non-global;
+        # it's used by CGNAT and overlay networks like Tailscale.
+        self._assert_blocked("http://100.64.0.1/")
+        self._assert_blocked("http://100.127.255.254/")
+
+    def test_rejects_invalid_port(self):
+        # An out-of-range port makes urllib's .port raise ValueError; the guard
+        # should surface a clean BlockedURLError, not a generic failure.
+        self._assert_blocked("http://example.com:99999/")
+
+    def test_rejects_non_http_scheme(self):
+        self._assert_blocked("file:///etc/passwd")
+        self._assert_blocked("ftp://example.com/x")
+        self._assert_blocked("gopher://127.0.0.1/")
+
+    def test_allows_public_ip_literals(self):
+        # Public IPs must pass. IP literals avoid a real DNS lookup.
+        for url in ("http://1.1.1.1/", "https://8.8.8.8/"):
+            with self.subTest(url=url):
+                asyncio.run(_validate_public_url(url))  # must not raise
+
+    def test_fetch_content_blocks_localhost_by_default(self):
+        fetcher = WebContentFetcher()
+        result = asyncio.run(fetcher.fetch_and_parse("http://127.0.0.1:9/", DummyCtx()))
+        self.assertIn("Refusing to fetch", result)
+        self.assertIn("DDG_ALLOW_PRIVATE_URLS", result)
+
+    def test_fetch_content_blocks_metadata_by_default(self):
+        fetcher = WebContentFetcher()
+        result = asyncio.run(
+            fetcher.fetch_and_parse("http://169.254.169.254/latest/meta-data/", DummyCtx())
+        )
+        self.assertIn("Refusing to fetch", result)
+
+    def test_fetch_content_allows_private_when_opted_in(self):
+        html = "<html><body><h1>Internal OK</h1></body></html>"
+        url, stop = _serve_html(html)
+        try:
+            fetcher = WebContentFetcher(allow_private_urls=True)
+            result = asyncio.run(fetcher.fetch_and_parse(url, DummyCtx()))
+            self.assertIn("Internal OK", result)
+        finally:
+            stop()
+
+    def test_redirect_to_private_is_blocked(self):
+        """A public entry URL that 302-redirects to a private host is blocked mid-hop."""
+        fetcher = WebContentFetcher()  # default-deny
+        redirect_resp = MagicMock()
+        redirect_resp.status_code = 302
+        redirect_resp.headers = {"location": "http://127.0.0.1/secret"}
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=redirect_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = asyncio.run(fetcher.fetch_and_parse("http://1.1.1.1/", DummyCtx()))
+
+        self.assertIn("Refusing to fetch", result)
+        self.assertIn("127.0.0.1", result)
+
+
 def _setup_mock_mcp_for_http(mock_mcp):
     mock_mcp.settings.host = "127.0.0.1"
     mock_mcp.settings.port = 8000
@@ -568,6 +817,13 @@ class TestMainCliArgs(unittest.TestCase):
             duckduckgo_mcp_server.server.main()
             mock_mcp.run.assert_called_once()
         self.assertEqual(duckduckgo_mcp_server.server.fetcher.default_backend, "httpx")
+
+    def test_main_parses_search_backend_flag(self):
+        with patch.object(sys, "argv", ["duckduckgo-mcp-server", "--search-backend", "curl"]), \
+             patch("duckduckgo_mcp_server.server.mcp") as mock_mcp:
+            duckduckgo_mcp_server.server.main()
+            mock_mcp.run.assert_called_once()
+        self.assertEqual(duckduckgo_mcp_server.server.searcher.backend, "curl")
 
     def test_main_stdio_rejects_mixed_with_http(self):
         for bad_transports in [

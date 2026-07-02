@@ -1,0 +1,22 @@
+
+[package]
+name = "solders-address-lookup-table-account"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders address lookup table account crate."
+
+[dependencies]
+derive_more = { workspace = true }
+pyo3 = { workspace = true, features = ["macros"] }
+serde = { workspace = true }
+solana-address-lookup-table-interface = { workspace = true, features = ["bincode", "bytemuck"] }
+solana-message = { workspace = true }
+solana-pubkey = { workspace = true }
+solana-slot-hashes = { workspace = true, features = ["serde"] }
+solders-hash = { workspace = true }
+solders-macros = { workspace = true }
+solders-pubkey = { workspace = true }
+solders-traits-core = { workspace = true }

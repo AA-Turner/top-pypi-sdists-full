@@ -3,10 +3,18 @@
 Atom ``i`` is a 1-D parametric curve in ambient ``R^D`` parameterized by a
 point ``theta_i`` on a manifold ``M`` (Circle, Cylinder, Sphere, Product) and
 a decoder block ``D_i`` of shape ``(K, D)``. A shared encoder maps each input
-``x`` to per-atom on-manifold coordinates ``theta_i(x)`` and a scalar
-amplitude ``amp_i(x)``. The atom's contribution to reconstruction is
+``x`` to per-atom on-manifold coordinates ``theta_i(x)`` and a gate logit
+``l_i(x)``. The atom's contribution to reconstruction is
 
-    amp_i(x) * sum_k phi_k(theta_i(x)) * D_i[k, :]
+    a_i(x) * sum_k phi_k(theta_i(x)) * D_i[k, :]
+
+where ``a_i(x)`` is the Rust-computed sparsity gate. For the closed-form-
+mappable gate families (IBP-Gumbel / JumpReLU) the gate is bounded in
+``[0, 1)`` and all reconstruction magnitude lives in the decoder curves —
+exactly the family the Rust closed-form solve optimizes; there is no separate
+per-token amplitude. The torch-only ``softmax_topk`` lane keeps its
+magnitude-carrying activation (it has no closed-form counterpart and is
+refused by ``closed_form_assignment``).
 
 Architectural rule
 ------------------
@@ -56,6 +64,7 @@ from .penalties import (
     JumpReLUPenalty,
     MonotonicityPenalty,
     ibp_map,
+    jumprelu_bounded_gate,
 )
 
 
@@ -121,10 +130,24 @@ class SparsityConfig:
         data = dict(payload)
         sched = data.pop("tau_schedule", None)
         if isinstance(sched, str):
-            kind, start, end = cls._parse_tau_schedule(sched)
-            data["tau_schedule"] = kind
-            data["tau_start"] = start
-            data["tau_min"] = end
+            # A colon-form spec ("linear:4.0->1.0") carries an embedded
+            # start/end and must be parsed; a bare kind ("linear" / "geometric"
+            # / "reciprocal_iter") is already a valid field value and is taken
+            # as-is (parsing it would wrongly demand a ':').
+            if ":" in sched:
+                kind, start, end = cls._parse_tau_schedule(sched)
+                data["tau_schedule"] = kind
+                data["tau_start"] = start
+                data["tau_min"] = end
+            else:
+                kind = sched.strip().lower()
+                if kind not in {"linear", "geometric", "reciprocal_iter"}:
+                    raise ValueError(
+                        "SparsityConfig.tau_schedule must be one of "
+                        "'linear'/'geometric'/'reciprocal_iter' (or a "
+                        f"colon-form spec like 'linear:4.0->1.0'); got {sched!r}"
+                    )
+                data["tau_schedule"] = kind
         elif sched is not None:
             data["tau_schedule"] = str(sched)
         return cls(**data)
@@ -214,7 +237,7 @@ class ManifoldSAEConfig:
     """Configuration for :class:`ManifoldSAE`."""
 
     input_dim: int
-    n_atoms: int
+    n_atoms: int | None = None
     intrinsic_rank: int = 2
     atom_manifold: Literal["circle", "cylinder", "sphere", "product"] = "circle"
     atom_basis: Literal["duchon", "bspline", "fourier"] = "duchon"
@@ -226,8 +249,24 @@ class ManifoldSAEConfig:
     encoder_hidden: int = 16
     init_scale: float = 0.05
     dtype: Any = field(default=None)
+    # ``K`` is constructor sugar for ``n_atoms`` (the spelling the docs and the
+    # closed-form ``sae_manifold_fit`` API use). It is normalized into
+    # ``n_atoms`` in ``__post_init__`` and stored as ``None`` afterwards, so
+    # ``dataclasses.replace`` round-trips and ``n_atoms`` stays the single
+    # source of truth.
+    K: int | None = None
 
     def __post_init__(self) -> None:
+        if self.K is not None:
+            if self.n_atoms is not None and int(self.n_atoms) != int(self.K):
+                raise ValueError(
+                    f"ManifoldSAEConfig: n_atoms={self.n_atoms} and K={self.K} "
+                    "are aliases and must agree when both are given"
+                )
+            object.__setattr__(self, "n_atoms", int(self.K))
+            object.__setattr__(self, "K", None)
+        if self.n_atoms is None:
+            raise ValueError("ManifoldSAEConfig requires n_atoms (alias: K)")
         if self.input_dim <= 0:
             raise ValueError("ManifoldSAEConfig.input_dim must be > 0")
         if self.n_atoms <= 0:
@@ -321,24 +360,33 @@ class ManifoldSAEConfig:
         """Map the torch sparsity kind to the closed-form ``assignment`` token.
 
         The closed-form path accepts ``ibp_map``, ``softmax``, and ``jumprelu``.
-        Note that ``softmax_topk`` is **not** mapped to ``softmax``: the torch
-        ``softmax_topk`` layer is an *independent* non-negative top-k gate
-        (softplus magnitude + hard top-k STE) that can turn **all** atoms off,
-        whereas row-``softmax`` is a competitive simplex whose mass always sums
-        to one and can never deselect every atom. Coercing one into the other
-        would make ``.fit()`` optimize a fundamentally different model than
-        backprop. The closest closed-form mode with the same semantics —
-        independent gates that can zero every atom, plus the existing post-hoc
-        hard top-k projection (forwarded via ``top_k`` in :meth:`fit`) — is
-        ``jumprelu`` (independent hard-thresholded gates). So ``softmax_topk``
-        maps to ``jumprelu``, aligning the closed-form objective with the torch
-        independent-topk gate.
+
+        ``softmax_topk`` has **no** faithful closed-form assignment and is
+        rejected rather than coerced. It is neither ``softmax`` (a competitive
+        simplex whose mass always sums to one and can never deselect every atom)
+        nor ``jumprelu`` (a bounded thresholded-logistic gate that carries *no*
+        magnitude): the torch ``softmax_topk`` gate is an *independent*
+        non-negative softplus-magnitude activation with a hard top-k selection
+        that should honor ``target_k``. Silently mapping it to ``jumprelu`` would
+        make ``.fit()`` optimize a fundamentally different family than the torch
+        gate trains. So we refuse here; the user must change the sparsity kind or
+        use the gradient (torch) training path. The remaining kinds correspond
+        genuinely and are mapped through.
         """
+        kind = self.sparsity.kind
+        if kind == "softmax_topk":
+            raise NotImplementedError(
+                "closed-form .fit() has no assignment matching 'softmax_topk' "
+                "semantics: it is neither the competitive 'softmax' simplex nor "
+                "the magnitude-free 'jumprelu' thresholded gate. Use the "
+                "gradient (torch) training path for softmax_topk, or set "
+                "sparsity.kind to 'jumprelu'/'ibp_gumbel' for the closed-form "
+                ".fit() lane."
+            )
         return {
             "ibp_gumbel": "ibp_map",
-            "softmax_topk": "jumprelu",
             "jumprelu": "jumprelu",
-        }[self.sparsity.kind]
+        }[kind]
 
 
 @dataclass(frozen=True, slots=True)
@@ -348,12 +396,13 @@ class ManifoldSAEOutput:
     ``amplitudes`` is the **honest** per-atom magnitude the decoder actually
     applied — it equals the reconstruction code ``z`` (so an atom that
     contributes nothing to ``x_hat`` reports a zero amplitude). For the
-    magnitude-carrying gates (``jumprelu`` / ``softmax_topk``) the raw,
-    *pre-mask* softplus activation — which is strictly positive even for atoms
-    the top-k / threshold dropped — is exposed separately as ``raw_magnitudes``
+    gate families the closed form solves (``ibp_gumbel`` / ``jumprelu``) the
+    code IS the bounded Rust gate — magnitude lives in the decoder curves, so
+    there is no distinct raw magnitude and ``raw_magnitudes == z``, matching
+    the closed-form forward. For the torch-only magnitude-carrying
+    ``softmax_topk`` gate the raw, *pre-mask* activation — strictly positive
+    even for atoms the top-k mask dropped — is exposed as ``raw_magnitudes``
     so interpretability code never mistakes a dropped atom for an active one.
-    For IBP-Gumbel the code factorizes as ``z = gate · amp``; there
-    ``raw_magnitudes`` is that separate ``amp`` magnitude.
     """
 
     z: torch.Tensor
@@ -713,8 +762,14 @@ class _SparsityLayer(nn.Module):
             return assignments, logits
         if self.kind == "softmax_topk":
             return self._topk_gate(logits), logits
-        # JumpReLU activation: hard threshold forward, Rust-STE backward.
-        assignments = self._jumprelu.gate(logits)
+        # JumpReLU: the bounded [0, 1) threshold gate the closed-form fit
+        # evaluates (Rust `jumprelu_row`; magnitude lives in the decoder), with
+        # the Rust straight-through surrogate derivative as backward. The
+        # magnitude-carrying `z · 1[z > τ]` activation would train a per-token
+        # amplitude the closed-form family does not have.
+        tau = max(float(self.tau.item()), 1e-6)
+        thresholds = self._jumprelu.effective_thresholds(logits.dtype).to(logits.device)
+        assignments = jumprelu_bounded_gate(logits, thresholds, tau)
         return assignments, logits
 
     def _topk_activation(self, logits: torch.Tensor) -> torch.Tensor:
@@ -748,8 +803,11 @@ class _SparsityLayer(nn.Module):
         supplies the sparsity that disentangles atoms. A temperature-scaled
         softplus gives a smooth, strictly-non-negative activation whose hardness
         anneals through the shared ``tau`` schedule (``tau → 0`` ⇒ ReLU). The
-        hard top-k mask is applied with a straight-through estimator so gradients
-        reach the selected atoms' pre-activations.
+        hard top-k mask is applied directly: gradients flow only through the
+        selected activations (no straight-through surrogate on the selection
+        boundary), so unselected atoms receive no reconstruction gradient. (This
+        is deliberate and differs from ``reconstruction_topk_gate``, which does
+        carry an explicit ``hard + soft - soft.detach()`` STE term.)
         """
         act = self._topk_activation(logits)
         hard = act * self._topk_mask(act)
@@ -1148,8 +1206,50 @@ class _SparsityLayer(nn.Module):
             progress = float(min(max(progress, 0.0), 1.0))
             responsibilities = (1.0 - progress) * soft + progress * hard_ste
         else:
-            responsibilities = self._topk_mask(-relative_residual)
+            # Multi-atom (``target_k > 1``) regime: select and gate with the
+            # SIGNED least-squares code so the effective active-atom count honors
+            # ``min(target_k, n_atoms)`` all the way up to a fully dense gate.
+            #
+            # The optimal scalar code for atom ``k`` against row ``x`` is the
+            # projection coefficient ``c = (recon_k · x) / ||recon_k||²``, and the
+            # rank-1 reconstruction it yields, ``c · recon_k``, is the orthogonal
+            # projection of ``x`` onto ``recon_k``'s line — correct for *either*
+            # sign of ``c``. A negative ``c`` is genuine reconstruction signal: it
+            # means the row sits on the opposite phase/side of the atom's curve,
+            # not that the atom is absent. The non-negative ``code`` clamped above
+            # (needed by the heavily-tuned ``target_k == 1`` routing contract,
+            # issue #1282) zeros every atom whose curve projects negatively onto
+            # the row — roughly half of a near-symmetric atom population — so the
+            # *active* count (atoms with a nonzero gate) used to saturate near
+            # ``n_atoms/2`` (measured ~36/64) and the requested ``target_k`` was
+            # silently capped (4..32 honored; 48 and 64 both plateaued ~36/64).
+            #
+            # Scoring AND gating with the signed code removes that cap: residual
+            # selection ranks atoms by their *best achievable* rank-1 fit (a
+            # strong negative projection is a good reconstructor, not the
+            # worst-case ``||x||²`` it scored as under the clamp), and every one of
+            # the ``min(target_k, n_atoms)`` selected atoms then carries genuine
+            # magnitude — so the effective active count tracks ``target_k`` up to a
+            # dense gate. In the sparse regime the top-k selected atoms are the
+            # strong positive-projection ones whose signed and clamped codes
+            # coincide, so the known-good ``k <= 32`` behavior is preserved (the
+            # count is honored exactly as before; selection can only improve the
+            # reconstruction fit). The ``target_k == 1`` path above is untouched
+            # and keeps the non-negative ``code``.
+            signed_code = (per_atom_recon * x.unsqueeze(1)).sum(dim=-1) / denom
+            signed_residual = (
+                (signed_code.unsqueeze(-1) * per_atom_recon - x.unsqueeze(1)) ** 2
+            ).sum(dim=-1)
+            signed_relative_residual = signed_residual / row_scale
+            responsibilities = self._topk_mask(-signed_relative_residual)
+            return signed_code * responsibilities
 
+        # ``target_k == 1`` fall-through (the no-global-anchor residual-EM path).
+        # ``responsibilities`` is the soft→hard one-active-atom blend and ``code``
+        # is the non-negative least-squares magnitude required by that routing
+        # contract (issue #1282), so the single routed atom reports a non-negative
+        # gate. The dense/multi-atom branch above returns its own signed gate and
+        # never reaches this line.
         return code * responsibilities
 
     def _matching_pursuit_commit(
@@ -1334,21 +1434,6 @@ class _SparsityLayer(nn.Module):
                 bias = bias + (target - torch.log(usage))
                 bias = bias - bias.mean()
         return log_scores + bias
-
-    def compose_code(self, assignments: torch.Tensor, amp: torch.Tensor) -> torch.Tensor:
-        """Per-atom latent code ``z`` from gate ``assignments`` and ``amp``.
-
-        The factorization depends on the gate's range. The IBP-Gumbel gate is a
-        dimensionless activation probability in ``[0, 1]``, so the code is the
-        gate scaled by the separate non-negative magnitude ``amp`` (``z = gate ·
-        amp``). The JumpReLU and top-k gates are *magnitude-carrying*
-        activations — the gate already equals the SAE code — so multiplying by
-        ``amp`` again would square the magnitude and distort the
-        reconstruction gradient; the gate is returned as the code directly.
-        """
-        if self.kind == "ibp_gumbel":
-            return assignments * amp
-        return assignments
 
     def penalty(self, logits: torch.Tensor) -> torch.Tensor:
         """Rust-backed scalar penalty value at ``logits``."""
@@ -1572,7 +1657,6 @@ class ManifoldSAE(nn.Module):
             self._forward_centers,
         )
         per_atom_recon = torch.einsum("nfk,fkd->nfd", curves, self.decoder_blocks)
-        amp = F_torch.softplus(amp_logits)
         if self.cfg.sparsity.kind == "softmax_topk":
             gate_pre = amp_logits
             # Issue #1282: break expert collapse with an early *committed*
@@ -1587,18 +1671,24 @@ class ManifoldSAE(nn.Module):
                 x, per_atom_recon, step=step
             )
             z = assignments
+            # Honest pre-mask magnitude: the independent non-negative activation
+            # the top-k selection masks, strictly positive even for dropped atoms.
+            raw_magnitudes = self.sparsity._topk_activation(amp_logits)
         else:
+            # IBP-Gumbel / JumpReLU: the code IS the Rust-computed bounded gate,
+            # exactly the family the closed-form fit solves — magnitude lives in
+            # the decoder curves, never in a Python-side per-token amplitude
+            # (which the closed form has no counterpart for).
             assignments, gate_pre = self.sparsity(amp_logits)
-            z = self.sparsity.compose_code(assignments, amp)
+            z = assignments
+            raw_magnitudes = z
         x_hat = (z.unsqueeze(-1) * per_atom_recon).sum(dim=1)
 
         reml_score = torch.tensor(float("nan"), dtype=x.dtype, device=x.device)
         lambdas = torch.exp(self.log_lambda).to(dtype=x.dtype, device=x.device)
 
-        # `amplitudes` is the magnitude the decoder actually used (== z): for the
-        # magnitude-carrying gates z is the top-k/threshold-masked code, so a
-        # dropped atom reports zero, not its raw softplus value. The raw softplus
-        # magnitude is preserved separately as `raw_magnitudes`.
+        # `amplitudes` is the magnitude the decoder actually used (== z), so a
+        # dropped atom reports zero, never its raw pre-mask activation.
         return ManifoldSAEOutput(
             z=z,
             x_hat=x_hat,
@@ -1609,7 +1699,7 @@ class ManifoldSAE(nn.Module):
             assignments=assignments,
             reml_score=reml_score,
             lambdas=lambdas,
-            raw_magnitudes=amp,
+            raw_magnitudes=raw_magnitudes,
         )
 
     def _forward_from_closed_form(self, x: torch.Tensor) -> ManifoldSAEOutput:

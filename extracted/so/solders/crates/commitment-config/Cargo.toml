@@ -1,0 +1,16 @@
+
+[package]
+name = "solders-commitment-config"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders commitment config crate."
+
+[dependencies]
+derive_more = { workspace = true }
+pyo3 = { workspace = true, features = ["macros"] }
+serde = { workspace = true }
+solana-commitment-config = { workspace = true, features = ["serde"] }
+solders-traits = { workspace = true }

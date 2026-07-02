@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: nilearn
-Version: 0.13.1
+Version: 0.14.0
 Summary: Statistical learning for neuroimaging in Python
 Project-URL: Changelog, https://nilearn.github.io/stable/changes/whats_new.html
 Project-URL: Development, https://github.com/nilearn/nilearn
-Project-URL: Discussions, https://neurostars.org/tag/nilearn
+Project-URL: Discussions, https://neurostars.org/tag/nilearn/19
 Project-URL: Homepage, https://nilearn.github.io
 Author: Nilearn developers
 Maintainer-email: Bertrand Thirion <bertrand.thirion@inria.fr>
@@ -26,125 +26,20 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
 Requires-Python: >=3.10
-Requires-Dist: jinja2>=3.1.2
+Requires-Dist: jinja2>=3.1.6
 Requires-Dist: joblib>=1.2.0
 Requires-Dist: nibabel>=5.2.0
-Requires-Dist: numpy>=1.22.4
-Requires-Dist: packaging
-Requires-Dist: pandas>=2.2.0
-Requires-Dist: requests>=2.30.0
-Requires-Dist: scikit-learn>=1.4.0
-Requires-Dist: scipy>=1.9.0
-Provides-Extra: dev
-Requires-Dist: coverage; extra == 'dev'
-Requires-Dist: docutils>=0.17; extra == 'dev'
-Requires-Dist: furo>=2024.8.6; extra == 'dev'
-Requires-Dist: kaleido; (platform_system != 'Windows') and extra == 'dev'
-Requires-Dist: kaleido==0.1.0.post1; (platform_system == 'Windows') and extra == 'dev'
-Requires-Dist: lxml; extra == 'dev'
-Requires-Dist: marimo; extra == 'dev'
-Requires-Dist: matplotlib>=3.8.0; extra == 'dev'
-Requires-Dist: memory-profiler>=0.61.0; extra == 'dev'
-Requires-Dist: myst-parser>=3.0.1; extra == 'dev'
-Requires-Dist: numpydoc>=1.8.0; extra == 'dev'
-Requires-Dist: plotly!=6.1.0,>=5.0.0; (platform_system != 'Windows') and extra == 'dev'
-Requires-Dist: plotly<6.1.0,>=5.0.0; (platform_system == 'Windows') and extra == 'dev'
-Requires-Dist: pytest-cov; extra == 'dev'
-Requires-Dist: pytest-csv; extra == 'dev'
-Requires-Dist: pytest-mpl; extra == 'dev'
-Requires-Dist: pytest-randomly; extra == 'dev'
-Requires-Dist: pytest-reporter-html1<0.9.4,>=0.9.2; extra == 'dev'
-Requires-Dist: pytest-rerunfailures; extra == 'dev'
-Requires-Dist: pytest-timeout; extra == 'dev'
-Requires-Dist: pytest-xdist[psutil]; extra == 'dev'
-Requires-Dist: pytest>=6.0.0; extra == 'dev'
-Requires-Dist: ruamel-yaml>=0.18.6; extra == 'dev'
-Requires-Dist: sphinx-copybutton>=0.5.2; extra == 'dev'
-Requires-Dist: sphinx-design>=0.6.1; extra == 'dev'
-Requires-Dist: sphinx-gallery>=0.18.0; extra == 'dev'
-Requires-Dist: sphinx>=7.4.7; extra == 'dev'
-Requires-Dist: sphinxcontrib-bibtex>=2.6.3; extra == 'dev'
-Requires-Dist: sphinxcontrib-mermaid>=1.0.0; extra == 'dev'
-Requires-Dist: sphinxext-opengraph>=0.9.1; extra == 'dev'
-Requires-Dist: tox; extra == 'dev'
-Provides-Extra: doc
-Requires-Dist: docutils>=0.17; extra == 'doc'
-Requires-Dist: furo>=2024.8.6; extra == 'doc'
-Requires-Dist: kaleido; (platform_system != 'Windows') and extra == 'doc'
-Requires-Dist: kaleido==0.1.0.post1; (platform_system == 'Windows') and extra == 'doc'
-Requires-Dist: marimo; extra == 'doc'
-Requires-Dist: matplotlib>=3.8.0; extra == 'doc'
-Requires-Dist: memory-profiler>=0.61.0; extra == 'doc'
-Requires-Dist: myst-parser>=3.0.1; extra == 'doc'
-Requires-Dist: numpydoc>=1.8.0; extra == 'doc'
-Requires-Dist: plotly!=6.1.0,>=5.0.0; (platform_system != 'Windows') and extra == 'doc'
-Requires-Dist: plotly<6.1.0,>=5.0.0; (platform_system == 'Windows') and extra == 'doc'
-Requires-Dist: ruamel-yaml>=0.18.6; extra == 'doc'
-Requires-Dist: sphinx-copybutton>=0.5.2; extra == 'doc'
-Requires-Dist: sphinx-design>=0.6.1; extra == 'doc'
-Requires-Dist: sphinx-gallery>=0.18.0; extra == 'doc'
-Requires-Dist: sphinx>=7.4.7; extra == 'doc'
-Requires-Dist: sphinxcontrib-bibtex>=2.6.3; extra == 'doc'
-Requires-Dist: sphinxcontrib-mermaid>=1.0.0; extra == 'doc'
-Requires-Dist: sphinxext-opengraph>=0.9.1; extra == 'doc'
-Provides-Extra: min
-Requires-Dist: jinja2==3.1.2; extra == 'min'
-Requires-Dist: joblib==1.2.0; extra == 'min'
-Requires-Dist: nibabel==5.2.0; extra == 'min'
-Requires-Dist: numpy==1.22.4; extra == 'min'
-Requires-Dist: pandas==2.2.0; extra == 'min'
-Requires-Dist: requests==2.30.0; extra == 'min'
-Requires-Dist: scikit-learn==1.4.0; extra == 'min'
-Requires-Dist: scipy==1.9.0; extra == 'min'
-Provides-Extra: min-plotting
-Requires-Dist: jinja2==3.1.2; extra == 'min-plotting'
-Requires-Dist: joblib==1.2.0; extra == 'min-plotting'
-Requires-Dist: kaleido; extra == 'min-plotting'
-Requires-Dist: matplotlib==3.8.0; extra == 'min-plotting'
-Requires-Dist: nibabel==5.2.0; extra == 'min-plotting'
-Requires-Dist: numpy==1.22.4; extra == 'min-plotting'
-Requires-Dist: pandas==2.2.0; extra == 'min-plotting'
-Requires-Dist: plotly==5.0.0; extra == 'min-plotting'
-Requires-Dist: requests==2.30.0; extra == 'min-plotting'
-Requires-Dist: scikit-learn==1.4.0; extra == 'min-plotting'
-Requires-Dist: scipy==1.9.0; extra == 'min-plotting'
+Requires-Dist: numpy>=1.26.0
+Requires-Dist: packaging>=26.0.0
+Requires-Dist: pandas>=2.3.0
+Requires-Dist: requests>=2.33.0
+Requires-Dist: scikit-learn!=1.7.0,!=1.9.0,>=1.5.0
+Requires-Dist: scipy>=1.11.1
 Provides-Extra: plotly
-Requires-Dist: kaleido; (platform_system != 'Windows') and extra == 'plotly'
-Requires-Dist: kaleido==0.1.0.post1; (platform_system == 'Windows') and extra == 'plotly'
-Requires-Dist: matplotlib>=3.8.0; extra == 'plotly'
-Requires-Dist: plotly!=6.1.0,>=5.0.0; (platform_system != 'Windows') and extra == 'plotly'
-Requires-Dist: plotly<6.1.0,>=5.0.0; (platform_system == 'Windows') and extra == 'plotly'
+Requires-Dist: kaleido>=1.1.0; extra == 'plotly'
+Requires-Dist: plotly>=6.1.1; extra == 'plotly'
 Provides-Extra: plotting
-Requires-Dist: kaleido; (platform_system != 'Windows') and extra == 'plotting'
-Requires-Dist: kaleido==0.1.0.post1; (platform_system == 'Windows') and extra == 'plotting'
 Requires-Dist: matplotlib>=3.8.0; extra == 'plotting'
-Requires-Dist: plotly!=6.1.0,>=5.0.0; (platform_system != 'Windows') and extra == 'plotting'
-Requires-Dist: plotly<6.1.0,>=5.0.0; (platform_system == 'Windows') and extra == 'plotting'
-Provides-Extra: style
-Requires-Dist: tox; extra == 'style'
-Provides-Extra: test
-Requires-Dist: coverage; extra == 'test'
-Requires-Dist: lxml; extra == 'test'
-Requires-Dist: numpydoc>=1.8.0; extra == 'test'
-Requires-Dist: pytest-cov; extra == 'test'
-Requires-Dist: pytest-csv; extra == 'test'
-Requires-Dist: pytest-mpl; extra == 'test'
-Requires-Dist: pytest-randomly; extra == 'test'
-Requires-Dist: pytest-reporter-html1<0.9.4,>=0.9.2; extra == 'test'
-Requires-Dist: pytest-rerunfailures; extra == 'test'
-Requires-Dist: pytest-timeout; extra == 'test'
-Requires-Dist: pytest-xdist[psutil]; extra == 'test'
-Requires-Dist: pytest>=6.0.0; extra == 'test'
-Provides-Extra: test-free-threaded
-Requires-Dist: numpydoc>=1.8.0; extra == 'test-free-threaded'
-Requires-Dist: pytest-csv; extra == 'test-free-threaded'
-Requires-Dist: pytest-mpl; extra == 'test-free-threaded'
-Requires-Dist: pytest-randomly; extra == 'test-free-threaded'
-Requires-Dist: pytest-reporter-html1<0.9.4,>=0.9.2; extra == 'test-free-threaded'
-Requires-Dist: pytest-rerunfailures; extra == 'test-free-threaded'
-Requires-Dist: pytest-run-parallel; extra == 'test-free-threaded'
-Requires-Dist: pytest>=6.0.0; extra == 'test-free-threaded'
-Requires-Dist: rich; extra == 'test-free-threaded'
 Description-Content-Type: text/x-rst
 
 .. image:: https://img.shields.io/pypi/v/nilearn.svg
@@ -240,7 +135,26 @@ in the proper python environment:
 
 .. code-block:: bash
 
-    python -m pip install -U nilearn
+    python -m pip install nilearn
+
+If you want to upgrade your current version:
+
+.. code-block:: bash
+
+    python -m pip install --upgrade nilearn
+
+Nilearn comes with optional plotting dependencies (matplotlib, plotly).
+If you want to install matplotlib:
+
+.. code-block:: bash
+
+    python -m pip install 'nilearn[plotting]'
+
+If you want to install matplotlib and plotly:
+
+.. code-block:: bash
+
+    python -m pip install 'nilearn[plotting, plotly]'
 
 Development version
 -------------------

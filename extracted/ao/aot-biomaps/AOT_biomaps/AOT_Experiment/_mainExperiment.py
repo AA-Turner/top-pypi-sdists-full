@@ -1,6 +1,6 @@
 from AOT_biomaps.Settings import Params
 from AOT_biomaps.AOT_Optic._mainOptic import Phantom
-from AOT_biomaps.AOT_Acoustic.AcousticEnums import WaveType, FormatSave
+from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, WaveType, FormatSave
 from AOT_biomaps.AOT_Acoustic.StructuredWave import StructuredWave
 from AOT_biomaps.AOT_Medium.HomogeneousMedium import HomogeneousMedium
 from AOT_biomaps.AOT_Medium.PVAMedium import PVAMedium
@@ -152,7 +152,8 @@ class Experiment(ABC):
             if overwrite:
                 if fieldDataPath is None:
                     raise ValueError("fieldDataPath must be provided when overwrite is True.")
-                field.save_field(fieldDataPath, formatSave=self.FormatSave)
+                if self.params.acoustic['typeSim'] != TypeSim.SIMPLE_SIM.value:
+                    field.save_field(fieldDataPath, formatSave=self.FormatSave)
 
     def generate_random_absorbers(self,N_min=0, N_max=5, min_radius_mm=0.5, max_radius_mm=5, min_amplitude=0, max_amplitude=1, seed=None):
         if seed is not None:

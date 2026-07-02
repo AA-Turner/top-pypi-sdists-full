@@ -14,7 +14,6 @@ from argus_redact.pure.reserved_range_scanner import scan_for_pollution
 from argus_redact.specs.profiles import get_profile
 
 
-
 class PseudonymPollutionError(ValueError):
     """Raised when input to pseudonym-llm already contains reserved-range values.
 
@@ -81,7 +80,8 @@ def redact_pseudonym_llm(
     Same original value present in both `text` and `existing_key.values()` reuses
     the same fake. Used by ``StreamingRedactor`` for cross-chunk consistency.
 
-    `_pre_detected` (advanced) — entities already detected over `text`; skips internal detection (used by streaming detect-once).
+    `_pre_detected` (advanced) — entities already detected over `text`; skips internal detection
+    (used by streaming detect-once).
 
     `reserved_names` — overrides the canonical fake-name tables on a per-type
     basis. Pass ``{"person_zh": ()}`` to disable zh canonical-name pollution
@@ -194,6 +194,14 @@ def redact_pseudonym_llm(
     # output spaces (realistic digits/Chinese vs [TYPE-NNNNN] placeholders),
     # so a simple union is collision-free by construction.
     unified_key = {**key, **audit_key}
+    # fake → SSOT PII type, built PER PASS then merged. In the unified key each
+    # original has TWO fakes (realistic + [TYPE-NNNNN] audit), so a single
+    # original→fake reverse map would drop one — invert each pass's key
+    # separately (the two fake-spaces are disjoint, like unified_key).
+    unified_types = {
+        **_redact_module._build_type_map(key, entities),
+        **_redact_module._build_type_map(audit_key, entities),
+    }
     # Aliases only attach to realistic-pass fakers; audit placeholders never
     # have transliterations. Skip empty alias lists to keep the dict tight.
     unified_aliases = {
@@ -208,6 +216,7 @@ def redact_pseudonym_llm(
         display_text=display_text,
         key=unified_key,
         aliases=unified_aliases,
+        types=unified_types,
     )
 
 

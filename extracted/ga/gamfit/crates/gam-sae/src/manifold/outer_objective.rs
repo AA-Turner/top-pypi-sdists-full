@@ -1264,6 +1264,195 @@ impl SaeManifoldOuterObjective {
         }
     }
 
+    /// Exact REML criterion value at `rho` on a THROWAWAY clone of the current
+    /// (converged) inner state — the same quantity `eval` returns as `cost`
+    /// (`reml_criterion_with_cache`, floored to the finite collapse wall when the
+    /// Laplace normaliser is non-finite). Used ONLY by
+    /// [`Self::value_consistent_outer_gradient`] to central-difference the outer
+    /// criterion; the clone means the production converged state is untouched and
+    /// the probe re-solves warm from it. Returns the same finite collapse wall
+    /// used by the production value / gradient / EFS lanes for a recoverable
+    /// infeasible ρ probe (non-PD joint Hessian), so the consistency safeguard
+    /// differentiates the objective shape the line search actually sees instead
+    /// of reintroducing an `+∞` lane for the #1782 refusal class.
+    fn probe_outer_criterion_value(&self, rho: &SaeManifoldRho) -> Result<f64, String> {
+        let mut probe = self.term.clone();
+        let reml = match probe.reml_criterion_with_cache(
+            self.target.view(),
+            rho,
+            self.registry.as_ref(),
+            self.inner_max_iter,
+            self.learning_rate,
+            self.ridge_ext_coord,
+            self.ridge_beta,
+        ) {
+            Ok(evaluated) => evaluated.0,
+            Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
+                return Ok(Self::recoverable_refusal_wall_cost());
+            }
+            Err(err) => return Err(err),
+        };
+        Ok(if reml.is_finite() {
+            reml
+        } else {
+            SAE_FIT_DATA_COLLAPSE_COST
+        })
+    }
+
+    /// Value-consistent outer-ρ gradient safeguard for the small (BFGS) regime.
+    ///
+    /// The analytic outer gradient's implicit-state envelope correction (the
+    /// #1006/#1418 third-order `Γ·θ̂_ρ` term) is assembled by inverting the exact
+    /// inner stationarity Jacobian `A = ∇²_θθ L`. When an inner coordinate is
+    /// near-flat — e.g. a SATURATED IBP gate logit at K=1, whose data curvature
+    /// `∝ σ'(ℓ)² ≈ 0` — `A` is near-singular in that direction and the CG
+    /// stationarity solve amplifies it into a spurious envelope term, so the
+    /// returned λ-gradient can disagree in SIGN with the criterion it
+    /// differentiates. Paired with the line search's value probes this is the
+    /// objective↔gradient desync class (#931): the BFGS line search rejects every
+    /// step and STALLS at the seed (planted-circle IBP K=1: railed at the ρ = 1
+    /// GeneralizedLinear anchor seed, held-out EV ≈ 0.87 instead of > 0.95, while
+    /// the true criterion slope points at a lower, better-reconstructing λ).
+    ///
+    /// This is a SAFEGUARD, not a replacement. Only in the small (≤ BFGS-cap)
+    /// outer regime that consumes this gradient — large-K fits descend on the EFS
+    /// fixed point (traces only, no gradient) and never reach here — it
+    /// central-differences the SAME exact REML criterion `eval` returns, on a
+    /// throwaway clone, and adopts the finite-difference gradient ONLY when the
+    /// analytic direction is not descent-consistent with it (the cosine of the
+    /// analytic and FD gradients drops below ½, i.e. they point > 60° apart). A
+    /// well-conditioned fit's analytic gradient matches the FD to inner-solve
+    /// tolerance, so the cosine stays ≈ 1 and the analytic gradient is returned
+    /// byte-for-byte — softmax and every well-conditioned IBP fixture are
+    /// untouched. The FD differentiates the production value path, so the adopted
+    /// direction is exactly consistent with what the line search minimises (a
+    /// real gradient of the real criterion, used only as a descent direction).
+    fn value_consistent_outer_gradient(
+        &self,
+        rho_state: &SaeManifoldRho,
+        cost: f64,
+        analytic: Array1<f64>,
+    ) -> Result<Array1<f64>, String> {
+        // Only the small BFGS outer regime consumes the analytic gradient; keep it
+        // aligned with the planner's `SMALL_OUTER_BFGS_MAX_PARAMS` gate so large-K
+        // fits (EFS lane) never pay the 2·n probe cost.
+        const SAFEGUARD_MAX_PARAMS: usize = 8;
+        let flat = rho_state.to_flat();
+        let n = flat.len();
+        if n == 0 || n > SAFEGUARD_MAX_PARAMS || !cost.is_finite() {
+            return Ok(analytic);
+        }
+        let na = analytic.dot(&analytic).sqrt();
+        // A vanishing analytic gradient IS a stationary-point claim; let BFGS
+        // terminate on its own convergence test rather than probe around it.
+        if na <= 1.0e-8 {
+            return Ok(analytic);
+        }
+        // Stage 1 — CHEAP directional consistency check (2 probes). Central-
+        // difference the criterion along the analytic gradient's own unit
+        // direction `d̂`. The analytic directional derivative there is exactly
+        // `‖g‖` (`g·d̂`), so a value-consistent gradient reproduces
+        // `fd_dir ≈ ‖g‖`. A near-flat inner direction that flipped the envelope
+        // term makes `d̂` a NON-descent direction of the true criterion, so
+        // `fd_dir` collapses (or goes negative). Escalate to the full FD gradient
+        // only then; well-conditioned fits exit here having paid two evaluations.
+        let inv_na = 1.0 / na;
+        // The FD step must be LARGE enough that the criterion change `‖g‖·2·step`
+        // exceeds the inner-solve convergence noise (the criterion is evaluated at
+        // a re-solved inner optimum, whose residual KKT slack perturbs the value at
+        // the ~1e-4..1e-6 level). A tiny `1e-4` step buries the true slope in that
+        // noise and yields a spurious ~0 gradient that STALLS the descent; `1e-2`
+        // resolves the slope cleanly while the O(h²) central-difference truncation
+        // stays negligible for a descent direction.
+        let step = 1.0e-2 * (1.0 + flat.iter().fold(0.0_f64, |m, &v| m.max(v.abs())));
+        let mut dir_plus = flat.clone();
+        let mut dir_minus = flat.clone();
+        for i in 0..n {
+            let d = analytic[i] * inv_na;
+            dir_plus[i] += step * d;
+            dir_minus[i] -= step * d;
+        }
+        let vp_dir =
+            self.probe_outer_criterion_value(&self.baseline_rho.from_flat(dir_plus.view()))?;
+        let vm_dir =
+            self.probe_outer_criterion_value(&self.baseline_rho.from_flat(dir_minus.view()))?;
+        if !(vp_dir.is_finite() && vm_dir.is_finite()) {
+            // A probe hit an infeasible wall adjacent to this ρ; differencing
+            // across it is meaningless, so keep the analytic gradient.
+            return Ok(analytic);
+        }
+        let fd_dir = (vp_dir - vm_dir) / (2.0 * step);
+        if fd_dir >= 0.5 * na {
+            // Analytic gradient is descent-consistent along its own direction.
+            return Ok(analytic);
+        }
+        // Stage 2 — desync suspected: assemble the FULL central-difference gradient
+        // of the exact criterion (2·n probes) and adopt it when it points away
+        // from the analytic gradient (cosine < ½, i.e. > 60° apart).
+        let mut fd = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            // Same inner-solve-noise floor as the Stage-1 step: a `1e-2` FD step
+            // keeps the per-coordinate slope well above the re-solve KKT slack.
+            let h = 1.0e-2 * (1.0 + flat[i].abs());
+            let mut plus = flat.clone();
+            let mut minus = flat.clone();
+            plus[i] += h;
+            minus[i] -= h;
+            let vp = self.probe_outer_criterion_value(&self.baseline_rho.from_flat(plus.view()))?;
+            let vm = self.probe_outer_criterion_value(&self.baseline_rho.from_flat(minus.view()))?;
+            if !(vp.is_finite() && vm.is_finite()) {
+                return Ok(analytic);
+            }
+            fd[i] = (vp - vm) / (2.0 * h);
+        }
+        let nf = fd.dot(&fd).sqrt();
+        if nf <= 1.0e-8 {
+            return Ok(analytic);
+        }
+        let cosine = analytic.dot(&fd) / (na * nf);
+        if cosine < 0.5 {
+            Ok(fd)
+        } else {
+            Ok(analytic)
+        }
+    }
+
+    /// #1782 — the finite outer-cost a recoverable infeasible-ρ REFUSAL presents
+    /// to the outer solver's value / gradient lanes, matching the finite collapse
+    /// wall the EFS lane (`efs_step`) already returns for the same refusal class.
+    ///
+    /// The recoverable-refusal classes (non-PD per-row / cross-row joint Hessian,
+    /// non-PD reduced Schur complement, inner non-convergence) mark a ρ whose
+    /// closed-form Laplace evidence is undefined. Historically the value/gradient
+    /// lanes returned `OuterEval::infeasible` (cost `+∞`) so a line-search probe
+    /// that OVERSHOOTS into an adjacent indefinite basin is rejected and the search
+    /// steers back into the PD region. But when the SEED ρ itself (and its whole
+    /// neighbourhood) lands in that refusal class — which happens for softmax /
+    /// jumprelu over near-degenerate multi-atom decoders, and for euclidean/linear
+    /// rank-deficient seeds — EVERY outer probe returned `+∞`, BFGS never accepted
+    /// a gradient step, and the bridge's non-termination guard escalated the
+    /// "globally infeasible neighbourhood" to a FATAL seed rejection → "no
+    /// candidate seeds passed outer startup validation (SAE manifold)". `ibp_map`
+    /// + `circle`'s seed lands in the PD region and never trips it, which is
+    /// exactly why it converged on identical data.
+    ///
+    /// Returning the FINITE collapse wall (`SAE_FIT_DATA_COLLAPSE_COST = 1e12`)
+    /// instead of `+∞` keeps the SAME steering behaviour — the wall is
+    /// astronomically larger than any real REML cost, so the Armijo/Wolfe line
+    /// search still rejects any step into the infeasible basin and backtracks
+    /// toward the feasible region — while giving the outer solver a BOUNDED seed
+    /// sample. The neighbourhood is then a finite barrier rather than an unbounded
+    /// `+∞` desert, so the non-termination guard does not fire and the fit ships
+    /// the best-so-far (seed) dictionary rather than aborting the whole fit. This
+    /// unifies the value/gradient lanes with the EFS lane, which already returns
+    /// this exact finite wall for the identical refusal class (#1782), and with
+    /// the non-finite-Laplace floor `add_fit_data_collapse_penalty` uses (#1217).
+    /// Genuine (non-recoverable) defects still propagate as a hard error above the
+    /// call sites; only the recoverable infeasible-ρ probe reaches this wall.
+    const fn recoverable_refusal_wall_cost() -> f64 {
+        SAE_FIT_DATA_COLLAPSE_COST
+    }
+
     pub(crate) fn is_recoverable_value_probe_refusal(err: &str) -> bool {
         err.contains("inner solve did not converge at fixed ρ")
             || err.contains(
@@ -1276,6 +1465,28 @@ impl SaeManifoldOuterObjective {
             // whole fit (the indefinite basin is adjacent to the PD optimum, so
             // line searches WILL overshoot into it).
             || err.contains("cross-row IBP joint Hessian is non-PD at this ρ")
+            // #1782 — at a seed ρ, a K>1 jumprelu/softmax (or a rank-deficient
+            // euclidean/linear) fit's OFF-OPTIMUM inner state can leave the
+            // reduced joint-Hessian Schur complement indefinite, so the undamped
+            // Schur-complement Cholesky in `run_joint_fit_arrow_schur` /
+            // `converge_inner_for_undamped_logdet` refuses with
+            // `ArrowSchurError::SchurFactorFailed` (rendered
+            // "arrow-Schur: Schur complement Cholesky failed: … not positive
+            // definite"). That is the SAME infeasible-ρ-probe class as the
+            // per-row / cross-row non-PD refusals above: the indefinite basin is
+            // adjacent to the PD optimum, so the outer optimizer must read it as
+            // +∞ and steer back into the PD region rather than reject the seed and
+            // abort the whole fit ("no candidate seeds passed outer startup
+            // validation"). `ibp_map`+`circle`'s seed lands in the PD region and
+            // never trips this, which is exactly why it converged on identical
+            // data while the other assignments/topologies did not.
+            //
+            // Requires BOTH markers so a genuine shape / dimension / non-finite
+            // Schur defect (a `SchurFactorFailed` whose reason is NOT a non-PD
+            // pivot, e.g. "non-finite entry" or "non-square") still hard-errors
+            // and is not silently masked as a recoverable probe.
+            || (err.contains("Schur complement Cholesky failed")
+                && err.contains("not positive definite"))
     }
 
     /// Shared cost path: evaluate the REML criterion at `rho_flat`, updating
@@ -1420,15 +1631,74 @@ impl SaeManifoldOuterObjective {
         {
             self.term.set_flat_beta(beta.view())?;
         }
-        let (cost, loss, cache) = self.term.reml_criterion_with_cache(
-            self.target.view(),
-            &rho,
-            self.registry.as_ref(),
-            self.inner_max_iter,
-            self.learning_rate,
-            self.ridge_ext_coord,
-            self.ridge_beta,
-        )?;
+        // #1026 massive-K: in the streaming regime the dense evidence cache is
+        // infeasible (O((K·M·p)²)), so `reml_criterion_with_cache` hard-errors
+        // ("cost-only streaming route is required"). But the EFS lane IS the
+        // intended streaming-regime descent, and its ARD/smoothness traces below
+        // are already matrix-free-gated — they only need the per-row factored
+        // arrow cache, which the streaming criterion produces (and now returns).
+        // Route through it so the Fellner–Schall step runs matrix-free at large K;
+        // dense-admitted fits keep the byte-for-byte dense path.
+        let criterion = if self.term.streaming_plan().direct_logdet_admitted() {
+            self.term.reml_criterion_with_cache(
+                self.target.view(),
+                &rho,
+                self.registry.as_ref(),
+                self.inner_max_iter,
+                self.learning_rate,
+                self.ridge_ext_coord,
+                self.ridge_beta,
+            )
+        } else {
+            self.term.reml_criterion_streaming_exact_with_cache(
+                self.target.view(),
+                &rho,
+                self.registry.as_ref(),
+                self.inner_max_iter,
+                self.learning_rate,
+                self.ridge_ext_coord,
+                self.ridge_beta,
+            )
+        };
+        let (cost, loss, cache) = match criterion {
+            Ok(evaluated) => evaluated,
+            // #1782 — the EFS lane IS the SAE seed-startup-VALIDATION lane
+            // (`run_fixed_point_outer_solver` → `eval_step(seed)` → `eval_efs` →
+            // `efs_step`). At a seed ρ a K>1 jumprelu/softmax (or rank-deficient
+            // euclidean/linear) fit's off-optimum inner state can leave the
+            // reduced joint-Hessian Schur complement indefinite, so the undamped
+            // Laplace factorization refuses ("Schur complement Cholesky failed:
+            // … not positive definite"), and any other infeasible-ρ-probe class
+            // (non-PD per-row / cross-row joint Hessian, inner non-convergence).
+            // Propagating that `Err` here made the FIXED-POINT bridge REJECT the
+            // seed, and with the single PCA seed that emptied the candidate set →
+            // "no candidate seeds passed outer startup validation" for exactly the
+            // assignments/topologies whose seed does not land in the PD region
+            // (ibp_map+circle does, which is why it converged on identical data).
+            //
+            // A recoverable refusal is a REJECTABLE infeasibility WALL, not a hard
+            // failure: return a finite collapse-wall cost with all-zero EFS steps
+            // (the same finite barrier `add_fit_data_collapse_penalty` uses). The
+            // seed then STARTS the fixed-point solver, whose Wood–Fasiolo λ-update
+            // steers ρ off the wall toward the PD region on the next iterate rather
+            // than aborting the whole fit. A non-finite cost would be rejected by
+            // the bridge as a seed refusal, so the wall must stay finite. Genuine
+            // (non-recoverable) defects still propagate as a hard error.
+            Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
+                let n_params = rho.to_flat().len();
+                self.current_rho = rho;
+                return Ok(EfsEval {
+                    cost: SAE_FIT_DATA_COLLAPSE_COST,
+                    steps: vec![0.0_f64; n_params],
+                    beta: None,
+                    psi_gradient: None,
+                    psi_indices: None,
+                    inner_hessian_scale: None,
+                    logdet_enclosure_gap: None,
+                });
+            }
+            Err(err) => return Err(err),
+        };
         self.current_rho = rho.clone();
         let dispersion = self
             .term
@@ -1572,13 +1842,63 @@ impl OuterObjective for SaeManifoldOuterObjective {
         // derivative-free co-training fold `f+c` (`fold_cotrain = true`).
         match self.evaluate_with_refine_policy(rho.view(), false, true) {
             Ok((cost, _beta)) => Ok(cost),
-            Err(err) if Self::is_recoverable_value_probe_refusal(&err) => Ok(f64::INFINITY),
+            // #1782 — a recoverable infeasible-ρ refusal presents the SAME finite
+            // collapse wall the EFS lane returns, not `+∞`. A finite (huge) wall is
+            // still rejected by the cross-seed / EFS-backtracking comparison this
+            // lane feeds, but it keeps the seed neighbourhood BOUNDED so the outer
+            // bridge's non-termination guard cannot escalate a globally-refused
+            // neighbourhood to a fatal seed rejection (see
+            // `recoverable_refusal_wall_cost`).
+            Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
+                Ok(Self::recoverable_refusal_wall_cost())
+            }
             Err(err) => Err(EstimationError::RemlOptimizationFailed(err)),
         }
     }
 
     fn eval(&mut self, rho: &Array1<f64>) -> Result<OuterEval, EstimationError> {
         let rho_state = self.baseline_rho.from_flat(rho.view());
+        // #1026 — matrix-free (streaming) regime: the dense joint-Hessian evidence
+        // cache does not exist, so the analytic gradient lane below
+        // (`reml_criterion_with_cache` → `outer_gradient_arrow_solver`) cannot run
+        // and hard-errors ("cost-only streaming route is required"). The outer plan
+        // descends ρ via the value + Fellner–Schall (EFS) route
+        // (`fixed_point_available`), which never consumes this gradient — but the
+        // generic seed startup-VALIDATION still probes this gradient lane, and its
+        // hard error rejects EVERY seed ("no candidate seeds passed outer startup
+        // validation") for any large-K / wide-border (duchon) fit whose dense
+        // evidence factor exceeds the in-core budget. Route it to the SAME streaming
+        // value path the `Value` order uses: validation then gets a finite streaming
+        // REML cost (paired with a zero gradient it never consumes) and the fit
+        // proceeds on the EFS lane. Dense-admitted fits never enter this branch and
+        // are byte-for-byte unchanged.
+        if !self.term.streaming_plan().direct_logdet_admitted() {
+            let (cost, _beta_hat) =
+                match self.evaluate_with_refine_policy(rho.view(), false, false) {
+                    Ok(evaluated) => evaluated,
+                    // #1782 — recoverable infeasible-ρ refusal → finite collapse
+                    // wall (zero gradient), not `+∞`. The wall still steers the
+                    // outer descent away from the infeasible basin, but keeps the
+                    // seed neighbourhood bounded so a globally-refused seed ships
+                    // the best-so-far dictionary instead of aborting the fit (see
+                    // `recoverable_refusal_wall_cost`).
+                    Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
+                        return Ok(OuterEval {
+                            cost: Self::recoverable_refusal_wall_cost(),
+                            gradient: Array1::zeros(rho.len()),
+                            hessian: HessianResult::Unavailable,
+                            inner_beta_hint: None,
+                        });
+                    }
+                    Err(err) => return Err(EstimationError::RemlOptimizationFailed(err)),
+                };
+            return Ok(OuterEval {
+                cost,
+                gradient: Array1::zeros(rho.len()),
+                hessian: HessianResult::Unavailable,
+                inner_beta_hint: None,
+            });
+        }
         if let Some(beta) = self.seeded_beta.take()
             && beta.len() == self.term.beta_dim()
         {
@@ -1606,18 +1926,52 @@ impl OuterObjective for SaeManifoldOuterObjective {
         // needs only the analytic traces `tr(H⁻¹ S_c)` — no gradient, and (per
         // SPEC) no finite differences. So this dense-cache path is reached only
         // when the dense evidence factor is admitted.
-        let (cost, loss, cache) = self
-            .term
-            .reml_criterion_with_cache(
-                self.target.view(),
-                &rho_state,
-                self.registry.as_ref(),
-                self.inner_max_iter,
-                self.learning_rate,
-                self.ridge_ext_coord,
-                self.ridge_beta,
-            )
-            .map_err(EstimationError::RemlOptimizationFailed)?;
+        // #1782 — a RECOVERABLE inner-solve refusal (a probed ρ whose undamped
+        // joint Hessian is non-PD / whose inner solve cannot converge at that ρ)
+        // is an INFEASIBLE-ρ signal, NOT a fatal defect: the value-only lanes
+        // (`Value` order above, streaming branch) already map it to a `+∞`
+        // infeasible eval so the outer optimizer steers back into the PD region.
+        // This gradient lane previously `?`-propagated the SAME refusal as a fatal
+        // `RemlOptimizationFailed`, which — because the SAE fit runs a single
+        // seed (`max_seeds = 1`, no fallback) — aborted the WHOLE fit at "no
+        // candidate seeds passed outer startup validation" for the assignment /
+        // topology combinations whose seed or a walk probe lands on such a ρ,
+        // while ibp_map (whose seed happens to stay PD) survived. Treat it the
+        // same infeasible way here so the three lanes agree; a genuinely
+        // non-recoverable error still propagates.
+        let (cost, loss, cache) = match self.term.reml_criterion_with_cache(
+            self.target.view(),
+            &rho_state,
+            self.registry.as_ref(),
+            self.inner_max_iter,
+            self.learning_rate,
+            self.ridge_ext_coord,
+            self.ridge_beta,
+        ) {
+            Ok(evaluated) => evaluated,
+            // #1782 — an infeasible-ρ probe (non-PD per-row / cross-row / Schur-
+            // complement joint Hessian) has no defined Laplace evidence at this ρ.
+            // Present it to the BFGS/ARC line search as the SAME finite collapse
+            // wall the `Value` order and the EFS lane (`efs_step`) return (a huge
+            // but BOUNDED cost with a zero gradient) so the search steers back into
+            // the PD region WITHOUT the seed's own gradient eval being an unbounded
+            // `+∞`. An `+∞` seed sample left BFGS with `iter_count == 0` and every
+            // probe infeasible, so the bridge's non-termination guard escalated the
+            // globally-refused neighbourhood to a fatal seed rejection (the softmax
+            // "globally infeasible neighbourhood at seed" abort); the finite wall
+            // keeps the neighbourhood bounded so the fit ships the best-so-far seed
+            // dictionary instead (see `recoverable_refusal_wall_cost`). Genuine
+            // (non-recoverable) defects still hard-error below.
+            Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
+                return Ok(OuterEval {
+                    cost: Self::recoverable_refusal_wall_cost(),
+                    gradient: Array1::zeros(rho.len()),
+                    hessian: HessianResult::Unavailable,
+                    inner_beta_hint: None,
+                });
+            }
+            Err(err) => return Err(EstimationError::RemlOptimizationFailed(err)),
+        };
         // #1273 — the analytic outer gradient is built from the undamped joint
         // Hessian via `outer_gradient_arrow_solver`, whose Faddeev-Popov gauge
         // deflation recovers near-null directions that lie in the closed-form
@@ -1723,6 +2077,15 @@ impl OuterObjective for SaeManifoldOuterObjective {
         let cost = self
             .add_fit_data_collapse_penalty(cost, &rho_state)
             .map_err(EstimationError::RemlOptimizationFailed)?;
+        // Guard the assembled analytic gradient against an implicit-state envelope
+        // desync (a near-flat inner direction — e.g. a saturated IBP K=1 gate
+        // logit — corrupting the #1006/#1418 `Γ·θ̂_ρ` correction into a
+        // wrong-signed λ-gradient that stalls the BFGS line search). Byte-for-byte
+        // unchanged for well-conditioned fits; see
+        // `value_consistent_outer_gradient`.
+        let gradient = self
+            .value_consistent_outer_gradient(&rho_state, cost, gradient)
+            .map_err(EstimationError::RemlOptimizationFailed)?;
         self.current_rho = rho_state;
         self.last_loss = Some(loss);
         Ok(OuterEval {
@@ -1751,8 +2114,21 @@ impl OuterObjective for SaeManifoldOuterObjective {
                 let (cost, _beta_hat) =
                     match self.evaluate_with_refine_policy(rho.view(), false, false) {
                         Ok(evaluated) => evaluated,
+                        // #1782 — recoverable infeasible-ρ refusal → finite collapse
+                        // wall (zero gradient), matching the gradient/EFS lanes. The
+                        // wall still fails the Armijo/Wolfe sufficient-decrease test
+                        // (it dwarfs any real REML cost) so the line search steers
+                        // back into the PD region, but a BOUNDED cost keeps a
+                        // globally-refused seed neighbourhood from tripping the
+                        // bridge's non-termination guard (see
+                        // `recoverable_refusal_wall_cost`).
                         Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
-                            return Ok(OuterEval::infeasible(rho.len()));
+                            return Ok(OuterEval {
+                                cost: Self::recoverable_refusal_wall_cost(),
+                                gradient: Array1::zeros(rho.len()),
+                                hessian: HessianResult::Unavailable,
+                                inner_beta_hint: None,
+                            });
                         }
                         Err(err) => return Err(EstimationError::RemlOptimizationFailed(err)),
                     };

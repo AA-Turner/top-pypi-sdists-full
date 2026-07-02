@@ -1,20 +1,14 @@
-"""
-App's base definitions
-"""
+"""App's base definitions"""
 
-# Django
 from django.apps import AppConfig
-from django.utils.translation import gettext_lazy as _
+from django.utils.text import format_lazy
 
-# Memberaudit Securegroups
-from memberaudit_securegroups import __version__
+from memberaudit_securegroups import __title_translated__, __version__
 
 
 class MemberAuditSecureGroupsConfig(AppConfig):
-    """
-    MemberAuditSecureGroupsConfig
-    """
-
     name = "memberaudit_securegroups"
     label = "memberaudit_securegroups"
-    verbose_name = _(f"Secure Groups Member Audit Integration v{__version__}")
+    verbose_name = format_lazy(
+        "{app_title} v{version}", app_title=__title_translated__, version=__version__
+    )

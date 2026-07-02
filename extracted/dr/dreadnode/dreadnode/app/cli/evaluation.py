@@ -28,6 +28,8 @@ from dreadnode.app.cli.shared import (
     _wait_for_job,
     confirm_destructive,
     console,
+    merge_env_model_overrides,
+    parse_env_model_overrides,
     print_link,
 )
 from dreadnode.app.model_catalog import resolve_model
@@ -326,6 +328,26 @@ def _summarize_evaluation(p: dict[str, t.Any]) -> str:
     return "  ".join(parts)
 
 
+def _print_skipped_members(skipped: t.Any) -> None:
+    """Surface TSS-EVAL-004 skipped members on a task-set eval create.
+
+    ``skipped_members`` rides the create response only and is informational —
+    the evaluation runs on the resolved subset. Cross-org members are reported
+    as ``not_found`` under the non-disclosure rule (TSS-RES-004).
+    """
+    if not isinstance(skipped, list) or not skipped:
+        return
+    console.print(f"[yellow]Skipped {len(skipped)} unresolvable member(s):[/yellow]")
+    for member in skipped:
+        if not isinstance(member, dict):
+            continue
+        name = member.get("task_name", "unknown")
+        version = member.get("task_version")
+        reason = member.get("reason", "unresolvable")
+        ref = f"{name}@{version}" if version else name
+        console.print(f"  [dim]-[/dim] {ref} [dim]({reason})[/dim]")
+
+
 # ---------------------------------------------------------------------------
 # Manifest loading (preserved from original)
 # ---------------------------------------------------------------------------
@@ -367,6 +389,17 @@ def _load_evaluation_manifest(path: Path) -> dict[str, t.Any]:
         request["task_names"] = _coerce_task_names(request.pop("tasks"), field_name="tasks")
     elif "task_names" in request:
         request["task_names"] = _coerce_task_names(request["task_names"], field_name="task_names")
+
+    # TSS-EVAL-010 — task_set is mutually exclusive with task/tasks/task_names/dataset.
+    if "task_set" in request:
+        if not isinstance(request["task_set"], str):
+            raise TypeError("task_set must be a string '<org>/<name>'")
+        conflicts = [field for field in ("task_names", "dataset") if field in request]
+        if conflicts:
+            raise ValueError(
+                "evaluation.yaml may specify only one of 'task_set', "
+                "'task'/'tasks'/'task_names', or 'dataset'"
+            )
 
     if "project" in request and "project_id" in request:
         raise ValueError("evaluation.yaml may specify only one of 'project' or 'project_id'")
@@ -619,6 +652,10 @@ def create(
         list[str] | None,
         cyclopts.Parameter(name="--task", negative_iterable=()),
     ] = None,
+    task_set: t.Annotated[
+        str | None,
+        cyclopts.Parameter(name="--task-set"),
+    ] = None,
     file: t.Annotated[
         Path | None,
         cyclopts.Parameter(name="--file"),
@@ -626,6 +663,7 @@ def create(
     runtime_id: str | None = None,
     model: str | None = None,
     capability: str | None = None,
+    engine: str | None = None,
     secret: t.Annotated[
         list[str] | None,
         cyclopts.Parameter(name="--secret", negative_iterable=()),
@@ -634,6 +672,19 @@ def create(
     task_timeout_sec: int | None = None,
     cleanup_policy: CleanupPolicy | None = None,
     judge_model: str | None = None,
+    env_model: t.Annotated[
+        list[str] | None,
+        cyclopts.Parameter(
+            name="--env-model",
+            help=(
+                "Override a task ENVIRONMENT (defender) model by role: ROLE=MODEL_ID "
+                "(e.g. --env-model blue=dn/claude-sonnet-4-6, repeatable). Distinct "
+                "from --model (solver) and --judge-model. The role must be declared "
+                "overridable in the task's models map."
+            ),
+            negative_iterable=(),
+        ),
+    ] = None,
     wait: t.Annotated[bool, cyclopts.Parameter(negative=())] = False,
     poll_interval_sec: t.Annotated[
         float,
@@ -655,6 +706,9 @@ def create(
         name: Evaluation name (e.g. my-eval-v3). Optional when set in --file.
         task: Security task to evaluate on, NAME[@VERSION] or org/name@version
             (e.g. security-bandit-00 or acme/web-rce@1.2.0). Repeatable.
+        task_set: Task set to expand into the evaluation, '<org>/<name>'
+            (e.g. acme/apex-web). Mutually exclusive with --task. Members
+            unresolvable under your visibility are skipped and reported.
         file: Path to evaluation.yaml request manifest.
         runtime_id: Runtime record ID for tracking; does not select a model.
         model: Model identifier (e.g. dn/gpt-5 or openai/gpt-4o-mini for BYOK).
@@ -664,6 +718,9 @@ def create(
         capability: Capability to load, NAME[@VERSION] or org/name@version
             (e.g. acme/web-security@1.0.0). Also pass --model if it has no
             entry-agent model. Run `dn capability list` to discover.
+        engine: Loop-owner override for the agent under evaluation
+            (e.g. claude-code). When omitted, the agent's declared engine
+            (or native) is used. Requires the harness in the eval sandbox.
         secret: Secret selector to inject into evaluation sandboxes. Repeatable.
             Exact names are strict; glob selectors are best-effort. Run
             `dn secret list` to discover configured names.
@@ -683,10 +740,18 @@ def create(
         request["model"] = resolve_model(model)
     if task:
         request["task_names"] = task
+    if task_set:
+        request["task_set"] = task_set
+    if request.get("task_set") and (request.get("task_names") or request.get("dataset")):
+        raise ValueError(
+            "Provide only one of --task-set, --task, or a dataset — they are mutually exclusive."
+        )
     if runtime_id:
         request["runtime_id"] = runtime_id
     if capability:
         request["capability"] = capability
+    if engine:
+        request["engine"] = engine
     if secret is not None:
         request["_secret_selectors"] = secret
     if concurrency is not None:
@@ -697,6 +762,10 @@ def create(
         request["cleanup_policy"] = cleanup_policy
     if judge_model:
         request["judge_model"] = resolve_model(judge_model)
+    parsed_env_models = parse_env_model_overrides(env_model, resolve=resolve_model)
+    merged_env_models = merge_env_model_overrides(request.get("model_overrides"), parsed_env_models)
+    if merged_env_models is not None:
+        request["model_overrides"] = merged_env_models
 
     if not request.get("name"):
         raise ValueError(
@@ -728,6 +797,9 @@ def create(
     payload = api.create_evaluation(profile.org_key, profile.workspace_key, request)
 
     eval_id = str(payload.get("id", ""))
+
+    if not as_json:
+        _print_skipped_members(payload.get("skipped_members"))
 
     if wait:
         payload = _wait_for_evaluation(

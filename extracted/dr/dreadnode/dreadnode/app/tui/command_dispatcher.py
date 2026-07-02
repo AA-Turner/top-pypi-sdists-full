@@ -371,8 +371,11 @@ class CommandDispatcher:
                     severity="info",
                 )
             else:
+                # Per-session change only. We deliberately do NOT persist the
+                # profile default here (CAP-1048) — that would cause /model in
+                # one session to silently change the model for every other
+                # session that reads from the profile on next refresh.
                 self._actions.on_model_changed(args[0])
-                self._actions.run_command(self._actions.persist_default_model_choice, args[0])
                 self._actions.flash(f"Model set to {args[0]}", severity="info")
             return
 

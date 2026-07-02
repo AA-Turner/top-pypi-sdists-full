@@ -24,7 +24,7 @@ install-sdist: dist  ## Install from source distribution
 
 .PHONY: test-install
 test-install:  ## Install with test dependencies
-	$(ENV) $(PIP_INSTALL) -e .[test]
+	$(ENV) $(PIP_INSTALL) -e . --group test
 
 .PHONY: check
 check:
@@ -51,7 +51,7 @@ lint:  ## Lint all files
 
 .PHONY: docs
 docs:  ## Generate documentation
-	sphinx-build docs docs/_build/html --color -W --keep-going -n -bhtml -b linkcheck -W
+	$(PYTHON) -m sphinx docs docs/_build/html --color -W --keep-going -n -bhtml -b linkcheck -W
 
 .PHONY: clean
 clean:  ## Clean any built/generated artifacts

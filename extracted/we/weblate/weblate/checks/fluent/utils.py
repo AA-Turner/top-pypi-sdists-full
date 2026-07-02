@@ -13,6 +13,8 @@ from translate.storage.fluent import (
     FluentUnit,
 )
 
+from weblate.checks.base import Highlight
+
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
@@ -26,7 +28,7 @@ if TYPE_CHECKING:
     from weblate.checks.models import Check as CheckModel
     from weblate.trans.models.unit import Unit as TransUnitModel
 
-HighlightsType = list[tuple[int, int, str]]
+HighlightsType = list[Highlight]
 
 
 def translation_from_check(
@@ -49,7 +51,8 @@ def format_html_code(
     }
     if safe_kwargs:
         return format_html(escape(format_string), **safe_kwargs)
-    return mark_safe(escape(format_string))  # noqa: S308
+    # ruff: ignore[suspicious-mark-safe-usage]
+    return mark_safe(escape(format_string))
 
 
 def format_html_error_list(errors: Iterable[str]) -> SafeString:
@@ -168,7 +171,8 @@ class FluentPatterns:
                     else:
                         # Remove the leading "\u" or "\U" and convert hex
                         # sequence to a number.
-                        unicode_point = int(chars[2:], 16)  # noqa: FURB166
+                        # ruff: ignore[int-on-sliced-str]
+                        unicode_point = int(chars[2:], 16)
                         try:
                             # Try unescape the unicode sequence.
                             literal += chr(unicode_point)
@@ -193,9 +197,7 @@ class FluentPatterns:
         Generate a list of highlights for the given source.
 
         Highlights all matches for the patterns in highlight_patterns, except
-        within a literal expression. Returns the highlights as a list of
-        3-tuples of the highlighted regions' starting positions, ending
-        positions and text.
+        within a literal expression.
         """
         unique_highlights = {p for p in highlight_patterns if p}
         if not unique_highlights:
@@ -205,7 +207,12 @@ class FluentPatterns:
         for start, text, _ in cls.split_literal_expressions(source):
             # NOTE: text may be empty if two literals touch.
             highlights.extend(
-                (start + match.start(), start + match.end(), match.group())
+                Highlight(
+                    start + match.start(),
+                    start + match.end(),
+                    match.group(),
+                    kind="grammar",
+                )
                 for match in regex.finditer(text)
             )
         return highlights

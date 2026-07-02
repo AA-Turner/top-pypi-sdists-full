@@ -478,6 +478,81 @@ class TestSeed:
 
         assert seed_dict == second_dict
 
+    def test_seed_roundtrip_preserves_plugin_extra_fields(self, full_seed: Seed) -> None:
+        """Seed preserves structured plugin-owned fields without core-specific hooks."""
+        seed_dict = full_seed.to_dict()
+        seed_dict["plugin_contract"] = {
+            "plugin": "example",
+            "handoff_version": 1,
+            "candidate_sequence": [{"name": "baseline"}],
+        }
+
+        reconstructed = Seed.from_dict(seed_dict)
+
+        assert reconstructed.to_dict()["plugin_contract"] == seed_dict["plugin_contract"]
+
+    def test_seed_plugin_extra_fields_are_deeply_immutable(self, full_seed: Seed) -> None:
+        """Seed extras cannot drift through nested container mutation."""
+        seed_dict = full_seed.to_dict()
+        seed_dict["plugin_contract"] = {
+            "plugin": "example",
+            "candidate_sequence": [{"name": "baseline"}],
+        }
+        reconstructed = Seed.from_dict(seed_dict)
+
+        with pytest.raises(TypeError):
+            reconstructed.plugin_contract["plugin"] = "mutated"
+        with pytest.raises(TypeError):
+            reconstructed.plugin_contract["candidate_sequence"][0]["name"] = "mutated"
+
+        assert reconstructed.to_dict()["plugin_contract"] == seed_dict["plugin_contract"]
+
+    def test_seed_model_extra_mapping_is_immutable(self, full_seed: Seed) -> None:
+        """Seed.model_extra cannot bypass plugin extra validation."""
+        seed_dict = full_seed.to_dict()
+        seed_dict["plugin_contract"] = {"plugin": "example"}
+        reconstructed = Seed.from_dict(seed_dict)
+
+        with pytest.raises(TypeError):
+            reconstructed.model_extra["plugin_contract"] = {"plugin": "mutated"}  # type: ignore[index]
+        with pytest.raises(TypeError):
+            reconstructed.model_extra["bad"] = object()  # type: ignore[index]
+
+        assert reconstructed.to_dict()["plugin_contract"] == seed_dict["plugin_contract"]
+        assert "bad" not in reconstructed.to_dict()
+
+    def test_seed_plugin_extra_fields_use_standard_pydantic_serialization(
+        self, full_seed: Seed
+    ) -> None:
+        """Seed extras remain safe through the public Pydantic JSON API."""
+        seed_dict = full_seed.to_dict()
+        seed_dict["plugin_contract"] = {
+            "plugin": "example",
+            "candidate_sequence": [{"name": "baseline"}],
+        }
+        reconstructed = Seed.from_dict(seed_dict)
+
+        assert (
+            reconstructed.model_dump(mode="json")["plugin_contract"] == seed_dict["plugin_contract"]
+        )
+        assert '"plugin_contract"' in reconstructed.model_dump_json()
+
+    def test_seed_rejects_non_serializable_plugin_extra_fields(self, full_seed: Seed) -> None:
+        """Seed extras fail early when plugin data cannot be persisted."""
+        seed_dict = full_seed.to_dict()
+        seed_dict["plugin_contract"] = {"callback": object()}
+
+        with pytest.raises(PydanticValidationError, match="JSON/YAML-serializable"):
+            Seed.from_dict(seed_dict)
+
+    def test_seed_rejects_non_finite_plugin_extra_float(self, full_seed: Seed) -> None:
+        """Seed extras cannot contain floats that are invalid JSON values."""
+        seed_dict = full_seed.to_dict()
+        seed_dict["plugin_contract"] = {"score": float("nan")}
+
+        with pytest.raises(PydanticValidationError, match="finite float"):
+            Seed.from_dict(seed_dict)
+
     def test_seed_validation_empty_goal(self) -> None:
         """Seed validates goal is not empty."""
         with pytest.raises(PydanticValidationError):

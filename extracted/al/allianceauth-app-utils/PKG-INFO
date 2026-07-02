@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: allianceauth-app-utils
-Version: 1.33.0
+Version: 1.33.1
 Summary: Commonly used utilities and helpers for rapid development of Alliance Auth apps.
-Author-email: Erik Kalkoken <kalkoken87@gmail.com>
+Author-email: Erik Kalkoken <erik.kalkoken@gmail.com>
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 Classifier: Environment :: Web Environment
@@ -25,21 +25,20 @@ Requires-Dist: allianceauth>=4,<6
 Requires-Dist: requests
 Requires-Dist: pytz
 Requires-Dist: typing_extensions
-Project-URL: Changelog, https://gitlab.com/ErikKalkoken/allianceauth-app-utils/-/blob/master/CHANGELOG.md
 Project-URL: Documentation, https://allianceauth-app-utils.readthedocs.io/en/latest/
-Project-URL: Homepage, https://gitlab.com/ErikKalkoken/allianceauth-app-utils
-Project-URL: Source, https://gitlab.com/ErikKalkoken/allianceauth-app-utils
-Project-URL: Tracker, https://gitlab.com/ErikKalkoken/allianceauth-app-utils/-/issues
+Project-URL: Homepage, https://github.com/AllianceAuth-Apps/allianceauth-app-utils
+Project-URL: Source, https://github.com/AllianceAuth-Apps/allianceauth-app-utils
+Project-URL: Tracker, https://github.com/AllianceAuth-Apps/allianceauth-app-utils/issues
 
 # allianceauth-app-utils
 
 [![release](https://img.shields.io/pypi/v/allianceauth-app-utils?label=release)](https://pypi.org/project/allianceauth-app-utils/)
 [![python](https://img.shields.io/pypi/pyversions/allianceauth-app-utils)](https://pypi.org/project/allianceauth-app-utils/)
 [![django](https://img.shields.io/pypi/djversions/allianceauth-app-utils?label=django)](https://pypi.org/project/allianceauth-app-utils/)
-[![pipeline](https://gitlab.com/ErikKalkoken/allianceauth-app-utils/badges/master/pipeline.svg)](https://gitlab.com/ErikKalkoken/allianceauth-app-utils/-/pipelines)
-[![codecov](https://codecov.io/gl/ErikKalkoken/allianceauth-app-utils/branch/master/graph/badge.svg?token=S6AUWTRHC4)](https://codecov.io/gl/ErikKalkoken/allianceauth-app-utils)
+[![.github/workflows/ci-cd.yaml](https://github.com/AllianceAuth-Apps/allianceauth-app-utils/actions/workflows/ci-cd.yaml/badge.svg)](https://github.com/AllianceAuth-Apps/allianceauth-app-utils/actions/workflows/ci-cd.yaml)
+[![codecov](https://codecov.io/github/AllianceAuth-Apps/allianceauth-app-utils/graph/badge.svg?token=omNEqXLnR0)](https://codecov.io/github/AllianceAuth-Apps/allianceauth-app-utils)
 [![Documentation Status](https://readthedocs.org/projects/allianceauth-app-utils/badge/?version=latest)](https://allianceauth-app-utils.readthedocs.io/en/latest/?badge=latest)
-[![license](https://img.shields.io/badge/license-MIT-green)](https://gitlab.com/ErikKalkoken/allianceauth-app-utils/-/blob/master/LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-green)](https://github.com/AllianceAuth-Apps/allianceauth-app-utils#MIT-1-ov-file)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![chat](https://img.shields.io/discord/790364535294132234)](https://discord.gg/zmh52wnfvM)

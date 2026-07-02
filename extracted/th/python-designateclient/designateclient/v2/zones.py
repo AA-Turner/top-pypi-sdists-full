@@ -55,6 +55,12 @@ class ZoneController(V2Controller):
 
         return self._get(f'/zones/{zone}')
 
+    def nameservers(self, zone):
+        zone = v2_utils.resolve_by_name(self.list, zone)
+
+        return self._get('/zones/%s/nameservers' % zone,
+                         response_key='nameservers')
+
     def update(self, zone, values):
         zone = v2_utils.resolve_by_name(self.list, zone)
 
@@ -116,8 +122,9 @@ class ZoneTransfersController(V2Controller):
         url = f'/zones/tasks/transfer_requests/{transfer_id}'
         return self._get(url)
 
-    def list_requests(self):
-        url = '/zones/tasks/transfer_requests'
+    def list_requests(self, criterion=None, marker=None, limit=None):
+        url = self.build_url('/zones/tasks/transfer_requests', criterion,
+                             marker, limit)
         return self._get(url, response_key='transfer_requests')
 
     def update_request(self, transfer_id, values):
@@ -141,8 +148,9 @@ class ZoneTransfersController(V2Controller):
         url = f'/zones/tasks/transfer_accepts/{accept_id}'
         return self._get(url)
 
-    def list_accepts(self):
-        url = '/zones/tasks/transfer_accepts'
+    def list_accepts(self, criterion=None, marker=None, limit=None):
+        url = self.build_url('/zones/tasks/transfer_accepts', criterion,
+                             marker, limit)
         return self._get(url, response_key='transfer_accepts')
 
 
@@ -155,8 +163,9 @@ class ZoneExportsController(V2Controller):
     def get_export_record(self, zone_export_id):
         return self._get(f'/zones/tasks/exports/{zone_export_id}')
 
-    def list(self):
-        return self._get('/zones/tasks/exports')
+    def list(self, criterion=None, marker=None, limit=None):
+        url = self.build_url('/zones/tasks/exports', criterion, marker, limit)
+        return self._get(url, response_key='exports')
 
     def delete(self, zone_export_id):
         return self._delete(f'/zones/tasks/exports/{zone_export_id}')
@@ -167,15 +176,26 @@ class ZoneExportsController(V2Controller):
 
 
 class ZoneImportsController(V2Controller):
-    def create(self, zone_file_contents):
-        return self._post('/zones/tasks/imports', data=zone_file_contents,
-                          headers={'Content-Type': 'text/dns'})
+    def create(self, zone_file_contents, attributes=None):
+        if attributes:
+            data = {
+                'zonefile': zone_file_contents,
+                'attributes': attributes,
+            }
+            headers = {'Content-Type': 'application/json'}
+        else:
+            data = zone_file_contents
+            headers = {'Content-Type': 'text/dns'}
+
+        return self._post('/zones/tasks/imports', data=data,
+                          headers=headers)
 
     def get_import_record(self, zone_import_id):
         return self._get(f'/zones/tasks/imports/{zone_import_id}')
 
-    def list(self):
-        return self._get('/zones/tasks/imports')
+    def list(self, criterion=None, marker=None, limit=None):
+        url = self.build_url('/zones/tasks/imports', criterion, marker, limit)
+        return self._get(url, response_key='imports')
 
     def delete(self, zone_import_id):
         return self._delete(f'/zones/tasks/imports/{zone_import_id}')

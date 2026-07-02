@@ -5,8 +5,9 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable
 from datetime import datetime, timezone
+from urllib.parse import ParseResult, parse_qsl, urlencode, urlparse, urlunparse
 
-from ..approvals import queue_blocked_approvals
+from ..approvals import first_approval_url, queue_blocked_approvals
 from ..codex_resume import seed_request_resume_record
 from ..models import GuardArtifact, HarnessDetection
 from ..schemas import build_surface_server_contract
@@ -255,12 +256,22 @@ class GuardSurfaceRuntime:
             request_id = item.get("request_id")
             if isinstance(request_id, str):
                 seed_request_resume_record(self.store, request_id=request_id, now=_now())
+        approval_open_key = self._approval_surface_open_key(
+            queued,
+            fallback=open_key or str(waiting_operation["operation_id"]),
+        )
+        review_url = first_approval_url(
+            queued,
+            harness=harness,
+            approval_center_url=approval_center_url,
+            request_id=_request_id_from_open_key(approval_open_key),
+        )
         surface = self.ensure_surface(
             surface="approval-center",
             approval_center_url=approval_center_url,
-            browser_url=browser_url,
+            browser_url=_browser_url_for_review(browser_url, review_url),
             approval_surface_policy=approval_surface_policy,
-            open_key=open_key or str(waiting_operation["operation_id"]),
+            open_key=approval_open_key,
             opener=opener,
         )
         return {
@@ -364,6 +375,15 @@ class GuardSurfaceRuntime:
             self.record_surface_open(surface=surface, open_key=open_key)
         return {"surface": surface, "opened": True, "reason": "opened", "open_key": open_key}
 
+    def _approval_surface_open_key(self, queued: list[dict[str, object]], *, fallback: str) -> str:
+        request_keys = _approval_request_open_keys(queued)
+        for _request_id, open_key in request_keys:
+            if not self.has_surface_opened("approval-center", open_key):
+                return open_key
+        if request_keys:
+            return request_keys[0][1]
+        return fallback
+
     def _set_session_status(self, session_id: str, status: str) -> None:
         current = self.store.get_guard_session(session_id)
         if current is None:
@@ -430,6 +450,75 @@ def _parse_detection(payload: dict[str, object]) -> HarnessDetection:
         artifacts=artifacts,
         warnings=warnings,
     )
+
+
+def _browser_url_for_review(browser_url: str | None, review_url: str | None) -> str | None:
+    if review_url is None:
+        return browser_url
+    if browser_url is None:
+        return review_url
+    try:
+        parsed_browser = urlparse(browser_url)
+        parsed_review = urlparse(review_url)
+    except ValueError:
+        return browser_url
+    if not parsed_review.scheme or not parsed_review.netloc:
+        return browser_url
+    if not parsed_browser.scheme or not parsed_browser.netloc:
+        return review_url
+    if _same_origin(parsed_browser, parsed_review):
+        return urlunparse(
+            parsed_review._replace(fragment=_merged_fragment(parsed_review.fragment, parsed_browser.fragment))
+        )
+    if _same_local_approval_port(parsed_browser, parsed_review):
+        return urlunparse(
+            parsed_review._replace(fragment=_merged_fragment(parsed_review.fragment, parsed_browser.fragment))
+        )
+    return review_url
+
+
+def _approval_request_open_keys(queued: list[dict[str, object]]) -> list[tuple[str, str]]:
+    request_keys: list[tuple[str, str]] = []
+    for item in queued:
+        request_id = item.get("request_id")
+        if isinstance(request_id, str) and request_id.strip():
+            stripped = request_id.strip()
+            request_keys.append((stripped, f"approval-request:{stripped}"))
+    return request_keys
+
+
+def _request_id_from_open_key(open_key: str) -> str | None:
+    prefix = "approval-request:"
+    if open_key.startswith(prefix):
+        request_id = open_key[len(prefix) :].strip()
+        if request_id:
+            return request_id
+    return None
+
+
+def _same_origin(left: ParseResult, right: ParseResult) -> bool:
+    return (left.scheme, left.netloc) == (right.scheme, right.netloc)
+
+
+def _same_local_approval_port(left: ParseResult, right: ParseResult) -> bool:
+    left_host = left.hostname
+    right_host = right.hostname
+    local_hosts = {"0.0.0.0", "::", "127.0.0.1", "::1", "localhost"}
+    if left_host not in local_hosts or right_host not in local_hosts:
+        return False
+    try:
+        return left.port == right.port
+    except ValueError:
+        return False
+
+
+def _merged_fragment(primary_fragment: str, extra_fragment: str) -> str:
+    primary_pairs = parse_qsl(primary_fragment, keep_blank_values=True)
+    extra_pairs = parse_qsl(extra_fragment, keep_blank_values=True)
+    extra_keys = {key for key, _value in extra_pairs}
+    merged_pairs = [(key, value) for key, value in primary_pairs if key not in extra_keys]
+    merged_pairs.extend(extra_pairs)
+    return urlencode(merged_pairs)
 
 
 def _parse_artifact(payload: dict[str, object]) -> GuardArtifact:

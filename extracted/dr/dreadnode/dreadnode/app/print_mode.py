@@ -3,6 +3,7 @@
 import os
 import sys
 import typing as t
+from dataclasses import dataclass
 
 from loguru import logger
 
@@ -62,6 +63,7 @@ async def run_print_mode(
     session = await client.create_session(agent=agent, model=model, policy="headless")
     session_id = session.session_id
 
+    stats = _RunStats()
     try:
         async for raw_event in client.stream_chat(
             session_id=session_id,
@@ -72,7 +74,7 @@ async def run_print_mode(
             event = parse_wire_event(raw_event)
             if event is None:
                 continue
-            done = await _handle_event(event, client, session_id)
+            done = await _handle_event(event, client, session_id, stats)
             if done:
                 break
     except KeyboardInterrupt:
@@ -81,19 +83,112 @@ async def run_print_mode(
         # Final newline to ensure clean stdout
         sys.stdout.write("\n")
         sys.stdout.flush()
+        _print_usage_summary(stats)
         await client.close()
+
+
+# ---------------------------------------------------------------------------
+# Usage accumulator
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _RunStats:
+    """Accumulates usage telemetry across wire events during a headless run.
+
+    Mirrors the null-propagation semantics of
+    :attr:`~dreadnode.app.api.models.SessionInfo.total_cost_usd`: if *any*
+    generation reports output tokens but no cost rate, ``cost_unknown`` flips
+    and the cost total is suppressed — partial sums are misleading.
+    """
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float = 0.0
+    cost_unknown: bool = False
+    tool_calls: int = 0
+    generation_count: int = 0
+    model: str | None = None
+
+
+def _format_cost(usd: float) -> str:
+    """Format a positive USD cost for the summary line.
+
+    Matches the TUI context bar's ``_format_cost_usd``: sub-cent values
+    render as ``<$0.01`` to avoid false precision, everything else is
+    ``$X.XX``.
+    """
+    if usd < 0.01:
+        return "<$0.01"
+    return f"${usd:.2f}"
+
+
+def _compact(n: int) -> str:
+    """Compact integer: ``1.2k``, ``3.4M``. Matches ``dn session list``."""
+    if n < 1_000:
+        return str(n)
+    if n < 1_000_000:
+        return f"{n / 1_000:.1f}k".replace(".0k", "k")
+    return f"{n / 1_000_000:.1f}M".replace(".0M", "M")
+
+
+def _print_usage_summary(stats: _RunStats) -> None:
+    """Write a one-line usage summary to stderr after the run completes.
+
+    Output goes to stderr so it never corrupts piped stdout. The line
+    matches the visual language of ``dn session list`` (tokens, tool calls,
+    cost) and the TUI footer (``<$0.01`` floor, null-propagation for
+    unknown cost). Suppressed entirely when no inference ran.
+    """
+    if stats.generation_count == 0:
+        return
+
+    total_tokens = stats.input_tokens + stats.output_tokens
+    parts: list[str] = []
+    if stats.model:
+        parts.append(stats.model)
+    parts.append(f"{_compact(total_tokens)} tokens")
+    if stats.tool_calls:
+        parts.append(f"{stats.tool_calls} tool{'s' if stats.tool_calls != 1 else ''}")
+    if not stats.cost_unknown and stats.cost_usd > 0:
+        parts.append(f"usage {_format_cost(stats.cost_usd)}")
+
+    sys.stderr.write(" · ".join(parts) + "\n")
+    sys.stderr.flush()
+
+
+# ---------------------------------------------------------------------------
+# Event dispatch
+# ---------------------------------------------------------------------------
 
 
 async def _handle_event(
     event: we.WireEvent,
     client: ManagedRuntimeClient,  # noqa: ARG001 — kept for symmetry with future event handlers
     session_id: str,  # noqa: ARG001
+    stats: _RunStats,
 ) -> bool:
     """Process a single typed wire event. Returns True when the turn is done."""
     if isinstance(event, we.GenerationStep):
         if event.data.content:
             sys.stdout.write(event.data.content)
             sys.stdout.flush()
+
+        # Accumulate usage from each generation step.
+        usage = event.data.usage
+        stats.input_tokens += usage.input_tokens or 0
+        stats.output_tokens += usage.output_tokens or 0
+        if usage.cost_usd is not None:
+            stats.cost_usd += usage.cost_usd
+        elif (usage.output_tokens or 0) > 0:
+            stats.cost_unknown = True
+        stats.generation_count += 1
+        if event.data.model:
+            stats.model = event.data.model
+        return False
+
+    if isinstance(event, we.ToolStart):
+        stats.tool_calls += 1
         return False
 
     if isinstance(event, we.GenerationError):

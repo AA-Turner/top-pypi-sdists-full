@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-projects
-Version: 2.2.0
+Version: 2.3.0
 Summary: Microsoft Corporation Azure AI Projects Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -32,8 +32,8 @@ Dynamic: license-file
 The AI Projects client library is part of the Microsoft Foundry SDK, and provides easy access to
 resources in your [Microsoft Foundry](https://ai.azure.com/) Project. Use it to:
 
-* **Create and run Agents** using methods on the `.agents` client property. This includes **Hosted Agents** (Preview), which let you run your own containerized agent runtime while using Microsoft Foundry for managed hosting and scaling.
-* **Enhance Agents with specialized tools**:
+* **Create and run Agents** using methods on the `.agents` client property. This includes **Hosted Agents**, which let you run your own containerized agent runtime while using Microsoft Foundry for managed hosting and scaling.
+* **Enhance Agents with specialized tools and toolbox tools** such as:
   * Agent-to-Agent (A2A) (Preview)
   * Azure AI Search
   * Azure Functions
@@ -41,6 +41,7 @@ resources in your [Microsoft Foundry](https://ai.azure.com/) Project. Use it to:
   * Bing Grounding
   * Browser Automation (Preview)
   * Code Interpreter
+  * Computer
   * Computer Use (Preview)
   * Fabric IQ (Preview)
   * File Search
@@ -51,11 +52,13 @@ resources in your [Microsoft Foundry](https://ai.azure.com/) Project. Use it to:
   * Microsoft SharePoint (Preview)
   * Model Context Protocol (MCP)
   * OpenAPI
+  * Reminder Tool (Preview)
   * Toolbox Search (Preview)
   * Web Search
   * Web Search (Preview)
   * Work IQ (Preview)
 * **Get an OpenAI client** using `.get_openai_client()` method to run Responses, Conversations, Evaluations and Fine-Tuning operations with your Agent.
+* **Create and version toolboxes** that bundle collections of tools and skills for your agents, using `.toolboxes` operations.
 * **Fine-tune** AI Models on your data.
 * **Enumerate AI Models** deployed to your Foundry Project using `.deployments` operations.
 * **Enumerate connected Azure resources** in your Foundry project using `.connections` operations.
@@ -68,7 +71,8 @@ resources in your [Microsoft Foundry](https://ai.azure.com/) Project. Use it to:
 * **Run Red Team scans (preview)** to identify risks associated with your generative AI application, using `.beta.red_teams` operations.
 * **Create and manage routines (preview)** that execute triggered actions based on configured conditions, using `.beta.routines` operations.
 * **Manage skills (preview)** as reusable capabilities that can be included in toolboxes and agents, using `.beta.skills` operations.
-* **Create and version toolboxes (preview)** that bundle collections of tools and skills for your agents, using `.beta.toolboxes` operations.
+
+**Important:** This stable package includes Preview features. Preview features available through stable methods require setting `allow_preview=True` when constructing the client, while Preview features exposed via the .beta sub-clients do not. Preview features may change or be removed in future versions and are not recommended for production use.
 
 The client library uses version `v1` of the Microsoft Foundry [data plane REST APIs](https://aka.ms/azsdk/azure-ai-projects-v2/api-reference-v1).
 
@@ -103,7 +107,7 @@ To report an issue with the client library, or request additional features, plea
 pip install azure-ai-projects
 ```
 
-Verify that you have version 2.2.0 or above installed by running:
+Verify that you have version 2.3.0 or above installed by running:
 
 ```bash
 pip show azure-ai-projects
@@ -196,22 +200,25 @@ The table below lists the operation groups supported by the client library, with
 | Topic | Foundry documentation | Samples folder |
 |---|---|---|
 | Agents (create, run, stream) | [Agents overview](https://learn.microsoft.com/azure/foundry/agents/overview) | `samples/agents/` |
-| Hosted agents (preview) | [Hosted agents concepts](https://learn.microsoft.com/azure/foundry/agents/concepts/hosted-agents), [Deploy your first hosted agent](https://learn.microsoft.com/azure/foundry/agents/quickstarts/quickstart-hosted-agent) | `samples/hosted_agents/` |
+| Hosted agents | [Hosted agents concepts](https://learn.microsoft.com/azure/foundry/agents/concepts/hosted-agents), [Deploy your first hosted agent](https://learn.microsoft.com/azure/foundry/agents/quickstarts/quickstart-hosted-agent) | `samples/hosted_agents/` |
 | Agents tools | [Tool catalog](https://learn.microsoft.com/azure/foundry/agents/concepts/tool-catalog) | `samples/agents/tools/` |
+| Agents optimization | [Prompt optimizer](https://learn.microsoft.com/azure/foundry/observability/how-to/prompt-optimizer), [Agent optimizer overview](https://learn.microsoft.com/azure/foundry/agents/concepts/agent-optimizer-overview) | `samples/agents/optimization/` |
 | Connections | [Add a new connection to your project](https://learn.microsoft.com/azure/foundry/how-to/connections-add?tabs=foundry-portal)| `samples/connections/` |
+| Client-side tracing | [Add client-side tracing to Foundry agents](https://learn.microsoft.com/azure/foundry/observability/how-to/trace-agent-client-side?tabs=python) | `samples/telemetry/` |
 | Datasets | | `samples/datasets/` |
 | Deployments | [Deployment types](https://learn.microsoft.com/azure/foundry/foundry-models/concepts/deployment-types) | `samples/deployments/` |
 | Evaluation | [Evaluate agents](https://learn.microsoft.com/azure/foundry/observability/how-to/evaluate-agent) | `samples/evaluations/` |
 | Files (upload, retrieve, list, delete) | [OpenAI Files API](https://platform.openai.com/docs/api-reference/files) | `samples/files/` |
 | Fine-tuning | [When to use fine-tuning](https://learn.microsoft.com/azure/foundry/openai/concepts/fine-tuning-considerations), [Fine-Tuning in AI Foundry (GitHub repo)](https://github.com/microsoft-foundry/fine-tuning) | `samples/finetuning/` |
 | Indexes | [Azure AI Search](https://learn.microsoft.com/azure/search/search-what-is-azure-search) | `samples/indexes/` |
-| Memory stores (preview) | | `samples/memories/` |
+| Memory stores (preview) | [What is memory?](https://learn.microsoft.com/azure/foundry/agents/concepts/what-is-memory?tabs=conversational-agent) | `samples/memories/` |
 | Models (preview) | | `samples/models/` |
 | Red teams (preview) | | `samples/red_team/` |
 | Responses | [Responses API](https://platform.openai.com/docs/api-reference/responses) | `samples/responses/` |
-| Routines (preview) | | |
-| Skills (preview) | | `samples/hosted_agents/` |
-| Toolboxes (preview) | [Curate intent-based toolbox in Foundry](https://learn.microsoft.com/azure/foundry/agents/how-to/tools/toolbox?pivots=python) | `samples/hosted_agents/` |
+| Routines (preview) | [Routines overview](https://learn.microsoft.com/azure/foundry/agents/concepts/routines) | `samples/routines/` |
+| Sessions | [Manage hosted sessions](https://learn.microsoft.com/azure/foundry/agents/how-to/manage-hosted-sessions?pivots=python) | `samples/hosted_agents/` |
+| Skills (preview) | | `samples/skills/` |
+| Toolboxes | [Curate intent-based toolbox in Foundry](https://learn.microsoft.com/azure/foundry/agents/how-to/tools/toolbox?pivots=python) | `samples/hosted_agents/`, `samples/toolboxes/` |
 
 
 ## Client-side tracing
@@ -320,6 +327,67 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 
 # Release History
 
+## 2.3.0 (2026-07-01)
+
+### Features Added
+
+* Hosted Agent methods are now stable. There is no need to set `allow_preview=True` on the `AIProjectClient` constructor to create a Hosted Agent.
+* Session and Session Files methods are now stable. They have moved from the `.beta.agents` subclient to the `.agents` subclient.
+* Agent code methods are now stable. This includes `.agents.create_version_from_code` and `.agents.download_code` methods. They have moved from the `.beta.agents` subclient to the `.agents` subclient.
+* Toolboxes methods are now stable. They have moved from `.beta.toolboxes` subclient to the `.toolboxes` subclient.
+* Two new methods `.agents.enable` and `.agents.disable`.
+* New toolbox tool `ReminderPreviewToolboxTool`.
+* New concept of Draft Agent Version:
+  * Optional boolean argument `draft` added to method `.agents.create_version`.
+  * Optional boolean property `draft` added to class `AgentVersionDetails`.
+  * Optional boolean argument `include_drafts` added to method `.agents.list_versions`.
+* Optional property `defer_loading` added to a few Agent tool classes.
+* Optional property `supported_evaluation_levels` added to class `EvaluatorVersion`.
+* Class `BotServiceTenantAuthorizationScheme` added (derived from `AgentEndpointAuthorizationScheme`).
+* Class `EndpointBasedEvaluatorDefinition` added (derived from `EvaluatorDefinition`).
+
+### Breaking Changes
+
+All breaking changes are associated with beta features, or beta features that are being promoted to stable.
+
+* Toolbox method `create_version` now defines `tools` of type `List[ToolboxTool]` instead of `List[Tool]`. A new set of Toolbox tools classes,
+all derived from `ToolboxTool`, have been defined. 
+* Input argument structure for method `create_version_from_code` has been simplified. The same information is passed in, but in a modified way. Also, the `code` type has changed from `FileType` to `IO[bytes]`, and the `code_zip_sha256` was made optional (it will be calculated by the method if not provided by the caller).
+* Agent Optimization methods `.beta.agents.*optimization*` were re-written to better align with Foundry job guidelines and platform standards. The old version accumulated unused candidate sub-resources, internal-detail properties, and custom operation patterns inconsistent with the Foundry platform. The new version removes redundant models and operations, adopts shared Foundry job patterns (`JobLike<>`, standard job verbs), and introduces typed discriminated unions for dataset inputs and evaluator references.
+* Argument `agent_session_id` on Session Files methods was renamed to `session_id`.
+* Method `.beta.agents.list_optimization_candidates` now returns `ItemPaged[OptimizationCandidate]` instead of `AgentsPagedResultOptimizationCandidate`. The `after` parameter has been removed (use continuation-token-based paging instead).
+* Method `.agents.patch_agent_details` was renamed to `.agents.update_details`.
+* Optional property `default_ttl_seconds` on class `MemoryStoreDefaultOptions` has changed from type `int` to type `datetime.timedelta`.
+* Optional properties `description`, `name` and `tool_configs` have been removed from preview tools (classes derived from class `Tool`, with name ending in `PreviewTool`).
+* Optional properties `description`, `name` and `tool_configs` are now documented as deprecated in stable Agent tools, to be removed in a future version (classes derived from class `Tool` with names not ending with `PreviewTool`).
+* Optional property `protocols` on class `AgentEndpointConfig` was renamed to `protocol_configuration`.
+* Optional property `tools` removed from `HostedAgentDefinition`.
+* Optional property `system_data` removed from `ModelVersion`.
+* `AgentProtocol` class was removed. The `protocol` property in class `ProtocolVersionRecord` is now of type `Union[str, AgentEndpointProtocol]`. 
+
+### Sample updates
+
+* Added agent optimization samples under `samples/agents/optimization/`:
+  * `sample_optimization_job_basic.py` demonstrating how to create an optimization job, poll it to completion, and read the results.
+  * `sample_optimization_job_cancel.py` demonstrating how to create and immediately cancel an optimization job.
+  * `sample_optimization_job_list_get_delete.py` demonstrating how to list optimization jobs with filters, get a job by ID, and delete a job.
+* Added `sample_routines_crud.py` to demonstrate routines CRUD operations.
+* Added `sample_routines_with_timer_trigger.py` to demonstrate triggering a routine with a timer.
+* Added `sample_routines_with_schedule_trigger.py` to demonstrate triggering a routine on a recurring Cron schedule via `ScheduleRoutineTrigger`.
+* Added `sample_routines_with_dispatch.py` to demonstrate manually firing a routine on demand via `routines.dispatch(...)` using a `CustomRoutineTrigger`.
+* Added new Hosted Agent sample `sample_toolbox_with_skill.py` under `samples/hosted_agents/`, demonstrating a code-based Hosted Agent that uses Toolbox MCP skills.
+* Updated `sample_dataset_generation_job_traces_for_evaluation.py` and `sample_dataset_generation_job_traces_for_finetuning.py` to create a temporary agent, seed conversations, retry the data generation job over the trace window, and clean up all created resources.
+* Updated the rubric evaluator generation samples (`sample_rubric_evaluator_generation_basic.py`, `sample_rubric_evaluator_generation_iterate.py`, `sample_rubric_evaluator_generation_lifecycle.py`, `sample_rubric_evaluator_generation_all_sources.py`) to use the typed `EvaluatorGenerationJob` / `EvaluatorGenerationInputs` / `*EvaluatorGenerationJobSource` models. The job inputs are now nested under `inputs` per the service contract, and the traces source uses `datetime` values for `start_time` / `end_time`.
+* Updated Hosted Agent code-upload samples (`sample_create_hosted_agent_from_code.py`, `sample_create_hosted_agent_from_code_async.py`) to target runtime `python_3_14`, since `python_3_12` is no longer supported.
+* Updated Hosted Agent echo-agent assets (`samples/hosted_agents/assets/echo-agent/main.py`, `echo-agent-prebuilt.zip`) to use `@app.response_handler`, resolving a response-handling issue. The remote-build code-upload sample now builds the echo-agent zip from `samples/hosted_agents/assets/echo-agent/` at runtime instead of relying on a checked-in `echo-agent.zip`, so users can update the agent code and rerun the sample with their changes.
+* Updated Skills upload/download samples (`sample_skills_upload_and_download.py`, `sample_skills_upload_and_download_async.py`) to build the `team-status-update.zip` package from `samples/skills/assets/team-status-update/` at runtime instead of relying on a checked-in zip archive, so users can update the skill content and rerun the sample with their changes.
+* Updated scheduled evaluation samples (`sample_scheduled_evaluations.py`, `sample_scheduled_agent_traces_evaluation_smart_filter.py`) to import `ResourceManagementClient` from `azure.mgmt.resource.resources`.
+* Relocated and renamed `sample_skill_in_toolbox.py` (from `samples/hosted_agents/`) to `samples/agents/tools/sample_agent_toolbox_skill.py`.
+* Relocated Skills samples from `samples/hosted_agents/` to `samples/skills/`:
+  * `sample_skills_crud.py`.
+  * `sample_skills_upload_and_download.py`.
+* Relocated Toolbox sample from `samples/hosted_agents/` to `samples/toolboxes/sample_toolboxes_crud.py`.
+
 ## 2.2.0 (2026-05-29)
 
 ### Features Added
@@ -348,7 +416,7 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 ### Breaking Changes
 
 Breaking changes in beta methods:
-* Required keyword `isolation_key` removed from `.beta.agents.create_session()` and `.beta.agents.delete_session()` methods.
+* Argument `isolation_key` in methods `.beta.agents.create_session()` and `.beta.agents.delete_session()` renamed to `user_isolation_key`.
 * Argument `body` in methods `.beta.evaluation_taxonomies.create()` and `.beta.evaluation_taxonomies.update()` renamed to `taxonomy`.
 * Argument `body` in method `.beta.skills.create_from_files()` renamed to `content`.
 * Method `.beta.agents.get_session_files` renamed to `.beta.agents.list_session_files`.

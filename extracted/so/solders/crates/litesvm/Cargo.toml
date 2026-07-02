@@ -1,0 +1,41 @@
+
+[package]
+name = "solders-litesvm"
+version = "0.1.0"
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders LiteSVM crate."
+
+[dependencies]
+agave-feature-set = { workspace = true }
+agave-precompiles = { workspace = true }
+litesvm = { workspace = true, features = ["nodejs-internal", "precompiles", "serde"] }
+pyo3 = { workspace = true, features = ["macros"] }
+serde = { workspace = true }
+solana-account = { workspace = true }
+solana-clock = { workspace = true }
+solana-epoch-rewards = { workspace = true }
+solana-epoch-schedule = { workspace = true }
+solana-hash = { workspace = true }
+solana-last-restart-slot = { workspace = true }
+solana-message = { workspace = true }
+# add the precopmiles crate to ensure openssl-vendored is activated
+solana-rent = { workspace = true }
+solana-slot-hashes = { workspace = true }
+solana-slot-history = { workspace = true }
+solana-stake-interface = { workspace = true }
+solders-account = { workspace = true }
+solders-compute-budget = { workspace = true }
+solders-hash = { workspace = true }
+solders-instruction = { workspace = true }
+solders-macros = { workspace = true }
+solders-primitives = { workspace = true }
+solders-pubkey = { workspace = true }
+solders-signature = { workspace = true }
+solders-traits = { workspace = true, features = ["litesvm"] }
+solders-traits-core = { workspace = true }
+solders-transaction = { workspace = true }
+solders-transaction-error = { workspace = true }
+solders-transaction-return-data = { workspace = true }

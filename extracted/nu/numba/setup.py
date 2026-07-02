@@ -24,8 +24,8 @@ max_python_version = "3.15"  # exclusive
 min_numpy_build_version = "2.0.0rc1"
 min_numpy_run_version = "1.22"
 max_numpy_run_version = "2.5"
-min_llvmlite_version = "0.47.0dev0"
-max_llvmlite_version = "0.48"
+min_llvmlite_version = "0.48.0dev0"
+max_llvmlite_version = "0.49"
 
 if sys.platform.startswith('linux'):
     # Patch for #2555 to make wheels without libpython
@@ -173,6 +173,7 @@ def get_ext_modules():
                                        "numba/cext/utils.c",
                                        "numba/cext/dictobject.c",
                                        "numba/cext/listobject.c",
+                                       "numba/cext/setobject.c",
                                        ],
                               # numba/_random.c needs pthreads
                               extra_link_args=install_name_tool_fixer +
@@ -383,7 +384,6 @@ build_requires = ['numpy >={},<{}'.format(min_numpy_build_version,
                                           max_numpy_run_version)]
 install_requires = [
     'llvmlite >={},<{}'.format(min_llvmlite_version, max_llvmlite_version),
-    'numpy >={}'.format(min_numpy_run_version),
     'numpy >={},<{}'.format(min_numpy_run_version, max_numpy_run_version),
 ]
 
@@ -413,13 +413,12 @@ metadata = dict(
         "numba.cuda.tests.doc_examples.ffi": ["*.cu"],
         "numba.tests": ["pycc_distutils_usecase/*.py"],
         # Some C files are needed by pycc
-        "numba": ["*.c", "*.h"],
+        "numba": ["*.c", "*.h", "py.typed"],
         "numba.pycc": ["*.c", "*.h"],
         "numba.core.runtime": ["*.cpp", "*.c", "*.h"],
         "numba.cext": ["*.c", "*.h"],
         # numba gdb hook init command language file
         "numba.misc": ["cmdlang.gdb"],
-        "numba.typed": ["py.typed"],
         "numba.cuda" : ["cpp_function_wrappers.cu", "cuda_fp16.h",
                         "cuda_fp16.hpp"]
     },

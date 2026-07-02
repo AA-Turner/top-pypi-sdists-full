@@ -44,7 +44,7 @@ install_requires = [
 
 setup(
     name='wadllib',
-    version='2.0.0',
+    version='2.1.0',
     packages=find_packages('src'),
     package_dir={'': 'src'},
     package_data={
@@ -83,6 +83,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         ],
     extras_require={
         "docs": ['Sphinx'],

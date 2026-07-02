@@ -20,6 +20,7 @@ from __future__ import annotations
 import enum
 
 import click
+from click.shell_completion import CompletionItem
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -286,16 +287,40 @@ class EnumChoice(click.Choice):
         self._check_choice_str(member, choice)
         return choice
 
-    def normalize_choice(
-        self, choice: enum.Enum | str, ctx: click.Context | None
-    ) -> str:
+    def normalize_choice(self, choice: object, ctx: click.Context | None) -> str:
         """Expand the parent's ``normalize_choice()`` to accept ``Enum`` members as input.
 
-        Parent method expects a string, but here we allow passing ``Enum`` members too.
+        An ``Enum`` member is mapped to its choice string first; any other value
+        is passed to the parent untouched.
         """
         if isinstance(choice, enum.Enum):
             choice = self.get_choice_string(choice)
         return super().normalize_choice(choice, ctx)
+
+    def shell_complete(
+        self,
+        ctx: click.Context,
+        param: click.Parameter,
+        incomplete: str,
+    ) -> list[CompletionItem]:
+        """Return completion items with choices normalized via ``normalize_choice()``.
+
+        Overrides the parent to ensure ``normalize_choice()`` is always called on
+        each candidate, fixing Click 8.4.0 where ``shell_complete()`` returned raw
+        (unnormalized) choice strings for ``ChoiceSource.KEY``.
+
+        .. note::
+            On Click 8.4.1+ this override is a no-op: the parent already calls
+            ``normalize_choice()``, and re-normalizing is idempotent
+            (``casefold(casefold(s)) == casefold(s)``).
+        """
+        str_choices = [self.normalize_choice(choice, ctx) for choice in self.choices]
+        if self.case_sensitive:
+            matched = (c for c in str_choices if c.startswith(incomplete))
+        else:
+            incomplete = incomplete.lower()
+            matched = (c for c in str_choices if c.lower().startswith(incomplete))
+        return [CompletionItem(c) for c in matched]
 
     def convert(
         self, value: Any, param: click.Parameter | None, ctx: click.Context | None

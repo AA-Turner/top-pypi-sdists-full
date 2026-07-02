@@ -214,6 +214,52 @@ class VersionedRef(ArtifactRef):
     version: str
 
 
+def parse_env_model_overrides(
+    values: list[str] | None,
+    *,
+    resolve: t.Callable[[str], str] | None = None,
+) -> dict[str, str] | None:
+    """Parse repeatable ``--env-model ROLE=MODEL_ID`` flags into a role->id map.
+
+    Targets the task ENVIRONMENT (defender) models — distinct from ``--model``
+    (the solver/agent model) and ``--judge-model``. Later repeats override earlier
+    ones for the same role (per-role merge). ``resolve`` (e.g. ``resolve_model``)
+    normalizes each id. Returns ``None`` when no overrides are given.
+    """
+    if not values:
+        return None
+    out: dict[str, str] = {}
+    for raw in values:
+        if "=" not in raw:
+            raise ValueError(f"--env-model expects ROLE=MODEL_ID, got: {raw!r}")
+        role, _, model_id = raw.partition("=")
+        role = role.strip()
+        model_id = model_id.strip()
+        if not role:
+            raise ValueError(f"--env-model role must not be empty: {raw!r}")
+        if not model_id:
+            raise ValueError(f"--env-model model id must not be empty: {raw!r}")
+        out[role] = resolve(model_id) if resolve else model_id
+    return out or None
+
+
+def merge_env_model_overrides(
+    existing: t.Any, parsed: dict[str, str] | None
+) -> dict[str, str] | None:
+    """Per-role merge of CLI overrides onto any manifest ``model_overrides``.
+
+    A ``--env-model`` flag overrides only its own role, leaving the rest of a
+    ``model_overrides`` block loaded from ``--file`` intact (unlike whole-value
+    flag replacement). Returns ``None`` when neither source has entries.
+    """
+    merged: dict[str, str] = {}
+    if isinstance(existing, dict):
+        merged.update({str(k): str(v) for k, v in existing.items()})
+    if parsed:
+        merged.update(parsed)
+    return merged or None
+
+
 def _parse_ref(value: str) -> tuple[str | None, str, str | None]:
     """Shared parsing logic for artifact references."""
     version: str | None = None

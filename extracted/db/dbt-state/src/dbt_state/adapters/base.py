@@ -325,7 +325,9 @@ class BaseAdapterExtension(abc.ABC):
                     if self.SHOULD_RELEASE_CONNECTION:
                         self._release_thread_connection()
 
-            for index, batch in enumerate(self._batch_table_names(uncached_table_names)):
+            for index, batch in enumerate(
+                self._batch_tables_for_last_modified(uncached_table_names)
+            ):
                 with_overrides, without_overrides = (
                     [tbl for tbl in batch if tbl in override_map],
                     [tbl for tbl in batch if tbl not in override_map],
@@ -802,6 +804,17 @@ class BaseAdapterExtension(abc.ABC):
             A list of lists. Each entry is a batch of tables to process at once via self._fetch_view_definitions()
         """
         return [tables]
+
+    def _batch_tables_for_last_modified(
+        self, tables: t.Collection[exp.Table]
+    ) -> t.Collection[t.Collection[exp.Table]]:
+        """Batching strategy for last-modified fetches specifically.
+
+        Defaults to `_batch_table_names`. Adapters can override this to choose a different
+        parallelism strategy for on-demand last-modified queries without affecting view-definition
+        batching.
+        """
+        return self._batch_table_names(tables)
 
     @abc.abstractmethod
     def _fetch_view_definitions(self, table_batch: t.Collection[exp.Table]) -> ViewFetchResult:

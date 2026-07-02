@@ -1,0 +1,23 @@
+pipeline:
+    - test
+    - lint
+    - audit
+
+jobs:
+    test:
+        series: focal
+        architectures: amd64
+        packages: [git, rabbitmq-server, tox]
+        run: tox -e py312
+
+    lint:
+        series: noble
+        architectures: amd64
+        packages: [tox, git]
+        run: tox -e lint
+
+    audit:
+        series: noble
+        architectures: amd64
+        packages: [tox, git]
+        run: tox -e audit

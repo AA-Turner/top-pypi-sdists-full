@@ -3960,6 +3960,10 @@ def ev(node, env: Dict[str, z3.ExprRef], ctx: Ctx) -> z3.ExprRef:
             raise Unsupported(f"{name}() over a non-tuple iterable")
         if name == "isinstance" and len(node.args) == 2:     # static type test from the value's sort
             v = ev(node.args[0], env, ctx)
+            _tn = node.args[1]                                # the 2nd argument must be a type or tuple of types; a
+            if (ctx.traps is not None and not BEST_EFFORT     # value that is a modeled scalar (a bare parameter or
+                    and isinstance(_tn, ast.Name) and _definitely_not_iterable(env.get(_tn.id))):   # local bound to an
+                ctx.traps.append(ctx.pc)                      # int/float/bool) is never a type -> isinstance TypeError
             if not (z3.is_expr(v) or isinstance(v, tuple)):   # an opaque/unmodeled value: its type is unknown,
                 if _TRAPFREE:                                 # isinstance never traps; the result is arbitrary
                     return z3.FreshConst(z3.BoolSort(), "hi")
@@ -4015,6 +4019,9 @@ def ev(node, env: Dict[str, z3.ExprRef], ctx: Ctx) -> z3.ExprRef:
                 for ln in lens[1:]:
                     m = z3.If(ln < m, ln, m)
                 return _SafeContainer("zip", length=m, unsized=True, tuple_arity=len(parts))   # elements are k-tuples
+            if any(_definitely_not_iterable(p) for p in parts) and not BEST_EFFORT:
+                raise Unsupported("zip() of a possibly non-iterable value")   # a scalar argument raises TypeError,
+                #                                                               as enumerate() over a scalar declines
             return _Opaque("zip")                            # an iterable of tuples; a for-loop over it havocs the targets
         if name == "Fraction" and 1 <= len(node.args) <= 2:  # exact rational over Z3 Real
             num = _to_real(ev(node.args[0], env, ctx))
@@ -4905,6 +4912,13 @@ def ev(node, env: Dict[str, z3.ExprRef], ctx: Ctx) -> z3.ExprRef:
         for gen in node.generators:
             it = ev(gen.iter, env2, ctx)                     # the iterable is evaluated (trap-checked) regardless
             iters.append(it)
+            if (isinstance(gen.target, (ast.Tuple, ast.List))
+                    and ctx.traps is not None and not BEST_EFFORT):   # `[e for a, b in xs]`: an element of non-k-tuple
+                _k = len(gen.target.elts)                             # shape raises on unpack unless the iterable is a
+                _ar = it.tuple_arity if isinstance(it, _SafeContainer) else None   # tracked k-tuple source or a
+                if _ar != _k and not _unpack_arity_ok(gen.iter, _k):  # fixed-arity builtin (enumerate/zip/zip_longest)
+                    _ne = (_container_len(it, ctx) >= 1) if isinstance(it, _SafeContainer) else z3.BoolVal(True)
+                    ctx.traps.append(z3.And(ctx.pc, _ne))
             if _is_str(it) and isinstance(gen.target, ast.Name):   # iterating a string yields 1-char strings, so the
                 cs = z3.String("hc_" + gen.target.id)              # element's ord(c) / len(c) / c == '?' is modeled
                 if ctx.facts is not None:
@@ -5367,6 +5381,41 @@ def _stmt_assigned_names(stmts):
 
 def _target_names(t):
     return {n.id for n in ast.walk(t) if isinstance(n, ast.Name)}
+
+
+def _unpack_arity_ok(iter_node, k):
+    """True iff a for/comprehension iterable provably yields only k-element unpackable tuples, so
+    `for <k names> in iter` cannot raise on the unpack: enumerate (k == 2), and zip / itertools.zip_longest
+    over k non-starred positional arguments (each yielded element is a k-tuple). Matched only on the bare
+    builtin name (or itertools.zip_longest), never a `.enumerate`/`.zip`/`.items` method, whose element
+    shape is arbitrary. A bare container, an arbitrary call, or dict.items() (handled by the value engine's
+    tuple_arity, which knows the receiver is a real dict) is not recognized here, so the unpack abstains."""
+    if not isinstance(iter_node, ast.Call):
+        return False
+    f = iter_node.func
+    if isinstance(f, ast.Name):
+        name = f.id
+    elif (isinstance(f, ast.Attribute) and f.attr == "zip_longest"
+          and isinstance(f.value, ast.Name) and f.value.id == "itertools"):
+        name = "zip_longest"
+    else:
+        return False
+    if name == "enumerate":
+        return k == 2
+    if name in ("zip", "zip_longest"):
+        args = iter_node.args
+        return len(args) == k and len(args) >= 1 and not any(isinstance(a, ast.Starred) for a in args)
+    return False
+
+
+def _definitely_not_iterable(x):
+    """True iff `x` is a modeled scalar -- an int, float, bool, or fixed-width integer -- which is never
+    iterable, so enumerate(x) / zip(..., x, ...) raises TypeError. A container, string, tuple, dict, None,
+    or opaque value (unknown, hence possibly iterable) is not flagged, so only a provable scalar traps."""
+    if not z3.is_expr(x):
+        return False
+    s = x.sort()
+    return s == z3.IntSort() or s == z3.RealSort() or s == z3.BoolSort() or z3.is_bv_sort(s)
 
 
 def _recv_root_name(node):
@@ -6009,6 +6058,17 @@ def symexec(src: str, ctx: Ctx, argvals=None, param_kinds=None):
                         if not BEST_EFFORT:                  # a tracked scalar is not iterable -> UNKNOWN unless best-effort
                             raise Unsupported("iteration over a possibly non-iterable value")
                         _best_effort_assume()
+                    # a tuple target `for a, b in it` unpacks each element into k names. Unless the iterable is
+                    # known to yield k-tuples -- the value's tuple_arity (enumerate/zip/dict.items over a tracked
+                    # container) or the syntax of a fixed-arity builtin (enumerate/zip/zip_longest over anything) --
+                    # an element of another shape raises TypeError/ValueError once the loop runs. Withhold the proof
+                    # there, as the direct `a, b = xs` unpacking does, for a bare container OR an arbitrary call.
+                    if (isinstance(s.target, (ast.Tuple, ast.List)) and ctx.traps is not None and not BEST_EFFORT):
+                        _k = len(s.target.elts)
+                        _ar = itv.tuple_arity if isinstance(itv, _SafeContainer) else None
+                        if _ar != _k and not _unpack_arity_ok(s.iter, _k):
+                            _ne = (_container_len(itv, ctx) >= 1) if isinstance(itv, _SafeContainer) else z3.BoolVal(True)
+                            ctx.traps.append(z3.And(ctx.pc, _ne))
                     if ctx.exact_traps is not None and isinstance(s.target, ast.Name) and not s.orelse \
                             and isinstance(itv, _SafeContainer):
                         # the first iteration is exact (pre-loop accumulators, a freely-chosen element), so a trap

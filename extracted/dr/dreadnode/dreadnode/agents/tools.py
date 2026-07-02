@@ -512,6 +512,10 @@ class Tool(BaseModel, t.Generic[P, R]):
 
         if isinstance(result, Message):
             message.content_parts = result.content_parts
+            # Carry metadata from the tool's returned Message so the agent
+            # framework can lift known keys (e.g. ``subagent_cost_usd``)
+            # onto the ``ToolEnd`` event.
+            message.metadata.update(result.metadata)
         elif isinstance(result, ContentTypes):
             message.content_parts = [result]
         elif (

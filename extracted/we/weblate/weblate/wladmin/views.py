@@ -16,7 +16,7 @@ from django.core.checks import run_checks
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -31,7 +31,10 @@ from requests.exceptions import HTTPError, Timeout
 
 from weblate.accounts.forms import AdminUserSearchForm, ContactForm
 from weblate.accounts.views import UserList, get_initial_contact
-from weblate.auth.decorators import management_access
+from weblate.auth.decorators import (
+    management_access,
+    management_permission_required,
+)
 from weblate.auth.forms import (
     AdminBulkInviteForm,
     AdminInviteUserForm,
@@ -44,6 +47,8 @@ from weblate.auth.models import (
 )
 from weblate.configuration.models import Setting, SettingCategory
 from weblate.configuration.views import CustomCSSView
+from weblate.memory.models import Memory, MemoryScopeMigrationState
+from weblate.memory.tasks import MEMORY_SCOPE_COMPACTION_STATE
 from weblate.trans.actions import ActionEvents
 from weblate.trans.alerts.base import AlertSeverity
 from weblate.trans.forms import AnnouncementForm
@@ -52,7 +57,11 @@ from weblate.trans.util import redirect_param
 from weblate.utils import messages
 from weblate.utils.cache import measure_cache_latency
 from weblate.utils.celery import get_queue_stats
-from weblate.utils.db import measure_database_latency
+from weblate.utils.db import (
+    get_database_disk_usage,
+    get_database_size,
+    measure_database_latency,
+)
 from weblate.utils.encoding import get_encoding_list
 from weblate.utils.errors import report_error
 from weblate.utils.stats import prefetch_stats
@@ -106,6 +115,7 @@ MENU: tuple[tuple[str, str, StrOrPromise], ...] = (
     ("tools", "manage-tools", gettext_lazy("Tools")),
     ("machinery", "manage-machinery", gettext_lazy("Automatic suggestions")),
     ("addons", "manage-addons", gettext_lazy("Add-ons")),
+    ("github", "manage-github-accounts", gettext_lazy("VCS Installations")),
 )
 if "weblate.billing" in settings.INSTALLED_APPS:
     MENU += (("billing", "manage-billing", gettext_lazy("Billing")),)
@@ -188,11 +198,17 @@ def send_test_mail(email: str) -> None:
 
 @management_access
 def tools(request: AuthenticatedHttpRequest) -> HttpResponse:
-    email_form = TestMailForm(initial={"email": request.user.email})
-    announce_form = AnnouncementForm()
+    can_configure = request.user.has_perm("management.configure")
+    email_form = (
+        TestMailForm(initial={"email": request.user.email}) if can_configure else None
+    )
+    can_post_announcement = request.user.has_perm("announcement.edit")
+    announce_form = AnnouncementForm() if can_post_announcement else None
 
     if request.method == "POST":
         if "email" in request.POST:
+            if not can_configure:
+                raise PermissionDenied
             email_form = TestMailForm(request.POST)
             if email_form.is_valid():
                 try:
@@ -206,10 +222,14 @@ def tools(request: AuthenticatedHttpRequest) -> HttpResponse:
                 return redirect("manage-tools")
 
         if "sentry" in request.POST:
+            if not can_configure:
+                raise PermissionDenied
             report_error("Test message", message=True, level="info")
             return redirect("manage-tools")
 
         if "message" in request.POST:
+            if not can_post_announcement:
+                raise PermissionDenied
             announce_form = AnnouncementForm(request.POST)
             if announce_form.is_valid():
                 Announcement.objects.create(
@@ -224,11 +244,13 @@ def tools(request: AuthenticatedHttpRequest) -> HttpResponse:
             "menu_page": "tools",
             "email_form": email_form,
             "announce_form": announce_form,
+            "can_configure": can_configure,
+            "can_post_announcement": can_post_announcement,
         },
     )
 
 
-@management_access
+@management_permission_required("management.configure")
 @require_POST
 @transaction.atomic
 def discovery(request: AuthenticatedHttpRequest) -> HttpResponse:
@@ -249,7 +271,7 @@ def discovery(request: AuthenticatedHttpRequest) -> HttpResponse:
     return redirect("manage")
 
 
-@management_access
+@management_permission_required("management.configure")
 @require_POST
 @transaction.atomic
 def activate(request: AuthenticatedHttpRequest) -> HttpResponse:
@@ -280,7 +302,7 @@ def activate(request: AuthenticatedHttpRequest) -> HttpResponse:
             )
         except HTTPError as error:
             report_error("Activation error")
-            if error.response.status_code == 404:
+            if error.response is not None and error.response.status_code == 404:
                 messages.error(
                     request,
                     gettext(
@@ -325,7 +347,7 @@ def repos(request: AuthenticatedHttpRequest) -> HttpResponse:
     )
 
 
-@management_access
+@management_permission_required("management.configure")
 def backups(request: AuthenticatedHttpRequest) -> HttpResponse:
     form = BackupForm()
     if request.method == "POST":
@@ -364,6 +386,77 @@ def backups(request: AuthenticatedHttpRequest) -> HttpResponse:
     return render(request, "manage/backups.html", context)
 
 
+def get_memory_migration_status() -> dict[str, Any]:
+    # TODO(2028.1): Remove this migration status helper once Weblate no longer
+    # supports direct upgrades from 2026 releases.
+    """Return translation memory background migration status."""
+    state = MemoryScopeMigrationState.objects.filter(
+        name="memory-scope-backfill"
+    ).first()
+    compaction_state = MemoryScopeMigrationState.objects.filter(
+        name=MEMORY_SCOPE_COMPACTION_STATE
+    ).first()
+    max_memory_id = Memory.objects.aggregate(max_id=Max("id"))["max_id"] or 0
+    last_memory_id = state.last_memory_id if state is not None else 0
+    compaction_last_memory_id = (
+        compaction_state.last_memory_id if compaction_state is not None else 0
+    )
+    needs_backfill = state is not None and not state.completed
+    if state is None and max_memory_id:
+        needs_backfill = (
+            Memory.objects.alias(memory_has_scope=Memory.objects.get_has_scope_exists())
+            .filter(memory_has_scope=False)
+            .exists()
+        )
+    backfill_completed = max_memory_id == 0 or not needs_backfill
+
+    if backfill_completed:
+        backfill_percent = 100
+        processed = max_memory_id
+    else:
+        processed = last_memory_id
+        backfill_percent = (
+            min(round(processed * 100 / max_memory_id), 100) if max_memory_id else 0
+        )
+
+    compaction_completed = (
+        backfill_completed
+        and compaction_state is not None
+        and compaction_state.completed
+    )
+    compaction_active = (
+        backfill_completed and max_memory_id > 0 and not compaction_completed
+    )
+    compaction_percent = (
+        min(round(compaction_last_memory_id * 100 / max_memory_id), 100)
+        if max_memory_id and compaction_active
+        else 100
+        if compaction_completed or not max_memory_id
+        else 0
+    )
+    return {
+        "backfill_completed": backfill_completed,
+        "backfill_percent": backfill_percent,
+        "completed": backfill_completed and not compaction_active,
+        "compaction_active": compaction_active,
+        "compaction_completed": compaction_completed,
+        "compaction_last_memory_id": compaction_last_memory_id,
+        "compaction_max_memory_id": max_memory_id,
+        "compaction_percent": compaction_percent,
+        "last_memory_id": last_memory_id,
+        "processed": processed,
+        "state": state,
+        "total": max_memory_id,
+        "updated": (
+            compaction_state.updated
+            if backfill_completed and compaction_state is not None
+            else state.updated
+            if state is not None
+            else None
+        ),
+    }
+
+
 def handle_dismiss(request: AuthenticatedHttpRequest) -> HttpResponse:
     try:
         error = ConfigurationError.objects.get(pk=int(request.POST["pk"]))
@@ -382,6 +475,8 @@ def handle_dismiss(request: AuthenticatedHttpRequest) -> HttpResponse:
 def performance(request: AuthenticatedHttpRequest) -> HttpResponse:
     """Show performance tuning tips."""
     if request.method == "POST":
+        if not request.user.has_perm("management.configure"):
+            raise PermissionDenied
         return handle_dismiss(request)
     checks = sorted(
         (
@@ -402,6 +497,9 @@ def performance(request: AuthenticatedHttpRequest) -> HttpResponse:
     else:
         disk_usage_percent = round(disk_usage_bytes.used * 100 / disk_usage_bytes.total)
 
+    database_size = get_database_size()
+    database_disk_usage = get_database_disk_usage()
+
     context = {
         "checks": checks,
         "errors": ConfigurationError.objects.filter(ignored=False),
@@ -415,6 +513,9 @@ def performance(request: AuthenticatedHttpRequest) -> HttpResponse:
         "cache_latency": measure_cache_latency(),
         "disk_usage": disk_usage_bytes,
         "disk_usage_percent": disk_usage_percent,
+        "database_size": database_size,
+        "database_disk_usage": database_disk_usage,
+        "memory_migration_status": get_memory_migration_status(),
     }
 
     return render(request, "manage/performance.html", context)
@@ -427,7 +528,7 @@ def get_key_type(data: QueryDict) -> KeyType:
     return cast("KeyType", value)
 
 
-@management_access
+@management_permission_required("management.configure")
 def ssh_key(request: AuthenticatedHttpRequest) -> HttpResponse:
     key_type = get_key_type(request.GET)
     filename, data = get_key_data_raw(key_type=key_type, kind="private")
@@ -440,7 +541,7 @@ def ssh_key(request: AuthenticatedHttpRequest) -> HttpResponse:
     return response
 
 
-@management_access
+@management_permission_required("management.configure")
 def ssh(request: AuthenticatedHttpRequest) -> HttpResponse:
     """Show information and manipulate with SSH key."""
     # Check whether we can generate SSH key
@@ -492,7 +593,7 @@ def alerts(request: AuthenticatedHttpRequest) -> HttpResponse:
     """Show component alerts."""
     context = {
         "alerts": Alert.objects.filter(severity__gte=AlertSeverity.ERROR)
-        .order_by("name", "component__project__name", "component__name")
+        .order()
         .select_related("component", "component__project"),
         "no_components": Project.objects.filter(component__isnull=True),
         "menu_items": MENU,
@@ -519,6 +620,16 @@ class AdminUserList(UserList):
     def get_bulk_invite_form(data=None) -> AdminBulkInviteForm:
         return AdminBulkInviteForm(data, auto_id="id_admin_bulk_invite_%s")
 
+    def dispatch(self, request: AuthenticatedHttpRequest, *args, **kwargs):  # type: ignore[override]
+        if request.method == "POST":
+            if not request.user.has_perm("user.edit"):
+                raise PermissionDenied
+        elif not (
+            request.user.has_perm("user.view") or request.user.has_perm("user.edit")
+        ):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
     def post(self, request: AuthenticatedHttpRequest, **kwargs) -> HttpResponse:
         if "emails" in request.POST:
             bulk_invite_form = self.get_bulk_invite_form(request.POST)
@@ -536,21 +647,31 @@ class AdminUserList(UserList):
 
     def get_context_data(self, **kwargs) -> dict[str, Any]:
         result = super().get_context_data(**kwargs)
+        can_edit_users = self.request.user.has_perm("user.edit")
 
-        if self.request.method == "POST" and "email" in self.request.POST:
+        posted_invite = self.request.method == "POST" and "email" in self.request.POST
+        if can_edit_users and posted_invite:
             invite_form = self.get_invite_form(self.request.POST)
             invite_form.is_valid()
-        else:
+        elif can_edit_users:
             invite_form = self.get_invite_form()
+        else:
+            invite_form = None
 
-        if self.request.method == "POST" and "emails" in self.request.POST:
+        posted_bulk_invite = (
+            self.request.method == "POST" and "emails" in self.request.POST
+        )
+        if can_edit_users and posted_bulk_invite:
             bulk_invite_form = self.get_bulk_invite_form(self.request.POST)
             bulk_invite_form.is_valid()
-        else:
+        elif can_edit_users:
             bulk_invite_form = self.get_bulk_invite_form()
+        else:
+            bulk_invite_form = None
 
         result["menu_items"] = MENU
         result["menu_page"] = "users"
+        result["can_edit_users"] = can_edit_users
         result["invite_form"] = invite_form
         result["bulk_invite_form"] = bulk_invite_form
         result["search_form"] = self.form
@@ -558,7 +679,7 @@ class AdminUserList(UserList):
         return result
 
 
-@management_access
+@management_permission_required("user.edit")
 def users_check(request: AuthenticatedHttpRequest) -> HttpResponse:
     data: QueryDict = request.GET
     # Legacy links for care.weblate.org integration
@@ -580,7 +701,7 @@ def users_check(request: AuthenticatedHttpRequest) -> HttpResponse:
     return redirect("manage-users")
 
 
-@management_access
+@management_permission_required("management.configure")
 def appearance(request: AuthenticatedHttpRequest) -> HttpResponse:
     current = Setting.objects.get_settings_dict(SettingCategory.UI)
     form = AppearanceForm(initial=current)
@@ -626,9 +747,10 @@ def appearance(request: AuthenticatedHttpRequest) -> HttpResponse:
     )
 
 
-@management_access
+@management_permission_required("billing.manage")
 def billing(request: AuthenticatedHttpRequest) -> HttpResponse:
-    from weblate.billing.models import Billing  # noqa: PLC0415
+    # ruff: ignore[import-outside-top-level]
+    from weblate.billing.models import Billing
 
     trial = []
     pending = []
@@ -684,6 +806,16 @@ class TeamListView(FormMixin, ListView):
     model = Group
     form_class = SitewideTeamForm
 
+    def dispatch(self, request: AuthenticatedHttpRequest, *args, **kwargs):  # type: ignore[override]
+        if request.method == "POST":
+            if not request.user.has_perm("group.edit"):
+                raise PermissionDenied
+        elif not (
+            request.user.has_perm("group.view") or request.user.has_perm("group.edit")
+        ):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
     def get_queryset(self) -> QuerySet[Group]:
         return (
             cast("GroupQuerySet", super().get_queryset())
@@ -697,6 +829,7 @@ class TeamListView(FormMixin, ListView):
         result = super().get_context_data(**kwargs)
         result["menu_items"] = MENU
         result["menu_page"] = "teams"
+        result["can_edit_teams"] = self.request.user.has_perm("group.edit")
         return result
 
     def get_success_url(self) -> str:

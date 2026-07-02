@@ -24,10 +24,10 @@ __all__ = (
     "GOOGLE_VEO",
     "GROQ_TRANSCRIPTION",
     "GROQ_TTS",
-    "LLAMA_CPP_API_KEY_DEFAULT",
     "LLAMA_CPP_BASE_URL_DEFAULT",
     "LLAMA_CPP_GEMMA",
     "LLAMA_CPP_QWEN",
+    "LOCAL_OPENAI_API_KEY_DEFAULT",
     "LOCAL_QWEN_CONTEXT_WINDOW",
     "LOCAL_QWEN_PRESET_NAME",
     "MEMORY_OLLAMA_LLM",
@@ -69,10 +69,10 @@ class ModelPreset:
 
 
 _ANTHROPIC_OPUS = "claude-opus-4-8"
-_ANTHROPIC_SONNET = "claude-sonnet-4-6"
+_ANTHROPIC_SONNET = "claude-sonnet-5"
 _ANTHROPIC_HAIKU = "claude-haiku-4-5"
 AWS_BEDROCK_CLAUDE_OPUS = "anthropic.claude-opus-4-8"
-_AWS_BEDROCK_CLAUDE_SONNET = "global.anthropic.claude-sonnet-4-6"
+_AWS_BEDROCK_CLAUDE_SONNET = "global.anthropic.claude-sonnet-5"
 _AWS_BEDROCK_CLAUDE_HAIKU = "global.anthropic.claude-haiku-4-5"
 CODEX_GPT = "gpt-5.5"
 _OPENAI_GPT = "gpt-5.5"
@@ -88,7 +88,7 @@ GOOGLE_IMAGEN_ULTRA = "imagen-4.0-ultra-generate-001"
 GOOGLE_VEO = "veo-2.0-generate-001"
 
 _OPENROUTER_CLAUDE_OPUS = "anthropic/claude-opus-4.8"
-_OPENROUTER_CLAUDE_SONNET = "anthropic/claude-sonnet-4.6"
+_OPENROUTER_CLAUDE_SONNET = "anthropic/claude-sonnet-5"
 _OPENROUTER_CLAUDE_HAIKU = "anthropic/claude-haiku-4.5"
 _OPENROUTER_GEMINI_FLASH = "google/gemini-3.5-flash"
 _OPENROUTER_GEMINI_LITE = "google/gemini-3.1-flash-lite-preview"
@@ -106,7 +106,7 @@ OLLAMA_HOST_DEFAULT = "http://localhost:11434"
 LLAMA_CPP_GEMMA = "unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_M"
 LLAMA_CPP_QWEN = "unsloth/Qwen3.6-27B-GGUF:UD-Q4_K_XL"
 LLAMA_CPP_BASE_URL_DEFAULT = "http://localhost:8080/v1"
-LLAMA_CPP_API_KEY_DEFAULT = "sk-no-key-required"
+LOCAL_OPENAI_API_KEY_DEFAULT = "sk-no-key-required"
 LOCAL_QWEN_PRESET_NAME = "qwen3_6_27b"
 LOCAL_QWEN_CONTEXT_WINDOW = 256_000
 MEMORY_OLLAMA_LLM = OLLAMA_GEMMA

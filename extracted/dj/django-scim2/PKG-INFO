@@ -1,15 +1,15 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-scim2
-Version: 0.19.1
+Version: 0.21.0
 Summary: A partial implementation of the SCIM 2.0 provider specification for use with Django.
-Home-page: https://pypi.org/project/django-scim2/
 License: MIT
+License-File: LICENSE.txt
 Keywords: django,scim,scim2,2.0
 Author: Paul Logston
 Author-email: paul@15five.com
 Maintainer: Devs
 Maintainer-email: devs@15five.com
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
@@ -18,19 +18,19 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: django (>=3.2)
+Requires-Dist: django (==4.2.30)
+Requires-Dist: pygments (==2.20.0)
 Requires-Dist: scim2-filter-parser (>=0.5.0)
 Project-URL: Documentation, https://django-scim2.readthedocs.io/en/stable/
+Project-URL: Homepage, https://pypi.org/project/django-scim2/
 Project-URL: Repository, https://github.com/15five/django-scim2
 Description-Content-Type: text/x-rst
 
@@ -113,11 +113,9 @@ Development
 -----------
 
 This project uses Poetry to manage dependencies, etc. Thus to install the
-necessary tools when developing, run:
+necessary tools when developing, run::
 
-```
-poetry install
-```
+    poetry install
 
 Tests
 -----
@@ -128,20 +126,14 @@ Tests
 https://github.com/15five/django-scim2/actions
 
 Tests are typically run locally with `tox` (https://tox.wiki/). Tox will test
-all supported versions of Python and Django.
+all supported versions of Python and Django::
 
-```
-tox
-```
+    tox
 
 To run the test suite with a single version of Python (the version you created
-the virtualenv with), run:
+the virtualenv with), run::
 
-
-```
-poetry run pytest tests/
-```
-
+    poetry run pytest tests/
 
 Coverage
 --------
@@ -151,9 +143,10 @@ Coverage
 
 https://codecov.io/gh/15five/django-scim2/
 
-```
-tox -e coverage
-```
+To run tests with coverage::
+
+    tox -e coverage
+
 
 License
 -------

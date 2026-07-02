@@ -652,6 +652,66 @@ mod tests {
         );
     }
 
+    #[test]
+    fn canonical_logit_firth_declines_exact_tk_hessian_when_row_pair_work_is_large() {
+        let n = 2_000usize;
+        let p = 28usize;
+        let y = Array1::from_iter((0..n).map(|i| if i % 3 == 0 { 1.0 } else { 0.0 }));
+        let w = Array1::<f64>::ones(n);
+        let mut x = Array2::<f64>::zeros((n, p));
+        for i in 0..n {
+            let t = (i as f64 + 0.5) / n as f64;
+            x[[i, 0]] = 1.0;
+            for j in 1..p {
+                x[[i, j]] = ((j as f64) * std::f64::consts::TAU * t).sin()
+                    + 0.25 * (((j + 1) as f64) * std::f64::consts::TAU * t).cos();
+            }
+        }
+        let mut s = Array2::<f64>::zeros((p, p));
+        for j in 1..p {
+            s[[j, j]] = 1.0;
+        }
+        let cfg = RemlConfig::external(binomial_logit_glm_spec(), 1e-10, true);
+        let state = build_logit_state(&y, &w, &x, &s, &cfg);
+
+        assert!(
+            !RemlState::firth_tk_exact_hessian_scale_allows(n, p),
+            "fixture must sit beyond the O(n²·p) exact-Hessian budget"
+        );
+        assert!(
+            !state.analytic_outer_hessian_enabled(),
+            "large canonical-logit Firth fits should keep exact value/gradient but route outer curvature to BFGS"
+        );
+    }
+
+    #[test]
+    fn canonical_logit_firth_keeps_exact_tk_hessian_for_small_separation_guards() {
+        let n = 40usize;
+        let p = 6usize;
+        let y = Array1::from_iter((0..n).map(|i| if i >= n / 2 { 1.0 } else { 0.0 }));
+        let w = Array1::<f64>::ones(n);
+        let mut x = Array2::<f64>::zeros((n, p));
+        for i in 0..n {
+            let t = (i as f64) / (n - 1) as f64;
+            x[[i, 0]] = 1.0;
+            for j in 1..p {
+                x[[i, j]] = t.powi(j as i32);
+            }
+        }
+        let mut s = Array2::<f64>::zeros((p, p));
+        for j in 1..p {
+            s[[j, j]] = 1.0;
+        }
+        let cfg = RemlConfig::external(binomial_logit_glm_spec(), 1e-10, true);
+        let state = build_logit_state(&y, &w, &x, &s, &cfg);
+
+        assert!(RemlState::firth_tk_exact_hessian_scale_allows(n, p));
+        assert!(
+            state.analytic_outer_hessian_enabled(),
+            "small Firth rescue fits should keep exact TK Hessian curvature"
+        );
+    }
+
     pub(crate) fn poisson_log_glm_spec() -> GlmLikelihoodSpec {
         GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
             ResponseFamily::Poisson,
@@ -5424,4 +5484,17 @@ pub(crate) struct RemlState<'a> {
     /// `FitConfig::persist_warm_start_disk` flips this to `true` only when the
     /// caller explicitly asks for cross-process / repeat-fit persistence.
     pub(crate) persistent_warm_start_disk_enabled: AtomicBool,
+    /// #1033: memoized fit-invariant O(n) response/weight scalars.
+    ///
+    /// `gaussian_weight_log_sum_half` (`½·Σ log wᵢ`) and `gaussian_dp_floor_scale`
+    /// (the weighted null deviance `D₀`) are pure functions of the borrowed
+    /// `(y, weights)` — fields `reset_surface` NEVER reassigns — so they are
+    /// constant for the whole life of the `RemlState`. They were the last O(n)
+    /// passes the n-free κ outer loop ran on EVERY `assemble_and_evaluate`
+    /// (each an n-length scalar reduction, no k factor). Memoizing them once per
+    /// fit makes the per-trial eval touch only k-dim objects, completing the
+    /// issue's sufficient-statistic invariant literally. Plain scalar closures,
+    /// no rayon inside the `get_or_init` (no deadlock trap).
+    pub(crate) gaussian_weight_log_sum_half_cache: std::sync::OnceLock<f64>,
+    pub(crate) gaussian_dp_floor_scale_cache: std::sync::OnceLock<f64>,
 }

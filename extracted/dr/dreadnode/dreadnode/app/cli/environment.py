@@ -20,9 +20,12 @@ from dreadnode.app.cli.shared import (
     _status_color,
     confirm_destructive,
     console,
+    merge_env_model_overrides,
+    parse_env_model_overrides,
     print_error,
     print_success,
 )
+from dreadnode.app.model_catalog import resolve_model
 
 cli = cyclopts.App(
     name="environment",
@@ -165,6 +168,18 @@ def create(
         int | None,
         cyclopts.Parameter(help="Sandbox lifetime in seconds (capped by org max)."),
     ] = None,
+    env_model: t.Annotated[
+        list[str] | None,
+        cyclopts.Parameter(
+            name="--env-model",
+            help=(
+                "Override a task environment (defender) model by role: "
+                "ROLE=MODEL_ID (e.g. --env-model blue=dn/claude-sonnet-4-6, "
+                "repeatable). The role must be declared overridable in the task."
+            ),
+            negative_iterable=(),
+        ),
+    ] = None,
     wait: t.Annotated[
         bool,
         cyclopts.Parameter(
@@ -224,6 +239,11 @@ def create(
         body["secret_ids"] = list(secret)
     if timeout_sec is not None:
         body["timeout_sec"] = timeout_sec
+    env_models = merge_env_model_overrides(
+        None, parse_env_model_overrides(env_model, resolve=resolve_model)
+    )
+    if env_models is not None:
+        body["model_overrides"] = env_models
 
     payload = api.create_environment(profile.org_key, profile.workspace_key, body)
     env_id = str(payload.get("id", ""))

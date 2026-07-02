@@ -4,6 +4,7 @@ import abc
 import datetime
 import typing
 
+import QuantConnect.Data
 import QuantConnect.Data.Market
 import QuantConnect.Interfaces
 import QuantConnect.Orders
@@ -248,7 +249,7 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         """
         ...
 
-    def get_market_fill_price(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, prices: QuantConnect.Orders.Fills.Prices) -> float:
+    def get_market_fill_price(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, prices: QuantConnect.Orders.Fills.Prices, subscription_configs: typing.List[QuantConnect.Data.SubscriptionDataConfig] = None) -> float:
         """
         Gets the fill price for a market order. A hour/daily market order that was resting before the current bar
         opened - it predates the bar, e.g. it was placed after the previous close or while waiting for fresh data -
@@ -261,6 +262,8 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         :param asset: Security being filled
         :param order: Order being filled
         :param prices: The prices for the bar being filled on
+        :param subscription_configs: The subscription configs for the security, including internal configurations.
+        When not provided, they are fetched from the configuration provider
         """
         ...
 
@@ -293,6 +296,20 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         This Class is protected.
         
         :param asset: Security which has subscribed data types
+        """
+        ...
+
+    def get_subscription_data_configs(self, asset: QuantConnect.Securities.Security) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
+        """
+        Gets the subscription data configs for the security, including internal configurations. Even though data
+        from internal configurations is not sent to the algorithm.OnData, it still drives the security cache and the
+        data used for the fill. This is specially relevant for the continuous contract underlying mapped contracts,
+        which are internal configurations.
+        
+        
+        This Class is protected.
+        
+        :param asset: Security to get the subscription configs for
         """
         ...
 
@@ -359,7 +376,7 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         """Used to set the FillModelPythonWrapper instance if any"""
         ...
 
-    def should_wait_for_fresh_data(self, asset: QuantConnect.Securities.Security) -> bool:
+    def should_wait_for_fresh_data(self, asset: QuantConnect.Securities.Security, subscription_configs: typing.List[QuantConnect.Data.SubscriptionDataConfig] = None) -> bool:
         """
         Determines whether a market order filling on stale data should wait for fresh data instead of filling
         on the stale price. This is only done for coarse resolutions (hour/daily), where the stale bar is the
@@ -371,6 +388,31 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         This Class is protected.
         
         :param asset: Security being filled
+        :param subscription_configs: The subscription configs for the security, including internal configurations.
+        When not provided, they are fetched from the configuration provider
+        """
+        ...
+
+    def should_wait_for_fresh_data_on_stale(self, asset: QuantConnect.Securities.Security, data_end_time_utc: typing.Union[datetime.datetime, datetime.date], order_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_configs: typing.List[QuantConnect.Data.SubscriptionDataConfig] = None) -> bool:
+        """
+        Determines whether a market order that would be filled on stale data should wait for fresh data instead of
+        filling on the stale price. The order waits when the latest available data is more than one subscribed
+        resolution span behind the order submission time, i.e. the data is older than a single bar so a newer one is
+        still expected. This is independent of the time of day: it covers the market open (the first bar of the
+        session has not been emitted yet) as well as any intraday data gap larger than the resolution.
+        
+        Coarse resolutions (hour/daily) always wait, since there the stale bar is the previous close and the gap to
+        the order time can be smaller than the resolution while a fresh bar is still expected. Tick subscriptions
+        never wait, since there is no bar to expect.
+        
+        
+        This Class is protected.
+        
+        :param asset: Security being filled
+        :param data_end_time_utc: End time, in UTC, of the latest data available for the fill
+        :param order_time_utc: Order submission time, in UTC
+        :param subscription_configs: The subscription configs for the security, including internal configurations.
+        When not provided, they are fetched from the configuration provider
         """
         ...
 

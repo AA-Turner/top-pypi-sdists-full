@@ -15,8 +15,6 @@ In addition, we show here how to tweak the different parameters of the
 underlying routine that extract masks from EPI
 :func:`~nilearn.masking.compute_epi_mask`.
 
-.. include:: ../../../examples/masker_note.rst
-
 """
 
 # %%
@@ -76,7 +74,7 @@ masker.fit(miyawaki_filename)
 #
 #   You can also note that after fitting,
 #   the HTML representation of the estimator looks different
-#   than before before fitting.
+#   than before fitting.
 #
 masker
 

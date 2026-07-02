@@ -18,6 +18,11 @@ from typing import TYPE_CHECKING, Any
 
 from airflow.models import Variable
 
+try:
+    import orjson
+except ImportError:  # pragma: no cover
+    orjson = None
+
 if TYPE_CHECKING:
     try:
         # Airflow 3 onwards
@@ -38,6 +43,7 @@ from cosmos.cache import (
 )
 from cosmos.config import ExecutionConfig, ProfileConfig, ProjectConfig, RenderConfig
 from cosmos.constants import (
+    DBT_EPHEMERAL_MATERIALIZATION,
     DBT_LOG_DIR_NAME,
     DBT_LOG_FILENAME,
     DBT_LOG_PATH_ENVVAR,
@@ -59,6 +65,7 @@ from cosmos.dbt.project import (
     has_non_empty_dependencies_file,
 )
 from cosmos.dbt.selector import YamlSelectors, select_nodes
+from cosmos.fs import _calculate_file_checksum
 from cosmos.log import get_logger
 
 logger = get_logger(__name__)
@@ -107,6 +114,26 @@ class DbtNode:
         """Combined path to the node's file (path_base / original_file_path)."""
         return self.path_base / self.original_file_path
 
+    @cached_property
+    def checksum(self) -> str | None:
+        """MD5 checksum of a seed's CSV content, used by ``SeedRenderingBehavior.WHEN_SEED_CHANGES``.
+
+        Although ``manifest.json`` records a checksum per node, we always recompute it from the seed file
+        here so the value is consistent regardless of whether the project was loaded via ``LoadMode.MANIFEST``
+        or ``LoadMode.DBT_LS``. Returns ``None`` for non-seed nodes or when the file cannot be read.
+
+        Cached because the value is derived from the seed file at parse time and is read again when building
+        the task's ``extra_context``; the file is not expected to change within a single parse.
+        """
+        if self.resource_type != DbtResourceType.SEED:
+            return None
+        return _calculate_file_checksum(self.file_path)
+
+    @property
+    def has_ephemeral_materialization(self) -> bool:
+        """Whether the node is materialized as ephemeral (inlined as a CTE, never written to the warehouse)."""
+        return str(self.config.get("materialized") or "").lower() == DBT_EPHEMERAL_MATERIALIZATION
+
     @property
     def meta(self) -> dict[str, Any]:
         """
@@ -154,14 +181,48 @@ class DbtNode:
             )
         return operator_kwargs
 
+    @staticmethod
+    def get_resource_name_from_unique_id(unique_id: str) -> str:
+        """
+        Return the ``resource_name`` segment of a dbt node ``unique_id``.
+
+        Per the `dbt manifest spec
+        <https://docs.getdbt.com/reference/artifacts/manifest-json#resource-details>`_,
+        a node ``unique_id`` is ``<resource_type>.<package>.<resource_name>``.
+        Both ``resource_type`` and ``package`` are constrained identifiers that
+        cannot contain dots, so the first two dots are unambiguous separators
+        and everything after the second dot is the full resource name.
+
+        For versioned models, dbt appends a fourth segment:
+        ``model.<package>.<resource_name>.<version>`` (see
+        `node_args.py <https://github.com/dbt-labs/dbt-core/blob/main/core/dbt/contracts/graph/node_args.py#L26C3-L31>`_).
+        Splitting with ``maxsplit=2`` preserves that suffix:
+        ``model.pkg.my_model.v1`` -> ``my_model.v1``.
+
+        :raises ValueError: if ``unique_id`` does not have the expected
+            ``<resource_type>.<package>.<resource_name>`` shape, i.e. fewer
+            than two dots or any empty segment (e.g. ``model..name``, ``..``,
+            ``model.pkg.``). Malformed inputs are surfaced loudly rather than
+            silently mis-parsed.
+        """
+        # ``maxsplit=2`` caps the result at 3 elements, so a well-formed
+        # unique_id always yields exactly 3 non-empty parts (the versioned/source
+        # suffixes stay attached to the third part).
+        parts = unique_id.split(".", 2)
+        if len(parts) != 3 or not all(parts):
+            raise ValueError(
+                f"Malformed dbt unique_id, expected '<resource_type>.<package>.<resource_name>': {unique_id!r}"
+            )
+        return parts[2]
+
     @property
     def resource_name(self) -> str:
         """
         Use this property to retrieve the resource name for command generation, for instance: ["dbt", "run", "--models", f"{resource_name}"].
-        The unique_id format is defined as [<resource_type>.<package>.<resource_name>](https://docs.getdbt.com/reference/artifacts/manifest-json#resource-details).
-        For a special case like a versioned model, the unique_id follows this pattern: [model.<package>.<resource_name>.<version>](https://github.com/dbt-labs/dbt-core/blob/main/core/dbt/contracts/graph/node_args.py#L26C3-L31)
+        Delegates to :meth:`get_resource_name_from_unique_id`, which documents the dbt ``unique_id`` format
+        (including the versioned-model variant ``model.<package>.<resource_name>.<version>``).
         """
-        return self.unique_id.split(".", 2)[2]
+        return self.get_resource_name_from_unique_id(self.unique_id)
 
     @property
     def name(self) -> str:
@@ -195,6 +256,7 @@ class DbtNode:
             "has_non_detached_test": self.has_non_detached_test,
             "resource_name": self.resource_name,
             "name": self.name,
+            "checksum": self.checksum,
         }
 
 
@@ -234,16 +296,19 @@ def run_command_with_subprocess(command: list[str], tmp_dir: Path, env_vars: dic
     )
     stdout, stderr = process.communicate()
     returncode = process.returncode
+    stdout = stdout or "<no stdout captured>"
+    stderr = stderr or "<no stderr captured>"
 
     if 'Run "dbt deps" to install package dependencies' in stdout and command[1] == "ls":
         raise CosmosLoadDbtException(
-            "Unable to run dbt ls command due to missing dbt_packages. Set RenderConfig.dbt_deps=True."
+            f"Unable to run dbt ls command due to missing dbt_packages. "
+            f"Set RenderConfig.dbt_deps=True.\n"
+            f"Exit code: {returncode}\nstderr: {stderr}\nstdout: {stdout}"
         )
 
-    if returncode or "Error" in stdout.replace("WarnErrorOptions", ""):
-        details = f"stderr: {stderr}\nstdout: {stdout}"
+    if returncode != 0 or "Error" in stdout.replace("WarnErrorOptions", ""):
+        details = f"Exit code: {returncode}\nstderr: {stderr}\nstdout: {stdout}"
         raise CosmosLoadDbtException(f"Unable to run {command} due to the error:\n{details}")
-
     return stdout
 
 
@@ -528,7 +593,7 @@ class DbtGraph:
                 airflow_vars = [var_name, Variable.get(var_name, "")]
                 cache_args.extend(airflow_vars)
 
-        logger.debug(f"Value of `dbt_ls_cache_key_args` for <{self.cache_key}>: {cache_args}")
+        logger.debug("Value of `dbt_ls_cache_key_args` for <%s>: %s", self.cache_key, cache_args)
         return cache_args
 
     @cached_property
@@ -550,8 +615,24 @@ class DbtGraph:
         will be reparsed and the new value will be stored.
         """
         cache_args = [impl_version] + self._yaml_selectors_airflow_vars
-        logger.debug(f"Value of `dbt_yaml_selectors_cache_key` for <{self.cache_key}>: {cache_args}")
+        logger.debug("Value of `dbt_yaml_selectors_cache_key` for <%s>: %s", self.cache_key, cache_args)
         return cache_args
+
+    def _log_concurrent_cache_write(self, cache_name: str) -> None:
+        """Log a benign duplicate-key race when concurrently writing the cache Variable.
+
+        When two schedulers or DAG processors parse the same DAG at once and neither finds an
+        existing ``cosmos_cache__*`` Variable, both attempt the INSERT. The unique constraint on
+        ``variable.key`` lets one win and makes the other raise an ``IntegrityError`` (Postgres
+        ``UniqueViolation``). The value we wanted to write is already present, so the loser treats
+        the duplicate-key error as a no-op and logs it at debug level rather than propagating it.
+        """
+        logger.debug(
+            "Cosmos %s cache for Airflow Variable '%s' was concurrently written by another "
+            "parser (duplicate key); treating as a no-op.",
+            cache_name,
+            self.cache_key,
+        )
 
     def _save_cache_to_variable(self, cache_dict: dict[str, Any], cache_name: str) -> None:
         """Write cache_dict to an Airflow Variable, warning on AirflowRuntimeError.
@@ -560,10 +641,15 @@ class DbtGraph:
         DAG processor does not have direct access to a usable Airflow metadata database
         (for example, when the ``variable`` table is unavailable).
         """
+        from sqlalchemy.exc import IntegrityError
+
         try:
             from airflow.sdk.exceptions import AirflowRuntimeError
         except ImportError:
-            Variable.set(self.cache_key, cache_dict, serialize_json=True)
+            try:
+                Variable.set(self.cache_key, cache_dict, serialize_json=True)
+            except IntegrityError:
+                self._log_concurrent_cache_write(cache_name)
             return
 
         is_yaml_cache = "yaml" in cache_name.lower()
@@ -575,6 +661,8 @@ class DbtGraph:
         cache_specific_workaround = "" if is_yaml_cache else ", using LoadMode.DBT_MANIFEST"
         try:
             Variable.set(self.cache_key, cache_dict, serialize_json=True)
+        except IntegrityError:
+            self._log_concurrent_cache_write(cache_name)
         except AirflowRuntimeError as e:
             logger.warning(
                 "Failed to save Cosmos %s cache to Airflow Variable '%s': %s. "
@@ -778,13 +866,13 @@ class DbtGraph:
 
     def load_via_dbt_ls_cache(self) -> bool:
         """(Try to) load dbt ls cache from an Airflow Variable"""
-        logger.info(f"Trying to parse the dbt project using dbt ls cache {self.cache_key}...")
+        logger.info("Trying to parse the dbt project using dbt ls cache %s...", self.cache_key)
         if self.should_use_dbt_ls_cache():
             project_path = self.project_path
 
             cache_dict = self.get_dbt_ls_cache()
             if not cache_dict:
-                logger.info(f"Cosmos performance: Cache miss for {self.cache_key}")
+                logger.info("Cosmos performance: Cache miss for %s", self.cache_key)
                 return False
 
             cache_version = cache_dict.get("version")
@@ -796,16 +884,20 @@ class DbtGraph:
 
             if dbt_ls_cache and not cache.was_project_modified(cache_version, current_version):
                 logger.info(
-                    f"Cosmos performance [{platform.node()}|{os.getpid()}]: The cache size for {self.cache_key} is {len(dbt_ls_cache)}"
+                    "Cosmos performance [%s|%s]: The cache size for %s is %s",
+                    platform.node(),
+                    os.getpid(),
+                    self.cache_key,
+                    len(dbt_ls_cache),
                 )
                 self.load_method = LoadMode.DBT_LS_CACHE
 
                 nodes = parse_dbt_ls_output(project_path=project_path, ls_stdout=dbt_ls_cache)
                 self.nodes = nodes
                 self.filtered_nodes = nodes
-                logger.info(f"Cosmos performance: Cache hit for {self.cache_key} - {current_version}")
+                logger.info("Cosmos performance: Cache hit for %s - %s", self.cache_key, current_version)
                 return True
-        logger.info(f"Cosmos performance: Cache miss for {self.cache_key} - skipped")
+        logger.info("Cosmos performance: Cache miss for %s - skipped", self.cache_key)
         return False
 
     def should_use_partial_parse_cache(self) -> bool:
@@ -888,13 +980,13 @@ class DbtGraph:
         dbt_cmd = self.render_config.dbt_executable_path
         dbt_cmd = dbt_cmd.as_posix() if isinstance(dbt_cmd, Path) else dbt_cmd
 
-        logger.info(f"Trying to parse the dbt project in `{self.render_config.project_path}` using dbt ls...")
+        logger.info("Trying to parse the dbt project in `%s` using dbt ls...", self.render_config.project_path)
         project_path = self.project_path
         if not self.profile_config:
             raise CosmosLoadDbtException("Unable to load project via dbt ls without a profile config.")
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            logger.debug(f"Content of the dbt project dir {project_path}: `{os.listdir(project_path)}`")
+            logger.debug("Content of the dbt project dir %s: `%s`", project_path, os.listdir(project_path))
             tmpdir_path = Path(tmpdir)
 
             self._copy_or_create_symbolic_links(project_path, tmpdir_path)
@@ -1169,13 +1261,13 @@ class DbtGraph:
         Returns:
             YamlSelectors: A YamlSelectors instance
         """
-        logger.info(f"Trying to parse the dbt yaml selectors using {self.cache_key}...")
+        logger.info("Trying to parse the dbt yaml selectors using %s...", self.cache_key)
 
         if self.should_use_yaml_selectors_cache():
             cache_dict = self.get_yaml_selectors_cache()
 
             if not cache_dict:
-                logger.info(f"Cosmos performance: Cache miss for {self.cache_key}")
+                logger.info("Cosmos performance: Cache miss for %s", self.cache_key)
 
                 return self.parse_yaml_selectors(selector_definitions)
 
@@ -1191,13 +1283,17 @@ class DbtGraph:
 
             if cache_dict and not cache.were_yaml_selectors_modified(cache_version, current_version):
                 logger.info(
-                    f"Cosmos performance [{platform.node()}|{os.getpid()}]: The cache size for {self.cache_key} is {len(yaml_selectors.parsed)}"
+                    "Cosmos performance [%s|%s]: The cache size for %s is %s",
+                    platform.node(),
+                    os.getpid(),
+                    self.cache_key,
+                    len(yaml_selectors.parsed),
                 )
-                logger.info(f"Cosmos performance: Cache hit for {self.cache_key} - {current_version}")
+                logger.info("Cosmos performance: Cache hit for %s - %s", self.cache_key, current_version)
 
                 return yaml_selectors
 
-        logger.info(f"Cosmos performance: Cache miss for {self.cache_key} - skipped")
+        logger.info("Cosmos performance: Cache miss for %s - skipped", self.cache_key)
 
         return self.parse_yaml_selectors(selector_definitions)
 
@@ -1250,6 +1346,54 @@ class DbtGraph:
                 exclude=self.render_config.exclude,
             )
 
+    def _load_manifest_from_file(self, manifest_path: Path | ObjectStoragePath) -> dict[str, Any]:
+        """
+        Load and parse a dbt manifest JSON file.
+
+        Uses orjson for faster parsing if enabled and available, otherwise falls back to standard json.
+
+        Args:
+            manifest_path: Path to the manifest.json file
+
+        Returns:
+            Parsed manifest dictionary
+
+        Raises:
+            CosmosLoadDbtException: If the manifest file is empty, not valid JSON, the parsed manifest root is not a dictionary, or `orjson` is enabled but not installed.
+        """
+
+        if settings.enable_orjson_parser and orjson:
+            open_mode = "rb"
+            parse_function = orjson.loads
+            decode_errors: tuple[type[BaseException], ...] = (orjson.JSONDecodeError,)
+        elif settings.enable_orjson_parser:
+            raise CosmosLoadDbtException("orjson is not installed. Install it with: pip install orjson")
+        else:
+            open_mode = "r"
+            parse_function = json.loads
+            decode_errors = (json.JSONDecodeError, UnicodeDecodeError)
+
+        try:
+            with manifest_path.open(open_mode) as fp:
+                content = fp.read()
+                if not content or content.isspace():
+                    raise CosmosLoadDbtException(f"Failed to load dbt manifest at `{manifest_path}`: file is empty")
+                manifest = parse_function(content)
+        except decode_errors as e:
+            raise CosmosLoadDbtException(
+                f"Failed to load dbt manifest at `{manifest_path}`: file is not valid JSON ({e})"
+            ) from e
+
+        if manifest is None:
+            return {}
+
+        if not isinstance(manifest, dict):
+            raise CosmosLoadDbtException(
+                f"Invalid dbt manifest file `{manifest_path}`: expected top-level JSON object, got {type(manifest).__name__}"
+            )
+
+        return manifest
+
     def load_from_dbt_manifest(self) -> None:
         """
         This approach accurately loads `dbt` projects using the `manifest.json` dbt manifest artifact.
@@ -1273,8 +1417,7 @@ class DbtGraph:
         if TYPE_CHECKING:
             assert self.project.manifest_path is not None  # pragma: no cover
 
-        with self.project.manifest_path.open() as fp:
-            manifest = json.load(fp) or {}
+        manifest = self._load_manifest_from_file(self.project.manifest_path)
 
         project_path = self.execution_config.project_path
         nodes = self._load_nodes_from_manifest_data(manifest, project_path)

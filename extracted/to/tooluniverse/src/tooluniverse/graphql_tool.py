@@ -88,6 +88,18 @@ class GraphQLTool(BaseTool):
         self.parameters = tool_config["parameter"]["properties"]
         self.default_size = 5
 
+    def _empty_result_error(self, arguments):
+        """Message when a query resolves but every top-level field is null/empty.
+
+        Subclasses override this to give API-specific guidance (e.g. an
+        EFO->MONDO hint for OpenTargets). The default names the arguments so the
+        caller can see which identifier failed to resolve.
+        """
+        return (
+            "The query returned no matching record — the requested entity was not "
+            f"found. Verify the identifier(s) are current and correct: {arguments}."
+        )
+
     def run(self, arguments):
         arguments = copy.deepcopy(arguments)
         if "size" in self.parameters and "size" not in arguments:
@@ -97,7 +109,15 @@ class GraphQLTool(BaseTool):
         )
         if result is None:
             return {"status": "error", "error": "No data returned from API"}
-        return {"status": "success", "data": result.get("data", result)}
+        data = result.get("data", result)
+        # remove_none_and_empty_values() strips a null/empty top-level entity, so
+        # data == {} means the requested record was not found. Report that
+        # explicitly rather than as a misleading empty success. A genuine empty
+        # *result set* (e.g. a 0-hit search) keeps its container key
+        # ({"search": {}}) and is therefore not caught here.
+        if not data:
+            return {"status": "error", "error": self._empty_result_error(arguments)}
+        return {"status": "success", "data": data}
 
 
 _OT_SEARCH_QUERY = """
@@ -123,11 +143,47 @@ def _ot_resolve_id(endpoint_url: str, query_string: str, entity: str) -> str | N
     return None
 
 
+def _ot_entity_not_found_message(arguments):
+    """Build a helpful error when an OpenTargets ID does not resolve.
+
+    OpenTargets migrated most disease IDs from EFO to MONDO, so many legacy
+    EFO disease IDs (e.g. EFO_0000305 breast carcinoma) now resolve to null
+    and the API returns an empty entity. Surface that explicitly instead of a
+    misleading empty success (issue #264).
+    """
+    disease_id = arguments.get("efoId") or arguments.get("entityId")
+    if isinstance(arguments.get("diseaseIds"), list) and arguments["diseaseIds"]:
+        disease_id = arguments["diseaseIds"][0]
+    if disease_id is not None:
+        return (
+            f"OpenTargets returned no disease for ID '{disease_id}'. OpenTargets "
+            "migrated most disease IDs from EFO to MONDO, so many legacy EFO "
+            "disease IDs now resolve to null. Pass a current MONDO ID (e.g. "
+            "MONDO_0005011 for Crohn disease); look up a disease's current ID by "
+            "name with OpenTargets_multi_entity_search_by_query_string."
+        )
+    ensembl_id = arguments.get("ensemblId")
+    if ensembl_id is not None:
+        return (
+            f"OpenTargets returned no target for Ensembl ID '{ensembl_id}'. "
+            "Verify the ID (e.g. ENSG00000141510 for TP53) or pass gene_symbol "
+            "to auto-resolve it."
+        )
+    return (
+        "OpenTargets returned no entity for the provided identifier(s). Verify "
+        "the ID is current — OpenTargets periodically remaps disease IDs from "
+        "EFO to MONDO."
+    )
+
+
 @register_tool("OpenTarget")
 class OpentargetTool(GraphQLTool):
     def __init__(self, tool_config):
         self.endpoint_url = "https://api.platform.opentargets.org/api/v4/graphql"
         super().__init__(tool_config, self.endpoint_url)
+
+    def _empty_result_error(self, arguments):
+        return _ot_entity_not_found_message(arguments)
 
     def run(self, arguments):
         arguments = copy.deepcopy(arguments)
@@ -176,8 +232,8 @@ class OpentargetTool(GraphQLTool):
             else:
                 return {
                     "status": "error",
-                    "error": f"Could not resolve disease name to EFO ID. "
-                    "Try passing efoId directly (e.g. EFO_0000384 for Crohn's disease).",
+                    "error": "Could not resolve disease name to a disease ID. "
+                    "Try passing efoId directly (e.g. MONDO_0005011 for Crohn disease).",
                 }
 
         result = super().run(arguments)
@@ -193,8 +249,13 @@ class OpentargetTool(GraphQLTool):
                     "For non-oncology phenotypes, use OpenTargets_get_evidence_by_datasource instead."
                 )
 
-        # If no results, retry with '-' replaced by ' '
-        if result.get("status") != "success":
+        # If no results AND an argument contains '-', retry once with '-'
+        # replaced by ' ' (rescues hyphenated names). The hyphen guard keeps a
+        # genuine not-found (e.g. a stale efoId) from issuing a redundant
+        # identical query.
+        if result.get("status") != "success" and any(
+            isinstance(v, str) and "-" in v for v in arguments.values()
+        ):
             if "drugName" in arguments and isinstance(arguments["drugName"], str):
                 arguments["drugName"] = arguments["drugName"].split("-")[0]
             modified_arguments = copy.deepcopy(arguments)
@@ -298,6 +359,9 @@ class DiseaseTargetScoreTool(GraphQLTool):
         self.datasource_id = datasource_id or tool_config.get("datasource_id")
         super().__init__(tool_config, endpoint_url)
 
+    def _empty_result_error(self, arguments):
+        return _ot_entity_not_found_message(arguments)
+
     def run(self, arguments):
         """
         Extract disease-target scores for a specific datasource
@@ -337,8 +401,17 @@ class DiseaseTargetScoreTool(GraphQLTool):
             if not response_data or "data" not in response_data:
                 break
 
-            disease_data = response_data["data"]["disease"]
+            # remove_none_and_empty_values() drops a null "disease" key, so use
+            # .get() rather than [] (a missing key would raise KeyError). When
+            # the ID does not resolve on the first page, report it explicitly
+            # instead of returning an empty success (issue #264).
+            disease_data = response_data["data"].get("disease")
             if not disease_data:
+                if disease_info is None:
+                    return {
+                        "status": "error",
+                        "error": self._empty_result_error(arguments),
+                    }
                 break
 
             if disease_info is None:

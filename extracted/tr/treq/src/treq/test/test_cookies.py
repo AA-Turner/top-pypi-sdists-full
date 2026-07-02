@@ -1,18 +1,20 @@
-from http.cookiejar import CookieJar, Cookie
+from http.cookiejar import Cookie, CookieJar
 
 import attrs
-from twisted.internet.testing import StringTransport
 from twisted.internet.interfaces import IProtocol
-from twisted.trial.unittest import SynchronousTestCase
+from twisted.internet.testing import StringTransport
 from twisted.python.failure import Failure
+from twisted.trial.unittest import SynchronousTestCase
 from twisted.web.client import ResponseDone
 from twisted.web.http_headers import Headers
 from twisted.web.iweb import IClientRequest, IResponse
 from zope.interface import implementer
 
-from treq._agentspy import agent_spy, RequestRecord
+from treq._agentspy import RequestRecord, agent_spy
 from treq.client import HTTPClient
 from treq.cookies import scoped_cookie, search
+
+from ..cookies import CookieCollision, IndexableCookieJar
 
 
 @implementer(IClientRequest)
@@ -135,7 +137,7 @@ class HTTPClientCookieTests(SynchronousTestCase):
 
     def setUp(self) -> None:
         self.agent, self.requests = agent_spy()
-        self.cookiejar = CookieJar()
+        self.cookiejar = IndexableCookieJar()
         self.client = HTTPClient(self.agent, self.cookiejar)
 
     def test_cookies_in_jars(self) -> None:
@@ -265,3 +267,36 @@ class HTTPClientCookieTests(SynchronousTestCase):
             {(c.name, c.value, c.secure) for c in self.cookiejar},
             {(c.name, c.value, c.secure) for c in response.cookies()},
         )
+
+
+class IndexableCookieJarTests(SynchronousTestCase):
+    """Test `treq.cookies.IndexableCookieJar`"""
+
+    def test_getitem(self) -> None:
+        """
+        `IndexableCookieJar.__getitem__` retrieves an unambiguously-named cookie,
+        but raises `KeyError` when no matching cookie exists, and `CookieCollision`
+        when the name matches more than one cookie.
+        """
+        jar = IndexableCookieJar()
+        jar.set_cookie(
+            scoped_cookie("http://test.kitchen", "snickerdoodle", "cinnamon")
+        )
+        jar.set_cookie(scoped_cookie("http://test.kitchen", "chocolate", "sea-salt"))
+        jar.set_cookie(scoped_cookie("http://flavortown.kitchen", "chocolate", "chunk"))
+
+        self.assertEqual(jar["snickerdoodle"], "cinnamon")
+        self.assertRaises(KeyError, jar.__getitem__, "shortbread")
+        self.assertRaises(CookieCollision, jar.__getitem__, "chocolate")
+
+    def test_getitem_none(self) -> None:
+        """
+        `IndexableCookieJar.__getitem__` ignores cookies with a value of `None`.
+        """
+        jar = IndexableCookieJar()
+        c = scoped_cookie("http://test.kitchen", "molasses", "")
+        c.value = None
+        jar.set_cookie(c)
+        jar.set_cookie(scoped_cookie("http://test.kitchen", "molasses", "pie-spice"))
+
+        self.assertEqual(jar["molasses"], "pie-spice")

@@ -5,35 +5,27 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable, Sequence
 from copy import deepcopy
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from html import escape
-from typing import TYPE_CHECKING, TypeGuard, cast
+from typing import TYPE_CHECKING, cast
 from uuid import uuid4
 
-from agno.run import RunContext
 from agno.run.agent import RunOutput
 from agno.run.base import RunStatus
 from agno.run.team import TeamRunOutput
-from agno.session.agent import AgentSession
 from agno.session.summary import SessionSummary
-from agno.session.team import TeamSession
-from agno.team._tools import _determine_tools_for_model
-from agno.tools import Toolkit
-from agno.tools.function import Function
 from agno.utils.message import filter_tool_calls
 from pydantic import BaseModel
 
 from mindroom.constants import MINDROOM_COMPACTION_CHUNK_TIMEOUT_SECONDS, prompt_roles_for_history_storage
 from mindroom.history.storage import (
-    adopt_session_fields,
     compacted_run_ids_with,
-    latest_persisted_session,
-    read_scope_state,
     record_compaction_chunk,
     remove_runs_by_id,
     seen_event_ids_for_runs,
     update_scope_seen_event_ids,
+    update_scope_state_on_latest,
     write_scope_state,
 )
 from mindroom.history.summary_call import DEFAULT_SUMMARY_RETRY_POLICY, generate_compaction_summary
@@ -47,20 +39,17 @@ from mindroom.history.types import (
 )
 from mindroom.hooks import EVENT_COMPACTION_AFTER, EVENT_COMPACTION_BEFORE, CompactionHookContext, emit
 from mindroom.logging_config import get_logger
-from mindroom.timing import timed, timed_block
+from mindroom.timing import timed
 from mindroom.token_budget import estimate_text_tokens, stable_serialize
-from mindroom.tool_schema_cache import process_function_schema_for_prompt
 from mindroom.tool_system.runtime_context import get_tool_runtime_context, resolve_tool_runtime_hook_bindings
 
 if TYPE_CHECKING:
-    from agno.agent import Agent
     from agno.db.base import BaseDb
     from agno.models.base import Model
     from agno.models.message import Message
-    from agno.team import Team
+    from agno.session.agent import AgentSession
+    from agno.session.team import TeamSession
 
-    from mindroom.config.main import Config
-    from mindroom.config.models import CompactionConfig
 logger = get_logger(__name__)
 
 _WRAPPER_OVERHEAD_TOKENS = 200
@@ -71,41 +60,6 @@ _EXCERPT_METADATA_OMIT_KEYS = frozenset(
         "tools_schema",
     },
 )
-type _ToolDefinition = dict[str, object]
-
-
-@dataclass(slots=True)
-class AgentStaticTokenEstimator:
-    """Request-local static-token estimator for one prepared agent response."""
-
-    agent: Agent
-    _non_prompt_tokens: int | None = field(default=None, init=False)
-
-    def estimate(self, full_prompt: str) -> int:
-        """Estimate static prompt tokens while reusing Agno-prepared tools."""
-        return estimate_text_tokens(full_prompt) + self._resolved_non_prompt_tokens()
-
-    def _resolved_non_prompt_tokens(self) -> int:
-        if self._non_prompt_tokens is None:
-            self._non_prompt_tokens = _estimate_agent_non_prompt_static_tokens(self.agent)
-        return self._non_prompt_tokens
-
-
-@dataclass(slots=True)
-class TeamStaticTokenEstimator:
-    """Request-local static-token estimator for one prepared team response."""
-
-    team: Team
-    _non_prompt_tokens: int | None = field(default=None, init=False)
-
-    def estimate(self, full_prompt: str) -> int:
-        """Estimate static prompt tokens while reusing Agno-prepared team tools."""
-        return estimate_text_tokens(full_prompt) + self._resolved_non_prompt_tokens()
-
-    def _resolved_non_prompt_tokens(self) -> int:
-        if self._non_prompt_tokens is None:
-            self._non_prompt_tokens = _estimate_team_non_prompt_static_tokens(self.team)
-        return self._non_prompt_tokens
 
 
 @dataclass(frozen=True)
@@ -119,14 +73,6 @@ class _ExcerptBlock:
         if not snippet:
             return None
         return "\n".join([self.open_tag, _escape_xml_content(snippet), self.close_tag])
-
-
-@dataclass(frozen=True)
-class _ResolvedCompactionRuntime:
-    """Resolved model/window inputs needed for one compaction attempt."""
-
-    model_name: str
-    context_window: int | None
 
 
 @dataclass(frozen=True)
@@ -150,18 +96,16 @@ def _persist_cleared_force_state_if_needed(
     scope: HistoryScope,
     state: HistoryScopeState,
 ) -> HistoryScopeState:
-    cleared_state = replace(state, force_compact_before_next_run=False)
-    if cleared_state == state:
-        return cleared_state
-    target_session = latest_persisted_session(storage, session)
-    latest_state = read_scope_state(target_session, scope)
-    if latest_state != state:
-        adopt_session_fields(session, target_session)
-        return latest_state
-    write_scope_state(target_session, scope, cleared_state)
-    storage.upsert_session(target_session)
-    adopt_session_fields(session, target_session)
-    return cleared_state
+    if not state.force_compact_before_next_run:
+        return state
+    return update_scope_state_on_latest(
+        storage,
+        session,
+        scope,
+        # Only clear when the durable row still matches the state this run read;
+        # a concurrent write (for example a fresh manual request) wins otherwise.
+        lambda latest: replace(latest, force_compact_before_next_run=False) if latest == state else latest,
+    )
 
 
 async def _emit_compaction_hook(
@@ -229,14 +173,12 @@ async def compact_scope_history(
     active_context_window: int | None,
     replay_window_tokens: int | None,
     threshold_tokens: int | None,
-    reserve_tokens: int,
     summary_prompt: str,
-    timing_scope: str | None = None,
     lifecycle_notice_event_id: str | None = None,
     progress_callback: Callable[[CompactionLifecycleProgress], Awaitable[None]] | None = None,
-) -> tuple[HistoryScopeState, CompactionOutcome | None]:
+) -> CompactionOutcome | None:
     """Compact one scope by rewriting session.summary and session.runs."""
-    visible_runs = runs_for_scope(completed_top_level_runs(session), scope)
+    visible_runs = scope_visible_runs(session, scope)
     compactable_runs = _select_compaction_candidates(
         visible_runs=visible_runs,
         session=session,
@@ -246,26 +188,26 @@ async def compact_scope_history(
         available_history_budget=available_history_budget,
     )
     if not compactable_runs:
-        cleared_state = _persist_cleared_force_state_if_needed(
+        _persist_cleared_force_state_if_needed(
             storage=storage,
             session=session,
             scope=scope,
             state=state,
         )
-        return cleared_state, None
+        return None
     selected_run_ids = _stable_compaction_run_ids(
         compactable_runs,
         session_id=session.session_id,
         scope=scope,
     )
     if not selected_run_ids:
-        cleared_state = _persist_cleared_force_state_if_needed(
+        _persist_cleared_force_state_if_needed(
             storage=storage,
             session=session,
             scope=scope,
             state=state,
         )
-        return cleared_state, None
+        return None
 
     before_tokens = estimate_prompt_visible_history_tokens(
         session=session,
@@ -308,16 +250,15 @@ async def compact_scope_history(
         progress_callback=progress_callback,
         collect_compaction_hook_messages=collect_compaction_hook_messages,
         before_persist_callback=emit_before_persist,
-        timing_scope=timing_scope,
     )
     if rewrite_result is None:
-        cleared_state = _persist_cleared_force_state_if_needed(
+        _persist_cleared_force_state_if_needed(
             storage=storage,
             session=session,
             scope=scope,
             state=state,
         )
-        return cleared_state, None
+        return None
 
     compacted_at = _iso_utc_now()
     new_state = HistoryScopeState(
@@ -345,7 +286,7 @@ async def compact_scope_history(
         model=_model_identifier(summary_model),
     )
 
-    after_visible_runs = runs_for_scope(completed_top_level_runs(session), scope)
+    after_visible_runs = scope_visible_runs(session, scope)
     after_tokens = estimate_prompt_visible_history_tokens(
         session=session,
         scope=scope,
@@ -362,7 +303,6 @@ async def compact_scope_history(
         after_tokens=after_tokens,
         window_tokens=resolved_window_tokens,
         threshold_tokens=threshold_tokens or 0,
-        reserve_tokens=reserve_tokens,
         runs_before=before_run_count,
         runs_after=len(after_visible_runs),
         compacted_run_count=rewrite_result.compacted_run_count,
@@ -378,7 +318,7 @@ async def compact_scope_history(
         token_count_after=after_tokens,
         compaction_summary=rewrite_result.summary_text,
     )
-    return new_state, outcome
+    return outcome
 
 
 @timed("system_prompt_assembly.history_prepare.compaction.rewrite_working_session")
@@ -404,7 +344,6 @@ async def _rewrite_working_session_for_compaction(  # noqa: C901
     collect_compaction_hook_messages: bool,
     summary_prompt: str,
     before_persist_callback: Callable[[Sequence[RunOutput | TeamRunOutput]], Awaitable[None]] | None = None,
-    timing_scope: str | None = None,
 ) -> _CompactionRewriteResult | None:
     final_summary_text = _current_summary_text(working_session) or ""
     total_compacted_run_count = 0
@@ -414,7 +353,7 @@ async def _rewrite_working_session_for_compaction(  # noqa: C901
     pending_selected_run_ids = set(selected_run_ids)
 
     while pending_selected_run_ids:
-        working_visible_runs = runs_for_scope(completed_top_level_runs(working_session), scope)
+        working_visible_runs = scope_visible_runs(working_session, scope)
         compactable_runs = [
             run
             for run in working_visible_runs
@@ -452,7 +391,6 @@ async def _rewrite_working_session_for_compaction(  # noqa: C901
             scope=scope,
             history_settings=history_settings,
             summary_prompt=summary_prompt,
-            timing_scope=timing_scope,
         )
         included_runs = new_summary.included_runs
         generated_summary = new_summary.summary
@@ -501,7 +439,7 @@ async def _rewrite_working_session_for_compaction(  # noqa: C901
 
     if total_compacted_run_count == 0:
         return None
-    for run in runs_for_scope(completed_top_level_runs(working_session), scope):
+    for run in scope_visible_runs(working_session, scope):
         _strip_stale_anthropic_replay_fields(run.messages or [])
     return _CompactionRewriteResult(
         summary_text=final_summary_text,
@@ -529,7 +467,7 @@ async def _emit_lifecycle_progress_after_persist(
     selected_runs_remaining: int,
 ) -> None:
     """Emit lifecycle progress after a compaction chunk has been durably persisted."""
-    remaining_runs = runs_for_scope(completed_top_level_runs(working_session), scope)
+    remaining_runs = scope_visible_runs(working_session, scope)
     if progress_callback is None or not remaining_runs:
         return
     after_tokens = estimate_prompt_visible_history_tokens(
@@ -555,333 +493,6 @@ async def _emit_lifecycle_progress_after_persist(
     )
 
 
-def estimate_agent_static_tokens(agent: Agent, full_prompt: str) -> int:
-    """Estimate the non-history agent prompt using Agno's real system-message builder."""
-    return AgentStaticTokenEstimator(agent).estimate(full_prompt)
-
-
-def _estimate_agent_non_prompt_static_tokens(agent: Agent) -> int:
-    """Estimate system-message and tool tokens that do not depend on the prompt text."""
-    static_tokens = 0
-    previous_tool_instructions = agent._tool_instructions
-    try:
-        session, run_context, prepared_tools = _prepare_agent_prompt_inputs_for_estimation(agent)
-        system_message = agent.get_system_message(
-            session=session,
-            run_context=run_context,
-            tools=prepared_tools or None,
-            add_session_state_to_context=False,
-        )
-    finally:
-        agent._tool_instructions = previous_tool_instructions
-    if system_message is not None and system_message.content is not None:
-        static_tokens += estimate_text_tokens(str(system_message.content))
-    return static_tokens + _estimate_prepared_tool_definition_tokens(prepared_tools)
-
-
-def _estimate_tool_definition_tokens(agent: Agent) -> int:
-    """Estimate the model-visible tool schema and tool instructions for one agent."""
-    prepared_tools, tool_instructions = _prepare_tools_for_estimation(agent.tools)
-    return _estimate_prepared_tool_definition_tokens(
-        prepared_tools,
-        tool_instructions=tool_instructions,
-    )
-
-
-def estimate_team_static_tokens(team: Team, full_prompt: str) -> int:
-    """Estimate the non-history team prompt using Agno's team system-message builder."""
-    return TeamStaticTokenEstimator(team).estimate(full_prompt)
-
-
-def _estimate_team_non_prompt_static_tokens(team: Team) -> int:
-    """Estimate team system-message and tool tokens that do not depend on prompt text."""
-    static_tokens = 0
-    previous_tool_instructions = team._tool_instructions
-    try:
-        session, prepared_tools = _prepare_team_prompt_inputs_for_estimation(team)
-        system_message = team.get_system_message(
-            session=session,
-            tools=prepared_tools or None,
-            add_session_state_to_context=False,
-        )
-    finally:
-        team._tool_instructions = previous_tool_instructions
-    if system_message is not None and system_message.content is not None:
-        static_tokens += estimate_text_tokens(str(system_message.content))
-    return static_tokens + _estimate_prepared_tool_definition_tokens(prepared_tools)
-
-
-def agent_tool_definition_payloads_for_logging(agent: Agent) -> list[dict[str, object]]:
-    """Return model-visible agent tool schemas using Agno's prompt-preparation path."""
-    previous_tool_instructions = agent._tool_instructions
-    try:
-        _session, _run_context, prepared_tools = _prepare_agent_prompt_inputs_for_estimation(agent)
-    finally:
-        agent._tool_instructions = previous_tool_instructions
-    return _prepared_tool_definition_payloads(prepared_tools)
-
-
-def team_tool_definition_payloads_for_logging(team: Team) -> list[dict[str, object]]:
-    """Return model-visible team tool schemas using Agno's prompt-preparation path."""
-    previous_tool_instructions = team._tool_instructions
-    try:
-        _session, prepared_tools = _prepare_team_prompt_inputs_for_estimation(team)
-    finally:
-        team._tool_instructions = previous_tool_instructions
-    return _prepared_tool_definition_payloads(prepared_tools)
-
-
-def _estimate_prepared_tool_definition_tokens(
-    prepared_tools: Sequence[Function | dict[str, object]],
-    *,
-    tool_instructions: Sequence[str] = (),
-) -> int:
-    tool_definitions = _prepared_tool_definition_payloads(prepared_tools)
-    tool_definition_tokens = len(stable_serialize(tool_definitions)) // 4 if tool_definitions else 0
-    instruction_tokens = sum(estimate_text_tokens(instruction) for instruction in tool_instructions)
-    return tool_definition_tokens + instruction_tokens
-
-
-def _prepare_tools_for_estimation(tools: object) -> tuple[list[Function | _ToolDefinition], list[str]]:
-    if not isinstance(tools, Sequence):
-        return [], []
-
-    prepared_tools: list[Function | _ToolDefinition] = []
-    tool_instructions: list[str] = []
-    seen_names: set[str] = set()
-    for tool in tools:
-        for prepared_tool in _prepare_tool_for_estimation(tool):
-            tool_name = _prepared_tool_name(prepared_tool)
-            if tool_name is None or tool_name in seen_names:
-                continue
-            seen_names.add(tool_name)
-            prepared_tools.append(prepared_tool)
-            if (
-                isinstance(prepared_tool, Function)
-                and prepared_tool.add_instructions
-                and prepared_tool.instructions is not None
-            ):
-                tool_instructions.append(prepared_tool.instructions)
-
-        if isinstance(tool, Toolkit) and tool.add_instructions and tool.instructions is not None:
-            tool_instructions.append(tool.instructions)
-    return prepared_tools, tool_instructions
-
-
-def _prepare_tool_for_estimation(tool: object) -> list[Function | _ToolDefinition]:
-    if isinstance(tool, Function):
-        return [_prepare_function_for_estimation(tool)]
-    if isinstance(tool, Toolkit):
-        return [_prepare_function_for_estimation(function) for function in _toolkit_functions(tool).values()]
-    if _is_tool_definition_dict(tool):
-        return [tool]
-    if callable(tool):
-        return [Function.from_callable(tool)]
-    return []
-
-
-def _toolkit_functions(toolkit: Toolkit) -> dict[str, Function]:
-    functions = dict(toolkit.functions)
-    if not functions:
-        for raw_tool in toolkit.tools:
-            if isinstance(raw_tool, Function):
-                functions[raw_tool.name] = raw_tool
-    for name, function in toolkit.async_functions.items():
-        functions.setdefault(name, function)
-    return functions
-
-
-def _prepare_function_for_estimation(function: Function) -> Function:
-    prepared_function = function.model_copy(deep=True)
-    if not prepared_function.skip_entrypoint_processing and prepared_function.entrypoint is not None:
-        effective_strict = False if prepared_function.strict is None else prepared_function.strict
-        process_function_schema_for_prompt(prepared_function, strict=effective_strict)
-    return prepared_function
-
-
-def _prepared_tool_definition_payloads(
-    prepared_tools: Sequence[Function | _ToolDefinition],
-) -> list[dict[str, object]]:
-    payloads_by_name: dict[str, dict[str, object]] = {}
-    for tool in prepared_tools:
-        payload = _function_payload(tool) if isinstance(tool, Function) else _dict_tool_payload(tool)
-        tool_name = payload.get("name")
-        if isinstance(tool_name, str) and tool_name:
-            payloads_by_name[tool_name] = payload
-    return list(payloads_by_name.values())
-
-
-def _prepared_tool_name(tool: Function | _ToolDefinition) -> str | None:
-    if isinstance(tool, Function):
-        return tool.name
-    tool_name = tool.get("name")
-    if isinstance(tool_name, str) and tool_name:
-        return tool_name
-    return None
-
-
-def _function_payload(function: Function) -> dict[str, object]:
-    return {
-        "name": function.name,
-        "description": function.description or "",
-        "parameters": function.parameters or _default_function_parameters(),
-    }
-
-
-def _is_tool_definition_dict(tool: object) -> TypeGuard[_ToolDefinition]:
-    if not isinstance(tool, dict):
-        return False
-    candidate_tool = cast("_ToolDefinition", tool)
-    tool_name = candidate_tool.get("name")
-    return isinstance(tool_name, str) and bool(tool_name)
-
-
-def _dict_tool_payload(tool: _ToolDefinition) -> dict[str, object]:
-    parameters = tool.get("parameters")
-    return {
-        "name": str(tool["name"]),
-        "description": str(tool.get("description", "")),
-        "parameters": parameters if isinstance(parameters, dict) else _default_function_parameters(),
-    }
-
-
-def _default_function_parameters() -> dict[str, object]:
-    return {"type": "object", "properties": {}, "required": []}
-
-
-@timed("system_prompt_assembly.history_prepare.static_token_estimate.agno_determine_tools")
-def _prepare_team_prompt_inputs_for_estimation(
-    team: Team,
-) -> tuple[TeamSession, list[Function | _ToolDefinition]]:
-    """Reuse Agno's own team tool-preparation path for prompt budgeting.
-
-    Agno exposes `Team.get_system_message()` publicly, but the exact prepared tool
-    payload and `_tool_instructions` state that feed that prompt are only built by
-    the internal `_determine_tools_for_model()` path. Using that single internal
-    entrypoint is less brittle than re-implementing several private team helpers in
-    MindRoom. This logic is verified against `agno==2.5.13`; if Agno changes those
-    internals, update this estimator to match the new team prompt builder.
-    """
-    session, run_response, run_context = _team_prompt_estimation_inputs(team)
-    model = team.model
-    assert model is not None
-    prepared_tools = _determine_tools_for_model(
-        team=team,
-        model=model,
-        run_response=run_response,
-        run_context=run_context,
-        team_run_context={},
-        session=session,
-        check_mcp_tools=False,
-    )
-    return session, [tool for tool in prepared_tools if isinstance(tool, Function) or _is_tool_definition_dict(tool)]
-
-
-@timed("system_prompt_assembly.history_prepare.static_token_estimate.tool_schema_prepare")
-def _prepare_agent_prompt_inputs_for_estimation(
-    agent: Agent,
-) -> tuple[AgentSession, RunContext, list[Function | _ToolDefinition]]:
-    """Reuse Agno's agent tool-preparation path for prompt budgeting.
-
-    The estimator only needs model-visible schemas and tool instructions, not
-    executable validate-call wrappers. Preparing those schemas here lets us reuse
-    cached Function schema metadata across fresh Agent instances.
-    """
-    session, run_response, run_context = _agent_prompt_estimation_inputs(agent)
-    with timed_block("system_prompt_assembly.history_prepare.static_token_estimate.agno_get_tools"):
-        processed_tools = agent.get_tools(
-            run_response=run_response,
-            run_context=run_context,
-            session=session,
-            user_id=run_context.user_id,
-        )
-    with timed_block("system_prompt_assembly.history_prepare.static_token_estimate.tool_schema_prepare"):
-        prepared_tools, tool_instructions = _prepare_tools_for_estimation(processed_tools)
-    agent._tool_instructions = list(tool_instructions)
-    return session, run_context, prepared_tools
-
-
-def _team_prompt_estimation_inputs(team: Team) -> tuple[TeamSession, TeamRunOutput, RunContext]:
-    budget_session_id = "history-budget"
-    session = TeamSession(session_id=budget_session_id, team_id=team.id)
-    run_response = TeamRunOutput(
-        run_id=budget_session_id,
-        team_id=team.id,
-        session_id=budget_session_id,
-        session_state={},
-    )
-    run_context = RunContext(
-        run_id=budget_session_id,
-        session_id=budget_session_id,
-        session_state={},
-    )
-    return session, run_response, run_context
-
-
-def _agent_prompt_estimation_inputs(agent: Agent) -> tuple[AgentSession, RunOutput, RunContext]:
-    budget_session_id = "history-budget"
-    budget_user_id = "history-budget-user"
-    session = AgentSession(
-        session_id=budget_session_id,
-        agent_id=agent.id,
-        user_id=budget_user_id,
-    )
-    run_response = RunOutput(
-        run_id=budget_session_id,
-        agent_id=agent.id,
-        agent_name=agent.name,
-        session_id=budget_session_id,
-        user_id=budget_user_id,
-        session_state={},
-    )
-    run_context = RunContext(
-        run_id=budget_session_id,
-        session_id=budget_session_id,
-        user_id=budget_user_id,
-        session_state={},
-    )
-    return session, run_response, run_context
-
-
-def resolve_effective_compaction_threshold(compaction_config: CompactionConfig, context_window: int) -> int:
-    """Resolve the soft replay trigger budget in tokens."""
-    threshold_tokens = compaction_config.threshold_tokens
-    if threshold_tokens is not None:
-        return threshold_tokens
-    threshold_percent = compaction_config.threshold_percent
-    if threshold_percent is not None:
-        return int(context_window * threshold_percent)
-    return int(context_window * 0.8)
-
-
-def normalize_compaction_budget_tokens(tokens: int, context_window: int | None) -> int:
-    """Clamp one compaction knob against half of the available model window."""
-    if context_window is None or context_window <= 0:
-        return tokens
-    return min(tokens, context_window // 2)
-
-
-def resolve_compaction_runtime_settings(
-    *,
-    config: Config,
-    compaction_config: CompactionConfig,
-    active_model_name: str,
-    active_context_window: int | None,
-) -> _ResolvedCompactionRuntime:
-    """Resolve the effective compaction model name and usable window for one run."""
-    model_name = compaction_config.model or active_model_name
-    model_context_window = config.get_model_context_window(model_name)
-    if compaction_config.model is not None:
-        return _ResolvedCompactionRuntime(
-            model_name=model_name,
-            context_window=model_context_window,
-        )
-    return _ResolvedCompactionRuntime(
-        model_name=model_name,
-        context_window=model_context_window or active_context_window,
-    )
-
-
 async def _generate_compaction_summary_with_retry(
     *,
     model: Model,
@@ -894,7 +505,6 @@ async def _generate_compaction_summary_with_retry(
     scope: HistoryScope,
     history_settings: ResolvedHistorySettings,
     summary_prompt: str,
-    timing_scope: str | None = None,
 ) -> _GeneratedSummaryChunk:
     """Generate one summary chunk, shrinking the input per the retry policy when safe."""
     summary_input = initial_summary_input
@@ -921,7 +531,6 @@ async def _generate_compaction_summary_with_retry(
                 model=model,
                 summary_input=summary_input,
                 summary_prompt=summary_prompt,
-                timing_scope=timing_scope,
             )
         except Exception as exc:
             duration_ms = int((asyncio.get_running_loop().time() - started) * 1000)
@@ -1267,7 +876,7 @@ def estimate_prompt_visible_history_tokens(
 ) -> int:
     """Estimate the durable summary plus visible persisted history for one run."""
     summary_tokens = estimate_session_summary_tokens(_current_summary_text(session))
-    history_messages = _history_messages_for_session(
+    history_messages = _history_messages_for_estimation(
         session=session,
         scope=scope,
         history_settings=history_settings,
@@ -1363,21 +972,27 @@ def _stable_compaction_run_ids(
     return tuple(run.run_id for run in runs if isinstance(run.run_id, str) and run.run_id)
 
 
-def _history_messages_for_session(
+def _history_messages_for_estimation(
     *,
     session: AgentSession | TeamSession,
     scope: HistoryScope,
     history_settings: ResolvedHistorySettings,
 ) -> list[Message]:
-    session_messages = _session_history_messages(
-        session=session,
-        scope=scope,
-        history_settings=history_settings,
+    """Return the prompt-visible history messages for token estimation only.
+
+    No deepcopy: filter_tool_calls copies any message it modifies and only the
+    list itself is mutated. Stale Anthropic replay fields are left in place
+    because the char estimate never counts them.
+    """
+    history_messages = list(
+        _session_history_messages(
+            session=session,
+            scope=scope,
+            history_settings=history_settings,
+        ),
     )
-    history_messages = [deepcopy(message) for message in session_messages]
     if history_settings.max_tool_calls_from_history is not None and history_messages:
         filter_tool_calls(history_messages, history_settings.max_tool_calls_from_history)
-    _strip_stale_anthropic_replay_fields(history_messages)
     return history_messages
 
 
@@ -1438,7 +1053,7 @@ def _history_skip_roles(history_settings: ResolvedHistorySettings) -> list[str]:
     return sorted(prompt_roles_for_history_storage(history_settings.system_message_role))
 
 
-def completed_top_level_runs(session: AgentSession | TeamSession) -> list[RunOutput | TeamRunOutput]:
+def _completed_top_level_runs(session: AgentSession | TeamSession) -> list[RunOutput | TeamRunOutput]:
     """Return completed top-level runs that can contribute to persisted replay."""
     skip_statuses = {RunStatus.paused, RunStatus.cancelled, RunStatus.error}
     return [
@@ -1448,7 +1063,15 @@ def completed_top_level_runs(session: AgentSession | TeamSession) -> list[RunOut
     ]
 
 
-def runs_for_scope(
+def scope_visible_runs(
+    session: AgentSession | TeamSession,
+    scope: HistoryScope,
+) -> list[RunOutput | TeamRunOutput]:
+    """Return this scope's completed top-level runs in stored order."""
+    return _runs_for_scope(_completed_top_level_runs(session), scope)
+
+
+def _runs_for_scope(
     runs: Sequence[RunOutput | TeamRunOutput],
     scope: HistoryScope,
 ) -> list[RunOutput | TeamRunOutput]:
@@ -1490,35 +1113,3 @@ def _model_identifier(model: Model) -> str:
 
 def _iso_utc_now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def compute_prompt_token_breakdown(
-    agent: Agent | None = None,
-    team: Team | None = None,
-    full_prompt: str | None = None,
-) -> dict[str, int]:
-    """Compute token breakdown for system prompt, tool defs, and current prompt."""
-    breakdown: dict[str, int] = {}
-
-    if agent is not None:
-        sys_chars = len(agent.role or "")
-        instructions = agent.instructions
-        if isinstance(instructions, str):
-            sys_chars += len(instructions)
-        elif isinstance(instructions, list):
-            for instruction in instructions:
-                sys_chars += len(str(instruction))
-        breakdown["role_instructions_tokens"] = sys_chars // 4
-
-    tool_tokens = 0
-    if agent is not None:
-        tool_tokens = _estimate_tool_definition_tokens(agent)
-    elif team is not None:
-        prepared_tools, _tool_instructions = _prepare_tools_for_estimation(team.tools)
-        tool_tokens = _estimate_prepared_tool_definition_tokens(prepared_tools)
-    breakdown["tool_definition_tokens"] = tool_tokens
-
-    if full_prompt is not None:
-        breakdown["current_prompt_tokens"] = len(full_prompt) // 4
-
-    return breakdown

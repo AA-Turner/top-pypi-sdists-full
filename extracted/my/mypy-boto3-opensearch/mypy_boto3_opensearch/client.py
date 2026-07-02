@@ -139,6 +139,8 @@ from .type_defs import (
     GetUpgradeHistoryResponseTypeDef,
     GetUpgradeStatusRequestTypeDef,
     GetUpgradeStatusResponseTypeDef,
+    InsightFeedbackRequestTypeDef,
+    InsightFeedbackResponseTypeDef,
     ListApplicationsRequestTypeDef,
     ListApplicationsResponseTypeDef,
     ListDataSourceAttachmentsRequestTypeDef,
@@ -868,6 +870,16 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/get_upgrade_status.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#get_upgrade_status)
+        """
+
+    def insight_feedback(
+        self, **kwargs: Unpack[InsightFeedbackRequestTypeDef]
+    ) -> InsightFeedbackResponseTypeDef:
+        """
+        Submits feedback for an existing insight in an Amazon OpenSearch Service domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/insight_feedback.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#insight_feedback)
         """
 
     def list_applications(

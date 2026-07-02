@@ -188,6 +188,7 @@ __all__ = (
     "NotificationPriorityType",
     "NotificationSourceType",
     "NotificationStatusType",
+    "NotificationTypeType",
     "NumberComparisonTypeType",
     "NumericQuestionPropertyAutomationLabelType",
     "OperationalStatusType",
@@ -705,6 +706,7 @@ NotificationDeliveryTypeType = Literal["EMAIL"]
 NotificationPriorityType = Literal["HIGH", "LOW", "URGENT"]
 NotificationSourceType = Literal["CUSTOMER", "RULES", "SYSTEM"]
 NotificationStatusType = Literal["HIDDEN", "READ", "UNREAD"]
+NotificationTypeType = Literal["WIDGET_ACTION", "WIDGET_VIEW"]
 NumberComparisonTypeType = Literal[
     "EQUAL", "GREATER", "GREATER_OR_EQUAL", "LESSER", "LESSER_OR_EQUAL", "NOT_EQUAL", "RANGE"
 ]

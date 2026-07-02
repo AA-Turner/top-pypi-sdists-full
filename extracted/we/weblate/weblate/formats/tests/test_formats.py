@@ -133,10 +133,14 @@ class DummyBilingualUpdate(BilingualUpdateMixin):
     @classmethod
     def do_bilingual_update(
         cls,
-        in_file: str,  # noqa: ARG003
-        out_file: str,  # noqa: ARG003
-        template: str,  # noqa: ARG003
-        **kwargs,  # noqa: ARG003
+        # ruff: ignore[unused-class-method-argument]
+        in_file: str,
+        # ruff: ignore[unused-class-method-argument]
+        out_file: str,
+        # ruff: ignore[unused-class-method-argument]
+        template: str,
+        # ruff: ignore[unused-class-method-argument]
+        **kwargs,
     ) -> None:
         return
 
@@ -957,6 +961,34 @@ class PoFormatTest(BaseFormatTest):
         content = handle.getvalue().decode()
         self.assertIn('\nmsgid "Hello, world!\\n"', content)
         self.assertNotIn('\n#~ msgid "Hello, world!\\n"', content)
+
+    def test_remove_obsolete_on_save(self) -> None:
+        test_file = os.path.join(self.tempdir, "obsolete.po")
+        Path(test_file).write_text(
+            Path(TEST_PO).read_text(encoding="utf-8")
+            + '\n#~ msgid "Obsolete string"\n#~ msgstr "Zastaraly retezec"\n',
+            encoding="utf-8",
+        )
+
+        storage = self.format_class(
+            test_file, file_format_params={"po_remove_obsolete": True}
+        )
+        storage.save()
+
+        content = Path(test_file).read_text(encoding="utf-8")
+        self.assertNotIn("#~ msgid", content)
+
+    def test_remove_obsolete_units(self) -> None:
+        storage = self.format_class(TEST_PO)
+
+        self.assertTrue(self.format_class.supports_remove_obsolete_units)
+        self.assertEqual(storage.remove_obsolete_units(), [])
+        self.assertIsNone(storage.remove_obsolete_units())
+
+        handle = BytesIO()
+        storage.save_content(handle)
+        content = handle.getvalue().decode()
+        self.assertNotIn("#~ msgid", content)
 
     def test_new_unit_plural(self) -> None:
         # Read test content
@@ -2063,6 +2095,26 @@ class CSVFormatTest(BaseFormatTest):
     NEW_UNIT_MATCH = b'"Source string",""\r\n'
     EXPECTED_FLAGS: ClassVar[str | list[str]] = ""
 
+    def test_formula_escaping_param(self) -> None:
+        if self.format_class is not CSVFormat:
+            self.skipTest("Only full CSV formula escaping is tested here")
+
+        filename = Path(self.tempdir) / "formula.csv"
+        filename.write_text('"source","target"\n"Hello",""\n', encoding="utf-8")
+        storage = self.format_class(
+            str(filename), file_format_params={"csv_escape_formulas": True}
+        )
+        unit = storage.content_units[0]
+        unit.set_target("=1+1")
+        storage.save()
+
+        self.assertIn('"\'=1+1"', filename.read_text(encoding="utf-8"))
+
+        storage = self.format_class(
+            str(filename), file_format_params={"csv_escape_formulas": True}
+        )
+        self.assertEqual(storage.content_units[0].target, "=1+1")
+
     def test_plural_metadata_rows(self) -> None:
         if self.format_class is not CSVFormat:
             self.skipTest("Only full CSV preserves plural metadata fields")
@@ -2156,6 +2208,12 @@ class CSVFormatTest(BaseFormatTest):
             ["jeden soubor", "%(count)s soubory", "%(count)s souboru"],
         )
         self.assertTrue(all(row.isfuzzy() for row in storage.store.units))
+        self.assertIsNone(storage.remove_duplicate_units())
+        self.assertEqual(len(storage.store.units), 3)
+        self.assertEqual(
+            [row.target_plural_form for row in storage.store.units],
+            ["0", "1", "2"],
+        )
 
     def test_plural_metadata_missing_template_rows_are_materialized(self) -> None:
         if self.format_class is not CSVFormat:
@@ -2719,7 +2777,8 @@ class XWikiPagePropertiesFormatTest(XMLMixin, PropertiesFormatTest):
         )
         self.assertFalse(create)
         translation_data.add_unit(unit_to_translate)
-        translation_data.all_units[index]._unit = unit_to_translate.unit  # noqa: SLF001
+        # ruff: ignore[private-member-access]
+        translation_data.all_units[index]._unit = unit_to_translate.unit
         unit_to_translate.set_target(target)
 
     def test_translate_file(self) -> None:
@@ -2838,7 +2897,8 @@ class XWikiFullPageFormatTest(XMLMixin, BaseFormatTest):
         )
         self.assertTrue(create)
         translation_data.add_unit(unit_to_translate)
-        translation_data.all_units[index]._unit = unit_to_translate.unit  # noqa: SLF001
+        # ruff: ignore[private-member-access]
+        translation_data.all_units[index]._unit = unit_to_translate.unit
         unit_to_translate.set_target(target)
 
     def test_translate_file(self) -> None:
@@ -2932,7 +2992,7 @@ class TBXFormatTest(XMLMixin, BaseFormatTest):
     BASE = ""
     MIME = "application/x-tbx"
     EXT = "tbx"
-    COUNT = 4
+    COUNT = 5
     MASK = "tbx/*.tbx"
     EXPECTED_PATH = "tbx/cs_CZ.tbx"
     MATCH = "<martif"

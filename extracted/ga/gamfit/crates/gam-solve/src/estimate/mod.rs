@@ -122,11 +122,15 @@ pub use summary::{
 };
 
 #[cfg(test)]
+mod binomial_reml_outer_cost_1575_tests;
+#[cfg(test)]
 mod continuous_order_tests;
 #[cfg(test)]
 mod estimate_policy_tests;
 #[cfg(test)]
 mod gaussian_high_edf_scale_tests;
+#[cfg(test)]
+mod gaussian_observation_interval_calibration_tests;
 #[cfg(test)]
 mod invert_regularized_rho_hessian_tests;
 // Finite-difference debug probes on `ExternalJointHyperEvaluator`

@@ -1925,6 +1925,7 @@ class JsiiProject(
         libdir: typing.Optional[builtins.str] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
         projenrc_ts_options: typing.Optional[typing.Union["_typescript_7a66cf84.ProjenrcOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        runner: typing.Optional["_typescript_7a66cf84.TypeScriptRunner"] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
         testdir: typing.Optional[builtins.str] = None,
@@ -2089,6 +2090,7 @@ class JsiiProject(
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
         :param projenrc_ts_options: (experimental) Options for .projenrc.ts.
+        :param runner: (experimental) The TypeScript runner to use for executing TypeScript files. This is a project-level setting that components (e.g. projenrc) will use as their default runner. Default: TypeScriptRunner.tsNode()
         :param sample_code: (experimental) Generate one-time sample in ``src/`` and ``test/`` if there are no files there. Default: true
         :param srcdir: (experimental) Typescript sources directory. Default: "src"
         :param testdir: (experimental) Jest tests directory. Tests files should be named ``xxx.test.ts``. If this directory is under ``srcdir`` (e.g. ``src/test``, ``src/__tests__``), then tests are going to be compiled into ``lib/`` and executed as javascript. If the test directory is outside of ``src``, then we configure jest to compile the code in-memory. Default: "test"
@@ -2255,6 +2257,7 @@ class JsiiProject(
             libdir=libdir,
             projenrc_ts=projenrc_ts,
             projenrc_ts_options=projenrc_ts_options,
+            runner=runner,
             sample_code=sample_code,
             srcdir=srcdir,
             testdir=testdir,
@@ -2540,6 +2543,7 @@ class JsiiProject(
         "libdir": "libdir",
         "projenrc_ts": "projenrcTs",
         "projenrc_ts_options": "projenrcTsOptions",
+        "runner": "runner",
         "sample_code": "sampleCode",
         "srcdir": "srcdir",
         "testdir": "testdir",
@@ -2708,6 +2712,7 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
         libdir: typing.Optional[builtins.str] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
         projenrc_ts_options: typing.Optional[typing.Union["_typescript_7a66cf84.ProjenrcOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        runner: typing.Optional["_typescript_7a66cf84.TypeScriptRunner"] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
         testdir: typing.Optional[builtins.str] = None,
@@ -2872,6 +2877,7 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
         :param projenrc_ts_options: (experimental) Options for .projenrc.ts.
+        :param runner: (experimental) The TypeScript runner to use for executing TypeScript files. This is a project-level setting that components (e.g. projenrc) will use as their default runner. Default: TypeScriptRunner.tsNode()
         :param sample_code: (experimental) Generate one-time sample in ``src/`` and ``test/`` if there are no files there. Default: true
         :param srcdir: (experimental) Typescript sources directory. Default: "src"
         :param testdir: (experimental) Jest tests directory. Tests files should be named ``xxx.test.ts``. If this directory is under ``srcdir`` (e.g. ``src/test``, ``src/__tests__``), then tests are going to be compiled into ``lib/`` and executed as javascript. If the test directory is outside of ``src``, then we configure jest to compile the code in-memory. Default: "test"
@@ -3111,6 +3117,7 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
             check_type(argname="argument libdir", value=libdir, expected_type=type_hints["libdir"])
             check_type(argname="argument projenrc_ts", value=projenrc_ts, expected_type=type_hints["projenrc_ts"])
             check_type(argname="argument projenrc_ts_options", value=projenrc_ts_options, expected_type=type_hints["projenrc_ts_options"])
+            check_type(argname="argument runner", value=runner, expected_type=type_hints["runner"])
             check_type(argname="argument sample_code", value=sample_code, expected_type=type_hints["sample_code"])
             check_type(argname="argument srcdir", value=srcdir, expected_type=type_hints["srcdir"])
             check_type(argname="argument testdir", value=testdir, expected_type=type_hints["testdir"])
@@ -3416,6 +3423,8 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
             self._values["projenrc_ts"] = projenrc_ts
         if projenrc_ts_options is not None:
             self._values["projenrc_ts_options"] = projenrc_ts_options
+        if runner is not None:
+            self._values["runner"] = runner
         if sample_code is not None:
             self._values["sample_code"] = sample_code
         if srcdir is not None:
@@ -5215,6 +5224,20 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
         return typing.cast(typing.Optional["_typescript_7a66cf84.ProjenrcOptions"], result)
 
     @builtins.property
+    def runner(self) -> typing.Optional["_typescript_7a66cf84.TypeScriptRunner"]:
+        '''(experimental) The TypeScript runner to use for executing TypeScript files.
+
+        This is a project-level setting that components (e.g. projenrc) will
+        use as their default runner.
+
+        :default: TypeScriptRunner.tsNode()
+
+        :stability: experimental
+        '''
+        result = self._values.get("runner")
+        return typing.cast(typing.Optional["_typescript_7a66cf84.TypeScriptRunner"], result)
+
+    @builtins.property
     def sample_code(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Generate one-time sample in ``src/`` and ``test/`` if there are no files there.
 
@@ -5860,6 +5883,7 @@ class ConstructLibrary(
         libdir: typing.Optional[builtins.str] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
         projenrc_ts_options: typing.Optional[typing.Union["_typescript_7a66cf84.ProjenrcOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        runner: typing.Optional["_typescript_7a66cf84.TypeScriptRunner"] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
         testdir: typing.Optional[builtins.str] = None,
@@ -6025,6 +6049,7 @@ class ConstructLibrary(
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
         :param projenrc_ts_options: (experimental) Options for .projenrc.ts.
+        :param runner: (experimental) The TypeScript runner to use for executing TypeScript files. This is a project-level setting that components (e.g. projenrc) will use as their default runner. Default: TypeScriptRunner.tsNode()
         :param sample_code: (experimental) Generate one-time sample in ``src/`` and ``test/`` if there are no files there. Default: true
         :param srcdir: (experimental) Typescript sources directory. Default: "src"
         :param testdir: (experimental) Jest tests directory. Tests files should be named ``xxx.test.ts``. If this directory is under ``srcdir`` (e.g. ``src/test``, ``src/__tests__``), then tests are going to be compiled into ``lib/`` and executed as javascript. If the test directory is outside of ``src``, then we configure jest to compile the code in-memory. Default: "test"
@@ -6192,6 +6217,7 @@ class ConstructLibrary(
             libdir=libdir,
             projenrc_ts=projenrc_ts,
             projenrc_ts_options=projenrc_ts_options,
+            runner=runner,
             sample_code=sample_code,
             srcdir=srcdir,
             testdir=testdir,
@@ -6484,6 +6510,7 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "libdir": "libdir",
         "projenrc_ts": "projenrcTs",
         "projenrc_ts_options": "projenrcTsOptions",
+        "runner": "runner",
         "sample_code": "sampleCode",
         "srcdir": "srcdir",
         "testdir": "testdir",
@@ -6653,6 +6680,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         libdir: typing.Optional[builtins.str] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
         projenrc_ts_options: typing.Optional[typing.Union["_typescript_7a66cf84.ProjenrcOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        runner: typing.Optional["_typescript_7a66cf84.TypeScriptRunner"] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
         testdir: typing.Optional[builtins.str] = None,
@@ -6818,6 +6846,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param libdir: (experimental) Typescript artifacts output directory. Default: "lib"
         :param projenrc_ts: (experimental) Use TypeScript for your projenrc file (``.projenrc.ts``). Default: false
         :param projenrc_ts_options: (experimental) Options for .projenrc.ts.
+        :param runner: (experimental) The TypeScript runner to use for executing TypeScript files. This is a project-level setting that components (e.g. projenrc) will use as their default runner. Default: TypeScriptRunner.tsNode()
         :param sample_code: (experimental) Generate one-time sample in ``src/`` and ``test/`` if there are no files there. Default: true
         :param srcdir: (experimental) Typescript sources directory. Default: "src"
         :param testdir: (experimental) Jest tests directory. Tests files should be named ``xxx.test.ts``. If this directory is under ``srcdir`` (e.g. ``src/test``, ``src/__tests__``), then tests are going to be compiled into ``lib/`` and executed as javascript. If the test directory is outside of ``src``, then we configure jest to compile the code in-memory. Default: "test"
@@ -7060,6 +7089,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument libdir", value=libdir, expected_type=type_hints["libdir"])
             check_type(argname="argument projenrc_ts", value=projenrc_ts, expected_type=type_hints["projenrc_ts"])
             check_type(argname="argument projenrc_ts_options", value=projenrc_ts_options, expected_type=type_hints["projenrc_ts_options"])
+            check_type(argname="argument runner", value=runner, expected_type=type_hints["runner"])
             check_type(argname="argument sample_code", value=sample_code, expected_type=type_hints["sample_code"])
             check_type(argname="argument srcdir", value=srcdir, expected_type=type_hints["srcdir"])
             check_type(argname="argument testdir", value=testdir, expected_type=type_hints["testdir"])
@@ -7366,6 +7396,8 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["projenrc_ts"] = projenrc_ts
         if projenrc_ts_options is not None:
             self._values["projenrc_ts_options"] = projenrc_ts_options
+        if runner is not None:
+            self._values["runner"] = runner
         if sample_code is not None:
             self._values["sample_code"] = sample_code
         if srcdir is not None:
@@ -9167,6 +9199,20 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         return typing.cast(typing.Optional["_typescript_7a66cf84.ProjenrcOptions"], result)
 
     @builtins.property
+    def runner(self) -> typing.Optional["_typescript_7a66cf84.TypeScriptRunner"]:
+        '''(experimental) The TypeScript runner to use for executing TypeScript files.
+
+        This is a project-level setting that components (e.g. projenrc) will
+        use as their default runner.
+
+        :default: TypeScriptRunner.tsNode()
+
+        :stability: experimental
+        '''
+        result = self._values.get("runner")
+        return typing.cast(typing.Optional["_typescript_7a66cf84.TypeScriptRunner"], result)
+
+    @builtins.property
     def sample_code(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Generate one-time sample in ``src/`` and ``test/`` if there are no files there.
 
@@ -9833,6 +9879,7 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     libdir: typing.Optional[builtins.str] = None,
     projenrc_ts: typing.Optional[builtins.bool] = None,
     projenrc_ts_options: typing.Optional[typing.Union[_typescript_7a66cf84.ProjenrcOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    runner: typing.Optional[_typescript_7a66cf84.TypeScriptRunner] = None,
     sample_code: typing.Optional[builtins.bool] = None,
     srcdir: typing.Optional[builtins.str] = None,
     testdir: typing.Optional[builtins.str] = None,
@@ -10019,6 +10066,7 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     libdir: typing.Optional[builtins.str] = None,
     projenrc_ts: typing.Optional[builtins.bool] = None,
     projenrc_ts_options: typing.Optional[typing.Union[_typescript_7a66cf84.ProjenrcOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    runner: typing.Optional[_typescript_7a66cf84.TypeScriptRunner] = None,
     sample_code: typing.Optional[builtins.bool] = None,
     srcdir: typing.Optional[builtins.str] = None,
     testdir: typing.Optional[builtins.str] = None,

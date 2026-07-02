@@ -1,0 +1,25 @@
+
+[package]
+name = "solders-primitives"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders primitives crate."
+
+[dependencies]
+bincode = { workspace = true }
+bv = "0.11.1"
+derive_more = { workspace = true }
+pyo3 = { workspace = true, features = ["macros"] }
+serde = { workspace = true }
+solana-clock = { workspace = true }
+solana-epoch-rewards = { workspace = true }
+solana-epoch-schedule = { workspace = true }
+solana-rent = { workspace = true }
+solana-slot-history = { workspace = true }
+solana-stake-interface = { workspace = true }
+solders-hash = { workspace = true }
+solders-macros = { workspace = true }
+solders-traits-core = { workspace = true }

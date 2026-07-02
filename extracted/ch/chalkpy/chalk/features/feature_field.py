@@ -1787,7 +1787,101 @@ class Feature(Generic[_TPrim, _TRich]):
                 setattr(foreign_feature_set, f.attribute_name, wrapped_feature)
             return filter
 
-        return _validate_filter_internal(filter)
+        validated = _validate_filter_internal(filter)
+        self._validate_vector_search_metadata_types(validated)
+        return validated
+
+    def _validate_vector_search_metadata_types(self, join: Filter) -> None:
+        """For an ``is_near`` (vector-search) join, reject filtering on a foreign metadata feature
+        whose Arrow type the native vector store cannot serialize, so the error is raised when the
+        feature class is defined rather than as a cryptic ingestion-time failure later.
+
+        A vector-search has-many join is an AND-tree of conditions: one ``is_near`` condition over the
+        embeddings, plus optional metadata filters (e.g. ``Doc.created_at == Query.created_at`` or
+        ``Doc.version == 1``). Only the *foreign* features in the metadata-filter conditions get
+        serialized into the collection's metadata, so those are the only operands type-checked here --
+        not the embeddings (the ``is_near`` operands) and not the query-side features.
+
+        Example: ``Query.embedding.is_near(Doc.embedding) & (Doc.created_at == Query.created_at)``
+        flattens to ``[is_near(Query.embedding, Doc.embedding), ==(Doc.created_at, Query.created_at)]``;
+        only ``Doc.created_at`` is checked.
+
+        The allowlist MUST stay in sync with the native pgvector store's metadata serialization
+        (chalk-private ``rust-crates/chalk/chalk_vectorstore/src/pg_vector.rs``)."""
+
+        def _leaves(f: Filter) -> List[Filter]:
+            # Flatten the join into its leaf conditions. `_validate_filter_internal` (run just above)
+            # restricts join operations to "and", "==", and the is_near_* metrics, so a non-"and"
+            # node is always a leaf condition -- only "and" needs traversing. Revisit if the join
+            # op-allowlist ever gains another compound operator (e.g. "or").
+            if f.operation != "and":
+                return [f]
+            leaves: List[Filter] = []
+            for side in (f.lhs, f.rhs):
+                if isinstance(side, Filter):
+                    leaves.extend(_leaves(side))
+            return leaves
+
+        is_near_ops = ("is_near_ip", "is_near_l2", "is_near_cos")
+        leaves = _leaves(join)
+
+        # Whole-join scope check: only is_near joins serialize their filter features into the vector store.
+        # Therefore, if this is not an is_near join, skip the check.
+        if not any(leaf.operation in is_near_ops for leaf in leaves):
+            return
+
+        def _is_supported(dtype: pa.DataType) -> bool:
+            if pa.types.is_string(dtype) or pa.types.is_large_string(dtype):
+                return True
+            if pa.types.is_boolean(dtype):
+                return True
+            if pa.types.is_int32(dtype) or pa.types.is_int64(dtype):
+                return True
+            if pa.types.is_float32(dtype) or pa.types.is_float64(dtype):
+                return True
+            if isinstance(dtype, pa.TimestampType) and dtype.unit == "us":
+                return True
+            if pa.types.is_date64(dtype):
+                return True
+            if isinstance(dtype, pa.Time64Type) and dtype.unit == "us":
+                return True
+            if pa.types.is_uint32(dtype):
+                return True
+            if isinstance(dtype, pa.DurationType) and dtype.unit == "us":
+                return True
+            if pa.types.is_large_binary(dtype):
+                return True
+            return False
+
+        for leaf in leaves:
+            if leaf.operation in is_near_ops:
+                # Skip the is_near condition itself: its operands are the embeddings, which are stored
+                # as the vector index and are NOT serialized into the collection metadata, so the
+                # metadata-type allowlist does not apply to them. (Were they checked, every is_near
+                # join would be rejected, since a Vector isn't an allowed metadata type.)
+                continue
+            # Every other (filter) condition references features that become collection metadata. The
+            # foreign-side feature -- the one NOT in this has-many's own (query-side) namespace -- is
+            # what gets serialized, so check its type; the same-namespace operand is the query value.
+            for operand in (leaf.lhs, leaf.rhs):
+                if not isinstance(operand, Feature) or operand.root_namespace == self.namespace:
+                    continue
+                pa_dtype = operand.converter.pyarrow_dtype
+                if not _is_supported(pa_dtype):
+                    self.lsp_error_builder.add_diagnostic(
+                        message=(
+                            f"Join function for '{self.root_fqn}' is incorrectly configured. "
+                            f"Feature '{operand.root_fqn}' of type {pa_dtype} cannot be used as a "
+                            f"filter in a nearest-neighbor (is_near) join. Supported filter types are "
+                            f"string, bool, int, float, datetime, date, time, IPv4 address, timedelta, "
+                            f"and bytes."
+                        ),
+                        label="unsupported metadata type",
+                        range=self.lsp_error_builder.property_value_range(self.attribute_name)
+                        or self.lsp_error_builder.property_range(self.attribute_name),
+                        code="45",
+                        raise_error=TypeError,
+                    )
 
     def __getstate__(self):
         """

@@ -58,6 +58,7 @@ class TurnState:
     # null-propagation semantics for ``total_cost_usd``.
     usage_tool_call_count: int = 0
     usage_cost_usd: float = 0.0
+    usage_subagent_cost_usd: float = 0.0
     cost_unknown: bool = False
     final_error: str | None = None
     last_heartbeat_at: str | None = None
@@ -184,6 +185,12 @@ def reduce_event(
             run = next_state.tool_runs.get(key)
             if run is not None:
                 run.error = event.data.error
+        # Accumulate sub-agent LLM cost carried on the ToolEnd event
+        # (set by ``spawn_agent`` via message metadata). Kept separate
+        # from the main ``usage_cost_usd`` so the footer can show it
+        # as "(subagents $X.XX)" alongside the parent session cost.
+        if event.data.cost_usd is not None:
+            next_state.usage_subagent_cost_usd += event.data.cost_usd
 
     elif isinstance(event, we.ToolError):
         tc = event.data.tool_call
@@ -286,6 +293,7 @@ def _clone_state(state: TurnState) -> TurnState:
         usage_last_input_tokens=state.usage_last_input_tokens,
         usage_tool_call_count=state.usage_tool_call_count,
         usage_cost_usd=state.usage_cost_usd,
+        usage_subagent_cost_usd=state.usage_subagent_cost_usd,
         cost_unknown=state.cost_unknown,
         final_error=state.final_error,
         last_heartbeat_at=state.last_heartbeat_at,

@@ -10,7 +10,6 @@ import numpy as np
 from joblib import Parallel, delayed
 from sklearn.utils.estimator_checks import check_is_fitted
 
-from nilearn._utils.class_inspect import get_params
 from nilearn._utils.docs import fill_doc
 from nilearn._utils.helpers import stringify_path
 from nilearn._utils.logger import find_stack_level
@@ -122,7 +121,7 @@ class MultiNiftiMasker(_MultiMixin, NiftiMasker):
             :func:`nilearn.masking.compute_multi_epi_mask`, or
             :func:`nilearn.masking.compute_multi_brain_mask`.
 
-        Default='background'.
+        default='background'.
 
     mask_args : :obj:`dict` or None, default=None
         If mask is None, these are additional parameters passed to
@@ -295,6 +294,7 @@ class MultiNiftiMasker(_MultiMixin, NiftiMasker):
                 "while a mask was given at masker creation. "
                 "Given mask will be used.",
                 stacklevel=find_stack_level(),
+                category=RuntimeWarning,
             )
 
         self._report_content["reports_at_fit_time"] = self.reports
@@ -402,15 +402,8 @@ class MultiNiftiMasker(_MultiMixin, NiftiMasker):
         # Ignore the mask-computing params: they are not useful and will
         # just invalidate the cache for no good reason
         # target_shape and target_affine are conveyed implicitly in mask_img
-        params = get_params(
-            self.__class__,
-            self,
-            ignore=[
-                "mask_img",
-                "mask_args",
-                "mask_strategy",
-                "copy",
-            ],
+        params = self._get_masker_params(
+            ignore=["mask_img", "mask_args", "mask_strategy"]
         )
         params["clean_kwargs"] = self.clean_args_
 
@@ -433,7 +426,6 @@ class MultiNiftiMasker(_MultiMixin, NiftiMasker):
                 verbose=self.verbose,
                 confounds=cfs,
                 copy=copy,
-                dtype=self.dtype,
                 sample_mask=sms,
             )
             for imgs, cfs, sms in zip(

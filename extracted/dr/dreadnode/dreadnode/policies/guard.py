@@ -27,6 +27,9 @@ from dreadnode.agents.process_judge import ProcessJudge
 from dreadnode.core.hook import Hook
 from dreadnode.policies import HeadlessSessionPolicy
 
+if t.TYPE_CHECKING:
+    from dreadnode.agents.engines.base import PolicyFacet
+
 
 class GuardSessionPolicy(HeadlessSessionPolicy):
     """Headless mode + LLM-judged tool-call gating.
@@ -127,6 +130,16 @@ class GuardSessionPolicy(HeadlessSessionPolicy):
 
     _judge: ProcessJudge = PrivateAttr()
     _judge_hook: Hook = PrivateAttr()
+
+    def required_facets(self) -> "set[PolicyFacet]":
+        # The guard judge gates/steers every tool call mid-loop (GUARD_STEERING)
+        # and can deny tools (TOOL_APPROVAL) even though the session is autonomous.
+        from dreadnode.agents.engines.base import PolicyFacet
+
+        return super().required_facets() | {
+            PolicyFacet.GUARD_STEERING,
+            PolicyFacet.TOOL_APPROVAL,
+        }
 
     @model_validator(mode="after")
     def _check_short_circuit_lists(self) -> "GuardSessionPolicy":

@@ -1,11 +1,7 @@
-"""
-Hook into Alliance Auth
-"""
+"""Hook into Alliance Auth"""
 
-# Alliance Auth
 from allianceauth import hooks
 
-# Memberaudit Securegroups
 from memberaudit_securegroups.models import (
     ActivityFilter,
     AgeFilter,
@@ -13,6 +9,7 @@ from memberaudit_securegroups.models import (
     ComplianceFilter,
     CorporationRoleFilter,
     CorporationTitleFilter,
+    HomeStationFilter,
     SkillPointFilter,
     SkillSetFilter,
     TimeInCorporationFilter,
@@ -20,7 +17,9 @@ from memberaudit_securegroups.models import (
 
 
 @hooks.register("secure_group_filters")
-def filters():
+def filters() -> list:
+    """Return list of secure group filters."""
+
     return [
         ActivityFilter,
         AgeFilter,
@@ -28,6 +27,7 @@ def filters():
         ComplianceFilter,
         CorporationRoleFilter,
         CorporationTitleFilter,
+        HomeStationFilter,
         SkillPointFilter,
         SkillSetFilter,
         TimeInCorporationFilter,

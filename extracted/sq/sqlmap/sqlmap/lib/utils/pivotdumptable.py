@@ -14,10 +14,12 @@ from lib.core.common import filterNone
 from lib.core.common import getSafeExString
 from lib.core.common import isNoneValue
 from lib.core.common import isNumPosStrValue
+from lib.core.common import prioritySortColumns
 from lib.core.common import singleTimeWarnMessage
 from lib.core.common import unArrayizeValue
 from lib.core.common import unsafeSQLIdentificatorNaming
 from lib.core.compat import xrange
+from lib.core.convert import getConsoleLength
 from lib.core.convert import getUnicode
 from lib.core.data import conf
 from lib.core.data import kb
@@ -28,7 +30,6 @@ from lib.core.enums import CHARSET_TYPE
 from lib.core.enums import EXPECTED
 from lib.core.exception import SqlmapConnectionException
 from lib.core.exception import SqlmapNoneDataException
-from lib.core.settings import MAX_INT
 from lib.core.settings import NULL
 from lib.core.settings import SINGLE_QUOTE_MARKER
 from lib.core.unescaper import unescaper
@@ -58,7 +59,7 @@ def pivotDumpTable(table, colList, count=None, blind=True, alias=None):
         logger.info(infoMsg)
 
         for column in colList:
-            lengths[column] = len(column)
+            lengths[column] = getConsoleLength(column)
             entries[column] = []
 
         return entries, lengths
@@ -70,7 +71,7 @@ def pivotDumpTable(table, colList, count=None, blind=True, alias=None):
         lengths[column] = 0
         entries[column] = BigArray()
 
-    colList = filterNone(sorted(colList, key=lambda x: len(x) if x else MAX_INT))
+    colList = prioritySortColumns(filterNone(colList))
 
     if conf.pivotColumn:
         for _ in colList:
@@ -169,7 +170,7 @@ def pivotDumpTable(table, colList, count=None, blind=True, alias=None):
 
                 value = "" if isNoneValue(value) else unArrayizeValue(value)
 
-                lengths[column] = max(lengths[column], len(DUMP_REPLACEMENTS.get(getUnicode(value), getUnicode(value))))
+                lengths[column] = max(lengths[column], getConsoleLength(DUMP_REPLACEMENTS.get(getUnicode(value), getUnicode(value))))
                 entries[column].append(value)
 
     except KeyboardInterrupt:

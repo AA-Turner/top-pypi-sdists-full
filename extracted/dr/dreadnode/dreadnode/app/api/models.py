@@ -981,6 +981,17 @@ class SessionCreateRequest(BaseModel):
     policy: str | dict[str, t.Any] | None = None
     labels: dict[str, list[str]] | None = None
     origin: str | None = None
+    engine: str | None = None
+    """Loop owner override (e.g. ``claude-code``). ``None``/``inherit`` falls
+    through to the agent's declared engine, then native. Sticky per session."""
+    project_memory_scope_kind: str = Field(
+        default="project",
+        validation_alias="projectMemoryScopeKind",
+    )
+    enable_project_memory_preload: bool = Field(
+        default=True,
+        validation_alias="enableProjectMemoryPreload",
+    )
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -1130,6 +1141,13 @@ class RuntimeInfoResponse(BaseModel):
     working_dir: str
     default_capability: str | None = None
     capabilities: list[CapabilityInfo] = []
+
+
+class WsTicketResponse(BaseModel):
+    """Short-lived ticket for authenticating a browser websocket handshake."""
+
+    ticket: str
+    expires_at: str
 
 
 class HealthResponse(BaseModel):

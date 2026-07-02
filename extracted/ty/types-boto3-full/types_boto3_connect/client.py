@@ -597,6 +597,7 @@ from .type_defs import (
     SendChatIntegrationEventRequestTypeDef,
     SendChatIntegrationEventResponseTypeDef,
     SendOutboundEmailRequestTypeDef,
+    SendOutboundWebNotificationRequestTypeDef,
     StartAttachedFileUploadRequestTypeDef,
     StartAttachedFileUploadResponseTypeDef,
     StartChatContactRequestTypeDef,
@@ -3674,6 +3675,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/send_outbound_email.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#send_outbound_email)
+        """
+
+    def send_outbound_web_notification(
+        self, **kwargs: Unpack[SendOutboundWebNotificationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Sends an outbound web notification to a customer's web browser for outbound
+        campaigns.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/send_outbound_web_notification.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#send_outbound_web_notification)
         """
 
     def start_attached_file_upload(

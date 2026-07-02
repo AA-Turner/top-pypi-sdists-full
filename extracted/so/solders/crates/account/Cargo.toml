@@ -1,0 +1,23 @@
+
+[package]
+name = "solders-account"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders Account crate."
+
+[dependencies]
+base64 = { workspace = true }
+derive_more = { workspace = true }
+pyo3 = { workspace = true, features = ["macros"] }
+serde = { workspace = true }
+serde_bytes.workspace = true
+serde_with.workspace = true
+solana-account = { workspace = true }
+solana-account-decoder-client-types = { workspace = true }
+solders-account-decoder = { workspace = true }
+solders-macros = { workspace = true }
+solders-pubkey = { workspace = true }
+solders-traits-core = { workspace = true }

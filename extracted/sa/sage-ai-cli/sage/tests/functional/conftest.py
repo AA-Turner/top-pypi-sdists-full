@@ -51,7 +51,7 @@ def build_request(channel: str, entry: dict, model: str, flag_set: dict) -> dict
     elif entry["domain"] == "web":
          request["success_criteria"]["extension"] = ".html"
     elif entry["domain"] == "backend":
-         request["success_criteria"]["extension"] = ".py" # Default for backend if not specified
+         pass # Backend could be any language or a Dockerfile
     elif entry["domain"] == "animation":
          request["success_criteria"]["extension"] = ".mp4"
     elif entry["domain"] == "music_video":

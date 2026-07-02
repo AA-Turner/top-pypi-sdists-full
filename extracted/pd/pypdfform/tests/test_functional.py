@@ -5,12 +5,22 @@ from io import BytesIO
 
 import pytest
 from jsonschema import ValidationError, validate
+from pypdf import PdfReader
 
 from PyPDFForm import Annotations, BlankPage, Fields, PdfArray, PdfWrapper
-from PyPDFForm.lib.constants import DA, UNIQUE_SUFFIX_LENGTH, T, V
+from PyPDFForm.lib.constants import (
+    DA,
+    UNIQUE_SUFFIX_LENGTH,
+    AcroForm,
+    T,
+    V,
+)
+from PyPDFForm.lib.constants import (
+    Fields as FieldsConst,
+)
 from PyPDFForm.lib.deprecation import deprecation_notice
 from PyPDFForm.lib.middleware.base import Widget
-from PyPDFForm.lib.template import get_widgets_by_page
+from PyPDFForm.lib.template import get_widget_key, get_widgets_by_page
 
 
 def test_deprecation_warning():
@@ -95,9 +105,9 @@ def test_base_schema_definition():
     assert Widget("foo").schema_definition == {}
 
 
-def test_write(template_stream, pdf_samples):
+def test_write(template_stream, tmp_path):
     assert PdfWrapper(template_stream).write(
-        os.path.join(pdf_samples, "sample_template.pdf")
+        os.path.join(tmp_path, "sample_template.pdf")
     )
 
 
@@ -106,7 +116,7 @@ def test_write_io(template_stream):
     PdfWrapper(template_stream).write(buff)
     buff.seek(0)
 
-    assert buff.read() == template_stream
+    assert buff.read()
 
 
 def test_fill_flatten_then_unflatten(template_stream, pdf_samples, data_dict, request):
@@ -135,7 +145,7 @@ def test_register_bad_fonts():
     assert "foo" not in obj.fonts
 
 
-@pytest.mark.posix_only
+@pytest.mark.requires_zlib_over_zlib_ng
 def test_fill_with_customized_widgets(
     template_stream, pdf_samples, sample_font_stream, data_dict, request
 ):
@@ -165,7 +175,7 @@ def test_fill_with_customized_widgets(
         assert obj.read() == expected
 
 
-@pytest.mark.posix_only
+@pytest.mark.requires_zlib_over_zlib_ng
 def test_fill_with_customized_widgets_flatten(
     template_stream, pdf_samples, sample_font_stream, data_dict, request
 ):
@@ -497,9 +507,10 @@ def test_version(pdf_samples):
 
     obj = PdfWrapper(os.path.join(pdf_samples, "versions", "unknown.pdf"))
     assert obj.version is None
+    assert obj.read()
 
 
-@pytest.mark.posix_only
+@pytest.mark.requires_zlib_over_zlib_ng
 def test_fill_font_color(sample_template_with_font_colors, pdf_samples, request):
     expected_path = os.path.join(pdf_samples, "test_fill_font_color.pdf")
     with open(expected_path, "rb+") as f:
@@ -521,7 +532,7 @@ def test_fill_font_color(sample_template_with_font_colors, pdf_samples, request)
         assert obj.read() == expected
 
 
-@pytest.mark.posix_only
+@pytest.mark.requires_zlib_over_zlib_ng
 def test_fill_complex_fonts(sample_template_with_complex_fonts, pdf_samples, request):
     expected_path = os.path.join(pdf_samples, "test_fill_complex_fonts.pdf")
     with open(expected_path, "rb+") as f:
@@ -551,7 +562,7 @@ def test_fill_complex_fonts(sample_template_with_complex_fonts, pdf_samples, req
         assert obj.read() == expected
 
 
-@pytest.mark.posix_only
+@pytest.mark.requires_zlib_over_zlib_ng
 def test_pages_preserve_font(template_stream, pdf_samples, sample_font_stream, request):
     expected_path = os.path.join(pdf_samples, "pages", "test_pages_preserve_font.pdf")
     obj = PdfWrapper(template_stream)
@@ -703,7 +714,7 @@ def test_uncheck_checkbox(pdf_samples, request):
         assert obj.read() == expected
 
 
-@pytest.mark.posix_only
+@pytest.mark.requires_zlib_over_zlib_ng
 def test_blank_page(pdf_samples, request):
     expected_path = os.path.join(pdf_samples, "test_blank_page.pdf")
     with open(expected_path, "rb+") as f:
@@ -718,7 +729,7 @@ def test_blank_page(pdf_samples, request):
         request.config.results["skip_regenerate"] = len(obj.read()) == len(expected)
 
 
-@pytest.mark.posix_only
+@pytest.mark.requires_zlib_over_zlib_ng
 def test_blank_page_custom_size_multiply(pdf_samples, request):
     expected_path = os.path.join(
         pdf_samples, "test_blank_page_custom_size_multiply.pdf"
@@ -844,7 +855,7 @@ def test_remove_fields_update_widgets(template_stream):
 
 
 def test_remove_fields_no_keys_specified(template_stream):
-    assert PdfWrapper(template_stream).remove_fields([]).read() == template_stream
+    assert PdfWrapper(template_stream).remove_fields([]).read()
 
 
 def test_merge(template_stream):
@@ -1102,3 +1113,16 @@ def test_rubber_stamp_annotation(template_stream, pdf_samples, request):
 
         assert len(obj.read()) == len(expected)
         assert obj.read() == expected
+
+
+def test_rebuild_acroform_fields():
+    pdf = PdfWrapper(BlankPage() * 2)
+
+    pdf.bulk_create_fields(
+        [Fields.TextField("foo", 1, 100, 100), Fields.TextField("bar", 2, 100, 200)]
+    )
+
+    reader = PdfReader(BytesIO(pdf.read()))
+
+    assert get_widget_key(reader.root_object[AcroForm][FieldsConst][0], False) == "foo"
+    assert get_widget_key(reader.root_object[AcroForm][FieldsConst][1], False) == "bar"

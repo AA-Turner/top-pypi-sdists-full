@@ -7,6 +7,7 @@ import os.path
 import shutil
 import sys
 from datetime import timedelta
+from pathlib import Path
 from tarfile import TarFile
 from tempfile import mkdtemp
 
@@ -66,6 +67,12 @@ def wait_for_celery(timeout=10) -> None:
         ping.delay().get(timeout=timeout)
 
 
+def get_optional_path(filename: str | None) -> Path:
+    """Return path for filename expected to be present in tests."""
+    assert filename is not None
+    return Path(filename)
+
+
 def get_test_file(name) -> str:
     """Return filename of test file."""
     return os.path.join(TEST_DATA, name)
@@ -92,7 +99,8 @@ def create_another_user(suffix: str = "") -> User:
 class RepoTestMixin:
     """Mixin for testing with test repositories."""
 
-    updated_base_repos: set[str] = set()  # noqa: RUF012
+    # ruff: ignore[mutable-class-default]
+    updated_base_repos: set[str] = set()
     CREATE_GLOSSARIES: bool = False
 
     local_repo_path = "local:"
@@ -114,7 +122,8 @@ class RepoTestMixin:
 
             # Extract new content
             with TarFile(tarname) as tar:
-                tar.extractall(settings.DATA_DIR)  # noqa: S202
+                # ruff: ignore[tarfile-unsafe-members]
+                tar.extractall(settings.DATA_DIR)
 
             # Update directory timestamp
             os.utime(output, None)
@@ -565,17 +574,20 @@ class SocialCacheMixin:
 
 
 # Lowercase name to be consistent with Django
-class social_core_override_settings(SocialCacheMixin, override_settings):  # noqa: N801
+# ruff: ignore[invalid-class-name]
+class social_core_override_settings(SocialCacheMixin, override_settings):
     pass
 
 
 # Lowercase name to be consistent with Django
-class social_core_modify_settings(SocialCacheMixin, modify_settings):  # noqa: N801
+# ruff: ignore[invalid-class-name]
+class social_core_modify_settings(SocialCacheMixin, modify_settings):
     pass
 
 
 # Lowercase name to be consistent with Django
-class enable_login_required_settings(override_settings):  # noqa: N801
+# ruff: ignore[invalid-class-name]
+class enable_login_required_settings(override_settings):
     def __init__(self):
         middleware = settings.MIDDLEWARE.copy()
         middleware.insert(

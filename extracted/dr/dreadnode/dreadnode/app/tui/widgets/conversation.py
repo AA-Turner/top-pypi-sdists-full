@@ -28,7 +28,7 @@ from textual.widget import Widget
 from textual.widgets import Markdown, Static
 
 from dreadnode.app.tui.theme import ACCENT, ERROR, FG, FG_FAINTEST, FG_MUTED, FG_SUBTLE
-from dreadnode.app.tui.widgets.tool import ToolCall
+from dreadnode.app.tui.widgets.tool import ThemedMarkdown, ToolCall
 from dreadnode.generators.message import Message
 
 # =============================================================================
@@ -190,7 +190,13 @@ def _render_message(message: Message) -> list[t.Any]:
         return [text]
 
     if message.role == "assistant":
-        return [Markdown(content or "_(empty)_", classes="entry assistant-entry")]
+        # Render committed assistant messages as a single Rich renderable (it
+        # gets wrapped in a Static by the caller) rather than a Textual Markdown
+        # widget. A Textual Markdown expands into ~19 child widgets per message;
+        # at conversation scale that DOM weight is what makes scrolling chunky.
+        # The live streaming draft stays a real Markdown widget for incremental
+        # updates; only finished messages take this lightweight path.
+        return [ThemedMarkdown(content or "_(empty)_")]
 
     if message.role == "tool":
         # Tool label is computed at render time from (name, args) so we
@@ -260,6 +266,9 @@ class ConversationView(VerticalScroll):
     def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         super().__init__(*args, **kwargs)
         self._prev_following = True
+        # Coalesces the post-refresh anchor/overflow sync so streaming doesn't
+        # schedule one callback per token.
+        self._anchor_sync_pending = False
         # Perf telemetry — counts virtual_size growth events between
         # ``perf_snapshot_and_reset`` calls. Each event triggers a reflow
         # via ``scroll_end`` while following, so a per-turn delta tells us
@@ -285,27 +294,56 @@ class ConversationView(VerticalScroll):
         yield StreamingDraft(id="draft", classes="-empty")
 
     def on_mount(self) -> None:
+        # Anchor the stream to the bottom. Textual keeps an anchored widget
+        # pinned as its content grows and releases the anchor the moment the
+        # user scrolls away, re-engaging it when they return to the bottom.
+        # This replaces a hand-rolled re-pin (a virtual_size watcher calling
+        # scroll_end) that ran in a reactive watcher with no ordering guarantee
+        # against the user's own scroll — the race that yanked the viewport
+        # around unpredictably.
+        self.anchor()
         # Watch our own scroll position so the app can react to the user
         # entering/leaving "following" state without polling.
         self.watch(self, "scroll_y", self._on_scroll_y_changed, init=False)
-        # Watch virtual_size so the streaming draft can stay pinned to the
-        # bottom as tokens arrive — Markdown content growth doesn't reliably
-        # fire Resize on the draft itself, but it always grows virtual_size
-        # here.
+        # Count virtual_size growth for the (currently dormant) streaming perf
+        # telemetry. Pinning itself is handled by the anchor above.
         self.watch(self, "virtual_size", self._on_virtual_size_changed, init=False)
 
     def _on_virtual_size_changed(self, _new_size: t.Any) -> None:
-        """Stay pinned to the bottom while the user is following.
+        """Toggle the anchor with overflow, and count growth for perf telemetry.
 
-        Layout can grow ``virtual_size`` across multiple refresh cycles
-        (Markdown widgets re-measure, streaming tokens arrive, etc.), so a
-        one-shot ``scroll_end`` from ``load_session``/``append_entry`` can
-        miss the final height. Re-pinning on every growth keeps the user
-        glued to the bottom until they scroll away themselves.
+        Textual's anchor bottom-aligns an anchored widget even when its content
+        is *shorter* than the viewport, which would leave a gap above a short
+        conversation. So the anchor is only kept active while there is something
+        to scroll: when everything fits we disable it and rest at the top, and
+        re-engage (pinning to the bottom) as soon as content overflows again.
+        Pinning while following, releasing on user scroll, and re-engaging at the
+        bottom are all still handled by the anchor itself.
         """
         self._perf_vsize_changes += 1
-        if self._prev_following:
-            self.scroll_end(animate=False)
+        # ``max_scroll_y`` depends on both virtual_size and the container size,
+        # which settle on different ticks — so decide after the refresh, when
+        # both are final. Coalesce to one callback per refresh.
+        if not self._anchor_sync_pending:
+            self._anchor_sync_pending = True
+            self.call_after_refresh(self._sync_anchor_to_overflow)
+
+    def _sync_anchor_to_overflow(self) -> None:
+        """Keep the anchor active only while content overflows the viewport.
+
+        When everything fits there is nothing to follow, and an active anchor
+        would bottom-align the short content (gap at the top); so disable it and
+        rest at the top. Re-enable as soon as content overflows, which pins to
+        the bottom. While overflowing, the anchor's own released/engaged state
+        (set by user scrolls) is left untouched, so this never fights a scroll.
+        """
+        self._anchor_sync_pending = False
+        if self.max_scroll_y <= 0:
+            if self.is_anchored:
+                self.anchor(False)
+                self.scroll_y = 0
+        elif not self.is_anchored:
+            self.anchor()
 
     def _on_scroll_y_changed(self, _new_y: float) -> None:
         now_following = self.is_following
@@ -328,6 +366,18 @@ class ConversationView(VerticalScroll):
     @property
     def is_following(self) -> bool:
         """True when the view is at (or near) the bottom — i.e. the user is "following" the stream.
+
+        Note there are two *independent* notions of "following" here, by design:
+
+        - **Pinning** to the bottom is owned entirely by Textual's anchor (set in
+          ``on_mount``). It tracks its own released/engaged state and re-pins in
+          the compositor; this property does not drive it.
+        - **This property** is a position check used only for app-level UX
+          signals — deciding whether an append should flag the unread pill
+          (``HiddenAppend``) and emitting ``FollowingChanged``.
+
+        They stay consistent because both derive from scroll position, but
+        neither is the source of truth for the other; don't wire pinning to this.
 
         Callers should snapshot this *before* mutating content, because Textual's
         reflow extends ``max_scroll_y`` after a mount/update. Checking afterwards
@@ -370,10 +420,10 @@ class ConversationView(VerticalScroll):
         except NoMatches:
             self.mount_all(widgets)
         # A fresh session always lands at the bottom, even if the previous
-        # session left the view scrolled up. The virtual_size watcher will
-        # re-pin as layout settles.
+        # session left the view scrolled up. Re-engaging the anchor scrolls to
+        # the end and keeps it pinned as the new layout settles.
         self._prev_following = True
-        self.call_after_refresh(self.scroll_end, animate=False)
+        self.anchor()
 
     def append_entry(self, message: Message, *, scroll: bool = True) -> None:
         """Add a single message to the stream."""
@@ -393,9 +443,14 @@ class ConversationView(VerticalScroll):
             self.mount_all(widgets, before=draft)
         except NoMatches:
             self.mount_all(widgets)
-        if scroll and was_at_bottom:
-            self.call_after_refresh(self.scroll_end, animate=False)
-        elif not was_at_bottom:
+        if not scroll:
+            # Caller wants this entry appended without moving the viewport; the
+            # surrounding flow does its own scrolling. Release the anchor so the
+            # growth doesn't pin us to the bottom.
+            self.release_anchor()
+        # When following, the anchor keeps us pinned automatically; when the
+        # user has scrolled up the anchor has released, so flag unread content.
+        if not was_at_bottom:
             self.post_message(self.HiddenAppend(widgets[-1] if widgets else None))
 
     def append_entry_widget(self, widget: Static | ToolCall, *, scroll: bool = True) -> None:
@@ -407,9 +462,9 @@ class ConversationView(VerticalScroll):
             self.mount(widget, before=self.query_one("#draft"))
         except NoMatches:
             self.mount(widget)
-        if scroll and was_at_bottom:
-            self.call_after_refresh(self.scroll_end, animate=False)
-        elif not was_at_bottom:
+        if not scroll:
+            self.release_anchor()
+        if not was_at_bottom:
             self.post_message(self.HiddenAppend(widget))
 
     def write(self, renderable: t.Any) -> None:
@@ -420,9 +475,7 @@ class ConversationView(VerticalScroll):
             self.mount(widget, before=self.query_one("#draft"))
         except NoMatches:
             self.mount(widget)
-        if was_at_bottom:
-            self.call_after_refresh(self.scroll_end, animate=False)
-        else:
+        if not was_at_bottom:
             self.post_message(self.HiddenAppend(widget))
 
     def write_system(self, message: str, *, style: str = FG_FAINTEST) -> None:
@@ -442,13 +495,10 @@ class ConversationView(VerticalScroll):
             existing.first(Static).update(text)
             return
         widget = Static(text, id="inline-activity", classes="entry")
-        was_at_bottom = self.is_following
         try:
             self.mount(widget, before=self.query_one("#draft"))
         except NoMatches:
             self.mount(widget)
-        if was_at_bottom:
-            self.call_after_refresh(self.scroll_end, animate=False)
 
     def clear_activity(self) -> None:
         """Remove the activity indicator if present."""

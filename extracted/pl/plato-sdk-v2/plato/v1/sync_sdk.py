@@ -541,6 +541,9 @@ class SyncPlato:
                     capabilities=t.get("metadataConfig", {}).get("capabilities", []),
                     tags=t.get("metadataConfig", {}).get("tags", []),
                     rejected=t.get("metadataConfig", {}).get("rejected", False),
+                    # metadata_config serializes via model_dump (no aliases), so
+                    # inner keys stay snake_case on the wire.
+                    utc_offset=t.get("metadataConfig", {}).get("utc_offset"),
                 )
                 if t.get("metadataConfig")
                 else None,

@@ -1130,6 +1130,9 @@ __all__ = (
     "FieldSortOptionsTypeDef",
     "FieldSortTypeDef",
     "FieldTooltipItemTypeDef",
+    "FileSourceOutputTypeDef",
+    "FileSourceTypeDef",
+    "FileSourceUnionTypeDef",
     "FilledMapAggregatedFieldWellsOutputTypeDef",
     "FilledMapAggregatedFieldWellsTypeDef",
     "FilledMapConditionalFormattingOptionOutputTypeDef",
@@ -4508,6 +4511,14 @@ class FieldTooltipItemTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
     TooltipTarget: NotRequired[TooltipTargetType]
 
+class UploadSettingsTypeDef(TypedDict):
+    Format: NotRequired[FileFormatType]
+    StartFromRow: NotRequired[int]
+    ContainsHeader: NotRequired[bool]
+    TextQualifier: NotRequired[TextQualifierType]
+    Delimiter: NotRequired[str]
+    CustomCellAddressRange: NotRequired[str]
+
 class GeospatialMapStyleOptionsTypeDef(TypedDict):
     BaseMapStyle: NotRequired[BaseMapStyleTypeType]
 
@@ -5400,14 +5411,6 @@ class S3BucketConfigurationTypeDef(TypedDict):
     BucketName: str
     BucketPrefix: str
     BucketRegion: str
-
-class UploadSettingsTypeDef(TypedDict):
-    Format: NotRequired[FileFormatType]
-    StartFromRow: NotRequired[int]
-    ContainsHeader: NotRequired[bool]
-    TextQualifier: NotRequired[TextQualifierType]
-    Delimiter: NotRequired[str]
-    CustomCellAddressRange: NotRequired[str]
 
 class TablePathElementTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -8306,6 +8309,28 @@ class UpdateAgentResponseTypeDef(TypedDict):
 
 FieldFolderUnionTypeDef = Union[FieldFolderTypeDef, FieldFolderOutputTypeDef]
 
+class FileSourceOutputTypeDef(TypedDict):
+    DataSourceArn: str
+    SheetIndex: int
+    InputColumns: list[InputColumnTypeDef]
+    UploadSettings: NotRequired[UploadSettingsTypeDef]
+
+class FileSourceTypeDef(TypedDict):
+    DataSourceArn: str
+    SheetIndex: int
+    InputColumns: Sequence[InputColumnTypeDef]
+    UploadSettings: NotRequired[UploadSettingsTypeDef]
+
+class S3SourceOutputTypeDef(TypedDict):
+    DataSourceArn: str
+    InputColumns: list[InputColumnTypeDef]
+    UploadSettings: NotRequired[UploadSettingsTypeDef]
+
+class S3SourceTypeDef(TypedDict):
+    DataSourceArn: str
+    InputColumns: Sequence[InputColumnTypeDef]
+    UploadSettings: NotRequired[UploadSettingsTypeDef]
+
 class FilterAggMetricsTypeDef(TypedDict):
     MetricOperand: NotRequired[IdentifierTypeDef]
     Function: NotRequired[AggTypeType]
@@ -8837,16 +8862,6 @@ class RowLevelPermissionTagConfigurationTypeDef(TypedDict):
 
 class SnapshotS3DestinationConfigurationTypeDef(TypedDict):
     BucketConfiguration: S3BucketConfigurationTypeDef
-
-class S3SourceOutputTypeDef(TypedDict):
-    DataSourceArn: str
-    InputColumns: list[InputColumnTypeDef]
-    UploadSettings: NotRequired[UploadSettingsTypeDef]
-
-class S3SourceTypeDef(TypedDict):
-    DataSourceArn: str
-    InputColumns: Sequence[InputColumnTypeDef]
-    UploadSettings: NotRequired[UploadSettingsTypeDef]
 
 class SaaSTableOutputTypeDef(TypedDict):
     DataSourceArn: str
@@ -9643,6 +9658,9 @@ class ListSpaceResourcesResponseTypeDef(TypedDict):
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+FileSourceUnionTypeDef = Union[FileSourceTypeDef, FileSourceOutputTypeDef]
+S3SourceUnionTypeDef = Union[S3SourceTypeDef, S3SourceOutputTypeDef]
+
 class TopicIRFilterOptionOutputTypeDef(TypedDict):
     FilterType: NotRequired[TopicIRFilterTypeType]
     FilterClass: NotRequired[FilterClassType]
@@ -10170,13 +10188,12 @@ class SnapshotJobS3ResultTypeDef(TypedDict):
     S3Uri: NotRequired[str]
     ErrorInfo: NotRequired[list[SnapshotJobResultErrorInfoTypeDef]]
 
-S3SourceUnionTypeDef = Union[S3SourceTypeDef, S3SourceOutputTypeDef]
-
 class PhysicalTableOutputTypeDef(TypedDict):
     RelationalTable: NotRequired[RelationalTableOutputTypeDef]
     CustomSql: NotRequired[CustomSqlOutputTypeDef]
     S3Source: NotRequired[S3SourceOutputTypeDef]
     SaaSTable: NotRequired[SaaSTableOutputTypeDef]
+    FileSource: NotRequired[FileSourceOutputTypeDef]
 
 SaaSTableUnionTypeDef = Union[SaaSTableTypeDef, SaaSTableOutputTypeDef]
 
@@ -10994,6 +11011,7 @@ class PhysicalTableTypeDef(TypedDict):
     CustomSql: NotRequired[CustomSqlUnionTypeDef]
     S3Source: NotRequired[S3SourceUnionTypeDef]
     SaaSTable: NotRequired[SaaSTableUnionTypeDef]
+    FileSource: NotRequired[FileSourceUnionTypeDef]
 
 class DefaultSectionBasedLayoutConfigurationTypeDef(TypedDict):
     CanvasSizeOptions: SectionBasedLayoutCanvasSizeOptionsTypeDef

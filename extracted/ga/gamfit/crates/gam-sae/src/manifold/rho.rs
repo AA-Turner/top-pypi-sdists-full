@@ -131,23 +131,98 @@ impl SaeManifoldRho {
         self.seed_scaled_by_dispersion_with_sparse_policy(dispersion, true)
     }
 
-    /// Assignment-aware seed scaling. In learnable-alpha IBP mode the sparse
-    /// coordinate is a dimensionless log-alpha offset, not a penalty strength, so
-    /// response-dispersion scaling must skip it while still scaling smoothness and
-    /// ARD precision seeds.
+    /// Assignment-aware seed scaling.
+    ///
+    /// The response-dispersion shift `λ → λ·φ_seed` makes the seeded effective
+    /// stiffness `λ/φ_data` dimensionless — but that identity is derived from the
+    /// Gaussian penalized-likelihood normal equations on a FIXED linear design.
+    /// It is well-founded for the separable-gate modes (softmax entropy /
+    /// JumpReLU gated-L1), whose per-row gates are held at their seed weighting
+    /// while the decoder/coordinates are refit, so `λ/φ` is exactly the effective
+    /// stiffness.
+    ///
+    /// IBP-MAP is different in kind. Its per-row Bernoulli gates are FREE latent
+    /// variables the inner joint solve co-optimizes with the coordinates and
+    /// decoder. A response-dispersion-WEAKENED smoothness/ARD seed
+    /// (`φ_seed ≪ 1` at any non-trivial noise scale) hands that extra gate +
+    /// coordinate freedom enough slack to interpolate the noise: the inner solve
+    /// overfits, the reconstruction dispersion `φ̂` collapses toward 0, and the
+    /// Fellner–Schall multiplicative fixed point (`λ_new ∝ φ̂`) then spirals the
+    /// smoothing/ARD penalties to zero — a degenerate outer basin the ρ-optimizer
+    /// stalls in (#1744: ibp_map n=40 σ=0.18 stalled at EV 0.86). The IBP sparse
+    /// coordinate is additionally a dimensionless log-alpha concentration offset,
+    /// not a squared-output-unit penalty weight, so it was never dispersion-
+    /// scalable either. NONE of the IBP-MAP ρ coordinates therefore admit the
+    /// Gaussian response-dispersion scaling; the seed stays at its absolute
+    /// (already dimensionless) construction values, which keeps the smoothing/ARD
+    /// penalties strong enough that the inner IBP solve cannot overfit at the seed
+    /// and the EFS fixed point lands on the interior optimum instead of the
+    /// zero-penalty collapse. The separable-gate modes are byte-for-byte
+    /// unchanged.
     pub fn seed_scaled_by_dispersion_for_assignment(
         &self,
         dispersion: f64,
         assignment_mode: AssignmentMode,
     ) -> Result<Self, String> {
-        let scale_sparse = !matches!(
-            assignment_mode,
-            AssignmentMode::IBPMap {
-                learnable_alpha: true,
-                ..
+        if matches!(assignment_mode, AssignmentMode::IBPMap { .. }) {
+            // Validate the dispersion for parity with the scaled path (a
+            // non-finite/​non-positive φ is still a caller error), then return the
+            // unscaled seed: no IBP-MAP ρ coordinate is response-dispersion-scalable.
+            if !(dispersion.is_finite() && dispersion > 0.0) {
+                return Err(format!(
+                    "SaeManifoldRho::seed_scaled_by_dispersion_for_assignment: dispersion must \
+                     be finite and positive; got {dispersion}"
+                ));
             }
-        );
-        self.seed_scaled_by_dispersion_with_sparse_policy(dispersion, scale_sparse)
+            return Ok(self.clone());
+        }
+        // Separable-gate modes (softmax entropy / ThresholdGate gated-L1).
+        //
+        // #1782 — a SINGLE-atom (K = 1) fit has no cross-atom routing, so the
+        // response-dispersion identity `λ/φ` is exactly the effective stiffness
+        // and full scaling is well-founded: keep it BYTE-FOR-BYTE (this is the
+        // regime the planted-circle noise-scale sweep pins). But a MULTI-atom
+        // (K > 1) fit couples the per-atom decoders and coordinates through the
+        // shared routing gate, and on clean data `φ_seed ≪ 1` the dispersion
+        // shift `ln φ_seed` WEAKENS the decoder-smoothness / ARD seed toward
+        // zero. That hands the coupled `(coords, decoders)` block enough slack to
+        // overfit AT THE SEED, driving the undamped per-row / cross-row joint
+        // Hessian indefinite — a non-PD seed whose Laplace evidence log-det is
+        // undefined. Because the SAE fit runs a single seed (`max_seeds = 1`),
+        // the EFS startup validation then rejects it with "no candidate seeds
+        // passed outer startup validation" (the #1782 softmax / jumprelu failure),
+        // exactly where ibp_map — which is never dispersion-weakened — survives.
+        //
+        // Fix: for K > 1 keep the seed decoder-smoothness / ARD from being
+        // WEAKENED below their (dimensionless) construction strength — floor the
+        // shift at 0 so noisy data (`φ > 1`) still STRENGTHENS smoothing (the
+        // well-founded direction) while clean data can no longer collapse the
+        // seed penalties into the non-PD basin. The sparse (gate) coordinate,
+        // which does not enter the decoder Hessian, keeps its full dispersion
+        // scaling. The EFS fixed point then descends each λ from this feasible,
+        // PD seed to the same interior optimum.
+        if self.log_lambda_smooth.len() <= 1 {
+            return self.seed_scaled_by_dispersion_with_sparse_policy(dispersion, true);
+        }
+        if !(dispersion.is_finite() && dispersion > 0.0) {
+            return Err(format!(
+                "SaeManifoldRho::seed_scaled_by_dispersion_for_assignment: dispersion must \
+                 be finite and positive; got {dispersion}"
+            ));
+        }
+        let shift = dispersion.ln();
+        let smooth_ard_shift = shift.max(0.0);
+        let mut scaled = self.clone();
+        scaled.log_lambda_sparse += shift;
+        for value in &mut scaled.log_lambda_smooth {
+            *value += smooth_ard_shift;
+        }
+        for atom in &mut scaled.log_ard {
+            for value in atom.iter_mut() {
+                *value += smooth_ard_shift;
+            }
+        }
+        Ok(scaled)
     }
 
     pub(crate) fn seed_scaled_by_dispersion_with_sparse_policy(

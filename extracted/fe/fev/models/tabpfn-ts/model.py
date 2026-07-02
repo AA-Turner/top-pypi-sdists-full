@@ -3,6 +3,7 @@ import warnings
 from contextlib import contextmanager
 
 import datasets
+import numpy as np
 import pandas as pd
 
 import fev
@@ -42,7 +43,8 @@ class TabPFNTSModel(fev.ForecastingModel):
         from tabpfn_time_series.features import AutoSeasonalFeature, CalendarFeature, RunningIndexFeature
 
         predictor = TabPFNTimeSeriesPredictor(
-            tabpfn_mode=TabPFNMode.LOCAL, tabpfn_config={"model_path": self.model_path}
+            tabpfn_mode=TabPFNMode.LOCAL,
+            tabpfn_config={"model_path": fev.utils.maybe_cache_from_s3(self.model_path)},
         )
         selected_features = [RunningIndexFeature(), CalendarFeature(), AutoSeasonalFeature()]
         feature_transformer = FeatureTransformer(selected_features)
@@ -55,6 +57,8 @@ class TabPFNTSModel(fev.ForecastingModel):
                 for col in df.columns:
                     if not pd.api.types.is_numeric_dtype(df[col]):
                         df[col] = df[col].astype(str).replace("nan", "None")
+                # Use np instead of pd.to_datetime to avoid OverflowError error on invalid timestamps
+                df["timestamp"] = np.array(df["timestamp"], dtype="datetime64[s]")
             train_tsdf = TimeSeriesDataFrame(train_tsdf, id_column="id").fill_missing_values().fillna(0.0)
             train_tsdf = train_tsdf.slice_by_timestep(-self.max_context_length, None)
             train_tsdf = train_tsdf.drop(columns=task.past_dynamic_columns)
@@ -68,7 +72,7 @@ class TabPFNTSModel(fev.ForecastingModel):
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     with self._record_inference_time():
-                        forecast_df = predictor.predict(train_tsdf, test_tsdf)
+                        forecast_df = predictor.predict(train_tsdf, test_tsdf, quantiles=list(task.quantile_levels))
             forecast_df = forecast_df.rename(
                 columns={"target": "predictions"} | {q: str(q) for q in task.quantile_levels}
             )[selected_columns]

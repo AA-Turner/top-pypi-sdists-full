@@ -1674,6 +1674,28 @@ fn sae_atom_basis_kind_name(kind: &SaeAtomBasisKind) -> String {
     }
 }
 
+/// #1777 — canonicalize the Python-facing assignment-kind token. The hard-sigmoid
+/// gate family formerly spelled `"jumprelu"` is now the accurately-named
+/// `"threshold_gate"` (the renamed [`AssignmentMode::ThresholdGate`]); BOTH
+/// spellings are accepted and map to the same mode, and the canonical (emitted)
+/// token is `"threshold_gate"`. `"softmax"` / `"ibp_map"` pass through unchanged.
+/// Any other token is a caller error. Every FFI entry point that receives an
+/// `assignment_kind` string from Python normalizes through this so the legacy
+/// `"jumprelu"` alias keeps working while the primary spelling is `"threshold_gate"`.
+fn canonicalize_assignment_kind(kind: &str) -> Result<String, String> {
+    match kind {
+        "softmax" => Ok("softmax".to_string()),
+        "ibp_map" => Ok("ibp_map".to_string()),
+        // Primary spelling and the retained legacy alias both collapse to the
+        // renamed variant's canonical token.
+        "threshold_gate" | "jumprelu" => Ok("threshold_gate".to_string()),
+        other => Err(format!(
+            "assignment_kind must be one of 'softmax', 'ibp_map', or 'threshold_gate' \
+             (legacy alias 'jumprelu' also accepted); got {other:?}"
+        )),
+    }
+}
+
 /// Default per-axis harmonic order for a torus atom (Φ has `(2H+1)^d`
 /// columns). Three harmonics per axis gives a 7-column 1-D factor and a
 /// 49-column tensor basis at `d=2`, which is the smallest expansion that
@@ -2113,6 +2135,64 @@ fn metric_provenance_label(
     }
 }
 
+/// #2021 — ceiling on the number of EXTRA whitened-residual refit passes the
+/// structured-residual outer alternation will run after the iid pass-0 fit. The
+/// caller-supplied `structured_residual_passes` kwarg is clamped to this so a
+/// pathological value cannot spin the alternation unboundedly.
+const STRUCTURED_RESIDUAL_PASSES_MAX: usize = 4;
+
+/// #2021 — fit the structured residual-covariance model on `term`'s
+/// post-dictionary residuals and return it (the driver then materializes the
+/// damped per-row metric via [`StructuredResidualModel::row_metric_damped`],
+/// holding the returned model as the next pass's damping anchor). `Ok(None)`
+/// when there is no factor subspace to mine (single-channel residuals) or the
+/// evidence fit degenerates — the caller then stops the alternation and keeps
+/// the current (iid or prior-pass) metric.
+///
+/// Residuals `R = target − term.fitted()`; the activity coordinate the scale law
+/// `c(z)` is smooth in is the per-row total assignment mass — the same
+/// activation-strength summary the structure-search birth harvest mines the
+/// factor subspace in (`gam-sae/src/structure_harvest.rs`).
+fn sae_structured_residual_model(
+    term: &gam::terms::sae::manifold::SaeManifoldTerm,
+    target: ndarray::ArrayView2<'_, f64>,
+) -> PyResult<Option<gam::inference::residual_factor::StructuredResidualModel>> {
+    use gam::inference::residual_factor::{ResidualFactorInput, StructuredResidualModel};
+    let fitted = term.fitted();
+    let (n, p) = fitted.dim();
+    // Need >= 2 output channels for an off-diagonal factor subspace.
+    if n == 0 || p <= 1 {
+        return Ok(None);
+    }
+    if target.dim() != (n, p) {
+        return Err(py_value_error(format!(
+            "sae_structured_residual_model: target must be ({n}, {p}); got {:?}",
+            target.dim()
+        )));
+    }
+    // R = target − fitted (post-dictionary residual). Bind `fitted` first so the
+    // owned temporary outlives the in-place subtraction.
+    let mut residuals = target.to_owned();
+    residuals -= &fitted;
+    // Activity = per-row total assignment mass (mirrors structure_harvest.rs and
+    // the fit tail's own assignment read).
+    let assignments = term.assignment.assignments();
+    let activity: ndarray::Array1<f64> = (0..n).map(|r| assignments.row(r).sum()).collect();
+    // Let the evidence ladder pick the rank up to p-1 (`fit` re-caps to p-1 and
+    // scores r = 0..=cap, keeping the penalized-evidence maximizer).
+    let max_factor_rank = p.saturating_sub(1);
+    match StructuredResidualModel::fit(ResidualFactorInput {
+        residuals: residuals.view(),
+        activity: activity.view(),
+        max_factor_rank,
+    }) {
+        Ok(m) => Ok(Some(m)),
+        // Total numeric path: a degenerate residual yields no usable model; keep
+        // the prior-pass geometry.
+        Err(_) => Ok(None),
+    }
+}
+
 /// Fit a SAE-manifold term end-to-end in Rust: up to `max_iter` Newton steps
 /// per λ_smooth candidate, refreshing `Phi` and `dPhi/dt` between steps via
 /// the per-atom [`SaeBasisSecondJet`] (analytic harmonic for `Periodic`
@@ -2152,6 +2232,9 @@ fn metric_provenance_label(
     fisher_mass_residual = None,
     fisher_provenance = None,
     row_loss_weights = None,
+    separation_barrier_strength_override = None,
+    ibp_alpha_override = None,
+    structured_residual_passes = 0,
 ))]
 fn sae_manifold_fit<'py>(
     py: Python<'py>,
@@ -2193,6 +2276,14 @@ fn sae_manifold_fit<'py>(
     // Per-row design-honesty reconstruction weights (#977); `(n,)` √w. Absent ⇒
     // unweighted path. Installed on the term before the joint fit / ρ selection.
     row_loss_weights: Option<PyReadonlyArray1<'py, f64>>,
+    // #1777 PER-FIT config overrides (separation-barrier strength / IBP-α). `Some`
+    // pins this term's value for THIS fit; `None` defers to the process-global
+    // atomic setter (or the compiled default). See `SaeManifoldTerm::set_fit_config`.
+    separation_barrier_strength_override: Option<f64>,
+    ibp_alpha_override: Option<f64>,
+    // #2021 — opt-in count of extra whitened-residual structured-alternation
+    // passes (default 0 = historical iid-only path, bit-for-bit).
+    structured_residual_passes: usize,
 ) -> PyResult<Py<PyDict>> {
     // The precomputed-basis entry point carries no Duchon centers / kernel
     // metadata, so any basis kind whose refresh needs them cannot re-evaluate
@@ -2201,6 +2292,9 @@ fn sae_manifold_fit<'py>(
     // the seed snapshot). Kinds with an analytic, centers-free basis
     // (periodic, sphere, torus) refresh as usual.
     let atom_centers: Vec<Option<Array2<f64>>> = vec![None; atom_basis.len()];
+    // #1777 — accept both the primary "threshold_gate" and the legacy "jumprelu"
+    // spelling; canonicalize to "threshold_gate" before the inner driver parses it.
+    let assignment_kind = canonicalize_assignment_kind(&assignment_kind).map_err(py_value_error)?;
     let fisher_u = fisher_factors.as_ref().map(|f| f.as_array());
     let fisher_mr = fisher_mass_residual.as_ref().map(|m| m.as_array());
     let row_w = row_loss_weights.as_ref().map(|w| w.as_array());
@@ -2241,6 +2335,9 @@ fn sae_manifold_fit<'py>(
         fisher_mr,
         fisher_provenance.as_deref(),
         row_w,
+        separation_barrier_strength_override,
+        ibp_alpha_override,
+        structured_residual_passes,
     )
 }
 
@@ -2292,6 +2389,19 @@ fn sae_manifold_fit_inner<'py>(
     // scales every per-row reconstruction loss before the inner joint fit and
     // outer ρ selection. Uniform / absent ⇒ the bit-identical unweighted path.
     row_loss_weights: Option<ArrayView1<'_, f64>>,
+    // #1777 PER-FIT config overrides. `Some(x)` pins this term's separation-barrier
+    // strength / IBP-α to `x` for THIS fit only (via `SaeManifoldTerm::set_fit_config`),
+    // taking precedence over the process-global atomic setters; `None` leaves the
+    // global setter (or the compiled default) in control. These are isolated per
+    // term so concurrent fits with different overrides never race a global atomic.
+    separation_barrier_strength_override: Option<f64>,
+    ibp_alpha_override: Option<f64>,
+    // #2021 — number of EXTRA whitened-residual refit passes after the iid
+    // pass-0 fit (the structured-residual outer alternation). `0` (the default)
+    // keeps the historical iid-only path bit-for-bit; the value is clamped to
+    // `STRUCTURED_RESIDUAL_PASSES_MAX`. An explicit, typed opt-in — no hidden
+    // env lever.
+    structured_residual_passes: usize,
 ) -> PyResult<Py<PyDict>> {
     let analytic_penalties: Option<serde_json::Value> = match analytic_penalties {
         Some(s) => Some(serde_json::from_str(&s).map_err(serde_json_error_to_pyerr)?),
@@ -2472,22 +2582,34 @@ fn sae_manifold_fit_inner<'py>(
         .iter()
         .map(|kind| sae_atom_basis_kind_from_str(kind))
         .collect();
+    // #1784/#1777 — use the per-fit IBP concentration override everywhere the
+    // assignment map is materialized, including the *seed* assignment mode below.
+    // `set_fit_config` remains the runtime source of truth for cloned/refit
+    // terms, but constructing the initial `AssignmentMode` with the overridden
+    // α keeps seed decoder solves, metadata, and the first Arrow-Schur pass on
+    // the same K-aware/stated gate instead of briefly using the historical
+    // `alpha=1` geometric mask.
+    let assignment_alpha = ibp_alpha_override.unwrap_or(alpha);
     let mode = match assignment_kind.as_str() {
         "softmax" => AssignmentMode::softmax(tau),
-        "ibp_map" => AssignmentMode::ibp_map(tau, alpha, learnable_alpha),
-        // The JumpReLU gate is a hard-thresholded bounded sigmoid: an atom is
-        // active when its raw logit clears `jumprelu_threshold`, and the gate
-        // value is the sigmoid (in [0, 1]) — the reconstruction *magnitude*
-        // lives in the decoder, not the gate. `tau` is the sigmoid temperature
-        // on the same logits; the threshold is the activation cut. The
-        // threshold is caller-configurable (default 0.0); the cold-start seed
-        // (see `sae_manifold_fit_minimal`) starts every logit above it so the
-        // data-fit JVP, the sparsity prior gradient, and the assignment-weighted
-        // decoder gradient are all non-zero at step 0.
-        "jumprelu" => AssignmentMode::jumprelu(tau, jumprelu_threshold),
+        "ibp_map" => AssignmentMode::ibp_map(tau, assignment_alpha, learnable_alpha),
+        // The ThresholdGate (#1777, formerly "jumprelu") is a hard-thresholded
+        // bounded sigmoid: an atom is active when its raw logit clears
+        // `jumprelu_threshold`, and the gate value is the sigmoid (in [0, 1]) —
+        // the reconstruction *magnitude* lives in the decoder, not the gate.
+        // `tau` is the sigmoid temperature on the same logits; the threshold is
+        // the activation cut. The threshold is caller-configurable (default 0.0);
+        // the cold-start seed (see `sae_manifold_fit_minimal`) starts every logit
+        // above it so the data-fit JVP, the sparsity prior gradient, and the
+        // assignment-weighted decoder gradient are all non-zero at step 0. The
+        // incoming token is canonicalized to "threshold_gate" at the FFI boundary
+        // (`canonicalize_assignment_kind`), so the legacy "jumprelu" alias arrives
+        // here as "threshold_gate".
+        "threshold_gate" => AssignmentMode::threshold_gate(tau, jumprelu_threshold),
         _ => {
             return Err(py_value_error(format!(
-                "assignment_kind must be one of 'softmax', 'ibp_map', or 'jumprelu'; got {assignment_kind}"
+                "assignment_kind must be one of 'softmax', 'ibp_map', or 'threshold_gate' \
+                 (legacy alias 'jumprelu' also accepted); got {assignment_kind}"
             )));
         }
     };
@@ -2521,6 +2643,17 @@ fn sae_manifold_fit_inner<'py>(
         &evaluators,
     )
     .map_err(py_value_error)?;
+    // #1777 — install the PER-FIT config overrides as this term's source of truth
+    // BEFORE the joint fit / ρ selection consumes it. `set_fit_config` distributes
+    // the separation-barrier strength onto the term and the IBP-α onto the
+    // assignment; each `Some` field wins over the process-global atomic setter,
+    // while a `None` field leaves the global setter (or compiled default) in
+    // control (the global setters stay working for back-compat). Passing the
+    // default (both `None`) is a no-op that preserves the global-only behaviour.
+    base_term.set_fit_config(gam::terms::sae::manifold::SaeFitConfig {
+        separation_barrier_strength_override,
+        ibp_alpha_override,
+    });
     if let Some(schedule) =
         gumbel_temperature_schedule_from_pydict(gumbel_schedule).map_err(py_value_error)?
     {
@@ -2564,7 +2697,7 @@ fn sae_manifold_fit_inner<'py>(
     // flag. The factor stack is `(n_obs, p_out, rank)` row-major, reshaped to the
     // `(n_obs, p_out * rank)` layout `RowMetric::output_fisher` expects
     // (`u[n, i * rank + k] = U[n, i, k]`). Shapes are validated at the boundary.
-    let metric_provenance: &'static str = if let Some(u3) = fisher_u {
+    let mut metric_provenance: &'static str = if let Some(u3) = fisher_u {
         let u_shape = u3.shape();
         if u_shape[0] != n_obs || u_shape[1] != p_out {
             return Err(py_value_error(format!(
@@ -2774,11 +2907,115 @@ fn sae_manifold_fit_inner<'py>(
         .decoder_shape_uncertainty()
         .map_err(py_value_error)?;
     let fitted_result = objective.into_fitted();
-    let finalization_invalidated_shape_uncertainty =
+    let mut finalization_invalidated_shape_uncertainty =
         fitted_result.invalidates_pre_final_shape_uncertainty();
     let mut term = fitted_result.term;
     let mut rho = fitted_result.rho;
-    let loss = fitted_result.loss;
+    let mut loss = fitted_result.loss;
+
+    // #2021 (EXPERIMENT) — structured-residual OUTER ALTERNATION.
+    // Pass 0 above is the iid fit (unchanged, bit-for-bit). When the caller's
+    // `structured_residual_passes > 0` AND no explicit metric was installed at
+    // pass 0 (a WP-D `OutputFisher` gauge lives in the SAME single metric slot
+    // and must not be clobbered), run N extra passes: fit the whitened
+    // residual-covariance model on the current fitted residuals, materialize the
+    // Σ-DAMPED per-row metric, install it — `loss_scaled` and
+    // `assemble_arrow_schur` auto-route on `metric.whitens_likelihood()` (the
+    // #974 seam, so no construction.rs change is needed) — and refit
+    // warm-started from the settled ρ. The returned provenance / shape bands /
+    // loss are refreshed from the final pass. A `None` model (no factor
+    // subspace, or a degenerate residual fit) stops the alternation early,
+    // degrading to the pass-0 iid fit.
+    //
+    // Covariance-domain damping (residual-fix's `row_metric_damped`):
+    // Σ_t = (1−γ)·Σ_prev + γ·Σ̂_t, with Σ_prev = the previous pass's fitted model
+    // (or I on the first structured pass). A small, increasing γ schedule
+    // γ_p = (p+1)/(N+1) ∈ (0,1) trusts the new estimate more each pass while
+    // damping the early jump off the iid fit (γ is never 0 or 1, so every pass
+    // builds a genuine WhitenedStructured blend).
+    let structured_passes = structured_residual_passes.min(STRUCTURED_RESIDUAL_PASSES_MAX);
+    if structured_passes > 0 && metric_provenance == "Euclidean" {
+        let mut prev_model: Option<gam::inference::residual_factor::StructuredResidualModel> =
+            None;
+        for pass in 0..structured_passes {
+            let Some(model) = sae_structured_residual_model(&term, z_view.view())? else {
+                break;
+            };
+            let gamma = (pass as f64 + 1.0) / (structured_passes as f64 + 1.0);
+            let metric = model
+                .row_metric_damped(n_obs, gamma, prev_model.as_ref())
+                .map_err(py_value_error)?;
+            let installed_label = metric_provenance_label(metric.provenance());
+            term.set_row_metric(metric).map_err(py_value_error)?;
+            // Rebuild the analytic-penalty registry (cheap; `latent_payload` is
+            // still owned) and warm-start ρ from the settled fit.
+            let registry = build_analytic_penalty_registry_from_json(
+                Some(&latent_payload),
+                analytic_penalties.as_ref(),
+            )
+            .map_err(py_value_error)?;
+            let warm_flat = rho.to_flat();
+            let mut objective = gam::terms::sae::manifold::SaeManifoldOuterObjective::new(
+                term,
+                z_view.to_owned(),
+                Some(registry),
+                rho,
+                max_iter,
+                learning_rate,
+                ridge_ext_coord,
+                ridge_beta,
+            );
+            let problem = gam::solver::rho_optimizer::OuterProblem::new(n_params)
+                .with_initial_rho(warm_flat)
+                .with_seed_config(gam::solver::seeding::SeedConfig {
+                    max_seeds: 1,
+                    seed_budget: 1,
+                    ..Default::default()
+                });
+            gam::solver::rho_optimizer::arm_outer_wall_clock_deadline(
+                std::time::Instant::now()
+                    + std::time::Duration::from_secs_f64(SAE_FIT_MAX_SECONDS),
+            );
+            let pass_result = std::thread::scope(|scope| -> PyResult<()> {
+                let worker = std::thread::Builder::new()
+                    .name("gam-sae-fit-structured".to_string())
+                    .stack_size(SAE_FIT_WORKER_STACK_SIZE)
+                    .spawn_scoped(scope, || {
+                        problem.run(&mut objective, "SAE manifold (structured)")
+                    })
+                    .map_err(|err| {
+                        py_value_error(format!(
+                            "sae_manifold_fit: spawn structured-pass worker thread: {err}"
+                        ))
+                    })?;
+                match worker.join() {
+                    Ok(run_result) => run_result.map(|_| ()).map_err(estimation_error_to_pyerr),
+                    Err(_) => Err(py_value_error(
+                        "sae_manifold_fit: structured-pass worker thread panicked (see prior \
+                         error output)"
+                            .to_string(),
+                    )),
+                }
+            });
+            gam::solver::rho_optimizer::clear_outer_wall_clock_deadline();
+            pass_result?;
+            // Refresh shape bands + fitted state from the FINAL pass objective
+            // (decoder_shape_uncertainty must be read before `into_fitted`).
+            shape_uncertainty = objective
+                .decoder_shape_uncertainty()
+                .map_err(py_value_error)?;
+            let fitted_result = objective.into_fitted();
+            finalization_invalidated_shape_uncertainty =
+                fitted_result.invalidates_pre_final_shape_uncertainty();
+            term = fitted_result.term;
+            rho = fitted_result.rho;
+            loss = fitted_result.loss;
+            // Report the geometry actually used by the returned fit.
+            metric_provenance = installed_label;
+            // Carry this pass's model forward as the next pass's damping anchor.
+            prev_model = Some(model);
+        }
+    }
     {
         let assignments = term.assignment.assignments();
         let fitted = term.fitted();
@@ -3702,6 +3939,17 @@ fn sae_hybrid_split_dict<'py>(
                 li.set_item("t_bar", img.t_bar)?;
                 li.set_item("b0", img.b0.clone().into_pyarray(py))?;
                 li.set_item("b1", img.b1.clone().into_pyarray(py))?;
+                // #1777 — the collapse-rescue projection direction `v` (length p,
+                // unit norm), present iff this is a collapse-rescued image. Serialized
+                // so a held-out (OOS) term can recompute any row's coordinate as
+                // `u_i = <y_i - Σ_{j≠k} f_j(x_i), v>` — the SAME math the train
+                // per-row codes were built with — making a rescued atom reconstruct
+                // identically train vs held-out. `None` for the ordinary straight
+                // image (decoded at the atom's own coordinate).
+                match img.v.as_ref() {
+                    Some(v) => li.set_item("v", v.clone().into_pyarray(py))?,
+                    None => li.set_item("v", py.None())?,
+                }
                 a.set_item("linear_image", li)?;
             }
             None => a.set_item("linear_image", py.None())?,
@@ -4003,6 +4251,14 @@ fn sae_manifold_fit_ibp<'py>(
         None,
         // No per-row design-honesty weights on this convenience IBP entry point.
         None,
+        // No per-fit separation-barrier / IBP-α overrides on this convenience IBP
+        // entry point (#1777): defer to the process-global setter (or the compiled
+        // default), matching how every other override above is left `None` here.
+        None,
+        None,
+        // No structured-residual alternation on this convenience IBP entry point
+        // (#2021): the iid-only path, matching the default of the other entry points.
+        0,
     )
 }
 
@@ -4916,7 +5172,8 @@ fn sae_decoder_lsq_init(
                 }
             }
         }
-        "jumprelu" => {
+        // #1777 canonical token for the hard-sigmoid gate (legacy "jumprelu").
+        "threshold_gate" => {
             if !jumprelu_threshold.is_finite() {
                 return Err(format!(
                     "sae_decoder_lsq_init: jumprelu_threshold must be finite; got {jumprelu_threshold}"
@@ -5889,6 +6146,9 @@ fn sae_build_atom_plans(
     fisher_mass_residual = None,
     fisher_provenance = None,
     row_loss_weights = None,
+    separation_barrier_strength_override = None,
+    ibp_alpha_override = None,
+    structured_residual_passes = 0,
 ))]
 fn sae_manifold_fit_minimal<'py>(
     py: Python<'py>,
@@ -5926,7 +6186,18 @@ fn sae_manifold_fit_minimal<'py>(
     // Per-row design-honesty reconstruction weights (#977); `(n,)` √w. Absent ⇒
     // unweighted path. Installed on the term before the joint fit / ρ selection.
     row_loss_weights: Option<PyReadonlyArray1<'py, f64>>,
+    // #1777 PER-FIT config overrides (separation-barrier strength / IBP-α). `Some`
+    // pins this term's value for THIS fit (per-fit, isolated from the process-global
+    // atomic setters, which remain as the `None` fallback). This is the entry point
+    // the high-level Python `sae_manifold_fit` facade routes through.
+    separation_barrier_strength_override: Option<f64>,
+    ibp_alpha_override: Option<f64>,
+    // #2021 — opt-in count of extra whitened-residual structured-alternation
+    // passes (default 0 = historical iid-only path, bit-for-bit).
+    structured_residual_passes: usize,
 ) -> PyResult<Py<PyDict>> {
+    // #1777 — accept both "threshold_gate" (primary) and legacy "jumprelu".
+    let assignment_kind = canonicalize_assignment_kind(&assignment_kind).map_err(py_value_error)?;
     let z_view = z.as_array();
     let (n_obs, _p_out) = z_view.dim();
     let k_atoms = atom_basis.len();
@@ -6056,7 +6327,7 @@ fn sae_manifold_fit_minimal<'py>(
     let logits_are_cold = warm_logits.is_none();
     let mut initial_logits = match warm_logits {
         Some(logits) => logits,
-        None if assignment_kind == "jumprelu" => {
+        None if assignment_kind == "threshold_gate" => {
             // Start every atom one full margin above its activation threshold.
             const SAE_JUMPRELU_SEED_MARGIN: f64 = 1.0;
             Array2::<f64>::from_elem(
@@ -6136,7 +6407,7 @@ fn sae_manifold_fit_minimal<'py>(
         z_view,
         initial_logits.view(),
         assignment_kind.as_str(),
-        alpha,
+        ibp_alpha_override.unwrap_or(alpha),
         tau,
         jumprelu_threshold,
     )
@@ -6197,6 +6468,9 @@ fn sae_manifold_fit_minimal<'py>(
         fisher_mr,
         fisher_provenance.as_deref(),
         row_w,
+        separation_barrier_strength_override,
+        ibp_alpha_override,
+        structured_residual_passes,
     )?;
     // #977 — the per-atom `atom_plans` are now emitted by `sae_manifold_fit_inner`
     // FROM THE POST-SEARCH dictionary (variable K), so OOS predict can rebuild the
@@ -6268,10 +6542,14 @@ fn sae_manifold_predict_oos<'py>(
     initial_coords: Option<PyReadonlyArray3<'py, f64>>,
     jumprelu_threshold: f64,
     top_k: Option<usize>,
-    // #1228 — the trained dictionary's hybrid-collapsed straight sub-models, one
-    // per verdict-linear d=1 slot, as `(atom_idx, t_bar, b0[p], b1[p])`. Attached
-    // to the OOS term so held-out reconstruction decodes those slots by the same
-    // linear image the training reconstruction used. `None`/empty ⇒ all-curved
+    // #1228/#1777 — the trained dictionary's hybrid-collapsed straight sub-models,
+    // one per verdict-linear d=1 slot, as `(atom_idx, t_bar, b0[p], b1[p], v)`.
+    // `v` is `Some([p])` (unit norm) EXACTLY for a #1026 collapse-rescued slot and
+    // `None` for an ordinary straight image. Attached to the OOS term so held-out
+    // reconstruction decodes those slots by the same linear image the training
+    // reconstruction used; a rescued slot recomputes each row's coordinate from its
+    // own leave-this-atom-out residual projected onto `v` (`try_fitted_target_aware`),
+    // so it reconstructs identically train vs held-out. `None`/empty ⇒ all-curved
     // OOS reconstruction (the prior behaviour).
     hybrid_linear_images: Option<
         Vec<(
@@ -6279,9 +6557,12 @@ fn sae_manifold_predict_oos<'py>(
             f64,
             PyReadonlyArray1<'py, f64>,
             PyReadonlyArray1<'py, f64>,
+            Option<PyReadonlyArray1<'py, f64>>,
         )>,
     >,
 ) -> PyResult<Py<PyDict>> {
+    // #1777 — accept both "threshold_gate" (primary) and legacy "jumprelu".
+    let assignment_kind = canonicalize_assignment_kind(&assignment_kind).map_err(py_value_error)?;
     let x_view = x_new.as_array();
     let (n_obs, p_out) = x_view.dim();
     let k_atoms = atom_basis.len();
@@ -6554,10 +6835,10 @@ fn sae_manifold_predict_oos<'py>(
     let mode = match assignment_kind.as_str() {
         "softmax" => AssignmentMode::softmax(tau),
         "ibp_map" => AssignmentMode::ibp_map(tau, alpha, false),
-        "jumprelu" => AssignmentMode::jumprelu(tau, jumprelu_threshold),
+        "threshold_gate" => AssignmentMode::threshold_gate(tau, jumprelu_threshold),
         _ => {
             return Err(py_value_error(format!(
-                "sae_manifold_predict_oos: assignment_kind must be one of 'softmax', 'ibp_map', or 'jumprelu'; got {assignment_kind}"
+                "sae_manifold_predict_oos: assignment_kind must be one of 'softmax', 'ibp_map', or 'threshold_gate' (legacy alias 'jumprelu' also accepted); got {assignment_kind}"
             )));
         }
     };
@@ -6595,28 +6876,35 @@ fn sae_manifold_predict_oos<'py>(
         &evaluators,
     )
     .map_err(py_value_error)?;
-    // #1228 — attach the trained dictionary's hybrid-collapsed straight images so
-    // this OOS term decodes verdict-linear `d = 1` slots by the SAME linear image
-    // the training reconstruction used. Both reconstruction paths below —
-    // `term.fitted()` (→ `try_fitted` → collapse=true) and the top-`k`
-    // `reconstruct_from_assignments(.., true)` — read the collapse policy from
-    // `hybrid_linear_image_map()`, which sources it from `oos_linear_images`.
-    // The parameter was previously accepted but never attached, so every held-out
-    // reconstruction silently fell back to the all-curved decoder even when the
-    // trained dictionary had collapsed those slots — a train/test decode
-    // mismatch. `row_codes = None`: an ordinary OOS image evaluates at the atom's
-    // own realized coordinate; the per-row collapse-rescue codes are a train-only
-    // degenerate-circle path that does not transfer to held-out rows.
+    // #1228/#1777 — attach the trained dictionary's hybrid-collapsed straight images
+    // so this OOS term decodes verdict-linear `d = 1` slots by the same linear image
+    // the training reconstruction used. Ordinary straight slots decode at the atom's
+    // own coordinate; a #1026 COLLAPSE-RESCUED slot carries the serialized projection
+    // direction `v` and recomputes each held-out row's coordinate from its own
+    // leave-this-atom-out residual projected onto `v` (via `try_fitted_target_aware`
+    // below) — the SAME math the train per-row codes were built with, so a rescued
+    // atom reconstructs IDENTICALLY train vs held-out. `row_codes` stays `None` here
+    // (it is the train-only cached projection); `v` is the OOS-safe quantity and it
+    // regenerates each row's coordinate from THIS target. Before #1777 `v` was not
+    // serialized, so a rescued slot fell back to its own collapsed coordinate out of
+    // sample (a degraded, different model); it now transfers exactly.
     if let Some(images) = hybrid_linear_images {
         let images: Vec<gam::terms::sae::hybrid_split::AtomLinearImage> = images
             .into_iter()
             .map(
-                |(atom_idx, t_bar, b0, b1)| gam::terms::sae::hybrid_split::AtomLinearImage {
+                |(atom_idx, t_bar, b0, b1, v)| gam::terms::sae::hybrid_split::AtomLinearImage {
                     atom_idx,
                     t_bar,
                     b0: b0.as_array().to_owned(),
                     b1: b1.as_array().to_owned(),
+                    // `row_codes` is the TRAIN-only cached projection and is never
+                    // transported to OOS; a rescued row's coordinate is recomputed
+                    // from `v` and the held-out residual instead.
                     row_codes: None,
+                    // `Some(v)` marks this a collapse-rescued image so
+                    // `try_fitted_target_aware` recomputes the coordinate from the
+                    // residual; `None` is the ordinary own-coordinate straight image.
+                    v: v.map(|arr| arr.as_array().to_owned()),
                 },
             )
             .collect();
@@ -6672,7 +6960,15 @@ fn sae_manifold_predict_oos<'py>(
     // Newton solution the OOS path advertises (#1229). The returned assignments
     // and fitted values must both be read at the converged state.
     let mut assignments = term.assignment.assignments();
-    let mut fitted = term.fitted();
+    // #1777 — TARGET-AWARE reconstruction: identical to `term.fitted()` for curved
+    // and ordinary straight slots, but a collapse-rescued slot (whose attached image
+    // carries `v`) recomputes each held-out row's coordinate from THIS `x_view`'s
+    // leave-this-atom-out residual projected onto `v`, so it reconstructs identically
+    // train vs held-out. `None` ρ uses the persisted (converged) gates, matching the
+    // reconstruction `term.fitted()` produced.
+    let mut fitted = term
+        .try_fitted_target_aware(x_view, None)
+        .map_err(py_value_error)?;
     if let Some(k_top) = top_k {
         if k_top < k_atoms {
             let renormalise = assignment_kind == "softmax";
@@ -6745,6 +7041,7 @@ fn sae_manifold_predict_oos<'py>(
         log_ard_py.append(atom_log_ard.clone().into_pyarray(py))?;
     }
     let atoms_py = PyList::empty(py);
+    let mut decoded_row = vec![0.0_f64; p_out];
     for atom_idx in 0..k_atoms {
         let atom = &term.atoms[atom_idx];
         let atom_dict = PyDict::new(py);
@@ -6765,6 +7062,20 @@ fn sae_manifold_predict_oos<'py>(
             assignments.column(atom_idx).to_owned().into_pyarray(py),
         )?;
         atom_dict.set_item("active_dim", effective_atom_dim[atom_idx])?;
+        // #1777 — this atom's UNGATED decoded image `Φ(t)·B` in data space,
+        // `(n_obs, p_out)`, evaluated at each row's converged on-manifold coordinate
+        // via the SAME per-atom decode `fill_decoded_row` the reconstruction assembler
+        // uses. This backs `ManifoldSAE.atom_reconstruct(X, atom_k)` (a single atom's
+        // reconstruction in data space); the full reconstruction is the
+        // assignment-weighted sum `Σ_k a_k · atom_reconstruction_k`.
+        let mut atom_recon = Array2::<f64>::zeros((n_obs, p_out));
+        for row in 0..n_obs {
+            term.atoms[atom_idx].fill_decoded_row(row, &mut decoded_row);
+            for out_col in 0..p_out {
+                atom_recon[[row, out_col]] = decoded_row[out_col];
+            }
+        }
+        atom_dict.set_item("atom_reconstruction", atom_recon.into_pyarray(py))?;
         atoms_py.append(atom_dict)?;
     }
 
@@ -6863,6 +7174,8 @@ fn sae_steer_delta<'py>(
     // output-Fisher `RowMetric` the dose is measured through.
     fisher_provenance: Option<String>,
 ) -> PyResult<Py<PyDict>> {
+    // #1777 — accept both "threshold_gate" (primary) and legacy "jumprelu".
+    let assignment_kind = canonicalize_assignment_kind(&assignment_kind).map_err(py_value_error)?;
     let k_atoms = atom_basis.len();
     if n_obs == 0 || p_out == 0 {
         return Err(py_value_error(format!(
@@ -7069,10 +7382,10 @@ fn sae_steer_delta<'py>(
     let mode = match assignment_kind.as_str() {
         "softmax" => AssignmentMode::softmax(tau),
         "ibp_map" => AssignmentMode::ibp_map(tau, alpha, false),
-        "jumprelu" => AssignmentMode::jumprelu(tau, jumprelu_threshold),
+        "threshold_gate" => AssignmentMode::threshold_gate(tau, jumprelu_threshold),
         _ => {
             return Err(py_value_error(format!(
-                "sae_steer_delta: assignment_kind must be one of 'softmax', 'ibp_map', or 'jumprelu'; got {assignment_kind}"
+                "sae_steer_delta: assignment_kind must be one of 'softmax', 'ibp_map', or 'threshold_gate' (legacy alias 'jumprelu' also accepted); got {assignment_kind}"
             )));
         }
     };
@@ -8228,6 +8541,40 @@ mod sae_euclidean_oos_rebuild_tests {
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod sae_assignment_kind_tests {
+    use super::canonicalize_assignment_kind;
+
+    /// #1777 — the FFI assignment-kind parser EMITS the primary "threshold_gate"
+    /// token and ACCEPTS both it and the legacy "jumprelu" alias, mapping both to
+    /// the renamed `AssignmentMode::ThresholdGate`. "softmax" / "ibp_map" pass
+    /// through unchanged; any other token is a caller error.
+    #[test]
+    fn threshold_gate_accepts_both_spellings_and_emits_primary() {
+        // Both the primary spelling and the legacy alias canonicalize to the same
+        // emitted token.
+        assert_eq!(
+            canonicalize_assignment_kind("threshold_gate").unwrap(),
+            "threshold_gate"
+        );
+        assert_eq!(
+            canonicalize_assignment_kind("jumprelu").unwrap(),
+            "threshold_gate",
+            "the legacy 'jumprelu' alias must map to the renamed variant's token"
+        );
+        // The other families pass through unchanged.
+        assert_eq!(canonicalize_assignment_kind("softmax").unwrap(), "softmax");
+        assert_eq!(canonicalize_assignment_kind("ibp_map").unwrap(), "ibp_map");
+        // An unknown token errors, and the message names the primary spelling
+        // while still advertising the accepted legacy alias.
+        let err = canonicalize_assignment_kind("bogus").unwrap_err();
+        assert!(
+            err.contains("threshold_gate") && err.contains("jumprelu"),
+            "error must name the primary token and the legacy alias; got {err:?}"
+        );
     }
 }
 

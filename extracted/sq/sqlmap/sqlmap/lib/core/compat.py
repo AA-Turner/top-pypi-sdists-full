@@ -280,40 +280,30 @@ else:
     xrange = xrange
     buffer = buffer
 
+try:
+    RecursionError = RecursionError
+except NameError:
+    # Note: patch for Python < 3.5 (RecursionError, a subclass of RuntimeError, was introduced in Python 3.5)
+    RecursionError = RuntimeError
+
 def LooseVersion(version):
     """
     >>> LooseVersion("1.0") == LooseVersion("1.0")
     True
     >>> LooseVersion("1.0.1") > LooseVersion("1.0")
     True
-    >>> LooseVersion("1.0.1-") == LooseVersion("1.0.1")
-    True
     >>> LooseVersion("1.0.11") < LooseVersion("1.0.111")
     True
-    >>> LooseVersion("foobar") > LooseVersion("1.0")
-    False
-    >>> LooseVersion("1.0") > LooseVersion("foobar")
-    False
-    >>> LooseVersion("3.22-mysql") == LooseVersion("3.22-mysql-ubuntu0.3")
+    >>> LooseVersion("8.0.22") > LooseVersion("8.0.2")
     True
-    >>> LooseVersion("8.0.22-0ubuntu0.20.04.2")
-    8.000022
+    >>> LooseVersion("1.0alpha-beta-gama")
+    (1, 0)
     """
-
     match = re.search(r"\A(\d[\d.]*)", version or "")
-
     if match:
-        result = 0
-        value = match.group(1)
-        weight = 1.0
-        for part in value.strip('.').split('.'):
-            if part.isdigit():
-                result += int(part) * weight
-            weight *= 1e-3
+        return tuple(int(part) for part in match.group(1).strip('.').split('.') if part.isdigit())
     else:
-        result = float("NaN")
-
-    return result
+        return ()
 
 # NOTE: codecs.open re-implementation (deprecated in Python 3.14)
 

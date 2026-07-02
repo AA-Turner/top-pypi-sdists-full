@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simpleflow
-Version: 0.35.0
+Version: 0.36.0
 Summary: Python library for dataflow programming with Amazon SWF
 Project-URL: documentation, https://botify-labs.github.io/simpleflow
 Project-URL: repository, https://github.com/botify-labs/simpleflow
@@ -15,14 +15,12 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.7
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Requires-Dist: attrs
 Requires-Dist: boto3>=1.28.20
 Requires-Dist: click

@@ -7,14 +7,19 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from .channel_connector_status import ChannelConnector_status
+    from .channel_message_access import ChannelMessageAccess
     from .connector_provider import ConnectorProvider
 
 @dataclass
 class ChannelConnector(Parsable):
     # The created_at property
     created_at: Optional[datetime.datetime] = None
+    # The effective_message_access property
+    effective_message_access: Optional[ChannelMessageAccess] = None
     # The id property
     id: Optional[str] = None
+    # The message_access property
+    message_access: Optional[ChannelMessageAccess] = None
     # The name property
     name: Optional[str] = None
     # The provider property
@@ -45,14 +50,18 @@ class ChannelConnector(Parsable):
         Returns: dict[str, Callable[[ParseNode], None]]
         """
         from .channel_connector_status import ChannelConnector_status
+        from .channel_message_access import ChannelMessageAccess
         from .connector_provider import ConnectorProvider
 
         from .channel_connector_status import ChannelConnector_status
+        from .channel_message_access import ChannelMessageAccess
         from .connector_provider import ConnectorProvider
 
         fields: dict[str, Callable[[Any], None]] = {
             "created_at": lambda n : setattr(self, 'created_at', n.get_datetime_value()),
+            "effective_message_access": lambda n : setattr(self, 'effective_message_access', n.get_enum_value(ChannelMessageAccess)),
             "id": lambda n : setattr(self, 'id', n.get_str_value()),
+            "message_access": lambda n : setattr(self, 'message_access', n.get_enum_value(ChannelMessageAccess)),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "provider": lambda n : setattr(self, 'provider', n.get_enum_value(ConnectorProvider)),
             "status": lambda n : setattr(self, 'status', n.get_enum_value(ChannelConnector_status)),
@@ -71,7 +80,9 @@ class ChannelConnector(Parsable):
         if writer is None:
             raise TypeError("writer cannot be null.")
         writer.write_datetime_value("created_at", self.created_at)
+        writer.write_enum_value("effective_message_access", self.effective_message_access)
         writer.write_str_value("id", self.id)
+        writer.write_enum_value("message_access", self.message_access)
         writer.write_str_value("name", self.name)
         writer.write_enum_value("provider", self.provider)
         writer.write_enum_value("status", self.status)

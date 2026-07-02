@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-needs
-Version: 8.1.1
+Version: 8.2.0
 Summary: Sphinx needs extension for managing needs/requirements and specifications
 Author-email: team useblocks <info@useblocks.com>
 Requires-Python: >=3.10,<4

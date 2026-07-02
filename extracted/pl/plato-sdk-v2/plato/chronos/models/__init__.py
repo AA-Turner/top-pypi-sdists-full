@@ -826,6 +826,7 @@ class CreateWorkspaceRefRequest(BaseModel):
     changed: Annotated[bool | None, Field(title="Changed")] = None
     content_hash: Annotated[str | None, Field(title="Content Hash")] = None
     trigger_span_id: Annotated[str | None, Field(title="Trigger Span Id")] = None
+    upload_mode: Annotated[str | None, Field(title="Upload Mode")] = None
     git_hash: Annotated[str | None, Field(title="Git Hash")] = ""
     branch: Annotated[str | None, Field(title="Branch")] = None
 
@@ -2440,6 +2441,8 @@ class WorkspaceRefResponse(BaseModel):
     content_hash: Annotated[str | None, Field(title="Content Hash")] = None
     dvc_files: Annotated[dict[str, str] | None, Field(title="Dvc Files")] = None
     trigger_span_id: Annotated[str | None, Field(title="Trigger Span Id")] = None
+    user_id: Annotated[str | None, Field(title="User Id")] = None
+    upload_mode: Annotated[str | None, Field(title="Upload Mode")] = None
     git_hash: Annotated[str | None, Field(title="Git Hash")] = ""
     branch: Annotated[str | None, Field(title="Branch")] = None
     created_at: Annotated[datetime, Field(title="Created At")]

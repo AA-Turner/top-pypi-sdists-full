@@ -1,0 +1,28 @@
+
+[package]
+name = "solders-transaction"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders transaction crate."
+
+[dependencies]
+derive_more = { workspace = true }
+pyo3 = { workspace = true, features = ["macros"] }
+serde = { workspace = true }
+solana-message = { workspace = true }
+solana-pubkey = { workspace = true }
+solana-sanitize = { workspace = true }
+solana-signature = { workspace = true }
+solana-transaction = { workspace = true, features = ["bincode", "verify"] }
+solders-hash = { workspace = true }
+solders-instruction = { workspace = true }
+solders-keypair = { workspace = true }
+solders-macros = { workspace = true }
+solders-message = { workspace = true }
+solders-pubkey = { workspace = true }
+solders-signature = { workspace = true }
+solders-traits = { workspace = true }
+solders-traits-core = { workspace = true }

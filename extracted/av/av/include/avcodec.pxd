@@ -232,7 +232,7 @@ cdef extern from "libavcodec/avcodec.h" nogil:
 
         void* opaque
 
-        int bit_rate
+        int64_t bit_rate
         int flags
         int flags2
         uint8_t *extradata
@@ -269,11 +269,12 @@ cdef extern from "libavcodec/avcodec.h" nogil:
         int qmin
         int qmax
         int rc_buffer_size
-        int rc_max_rate
-        int rc_min_rate
+        int64_t rc_max_rate
+        int64_t rc_min_rate
 
         AVHWAccel *hwaccel
         AVBufferRef *hw_device_ctx
+        AVBufferRef *hw_frames_ctx
 
         int thread_count
         int thread_type
@@ -298,6 +299,7 @@ cdef extern from "libavcodec/avcodec.h" nogil:
     cdef char* avcodec_get_name(AVCodecID id)
     cdef int avcodec_open2(AVCodecContext *ctx, const AVCodec *codec, AVDictionary **options)
     cdef enum AVPacketSideDataType:
+        AV_PKT_DATA_NEW_EXTRADATA
         AV_PKT_DATA_DISPLAYMATRIX
     cdef struct AVPacketSideData:
         uint8_t *data
@@ -337,7 +339,7 @@ cdef extern from "libavcodec/avcodec.h" nogil:
     cdef struct AVFrameSideData:
         AVFrameSideDataType type
         uint8_t *data
-        int size
+        size_t size
         AVDictionary *metadata
 
     # See: http://ffmpeg.org/doxygen/trunk/structAVFrame.html
@@ -500,8 +502,8 @@ cdef extern from "libavcodec/bsf.h" nogil:
 
     cdef struct AVBSFContext:
         const AVBitStreamFilter *filter
-        const AVCodecParameters *par_in
-        const AVCodecParameters *par_out
+        AVCodecParameters *par_in
+        AVCodecParameters *par_out
 
     cdef int av_bsf_list_parse_str(const char *str, AVBSFContext **bsf)
     cdef int av_bsf_init(AVBSFContext *ctx)

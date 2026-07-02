@@ -136,9 +136,9 @@ class VMRuntime(Runtime):
         alias = alias or f"vm-{id(self):x}"
 
         # Reuse an already-provisioned env on retry.  When start() retries
-        # after connect_network or SSH fails, the env from the prior attempt
-        # is still live on the backend — calling add_env again with the same
-        # alias would raise "Duplicate alias".
+        # after a post-provision step (SSH key add, SSH readiness) fails,
+        # the env from the prior attempt is still live on the backend —
+        # calling add_env again with the same alias would raise "Duplicate alias".
         env = self._envs.get(alias)
         if env is None:
             env = await self._session.add_env(
@@ -158,7 +158,9 @@ class VMRuntime(Runtime):
             )
             self._envs[alias] = env
 
-        await self._session.connect_network()
+        # Network attachment is handled by add_env itself (the session
+        # connects requested networks once envs are ready) — no explicit
+        # connect_network call needed here.
 
         # Add SSH public key to the VM.
         if self._ssh_key_path:

@@ -90,6 +90,7 @@ import type {
   PortalActiveResponse,
   PortalExitResponse,
   PortalChatContextResponse,
+  PortalDaysResponse,
   SoulPersonaListResponse,
   SoulPersonaApplyResponse,
   SoulPersonaPreviewResponse,
@@ -546,6 +547,24 @@ export const api = {
   switchModel(provider: string, model: string): Promise<OperationResult> {
     return post("/models/switch", { provider, model });
   },
+  /**
+   * v2.90 — GitHub Copilot dynamic model discovery.
+   *
+   * Calls `GET /api/providers/copilot/models` which uses the user's
+   * Copilot token to query GitHub's `GET /models` endpoint and returns
+   * the LIVE list of models enabled on their plan/org. Different from
+   * the static `ModelCatalog` from `/api/catalog/flat` — that one is
+   * hand-curated + models.dev, this one is account-scoped truth.
+   *
+   * When the user has no Copilot token configured (or token exchange
+   * fails), returns `{ok: true, models: [], source: "no_token"}` so
+   * the UI can show a friendly "configure Copilot auth" hint instead
+   * of an error.
+   */
+  copilotModels(forceRefresh = false): Promise<import("./types").CopilotModelsResponse> {
+    const tail = forceRefresh ? "?force_refresh=true" : "";
+    return get(`/providers/copilot/models${tail}`);
+  },
 
   // ── chat (streaming SSE) ───────────────────────────────────────────────
   async *chatStream(req: ChatRequest): AsyncGenerator<import("./types").ChatEvent, void, unknown> {
@@ -888,6 +907,26 @@ export const api = {
     const base = soulQ(workspacePath, "/soul/time-portal/chat-context");
     const sep = base.includes("?") ? "&" : "?";
     return get(`${base}${sep}portal_id=${encodeURIComponent(portalId)}`);
+  },
+  // v3.5.1 — TIME PORTAL day-scope: enter the portal pinned to a whole
+  // day. Backend consolidates every snapshot for the date into a single
+  // canonical model and pins chat to it.
+  portalEnterDay(
+    portalId: string,
+    date: string,
+    workspacePath?: string,
+    label?: string,
+  ): Promise<PortalEnterResponse> {
+    return post(
+      `${soulQ(workspacePath, "/soul/time-portal/enter-day")}`,
+      { portal_id: portalId, date, label },
+    );
+  },
+  // v3.5.1 — list every day that has at least one snapshot. The UI uses
+  // this to render the day-row accordion (one row per day instead of one
+  // per snapshot — collapses the cluttered per-second pill grid).
+  portalDays(workspacePath?: string): Promise<PortalDaysResponse> {
+    return get(soulQ(workspacePath, "/soul/time-portal/days"));
   },
   // ── soul letters (P6 — the soul writes back) ──────────────────────────
   soulLetters(limit = 12): Promise<SoulLettersResponse> {

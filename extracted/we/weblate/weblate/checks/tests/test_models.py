@@ -10,17 +10,19 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+from django.core.cache import cache
 from django.test import SimpleTestCase
 from django.urls import reverse
 from django.utils.html import format_html
 
-from weblate.checks.base import BatchCheckMixin
+from weblate.checks.base import BatchCheckMixin, TargetCheck
 from weblate.checks.consistency import ConsistencyCheck
 from weblate.checks.models import CHECKS, Check
 from weblate.checks.tasks import finalize_component_checks
 from weblate.trans.models import Project, Unit
 from weblate.trans.tasks import auto_translate
 from weblate.trans.tests.test_views import FixtureTestCase, ViewTestCase
+from weblate.trans.util import join_plural
 from weblate.utils.lock import WeblateLock
 
 
@@ -32,6 +34,29 @@ class CheckLintTestCase(SimpleTestCase):
                 check.description.endswith("."),
                 f"{check.__class__.__name__} description does not have a stop: {check.description}",
             )
+
+
+class CheckTargetFastPathTest(SimpleTestCase):
+    def test_custom_check_target_is_called(self) -> None:
+        class CustomTargetCheck(TargetCheck):
+            check_id = "custom"
+
+            def check_target(self, sources, targets, unit) -> bool:
+                unit.check_target_called = True
+                return True
+
+            def check_target_unit(self, sources, targets, unit) -> bool:
+                msg = "check_target() override was bypassed"
+                raise AssertionError(msg)
+
+        unit: Any = SimpleNamespace(check_target_called=False)
+
+        self.assertTrue(
+            CustomTargetCheck().check_target_with_flags(
+                ["source"], ["target"], unit, set()
+            )
+        )
+        self.assertTrue(unit.check_target_called)
 
 
 class CheckModelTestCase(FixtureTestCase):
@@ -70,6 +95,90 @@ class CheckModelTestCase(FixtureTestCase):
         )
         self.assert_png(self.client.get(url))
 
+    def test_source_check_render(self) -> None:
+        unit = self.get_unit().source_unit
+        Unit.objects.filter(pk=unit.pk).update(extra_flags="max-size:1:1")
+        check = Check.objects.create(unit=unit, name="max-size")
+        url = reverse(
+            "render-check", kwargs={"check_id": check.name, "unit_id": unit.id}
+        )
+        self.assertHTMLEqual(
+            check.get_description(),
+            format_html(
+                '<a href="{0}?pos={1}" class="thumbnail img-check">'
+                '<img class="img-fluid" src="{0}?pos={1}" /></a>',
+                url,
+                0,
+            ),
+        )
+        self.assert_png(self.client.get(url))
+
+    def test_source_check_render_updates_after_source_change(self) -> None:
+        cache.clear()
+        unit = self.get_unit().source_unit
+        Unit.objects.filter(pk=unit.pk).update(
+            source="short", extra_flags="max-size:500"
+        )
+        url = reverse(
+            "render-check", kwargs={"check_id": "max-size", "unit_id": unit.id}
+        )
+
+        response = self.client.get(url)
+        self.assert_png(response)
+        original = response.content
+
+        Unit.objects.filter(pk=unit.pk).update(
+            source="long " * 50, extra_flags="max-size:500"
+        )
+        response = self.client.get(url)
+        self.assert_png(response)
+        self.assertNotEqual(original, response.content)
+
+    def test_source_check_render_later_plural_after_first_plural_failure(self) -> None:
+        cache.clear()
+        unit = self.get_unit().source_unit
+        Unit.objects.filter(pk=unit.pk).update(
+            source=join_plural(("long " * 50, "short")),
+            extra_flags="max-size:500",
+        )
+        url = reverse(
+            "render-check", kwargs={"check_id": "max-size", "unit_id": unit.id}
+        )
+
+        self.assert_png(self.client.get(f"{url}?pos=1"))
+
+    def test_source_check_run_checks(self) -> None:
+        unit = self.get_unit().source_unit
+        Check.objects.filter(unit=unit, name="max-size").delete()
+        unit.extra_flags = "max-size:500"
+        unit.source = "long " * 50
+
+        unit.run_checks()
+        self.assertTrue(Check.objects.filter(unit=unit, name="max-size").exists())
+
+        unit.source = "short"
+        unit.check_cache = {}
+        unit.run_checks()
+        self.assertFalse(Check.objects.filter(unit=unit, name="max-size").exists())
+
+    def test_check_order(self) -> None:
+        unit = self.get_unit()
+        Check.objects.filter(unit=unit).delete()
+        for name in ("same", "end_newline", "begin_newline"):
+            Check.objects.create(unit=unit, name=name)
+
+        expected = ["begin_newline", "end_newline", "same"]
+        self.assertEqual(
+            list(
+                Check.objects.filter(unit=unit).order().values_list("name", flat=True)
+            ),
+            expected,
+        )
+        self.assertEqual([check.name for check in unit.all_checks], expected)
+
+        prefetched = Unit.objects.filter(pk=unit.pk).prefetch_all_checks().get()
+        self.assertEqual([check.name for check in prefetched.all_checks], expected)
+
 
 class BatchCheckMixinTest(SimpleTestCase):
     def test_project_checks_lock_uses_unique_file_name(self) -> None:
@@ -89,14 +198,18 @@ class BatchCheckMixinTest(SimpleTestCase):
                 origin=project.full_slug,
             )
 
-        self.assertNotEqual(project_lock._name, component_lock._name)  # noqa: SLF001
-        self.assertEqual(Path(project_lock._name).parent, Path(temp_dir, "locks"))  # noqa: SLF001
+        # ruff: ignore[private-member-access]
+        self.assertNotEqual(project_lock._name, component_lock._name)
+        # ruff: ignore[private-member-access]
+        self.assertEqual(Path(project_lock._name).parent, Path(temp_dir, "locks"))
         self.assertEqual(
-            Path(project_lock._name).name,  # noqa: SLF001
+            # ruff: ignore[private-member-access]
+            Path(project_lock._name).name,
             "project%3Achecks-1.lock",
         )
         self.assertEqual(
-            Path(component_lock._name).name,  # noqa: SLF001
+            # ruff: ignore[private-member-access]
+            Path(component_lock._name).name,
             "component%3Achecks-1.lock",
         )
 
@@ -110,7 +223,8 @@ class BatchCheckMixinTest(SimpleTestCase):
             project.__dict__["full_path"] = lock_path
             project_lock = project.checks_lock
 
-        self.assertEqual(project_lock._timeout, 30)  # noqa: SLF001
+        # ruff: ignore[private-member-access]
+        self.assertEqual(project_lock._timeout, 30)
 
     def test_component_checks_lock_uses_key_in_file_name(self) -> None:
         with (
@@ -133,13 +247,16 @@ class BatchCheckMixinTest(SimpleTestCase):
                 origin="project/shared",
             )
 
-        self.assertNotEqual(first_lock._name, second_lock._name)  # noqa: SLF001
+        # ruff: ignore[private-member-access]
+        self.assertNotEqual(first_lock._name, second_lock._name)
         self.assertEqual(
-            Path(first_lock._name).name,  # noqa: SLF001
+            # ruff: ignore[private-member-access]
+            Path(first_lock._name).name,
             "component%3Achecks-1.lock",
         )
         self.assertEqual(
-            Path(second_lock._name).name,  # noqa: SLF001
+            # ruff: ignore[private-member-access]
+            Path(second_lock._name).name,
             "component%3Achecks-2.lock",
         )
 

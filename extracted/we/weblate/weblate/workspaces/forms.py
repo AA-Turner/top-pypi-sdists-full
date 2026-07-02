@@ -9,7 +9,7 @@ from crispy_forms.layout import Fieldset, Layout
 from django import forms
 from django.utils.translation import gettext
 
-from weblate.trans.forms import FieldDocsMixin
+from weblate.trans.forms import FieldDocsMixin, setup_message_setting_site_defaults
 from weblate.utils.forms import SearchableSelect, SortedSelect
 from weblate.workspaces.models import Workspace
 
@@ -19,6 +19,8 @@ class WorkspaceSettingsForm(FieldDocsMixin, forms.ModelForm):
         model = Workspace
         fields = (
             "name",
+            "use_workspace_tm",
+            "contribute_workspace_tm",
             "license",
             "agreement",
             "new_lang",
@@ -32,7 +34,8 @@ class WorkspaceSettingsForm(FieldDocsMixin, forms.ModelForm):
             "addon_message",
             "pull_message",
         )
-        widgets = {  # noqa: RUF012
+        # ruff: ignore[mutable-class-default]
+        widgets = {
             "license": SearchableSelect,
             "language_code_style": SortedSelect,
             "secondary_language": SortedSelect,
@@ -40,6 +43,7 @@ class WorkspaceSettingsForm(FieldDocsMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        setup_message_setting_site_defaults(self.fields)
         self._missing_fields: set[str] = set()
         if self.is_bound and self.instance.pk:
             for field_name, field in self.fields.items():
@@ -50,6 +54,11 @@ class WorkspaceSettingsForm(FieldDocsMixin, forms.ModelForm):
         self.helper.form_tag = False
         self.helper.layout = Layout(
             "name",
+            Fieldset(
+                gettext("Translation memory"),
+                "use_workspace_tm",
+                "contribute_workspace_tm",
+            ),
             Fieldset(
                 gettext("Inherited component defaults"),
                 "license",

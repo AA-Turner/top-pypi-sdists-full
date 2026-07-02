@@ -1,0 +1,600 @@
+from functools import partial
+
+from array_api_compat import array_namespace as get_namespace, device
+import numpy as np
+import pytest
+from scipy.stats import hmean, gmean as gmean_sp
+
+from conftest import to_backend, approx
+from pyriemann.geometry.base import invsqrtm, logm, sqrtm
+from pyriemann.geometry.geodesic import geodesic_riemann
+from pyriemann.geometry.mean import (
+    mean_covariance,
+    gmean,
+    mean_ale,
+    mean_alm,
+    mean_bmp,
+    mean_cheap,
+    mean_chol,
+    mean_euclid,
+    mean_harmonic,
+    mean_kullback_sym,
+    mean_logdet,
+    mean_logchol,
+    mean_logeuclid,
+    mean_power,
+    mean_poweuclid,
+    mean_riemann,
+    mean_thompson,
+    mean_wasserstein,
+    maskedmean_riemann,
+    nanmean_riemann,
+)
+
+
+@pytest.mark.parametrize("kind", ["spd", "hpd"])
+@pytest.mark.parametrize(
+    "mean",
+    [
+        mean_ale,
+        mean_chol,
+        mean_euclid,
+        mean_harmonic,
+        mean_kullback_sym,
+        mean_logdet,
+        mean_logeuclid,
+        pytest.param(partial(mean_power, p=0.42), id="mean_power"),
+        mean_riemann,
+        mean_thompson,
+        mean_wasserstein,
+        nanmean_riemann,
+    ],
+)
+def test_mean(kind, mean, get_mats):
+    n_matrices, n_channels = 5, 3
+    X = get_mats(n_matrices, n_channels, kind)
+    assert mean(X).shape == (n_channels, n_channels)
+
+
+@pytest.mark.parametrize("kind", ["spd", "hpd"])
+@pytest.mark.parametrize(
+    "mean",
+    [
+        mean_ale,
+        mean_logdet,
+        pytest.param(partial(mean_power, p=0.123), id="mean_power"),
+        mean_riemann,
+        mean_thompson,
+        mean_wasserstein,
+        nanmean_riemann,
+    ]
+)
+def test_mean_init(kind, mean, get_mats):
+    n_matrices, n_channels = 4, 3
+    X = get_mats(n_matrices, n_channels, kind)
+    M = mean(X, init=X[0])
+    assert M.shape == (n_channels, n_channels)
+
+
+@pytest.mark.parametrize("kind", ["spd", "hpd"])
+@pytest.mark.parametrize(
+    "mean",
+    [
+        mean_euclid,
+        mean_harmonic,
+        mean_kullback_sym,
+        mean_logdet,
+        mean_logchol,
+        mean_logeuclid,
+        mean_riemann,
+        mean_wasserstein,
+        nanmean_riemann,
+    ],
+)
+def test_mean_weight_zero(kind, mean, get_mats, get_weights):
+    """Setting one weight to almost 0 it's almost like not passing the mat"""
+    n_matrices, n_channels = 5, 3
+    X = get_mats(n_matrices, n_channels, kind)
+    weights = get_weights(n_matrices)
+
+    M = mean(X[1:], sample_weight=weights[1:])
+    weights[0] = 1e-12
+    Mw = mean(X, sample_weight=weights)
+    assert M == approx(Mw, rel=1e-6, abs=1e-8)
+
+
+@pytest.mark.parametrize(
+    "mean",
+    [
+        mean_euclid,
+        mean_harmonic,
+        mean_kullback_sym,
+        mean_logdet,
+        mean_logchol,
+        mean_logeuclid,
+        mean_riemann,
+        mean_wasserstein,
+        nanmean_riemann,
+    ],
+)
+def test_mean_weight_error(mean, get_mats, get_weights):
+    n_matrices, n_channels = 3, 2
+    X = get_mats(n_matrices, n_channels, "spd")
+    weights = get_weights(n_matrices + 1)
+    with pytest.raises(ValueError):
+        mean(X, sample_weight=weights)
+
+
+@pytest.mark.parametrize(
+    "mean", [
+        mean_ale,
+        mean_alm,
+        mean_bmp,
+        mean_cheap,
+        mean_logdet,
+        pytest.param(partial(mean_power, p=0.3), id="mean_power"),
+        mean_riemann,
+        mean_thompson,
+        mean_wasserstein,
+        nanmean_riemann
+    ]
+)
+def test_mean_warning_convergence_not_reached(mean, get_mats):
+    n_matrices, n_channels = 3, 2
+    X = get_mats(n_matrices, n_channels, "spd")
+    with pytest.warns(UserWarning):
+        mean(X, maxiter=0)
+
+
+@pytest.mark.parametrize("kind", ["spd", "hpd"])
+@pytest.mark.parametrize(
+    "mean",
+    [
+        mean_ale,
+        mean_chol,
+        mean_euclid,
+        mean_harmonic,
+        mean_kullback_sym,
+        mean_logchol,
+        mean_logdet,
+        mean_logeuclid,
+        pytest.param(partial(mean_poweuclid, p=0.4), id="mean_poweuclid"),
+        pytest.param(partial(mean_power, p=0.6), id="mean_power"),
+        mean_riemann,
+        mean_wasserstein,
+    ],
+)
+def test_mean_of_means(kind, mean, get_mats):
+    """Test mean of submeans is equal to grand mean"""
+    n_matrices, n_channels = 10, 3
+    X = get_mats(n_matrices, n_channels, kind)
+    M = mean(X)
+    M1 = mean(X[:n_matrices//2])
+    M2 = mean(X[n_matrices//2:])
+    M3 = mean(np.array([M1, M2]))
+    assert M3 == approx(M, 6)
+
+
+@pytest.mark.parametrize(
+    "mean",
+    [
+        mean_ale,
+        mean_alm,
+        mean_bmp,
+        mean_cheap,
+        mean_chol,
+        mean_euclid,
+        mean_harmonic,
+        mean_kullback_sym,
+        mean_logchol,
+        mean_logdet,
+        mean_logeuclid,
+        pytest.param(partial(mean_poweuclid, p=0.7), id="mean_poweuclid"),
+        pytest.param(partial(mean_power, p=0.2), id="mean_power"),
+        mean_riemann,
+        mean_thompson,
+        mean_wasserstein,
+        nanmean_riemann,
+    ],
+)
+def test_mean_of_single_matrix(mean, get_mats):
+    """Test the mean of a single matrix"""
+    n_channels = 3
+    X = get_mats(1, n_channels, "spd")
+    M = mean(X)
+    assert M == approx(X[0])
+
+
+@pytest.mark.parametrize(
+    "mean",
+    [
+        mean_ale,
+        mean_alm,
+        mean_bmp,
+        mean_cheap,
+        mean_chol,
+        mean_euclid,
+        mean_harmonic,
+        mean_kullback_sym,
+        mean_logchol,
+        mean_logdet,
+        mean_logeuclid,
+        pytest.param(partial(mean_poweuclid, p=0.42), id="mean_poweuclid"),
+        pytest.param(partial(mean_power, p=0.3), id="mean_power"),
+        mean_riemann,
+        mean_thompson,
+        mean_wasserstein,
+        nanmean_riemann,
+    ],
+)
+def test_mean_broadcasting(mean, get_mats):
+    n_dim5, n_dim4, n_matrices, n_channels = 2, 5, 3, 4
+    X = get_mats([n_dim5, n_dim4, n_matrices], n_channels, "spd")
+
+    # 3D array
+    M3 = mean(X[0, 0])
+    assert M3.shape == (n_channels, n_channels)
+
+    # 4D array
+    n_dim4 = 5
+    M4 = mean(X[0])
+    assert M4.shape == (n_dim4, n_channels, n_channels)
+    assert M4[0] == approx(M3)
+
+    # 5D array
+    M5 = mean(X)
+    assert M5.shape == (n_dim5, n_dim4, n_channels, n_channels)
+    assert M5[0, 0] == approx(M3)
+
+
+@pytest.mark.parametrize("kind", ["spd", "hpd"])
+@pytest.mark.parametrize("mean", [
+    mean_logeuclid,
+    mean_riemann,
+    # mean_thompson,  # Th 6.16 (4) in [Mostajeran2024], KO
+])
+def test_mean_property_joint_homogeneity(kind, mean, get_mats, rndstate,
+                                         backend):
+    n_matrices, n_channels = 5, 3
+    X = get_mats(n_matrices, n_channels, kind)
+
+    # P2 in [Nakamura2009]
+    a = rndstate.uniform(low=1.0, high=2.0, size=n_matrices)
+    a_ = to_backend(a, backend)
+    assert mean(a_[:, None, None] * X) == approx(gmean_sp(a) * mean(X))
+
+    # P2' in [Nakamura2009]
+    a = rndstate.uniform(0.01, 5.0)
+    assert mean(a * X) == approx(a * mean(X))
+
+
+@pytest.mark.parametrize("kind", ["spd", "hpd"])
+@pytest.mark.parametrize("mean", [
+    mean_logchol,  # Corollary 13 in [Lin2019]
+    mean_logeuclid,
+    mean_riemann,
+])
+def test_mean_property_determinant_identity(kind, mean, get_mats, rndstate):
+    """Test determinant identity, P9 in [Nakamura2009]"""
+    n_matrices, n_channels = 5, 3
+    X = get_mats(n_matrices, n_channels, kind)
+    xp = get_namespace(X)
+    assert xp.linalg.det(mean(X)) == approx(gmean_sp(xp.linalg.det(X)))
+
+
+@pytest.mark.parametrize("kind", ["spd", "hpd"])
+@pytest.mark.parametrize("mean", [
+    mean_logeuclid,  # Th 3.13 in [Arsigny2007]
+    mean_riemann,  # P8 in [Nakamura2009]
+])
+def test_mean_property_invariance_inversion(kind, mean, get_mats):
+    """Test invariance under inversion, also called self-duality"""
+    n_matrices, n_channels = 5, 3
+    X = get_mats(n_matrices, n_channels, kind)
+    xp = get_namespace(X)
+    eye = xp.eye(n_channels, dtype=X.dtype, device=device(X))
+    X_inv = xp.linalg.solve(X, eye)
+    M_inv = mean(X_inv)
+    assert mean(X) == approx(xp.linalg.solve(M_inv, eye))
+
+
+@pytest.mark.parametrize("kind, kindQ", [("spd", "orth"), ("hpd", "unit")])
+@pytest.mark.parametrize("mean", [
+    mean_logeuclid,  # Th 3.13 in [Arsigny2007]
+    mean_riemann,
+    mean_thompson,
+])
+def test_mean_property_invariance_similarity(kind, kindQ, mean,
+                                             get_mats, rndstate):
+    """Test invariance by similarity, ie a scale and a rotation"""
+    n_matrices, n_channels = 5, 3
+    X = get_mats(n_matrices, n_channels, kind)
+    Q = get_mats(1, n_channels, kindQ)[0]
+    Qh = Q.conj().T
+    scale = rndstate.uniform(0.01, 10.0)
+    assert scale * Q @ mean(X) @ Qh == approx(mean(scale * Q @ X @ Qh))
+
+
+@pytest.mark.parametrize("kind, kindW", [("spd", "inv"), ("hpd", "cinv")])
+@pytest.mark.parametrize("mean", [
+    mean_riemann,  # P6 in [Nakamura2009]
+    mean_thompson,  # Th 6.16 (3) in [Mostajeran2024]
+])
+def test_mean_property_invariance_congruence(kind, kindW, mean, get_mats):
+    """Test invariance under congruence, ie an invertible transform"""
+    n_matrices, n_channels = 5, 3
+    X = get_mats(n_matrices, n_channels, kind)
+    W = get_mats(1, n_channels, kindW)[0]
+    Wh = W.conj().T
+    assert W @ mean(X) @ Wh == approx(mean(W @ X @ Wh))
+
+
+@pytest.mark.parametrize("kind", ["spd", "hpd"])
+@pytest.mark.parametrize("mean", [
+    mean_alm,
+    mean_bmp,
+    mean_cheap,
+    mean_riemann,
+])
+def test_mean_geometric_2mats(kind, mean, get_mats):
+    """Geometric mean of 2 matrices is the middle of the AIR geodesic"""
+    n_matrices, n_channels = 2, 3
+    X = get_mats(n_matrices, n_channels, kind)
+    assert mean(X) == approx(geodesic_riemann(X[0], X[1], alpha=0.5))
+
+
+@pytest.mark.parametrize("kind", ["spd", "hpd"])
+@pytest.mark.parametrize("mean", [mean_alm, mean_bmp, mean_cheap])
+def test_mean_geometric_3mats(kind, mean, get_mats):
+    """Geometric mean of 3 matrices is the AIR mean"""
+    n_matrices, n_channels = 3, 3
+    X = get_mats(n_matrices, n_channels, kind)
+    M = mean(X)
+    assert M.shape == (n_channels, n_channels)
+    if mean is mean_cheap:
+        pytest.skip()
+    assert M == approx(mean_riemann(X), abs=1e-6, rel=1e-3)
+
+
+@pytest.mark.parametrize("n_dim1, n_dim2", [(4, 5), (5, 4)])
+@pytest.mark.parametrize("kind", ["real", "comp"])
+def test_mean_euclid(n_dim1, n_dim2, kind, get_mats):
+    """Euclidean mean for non-square matrices"""
+    n_matrices = 10
+    X = get_mats(n_matrices, [n_dim1, n_dim2], kind)
+    xp = get_namespace(X)
+    assert mean_euclid(X) == approx(xp.mean(X, axis=0))
+
+
+@pytest.mark.parametrize("kind", ["inv", "cinv"])
+def test_mean_harmonic(kind, get_mats):
+    """harmonic mean of invertible matrices"""
+    n_matrices, n_channels = 4, 5
+    X = get_mats(n_matrices, n_channels, kind)
+    mean_harmonic(X)
+
+
+@pytest.mark.parametrize("n_values", [3, 5, 7])
+def test_mean_harmonic_scalars(n_values, rndstate, backend):
+    """Compare harmonic mean to scipy.hmean for scalars"""
+    values_np = rndstate.uniform(0.1, 10, size=n_values)
+    sp_hmean = hmean(values_np)
+    values = to_backend(values_np, backend)
+    py_hmean = mean_harmonic(values[..., None, None])[0, 0]
+    assert sp_hmean == approx(py_hmean)
+
+
+@pytest.mark.parametrize("n_values", [4, 6, 8])
+def test_mean_logeuclid_scalars(n_values, rndstate, backend):
+    """Compare log-Euclidean mean to scipy.gmean for scalars"""
+    values_np = rndstate.uniform(0.1, 10, size=n_values)
+    sp_mean = gmean_sp(values_np)
+    values = to_backend(values_np, backend)
+    py_mean = mean_logeuclid(values[..., None, None])[0, 0]
+    assert sp_mean == approx(py_mean)
+
+
+@pytest.mark.parametrize("kind", ["spd", "hpd"])
+def test_mean_power_equivalence(kind, get_mats, get_weights):
+    n_matrices, n_channels = 3, 3
+    X = get_mats(n_matrices, n_channels, kind)
+    assert mean_power(X, 1) == approx(mean_euclid(X))
+    assert mean_power(X, 0) == approx(mean_riemann(X))
+    assert mean_power(X, -1) == approx(mean_harmonic(X))
+
+
+@pytest.mark.parametrize("p", [-0.4, 0.7])
+@pytest.mark.parametrize("kind", ["spd", "hpd"])
+def test_mean_power(p, kind, get_mats, get_weights):
+    n_matrices, n_channels = 3, 3
+    X = get_mats(n_matrices, n_channels, kind)
+    weights = get_weights(n_matrices)
+    mean_power(X, p, sample_weight=weights)
+
+
+def test_mean_power_errors(get_mats):
+    n_matrices, n_channels = 3, 2
+    X = get_mats(n_matrices, n_channels, "spd")
+
+    with pytest.raises(ValueError):  # exponent is not a scalar
+        mean_power(X, [1])
+    with pytest.raises(ValueError):  # exponent is not in [-1,1]
+        mean_power(X, 3)
+
+
+@pytest.mark.parametrize("kind", ["spd", "hpd"])
+def test_mean_poweuclid(kind, get_mats, get_weights):
+    n_matrices, n_channels = 10, 4
+    X = get_mats(n_matrices, n_channels, kind)
+    assert mean_poweuclid(X, 1) == approx(mean_euclid(X))
+    assert mean_poweuclid(X, 0) == approx(mean_logeuclid(X))
+    assert mean_poweuclid(X, -1) == approx(mean_harmonic(X))
+
+    weights = get_weights(n_matrices)
+    mean_poweuclid(X, 0.42, sample_weight=weights)
+
+
+def test_mean_poweuclid_error(get_mats):
+    n_matrices, n_channels = 3, 2
+    X = get_mats(n_matrices, n_channels, "spd")
+
+    with pytest.raises(ValueError):  # exponent is not a scalar
+        mean_poweuclid(X, [1])
+
+
+@pytest.mark.parametrize("kind", ["spd", "hpd"])
+def test_mean_riemann_solution(kind, get_mats):
+    """AIR mean is solution to the nonlinear matrix equations"""
+    n_matrices, n_channels = 5, 3
+    X = get_mats(n_matrices, n_channels, kind)
+    xp = get_namespace(X)
+    M = mean_riemann(X, tol=10e-16, maxiter=500)
+    Zero = xp.zeros(
+        (n_channels, n_channels), dtype=X.dtype, device=device(X)
+    )
+
+    Mm12 = invsqrtm(M)
+    assert xp.sum(logm(Mm12 @ X @ Mm12), axis=0) == approx(Zero)
+
+    # Eq(1.2) in [Lim2012]
+    M12 = sqrtm(M)
+    assert xp.sum(logm(M12 @ xp.linalg.solve(X, M12)), axis=0) == approx(Zero)
+
+    # Eq(3.3) in [Moakher2005] is FALSE
+    assert xp.sum(logm(xp.linalg.solve(X, M)), axis=0) != approx(Zero)
+
+
+@pytest.mark.numpy_only
+@pytest.mark.parametrize("kind", ["spd", "hpd"])
+def test_mean_riemann_same_eigenvecs(kind, get_mats_params):
+    """Test the Riemannian mean with same eigen vectors"""
+    n_matrices, n_channels = 10, 3
+    X, eigvals, eigvecs = get_mats_params(n_matrices, n_channels, kind)
+    M = mean_riemann(X)
+    eigval = np.exp(np.mean(np.log(eigvals), axis=0))
+    Mtrue = eigvecs @ np.diag(eigval) @ eigvecs.conj().T
+    assert M == approx(Mtrue)
+
+
+def test_mean_riemann_check_raise():
+    """Riemannian mean must crash when the matrices are not SPD"""
+    n_matrices, n_channels = 10, 3
+    X = 2 * np.ones((n_matrices, n_channels, n_channels))
+    with pytest.warns(RuntimeWarning):
+        with pytest.raises(ValueError):
+            mean_riemann(X)
+
+
+@pytest.mark.parametrize("init", [True, False])
+def test_mean_masked_riemann(init, get_mats, get_masks):
+    n_matrices, n_channels = 5, 3
+    X = get_mats(n_matrices, n_channels, "spd")
+    xp = get_namespace(X)
+    masks = get_masks(n_matrices, n_channels)
+    if init:
+        M = maskedmean_riemann(X, masks, tol=10e-3, init=X[0])
+    else:
+        M = maskedmean_riemann(X, masks, tol=10e-3)
+    assert M.shape == (n_channels, n_channels)
+
+    # test broadcasting
+    if not init:
+        n_dim5, n_dim4 = 2, 3
+        X5 = xp.stack([xp.stack([X] * n_dim4)] * n_dim5)
+        M5 = maskedmean_riemann(X5, masks, tol=10e-3)
+        assert M5.shape == (n_dim5, n_dim4, n_channels, n_channels)
+        assert M5[0, 0] == approx(M)
+
+
+@pytest.mark.parametrize("init", [True, False])
+def test_mean_nan_riemann(init, get_mats, rndstate):
+    n_matrices, n_channels = 10, 6
+    X = get_mats(n_matrices, n_channels, "spd")
+    xp = get_namespace(X)
+    emean = xp.mean(X, axis=0)
+    for i in range(n_matrices):
+        corrup_channels = rndstate.choice(
+            np.arange(0, n_channels), size=n_channels // 3, replace=False)
+        for j in corrup_channels:
+            X[i, j] = float("nan")
+            X[i, :, j] = float("nan")
+    if init:
+        M = nanmean_riemann(X, tol=10e-3, init=emean)
+    else:
+        M = nanmean_riemann(X, tol=10e-3)
+    assert M.shape == (n_channels, n_channels)
+
+
+def test_mean_nan_riemann_errors(get_mats):
+    n_matrices, n_channels = 5, 4
+    X = get_mats(n_matrices, n_channels, "spd")
+    xp = get_namespace(X)
+
+    with pytest.raises(ValueError):  # not symmetric NaN values
+        X_ = xp.asarray(X, copy=True)
+        X_[0, 0] = float("nan")  # corrup only a row, not its corresp column
+        nanmean_riemann(X_)
+    with pytest.raises(ValueError):  # not rows and columns NaN values
+        X_ = xp.asarray(X, copy=True)
+        X_[1, 0, 1] = float("nan")  # corrup an off-diagonal value
+        nanmean_riemann(X_)
+
+
+def callable_average(X, sample_weight=None):
+    xp = get_namespace(X)
+    return xp.mean(X, axis=0)
+
+
+@pytest.mark.parametrize(
+    "metric, mean",
+    [
+        ("ale", mean_ale),
+        ("alm", mean_alm),
+        ("bmp", mean_bmp),
+        ("cheap", mean_cheap),
+        ("chol", mean_chol),
+        ("euclid", mean_euclid),
+        ("harmonic", mean_harmonic),
+        ("kullback_sym", mean_kullback_sym),
+        ("logchol", mean_logchol),
+        ("logdet", mean_logdet),
+        ("logeuclid", mean_logeuclid),
+        ("power", mean_power),
+        ("poweuclid", mean_poweuclid),
+        ("riemann", mean_riemann),
+        ("thompson", mean_thompson),
+        ("wasserstein", mean_wasserstein),
+        (callable_average, mean_euclid),
+    ],
+)
+def test_gmean_metric(metric, mean, get_mats):
+    n_matrices, n_channels = 3, 2
+    X = get_mats(n_matrices, n_channels, "spd")
+    if metric in ["power", "poweuclid"]:
+        p = 0.1
+        assert mean(X, p) == approx(gmean(X, p, metric=metric))
+    else:
+        assert mean(X) == approx(gmean(X, metric=metric))
+
+
+def test_gmean_arguments(get_mats):
+    """Test gmean with different args and kwargs"""
+    n_matrices, n_channels = 3, 2
+    X = get_mats(n_matrices, n_channels, "spd")
+
+    gmean(X)
+    gmean(X, 0.2, metric="power", zeta=10e-3)
+    gmean(X, 0.3, metric="poweuclid", sample_weight=None)
+
+    gmean(X, metric="ale", maxiter=5)
+    gmean(X, metric="logdet", tol=10e-3)
+    gmean(X, metric="riemann", init=X[0])
+
+
+def test_mean_covariance_deprecation(get_mats):
+    import warnings
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        mean_covariance(get_mats(3, 2, "spd"))
+        assert len(w) >= 1
+        assert issubclass(w[-1].category, DeprecationWarning)

@@ -155,6 +155,13 @@ def test_interpolation() -> None:
     )
     assert img.width == 200 and img.height == 100
 
+    # Option flags can be combined with the scaling algorithm.
+    combined = Interpolation.BILINEAR | Interpolation.ACCURATE_RND
+    assert isinstance(combined, Interpolation)
+    assert combined & Interpolation.ACCURATE_RND
+    img = frame.reformat(width=200, height=100, interpolation=combined)
+    assert img.width == 200 and img.height == 100
+
 
 def test_basic_to_ndarray() -> None:
     array = VideoFrame(640, 480, "rgb24").to_ndarray()
@@ -686,6 +693,39 @@ def test_ndarray_yuv420p() -> None:
     assert frame.width == 640 and frame.height == 480
     assert frame.format.name == "yuv420p"
     assertNdarraysEqual(frame.to_ndarray(), array)
+
+
+def test_ndarray_yuv420p10le() -> None:
+    array = numpy.random.randint(0, 1024, size=(720, 640), dtype=numpy.uint16)
+    frame = VideoFrame.from_ndarray(array, format="yuv420p10le")
+    assert frame.width == 640 and frame.height == 480
+    assert frame.format.name == "yuv420p10le"
+    assert "yuv420p10le" in supported_np_pix_fmts
+    assertNdarraysEqual(frame.to_ndarray(), array)
+
+
+def test_ndarray_yuv420p10le_align() -> None:
+    array = numpy.random.randint(0, 1024, size=(357, 318), dtype=numpy.uint16)
+    frame = VideoFrame.from_ndarray(array, format="yuv420p10le")
+    assert frame.width == 318 and frame.height == 238
+    assert frame.format.name == "yuv420p10le"
+    assertNdarraysEqual(frame.to_ndarray(), array)
+
+
+def test_ndarray_yuv420p10le_zero_size() -> None:
+    # A frame with zero width and/or height has no allocated planes; conversions
+    # should degrade gracefully instead of raising IndexError.
+    for w, h in ((0, 0), (0, 480), (640, 0)):
+        frame = VideoFrame(w, h, "yuv420p10le")
+        array = frame.to_ndarray()
+        assert array.dtype == numpy.uint16
+        assert array.size == 0
+
+    empty = numpy.empty((0, 0), dtype=numpy.uint16)
+    frame = VideoFrame.from_ndarray(empty, format="yuv420p10le")
+    assert frame.width == 0 and frame.height == 0
+    assert frame.format.name == "yuv420p10le"
+    assertNdarraysEqual(frame.to_ndarray(), empty)
 
 
 def test_ndarray_yuv422p() -> None:

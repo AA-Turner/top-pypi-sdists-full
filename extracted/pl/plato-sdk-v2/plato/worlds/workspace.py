@@ -697,6 +697,8 @@ class Workspace:
             "direction": direction,
             "dvc_files": dvc_files,
             "changed": changed,
+            # Uploaded by the world runtime during a session (vs "manual" CLI).
+            "upload_mode": "runtime",
         }
         if trigger_span_id:
             payload["trigger_span_id"] = trigger_span_id

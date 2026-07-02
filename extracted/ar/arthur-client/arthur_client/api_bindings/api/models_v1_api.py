@@ -2004,6 +2004,414 @@ class ModelsV1Api:
 
 
     @validate_call
+    def get_organization_models(
+        self,
+        sort: Annotated[Optional[ModelsSort], Field(description="Override the field used for sorting the returned list. Optional.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="Override the sort order used. Optional.")] = None,
+        dataset_id: Annotated[Optional[StrictStr], Field(description="Filter for models based on a specific dataset ID.")] = None,
+        name: Annotated[Optional[StrictStr], Field(description="Filter for models with a name similar to this name.")] = None,
+        onboarding_identifier: Annotated[Optional[StrictStr], Field(description="Filter for models whose 'onboarding_identifier' matches the provided string.")] = None,
+        infrastructure: Annotated[Optional[Infrastructure], Field(description="Filter for models by infrastructure type.")] = None,
+        model_problem_type: Annotated[Optional[ModelProblemType], Field(description="Filter for models by problem type.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ResourceListModel:
+        """Get Organization Models.
+
+        Returns all models (applications) across every workspace in the organization, matching the filter and sorting criteria. If multiple filters are specified, only results matching all criteria are returned. Requires the organization_list_models permission; results are further limited to the projects in which the caller has access to models.
+
+        :param sort: Override the field used for sorting the returned list. Optional.
+        :type sort: ModelsSort
+        :param order: Override the sort order used. Optional.
+        :type order: SortOrder
+        :param dataset_id: Filter for models based on a specific dataset ID.
+        :type dataset_id: str
+        :param name: Filter for models with a name similar to this name.
+        :type name: str
+        :param onboarding_identifier: Filter for models whose 'onboarding_identifier' matches the provided string.
+        :type onboarding_identifier: str
+        :param infrastructure: Filter for models by infrastructure type.
+        :type infrastructure: Infrastructure
+        :param model_problem_type: Filter for models by problem type.
+        :type model_problem_type: ModelProblemType
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_organization_models_serialize(
+            sort=sort,
+            order=order,
+            dataset_id=dataset_id,
+            name=name,
+            onboarding_identifier=onboarding_identifier,
+            infrastructure=infrastructure,
+            model_problem_type=model_problem_type,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListModel",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_organization_models_with_http_info(
+        self,
+        sort: Annotated[Optional[ModelsSort], Field(description="Override the field used for sorting the returned list. Optional.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="Override the sort order used. Optional.")] = None,
+        dataset_id: Annotated[Optional[StrictStr], Field(description="Filter for models based on a specific dataset ID.")] = None,
+        name: Annotated[Optional[StrictStr], Field(description="Filter for models with a name similar to this name.")] = None,
+        onboarding_identifier: Annotated[Optional[StrictStr], Field(description="Filter for models whose 'onboarding_identifier' matches the provided string.")] = None,
+        infrastructure: Annotated[Optional[Infrastructure], Field(description="Filter for models by infrastructure type.")] = None,
+        model_problem_type: Annotated[Optional[ModelProblemType], Field(description="Filter for models by problem type.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[ResourceListModel]:
+        """Get Organization Models.
+
+        Returns all models (applications) across every workspace in the organization, matching the filter and sorting criteria. If multiple filters are specified, only results matching all criteria are returned. Requires the organization_list_models permission; results are further limited to the projects in which the caller has access to models.
+
+        :param sort: Override the field used for sorting the returned list. Optional.
+        :type sort: ModelsSort
+        :param order: Override the sort order used. Optional.
+        :type order: SortOrder
+        :param dataset_id: Filter for models based on a specific dataset ID.
+        :type dataset_id: str
+        :param name: Filter for models with a name similar to this name.
+        :type name: str
+        :param onboarding_identifier: Filter for models whose 'onboarding_identifier' matches the provided string.
+        :type onboarding_identifier: str
+        :param infrastructure: Filter for models by infrastructure type.
+        :type infrastructure: Infrastructure
+        :param model_problem_type: Filter for models by problem type.
+        :type model_problem_type: ModelProblemType
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_organization_models_serialize(
+            sort=sort,
+            order=order,
+            dataset_id=dataset_id,
+            name=name,
+            onboarding_identifier=onboarding_identifier,
+            infrastructure=infrastructure,
+            model_problem_type=model_problem_type,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListModel",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_organization_models_without_preload_content(
+        self,
+        sort: Annotated[Optional[ModelsSort], Field(description="Override the field used for sorting the returned list. Optional.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="Override the sort order used. Optional.")] = None,
+        dataset_id: Annotated[Optional[StrictStr], Field(description="Filter for models based on a specific dataset ID.")] = None,
+        name: Annotated[Optional[StrictStr], Field(description="Filter for models with a name similar to this name.")] = None,
+        onboarding_identifier: Annotated[Optional[StrictStr], Field(description="Filter for models whose 'onboarding_identifier' matches the provided string.")] = None,
+        infrastructure: Annotated[Optional[Infrastructure], Field(description="Filter for models by infrastructure type.")] = None,
+        model_problem_type: Annotated[Optional[ModelProblemType], Field(description="Filter for models by problem type.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get Organization Models.
+
+        Returns all models (applications) across every workspace in the organization, matching the filter and sorting criteria. If multiple filters are specified, only results matching all criteria are returned. Requires the organization_list_models permission; results are further limited to the projects in which the caller has access to models.
+
+        :param sort: Override the field used for sorting the returned list. Optional.
+        :type sort: ModelsSort
+        :param order: Override the sort order used. Optional.
+        :type order: SortOrder
+        :param dataset_id: Filter for models based on a specific dataset ID.
+        :type dataset_id: str
+        :param name: Filter for models with a name similar to this name.
+        :type name: str
+        :param onboarding_identifier: Filter for models whose 'onboarding_identifier' matches the provided string.
+        :type onboarding_identifier: str
+        :param infrastructure: Filter for models by infrastructure type.
+        :type infrastructure: Infrastructure
+        :param model_problem_type: Filter for models by problem type.
+        :type model_problem_type: ModelProblemType
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_organization_models_serialize(
+            sort=sort,
+            order=order,
+            dataset_id=dataset_id,
+            name=name,
+            onboarding_identifier=onboarding_identifier,
+            infrastructure=infrastructure,
+            model_problem_type=model_problem_type,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListModel",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_organization_models_serialize(
+        self,
+        sort,
+        order,
+        dataset_id,
+        name,
+        onboarding_identifier,
+        infrastructure,
+        model_problem_type,
+        page,
+        page_size,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if sort is not None:
+            
+            _query_params.append(('sort', sort.value))
+            
+        if order is not None:
+            
+            _query_params.append(('order', order.value))
+            
+        if dataset_id is not None:
+            
+            _query_params.append(('dataset_id', dataset_id))
+            
+        if name is not None:
+            
+            _query_params.append(('name', name))
+            
+        if onboarding_identifier is not None:
+            
+            _query_params.append(('onboarding_identifier', onboarding_identifier))
+            
+        if infrastructure is not None:
+            
+            _query_params.append(('infrastructure', infrastructure.value))
+            
+        if model_problem_type is not None:
+            
+            _query_params.append(('model_problem_type', model_problem_type.value))
+            
+        if page is not None:
+            
+            _query_params.append(('page', page))
+            
+        if page_size is not None:
+            
+            _query_params.append(('page_size', page_size))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/organization/models',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def patch_model(
         self,
         model_id: StrictStr,

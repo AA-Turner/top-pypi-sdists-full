@@ -12,6 +12,7 @@ import pandas as pd
 import pytest
 from nibabel import AnalyzeImage, Nifti1Image, Nifti2Image, load, spatialimages
 from nibabel.freesurfer import MGHImage
+from nibabel.spatialimages import HeaderDataError
 from numpy.testing import (
     assert_allclose,
     assert_almost_equal,
@@ -44,7 +45,10 @@ from nilearn.conftest import (
 from nilearn.exceptions import DimensionError
 from nilearn.image.image import (
     _crop_img_to,
+    _extract_data,
     _fast_smooth_array,
+    _mris_fwhm_to_niters,
+    _smooth_surface_img,
     binarize_img,
     check_niimg,
     check_niimg_3d,
@@ -70,7 +74,7 @@ from nilearn.image.image import (
 )
 from nilearn.image.resampling import resample_img
 from nilearn.image.tests._testing import match_headers_keys
-from nilearn.surface.surface import SurfaceImage, extract_data
+from nilearn.surface.surface import SurfaceImage
 from nilearn.surface.surface import get_data as get_surface_data
 from nilearn.surface.utils import (
     assert_polymesh_equal,
@@ -205,6 +209,25 @@ def test_get_data(tmp_path, shape_3d_default):
     data = get_data(filename.format("*"))
 
     assert len(data.shape) == 4
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "image_class", [Nifti1Image, Nifti2Image, MGHImage, AnalyzeImage]
+)
+def test_get_data_spatial_image_subtypes(image_class, shape_3d_default):
+    """Check get_data works with any nibabel SpatialImage subtype.
+
+    get_data delegates to check_niimg, which accepts any object
+    that is an instance of nibabel.spatialimages.SpatialImage,
+    not only Nifti1Image.
+    """
+    array = np.random.default_rng(0).random(shape_3d_default).astype("float32")
+    img = image_class(array, affine=np.eye(4))
+
+    data = get_data(img)
+
+    assert_array_equal(data, array)
 
 
 def test_high_variance_confounds(shape_3d_default):
@@ -347,11 +370,14 @@ def test_fast_smooth_array_give_same_result_as_smooth_array(
 def test_smooth_array_raise_warning_if_fwhm_is_zero(smooth_array_data):
     """See https://github.com/nilearn/nilearn/issues/1537."""
     affine = AFFINE_TO_TEST[2]
-    with pytest.warns(UserWarning):
+    with pytest.warns(
+        UserWarning, match=r"specified as 0\.0\. Setting it to None"
+    ):
         smooth_array(smooth_array_data, affine, fwhm=0.0)
 
 
-def test_smooth_img(affine_eye, tmp_path):
+@pytest.mark.parametrize("create_files", (False, True))
+def test_smooth_img(tmp_path, create_files):
     """Checks added functionalities compared to image._smooth_array()."""
     shapes = ((10, 11, 12), (13, 14, 15))
     lengths = (17, 18)
@@ -360,42 +386,155 @@ def test_smooth_img(affine_eye, tmp_path):
     img1, _ = generate_fake_fmri(shape=shapes[0], length=lengths[0])
     img2, _ = generate_fake_fmri(shape=shapes[1], length=lengths[1])
 
-    for create_files in (False, True):
-        imgs = testing.write_imgs_to_path(
-            img1, img2, file_path=tmp_path, create_files=create_files
-        )
-        # List of images as input
-        out = smooth_img(imgs, fwhm)
+    imgs = testing.write_imgs_to_path(
+        img1, img2, file_path=tmp_path, create_files=create_files
+    )
+    # List of images as input
+    out = smooth_img(imgs, fwhm)
 
-        assert isinstance(out, list)
-        assert len(out) == 2
-        for o, s, l in zip(out, shapes, lengths, strict=False):
-            assert o.shape == (*s, l)
+    assert isinstance(out, list)
+    assert len(out) == 2
+    for o, s, l in zip(out, shapes, lengths, strict=False):
+        assert o.shape == (*s, l)
 
-        # Single image as input
-        out = smooth_img(imgs[0], fwhm)
+    # Single image as input
+    out = smooth_img(imgs[0], fwhm)
 
-        assert isinstance(out, Nifti1Image)
-        assert out.shape == (shapes[0] + (lengths[0],))
+    assert isinstance(out, Nifti1Image)
+    assert out.shape == (shapes[0] + (lengths[0],))
 
-    # Check corner case situations when fwhm=0, See issue #1537
-    # Test whether function smooth_img raises a warning when fwhm=0.
-    with pytest.warns(UserWarning):
-        smooth_img(img1, fwhm=0.0)
 
-    # Test output equal when fwhm=None and fwhm=0
-    out_fwhm_none = smooth_img(img1, fwhm=None)
-    out_fwhm_zero = smooth_img(img1, fwhm=0.0)
+@pytest.mark.parametrize(
+    "fwhm", [[1.0, 1.0, 1.0], (1.0, 1.0, 1.0), np.asarray([1.0, 1.0, 1.0])]
+)
+def test_smooth_img_scalar_array(affine_eye, fwhm):
+    """Ensure that fwhm=1 and fwhm=[1, 1, 1] give same result."""
+    data1 = np.zeros((10, 11, 12))
+    data1[2:4, 1:5, 3:6] = 1
+    img1_nifti2 = Nifti2Image(data1, affine=affine_eye)
+
+    data2 = np.zeros((13, 14, 15))
+    data2[2:4, 1:5, 3:6] = 9
+    img2_nifti2 = Nifti2Image(data2, affine=affine_eye)
+
+    out1 = smooth_img([img1_nifti2, img2_nifti2], fwhm=1.0)
+    out2 = smooth_img([img1_nifti2, img2_nifti2], fwhm=fwhm)
+    for o1, o2 in zip(out1, out2, strict=False):
+        assert_array_equal(get_data(o1), get_data(o2))
+
+
+def test_smooth_img_fwhm_0_or_none(img_3d_mni):
+    """Test output equal when fwhm=None and fwhm=0."""
+    out_fwhm_none = smooth_img(img_3d_mni, fwhm=None)
+    out_fwhm_zero = smooth_img(img_3d_mni, fwhm=0.0)
 
     assert_array_equal(get_data(out_fwhm_none), get_data(out_fwhm_zero))
 
-    data1 = np.zeros((10, 11, 12))
-    data1[2:4, 1:5, 3:6] = 1
-    data2 = np.zeros((13, 14, 15))
-    data2[2:4, 1:5, 3:6] = 9
-    img1_nifti2 = Nifti2Image(data1, affine=affine_eye)
-    img2_nifti2 = Nifti2Image(data2, affine=affine_eye)
-    out = smooth_img([img1_nifti2, img2_nifti2], fwhm=1.0)
+
+def test_smooth_img_warning(img_3d_mni):
+    """Check corner case situations when fwhm=0, ee issue #1537.
+
+    Test whether function smooth_img raises a warning when fwhm=0.
+    """
+    with pytest.warns(
+        UserWarning, match=r"specified as 0\.0\. Setting it to None"
+    ):
+        smooth_img(img_3d_mni, fwhm=0.0)
+
+
+def test_smooth_img_surface(surf_img_1d):
+    """Test smoothing surface images.
+
+    Test output equal when fwhm=None and fwhm=0.
+    Test smoothing changes input.
+    Test that min and max are less extreme after smoothing.
+    """
+    out_fwhm_none = smooth_img(surf_img_1d, fwhm=None)
+    out_fwhm_zero = smooth_img(surf_img_1d, fwhm=0)
+
+    assert_surface_image_equal(surf_img_1d, out_fwhm_zero)
+    assert_surface_image_equal(out_fwhm_none, out_fwhm_zero)
+
+    smoothed_img = smooth_img(surf_img_1d, fwhm=5)
+
+    with pytest.raises(
+        ValueError, match="Part 'left' of PolyData instances are not equal"
+    ):
+        assert_surface_image_equal(smoothed_img, surf_img_1d)
+
+    data = get_surface_data(surf_img_1d)
+    smoothed_data = get_surface_data(smoothed_img)
+
+    assert data.max() > smoothed_data.max()
+    assert data.min() < smoothed_data.min()
+    assert data.var() > smoothed_data.var()
+
+
+def test_smooth_list_img_surface(surf_img_1d):
+    """Test smoothing list surface images."""
+    smooth_ref = smooth_img(surf_img_1d, fwhm=5)
+    smoothed_img = smooth_img([surf_img_1d, surf_img_1d], fwhm=5)
+    assert isinstance(smoothed_img, list)
+    assert all(isinstance(x, SurfaceImage) for x in smoothed_img)
+    assert_array_equal(
+        get_surface_data(smoothed_img[1]), get_surface_data(smooth_ref)
+    )
+
+
+def test_smooth_img_surface_2d(surf_img_2d):
+    """Test smoothing surface images 2d.
+
+    Ensure we get equivalent result that smoothing a list of image.
+    """
+    img = surf_img_2d(3)
+
+    smoothed_img = smooth_img(img, fwhm=5)
+    assert isinstance(smoothed_img, SurfaceImage)
+
+    img_as_list = list(iter_img(img))
+    smoothed_img_as_list = smooth_img(img_as_list, fwhm=5)
+    for i, x in enumerate(smoothed_img_as_list):
+        assert_array_equal(
+            get_surface_data(x), get_surface_data(index_img(smoothed_img, i))
+        )
+
+
+def test_smooth_surface_img(surf_img_1d):
+    """Check smoothing changes data."""
+    smoothed_imgs = _smooth_surface_img(surf_img_1d, iterations=[1, 1])
+
+    assert isinstance(smoothed_imgs, SurfaceImage)
+    for part in surf_img_1d.data.parts:
+        assert not np.array_equal(
+            surf_img_1d.data.parts[part], smoothed_imgs.data.parts[part]
+        )
+
+    more_smoothed_imgs = _smooth_surface_img(surf_img_1d, iterations=[2, 2])
+    for part in surf_img_1d.data.parts:
+        assert not np.array_equal(
+            more_smoothed_imgs.data.parts[part], smoothed_imgs.data.parts[part]
+        )
+
+
+def test_smooth_surface_niter(surf_img_1d):
+    """Control the number of iterations."""
+    n5 = _mris_fwhm_to_niters(5, surf_img_1d)
+    assert n5 == [16, 14]
+
+
+def test_smooth_surface_img_errors(surf_img_1d):
+    with pytest.raises(TypeError, match="'vertex_weights'"):
+        _smooth_surface_img(
+            surf_img_1d,
+            vertex_weights="'vertex_weights' must be None or a SurfaceImage.",
+        )
+
+
+@pytest.mark.parametrize("fwhm", [(0, 1, 2), [0, 1, 2], np.asarray([1])])
+def test_smooth_img_surface_errors_fwhm(surf_img_1d, fwhm):
+    """Error when using non-scalar for fwhm with surface."""
+    with pytest.raises(TypeError, match="'fwhm' must be a scalar"):
+        smooth_img(surf_img_1d, fwhm=fwhm)
 
 
 def test_crop_img_to():
@@ -429,6 +568,7 @@ def test_crop_img_to():
 
 
 def test_crop_img():
+    """Check that correct part was extracted."""
     data = np.zeros((5, 6, 7))
     data[2:4, 1:5, 3:6] = 1
     affine = np.diag((4, 3, 2, 1))
@@ -437,15 +577,30 @@ def test_crop_img():
     cropped_img = crop_img(img)
 
     # correction for padding with "-1"
-    # check that correct part was extracted:
-    # This also corrects for padding
     assert (get_data(cropped_img)[1:-1, 1:-1, 1:-1] == 1).all()
     assert cropped_img.shape == (2 + 2, 4 + 2, 3 + 2)
 
 
+def test_crop_img_return_offset():
+    """Check values of returner offset."""
+    data = np.zeros((5, 6, 7))
+    data[2:4, 1:5, 3:6] = 1
+    affine = np.diag((4, 3, 2, 1))
+    img = Nifti1Image(data, affine=affine)
+
+    _, offset = crop_img(img, return_offset=True)
+
+    assert offset == (
+        slice(np.int64(1), np.int64(5), None),
+        slice(np.int64(0), np.int64(6), None),
+        slice(np.int64(2), np.int64(7), None),
+    )
+
+
 def test_crop_img_copied_header(img_4d_mni_tr2):
-    # Test equality of header fields between input and output
-    # create zero padded data
+    """Test equality of header fields between input and output
+    create zero padded data.
+    """
     data = np.zeros((10, 10, 10, 10))
     data[0:4, 0:4, 0:4, :] = 1
     # replace the img_4d_mni_tr2 values with data
@@ -491,6 +646,21 @@ def test_crop_threshold_tolerance(affine_eye):
     assert cropped_img.shape == active_shape
 
 
+def test_crop_img_threshold_tolerance_2():
+    """Test rtol so that voxels with value 0.5 are not croppable."""
+    data = np.zeros((5, 6, 7))
+    data[2:4, 1:5, 3:6] = 1
+    data[1, 1:5, 3:6] = 0.5
+    affine = np.diag((4, 3, 2, 1))
+    img = Nifti1Image(data, affine=affine)
+
+    cropped_img = crop_img(img, rtol=0.49)
+
+    assert (get_data(cropped_img)[2:-1, 1:-1, 1:-1] == 1).all()
+    assert (get_data(cropped_img)[1, 1:-1, 1:-1] == 0.5).all()
+    assert cropped_img.shape == (1 + 2 + 2, 4 + 2, 3 + 2)
+
+
 @pytest.mark.parametrize("pad", [True, False])
 def test_crop_image_empty_image(affine_eye, pad):
     """Test nilearn.image.image.crop_img with empty image specified.
@@ -508,6 +678,7 @@ def test_crop_image_empty_image(affine_eye, pad):
 
 
 @pytest.mark.thread_unsafe
+@pytest.mark.slow
 @pytest.mark.parametrize("images_to_mean", _images_to_mean())
 def test_mean_img(images_to_mean, tmp_path):
     affine = np.diag((4, 3, 2, 1))
@@ -669,33 +840,46 @@ def test_index_img_volume():
         assert_array_equal(this_img.affine, img_4d.affine)
 
 
-@pytest.mark.parametrize("length", [20])
+def test_extract_data_wrong_input():
+    """Check that only SurfaceImage is accepted as input."""
+    with pytest.raises(TypeError, match="must be of type"):
+        _extract_data(1, index=1)
+
+
 @pytest.mark.parametrize(
-    "index, expected_n_samples",
+    "index, expected_values_left",
     [
-        ([*range(20)], 20),
-        (slice(2, 8, 2), 3),
-        ([1, 2, 3, 2], 4),
-        (np.asarray([1, 2, 3, 2]), 4),
+        ([*range(8)], [0.0, 4.0, 8.0, 12.0, 16.0, 20.0, 24.0, 28.0]),
+        (slice(2, 8, 2), [8.0, 16.0, 24.0]),
+        ([1, 2, 3, 2], [4.0, 8.0, 12.0, 8.0]),
+        (np.asarray([1, 2, 3, 2]), [4.0, 8.0, 12.0, 8.0]),
         (
-            ((np.arange(20) % 3) == 1).tolist(),
-            7,
+            ((np.arange(8) % 3) == 1).tolist(),
+            [4.0, 16.0, 28.0],
         ),  # boolean indexing with array
-        ((np.arange(20) % 3) == 1, 7),  # boolean indexing with array
+        (
+            (np.arange(8) % 3) == 1,
+            [4.0, 16.0, 28.0],
+        ),  # boolean indexing with array
     ],
 )
-def test_index_img_surface(surf_img_2d, length, index, expected_n_samples):
-    """Test index_img with surface data."""
-    input_img = surf_img_2d(length)
+def test_index_img_surface(surf_img_2d, index, expected_values_left):
+    """Test index_img with surface data.
+
+    We only check the content of the first vertex of the left part:
+    this is deterministic because of how the fixture surf_img_2d
+    generates data.
+    """
+    input_img = surf_img_2d(8)
     this_img = index_img(input_img, index)
 
-    assert this_img.data._n_samples == expected_n_samples
+    assert this_img.data._n_samples == len(expected_values_left)
 
     assert_polymesh_equal(this_img.mesh, input_img.mesh)
 
-    expected_data_3d = extract_data(input_img, index)
-    for hemi, value in this_img.data.parts.items():
-        assert_array_equal(value, expected_data_3d[hemi])
+    assert_array_equal(
+        this_img.data.parts["left"][0], np.asarray(expected_values_left)
+    )
 
 
 def test_index_img_error_volume_4d(affine_eye):
@@ -997,6 +1181,13 @@ def test_input_in_threshold_img_errors(
         match=r"Mask and input images must be of compatible types.",
     ):
         threshold_img(vol_img, threshold=1, mask_img=surf_mask_1d)
+
+    with pytest.raises(
+        TypeError,
+        match=r"'img' should be a 3D/4D Niimg-like object or a SurfaceImage",
+    ):
+        threshold_img([vol_img, vol_img], threshold=1, mask_img=surf_mask_1d)
+
     with pytest.raises(
         TypeError,
         match=r"Mask and input images must be of compatible types.",
@@ -1093,8 +1284,8 @@ def test_threshold_img(affine_eye):
 @pytest.mark.parametrize(
     "threshold, expected_n_non_zero",
     [
-        (1, {"left": 2, "right": 4}),
-        (10, {"left": 0, "right": 3}),
+        (1, {"left": 3, "right": 4}),
+        (10, {"left": 0, "right": 4}),
         (50, {"left": 0, "right": 0}),
         ("50%", {"left": 0, "right": 4}),
     ],
@@ -1181,8 +1372,8 @@ def test_threshold_surf_img_1d_negative_values(
     [
         (3, True, 16),
         (3, False, 8),
-        (4, True, 0),
-        (4, False, 0),
+        (4.1, True, 0),
+        (4.1, False, 0),
         (0, True, 448),
         (0, False, 224),
         (-3, False, 8),
@@ -1292,7 +1483,7 @@ def test_threshold_img_copy_surface(surf_img_1d):
 @pytest.mark.thread_unsafe
 def test_threshold_img_copy_volume(img_4d_ones_eye):
     """Test the behavior of threshold_img's copy parameter."""
-    threshold = 1
+    threshold = 1.1
     # Check that copy does not mutate. It returns modified copy.
     thr_img = threshold_img(img_4d_ones_eye, threshold)
 
@@ -1373,9 +1564,28 @@ def test_math_img_exceptions(affine_eye, img_4d_ones_eye, surf_img_2d):
         math_img(formula, img1=img1, img3=img3, copy_header_from="img1")
 
     # Passing an 'img*' variable (to copy_header_from) that is not in the
-    # formula or an img* argument should raise a KeyError exception.
-    with pytest.raises(KeyError):
+    # formula or an img* argument should raise a ValueError exception.
+    with pytest.raises(
+        ValueError,
+        match=("copy_header_from='img2' but 'img2' is missing from 'imgs'"),
+    ):
         math_img(formula, img1=img1, img3=img3, copy_header_from="img2")
+
+
+def test_math_img_warnings(img_4d_ones_eye):
+    """Test warnings raised by math_img."""
+    img1 = img_4d_ones_eye
+    img3 = img_4d_ones_eye
+    with pytest.warns(
+        UserWarning, match=r"Some images .* are not mentioned in the formula"
+    ):
+        math_img("img1 + 1", img1=img1, img3=img3)
+
+    # the warning should not be thrown when the img
+    # is missing from the formula but used by copy_header_from
+    with warnings.catch_warnings(record=True) as warning_list:
+        math_img("img1 + 1", img1=img1, img3=img3, copy_header_from="img3")
+        assert len(warning_list) == 0
 
 
 @pytest.mark.thread_unsafe
@@ -1415,6 +1625,18 @@ def test_math_img_surface(surf_img_2d):
 
     assert isinstance(result, SurfaceImage)
     assert_surface_image_equal(result, expected_result)
+
+
+def test_math_img_surface_warning(surf_img_2d):
+    """Warn when using copy_header_from with Surface."""
+    img1 = surf_img_2d(1)
+    img2 = surf_img_2d(3)
+
+    formula = "img1 + 1"
+    with pytest.warns(
+        UserWarning, match="'copy_header_from' is not used with SurfaceImage"
+    ):
+        math_img(formula, img1=img1, copy_header_from=img2)
 
 
 @pytest.mark.thread_unsafe
@@ -1549,19 +1771,36 @@ def test_binarize_img_no_userwarning(img_4d_rand_eye):
         binarize_img(img_4d_rand_eye)
 
 
+@pytest.mark.parametrize("low_pass, high_pass", [(0.1, None), (None, 100)])
+def test_clean_img_error(
+    img_4d_rand_eye, surf_img_2d, low_pass, high_pass
+) -> None:
+    """Test error t_r missing for cleaning with
+    low_pass is not None or high_pass is not None.
+    """
+    with pytest.raises(
+        ValueError, match=r"t_r.*must be specified.*imgs header suggest"
+    ):
+        clean_img(
+            img_4d_rand_eye, t_r=None, low_pass=low_pass, high_pass=high_pass
+        )
+
+    with pytest.raises(ValueError, match=r"t_r.*must be specified"):
+        clean_img(
+            surf_img_2d(50), t_r=None, low_pass=low_pass, high_pass=high_pass
+        )
+
+
 def test_clean_img(affine_eye, shape_3d_default, rng):
     data = rng.standard_normal(size=(10, 10, 10, 100)) + 0.5
     data_flat = data.T.reshape(100, -1)
     data_img = Nifti1Image(data, affine_eye)
 
-    with pytest.raises(ValueError, match=r"t_r.*must be specified"):
-        clean_img(data_img, t_r=None, low_pass=0.1)
-
     data_img_ = clean_img(
-        data_img, detrend=True, standardize=False, low_pass=0.1, t_r=1.0
+        data_img, detrend=True, standardize=None, low_pass=0.1, t_r=1.0
     )
     data_flat_ = signal.clean(
-        data_flat, detrend=True, standardize=False, low_pass=0.1, t_r=1.0
+        data_flat, detrend=True, standardize=None, low_pass=0.1, t_r=1.0
     )
 
     assert_almost_equal(get_data(data_img_).T.reshape(100, -1), data_flat_)
@@ -1582,7 +1821,7 @@ def test_clean_img(affine_eye, shape_3d_default, rng):
     data_img_nifti2 = Nifti2Image(data, affine_eye)
 
     clean_img(
-        data_img_nifti2, detrend=True, standardize=False, low_pass=0.1, t_r=1.0
+        data_img_nifti2, detrend=True, standardize=None, low_pass=0.1, t_r=1.0
     )
 
     # if mask_img
@@ -1611,7 +1850,7 @@ def test_clean_img_surface(surf_img_2d, surf_img_1d, surf_mask_1d) -> None:
     imgs = surf_img_2d(length)
 
     cleaned_img = clean_img(
-        imgs, detrend=True, standardize=False, low_pass=0.1, t_r=1.0
+        imgs, detrend=True, standardize=None, low_pass=0.1, t_r=1.0
     )
 
     assert cleaned_img.shape == imgs.shape
@@ -1622,7 +1861,7 @@ def test_clean_img_surface(surf_img_2d, surf_img_1d, surf_mask_1d) -> None:
     cleaned_img_with_mask = clean_img(
         imgs,
         detrend=True,
-        standardize=False,
+        standardize=None,
         low_pass=0.1,
         t_r=1.0,
         mask_img=surf_mask_1d,
@@ -1638,7 +1877,7 @@ def test_clean_img_surface(surf_img_2d, surf_img_1d, surf_mask_1d) -> None:
     cleaned_img_with_full_mask = clean_img(
         imgs,
         detrend=True,
-        standardize=False,
+        standardize=None,
         low_pass=0.1,
         t_r=1.0,
         mask_img=full_mask,
@@ -1655,7 +1894,7 @@ def test_clean_img_surface(surf_img_2d, surf_img_1d, surf_mask_1d) -> None:
     cleaned_img = clean_img(
         imgs,
         detrend=True,
-        standardize=False,
+        standardize=None,
         low_pass=0.1,
         t_r=1.0,
         clean__sample_mask=sample_mask,
@@ -1994,6 +2233,12 @@ def test_check_niimg(img_3d_zeros_eye, img_4d_zeros_eye):
     )
 
 
+def test_check_niimg_bool_error(img_3d_zeros_eye):
+    """Check data dtype equal with dtype='auto'."""
+    with pytest.raises(HeaderDataError, match=r"bool.*not supported"):
+        check_niimg(img_3d_zeros_eye, dtype=bool)
+
+
 @pytest.mark.thread_unsafe
 def test_check_niimg_return_iterator_4d_input(
     img_3d_zeros_eye, img_4d_zeros_eye
@@ -2139,7 +2384,9 @@ def img_in_home_folder(img_3d_mni):
     created_file.expanduser().unlink()
 
 
+@pytest.mark.single_process
 @pytest.mark.thread_unsafe
+@pytest.mark.single_process
 @pytest.mark.parametrize(
     "filename", ["~/test.nii", r"~/test.nii", Path("~/test.nii")]
 )
@@ -2154,6 +2401,7 @@ def test_check_niimg_user_expand(img_in_home_folder, filename):
 
 
 @pytest.mark.thread_unsafe
+@pytest.mark.single_process
 @pytest.mark.parametrize(
     "filename",
     [

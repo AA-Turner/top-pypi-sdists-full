@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: logtail-python
-Version: 0.3.4
-Summary: Logtail.com client library
+Version: 0.4.0
+Summary: Better Stack client library
 Home-page: https://github.com/logtail/logtail-python
-Download-URL: https://github.com/logtail/logtail-python/tarball/0.3.4
+Download-URL: https://github.com/logtail/logtail-python/tarball/0.4.0
 Author: Logtail
 Author-email: hello@logtail.com
 License: ISC
@@ -12,13 +12,14 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: ISC License (ISCL)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: requests>=2.18.4
@@ -34,6 +35,7 @@ Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 # [Better Stack](https://betterstack.com/logs) Python client

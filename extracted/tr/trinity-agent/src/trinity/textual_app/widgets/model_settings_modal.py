@@ -10,6 +10,7 @@ from textual.widgets import Button, Footer, OptionList, Static
 from trinity.display_labels import display_source_value
 from trinity.models import AgentSpec
 from trinity.providers.model_discovery import ProviderModelChoice
+from trinity.textual_app.i18n import localize_bindings
 
 
 class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
@@ -79,6 +80,10 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         ("escape", "cancel", "Cancel"),
     ]
 
+    LOCALIZED_BINDINGS = {
+        ("escape", "cancel"): ("binding_cancel", None),
+    }
+
     def __init__(
         self,
         agents: dict[str, AgentSpec],
@@ -89,13 +94,20 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
     ) -> None:
         super().__init__()
         self.agents = agents
-        self.choices_by_agent = choices_by_agent
+        self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
         self.selected_models = {
             name: selected_models.get(name, spec.model or "default")
             for name, spec in self.agents.items()
         }
-        self.lang = lang
-        self.active_agent = next(iter(self.agents), "")
+        self.choices_by_agent = {
+            name: self._choices_with_selected_model(
+                name,
+                tuple(choices_by_agent.get(name, ())),
+            )
+            for name in self.agents
+        }
+        self.active_agent = self._initial_active_agent()
         self._choice_highlight_key: tuple[object, ...] | None = None
         self._choice_list_widget: OptionList | None = None
 
@@ -115,6 +127,7 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
                                 if name == self.active_agent
                                 else "default"
                             ),
+                            disabled=not spec.enabled,
                         )
                 with Vertical(id="model-choice-panel"):
                     yield Static(
@@ -147,7 +160,9 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         """Refresh available choices while preserving modal selections."""
         changed = False
         for name, choices in choices_by_agent.items():
-            next_choices = tuple(choices)
+            if name not in self.agents:
+                continue
+            next_choices = self._choices_with_selected_model(name, tuple(choices))
             if tuple(self.choices_by_agent.get(name, ())) == next_choices:
                 continue
             self.choices_by_agent[name] = next_choices
@@ -222,9 +237,15 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
             self._choice_list_widget = self.query_one("#model-choice-list", OptionList)
         return self._choice_list_widget
 
+    def _initial_active_agent(self) -> str:
+        for name, spec in self.agents.items():
+            if spec.enabled:
+                return name
+        return next(iter(self.agents), "")
+
     def _agent_button_label(self, name: str, spec: AgentSpec) -> str:
         prefix = "> " if name == self.active_agent else "  "
-        enabled = "" if spec.enabled else " off"
+        enabled = "" if spec.enabled else f" {self._text('off')}"
         model = self._model_label(name, self.selected_models.get(name, "default"))
         return f"{prefix}{self._agent_label(name)}{enabled}: {model}"
 
@@ -251,6 +272,36 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
             details.append(f"{choice.context_budget:,} ctx")
         return "  ".join(details)
 
+    def _choices_with_selected_model(
+        self,
+        name: str,
+        choices: tuple[ProviderModelChoice, ...],
+    ) -> tuple[ProviderModelChoice, ...]:
+        selected = str(self.selected_models.get(name, "default")).strip() or "default"
+        if selected == "default":
+            existing = next(
+                (choice for choice in choices if choice.model == "default"),
+                None,
+            )
+            if existing is not None:
+                return (
+                    existing,
+                    *(choice for choice in choices if choice.model != "default"),
+                )
+        if selected in {choice.model for choice in choices}:
+            return choices
+        spec = self.agents[name]
+        label = "기본값" if selected == "default" and self.lang == "ko" else selected
+        selected_choice = ProviderModelChoice(
+            provider=spec.provider,
+            model=selected,
+            label=label,
+            source="static-fallback",
+        )
+        if selected == "default":
+            return (selected_choice, *choices)
+        return (*choices, selected_choice)
+
     def _model_label(self, name: str, model: str) -> str:
         for choice in self.choices_by_agent.get(name, ()):
             if choice.model == model:
@@ -270,16 +321,18 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
     def _text(self, key: str) -> str:
         if self.lang == "ko":
             return {
-                "title": "모델 설정",
+                "title": "다음 요청 모델",
                 "cancel": "취소",
                 "apply": "적용",
                 "current": "현재",
                 "no_agents": "설정할 에이전트가 없습니다.",
+                "off": "비활성",
             }[key]
         return {
-            "title": "Model Settings",
+            "title": "Next Request Models",
             "cancel": "Cancel",
             "apply": "Apply",
             "current": "Current",
             "no_agents": "No agents to configure.",
+            "off": "off",
         }[key]

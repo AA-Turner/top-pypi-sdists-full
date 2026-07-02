@@ -210,6 +210,7 @@ from .literals import (
     H264DynamicSubGopType,
     H264EndOfStreamMarkersType,
     H264EntropyEncodingType,
+    H264ExplicitWeightedPredictionType,
     H264FieldEncodingType,
     H264FlickerAdaptiveQuantizationType,
     H264FramerateControlType,
@@ -587,6 +588,7 @@ __all__ = (
     "DisassociateCertificateRequestTypeDef",
     "DolbyVisionLevel6MetadataTypeDef",
     "DolbyVisionTypeDef",
+    "DurationControlTypeDef",
     "DvbNitSettingsTypeDef",
     "DvbSdtSettingsTypeDef",
     "DvbSubDestinationSettingsTypeDef",
@@ -1496,6 +1498,12 @@ class DisassociateCertificateRequestTypeDef(TypedDict):
 class DolbyVisionLevel6MetadataTypeDef(TypedDict):
     MaxCll: NotRequired[int]
     MaxFall: NotRequired[int]
+
+
+class DurationControlTypeDef(TypedDict):
+    IntegerDurationMaximumCompressionDenominator: NotRequired[int]
+    IntegerDurationMaximumCompressionNumerator: NotRequired[int]
+    IntegerDurationTrimThresholdMilliseconds: NotRequired[int]
 
 
 class DvbNitSettingsTypeDef(TypedDict):
@@ -2577,6 +2585,7 @@ class H264SettingsOutputTypeDef(TypedDict):
     DynamicSubGop: NotRequired[H264DynamicSubGopType]
     EndOfStreamMarkers: NotRequired[H264EndOfStreamMarkersType]
     EntropyEncoding: NotRequired[H264EntropyEncodingType]
+    ExplicitWeightedPrediction: NotRequired[H264ExplicitWeightedPredictionType]
     FieldEncoding: NotRequired[H264FieldEncodingType]
     FlickerAdaptiveQuantization: NotRequired[H264FlickerAdaptiveQuantizationType]
     FramerateControl: NotRequired[H264FramerateControlType]
@@ -2626,6 +2635,7 @@ class H264SettingsTypeDef(TypedDict):
     DynamicSubGop: NotRequired[H264DynamicSubGopType]
     EndOfStreamMarkers: NotRequired[H264EndOfStreamMarkersType]
     EntropyEncoding: NotRequired[H264EntropyEncodingType]
+    ExplicitWeightedPrediction: NotRequired[H264ExplicitWeightedPredictionType]
     FieldEncoding: NotRequired[H264FieldEncodingType]
     FlickerAdaptiveQuantization: NotRequired[H264FlickerAdaptiveQuantizationType]
     FramerateControl: NotRequired[H264FramerateControlType]
@@ -3217,6 +3227,7 @@ class VideoPreprocessorOutputTypeDef(TypedDict):
     ColorCorrector: NotRequired[ColorCorrectorTypeDef]
     Deinterlacer: NotRequired[DeinterlacerTypeDef]
     DolbyVision: NotRequired[DolbyVisionTypeDef]
+    DurationControl: NotRequired[DurationControlTypeDef]
     Hdr10Plus: NotRequired[Hdr10PlusTypeDef]
     ImageInserter: NotRequired[ImageInserterOutputTypeDef]
     NoiseReducer: NotRequired[NoiseReducerTypeDef]
@@ -3228,6 +3239,7 @@ class VideoPreprocessorTypeDef(TypedDict):
     ColorCorrector: NotRequired[ColorCorrectorTypeDef]
     Deinterlacer: NotRequired[DeinterlacerTypeDef]
     DolbyVision: NotRequired[DolbyVisionTypeDef]
+    DurationControl: NotRequired[DurationControlTypeDef]
     Hdr10Plus: NotRequired[Hdr10PlusTypeDef]
     ImageInserter: NotRequired[ImageInserterTypeDef]
     NoiseReducer: NotRequired[NoiseReducerTypeDef]

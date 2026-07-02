@@ -559,6 +559,40 @@ def s3_download_bytes_sync(config: S3Config, key: str) -> bytes:
             pass
 
 
+def s3_download_batch_sync(config: S3Config, downloads: list[tuple[str, str]]) -> None:
+    """Batch download S3 objects to local paths using s5cmd run.
+
+    ``downloads`` is a list of ``(s3_key, local_path)`` tuples. s5cmd fetches
+    them in parallel and resumes/retries on transient errors; a non-zero exit
+    raises so a partial pull never masquerades as success. Callers must create
+    parent directories beforehand.
+    """
+    if not downloads:
+        return
+
+    s5cmd_binary = _ensure_s5cmd_sync()
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as batch:
+        for s3_key, local_path in downloads:
+            s3_url = f"s3://{config.bucket}/{s3_key}"
+            batch.write(f"cp {shlex.quote(s3_url)} {shlex.quote(local_path)}\n")
+        batch_path = batch.name
+
+    try:
+        result = subprocess.run(
+            [s5cmd_binary, "run", batch_path],
+            env=_s3_env(config),
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"s5cmd batch download failed: {result.stderr.decode().strip()}")
+    finally:
+        try:
+            os.unlink(batch_path)
+        except OSError:
+            pass
+
+
 def dvc_file_key(s3_config: S3Config, md5: str) -> str:
     """S3 key for a cached file."""
     return f"{s3_config.cache_prefix}/{md5[:2]}/{md5[2:]}"

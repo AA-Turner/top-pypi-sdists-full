@@ -108,6 +108,11 @@ class PlatoTaskMetadata(BaseModel):
     capabilities: list[str] | None = None
     tags: list[str] | None = None
     rejected: bool | None = False
+    # Signed whole-hour UTC offset the task's scoring config was authored
+    # against (EST = -5, EDT = -4); None = UTC / no shift. Applied to the
+    # desktop VM clock before the browser starts so rendered dates match.
+    # Mirrors the backend TestMetaDataset.utc_offset (metadata_config JSON).
+    utc_offset: int | None = None
 
 
 class PlatoTask(BaseModel):

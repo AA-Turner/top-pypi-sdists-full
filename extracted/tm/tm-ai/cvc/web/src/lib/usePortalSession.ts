@@ -36,6 +36,13 @@ function writeStoredPortalId(id: string | null): void {
   try {
     if (id) window.localStorage.setItem(STORAGE_KEY, id);
     else window.localStorage.removeItem(STORAGE_KEY);
+    // v3.5.2 — Notify SAME-tab listeners. The browser's storage event
+    // only fires in OTHER tabs, so a same-tab consumer (e.g. the chat
+    // page already mounted while we enter/exit the portal) wouldn't
+    // otherwise pick up the change. Custom event bridges the gap.
+    window.dispatchEvent(
+      new CustomEvent("cvc:portal-changed", { detail: { id: id ?? null } }),
+    );
   } catch {
     /* ignore */
   }
@@ -68,9 +75,16 @@ export interface PortalActions {
 }
 
 export function usePortalSession(workspacePath?: string): [PortalState, PortalActions] {
-  const [portalId, setPortalId] = useState<string | null>(null);
+  // v3.5.2 — SYNCHRONOUS localStorage read. Previously portalId started
+  // as null and only flipped to the stored value AFTER the /active
+  // round-trip resolved, which produced a visible flash on /chat
+  // navigation (banner only appeared once the server responded). Now we
+  // hydrate from localStorage in the useState initializer so the banner
+  // is visible on the first render. The /active verification still runs
+  // on mount to populate full session metadata + clear stale ids.
+  const [portalId, setPortalId] = useState<string | null>(() => readStoredPortalId());
   const [session, setSession] = useState<PortalSession | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(() => readStoredPortalId() !== null);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -81,6 +95,13 @@ export function usePortalSession(workspacePath?: string): [PortalState, PortalAc
       setLoading(false);
       return;
     }
+    // CRITICAL: synchronously adopt the stored id so the banner is
+    // already visible by the time the round-trip starts. This is a
+    // belt-and-braces backup to the useState initializer above — if the
+    // hook is called from a server-side context where useState's lazy
+    // initializer saw a different window state, this still keeps things
+    // in sync.
+    setPortalId((prev) => (prev === stored ? prev : stored));
     try {
       const r: PortalActiveResponse = await api.portalActive(stored, workspacePath);
       if (r.active && r.session) {
@@ -106,6 +127,49 @@ export function usePortalSession(workspacePath?: string): [PortalState, PortalAc
     refresh();
   }, [refresh]);
 
+  // v3.5.2 — Cross-tab + same-tab sync. Listen for both the browser's
+  // native `storage` event (fires in OTHER tabs) and our custom
+  // `cvc:portal-changed` event (fires in the SAME tab — localStorage
+  // writes don't trigger `storage` in the writing tab). This way
+  // whether the user enters/exits the portal from this tab or another,
+  // the chat page picks up the change immediately rather than waiting
+  // for the next /active round-trip.
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key !== STORAGE_KEY) return;
+      const next = e.newValue;
+      if (next && next.length > 0 && next.length <= 256) {
+        setPortalId(next);
+        setSession(null);  // metadata will re-hydrate via refresh
+        setLoading(true);
+        void refresh();
+      } else {
+        setPortalId(null);
+        setSession(null);
+        setError(null);
+      }
+    }
+    function onPortalChanged(e: Event) {
+      const detail = (e as CustomEvent<{ id: string | null }>).detail;
+      if (detail?.id && detail.id.length > 0 && detail.id.length <= 256) {
+        setPortalId(detail.id);
+        setSession(null);
+        setLoading(true);
+        void refresh();
+      } else {
+        setPortalId(null);
+        setSession(null);
+        setError(null);
+      }
+    }
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("cvc:portal-changed", onPortalChanged as EventListener);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("cvc:portal-changed", onPortalChanged as EventListener);
+    };
+  }, [refresh]);
+
   const enter = useCallback(
     async (target: string, label?: string): Promise<boolean> => {
       const newId = makePortalId();
@@ -115,6 +179,9 @@ export function usePortalSession(workspacePath?: string): [PortalState, PortalAc
           setError(r.error || "failed to enter portal");
           return false;
         }
+        // v3.5.2 — use the shared writer so the cvc:portal-changed
+        // event fires and any other tab (or this tab's already-mounted
+        // chat page) picks up the new session immediately.
         writeStoredPortalId(newId);
         setPortalId(newId);
         // The enter response carries enough fields to render the banner

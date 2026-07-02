@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-oci
-Version: 0.2.7
+Version: 0.3.0
 Summary: An integration package connecting OCI and LangChain
 License-Expression: UPL-1.0
 License-File: LICENSE

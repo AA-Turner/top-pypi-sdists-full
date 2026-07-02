@@ -4,8 +4,8 @@ import warnings
 
 import numpy as np
 
-from ..utils.base import ctranspose, sqrtm, invsqrtm, logm, ddlogm
-from ..datasets import sample_gaussian_spd
+from ..datasets import sample_gaussian
+from ..geometry.base import ctranspose, sqrtm, invsqrtm, logm, ddlogm
 
 
 def _symmetrize(X):
@@ -14,7 +14,7 @@ def _symmetrize(X):
     Parameters
     ----------
     X : ndarray, shape (..., n, n)
-        Square matrices, at least 2D ndarray.
+        Square matrices.
 
     Returns
     -------
@@ -191,7 +191,7 @@ def _get_initial_solution(n_matrices, n_components, random_state):
         Generated SPD matrices.
     """
 
-    initial_sol = sample_gaussian_spd(
+    initial_sol = sample_gaussian(
         n_matrices,
         mean=np.eye(n_components),
         sigma=1.,

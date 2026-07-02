@@ -20,6 +20,7 @@ from pydantic import (
 )
 
 import dreadnode
+from dreadnode.agents.engines import AgentEngine, EngineContext, PermissionBridge, resolve_engine
 from dreadnode.agents.events import (
     AgentEnd,
     AgentError,
@@ -185,10 +186,17 @@ class Agent(Executor[AgentEvent, Trajectory]):
     """Base factor for exponential backoff: wait = base_factor * 2 ** (attempt - 1)."""
     backoff_jitter: bool = Config(default=True)
     """Whether to add up to ``backoff_base_factor`` seconds of random jitter to each wait."""
+    engine: str | AgentEngine | None = Config(default=None, expose_as=str | None)
+    """Owner of the agent loop. ``None``/``"native"`` runs the in-process loop; a
+    built-in name (e.g. ``"claude-code"``) or a ``mod:attr`` reference delegates the
+    loop to a foreign harness while sessions/eval/optimization/policy keep working."""
 
     # Private state
     _generator: Generator | None = PrivateAttr(None, init=False)
     _current_input: str = PrivateAttr("", init=False)
+    _permission_bridge: PermissionBridge | None = PrivateAttr(None, init=False)
+    """Tool-approval bridge injected by the runtime so foreign engines wire their
+    permission callback into the native HITL path. ``None`` for bare-SDK use."""
 
     # Discoverability namespace for the AgentJudge specialized construction.
     # Assigned at module-load time by ``dreadnode.agents.__init__._lazy_init``
@@ -660,6 +668,7 @@ class Agent(Executor[AgentEvent, Trajectory]):
                 # out of the result body.
                 tool_error = message.metadata.get("error")
                 tool_error_type = message.metadata.get("error_type")
+                tool_cost_usd = message.metadata.get("subagent_cost_usd")
 
                 end_event = ToolEnd(
                     agent_id=self.agent_id,
@@ -670,6 +679,7 @@ class Agent(Executor[AgentEvent, Trajectory]):
                     stop=stop,
                     error=tool_error,
                     error_type=tool_error_type,
+                    cost_usd=tool_cost_usd,
                 )
                 async for event in self._dispatch(end_event):
                     yield event
@@ -714,6 +724,32 @@ class Agent(Executor[AgentEvent, Trajectory]):
                 raise
 
     async def _stream(
+        self, trajectory: Trajectory | None = None
+    ) -> t.AsyncGenerator[AgentEvent, None]:
+        """Drive the loop through the resolved :class:`AgentEngine`.
+
+        For the native engine this delegates straight to ``_native_run_loop``
+        (which dispatches its own hooks inline). Foreign engines yield translated
+        native events and call ``ctx.dispatch`` themselves for observational hooks.
+        This shim is the ``Executor._stream`` implementation; the surrounding span,
+        trajectory accumulation, and tool-context management stay in ``stream``.
+        """
+        engine = self._resolve_engine()
+        ctx = EngineContext(
+            agent=self,
+            trajectory=trajectory if trajectory is not None else self.trajectory,
+            goal=self._current_input,
+            dispatch=self._dispatch,
+            permission=self._permission_bridge,
+        )
+        async for event in engine.run_loop(ctx):
+            yield event
+
+    def _resolve_engine(self) -> AgentEngine:
+        """Resolve this agent's ``engine`` selector to a concrete engine instance."""
+        return resolve_engine(self.engine)
+
+    async def _native_run_loop(
         self, trajectory: Trajectory | None = None
     ) -> t.AsyncGenerator[AgentEvent, None]:
         """

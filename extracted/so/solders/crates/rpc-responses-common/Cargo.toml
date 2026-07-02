@@ -1,0 +1,27 @@
+
+[package]
+name = "solders-rpc-responses-common"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders RPC responses-common crate."
+
+[dependencies]
+camelpaste = { workspace = true }
+derive_more = { workspace = true }
+pyo3 = { workspace = true, features = ["macros"] }
+serde = { workspace = true }
+serde_with = { workspace = true }
+solana-account-decoder-client-types = { workspace = true }
+solana-rpc-client-types = { workspace = true }
+solders-account = { workspace = true }
+solders-account-decoder = { workspace = true }
+solders-hash = { workspace = true }
+solders-macros = { workspace = true }
+solders-pubkey = { workspace = true }
+solders-rpc-response-data-boilerplate = { workspace = true }
+solders-rpc-version = { workspace = true }
+solders-traits-core = { workspace = true }
+solders-transaction-error = { workspace = true }

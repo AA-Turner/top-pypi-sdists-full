@@ -153,6 +153,240 @@ fn try_build_spatial_term_log_kappa_derivative(
     assert!(local_implicit_first_unused.is_none());
     assert!(local_implicit_second_unused.is_none());
 
+    // TEMP-XPSIFD-1122: FD-check the analytic local_x_psi against the value
+    // design in the EXACT production spec (incl. rank-reduced centers), the one
+    // gap the standalone unit test missed (its reduction never fired). REMOVE.
+    if let SmoothBasisSpec::Matern {
+        feature_cols,
+        spec,
+        input_scales,
+    } = &termspec.basis
+    {
+        let mut xf = select_columns(data, feature_cols).map_err(EstimationError::from)?;
+        let mut sp = spec.clone();
+        if let Some(s) = input_scales {
+            apply_input_standardization(&mut xf, s.as_slice());
+            sp.length_scale =
+                compensate_length_scale_for_standardization(spec.length_scale, s.as_slice());
+        }
+        sp.double_penalty = false;
+        // ψ = log κ = -log(length_scale). value design at ψ+δ uses ls*exp(-δ).
+        let ls0 = sp.length_scale;
+        let h = 1e-6_f64;
+        let value_design = |delta: f64| -> Option<Array2<f64>> {
+            let mut s2 = sp.clone();
+            s2.length_scale = ls0 * (-delta).exp();
+            gam_terms::basis::build_matern_basis(xf.view(), &s2)
+                .ok()
+                .map(|b| b.design.to_dense())
+        };
+        if let (Some(dp), Some(dm)) = (value_design(h), value_design(-h)) {
+            if dp.shape() == local_x_psi.shape() {
+                let num = (&dp - &dm) / (2.0 * h);
+                let err = (&local_x_psi - &num)
+                    .mapv(f64::abs)
+                    .iter()
+                    .fold(0.0_f64, |a, &b| a.max(b));
+                let anorm = local_x_psi.iter().map(|v| v * v).sum::<f64>().sqrt();
+                log::warn!(
+                    "[OUTER-FD-AUDIT XPSIFD-1122] x_psi_max_abs_err={err:.3e} |x_psi|={anorm:.3e} \
+                     shape={:?} centers_frozen={}",
+                    local_x_psi.shape(),
+                    match &sp.center_strategy {
+                        gam_terms::basis::CenterStrategy::UserProvided(c) => c.nrows(),
+                        _ => 0,
+                    },
+                );
+                // TEMP-XDESIGN-1122: compare the value-rebuild design (value_at(0))
+                // against the REALIZED design block H is built from. If they differ,
+                // H lives in a different frame than X_τ → β-independent log|H| gap.
+                if let Some(d0) = value_design(0.0) {
+                    let p_total = design.design.ncols();
+                    let smooth_start =
+                        p_total.saturating_sub(design.smooth.total_smooth_cols());
+                    let g0 = smooth_start + smooth_term.coeff_range.start;
+                    let g1 = smooth_start + smooth_term.coeff_range.end;
+                    let realized = design.design.to_dense();
+                    if g1 <= realized.ncols() && d0.ncols() == (g1 - g0) {
+                        let block = realized.slice(ndarray::s![.., g0..g1]).to_owned();
+                        let dmax = (&block - &d0)
+                            .mapv(f64::abs)
+                            .iter()
+                            .fold(0.0_f64, |a, &b| a.max(b));
+                        // also test value-rebuild vs realized with column-sign / Q?
+                        let bnorm = block.iter().map(|v| v * v).sum::<f64>().sqrt();
+                        let d0norm = d0.iter().map(|v| v * v).sum::<f64>().sqrt();
+                        log::warn!(
+                            "[OUTER-FD-AUDIT XDESIGN-1122] realized_vs_valuebuild_max_abs={dmax:.3e} \
+                             |realized_block|={bnorm:.4e} |value_build|={d0norm:.4e} \
+                             block_shape={:?} g0={g0} g1={g1} p_total={p_total}",
+                            block.shape(),
+                        );
+                    } else {
+                        log::warn!(
+                            "[OUTER-FD-AUDIT XDESIGN-1122] shape/range mismatch realized_cols={} g0={g0} g1={g1} d0_cols={}",
+                            realized.ncols(),
+                            d0.ncols()
+                        );
+                    }
+                }
+            } else {
+                log::warn!(
+                    "[OUTER-FD-AUDIT XPSIFD-1122] shape mismatch analytic={:?} value={:?}",
+                    local_x_psi.shape(),
+                    dp.shape()
+                );
+            }
+        }
+    }
+
+    // TEMP-SPSIFD-1122: FD-check the analytic summed S_τ (`local_s_psi`) against
+    // a central difference of the REALIZED operator-triplet penalty across ψ in
+    // the frozen production frame. The H-side log|H| gap is β-independent, so it
+    // can ONLY be an S_τ error; `ld_s=½tr(Sλ⁺S_τ)` matches FD while the H-side
+    // `tr(H⁻¹S_τ)` does not ⇒ the error must live in Sλ's NULLSPACE (annihilated
+    // by the pseudo-inverse). The forward penalty is built from frozen metadata
+    // via `matern_operator_penalty_triplet_from_metadata`, so we differentiate
+    // THAT (the exact quantity the criterion's H/Sλ are assembled from) by FD and
+    // compare per-block and summed. REMOVE.
+    {
+        use gam_terms::smooth::matern_operator_penalty_triplet_at_length_scale;
+        if let BasisMetadata::Matern {
+            centers,
+            length_scale,
+            periodic,
+            nu,
+            include_intercept,
+            identifiability_transform,
+            aniso_log_scales,
+            input_scales,
+            ..
+        } = &smooth_term.metadata
+        {
+            // Effective (σ_geom-compensated, standardized-frame) length scale the
+            // realized design's kernel + penalty were built against — EXACTLY the
+            // `penalty_length_scale` `matern_operator_penalty_triplet_from_metadata`
+            // computes.
+            let ls_eff = match input_scales.as_deref() {
+                Some(s) => compensate_length_scale_for_standardization(*length_scale, s),
+                None => *length_scale,
+            };
+            // ψ = log κ = −log ℓ_eff. Sum the active triplet at a shifted ψ.
+            let h = 1e-6_f64;
+            let summed_at = |delta: f64| -> Option<Array2<f64>> {
+                let ls = ls_eff * (-delta).exp();
+                let (mats, _ranks, _info) = matern_operator_penalty_triplet_at_length_scale(
+                    centers.view(),
+                    periodic.as_deref(),
+                    identifiability_transform.as_ref(),
+                    *nu,
+                    *include_intercept,
+                    aniso_log_scales.as_deref(),
+                    ls,
+                )
+                .ok()?;
+                let p = mats.first().map(|m: &Array2<f64>| m.nrows()).unwrap_or(0);
+                let mut acc = Array2::<f64>::zeros((p, p));
+                for m in &mats {
+                    if m.shape() == acc.shape() {
+                        acc += m;
+                    }
+                }
+                Some(acc)
+            };
+            let analytic_sum = local_s_psi.iter().fold(
+                Array2::<f64>::zeros((
+                    smooth_term.coeff_range.len(),
+                    smooth_term.coeff_range.len(),
+                )),
+                |acc, m| {
+                    if m.shape() == acc.shape() {
+                        acc + m
+                    } else {
+                        acc
+                    }
+                },
+            );
+            if let (Some(sp), Some(sm), Some(s0)) =
+                (summed_at(h), summed_at(-h), summed_at(0.0))
+            {
+                if sp.shape() == analytic_sum.shape() {
+                    let num = (&sp - &sm) / (2.0 * h);
+                    let err = (&analytic_sum - &num)
+                        .mapv(f64::abs)
+                        .iter()
+                        .fold(0.0_f64, |a, &b| a.max(b));
+                    let anorm = analytic_sum.iter().map(|v| v * v).sum::<f64>().sqrt();
+                    let nnorm = num.iter().map(|v| v * v).sum::<f64>().sqrt();
+                    // Nullspace-projected error: FD vs analytic contracted with the
+                    // realized-penalty nullspace. We approximate the nullspace by
+                    // the smallest eigenvectors of S0 (summed realized penalty).
+                    log::warn!(
+                        "[OUTER-FD-AUDIT SPSIFD-1122] s_psi_max_abs_err={err:.3e} \
+                         |analytic|={anorm:.3e} |fd|={nnorm:.3e} blocks={} \
+                         shape={:?} |S0|={:.3e}",
+                        local_s_psi.len(),
+                        analytic_sum.shape(),
+                        s0.iter().map(|v| v * v).sum::<f64>().sqrt(),
+                    );
+                    // Per-block FD: differentiate each triplet block separately so a
+                    // single offending block (mass vs tension vs stiffness) is named.
+                    let per_block = |delta: f64| -> Option<Vec<Array2<f64>>> {
+                        let ls = ls_eff * (-delta).exp();
+                        matern_operator_penalty_triplet_at_length_scale(
+                            centers.view(),
+                            periodic.as_deref(),
+                            identifiability_transform.as_ref(),
+                            *nu,
+                            *include_intercept,
+                            aniso_log_scales.as_deref(),
+                            ls,
+                        )
+                        .ok()
+                        .map(|(m, _, _)| m)
+                    };
+                    if let (Some(bp), Some(bm)) = (per_block(h), per_block(-h)) {
+                        for (bi, (ap, am)) in bp.iter().zip(bm.iter()).enumerate() {
+                            if bi < local_s_psi.len()
+                                && ap.shape() == local_s_psi[bi].shape()
+                            {
+                                let bnum = (ap - am) / (2.0 * h);
+                                let berr = (&local_s_psi[bi] - &bnum)
+                                    .mapv(f64::abs)
+                                    .iter()
+                                    .fold(0.0_f64, |a, &b| a.max(b));
+                                let banorm =
+                                    local_s_psi[bi].iter().map(|v| v * v).sum::<f64>().sqrt();
+                                log::warn!(
+                                    "[OUTER-FD-AUDIT SPSIFD-1122 BLOCK] block={bi} max_abs_err={berr:.3e} |analytic|={banorm:.3e}"
+                                );
+                            }
+                        }
+                    }
+                } else {
+                    log::warn!(
+                        "[OUTER-FD-AUDIT SPSIFD-1122] shape mismatch analytic={:?} fd={:?}",
+                        analytic_sum.shape(),
+                        sp.shape()
+                    );
+                }
+            }
+        }
+    }
+
+    // TEMP-ROT-1122: report whether the analytic ψ-derivative path applies a
+    // joint-null rotation that the (frozen-identifiability) value rebuild omits.
+    log::warn!(
+        "[OUTER-FD-AUDIT TEMP-ROT-1122] analytic joint_null_rotation={} nullity={} x_psi={}x{}",
+        smooth_term.joint_null_rotation.is_some(),
+        smooth_term
+            .joint_null_rotation
+            .as_ref()
+            .map(|r| r.joint_nullity)
+            .unwrap_or(0),
+        local_x_psi.nrows(),
+        local_x_psi.ncols(),
+    );
     if let Some(rotation) = smooth_term.joint_null_rotation.as_ref() {
         let q = &rotation.rotation;
         if let Some(op) = implicit_operator.take() {
@@ -3596,6 +3830,13 @@ impl<'d> SpatialJointContext<'d> {
                     && self.evaluator.supports_nfree_penalty_rekey()
                     && nfree_fast_path_revision.is_some()
         };
+        // TEMP-SKIPOFF-1122: force the exact streamed surface to test whether the
+        // n-free ψ-Gram Chebyshev interpolant is the source of the #1122 H-side
+        // FD-vs-analytic gap. REMOVE.
+        let skip_design_realization = false && skip_design_realization;
+        log::warn!(
+            "[OUTER-FD-AUDIT TEMP-SKIPOFF-1122] skip_design_realization={skip_design_realization}"
+        );
         if skip_design_realization {
             log::debug!(
                 "[STAGE] {} eval_full at psi={:.6}: skipping n×k design re-realization \
@@ -5522,10 +5763,36 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
     /// the re-keyed penalty's block topology is IDENTICAL to the one the frozen
     /// design carries.
     ///
-    /// Matérn stays on the exact slow re-key path here. Its operator-triplet
-    /// n-free rebuild exists, but the current quality gate shows that enabling
-    /// the fast-path κ loop changes the selected fit enough to miss the mgcv
-    /// truth-recovery bar. Duchon/ThinPlate are the #1033 acceptance lane.
+    /// Matérn stays on the exact slow re-key path here, but NOT for the reason
+    /// #1270 originally pinned. The operator-triplet penalty re-key (#1274) IS
+    /// fully landed: `canonical_penalties_at_psi` and
+    /// `canonical_penalty_derivatives_at_psi` both rebuild the realized Matérn
+    /// `{mass, tension, stiffness}` triplet (and its analytic ψ-derivative)
+    /// n-free from the frozen collocation geometry, routed through the SAME
+    /// shared `matern_operator_penalty_triplet_at_length_scale` builder the
+    /// design uses — so the block topology is ψ-stable by construction and the
+    /// surface is byte-identical to the slow path across the ψ window (pinned
+    /// to <1e-10 by `matern_nfree_rekey_topology_tests`). The historical
+    /// "the re-key cannot reproduce the operator triplet" rationale is resolved.
+    ///
+    /// Re-admission is nonetheless withheld because it is net-negative on the
+    /// CURRENT architecture, for two independent reasons the #1274 acceptance
+    /// gates surface:
+    ///   1. NO SPEED WIN. Even with the penalty re-keyed, the #1264
+    ///      reduced-basis-rotation soundness gate (`psi_gram_tensor_covers_skip`)
+    ///      refuses Matérn's rotating collocation geometry, so the design-
+    ///      realization skip still falls to the exact O(n) `reset_surface`
+    ///      re-realization every trial — admitting the penalty rekey alone buys
+    ///      no n-independence. Closing this needs an n-free re-key of the Matérn
+    ///      *design* (Chebyshev-in-ψ Gram over the rotating basis), which is the
+    ///      remaining design-scope work, not a flag flip.
+    ///   2. QUALITY REGRESSION. Re-admitting Matérn (as #1033 `6a5a2e1` did,
+    ///      reverted by `feb0eb5`) perturbs the selected fit enough to miss the
+    ///      mgcv/GP truth-recovery bar (`matern_nu_sweep_*`) — slower AND worse.
+    ///
+    /// So Matérn is deliberately "slow-but-right". Duchon/ThinPlate are the
+    /// #1033 acceptance lane. `matern_nfree_rekey_topology_tests` test (b) pins
+    /// this negative admission contract: a flip must first re-clear both gates.
     fn supports_nfree_penalty_rekey(&self, spatial_terms: &[usize]) -> bool {
         if spatial_terms.len() != 1 {
             return false;
@@ -6713,6 +6980,64 @@ mod exact_joint_seed_config_tests {
             gam_problem::SeedConfig::default().screen_max_inner_iterations
         );
         assert_eq!(gaussian.num_auxiliary_trailing, 1);
+    }
+}
+
+#[cfg(test)]
+mod wood_reference_df_tests {
+    use super::*;
+
+    // The whole-term LR reference d.f. (#1766). `wood_reference_df` returns
+    // Wood's smoothing-selection-corrected `edf1 = 2·tr(F) − tr(F²)` on the
+    // coefficient-influence block, NOT the earlier Satterthwaite ratio
+    // `tr(F)²/tr(F²)` that collapsed toward 0 for a boundary-shrunk term.
+
+    #[test]
+    fn edf1_equals_two_trace_minus_trace_of_square() {
+        // A symmetric smoother block with eigenvalues {0.9, 0.4}: a partially
+        // shrunk penalized term. edf = tr = 1.3; tr(F²) = 0.81 + 0.16 = 0.97;
+        // edf1 = 2·1.3 − 0.97 = 1.63. (Diagonal ⇒ block F² trace = Σ λ².)
+        let f = ndarray::array![[0.9_f64, 0.0], [0.0, 0.4]];
+        let got = wood_reference_df(Some(&f), &(0..2)).unwrap();
+        assert!(
+            (got - 1.63).abs() < 1e-12,
+            "edf1 should be 2*tr - tr(F^2) = 1.63, got {got}"
+        );
+        // And it must dominate the raw edf (edf1 >= edf) — the invariant the LR
+        // reference relies on.
+        let edf = 1.3;
+        assert!(got >= edf - 1e-12, "edf1 {got} must be >= edf {edf}");
+    }
+
+    #[test]
+    fn edf1_never_collapses_below_edf_when_offdiagonals_blow_up() {
+        // The #1766 degeneracy: a NON-symmetric influence block whose
+        // off-diagonal coupling makes tr(F²) = Σ_ij F_ij F_ji run away, so the
+        // old Satterthwaite ratio tr(F)²/tr(F²) crashed toward 0. Here tr = 1.0
+        // but tr(F²) = 1·1 + 50·(-50) ... take F with large opposite-sign
+        // off-diagonals so tr(F²) is huge: edf1 = 2·tr − tr(F²) would go very
+        // negative, and the `.max(tr)` guard must floor it back at edf = tr.
+        let f = ndarray::array![[0.5_f64, 40.0], [40.0, 0.5]];
+        let tr = 1.0_f64;
+        let got = wood_reference_df(Some(&f), &(0..2)).unwrap();
+        assert!(
+            got >= tr - 1e-12,
+            "edf1 must be floored at edf (=tr={tr}) even when tr(F^2) explodes, got {got}"
+        );
+        assert!(got.is_finite() && got > 0.0, "edf1 must stay finite/positive");
+    }
+
+    #[test]
+    fn returns_none_on_nonpositive_or_missing_trace() {
+        // No influence matrix at all → None (caller falls back to the
+        // max(edf, null_dim, 1) floor).
+        assert!(wood_reference_df(None, &(0..2)).is_none());
+        // A fully-shrunk block with a non-positive trace → None.
+        let zero = ndarray::array![[0.0_f64, 0.0], [0.0, 0.0]];
+        assert!(wood_reference_df(Some(&zero), &(0..2)).is_none());
+        // An out-of-bounds range → None, never a panic.
+        let f = ndarray::array![[0.5_f64, 0.0], [0.0, 0.5]];
+        assert!(wood_reference_df(Some(&f), &(0..5)).is_none());
     }
 }
 
@@ -8855,8 +9180,9 @@ pub fn smooth_term_lr_inference_forspec(
     let family_disp = lawley_dispersion_for_family(&family, &full.fit);
 
     // The penalty-block cursor walks the same block order the summary table
-    // uses: random-effect ranges first (skipped here), then smooth terms.
-    let mut penalty_cursor = full.design.random_effect_ranges.len();
+    // uses: any leading linear/random-effect penalty blocks first (skipped
+    // here), then smooth terms.
+    let mut penalty_cursor = full.design.leading_penalty_blocks_before_smooth();
     let mut out = Vec::<SmoothTermLrInference>::new();
     for (term_idx, design_term) in full.design.smooth.terms.iter().enumerate() {
         let k = design_term.penalties_local.len();
@@ -8883,34 +9209,90 @@ pub fn smooth_term_lr_inference_forspec(
         // is not materialised. (Same per-block over-count class as the multinomial
         // `edf_per_class` fix.)
         let edf = full.fit.per_term_edf(coeff_range.clone(), block_start, k);
-        // The term's unpenalized null-space dimension — the polynomial
-        // directions (constant/linear/…) a penalized smooth always carries when
-        // present, which no roughness penalty can shrink. This is the minimum
-        // effective dimension a "term present vs entirely absent" LR test can
-        // possibly have; flooring the reference d.f. below it is meaningless.
-        let null_dim: usize = design_term.nullspace_dims.iter().sum();
+        // The term's **joint** unpenalized null-space dimension: the coefficient
+        // directions penalized by *no* active penalty — the polynomial part a
+        // penalized smooth always carries when present, which no penalty can
+        // shrink. This is `dim(∩_k null(S_k)) = p_local − rank(Σ_k S_k)`, the
+        // INTERSECTION of the per-penalty null spaces, computed by
+        // `wald_unpenalized_dim()` — the very same scalar the summary Wald test
+        // (`wood_smooth_test`) floors its reference d.f. at, so the LR and Wald
+        // tests reference a consistent d.f.
+        //
+        // It must NOT be `nullspace_dims.iter().sum()`: that *unions* the null
+        // spaces (the #1360 defect — see `joint_unpenalized_dim`'s docs). A
+        // double-penalty smooth carries a bending penalty (null space = its
+        // polynomial part) plus a complementary null-space ridge (which penalizes
+        // exactly that polynomial part), so the two null spaces are disjoint and
+        // the joint null space is EMPTY (dim 0) — yet the per-penalty dims sum to
+        // ~`p_local`. Flooring `ref_df` at that sum pins it to the full basis
+        // dimension for every fit (e.g. 11 for a k=12 s(x)), making the LR test
+        // badly conservative for genuine moderate signals while only accidentally
+        // masking the collapse.
+        let null_dim = design_term.wald_unpenalized_dim();
         // χ² reference d.f. for the whole-term LR test. The statistic W tests the
         // term present vs entirely absent, so the reference d.f. must be at least
-        // the dimension the term spans when present — i.e. at least its null-space
-        // dimension, and never below 1 (you cannot test "is this function present"
-        // with fewer than one degree of freedom). The Wood truncation
-        // `tr(F)²/tr(F²)` is the Wood (2013) "edf1" reference and satisfies
-        // `edf1 ≥ edf` analytically, BUT the coefficient influence
-        // `F = H⁻¹X'WX` is NON-symmetric, and as REML shrinks a term onto its
-        // null space the off-diagonal coupling in the term block blows up:
-        // `tr(F²) = Σ_ij F_ij F_ji` runs away (~1e12) while `tr(F) = edf` stays
-        // small, so `tr(F)²/tr(F²)` collapses toward 0. Referencing a positive
-        // `W` against `χ²_{~0}` then reports a flat, shrunk-to-null term as
-        // MAXIMALLY significant (`p ~ 1e-12`) — a Type-I error decided by a
-        // degenerate reference d.f., not the data (#1766). Floor at
-        // `max(edf, null_dim, 1)`: in calibrated and high-power fits the Wood
-        // d.f. already dominates, so the floor binds ONLY on the degenerate
-        // collapse and leaves those fits byte-identical.
+        // the dimension the term spans when present — its joint null-space
+        // dimension (`null_dim`), the effective d.f. it uses in the fit (`edf`),
+        // and never below 1 (you cannot test "is this function present" with
+        // fewer than one degree of freedom). The primary reference is Wood's
+        // smoothing-selection-corrected `edf1 = 2·tr(F) − tr(F²)`
+        // (`wood_reference_df`), which dominates in calibrated and high-power
+        // fits and removes the post-selection left-tail anti-conservatism the raw
+        // `edf` reference leaves behind. The floor guards the DEGENERATE collapse:
+        // as REML shrinks a term fully onto its null space `edf1 → edf → ~0` and
+        // the non-symmetric `F = H⁻¹X'WX` can make the block `tr(F²)` numerically
+        // unreliable, so `wood_reference_df` returns `None` and the floor supplies
+        // `max(edf, null_dim, 1)`. Without a floor, a positive `W` referenced
+        // against `χ²_{~0}` would report a flat, shrunk-to-null term as MAXIMALLY
+        // significant (`p ~ 1e-12`) — a Type-I error decided by a degenerate
+        // reference d.f., not the data (#1766). The floor binds ONLY on that
+        // collapse; `edf` and `null_dim` never exceed `edf1` in a healthy fit.
+        // This mirrors the summary Wald path, which floors its reference at the
+        // statistic's own rank for the same reason.
+        //
+        // Guard the ONE state where `edf1` cannot be trusted: a non-converged fit
+        // whose influence-based `edf` has collapsed BELOW the term's guaranteed
+        // floor. The flat-valley REML stall on an unidentified term (#1762) rails
+        // the outer iterations out and returns an INCONSISTENT state — the term
+        // still carries a large, wiggly `β` (so the refit LR statistic `W` is
+        // large) yet `tr(F) = edf` reads ~0, a combination a genuine penalized
+        // least-squares solution cannot produce (large `β` ⇒ `edf ≫ 0`).
+        // Referencing that large `W` against `edf1 ≈ edf ≈ 0` manufactures
+        // significance: measured null FPR ~0.62 on those stalled noise fits vs a
+        // well-calibrated ~0.06 on the converged ones — the entire residual
+        // miscalibration lives here. The summary Wald path already sidesteps it
+        // (its statistic truncates to the ~0-`edf` rank and the term is skipped);
+        // the whole-term LR statistic cannot self-truncate (it is a refit deviance
+        // difference), so we widen its REFERENCE instead: floor `ref_df` at the
+        // term's full basis dimension — the maximally-honest reference for an
+        // untrusted term (it may occupy up to all its columns). A genuine effect
+        // still rejects (`W` ≫ its column count); a tiny-`W` collapse still gives
+        // `p ≈ 1`; only the spurious large-`W`/zero-`edf` artifact is neutralised.
+        //
+        // The trigger is NARROW on purpose. `outer_converged` alone is far too
+        // broad: the null-space double-penalty's shrinkage λ routinely rails to
+        // its ~1e13 ceiling on perfectly good fits (a `te` interaction, a
+        // multi-term model), flipping `outer_converged` to false while `edf`
+        // stays healthy (~3, ~9). Flooring THOSE at the full basis dimension
+        // would bury real effects (a `te` with `W ≈ 49` on a 48-column basis).
+        // Requiring BOTH non-convergence AND `edf < max(null_dim, 1)` — the term
+        // shrunk below even its unpenalized floor, the inconsistency fingerprint —
+        // fires on the zero-`edf` stall alone and leaves every healthy-`edf` fit
+        // on the tight `edf1` reference. The underlying stall itself is #1762;
+        // this keeps the inference honest on top of whatever fit it is handed.
+        let edf_floor = (null_dim.max(1)) as f64;
+        let untrusted_edf_collapse = !full.fit.outer_converged && edf < edf_floor;
+        let unconverged_dim_floor = if untrusted_edf_collapse {
+            coeff_range.len() as f64
+        } else {
+            0.0
+        };
         let ref_df = wood_reference_df(influence, &coeff_range)
             .unwrap_or(0.0)
             .max(edf)
-            .max(null_dim.max(1) as f64)
-            .max(1e-12);
+            .max(null_dim as f64)
+            .max(unconverged_dim_floor)
+            .max(1.0);
         if !(ref_df.is_finite() && ref_df > 0.0) {
             continue;
         }
@@ -9082,11 +9464,29 @@ fn lawley_dispersion_for_family(family: &LikelihoodSpec, fit: &UnifiedFitResult)
     }
 }
 
-/// Wood's rank-corrected reference d.f. `tr(F_jj)² / tr(F_jj²)` on the
-/// coefficient-influence block `F = H⁻¹ X'WX` restricted to `coeff_range`. This
-/// is the same reference the summary Wald row uses, so the corrected LR and the
-/// Wald test reference the *same* `χ²_d`. Returns `None` when the influence
-/// block is unavailable or degenerate.
+/// Wood's smoothing-selection-corrected reference d.f. `edf1 = 2·tr(F_jj) −
+/// tr(F_jj²)` on the coefficient-influence block `F = H⁻¹ X'WX` restricted to
+/// `coeff_range` (mgcv's `edf1`). This is the reference degrees of freedom
+/// Wood (2013) recommends for a smooth-component significance test when the
+/// smoothing parameter is *estimated* (as it always is here): it inflates the
+/// raw effective d.f. `edf = tr(F)` by the selection-bias term
+/// `tr(F) − tr(F²) = Σ_i λ_i(1 − λ_i) ≥ 0` (the F-block eigenvalues `λ_i` lie in
+/// `[0, 1]`), which is exactly the excess variance the fit spends locating a
+/// term on noise. Referencing the whole-term LR statistic against this larger
+/// `edf1` instead of the raw `edf` removes the post-selection left-tail
+/// anti-conservatism (a REML fit that turns a smooth *on* against pure noise no
+/// longer over-rejects): with the raw `edf` reference the mean null p-value is a
+/// calibrated ~0.5 but the 5%-level false-positive rate runs ~0.15; the `edf1`
+/// correction pulls it toward the nominal α while leaving the collapsed-term
+/// verdict (`W ≈ 0 ⇒ p ≈ 1`) untouched.
+///
+/// `edf1 ∈ [edf, 2·edf]` analytically, so it never collapses toward 0 the way
+/// the earlier Satterthwaite ratio `tr(F)²/tr(F²)` did when the non-symmetric
+/// block's `tr(F²)` ran away (the #1766 degeneracy). The `.max(tr)` guard keeps
+/// it ≥ `edf` even if a corrupted block drives `tr(F²)` above `2·tr(F)`. Returns
+/// `None` when the influence block is unavailable or its trace is non-finite /
+/// non-positive (a fully shrunk term), in which case the caller falls back to
+/// the `max(edf, null_dim, 1)` floor.
 fn wood_reference_df(influence: Option<&Array2<f64>>, coeff_range: &Range<usize>) -> Option<f64> {
     let f = influence?;
     let (start, end) = (coeff_range.start, coeff_range.end);
@@ -9096,5 +9496,6 @@ fn wood_reference_df(influence: Option<&Array2<f64>>, coeff_range: &Range<usize>
     let block = f.slice(s![start..end, start..end]);
     let tr = (0..block.nrows()).map(|i| block[[i, i]]).sum::<f64>();
     let tr2 = block.dot(&block).diag().sum();
-    (tr.is_finite() && tr2.is_finite() && tr > 0.0 && tr2 > 0.0).then(|| (tr * tr / tr2).max(1e-12))
+    (tr.is_finite() && tr2.is_finite() && tr > 0.0)
+        .then(|| (2.0 * tr - tr2).max(tr).max(1e-12))
 }

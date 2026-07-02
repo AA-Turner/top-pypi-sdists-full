@@ -26,7 +26,6 @@ from django.contrib.auth.views import LoginView, RedirectURLMixin
 from django.core.exceptions import (
     ImproperlyConfigured,
     ObjectDoesNotExist,
-    PermissionDenied,
     ValidationError,
 )
 from django.core.mail.message import EmailMessage
@@ -139,11 +138,13 @@ from weblate.accounts.utils import (
     SESSION_SECOND_FACTOR_TOTP,
     SESSION_SECOND_FACTOR_USER,
     SESSION_WEBAUTHN_AUDIT,
+    adjust_session_expiry,
     get_key_name,
     lock_user,
     remove_user,
     reset_api_token,
 )
+from weblate.auth.decorators import check_management_access
 from weblate.auth.forms import UserEditForm
 from weblate.auth.models import Invitation, User, get_anonymous
 from weblate.auth.utils import (
@@ -530,7 +531,11 @@ def user_profile(request: AuthenticatedHttpRequest):
             "userform": forms[6],
             "notification_forms": forms[7:],
             "all_forms": forms,
-            "user_groups": user.cached_groups,
+            "user_groups": user.groups.select_related(
+                "defining_project", "defining_workspace"
+            )
+            .prefetch_related("roles", "projects", "languages", "components")
+            .order(),
             "profile": profile,
             "title": gettext("User profile"),
             "licenses": license_components,
@@ -670,7 +675,8 @@ def hosting(request: AuthenticatedHttpRequest):
     if not settings.OFFER_HOSTING:
         return redirect("home")
 
-    from weblate.billing.models import Billing  # noqa: PLC0415
+    # ruff: ignore[import-outside-top-level]
+    from weblate.billing.models import Billing
 
     billings = (
         Billing.objects.for_user(request.user)
@@ -711,7 +717,8 @@ def trial(request: AuthenticatedHttpRequest):
         return redirect(f"{reverse('contact')}?t=trial")
 
     if request.method == "POST":
-        from weblate.billing.models import Billing, BillingEvent, Plan  # noqa: PLC0415
+        # ruff: ignore[import-outside-top-level]
+        from weblate.billing.models import Billing, BillingEvent, Plan
 
         AuditLog.objects.create(request.user, request, "trial")
         billing = Billing.objects.create(
@@ -768,8 +775,7 @@ class UserPage(UpdateView):
         return HttpResponseRedirect(f"{self.get_success_url()}#groups")
 
     def post(self, request: AuthenticatedHttpRequest, *args, **kwargs):  # type: ignore[override]
-        if not request.user.has_perm("user.edit"):
-            raise PermissionDenied
+        check_management_access(request, "user.edit")
         user = self.object = self.get_object()
         if "add_group" in request.POST:
             response = self.handle_add_group(request, user)
@@ -924,7 +930,8 @@ class UserPage(UpdateView):
         context["page_user_groups"] = page_user_groups
         context["page_user_billings"] = []
         if "weblate.billing" in settings.INSTALLED_APPS:
-            from weblate.billing.models import Billing  # noqa: PLC0415
+            # ruff: ignore[import-outside-top-level]
+            from weblate.billing.models import Billing
 
             context["page_user_billings"] = list(
                 Billing.objects.filter(
@@ -1098,6 +1105,9 @@ class BaseLoginView(LoginView):
             )
             return HttpResponseRedirect(f"{login_url}?{urlencode(login_params)}")
         auth_login(self.request, user)
+        adjust_session_expiry(
+            request=self.request, user=user, is_login=False, force=True
+        )
         return HttpResponseRedirect(self.get_success_url())
 
 
@@ -1155,7 +1165,8 @@ class WeblateLogoutView(TemplateView):
     - login_required decorator
     """
 
-    http_method_names = ["post", "options"]  # noqa: RUF012
+    # ruff: ignore[mutable-class-default]
+    http_method_names = ["post", "options"]
     template_name = "registration/logged_out.html"
     request: AuthenticatedHttpRequest
 
@@ -1956,23 +1967,7 @@ def social_complete(request: AuthenticatedHttpRequest, backend: str):
     Wrapper around social_django.views.complete:
 
     - Handles backend errors gracefully
-    - Intermediate page (autosubmitted by JavaScript) to avoid
-      confirmations by bots
     """
-    if (
-        "partial_token" in request.GET
-        and "verification_code" in request.GET
-        and "confirm" not in request.GET
-    ):
-        return render(
-            request,
-            "accounts/token.html",
-            {
-                "partial_token": request.GET["partial_token"],
-                "verification_code": request.GET["verification_code"],
-                "backend": backend,
-            },
-        )
     try:
         response = complete(request, backend)
     except (
@@ -2270,7 +2265,8 @@ class TOTPView(FormView):
     @property
     def totp_svg(self):
         image = qrcode.make(self.totp_url, image_factory=qrcode.image.svg.SvgPathImage)
-        return mark_safe(image.to_string(encoding="unicode"))  # noqa: S308
+        # ruff: ignore[suspicious-mark-safe-usage]
+        return mark_safe(image.to_string(encoding="unicode"))
 
     def get_context_data(self, **kwargs):
         """Create context for rendering page."""
@@ -2321,6 +2317,12 @@ class SecondFactorMixin(View):
             auth_login(self.request, user)
             # Perform OTP login
             otp_login(self.request, device)
+            adjust_session_expiry(
+                request=self.request,
+                user=user,
+                is_login=False,
+                force=True,
+            )
         else:
             self.request.session[DEVICE_ID_SESSION_KEY] = device.persistent_id
             # This is completed in social_complete after completing social login

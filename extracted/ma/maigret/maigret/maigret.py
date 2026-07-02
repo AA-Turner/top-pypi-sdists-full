@@ -2,7 +2,6 @@
 Maigret main module
 """
 
-import ast
 import asyncio
 import logging
 import os
@@ -10,8 +9,9 @@ import sys
 import platform
 import re
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 import os.path as path
+from maigret.utils import extract_usernames
 
 try:
     from socid_extractor import extract, parse
@@ -37,7 +37,7 @@ from .checking import (
     build_cloudflare_bypass_config,
 )
 from . import errors
-from .notify import QueryNotifyPrint
+from .notify import QueryNotifyPrint, print_donate_banner, print_intro_banner
 from .report import (
     save_csv_report,
     save_xmind_report,
@@ -50,12 +50,13 @@ from .report import (
     get_plaintext_report,
     sort_report_by_data_points,
     save_graph_report,
+    save_neo4j_report,
     save_markdown_report,
 )
+from .result import SiteResult
 from .sites import MaigretDatabase
 from .submit import Submitter
-from .types import QueryResultWrapper
-from .utils import get_dict_ascii_tree
+from .utils import get_dict_ascii_tree, is_plausible_username
 from .settings import Settings
 from .permutator import Permute
 
@@ -83,31 +84,20 @@ def extract_ids_from_page(url, logger, timeout=5) -> dict:
         else:
             print(get_dict_ascii_tree(info.items(), new_line=False), ' ')
         for k, v in info.items():
-            # TODO: merge with the same functionality in checking module
-            if 'username' in k and not 'usernames' in k:
-                results[v] = 'username'
-            elif 'usernames' in k:
-                try:
-                    tree = ast.literal_eval(v)
-                    if isinstance(tree, list):
-                        for n in tree:
-                            results[n] = 'username'
-                except Exception as e:
-                    logger.warning(e)
+
             if k in SUPPORTED_IDS:
                 results[v] = k
+
+        for username in extract_usernames(info, logger):
+            results[username] = 'username'
 
     return results
 
 
-def extract_ids_from_results(results: QueryResultWrapper, db: MaigretDatabase) -> dict:
+def extract_ids_from_results(results: Dict[str, SiteResult], db: MaigretDatabase) -> dict:
     ids_results = {}
     for website_name in results:
         dictionary = results[website_name]
-        # TODO: fix no site data issue
-        if not dictionary:
-            continue
-
         new_usernames = dictionary.get('ids_usernames')
         if new_usernames:
             for u, utype in new_usernames.items():
@@ -180,6 +170,19 @@ def setup_arguments_parser(settings: Settings):
         dest="connections",
         default=settings.max_connections,
         help=f"Allowed number of concurrent connections (default {settings.max_connections}).",
+    )
+    parser.add_argument(
+        "--dns-resolver",
+        dest="dns_resolver",
+        default="async",
+        choices=("async", "threaded"),
+        help=(
+            "DNS resolver to use. 'async' (default) uses aiohttp's AsyncResolver "
+            "(via aiodns/c-ares) — fastest under high concurrency. 'threaded' uses "
+            "the OS getaddrinfo via a threadpool — slower, but respects the system "
+            "DNS configuration. Switch to 'threaded' if you see "
+            "'Could not contact DNS servers' for every site (issue #2688)."
+        ),
     )
     parser.add_argument(
         "--no-recursion",
@@ -317,6 +320,14 @@ def setup_arguments_parser(settings: Settings):
         dest="exclude_tags",
         default='',
         help="Specify tags to exclude from search (blacklist).",
+    )
+    filter_group.add_argument(
+        "--keywords",
+        nargs='+',
+        metavar='KEYWORD',
+        dest="keywords",
+        default=[],
+        help="Specify keywords to search for in HTML content. Sites containing both username AND any keyword get special highlighting. e.g. --keywords tech python",
     )
     filter_group.add_argument(
         "--site",
@@ -503,6 +514,13 @@ def setup_arguments_parser(settings: Settings):
         help="Generate a graph report (general report on all usernames).",
     )
     report_group.add_argument(
+        "--neo4j",
+        action="store_true",
+        dest="neo4j",
+        default=settings.neo4j_report,
+        help="Generate a Neo4j Cypher report (general report on all usernames).",
+    )
+    report_group.add_argument(
         "-J",
         "--json",
         action="store",
@@ -648,6 +666,9 @@ async def main():
         silent=args.ai,
     )
 
+    print_intro_banner(no_color=args.no_color, silent=args.ai)
+    print_donate_banner(no_color=args.no_color, silent=args.ai)
+
     # Create object with all information about sites we are aware of.
     try:
         db = MaigretDatabase().load_from_path(db_file)
@@ -792,10 +813,46 @@ async def main():
 
     already_checked = set()
     general_results = []
+    interrupted = False
+
+    # Install our own SIGINT handler. asyncio.run installs a default one
+    # that cancels the main task on first Ctrl+C and raises KeyboardInterrupt
+    # on the second — but the cancellation gets buried inside the executor's
+    # gather/queue cleanup and doesn't bubble up to our `except CancelledError`
+    # below until a SECOND press. Owning the signal directly lets us:
+    #   1) cancel the in-flight search task on the FIRST press,
+    #   2) fall through to report generation,
+    #   3) exit hard on a second press if the user changes their mind.
+    import signal as _signal
+    _interrupt_count = [0]
+    _current_search_task: List[Any] = [None]
+    _orig_sigint = _signal.getsignal(_signal.SIGINT)
+
+    def _on_sigint(signum, frame):
+        _interrupt_count[0] += 1
+        task = _current_search_task[0]
+        if _interrupt_count[0] == 1 and task is not None and not task.done():
+            # First press: cancel the running search. The cancel propagates
+            # as CancelledError to `await maigret(...)` below.
+            task.cancel()
+            return
+        # Second press (or no task running): hard exit. Restore the previous
+        # handler and re-raise so __main__.py prints "Maigret interrupted."
+        # with exit code 130.
+        _signal.signal(_signal.SIGINT, _orig_sigint)
+        raise KeyboardInterrupt()
+
+    _signal.signal(_signal.SIGINT, _on_sigint)
 
     while usernames:
         username, id_type = list(usernames.items())[0]
         del usernames[username]
+
+        # First Ctrl+C is caught below and sets `interrupted`. Stop pulling
+        # new targets from the queue so we fall through to report generation
+        # with whatever has already been collected.
+        if interrupted:
+            break
 
         if username.lower() in already_checked:
             continue
@@ -821,7 +878,14 @@ async def main():
 
         sites_to_check = get_top_sites_for_id(id_type)
 
-        results = await maigret(
+        # Wrap the per-target search in an asyncio.Task so our SIGINT handler
+        # can cancel exactly THIS coroutine on first Ctrl+C — not the parent
+        # main task, which would also tear down report generation.
+        # `partial_results` is the output container that maigret() mutates as
+        # site checks complete; on Ctrl+C cancellation it still holds the
+        # checks that finished before the cancel, so partial state survives.
+        partial_results: Dict[str, SiteResult] = {}
+        search_task = asyncio.ensure_future(maigret(
             username=username,
             site_dict=dict(sites_to_check),
             query_notify=query_notify,
@@ -840,7 +904,36 @@ async def main():
             retries=args.retries,
             check_domains=args.with_domains,
             cloudflare_bypass=cf_bypass_config,
-        )
+            keywords=getattr(args, 'keywords', []),
+            dns_resolver=args.dns_resolver,
+            output_container=partial_results,
+        ))
+        _current_search_task[0] = search_task
+        try:
+            results = await search_task
+        except (asyncio.CancelledError, KeyboardInterrupt):
+            # First Ctrl+C cancelled `search_task` via our SIGINT handler.
+            # Keep whatever partial site checks completed before cancellation
+            # so the user gets a meaningful report rather than "0 results".
+            interrupted = True
+            _current_search_task[0] = None
+            results = partial_results
+            partial_count = len(partial_results)
+            remaining = len(usernames) + 1
+            general_results.append((username, id_type, results))
+            total_so_far = sum(len(d) for _, _, d in general_results)
+            query_notify.warning(
+                f'Search interrupted by user (Ctrl+C). Kept {partial_count} '
+                f'partial site result(s) for "{username}"; skipping {remaining} '
+                f'remaining target(s); generating report from '
+                f'{total_so_far} total site result(s) across '
+                f'{len(general_results)} username(s). '
+                f'Press Ctrl+C again to exit without a report.',
+                symbol='!',
+            )
+            break
+        finally:
+            _current_search_task[0] = None
 
         if not args.ai:
             errs = errors.notify_about_errors(
@@ -854,7 +947,6 @@ async def main():
 
         general_results.append((username, id_type, results))
 
-        # TODO: tests
         if recursive_search_enabled:
             extracted_ids = extract_ids_from_results(results, db)
             query_notify.warning(f'Extracted IDs: {extracted_ids}')
@@ -889,8 +981,20 @@ async def main():
                 f'JSON {args.json} report for {username} saved in {filename}'
             )
 
+    # Restore the original SIGINT handler before report generation. From
+    # here on, a Ctrl+C should NOT cancel-and-continue — it should exit.
+    _signal.signal(_signal.SIGINT, _orig_sigint)
+
     # reporting for all the result
     if general_results:
+        if interrupted:
+            # "Partial results from N username(s)" — disambiguates from the
+            # per-site count, which would read confusingly as "N partial
+            # results" when N is the username count.
+            query_notify.info(
+                f'Generating partial results from {len(general_results)} '
+                f'username(s) after Ctrl+C...'
+            )
         if args.html or args.pdf or args.md:
             query_notify.warning('Generating report info...')
         report_context = generate_report_context(general_results)
@@ -941,6 +1045,14 @@ async def main():
             )
             save_graph_report(filename, general_results, db)
             query_notify.warning(f'Graph report on all usernames saved in {filename}')
+
+        if args.neo4j:
+            username = username.replace('/', '_')
+            filename = report_filepath_tpl.format(
+                username=username, postfix='_neo4j.cypher'
+            )
+            save_neo4j_report(filename, general_results, db)
+            query_notify.warning(f'Neo4j report on all usernames saved in {filename}')
 
         if not args.ai:
             text_report = get_plaintext_report(report_context)

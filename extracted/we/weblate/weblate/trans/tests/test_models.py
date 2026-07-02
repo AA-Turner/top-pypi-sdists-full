@@ -8,11 +8,12 @@ import importlib
 import os
 from contextlib import ExitStack
 from datetime import timedelta
-from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.apps import apps
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.test import TestCase
@@ -24,6 +25,10 @@ from translate.storage.fluent import FluentContentError
 
 from weblate.auth.models import Group, User
 from weblate.checks.models import Check
+from weblate.glossary.models import (
+    clear_glossary_automaton_cache,
+    get_glossary_automaton,
+)
 from weblate.lang.models import Language
 from weblate.trans.actions import ActionEvents
 from weblate.trans.exceptions import FileParseError, SuggestionSimilarToTranslationError
@@ -50,6 +55,7 @@ from weblate.trans.tests.utils import (
     create_another_user,
     create_test_user,
     fixup_languages_seq,
+    get_optional_path,
 )
 from weblate.utils.files import remove_tree
 from weblate.utils.state import (
@@ -158,6 +164,50 @@ class ProjectTest(RepoTestCase):
             )
             with self.assertRaises(ValidationError):
                 blocked.full_clean()
+
+    def test_glossary_automaton_cache_invalidation(self) -> None:
+        project = self.create_project()
+        project.__dict__["glossaries"] = [
+            SimpleNamespace(glossary_sources=["hello"], glossary_sources_key="test")
+        ]
+        clear_glossary_automaton_cache()
+        cache.delete(project.glossary_automaton_cache_key)
+
+        with patch(
+            "weblate.trans.models.component.prefetch_glossary_terms"
+        ) as prefetch:
+            first = get_glossary_automaton(project)
+            second = get_glossary_automaton(project)
+            self.assertIs(first, second)
+            self.assertEqual(prefetch.call_count, 1)
+
+            project.invalidate_glossary_cache()
+            third = get_glossary_automaton(project)
+            self.assertIsNot(first, third)
+            self.assertEqual(prefetch.call_count, 2)
+
+    def test_glossary_automaton_cache_version_avoids_recreated_key_collision(
+        self,
+    ) -> None:
+        project = self.create_project()
+        project.__dict__["glossaries"] = [
+            SimpleNamespace(glossary_sources=["hello"], glossary_sources_key="test")
+        ]
+        clear_glossary_automaton_cache()
+        cache.delete(project.glossary_automaton_cache_key)
+
+        with (
+            patch("weblate.trans.models.project.time.time_ns", side_effect=[100, 200]),
+            patch("weblate.trans.models.component.prefetch_glossary_terms") as prefetch,
+        ):
+            first = get_glossary_automaton(project)
+            cache.delete(project.glossary_automaton_cache_key)
+            del project.__dict__["glossary_automaton_cache_version"]
+
+            second = get_glossary_automaton(project)
+
+        self.assertIsNot(first, second)
+        self.assertEqual(prefetch.call_count, 2)
 
     def test_actual_project_removal_batches_linked_alert_updates(self) -> None:
         self.component = self.create_po()
@@ -416,7 +466,7 @@ class TranslationTest(RepoTestCase):
             self.assertRaises(FileParseError),
         ):
             # pylint: disable-next=pointless-statement
-            translation.store  # noqa: B018
+            translation.store  # ruff: ignore[useless-expression]
 
         report_error.assert_not_called()
 
@@ -432,7 +482,7 @@ class TranslationTest(RepoTestCase):
             self.assertRaises(FileParseError),
         ):
             # pylint: disable-next=pointless-statement
-            translation.store  # noqa: B018
+            translation.store  # ruff: ignore[useless-expression]
 
         report_error.assert_called_once_with(
             "Translation parse error",
@@ -569,7 +619,8 @@ class TranslationTest(RepoTestCase):
         all_changes = list(
             PendingUnitChange.objects.for_translation(translation).order_by("timestamp")
         )
-        groups = Translation._group_changes_by_author(all_changes)  # noqa: SLF001
+        # ruff: ignore[private-member-access]
+        groups = Translation._group_changes_by_author(all_changes)
         self.assertEqual(len(groups), 3)
 
         author, changes = groups[0]
@@ -605,7 +656,8 @@ class TranslationTest(RepoTestCase):
         all_changes = list(
             PendingUnitChange.objects.for_translation(translation).order_by("timestamp")
         )
-        groups = Translation._group_changes_by_author(all_changes)  # noqa: SLF001
+        # ruff: ignore[private-member-access]
+        groups = Translation._group_changes_by_author(all_changes)
         self.assertEqual(len(groups), 1)
 
         author, changes = groups[0]
@@ -1741,7 +1793,9 @@ class AutomaticallyTranslatedFromFileTest(RepoTestCase):
         translation = component.translation_set.get(language_code="cs")
         user = create_test_user()
 
-        file_content = Path(translation.get_filename()).read_text(encoding="utf-8")
+        file_content = get_optional_path(translation.get_filename()).read_text(
+            encoding="utf-8"
+        )
         self.assertEqual(file_content.count('state-qualifier="leveraged-mt"'), 1)
         self.assertEqual(file_content.count('state-qualifier="mt-suggestion"'), 1)
 
@@ -1768,7 +1822,9 @@ class AutomaticallyTranslatedFromFileTest(RepoTestCase):
 
         translation.commit_pending("test", None)
 
-        file_content = Path(translation.get_filename()).read_text(encoding="utf-8")
+        file_content = get_optional_path(translation.get_filename()).read_text(
+            encoding="utf-8"
+        )
         self.assertIn("Automobil", file_content)
         self.assertEqual(file_content.count('state-qualifier="leveraged-mt"'), 2)
         self.assertEqual(file_content.count('state-qualifier="mt-suggestion"'), 0)
@@ -1780,12 +1836,16 @@ class AutomaticallyTranslatedFromFileTest(RepoTestCase):
         car_unit = translation.unit_set.get(source="Car")
         self.assertFalse(car_unit.automatically_translated)
 
-        file_content = Path(translation.get_filename()).read_text(encoding="utf-8")
+        file_content = get_optional_path(translation.get_filename()).read_text(
+            encoding="utf-8"
+        )
         modified_content = file_content.replace(
             "<target>Auto</target>",
             '<target state-qualifier="leveraged-mt">Auto</target>',
         )
-        Path(translation.get_filename()).write_text(modified_content, encoding="utf-8")
+        get_optional_path(translation.get_filename()).write_text(
+            modified_content, encoding="utf-8"
+        )
 
         translation = component.translation_set.get(language_code="cs")
         translation.check_sync(force=True)

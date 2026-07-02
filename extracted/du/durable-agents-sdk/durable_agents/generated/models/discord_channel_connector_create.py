@@ -5,12 +5,15 @@ from kiota_abstractions.serialization import Parsable, ParseNode, SerializationW
 from typing import Any, Optional, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
+    from .channel_message_access import ChannelMessageAccess
     from .discord_connector_secrets import DiscordConnectorSecrets
 
 @dataclass
 class DiscordChannelConnectorCreate(Parsable):
     # The discord property
     discord: Optional[DiscordConnectorSecrets] = None
+    # The message_access property
+    message_access: Optional[ChannelMessageAccess] = None
     # The name property
     name: Optional[str] = None
     # The provider property
@@ -32,12 +35,15 @@ class DiscordChannelConnectorCreate(Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
+        from .channel_message_access import ChannelMessageAccess
         from .discord_connector_secrets import DiscordConnectorSecrets
 
+        from .channel_message_access import ChannelMessageAccess
         from .discord_connector_secrets import DiscordConnectorSecrets
 
         fields: dict[str, Callable[[Any], None]] = {
             "discord": lambda n : setattr(self, 'discord', n.get_object_value(DiscordConnectorSecrets)),
+            "message_access": lambda n : setattr(self, 'message_access', n.get_enum_value(ChannelMessageAccess)),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "provider": lambda n : setattr(self, 'provider', n.get_str_value()),
         }
@@ -52,6 +58,7 @@ class DiscordChannelConnectorCreate(Parsable):
         if writer is None:
             raise TypeError("writer cannot be null.")
         writer.write_object_value("discord", self.discord)
+        writer.write_enum_value("message_access", self.message_access)
         writer.write_str_value("name", self.name)
         writer.write_str_value("provider", self.provider)
     

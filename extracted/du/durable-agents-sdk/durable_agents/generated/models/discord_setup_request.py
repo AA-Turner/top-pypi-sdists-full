@@ -4,6 +4,9 @@ from dataclasses import dataclass, field
 from kiota_abstractions.serialization import Parsable, ParseNode, SerializationWriter
 from typing import Any, Optional, TYPE_CHECKING, Union
 
+if TYPE_CHECKING:
+    from .discord_setup_request_message_access import DiscordSetupRequest_message_access
+
 @dataclass
 class DiscordSetupRequest(Parsable):
     # The application_id property
@@ -18,6 +21,8 @@ class DiscordSetupRequest(Parsable):
     create_or_update_connector: Optional[bool] = None
     # The guild_id property
     guild_id: Optional[str] = None
+    # The message_access property
+    message_access: Optional[DiscordSetupRequest_message_access] = None
     # The name property
     name: Optional[str] = None
     # The public_key property
@@ -43,6 +48,10 @@ class DiscordSetupRequest(Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
+        from .discord_setup_request_message_access import DiscordSetupRequest_message_access
+
+        from .discord_setup_request_message_access import DiscordSetupRequest_message_access
+
         fields: dict[str, Callable[[Any], None]] = {
             "application_id": lambda n : setattr(self, 'application_id', n.get_str_value()),
             "bot_token": lambda n : setattr(self, 'bot_token', n.get_str_value()),
@@ -50,6 +59,7 @@ class DiscordSetupRequest(Parsable):
             "connector": lambda n : setattr(self, 'connector', n.get_str_value()),
             "create_or_update_connector": lambda n : setattr(self, 'create_or_update_connector', n.get_bool_value()),
             "guild_id": lambda n : setattr(self, 'guild_id', n.get_str_value()),
+            "message_access": lambda n : setattr(self, 'message_access', n.get_enum_value(DiscordSetupRequest_message_access)),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "public_key": lambda n : setattr(self, 'public_key', n.get_str_value()),
             "register_command": lambda n : setattr(self, 'register_command', n.get_bool_value()),
@@ -71,6 +81,7 @@ class DiscordSetupRequest(Parsable):
         writer.write_str_value("connector", self.connector)
         writer.write_bool_value("create_or_update_connector", self.create_or_update_connector)
         writer.write_str_value("guild_id", self.guild_id)
+        writer.write_enum_value("message_access", self.message_access)
         writer.write_str_value("name", self.name)
         writer.write_str_value("public_key", self.public_key)
         writer.write_bool_value("register_command", self.register_command)

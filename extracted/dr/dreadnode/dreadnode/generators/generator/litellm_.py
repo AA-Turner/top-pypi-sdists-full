@@ -26,6 +26,7 @@ from dreadnode.generators.message import (
     ContentAudioInput,
     ContentImageUrl,
     ContentText,
+    ContentVideoUrl,
     Message,
 )
 
@@ -330,6 +331,162 @@ class SingleTurnFlattenFixup(Fixup):
         return params.model_copy(update={"tools": None, "tool_choice": None})
 
 
+class ImageInputUnsupportedFixup(Fixup):
+    # Text-only endpoints return a 404 or similar error when the
+    # request contains ``image_url`` content parts. Rather than killing
+    # the sample, we replace visual parts with a textual representation
+    # containing image metadata (dimensions, format, EXIF, PNG chunks)
+    # and a hex dump of the file head/tail so the model can still reason
+    # about the file contents.
+    #
+    # The ``read`` tool already produces a short caption alongside every
+    # image (e.g. "Read image · PNG · 42.5 KB") which is preserved as-is.
+    #
+    # NOTE: metadata + hex dump is one interpretation of how to present an
+    # image to a text-only model, chosen because the failing tasks are CTF
+    # forensics where flags hide in EXIF/embedded bytes. Revisit once we have
+    # evidence on what representation actually helps text-only models across
+    # task types — this likely belongs closer to the tool/eval layer than to a
+    # litellm error-recovery fixup (see CAP-1076).
+
+    _IMAGE_REJECT_PATTERNS: t.ClassVar[list[str]] = [
+        "No endpoints found that support image input",
+        "does not support image input",
+        "does not support vision",
+        "image_url is not supported",
+        "Content type image_url is not supported",
+    ]
+
+    _HEX_HEAD_SIZE: t.ClassVar[int] = 256
+    _HEX_TAIL_SIZE: t.ClassVar[int] = 128
+    _INFO_VALUE_MAX_LEN: t.ClassVar[int] = 500
+    _EXIF_VALUE_MAX_LEN: t.ClassVar[int] = 300
+
+    def can_fix(self, exception: Exception) -> bool:
+        error_str = str(exception)
+        return any(pattern in error_str for pattern in self._IMAGE_REJECT_PATTERNS)
+
+    def fix(self, messages: t.Sequence[Message]) -> t.Sequence[Message]:
+        updated: list[Message] = []
+        stripped_count = 0
+
+        for message in messages:
+            has_visual = any(
+                isinstance(part, (ContentImageUrl, ContentVideoUrl))
+                for part in message.content_parts
+            )
+            if not has_visual:
+                updated.append(message)
+                continue
+
+            new_parts: list[ContentText | ContentAudioInput] = []
+            for part in message.content_parts:
+                if isinstance(part, (ContentImageUrl, ContentVideoUrl)):
+                    stripped_count += 1
+                    description = self._describe_visual_part(part)
+                    label = "Image" if isinstance(part, ContentImageUrl) else "Video"
+                    new_parts.append(
+                        ContentText(
+                            text=(
+                                f"[{label} content replaced — model does not support visual input. "
+                                f"Textual representation follows]\n{description}"
+                            )
+                        )
+                    )
+                else:
+                    # Preserve ContentText and ContentAudioInput as-is
+                    new_parts.append(part)
+
+            updated.append(message.model_copy(deep=True, update={"content_parts": new_parts}))
+
+        if stripped_count:
+            logger.warning(
+                "ImageInputUnsupportedFixup | replaced {} visual content part(s) with "
+                "textual descriptions — provider does not support image input",
+                stripped_count,
+            )
+
+        return updated
+
+    # -- helpers --
+
+    @staticmethod
+    def _hex_block(data: bytes, label: str) -> list[str]:
+        block: list[str] = [f"{label} ({len(data)} bytes):"]
+        for offset in range(0, len(data), 16):
+            chunk = data[offset : offset + 16]
+            hex_part = " ".join(f"{b:02x}" for b in chunk)
+            ascii_part = "".join(chr(b) if 32 <= b < 127 else "." for b in chunk)
+            block.append(f"  {offset:08x}  {hex_part:<48s}  |{ascii_part}|")
+        return block
+
+    @classmethod
+    def _hex_dump(cls, raw: bytes) -> list[str]:
+        lines = cls._hex_block(raw[: cls._HEX_HEAD_SIZE], "Hex head")
+        if len(raw) > cls._HEX_HEAD_SIZE + cls._HEX_TAIL_SIZE:
+            lines.append(
+                f"... ({len(raw) - cls._HEX_HEAD_SIZE - cls._HEX_TAIL_SIZE} bytes omitted) ..."
+            )
+            lines.extend(cls._hex_block(raw[-cls._HEX_TAIL_SIZE :], "Hex tail"))
+        elif len(raw) > cls._HEX_HEAD_SIZE:
+            lines.extend(cls._hex_block(raw[cls._HEX_HEAD_SIZE :], "Hex tail"))
+        return lines
+
+    @classmethod
+    def _describe_image_bytes(cls, raw: bytes) -> str:
+        import io
+
+        lines: list[str] = []
+
+        try:
+            from PIL import Image
+            from PIL.ExifTags import TAGS
+
+            with Image.open(io.BytesIO(raw)) as img:
+                lines.append(f"Format: {img.format or 'unknown'}")
+                lines.append(f"Size: {img.size[0]}x{img.size[1]}")
+                lines.append(f"Mode: {img.mode}")
+
+                if img.info:
+                    for key, value in img.info.items():
+                        val_str = str(value)
+                        if len(val_str) > cls._INFO_VALUE_MAX_LEN:
+                            val_str = val_str[: cls._INFO_VALUE_MAX_LEN] + "…"
+                        lines.append(f"Info[{key}]: {val_str}")
+
+                exif = img.getexif()
+                if exif:
+                    lines.append("EXIF:")
+                    for tag_id, value in exif.items():
+                        tag_name = TAGS.get(tag_id, f"Tag{tag_id}")
+                        val_str = str(value)
+                        if len(val_str) > cls._EXIF_VALUE_MAX_LEN:
+                            val_str = val_str[: cls._EXIF_VALUE_MAX_LEN] + "…"
+                        lines.append(f"  {tag_name}: {val_str}")
+        except Exception as exc:
+            lines.append(f"[metadata extraction failed: {exc}]")
+
+        lines.extend(cls._hex_dump(raw))
+        return "\n".join(lines)
+
+    @classmethod
+    def _describe_visual_part(cls, part: ContentImageUrl | ContentVideoUrl) -> str:
+        try:
+            if isinstance(part, ContentImageUrl):
+                # Remote (non-data) URLs can't be inlined; surface the URL so the
+                # model at least knows an image existed and where it lives.
+                if not part.image_url.url.startswith("data:"):
+                    return f"[remote image at {part.image_url.url} — content not inlined]"
+                return cls._describe_image_bytes(part.to_bytes())
+            # ContentVideoUrl.to_bytes() handles both raw base64 and data URLs.
+            raw = part.to_bytes()
+            lines = [f"Video file ({len(raw)} bytes)"]
+            lines.extend(cls._hex_dump(raw))
+            return "\n".join(lines)
+        except Exception as exc:
+            return f"[failed to describe visual content: {exc}]"
+
+
 g_fixups = [
     OpenAIToolsWithImageURLsFixup(),
     CacheTooSmallFixup(),
@@ -338,6 +495,7 @@ g_fixups = [
     AnthropicToolResultFixup(),
     ReservedToolNameFixup(),
     SingleTurnFlattenFixup(),
+    ImageInputUnsupportedFixup(),
 ]
 
 vertex_image_pattern = re.compile(r"(data:[\w/]+?;base64,[A-Za-z0-9+/=]+)")

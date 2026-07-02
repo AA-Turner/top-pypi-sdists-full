@@ -1,0 +1,12 @@
+
+[package]
+name = "solders-rpc-version"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders RPC version crate."
+
+[dependencies]
+serde = { workspace = true }

@@ -398,6 +398,16 @@ fn build_duchon_basis_uncached(
             spec.operator_penalties.stiffness,
             OperatorPenaltySpec::Active { .. }
         );
+        // When the fresh data-metric reparam is computed, its `raw` (un-rotated)
+        // design is built here from a full `n×k` kernel evaluation. That SAME
+        // realized design is the base of the final basis — rotating it by the
+        // adopted `V` gives the fit-time design without a second kernel pass —
+        // so carry it forward instead of rebuilding it below (#1718). This
+        // halves the cold-build kernel work for the default `duchon(x, z)`,
+        // which is the only configuration that hits this branch (native Gram,
+        // no operators, no frozen reparam), closing the wall-time gap to
+        // `thinplate(x, z)`.
+        let mut prebuilt_raw_basis: Option<Array2<f64>> = None;
         if frozen_radial_reparam.is_none() && !operators_active {
             let kernel_cols = kernel_transform.ncols();
             if kernel_cols > 0 {
@@ -429,22 +439,52 @@ fn build_duchon_basis_uncached(
                 // A degenerate reparam (no retained modes) would gut the basis;
                 // only adopt `V` when it preserves at least one radial column.
                 if v.ncols() > 0 {
+                    // The fit-time design is `[K·Z·V | P] = [(K·Z)·V | P]`,
+                    // where `K·Z` and `P` are exactly the kernel/poly blocks of
+                    // `raw` (the reparam only right-multiplies the constrained
+                    // kernel columns; the poly block is reparam-independent). So
+                    // rotate `raw`'s kernel block by `V` in place rather than
+                    // re-evaluating the kernel: `(K·Z)·V = K·(Z·V)`, the same
+                    // model space the un-fused rebuild would produce.
+                    let rotated_kernel = fast_ab(&raw.basis.slice(s![.., 0..kernel_cols]), &v);
+                    let poly_block = raw.basis.slice(s![.., kernel_cols..]);
+                    let mut fused = Array2::<f64>::zeros((
+                        raw.basis.nrows(),
+                        rotated_kernel.ncols() + poly_block.ncols(),
+                    ));
+                    fused
+                        .slice_mut(s![.., 0..rotated_kernel.ncols()])
+                        .assign(&rotated_kernel);
+                    if poly_block.ncols() > 0 {
+                        fused
+                            .slice_mut(s![.., rotated_kernel.ncols()..])
+                            .assign(&poly_block);
+                    }
+                    prebuilt_raw_basis = Some(fused);
                     kernel_transform = fast_ab(&kernel_transform, &v);
                     frozen_radial_reparam = Some(v);
+                } else {
+                    // No reparam adopted: `raw` already IS the fit-time design
+                    // (no rotation), so reuse it directly.
+                    prebuilt_raw_basis = Some(raw.basis);
                 }
             }
         }
-        let d = build_duchon_basis_designwithworkspace(
-            data,
-            centers.view(),
-            spec.length_scale,
-            spec.power,
-            effective_nullspace_order,
-            aniso.as_deref(),
-            frozen_radial_reparam.as_ref(),
-            workspace,
-        )?;
-        let basis = d.basis;
+        let basis = if let Some(basis) = prebuilt_raw_basis {
+            basis
+        } else {
+            build_duchon_basis_designwithworkspace(
+                data,
+                centers.view(),
+                spec.length_scale,
+                spec.power,
+                effective_nullspace_order,
+                aniso.as_deref(),
+                frozen_radial_reparam.as_ref(),
+                workspace,
+            )?
+            .basis
+        };
         let identifiability_transform = spatial_identifiability_transform_from_design(
             data,
             basis.view(),
@@ -1005,37 +1045,52 @@ pub fn select_thin_plate_knots(
         })
         .collect();
 
-    // Value-lexicographic order on a candidate's COORDINATE VALUES (not its row
-    // index): a pure function of the unordered data value set. It is the final,
-    // measure-zero tie-break for points that coincide on every rotation-
-    // invariant key below. Breaking ties by row index instead made the selected
-    // knot SET depend on the row order of the data, so a pure permutation
-    // produced a different basis, different conditioning, and a different REML
-    // λ̂ (gam#1378, ~3% curve drift while value-anchored cr/ps were identical).
-    let value_less = |i: usize, j: usize| -> bool {
-        for c in 0..d {
-            let vi = data[[i, c]];
-            let vj = data[[j, c]];
-            if vi < vj {
-                return true;
+    // Rotation- and permutation-invariant tie-break on a candidate's distance
+    // profile to the whole support.  Lexicographic coordinate order is
+    // permutation-invariant, but it is NOT rotation-invariant: on symmetric
+    // clouds (regular grids, rings, centred designs) the centroid/fill-distance
+    // keys often tie exactly, and a rigid rotation can change which coordinate
+    // tuple is lexicographically smallest.  That reseeds the farthest-point
+    // recursion with a different physical row and breaks the isotropic Duchon /
+    // thin-plate equivariance contract.  The sorted multiset
+    // `{‖x_i - x_l‖² : l=1..n}` is a pure function of the unordered Euclidean
+    // geometry, so it survives both row permutations and rigid rotations.  Only
+    // genuinely duplicate/interchangeable rows fall through to the row index.
+    let distance_profile_less = |i: usize, j: usize| -> bool {
+        let mut profile_i = Vec::with_capacity(n);
+        let mut profile_j = Vec::with_capacity(n);
+        for row in 0..n {
+            let mut d2_i = 0.0;
+            let mut d2_j = 0.0;
+            for c in 0..d {
+                let delta_i = data[[i, c]] - data[[row, c]];
+                let delta_j = data[[j, c]] - data[[row, c]];
+                d2_i += delta_i * delta_i;
+                d2_j += delta_j * delta_j;
             }
-            if vi > vj {
-                return false;
+            profile_i.push(d2_i);
+            profile_j.push(d2_j);
+        }
+        profile_i.sort_by(|a, b| a.total_cmp(b));
+        profile_j.sort_by(|a, b| a.total_cmp(b));
+        for (&di, &dj) in profile_i.iter().zip(profile_j.iter()) {
+            match di.total_cmp(&dj) {
+                std::cmp::Ordering::Less => return true,
+                std::cmp::Ordering::Greater => return false,
+                std::cmp::Ordering::Equal => {}
             }
         }
-        // Exactly equal coordinates: fall back to row index only to keep a
-        // total order (duplicate points are interchangeable in the basis).
         i < j
     };
 
-    // Seed = centroid-nearest row; equidistant ties resolved by the value order
-    // so the seed is a deterministic, rotation- and permutation-invariant
-    // function of the data.
+    // Seed = centroid-nearest row; equidistant ties resolved by the invariant
+    // support-distance profile so the seed is a deterministic, rotation- and
+    // permutation-invariant function of the data.
     let seed_idx = (0..n)
         .into_par_iter()
         .map(|i| (i, dist2_to_centroid[i]))
         .reduce_with(|a, b| {
-            if b.1 < a.1 || (b.1 == a.1 && value_less(b.0, a.0)) {
+            if b.1 < a.1 || (b.1 == a.1 && distance_profile_less(b.0, a.0)) {
                 b
             } else {
                 a
@@ -1073,14 +1128,15 @@ pub fn select_thin_plate_knots(
                 // arithmetic — are resolved by a rotation-invariant key first
                 // (the larger distance to the centroid, which spreads knots
                 // outward and is a pure function of the unordered value set),
-                // and only by the value order for points that also tie there.
+                // and only by the invariant support-distance profile for points
+                // that also tie there.
                 // This keeps the selected knot set invariant under both rigid
                 // rotation and row permutation of the data.
                 let pick_b = b.1 > a.1
                     || (b.1 == a.1
                         && (dist2_to_centroid[b.0] > dist2_to_centroid[a.0]
                             || (dist2_to_centroid[b.0] == dist2_to_centroid[a.0]
-                                && value_less(b.0, a.0))));
+                                && distance_profile_less(b.0, a.0))));
                 if pick_b { b } else { a }
             })
             .map(|(i, _)| i);

@@ -4,9 +4,14 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.covariance import shrunk_covariance
 from sklearn.metrics.pairwise import pairwise_kernels
 
+from .geometry.covariance import (
+    covariances,
+    covariances_EP,
+    cross_spectrum,
+    coherence,
+    block_covariances,
+)
 from .spatialfilters import Xdawn
-from .utils.covariance import (covariances, covariances_EP, cross_spectrum,
-                               coherence, block_covariances)
 
 
 def _nextpow2(i):
@@ -26,7 +31,7 @@ class Covariances(TransformerMixin, BaseEstimator):
     ----------
     estimator : string, default="scm"
         Covariance matrix estimator, see
-        :func:`pyriemann.utils.covariance.covariances`.
+        :func:`pyriemann.geometry.covariance.covariances`.
     **kwds : dict
         Any further parameters are passed directly to the covariance estimator.
 
@@ -59,6 +64,9 @@ class Covariances(TransformerMixin, BaseEstimator):
             The Covariances instance.
         """
         return self
+
+    def __sklearn_is_fitted__(self):
+        return True
 
     def transform(self, X):
         """Estimate covariance matrices.
@@ -123,7 +131,7 @@ class ERPCovariances(TransformerMixin, BaseEstimator):
         If None, all classes will be accounted.
     estimator : string, default="scm"
         Covariance matrix estimator, see
-        :func:`pyriemann.utils.covariance.covariances`.
+        :func:`pyriemann.geometry.covariance.covariances`.
     svd : int | None, default=None
         If not None, number of components of SVD used to reduce prototype
         responses.
@@ -277,12 +285,12 @@ class XdawnCovariances(TransformerMixin, BaseEstimator):
         If None, all classes will be accounted.
     estimator : string, default="scm"
         Covariance matrix estimator, see
-        :func:`pyriemann.utils.covariance.covariances`.
+        :func:`pyriemann.geometry.covariance.covariances`.
     xdawn_estimator : string, default="scm"
         Covariance matrix estimator for :class:`pyriemann.spatialfilters.Xdawn`
         spatial filtering.
         Should be regularized using "lwf" or "oas", see
-        :func:`pyriemann.utils.covariance.covariances`.
+        :func:`pyriemann.geometry.covariance.covariances`.
     baseline_cov : ndarray, shape (n_channels, n_channels) | None, default=None
         Baseline covariance for :class:`pyriemann.spatialfilters.Xdawn`
         spatial filtering.
@@ -421,7 +429,7 @@ class BlockCovariances(Covariances):
         for varying block sizes.
     estimator : string, default="scm"
         Covariance matrix estimator, see
-        :func:`pyriemann.utils.covariance.covariances`.
+        :func:`pyriemann.geometry.covariance.covariances`.
     **kwds : dict
         Any further parameters are passed directly to the covariance estimator.
 
@@ -563,6 +571,9 @@ class CrossSpectra(TransformerMixin, BaseEstimator):
         """
         return self
 
+    def __sklearn_is_fitted__(self):
+        return True
+
     def transform(self, X):
         """Estimate cross-spectral matrices.
 
@@ -687,7 +698,7 @@ class Coherences(CoSpectra):
     coh : {"ordinary", "instantaneous", "lagged", "imaginary"}, \
             default="ordinary"
         Coherence type, see
-        :func:`pyriemann.utils.covariance.coherence`.
+        :func:`pyriemann.geometry.covariance.coherence`.
 
     Attributes
     ----------
@@ -776,7 +787,7 @@ class TimeDelayCovariances(TransformerMixin, BaseEstimator):
         of delays up to the given value. A list of int can be given.
     estimator : string, default="scm"
         Covariance matrix estimator, see
-        :func:`pyriemann.utils.covariance.covariances`.
+        :func:`pyriemann.geometry.covariance.covariances`.
     **kwds : dict
         Any further parameters are passed directly to the covariance estimator.
 
@@ -831,6 +842,9 @@ class TimeDelayCovariances(TransformerMixin, BaseEstimator):
             The TimeDelayCovariances instance.
         """
         return self
+
+    def __sklearn_is_fitted__(self):
+        return True
 
     def transform(self, X):
         """Estimate the time delay covariance matrices.
@@ -965,6 +979,9 @@ class Kernels(TransformerMixin, BaseEstimator):
         """
         return self
 
+    def __sklearn_is_fitted__(self):
+        return True
+
     def transform(self, X):
         """Estimate kernel matrices from time series.
 
@@ -1059,6 +1076,9 @@ class Shrinkage(TransformerMixin, BaseEstimator):
             The Shrinkage instance.
         """
         return self
+
+    def __sklearn_is_fitted__(self):
+        return True
 
     def transform(self, X):
         """Shrink the SPD/HPD matrices.

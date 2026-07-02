@@ -759,6 +759,9 @@ _SLASH_DESC = {
     "/reset-phantom": {"ko": "🔄 PhantomGuard 카운터 초기화 + Liveness 재확인",
                        "zh": "🔄 重置幻影守卫计数器 + 重新检查工具Liveness",
                        "en": "🔄 Reset PhantomGuard counters + re-run liveness probe"},
+    "/apt":           {"ko": "🕵️ APT 모듈: phish|supply|lateral|c2 — 全面APT化",
+                       "zh": "🕵️ APT模块: phish|supply|lateral|c2 — 全面APT化",
+                       "en": "🕵️ APT module suite: phish|supply|lateral|c2 — full APT-ification"},
 }
 
 # ── 스킬 시스템 / WAF / 자동 분석 추가 문자열 ──────────────────────────────
@@ -4989,6 +4992,164 @@ _STRINGS.update({
             "⚠️ [SPA_DETECTED] Next.js/React SPA returns HTML for all API paths\n"
             "→ These are NOT real API responses. Test against the actual API server."
         ),
+    },
+    # ── v3.5.19: 0day Hunter 다국어 키 ──────────────────────────────────────
+    "zeroday_auto_inject": {
+        "ko": "⬆ 0day Hunter가 위 후보를 AI에게 자동 전달 — PoC 코드 자동 생성 시작",
+        "zh": "⬆ 0day Hunter 已将上述候选项自动传递给 AI — 开始自动生成 PoC 代码",
+        "en": "⬆ 0day Hunter auto-forwarded candidates to AI — PoC code generation starting",
+    },
+    "zeroday_high_found": {
+        "ko": "🔴 [0day] HIGH 신뢰도 {n}개 탐지 — 즉시 PoC 생성",
+        "zh": "🔴 [0day] 检测到 {n} 个高置信度候选项 — 立即生成 PoC",
+        "en": "🔴 [0day] {n} HIGH-confidence candidates — generating PoC now",
+    },
+    "zeroday_cve_matched": {
+        "ko": "🛑 CVE 매핑: {software} {version} → {cves}",
+        "zh": "🛑 CVE 映射: {software} {version} → {cves}",
+        "en": "🛑 CVE match: {software} {version} → {cves}",
+    },
+    "zeroday_no_candidate": {
+        "ko": "✅ [0day] 이 실행 결과에서 0day 후보 없음",
+        "zh": "✅ [0day] 此次执行结果中未发现 0day 候选项",
+        "en": "✅ [0day] No 0day candidates in this execution output",
+    },
+    "zeroday_exploit_hint": {
+        "ko": "💡 Exploit 힌트: {hint}",
+        "zh": "💡 利用提示: {hint}",
+        "en": "💡 Exploit hint: {hint}",
+    },
+    "zeroday_nvd_lookup": {
+        "ko": "🔍 NVD API로 {software} {version} CVE 조회 중...",
+        "zh": "🔍 通过 NVD API 查询 {software} {version} CVE...",
+        "en": "🔍 Looking up CVEs for {software} {version} via NVD API...",
+    },
+    "zeroday_session_reset": {
+        "ko": "🔄 0day Hunter 세션 초기화 (새 타겟)",
+        "zh": "🔄 0day Hunter 会话已重置 (新目标)",
+        "en": "🔄 0day Hunter session reset (new target)",
+    },
+    # ── v3.5.20: 0day Hunter exploit 모듈 연동 키 ───────────────────────────
+    "zeroday_micollab_hint": {
+        "ko": "🎯 Mitel MiCollab exploit 모듈 사용 가능: from bingo.core.exploits.mitel_micollab import MitelMiCollabExploit",
+        "zh": "🎯 Mitel MiCollab exploit 模块可用: from bingo.core.exploits.mitel_micollab import MitelMiCollabExploit",
+        "en": "🎯 Mitel MiCollab exploit module available: from bingo.core.exploits.mitel_micollab import MitelMiCollabExploit",
+    },
+    "zeroday_wappd_hint": {
+        "ko": "📡 MediaTek wappd (CVE-2024-20017) exploit: from bingo.core.exploits.mediatek_wappd import WappdExploit",
+        "zh": "📡 MediaTek wappd (CVE-2024-20017) exploit: from bingo.core.exploits.mediatek_wappd import WappdExploit",
+        "en": "📡 MediaTek wappd (CVE-2024-20017) exploit: from bingo.core.exploits.mediatek_wappd import WappdExploit",
+    },
+    "zeroday_webp_hint": {
+        "ko": "🖼️  libwebp (CVE-2023-4863) exploit: from bingo.core.exploits.webp_cve2023_4863 import WebPExploit",
+        "zh": "🖼️  libwebp (CVE-2023-4863) exploit: from bingo.core.exploits.webp_cve2023_4863 import WebPExploit",
+        "en": "🖼️  libwebp (CVE-2023-4863) exploit: from bingo.core.exploits.webp_cve2023_4863 import WebPExploit",
+    },
+    "zeroday_glibc_hint": {
+        "ko": "⚡ glibc LPE (CVE-2023-4911 Looney Tunables): from bingo.core.exploits.glibc_tunables import GlibcTunablesExploit",
+        "zh": "⚡ glibc LPE (CVE-2023-4911 Looney Tunables): from bingo.core.exploits.glibc_tunables import GlibcTunablesExploit",
+        "en": "⚡ glibc LPE (CVE-2023-4911 Looney Tunables): from bingo.core.exploits.glibc_tunables import GlibcTunablesExploit",
+    },
+    "zeroday_chain_running": {
+        "ko": "🔗 0day 체인 공격 자동 실행 중...",
+        "zh": "🔗 自动执行 0day 链式攻击...",
+        "en": "🔗 Running 0day exploit chain automatically...",
+    },
+    "zeroday_lpe_detected": {
+        "ko": "🔴 LOCAL PRIVILEGE ESCALATION 탐지! glibc {version} — CVE-2023-4911",
+        "zh": "🔴 检测到本地权限提升! glibc {version} — CVE-2023-4911",
+        "en": "🔴 LOCAL PRIVILEGE ESCALATION detected! glibc {version} — CVE-2023-4911",
+    },
+    "zeroday_heap_overflow": {
+        "ko": "🟡 힙 버퍼 오버플로우 탐지! {software} {version} — {cve}",
+        "zh": "🟡 检测到堆缓冲区溢出! {software} {version} — {cve}",
+        "en": "🟡 Heap buffer overflow detected! {software} {version} — {cve}",
+    },
+    "zeroday_udp_overflow": {
+        "ko": "📡 UDP 스택 오버플로우 탐지! MediaTek wappd — CVE-2024-20017",
+        "zh": "📡 检测到 UDP 栈溢出! MediaTek wappd — CVE-2024-20017",
+        "en": "📡 UDP stack overflow detected! MediaTek wappd — CVE-2024-20017",
+    },
+    # ── v3.5.21: APT 모듈 — 자동 탐지 힌트 + /apt 커맨드 ───────────────────────
+    "apt_lateral_hint": {
+        "ko": "🔀 내부망 탐지 — /apt lateral <IP> 로 횡방향 이동 명령 자동 생성",
+        "zh": "🔀 检测到内网环境 — 使用 /apt lateral <IP> 自动生成横向移动命令",
+        "en": "🔀 Internal network detected — use /apt lateral <IP> for lateral movement commands",
+    },
+    "apt_supply_hint": {
+        "ko": "⛓️ 공급망 파일 탐지 — /apt supply <path> 로 의존성 취약점 스캔",
+        "zh": "⛓️ 检测到供应链文件 — 使用 /apt supply <path> 扫描依赖漏洞",
+        "en": "⛓️ Supply chain file detected — use /apt supply <path> to scan dependency vulnerabilities",
+    },
+    "apt_phish_hint": {
+        "ko": "🎣 피싱 컨텍스트 감지 — /apt phish <email> 로 스피어피싱 이메일 생성",
+        "zh": "🎣 检测到钓鱼上下文 — 使用 /apt phish <email> 生成鱼叉式网络钓鱼邮件",
+        "en": "🎣 Phishing context detected — use /apt phish <email> to generate spear-phishing email",
+    },
+    "apt_c2_hint": {
+        "ko": "🕵️ C2 컨텍스트 감지 — /apt c2 <host> 로 은폐 C2 채널 생성",
+        "zh": "🕵️ 检测到C2上下文 — 使用 /apt c2 <host> 生成隐蔽C2信道",
+        "en": "🕵️ C2 context detected — use /apt c2 <host> to generate covert C2 channel",
+    },
+    "apt_help_title": {
+        "ko": "🕵️  APT 모듈 스위트 (v3.5.21) — 全面APT化",
+        "zh": "🕵️  APT 模块套件 (v3.5.21) — 全面APT化",
+        "en": "🕵️  APT Module Suite (v3.5.21) — Full APT-ification",
+    },
+    "apt_help_phish": {
+        "ko": "  /apt phish <email> [lure]       — AI 스피어피싱 이메일 생성",
+        "zh": "  /apt phish <email> [lure]       — AI鱼叉式钓鱼邮件生成",
+        "en": "  /apt phish <email> [lure]       — AI spear-phishing email generator",
+    },
+    "apt_help_supply": {
+        "ko": "  /apt supply <path>              — npm/pip/Actions 공급망 취약점 스캔",
+        "zh": "  /apt supply <path>              — npm/pip/Actions 供应链漏洞扫描",
+        "en": "  /apt supply <path>              — npm/pip/Actions supply chain vuln scan",
+    },
+    "apt_help_lateral": {
+        "ko": "  /apt lateral <ip> [user] [hash] — Impacket/CME 횡방향 이동 명령 생성",
+        "zh": "  /apt lateral <ip> [user] [hash] — Impacket/CME 横向移动命令生成",
+        "en": "  /apt lateral <ip> [user] [hash] — Impacket/CME lateral movement commands",
+    },
+    "apt_help_c2": {
+        "ko": "  /apt c2 <host> [dns|https|both]  — DNS터널/HTTPS 비콘 은폐 C2 생성",
+        "zh": "  /apt c2 <host> [dns|https|both]  — DNS隧道/HTTPS信标隐蔽C2生成",
+        "en": "  /apt c2 <host> [dns|https|both]  — DNS tunnel/HTTPS beacon covert C2",
+    },
+    "apt_phish_need_email": {
+        "ko": "사용법: /apt phish <대상-이메일> [lure 주제]",
+        "zh": "用法: /apt phish <目标邮箱> [诱饵主题]",
+        "en": "Usage: /apt phish <target-email> [lure-topic]",
+    },
+    "apt_lateral_need_ip": {
+        "ko": "사용법: /apt lateral <IP> [사용자명] [NTLM해시_또는_패스워드]",
+        "zh": "用法: /apt lateral <IP> [用户名] [NTLM哈希或密码]",
+        "en": "Usage: /apt lateral <IP> [username] [ntlm_hash_or_password]",
+    },
+    "apt_unknown_sub": {
+        "ko": "알 수 없는 APT 서브 명령. /apt 로 도움말 확인",
+        "zh": "未知APT子命令。输入 /apt 查看帮助",
+        "en": "Unknown APT subcommand. Use /apt for help",
+    },
+    "apt_phish_generated": {
+        "ko": "🎣 스피어피싱 이메일 생성 완료",
+        "zh": "🎣 鱼叉式网络钓鱼邮件生成完成",
+        "en": "🎣 Spear-phishing email generated",
+    },
+    "apt_supply_no_findings": {
+        "ko": "✅ 공급망 취약점 없음 — 스캔 완료",
+        "zh": "✅ 未发现供应链漏洞 — 扫描完成",
+        "en": "✅ No supply chain vulnerabilities found — scan complete",
+    },
+    "apt_lateral_commands_ready": {
+        "ko": "🔀 횡방향 이동 명령 생성 완료",
+        "zh": "🔀 横向移动命令生成完成",
+        "en": "🔀 Lateral movement commands ready",
+    },
+    "apt_c2_generated": {
+        "ko": "🕵️ 은폐 C2 채널 스크립트 생성 완료",
+        "zh": "🕵️ 隐蔽C2信道脚本生成完成",
+        "en": "🕵️ Covert C2 channel scripts generated",
     },
     # ── v3.5.11: Ctrl+C / 오케스트레이터 중단 관련 ──────────────────────────
     "orch_ctrlc_stopped": {

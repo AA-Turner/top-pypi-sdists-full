@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: treq
-Version: 25.5.0
+Version: 26.7.0
 Summary: High-level Twisted HTTP Client API
 Project-URL: Changelog, https://github.com/twisted/treq/blob/HEAD/CHANGELOG.rst
 Project-URL: Documentation, https://treq.readthedocs.io/
@@ -18,27 +18,26 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.8.0
+Requires-Python: >=3.9.0
 Requires-Dist: attrs
 Requires-Dist: hyperlink>=21.0.0
 Requires-Dist: incremental>=24.7.2
 Requires-Dist: multipart
-Requires-Dist: requests>=2.1.0
 Requires-Dist: twisted[tls]>=22.10.0
 Requires-Dist: typing-extensions>=3.10.0
 Provides-Extra: dev
-Requires-Dist: httpbin==0.7.0; extra == 'dev'
+Requires-Dist: httpbin==0.10.2; extra == 'dev'
 Requires-Dist: pep8; extra == 'dev'
 Requires-Dist: pyflakes; extra == 'dev'
-Requires-Dist: werkzeug==2.0.3; extra == 'dev'
+Requires-Dist: werkzeug==3.1.8; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme; extra == 'docs'
@@ -55,17 +54,12 @@ treq: High-level Twisted HTTP Client API
     :alt: calver: YY.MM.MICRO
     :target: https://calver.org/
 
-.. |coverage| image:: https://coveralls.io/repos/github/twisted/treq/badge.svg
-    :alt: Coverage
-    :target: https://coveralls.io/github/twisted/treq
-
 .. |documentation| image:: https://readthedocs.org/projects/treq/badge/
     :alt: Documentation
     :target: https://treq.readthedocs.org
 
 |pypi|
 |calver|
-|coverage|
 |documentation|
 
 ``treq`` is an HTTP library inspired by

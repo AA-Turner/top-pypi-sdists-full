@@ -81,6 +81,60 @@ def get_human_prompt_handler() -> HumanPromptHandler | None:
     return _human_prompt_handler.get()
 
 
+_APPROVE_LABEL = "Allow"
+_DENY_LABEL = "Deny"
+
+
+class RuntimePermissionBridge:
+    """Bridges a foreign engine's tool-approval callback into the HITL path.
+
+    Implements the ``PermissionBridge`` protocol (see
+    ``dreadnode.agents.engines.base``). A foreign engine (e.g. ``claude-code``)
+    calls :meth:`request_tool_approval`; we build a ``HumanPrompt`` and route it
+    through the *same* per-turn human-prompt handler ``ask_user`` uses, so the
+    existing ``prompt.required`` / ``prompt.respond`` UX is preserved — including
+    autonomous-policy auto-deny (the handler resolves ``cancel`` instantly) and
+    the eval-worker path (CAP-EGOV-007).
+    """
+
+    async def request_tool_approval(self, *, tool_name: str, tool_input: dict[str, t.Any]) -> bool:
+        handler = get_human_prompt_handler()
+        if handler is None:
+            # No HITL context registered (e.g. bare-SDK use outside a turn).
+            # Fail open — the engine only attaches this bridge inside a runtime
+            # turn, where a handler is always set; autonomous denial is handled
+            # by the handler itself returning ``cancel``.
+            logger.debug("Tool approval requested for '{}' with no handler; allowing", tool_name)
+            return True
+
+        summary = ", ".join(f"{k}={v!r}" for k, v in list(tool_input.items())[:4])
+        prompt = HumanPrompt(
+            request_id=str(uuid4()),
+            questions=[
+                HumanQuestion(
+                    kind="choice",
+                    prompt=f"Allow tool '{tool_name}'? ({summary})"
+                    if summary
+                    else f"Allow tool '{tool_name}'?",
+                    header="Tool approval",
+                    options=[
+                        HumanPromptOption(label=_APPROVE_LABEL),
+                        HumanPromptOption(label=_DENY_LABEL),
+                    ],
+                    custom=False,
+                )
+            ],
+        )
+        response = await handler(prompt)
+        if response.action == "cancel" or not response.answers:
+            return False
+        answer = response.answers[0]
+        selected = list(answer.selected_labels)
+        if answer.text:
+            selected.append(answer.text)
+        return any(label.lower() == _APPROVE_LABEL.lower() for label in selected)
+
+
 async def _default_input(question: str, options: list[str] | None = None) -> str:
     """Default input handler using stdin (blocking)."""
 

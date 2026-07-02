@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: knockapi
-Version: 1.25.0
+Version: 1.26.0
 Summary: The official Python library for the knock API
 Project-URL: Homepage, https://github.com/knocklabs/knock-python
 Project-URL: Repository, https://github.com/knocklabs/knock-python
@@ -225,11 +225,15 @@ from knockapi import Knock
 
 client = Knock()
 
-page = client.users.list_messages(
-    user_id="user-123",
-    inserted_at={},
+response = client.workflows.trigger(
+    key="key",
+    recipients=["dr_grant", "dr_sattler", "dr_malcolm"],
+    settings={
+        "sandbox_mode": True,
+        "skip_delay": True,
+    },
 )
-print(page.items)
+print(response.settings)
 ```
 
 ## Handling errors

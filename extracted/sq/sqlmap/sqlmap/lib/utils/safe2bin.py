@@ -12,14 +12,16 @@ import sys
 
 PY3 = sys.version_info >= (3, 0)
 
-if PY3:
+try:
+    # Py2
+    text_type = unicode
+    string_types = (basestring,)
+except NameError:
+    # Py3
     xrange = range
     text_type = str
     string_types = (str,)
     unichr = chr
-else:
-    text_type = unicode
-    string_types = (basestring,)
 
 # Regex used for recognition of hex encoded characters
 HEX_ENCODED_CHAR_REGEX = r"(?P<result>\\x[0-9A-Fa-f]{2})"
@@ -74,6 +76,11 @@ def safecharencode(value):
 def safechardecode(value, binary=False):
     """
     Reverse function to safecharencode
+
+    >>> safechardecode(u'test123') == u'test123'
+    True
+    >>> safechardecode(safecharencode(u'test\x01\x02\xaf')) == u'test\x01\x02\xaf'
+    True
     """
 
     retVal = value

@@ -6,6 +6,8 @@ import random
 import string
 from typing import Any
 
+from markupsafe import Markup, escape
+
 
 DEFAULT_USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
@@ -38,12 +40,15 @@ def is_country_tag(tag: str) -> bool:
 def enrich_link_str(link: str) -> str:
     link = link.strip()
     if link.startswith("www.") or (link.startswith("http") and "//" in link):
-        return f'<a class="auto-link" href="{link}">{link}</a>'
+        # escape the link to avoid XSS; Markup keeps the <a> tag itself intact
+        # under the template's autoescaping.
+        safe = escape(link)
+        return Markup(f'<a class="auto-link" href="{safe}">{safe}</a>')
     return link
 
 
 class URLMatcher:
-    _HTTP_URL_RE_STR = "^https?://(www.|m.)?(.+)$"
+    _HTTP_URL_RE_STR = r"^https?://(www\.|m\.)?(.+)$"
     HTTP_URL_RE = re.compile(_HTTP_URL_RE_STR)
     UNSAFE_SYMBOLS = ".?"
 
@@ -79,14 +84,14 @@ def ascii_data_display(data: str) -> Any:
 
 def get_dict_ascii_tree(items, prepend="", new_line=True):
     new_result = b'\xe2\x94\x9c'.decode()
-    new_line = b'\xe2\x94\x80'.decode()
+    h_line = b'\xe2\x94\x80'.decode()
     last_result = b'\xe2\x94\x94'.decode()
     skip_result = b'\xe2\x94\x82'.decode()
 
     text = ""
     for num, item in enumerate(items):
         box_symbol = (
-            new_result + new_line if num != len(items) - 1 else last_result + new_line
+            new_result + h_line if num != len(items) - 1 else last_result + h_line
         )
 
         if isinstance(item, tuple):
@@ -127,3 +132,65 @@ def get_match_ratio(base_strs: list):
 
 def generate_random_username():
     return ''.join(random.choices(string.ascii_lowercase, k=10))
+
+
+def is_plausible_username(value: Any) -> bool:
+    """Reject obviously non-username strings extracted from sites' identity data.
+
+    Extractor schemes occasionally populate fields named like ``*_username``
+    with URLs (e.g. ``instagram_username`` -> ``https://instagram.com/X``) or
+    emails (e.g. ``your_username`` -> ``user@example.com``). Feeding such a
+    value back into a site URL template produces broken requests on every
+    subsequent site, which manifests as a cascade of false errors and the
+    "wrong username" symptom in #1403.
+    """
+    if not isinstance(value, str):
+        return False
+    s = value.strip()
+    if not s:
+        return False
+    if "://" in s or s.startswith(("http://", "https://", "www.", "//")):
+        return False
+    if "/" in s:
+        return False
+    if any(c.isspace() for c in s):
+        return False
+    if "@" in s and "." in s:
+        return False
+    return True
+
+
+def extract_usernames(info, logger):
+    """Extract plausible usernames from socid_extractor results.
+
+    Supports single username fields (e.g. ``profile_username``) and
+    serialized username lists (e.g. ``other_usernames``). Invalid values
+    such as URLs or emails are rejected via ``is_plausible_username``.
+    """
+    results = []
+
+    for key, value in info.items():
+        if "username" in key and "usernames" not in key:
+            if is_plausible_username(value):
+                results.append(value)
+            else:
+                logger.debug(
+                    f"Rejected non-username value extracted "
+                    f"under key {key!r}: {value!r}"
+                )
+        elif "usernames" in key:
+            try:
+                parsed = ast.literal_eval(value)
+                if isinstance(parsed, list):
+                    for item in parsed:
+                        if is_plausible_username(item):
+                            results.append(item)
+                        else:
+                            logger.debug(
+                                f"Rejected non-username item "
+                                f"from list under key {key!r}: {item!r}"
+                            )
+            except Exception as e:
+                logger.warning(e)
+
+    return results

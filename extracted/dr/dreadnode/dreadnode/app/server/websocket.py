@@ -30,7 +30,7 @@ from dreadnode.app.server.runtime_events import (
     TurnCancelCommandPayload,
     TurnStartCommandPayload,
 )
-from dreadnode.app.server.utils import safe_json_dumps
+from dreadnode.app.server.utils import serialize_ws_frame
 
 _WS_CLOSE_UNAUTHORIZED = 4401
 _WS_CLOSE_INVALID_COMMAND = 4400
@@ -87,12 +87,14 @@ class RuntimeWebSocketTransport:
         resolve_session: Callable[[str], RuntimeSessionProtocol],
         get_session: Callable[[str], RuntimeSessionProtocol | None],
         sync_accepted_turn: SyncAcceptedTurnProtocol,
+        consume_ticket: Callable[[str], bool] | None = None,
     ) -> None:
         self._websocket = websocket
         self._event_bus = event_bus
         self._resolve_session = resolve_session
         self._get_session = get_session
         self._sync_accepted_turn = sync_accepted_turn
+        self._consume_ticket = consume_ticket
         self._connection_id = f"conn_{uuid4().hex}"
         self._outbound_queue: asyncio.Queue[RuntimeOutboundEnvelope | None] = asyncio.Queue()
         self._subscriptions: dict[str, EventBusSubscription] = {}
@@ -110,6 +112,13 @@ class RuntimeWebSocketTransport:
             self._websocket.url.path,
             self._websocket.headers.get("authorization"),
         )
+        # Browsers cannot set an Authorization header on the handshake, so fall
+        # back to a single-use ?ticket=<...> query param — but only when the
+        # header check fails, so a valid bearer never consumes ticket state.
+        if error is not None and self._consume_ticket is not None:
+            ticket = self._websocket.query_params.get("ticket")
+            if ticket and self._consume_ticket(ticket):
+                error = None
         if error is not None:
             logger.warning(
                 "Runtime websocket auth failed | path={} reason={}",
@@ -179,7 +188,7 @@ class RuntimeWebSocketTransport:
             envelope = await self._outbound_queue.get()
             if envelope is None:
                 return
-            await self._websocket.send_text(safe_json_dumps(envelope.model_dump(mode="json")))
+            await self._websocket.send_text(serialize_ws_frame(envelope.model_dump(mode="json")))
 
     async def _dispatch_command(self, command: RuntimeCommandEnvelope) -> None:
         if command.op != "hello" and not self._hello_received:
@@ -637,6 +646,7 @@ async def serve_runtime_websocket(
     resolve_session: Callable[[str], RuntimeSessionProtocol],
     get_session: Callable[[str], RuntimeSessionProtocol | None],
     sync_accepted_turn: SyncAcceptedTurnProtocol,
+    consume_ticket: Callable[[str], bool] | None = None,
 ) -> None:
     """Run the runtime websocket transport on the provided FastAPI socket."""
     transport = RuntimeWebSocketTransport(
@@ -645,6 +655,7 @@ async def serve_runtime_websocket(
         resolve_session=resolve_session,
         get_session=get_session,
         sync_accepted_turn=sync_accepted_turn,
+        consume_ticket=consume_ticket,
     )
     await transport.serve()
 
@@ -708,7 +719,7 @@ async def serve_runtime_event_stream(
             # subscribe time.
             if envelope.replay:
                 continue
-            await websocket.send_text(safe_json_dumps(envelope.model_dump(mode="json")))
+            await websocket.send_text(serialize_ws_frame(envelope.model_dump(mode="json")))
 
     async def _watch_disconnect() -> None:
         # Consumers don't send commands on this stream — we only read to

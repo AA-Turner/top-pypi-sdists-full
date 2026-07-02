@@ -670,32 +670,97 @@ def _build_agent_sync(
     # the agent. The portal block is bounded to ~6KB to keep turns cheap.
     portal_context = ""
     if portal_session_id:
+        logger.info(
+            "v3.5.0 portal lookup: portal_id=%s (received from chat layer)",
+            portal_session_id[:12],
+        )
         try:
             from cvc.gateway.soul import (
                 _load_portal_sessions,
                 format_portal_chat_context,
+                format_portal_day_context,
             )
             sessions = _load_portal_sessions()
             sess = sessions.get(portal_session_id)
             if sess:
-                portal_context = format_portal_chat_context(
-                    sess.get("snapshot_id", ""),
-                    max_chars=6000,
+                sess_scope = sess.get("scope", "snapshot")
+                if sess_scope == "day":
+                    portal_context = format_portal_day_context(
+                        sess.get("date", sess.get("iso_date", "")),
+                        max_chars=8000,
+                    )
+                else:
+                    portal_context = format_portal_chat_context(
+                        sess.get("snapshot_id", ""),
+                        max_chars=6000,
+                    )
+                logger.info(
+                    "v3.5.0 portal context built: snapshot=%s iso_date=%s chars=%d",
+                    sess.get("snapshot_id", "")[:12],
+                    time.strftime(
+                        "%Y-%m-%d %H:%M",
+                        time.localtime(float(sess.get("snapshot_timestamp", 0))),
+                    )
+                    if sess.get("snapshot_timestamp")
+                    else "?",
+                    len(portal_context),
                 )
             else:
-                logger.info(
-                    "portal_session_id=%s provided but no active session — "
-                    "falling back to current soul",
+                logger.warning(
+                    "v3.5.0 portal_session_id=%s provided but no active session — "
+                    "falling back to current soul. Known sessions: %s",
                     portal_session_id[:12],
+                    list(sessions.keys())[:3],
                 )
         except Exception as exc:  # noqa: BLE001
-            logger.debug("portal context lookup failed (non-fatal): %s", exc)
+            logger.warning(
+                "v3.5.0 portal context lookup FAILED (non-fatal): %s", exc,
+                exc_info=True,
+            )
 
     merged_ephemeral = portal_context
     if ephemeral_system_prompt:
         merged_ephemeral = (
             (portal_context + "\n\n" if portal_context else "")
             + ephemeral_system_prompt
+        )
+
+    # When portal mode is active, ALSO inject the portal framing as a
+    # user/assistant prefill pair. System-prompt tail instructions are
+    # easy for models to ignore (especially when the cached stable
+    # identity layer contradicts them — e.g. "be Sofia" vs "be the
+    # soul as of X"). A prefill pair is treated as established context
+    # the model continues from, which is the most reliable way to lock
+    # the temporal frame.
+    portal_prefill: list[dict[str, str]] = []
+    if portal_session_id and portal_context:
+        try:
+            from cvc.gateway.soul import _load_portal_sessions
+            _sess = _load_portal_sessions().get(portal_session_id) or {}
+            iso_date = _sess.get("iso_date") or "the selected date"
+        except Exception:
+            iso_date = "the selected date"
+        portal_prefill = [
+            {
+                "role": "user",
+                "content": (
+                    "[System context — Time Portal is ACTIVE]\n\n"
+                    f"{portal_context}\n\n"
+                    "Acknowledge the portal frame in one short sentence, "
+                    "then wait for the user's message."
+                ),
+            },
+            {
+                "role": "assistant",
+                "content": (
+                    "Time Portal active — I'm answering as the soul knew on "
+                    f"{iso_date}. What would you like to talk about?"
+                ),
+            },
+        ]
+        logger.info(
+            "v3.5.0 portal prefill: %d messages queued (iso_date=%s)",
+            len(portal_prefill), iso_date,
         )
 
     agent = create_agent(
@@ -706,6 +771,7 @@ def _build_agent_sync(
         tool_progress_callback=_noop_tool_progress,
         tool_start_callback=_noop_tool_start,
         tool_complete_callback=_noop_tool_complete,
+        prefill_messages=portal_prefill or None,
     )
     _attach_outbox_callbacks(agent, outbox, gate)
     return agent
@@ -809,18 +875,49 @@ async def run_chat_turn(
         # portal picker UI (no Telegram "enter the portal" command yet)
         # but if a portal_session_id IS provided, we honor it.
         portal_ephemeral = ""
+        portal_prefill: list[dict[str, str]] = []
         if portal_session_id:
             try:
                 from cvc.gateway.soul import (
                     _load_portal_sessions,
                     format_portal_chat_context,
+                    format_portal_day_context,
                 )
                 sessions = _load_portal_sessions()
                 sess = sessions.get(portal_session_id)
                 if sess:
-                    portal_ephemeral = format_portal_chat_context(
-                        sess.get("snapshot_id", ""), max_chars=6000,
-                    )
+                    sess_scope = sess.get("scope", "snapshot")
+                    if sess_scope == "day":
+                        portal_ephemeral = format_portal_day_context(
+                            sess.get("date", sess.get("iso_date", "")),
+                            max_chars=8000,
+                        )
+                    else:
+                        portal_ephemeral = format_portal_chat_context(
+                            sess.get("snapshot_id", ""), max_chars=6000,
+                        )
+                    # Same prefill pattern as _build_agent_sync — see
+                    # comment there for rationale.
+                    iso_date = sess.get("iso_date") or "the selected date"
+                    portal_prefill = [
+                        {
+                            "role": "user",
+                            "content": (
+                                "[System context — Time Portal is ACTIVE]\n\n"
+                                f"{portal_ephemeral}\n\n"
+                                "Acknowledge the portal frame in one short "
+                                "sentence, then wait for the user's message."
+                            ),
+                        },
+                        {
+                            "role": "assistant",
+                            "content": (
+                                f"Time Portal active — I'm answering as the "
+                                f"soul knew on {iso_date}. What would you "
+                                f"like to talk about?"
+                            ),
+                        },
+                    ]
             except Exception as exc:  # noqa: BLE001
                 logger.debug("portal context lookup failed (non-fatal): %s", exc)
 
@@ -838,6 +935,7 @@ async def run_chat_turn(
             tool_progress_callback=lambda *_, **__: None,
             tool_start_callback=lambda *_, **__: None,
             tool_complete_callback=lambda *_, **__: None,
+            prefill_messages=portal_prefill or None,
         )
         result = agent.run_conversation(
             user_message=text,
@@ -1383,25 +1481,42 @@ async def chat_endpoint(
         # <workspace>/.cvc/user_model.json — which is what the Soul
         # page reads from. Best-effort, never breaks the response.
         #
-        # v3.5.0 — TIME PORTAL: SKIP this hook when a portal session is
-        # active. The whole point of portal mode is to talk to past-Jai
-        # without polluting the present soul — anything this turn says
-        # belongs to the historical frame, not the live one.
-        if not portal_session_id:
-            try:
-                from cvc.operations.per_turn_soul import fire_and_forget_update
-                fire_and_forget_update(
-                    user_message=user_message,
-                    assistant_text=final_text,
-                    workspace_path=workspace_path,
-                )
-            except Exception as e:  # pragma: no cover — best-effort
-                logger.debug("per-turn soul hook failed: %s", e)
-        else:
-            logger.info(
-                "skipped per-turn soul update — portal active (portal_id=%s)",
-                portal_session_id[:12],
+        # v3.5.0 → v3.5.1 — TIME PORTAL: changed from "skip in portal mode" to
+        # "always write, but label portal-mode turns with [portal:{date}]".
+        # Jai's framing: the soul should never lose information — even a
+        # time-travel conversation belongs in the present soul's audit
+        # trail. The label lets future filtering separate portal-mode
+        # dialogue from regular chat without losing either.
+        try:
+            from cvc.operations.per_turn_soul import fire_and_forget_update
+            user_msg_for_soul = user_message
+            assistant_text_for_soul = final_text
+            if portal_session_id:
+                try:
+                    from cvc.gateway.soul import _load_portal_sessions
+                    _psess = _load_portal_sessions().get(portal_session_id) or {}
+                    _pdate = (
+                        _psess.get("date")
+                        or _psess.get("iso_date")
+                        or "unknown"
+                    )
+                    _pscope = _psess.get("scope", "snapshot")
+                    _plabel = f"[portal:{_pdate}][{_pscope}] "
+                    user_msg_for_soul = _plabel + (user_message or "")
+                    assistant_text_for_soul = _plabel + (final_text or "")
+                    logger.info(
+                        "v3.5.1 portal-labeled soul write: portal_id=%s date=%s scope=%s",
+                        portal_session_id[:12], _pdate, _pscope,
+                    )
+                except Exception as _lab_exc:  # noqa: BLE001
+                    logger.debug("portal label lookup failed (non-fatal): %s", _lab_exc)
+            fire_and_forget_update(
+                user_message=user_msg_for_soul,
+                assistant_text=assistant_text_for_soul,
+                workspace_path=workspace_path,
             )
+        except Exception as e:  # pragma: no cover — best-effort
+            logger.debug("per-turn soul hook failed: %s", e)
 
     return StreamingResponse(
         event_stream(),
@@ -1803,17 +1918,35 @@ async def ws_chat_endpoint(
         # empty. The hook writes to <workspace>/.cvc/user_model.json
         # exactly the way the Soul page reads it. Best-effort.
         #
-        # v3.5.0 — TIME PORTAL: skip in portal mode (see comment above).
-        if not portal_session_id:
-            try:
-                from cvc.operations.per_turn_soul import fire_and_forget_update
-                fire_and_forget_update(
-                    user_message=user_message,
-                    assistant_text=final_text,
-                    workspace_path=workspace_path,
-                )
-            except Exception as e:  # pragma: no cover — best-effort
-                logger.debug("per-turn soul hook (ws) failed: %s", e)
+        # v3.5.0 → v3.5.1 — TIME PORTAL: changed from "skip in portal mode" to
+        # "always write, but label portal-mode turns with [portal:{date}]".
+        # Same pattern as the HTTP path — see comment there for rationale.
+        try:
+            from cvc.operations.per_turn_soul import fire_and_forget_update
+            user_msg_for_soul = user_message
+            assistant_text_for_soul = final_text
+            if portal_session_id:
+                try:
+                    from cvc.gateway.soul import _load_portal_sessions
+                    _psess = _load_portal_sessions().get(portal_session_id) or {}
+                    _pdate = (
+                        _psess.get("date")
+                        or _psess.get("iso_date")
+                        or "unknown"
+                    )
+                    _pscope = _psess.get("scope", "snapshot")
+                    _plabel = f"[portal:{_pdate}][{_pscope}] "
+                    user_msg_for_soul = _plabel + (user_message or "")
+                    assistant_text_for_soul = _plabel + (final_text or "")
+                except Exception:  # noqa: BLE001
+                    pass
+            fire_and_forget_update(
+                user_message=user_msg_for_soul,
+                assistant_text=assistant_text_for_soul,
+                workspace_path=workspace_path,
+            )
+        except Exception as e:  # pragma: no cover — best-effort
+            logger.debug("per-turn soul hook (ws) failed: %s", e)
 
 
 # -----------------------------------------------------------------------------

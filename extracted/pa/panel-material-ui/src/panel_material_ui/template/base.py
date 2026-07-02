@@ -71,6 +71,16 @@ class Page(MaterialComponent, ResourceComponent):
     >>> Page(main=['# Content'], title='My App')
     """
 
+    app_bar_width = param.ClassSelector(default=None, class_=(int, str, dict), doc="""
+        Maximum width of the app bar (header) content. When set, the toolbar
+        content is clamped to this width and centered, aligning it with a
+        clamped main area. Accepts a number (interpreted as pixels), a CSS
+        length string (e.g. '70ch', '60rem', '90%'), or a dict mapping Material
+        UI breakpoints to widths (e.g. {'xs': '100%', 'md': 720, 'lg': 960}),
+        where each value applies at that breakpoint and up. Defaults to None
+        (full width); when unset it follows ``main_width`` so the header stays
+        aligned with the main content.""")
+
     busy = param.Boolean(default=False, readonly=True, doc="Whether the page is busy.")
 
     busy_indicator: t.Literal["circular", "linear"] | None = param.Selector(default="linear", objects=["circular", "linear", None], doc="""
@@ -99,6 +109,14 @@ class Page(MaterialComponent, ResourceComponent):
     header = Children(doc="Items rendered in the header.")
 
     main = Children(doc="Items rendered in the main area.")
+
+    main_width = param.ClassSelector(default=None, class_=(int, str, dict), doc="""
+        Maximum width of the main content area. When set, the main content is
+        clamped to this width and centered to improve readability. Accepts a
+        number (interpreted as pixels), a CSS length string (e.g. '70ch',
+        '60rem', '90%'), or a dict mapping Material UI breakpoints to widths
+        (e.g. {'xs': '100%', 'md': 720, 'lg': 960}), where each value applies
+        at that breakpoint and up. Defaults to None (full width).""")
 
     meta = param.ClassSelector(default=None, class_=Meta, doc="Meta tags and other HTML head elements.")
 
@@ -319,6 +337,63 @@ class ThemeToggle(MaterialWidget):
             self.theme = config.theme = 'dark' if self.value else 'default'
 
 
+class AppBar(MaterialComponent):
+    """
+    The `AppBar` component renders a Material UI App Bar (top navigation bar).
+    It supports a title, icon, color theming, and can contain arbitrary child
+    components (buttons, menus, search fields, etc.) via the `objects` parameter.
+
+    The AppBar is typically placed at the top of an application as a header,
+    either standalone or inside a `Page` component's `header` slot.
+
+    :References:
+
+    - https://panel-material-ui.holoviz.org/reference/page/AppBar.html
+    - https://mui.com/material-ui/react-app-bar/
+
+    :Example:
+
+    >>> pmui.AppBar(title='My App', icon='menu', color='primary')
+    """
+
+    color: t.Literal["default", "inherit", "primary", "secondary", "transparent"] = param.Selector(
+        default="primary", objects=["default", "inherit", "primary", "secondary", "transparent"],
+        doc="The color of the app bar."
+    )  # type: ignore[assignment]
+
+    drawer_toggle = Child()
+
+    enable_color_on_dark = param.Boolean(default=False, doc="""
+        If True, the color prop is applied in dark mode too (by default,
+        Material Design suppresses app bar color in dark mode).""")
+
+    icon = param.String(default=None, doc="""
+        Icon displayed at the start of the app bar. Typically a menu or
+        navigation icon.""")
+
+    objects = Children(doc="Components rendered inside the app bar toolbar.")
+
+    position: t.Literal["fixed", "absolute", "sticky", "static", "relative"] = param.Selector(
+        default="static", objects=["fixed", "absolute", "sticky", "static", "relative"],
+        doc="The CSS position of the app bar."
+    )  # type: ignore[assignment]
+
+    title = param.String(default=None, doc="Title text displayed in the app bar.")
+
+    variant: t.Literal["dense", "regular"] = param.Selector(
+        default="dense", objects=["dense", "regular"],
+        doc="The toolbar variant. 'dense' produces a compact bar."
+    )  # type: ignore[assignment]
+
+    _esm_base = "AppBar.jsx"
+    _source_transforms = {"objects": None}
+
+    def __init__(self, *objects, **params):
+        if objects:
+            params['objects'] = list(objects)
+        super().__init__(**params)
+
+
 class BreakpointSwitcher(MaterialComponent):
     """
     The `BreakpointSwitcher` component allows switching between two component implementations
@@ -356,6 +431,7 @@ class BreakpointSwitcher(MaterialComponent):
 
 
 __all__ = [
+    "AppBar",
     "BreakpointSwitcher",
     "Page",
     "ThemeToggle"

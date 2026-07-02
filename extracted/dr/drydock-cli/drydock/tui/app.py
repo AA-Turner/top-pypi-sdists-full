@@ -487,6 +487,12 @@ class DrydockApp(App):
             self._cmd_compact()
         elif cmd == "/context":
             self._cmd_context(arg)
+        elif cmd == "/advisor":
+            self._cmd_advisor(arg)
+        elif cmd == "/ask":
+            self._cmd_ask(arg)
+        elif cmd == "/ask!":
+            self._cmd_ask(arg, inject=True)
         elif cmd == "/graphrag":
             self._cmd_graphrag(arg)
         elif cmd == "/status":
@@ -509,6 +515,7 @@ class DrydockApp(App):
                 "  /status          session model, cwd, turns, tokens\n"
                 "  /compact         shrink old context to free up the window\n"
                 "  /context         view/set the context-window budget (e.g. /context 65536)\n"
+                "  /advisor         set up a 2nd 'advisor' model (Gemini etc.); /ask <q> = you, /ask! = feed to agent\n"
                 "  /graphrag        ingest docs into a knowledge base the agent can use\n"
                 "                   build <path> · add <path> · query <q> · status · clear\n"
                 "  /skills          list skills · /skills new <name> <prompt> to create one\n"
@@ -842,6 +849,87 @@ class DrydockApp(App):
             msg = (f"✓ Model server reports n_ctx = {n_ctx:,} tokens (≥ drydock's {limit:,}), "
                    "so drydock's budget is the effective limit — no server-side cap.")
         self.call_from_thread(self._info, msg)
+
+    def _cmd_advisor(self, arg: str) -> None:
+        """View/set the optional second 'advisor' model (a stronger model, e.g.
+        Gemini, on any OpenAI-compatible endpoint). Persists to config.toml."""
+        arg = (arg or "").strip()
+        if not arg:
+            from drydock import advisor
+            m = self.config.get("advisor_model") or "(unset)"
+            u = self.config.get("advisor_base_url") or "(unset)"
+            has_key = "yes" if (self.config.get("advisor_api_key") or "").strip() else "no"
+            state = "configured ✓" if advisor.is_configured(self.config) else "not configured"
+            self._info(
+                f"advisor ({state}):\n"
+                f"  model:    {m}\n"
+                f"  endpoint: {u}\n"
+                f"  api key:  {has_key}\n"
+                "Set up:  /advisor url <base_url/v1>  ·  /advisor model <name>  ·  "
+                "/advisor key <api_key>  ·  /advisor test\n"
+                "Then:  /ask <question>  (you)  or the agent calls the Consult tool."
+            )
+            return
+        parts = arg.split(maxsplit=1)
+        sub = parts[0].lower()
+        val = parts[1].strip() if len(parts) > 1 else ""
+        if sub == "test":
+            from drydock import advisor
+            if not advisor.is_configured(self.config):
+                self._info(advisor.not_configured_message())
+                return
+            self._info(f"Testing the advisor endpoint ({self.config.get('advisor_base_url')})…")
+            self.run_worker(lambda: self.call_from_thread(
+                self._info, advisor.test_connection(self.config)), thread=True)
+            return
+        keymap = {"url": "advisor_base_url", "endpoint": "advisor_base_url",
+                  "model": "advisor_model", "key": "advisor_api_key", "api_key": "advisor_api_key"}
+        if sub not in keymap or not val:
+            self._mount(ErrorMessage(
+                "usage: /advisor [url <base_url> | model <name> | key <api_key> | test]"))
+            return
+        self.config[keymap[sub]] = val
+        self._persist_config()
+        shown = "•••••" if keymap[sub] == "advisor_api_key" else val
+        self._info(f"✓ advisor {sub} set to {shown} (saved to config.toml).")
+
+    def _cmd_ask(self, arg: str, *, inject: bool = False) -> None:
+        """Consult the advisor model. `/ask` shows the answer to YOU only;
+        `/ask!` also INJECTS it into the agent's context and has the primary model
+        process it (so a second opinion can steer the current task)."""
+        from drydock import advisor
+        q = (arg or "").strip()
+        if not q:
+            self._info("usage: /ask <question>  (show to you)  ·  /ask! <question>  "
+                       "(also feed the answer to the agent)")
+            return
+        if not advisor.is_configured(self.config):
+            self._info(advisor.not_configured_message())
+            return
+        self._info(f"Asking the advisor ({self.config.get('advisor_model')})"
+                   + (" — its answer will be added to the agent's context…" if inject else "…"))
+        self.run_worker(lambda: self._ask_worker(q, inject), thread=True)
+
+    def _ask_worker(self, question: str, inject: bool = False) -> None:
+        from drydock import advisor
+        answer = advisor.consult(question, self.config)
+        self.call_from_thread(self._deliver_advice, question, answer, inject)
+
+    def _deliver_advice(self, question: str, answer: str, inject: bool) -> None:
+        """Show the advisor's answer; if inject, feed it into the agent's context
+        so the primary model processes it (queued if a turn is already running)."""
+        failed = answer.startswith(("No advisor", "Could not reach", "Error", "✗"))
+        if not inject or failed:
+            self._info(f"💡 advisor:\n{answer}")
+            return
+        self._info(f"💡 advisor (added to the agent's context):\n{answer}")
+        turn = (f"[Second opinion from the advisor model — I asked it: {question}]\n\n"
+                f"{answer}\n\n[Consider this advice for the current task.]")
+        if self._busy:
+            self._queue.append(turn)
+            self._refresh_status()
+        else:
+            self._begin(turn)
 
     def _cmd_compact(self) -> None:
         """Manually compact the conversation to reclaim context NOW, without

@@ -3610,6 +3610,11 @@ class MemoizingEnumerable(typing.Generic[QuantConnect_Util_MemoizingEnumerable_T
         """Gets the count of items in the enumerable. This will force enumeration of the entire collection if it has not already been enumerated."""
         ...
 
+    @property
+    def empty(self) -> bool:
+        """Gets whether the enumerable is empty. This will force enumeration of the first item if it has not already been enumerated."""
+        ...
+
     def __init__(self, enumerable: typing.List[QuantConnect_Util_MemoizingEnumerable_T]) -> None:
         """
         Initializes a new instance of the MemoizingEnumerable{T} class

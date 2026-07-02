@@ -27,13 +27,22 @@ __all__ = (
     "AgreementTypeType",
     "ArtifactServiceName",
     "CustomerAgreementStateType",
+    "InputSourceType",
+    "InquiryStatusMessageType",
+    "InquiryStatusType",
+    "InquirySupportModeType",
+    "ListComplianceInquiriesPaginatorName",
+    "ListComplianceInquiryQueriesPaginatorName",
     "ListCustomerAgreementsPaginatorName",
     "ListReportVersionsPaginatorName",
     "ListReportsPaginatorName",
     "NotificationSubscriptionStatusType",
     "PaginatorName",
     "PublishedStateType",
+    "QueryStatusMessageType",
+    "QueryStatusType",
     "ResourceServiceName",
+    "ReviewTypeType",
     "ServiceName",
     "UploadStateType",
 )
@@ -42,11 +51,33 @@ __all__ = (
 AcceptanceTypeType = Literal["EXPLICIT", "PASSTHROUGH"]
 AgreementTypeType = Literal["CUSTOM", "DEFAULT", "MODIFIED"]
 CustomerAgreementStateType = Literal["ACTIVE", "AWS_TERMINATED", "CUSTOMER_TERMINATED"]
+InputSourceType = Literal["FILE", "TEXT"]
+InquiryStatusMessageType = Literal[
+    "An internal error occurred while processing the inquiry. Try again at a later time.",
+    "Compliance inquiry processing is complete.",
+    "Compliance inquiry processing is complete. One or more queries encountered errors during processing.",
+    "Compliance inquiry processing is in-progress.",
+    "Human review is in progress.",
+    "Malware was detected on the file. Provide a new file and try again.",
+]
+InquiryStatusType = Literal["COMPLETED", "FAILED", "HUMAN_REVIEW", "PROCESSING"]
+InquirySupportModeType = Literal["AI_ONLY", "FULL_SUPPORT"]
+ListComplianceInquiriesPaginatorName = Literal["list_compliance_inquiries"]
+ListComplianceInquiryQueriesPaginatorName = Literal["list_compliance_inquiry_queries"]
 ListCustomerAgreementsPaginatorName = Literal["list_customer_agreements"]
 ListReportVersionsPaginatorName = Literal["list_report_versions"]
 ListReportsPaginatorName = Literal["list_reports"]
 NotificationSubscriptionStatusType = Literal["NOT_SUBSCRIBED", "SUBSCRIBED"]
 PublishedStateType = Literal["PUBLISHED", "UNPUBLISHED"]
+QueryStatusMessageType = Literal[
+    "An internal error occurred while processing the query. Try again at a later time.",
+    "Query contains restricted or unsupported content.",
+    "Query is pending human review.",
+    "Query processing is complete.",
+    "Query processing is in-progress.",
+]
+QueryStatusType = Literal["COMPLETED", "FAILED", "PROCESSING"]
+ReviewTypeType = Literal["AI", "HUMAN"]
 UploadStateType = Literal["COMPLETE", "FAILED", "FAULT", "PROCESSING"]
 ArtifactServiceName = Literal["artifact"]
 ServiceName = Literal[
@@ -242,8 +273,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -270,6 +299,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -337,7 +368,6 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
@@ -373,6 +403,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -400,6 +431,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -421,7 +453,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -442,6 +473,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -477,4 +509,10 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_customer_agreements", "list_report_versions", "list_reports"]
+PaginatorName = Literal[
+    "list_compliance_inquiries",
+    "list_compliance_inquiry_queries",
+    "list_customer_agreements",
+    "list_report_versions",
+    "list_reports",
+]

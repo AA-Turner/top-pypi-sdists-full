@@ -32,7 +32,7 @@ from weblate.trans.exceptions import FailedCommitError, FileParseError
 from weblate.trans.forms import SimpleUploadForm, UploadForm, get_upload_form
 from weblate.trans.models import Change, ComponentList, PendingUnitChange, Translation
 from weblate.trans.tests.test_views import ViewTestCase
-from weblate.trans.tests.utils import get_test_file
+from weblate.trans.tests.utils import get_optional_path, get_test_file
 from weblate.utils.data import data_dir
 from weblate.utils.state import STATE_READONLY
 
@@ -1182,6 +1182,46 @@ class ImportSourceTest(ImportBaseTest):
             self.expected_uploads,
         )
 
+    def test_import_removes_obsolete(self) -> None:
+        self.component.file_format_params = {
+            **self.component.file_format_params,
+            "po_remove_obsolete": True,
+        }
+        self.component.save(update_fields=["file_format_params"])
+        translation = self.component.translation_set.get(language__code="cs")
+        translation_file = get_optional_path(translation.get_filename())
+        translation_file.write_text(
+            translation_file.read_text(encoding="utf-8").replace(
+                'msgid "Thank you for using Weblate."\nmsgstr ""',
+                'msgid "Thank you for using Weblate."\nmsgstr "Dekuji"',
+            ),
+            encoding="utf-8",
+        )
+        content = Path(TEST_POT).read_text(encoding="utf-8")
+        for line in ("14", "15"):
+            content = content.replace(
+                f"\n#: main.c:{line}\n"
+                'msgid "Thank you for using Weblate."\n'
+                'msgstr ""\n',
+                "\n",
+            )
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", suffix=".pot", delete=False
+        ) as handle:
+            handle.write(content)
+            test_file = handle.name
+
+        try:
+            response = self.do_import(method="source", test_file=test_file, follow=True)
+        finally:
+            os.unlink(test_file)
+
+        self.assertRedirects(response, self.translation.get_absolute_url())
+        self.assertNotIn(
+            "#~ msgid",
+            get_optional_path(translation.get_filename()).read_text(encoding="utf-8"),
+        )
+
 
 class ImportAddTest(ImportBaseTest):
     """Testing of source strings update imports."""
@@ -1295,6 +1335,15 @@ class DownloadMultiTest(ViewTestCase):
             reverse("download_component_list", kwargs={"name": "testcl"})
         )
         self.assert_zip(response, "test/test/po/cs.po")
+
+    def test_empty_component_list_denied(self) -> None:
+        ComponentList.objects.create(name="TestCL", slug="testcl")
+
+        response = self.client.get(
+            reverse("download_component_list", kwargs={"name": "testcl"})
+        )
+
+        self.assertEqual(response.status_code, 404)
 
     def test_component_csv(self) -> None:
         response = self.client.get(

@@ -22,6 +22,8 @@ from weblate.utils.state import (
     STATE_APPROVED,
     STATE_EMPTY,
     STATE_FUZZY,
+    STATE_NEEDS_CHECKING,
+    STATE_NEEDS_REWRITING,
     STATE_READONLY,
     STATE_TRANSLATED,
 )
@@ -79,6 +81,26 @@ class SearchTestCase(TestCase):
             self.assertIn(param, params)
         self.assertEqual(query.exists(), exists)
         return sql, params
+
+
+class BooleanOperatorParserTest(TestCase):
+    def test_boolean_operators_are_case_insensitive(self) -> None:
+        parsers: tuple[Literal["unit", "screenshot", "user", "superuser"], ...] = (
+            "unit",
+            "screenshot",
+            "user",
+            "superuser",
+        )
+        for parser in parsers:
+            with self.subTest(parser=parser):
+                self.assertEqual(
+                    parse_query("alpha and not beta", parser=parser),
+                    parse_query("alpha AND NOT beta", parser=parser),
+                )
+                self.assertEqual(
+                    parse_query("alpha Or beta", parser=parser),
+                    parse_query("alpha OR beta", parser=parser),
+                )
 
 
 class UnitQueryParserTest(SearchTestCase):
@@ -433,6 +455,12 @@ class UnitQueryParserTest(SearchTestCase):
         self.assert_query("is:approved", Q(state=STATE_APPROVED))
         self.assert_query("is:read-only", Q(state=STATE_READONLY))
         self.assert_query("is:fuzzy", Q(state__in=FUZZY_STATES))
+        self.assert_query("is:needs-editing", Q(state__in=FUZZY_STATES))
+
+    def test_fuzzy_state_aliases(self) -> None:
+        self.assert_query("state:needs-editing", Q(state=STATE_FUZZY))
+        self.assert_query("state:needs-rewriting", Q(state=STATE_NEEDS_REWRITING))
+        self.assert_query("state:needs-checking", Q(state=STATE_NEEDS_CHECKING))
 
     def test_changed_by(self) -> None:
         self.assert_query_sql(

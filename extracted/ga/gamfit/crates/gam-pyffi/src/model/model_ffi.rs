@@ -1469,7 +1469,7 @@ fn predict_table(
     rows: Vec<Vec<String>>,
     options_json: Option<String>,
 ) -> PyResult<String> {
-    detach_py_result(py, "predict_table", move || {
+    detach_predict_result(py, "predict_table", move || {
         predict_table_impl(&model_bytes, headers, rows, options_json.as_deref())
     })
 }
@@ -1789,6 +1789,21 @@ fn periodic_spline_curve_basis<'py>(
     ))
 }
 
+/// Cyclic `order`-th difference penalty matrix `DᵀD` on `num_basis` closed
+/// periodic B-spline coefficients (the constant vector is its only nullspace
+/// direction). This is the periodic analogue of the P-spline coefficient
+/// penalty and lives entirely in the Rust core.
+#[pyfunction(signature = (num_basis, order = 2))]
+fn cyclic_difference_penalty(
+    py: Python<'_>,
+    num_basis: usize,
+    order: usize,
+) -> PyResult<Py<PyArray2<f64>>> {
+    let penalty = create_cyclic_difference_penalty_matrix(num_basis, order)
+        .map_err(basis_error_to_pyerr)?;
+    Ok(penalty.into_pyarray(py).unbind())
+}
+
 fn build_wrapped_periodic_harmonic_basis_with_jet(
     t: ArrayView1<'_, f64>,
     n_harmonics: usize,
@@ -2003,12 +2018,14 @@ fn duchon_basis_with_jets<'py>(
     // Resolve the (nullspace_order, power) pair exactly as the basis-only
     // `duchon_basis` forward does (`max_op = 0`): the returned jets must
     // differentiate the *same* matrix the forward builds.
+    let any_periodic = periodic_flags.iter().any(|&b| b);
     let cfg = resolve_duchon_hybrid_config(
         d,
         length_scale,
         nullspace_order,
         power,
         /* max_op = */ 0,
+        any_periodic,
     )?;
 
     // Periods for periodic axes: auto-derived as (max − min) over centers,
@@ -2401,6 +2418,7 @@ fn duchon_basis<'py>(
         nullspace_order,
         power,
         /* max_op = */ 0,
+        any_periodic,
     )?;
     let (spec_length_scale, spec_nullspace, spec_power) =
         (cfg.length_scale, cfg.nullspace_order, cfg.power);
@@ -2581,11 +2599,13 @@ fn duchon_function_norm_penalty<'py>(
                 nullspace_order,
                 Some(explicit_power),
                 /* max_op = */ 0,
+                any_periodic,
             )?;
             (cfg.length_scale, cfg.nullspace_order, cfg.power)
         }
         None => {
-            let cfg = resolve_duchon_hybrid_config(d, length_scale, nullspace_order, None, 0)?;
+            let cfg =
+                resolve_duchon_hybrid_config(d, length_scale, nullspace_order, None, 0, any_periodic)?;
             (cfg.length_scale, cfg.nullspace_order, cfg.power)
         }
     };
@@ -2664,9 +2684,18 @@ fn duchon_function_norm_penalty<'py>(
 /// Build the spherical-spline (S²) basis and matching penalty matrix.
 ///
 /// `points` is an `(N, 2)` array of latitude/longitude pairs (degrees by
-/// default, radians when `radians=True`). `n_centers` controls the number
-/// of Wahba centers (kernel = "sobolev" | "pseudo") or the truncation
-/// degree `L` for kernel = "harmonic" (basis dim = `L * (L + 2)`).
+/// default, radians when `radians=True`). The role of `n_centers` depends on
+/// the kernel:
+///
+/// * `"sobolev"` — the finite Wahba center kernel; `n_centers` is the number
+///   of centers and therefore the basis dimension `K`.
+/// * `"harmonic"` — a truncated spherical-harmonic basis of degree
+///   `L = n_centers` (basis dim `K = L * (L + 2)`).
+/// * `"pseudo"` — the pseudodifferential kernel is resolved by the builder to
+///   the harmonic engine (its low-degree start avoids the finite-center
+///   constant-collision the Wahba chart hits; see `term_design`). Here
+///   `n_centers` is a *target width* that selects a harmonic degree `L`, so
+///   the basis dimension is `K = L * (L + 2)`, not the literal `n_centers`.
 ///
 /// Returns `(design, penalty)` as numpy arrays, with shapes `(N, K)` and
 /// `(K, K)` respectively, where `K` is the chosen basis dimension after
@@ -4972,7 +5001,16 @@ fn gaussian_reml_fit_with_constraints_forward<'py>(
         .map(|inf| inf.edf_total)
         .unwrap_or(0.0);
 
-    // Recompute active set from final β: row i is active iff a_i·β >= b_i - tol.
+    // Recompute the active set from the final β. Constraints are `A·β ≥ b`
+    // (the convention in `active_set.rs`), so a row is *active* (binding)
+    // exactly when its slack `a_i·β − b_i` sits at or below the boundary
+    // tolerance — `a_i·β ≤ b_i + tol`. A row with a large positive slack is
+    // strictly interior and must NOT be reported active. The earlier test
+    // `a_i·β ≥ b_i − tol` was the *feasibility* predicate, not the activity
+    // one: it holds for every feasible row (slack ≥ 0 ≥ −tol), so it flagged
+    // even a never-binding row such as the degenerate `0·β ≥ −1` (slack 1) as
+    // active, which then corrupted the envelope-theorem backward that consumes
+    // this set (it restricts the KKT face to these rows).
     let active_indices: Vec<u64> = match constraints_opt.as_ref() {
         Some(c) if c.a.nrows() > 0 => {
             let beta_scale = beta.iter().fold(0.0_f64, |m, &v| m.max(v.abs())).max(1.0);
@@ -4985,7 +5023,7 @@ fn gaussian_reml_fit_with_constraints_forward<'py>(
                         .fold(0.0_f64, |m, &v| m.max(v.abs()))
                         .max(1.0);
                 let tol = 1e-8 * row_scale * beta_scale.max(c.b[i].abs().max(1.0));
-                if ab[i] >= c.b[i] - tol {
+                if ab[i] <= c.b[i] + tol {
                     out.push(i as u64);
                 }
             }

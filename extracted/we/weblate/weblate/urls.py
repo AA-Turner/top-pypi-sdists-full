@@ -53,7 +53,7 @@ import weblate.trans.views.source
 import weblate.trans.views.widgets
 import weblate.wladmin.views
 import weblate.workspaces.views
-from weblate.auth.decorators import management_access
+from weblate.auth.decorators import management_permission_required
 from weblate.configuration.views import CustomCSSView
 from weblate.sitemaps import SITEMAPS
 from weblate.trans.feeds import ChangesFeed, LanguageChangesFeed, TranslationChangesFeed
@@ -64,7 +64,7 @@ from weblate.trans.views.changes import (
     ChangesView,
     show_change,
 )
-from weblate.trans.views.hooks import ServiceHookView
+from weblate.trans.views.hooks import IntegrationHookView, ServiceHookView
 from weblate.utils.version import VERSION
 
 handler400 = weblate.trans.views.error.bad_request
@@ -82,6 +82,11 @@ real_patterns = [
     path("", weblate.trans.views.dashboard.home, name="home"),
     path("projects/", weblate.trans.views.basic.list_projects, name="projects"),
     path("workspaces/<uuid:pk>/", weblate.workspaces.views.detail, name="workspace"),
+    path(
+        "workspaces/<uuid:pk>/access/",
+        weblate.workspaces.views.access,
+        name="workspace-access",
+    ),
     # Bulk accept all suggestions from a specific user
     path(
         "js/bulk-accept-suggestions/<object_path:path>/",
@@ -229,6 +234,11 @@ real_patterns = [
         "addon/<int:pk>/logs/",
         weblate.addons.views.AddonLogs.as_view(),
         name="addon-logs",
+    ),
+    path(
+        "addon/<int:pk>/components/",
+        weblate.addons.views.AddonComponents.as_view(),
+        name="addon-components",
     ),
     path(
         "access/<name:project>/",
@@ -421,6 +431,21 @@ real_patterns = [
         name="file_scan",
     ),
     path(
+        "remove-duplicate-units/<object_path:path>/",
+        weblate.trans.views.git.remove_duplicate_units,
+        name="remove_duplicate_units",
+    ),
+    path(
+        "cleanup-unused/<object_path:path>/",
+        weblate.trans.views.git.cleanup_unused,
+        name="cleanup_unused",
+    ),
+    path(
+        "remove-obsolete-units/<object_path:path>/",
+        weblate.trans.views.git.remove_obsolete_units,
+        name="remove_obsolete_units",
+    ),
+    path(
         "progress/<object_path:path>/",
         weblate.trans.views.settings.show_progress,
         name="show_progress",
@@ -555,31 +580,41 @@ real_patterns = [
     ),
     path(
         "manage/memory/",
-        management_access(weblate.memory.views.MemoryView.as_view()),
+        management_permission_required("memory.manage")(
+            weblate.memory.views.MemoryView.as_view()
+        ),
         kwargs={"manage": 1},
         name="manage-memory",
     ),
     path(
         "manage/memory/upload/",
-        management_access(weblate.memory.views.UploadView.as_view()),
+        management_permission_required("memory.manage")(
+            weblate.memory.views.UploadView.as_view()
+        ),
         kwargs={"manage": 1},
         name="manage-memory-upload",
     ),
     path(
         "manage/memory/delete/",
-        management_access(weblate.memory.views.DeleteView.as_view()),
+        management_permission_required("memory.manage")(
+            weblate.memory.views.DeleteView.as_view()
+        ),
         kwargs={"manage": 1},
         name="manage-memory-delete",
     ),
     path(
         "manage/memory/rebuild/",
-        management_access(weblate.memory.views.RebuildView.as_view()),
+        management_permission_required("memory.manage")(
+            weblate.memory.views.RebuildView.as_view()
+        ),
         kwargs={"manage": 1},
         name="manage-memory-rebuild",
     ),
     path(
         "manage/memory/download/",
-        management_access(weblate.memory.views.DownloadView.as_view()),
+        management_permission_required("memory.manage")(
+            weblate.memory.views.DownloadView.as_view()
+        ),
         kwargs={"manage": 1},
         name="manage-memory-download",
     ),
@@ -611,12 +646,16 @@ real_patterns = [
     # Machinery
     path(
         "manage/machinery/",
-        management_access(weblate.machinery.views.ListMachineryGlobalView.as_view()),
+        management_permission_required("machinery.edit")(
+            weblate.machinery.views.ListMachineryGlobalView.as_view()
+        ),
         name="manage-machinery",
     ),
     path(
         "manage/machinery/<name:machinery>/",
-        management_access(weblate.machinery.views.EditMachineryGlobalView.as_view()),
+        management_permission_required("machinery.edit")(
+            weblate.machinery.views.EditMachineryGlobalView.as_view()
+        ),
         name="machinery-edit",
     ),
     path(
@@ -686,6 +725,11 @@ real_patterns = [
     ),
     path("changes/render/<int:pk>/", show_change, name="show_change"),
     # Notification hooks
+    path(
+        "hooks/integrations/<uuid:integration_token>/",
+        IntegrationHookView.as_view(),
+        name="integration-webhook",
+    ),
     path(
         "hooks/<slug:service>/",
         ServiceHookView.as_view(),
@@ -779,6 +823,11 @@ real_patterns = [
     ),
     path("js/matomo/", weblate.trans.views.js.matomo, name="js-matomo"),
     path(
+        "js/flags/",
+        weblate.trans.views.js.flag_choices,
+        name="js-flag-choices",
+    ),
+    path(
         "js/translate/<name:service>/<int:unit_id>/",
         weblate.machinery.views.translate,
         name="js-translate",
@@ -797,6 +846,11 @@ real_patterns = [
         "js/translations/<int:unit_id>/",
         weblate.trans.views.js.get_unit_translations,
         name="js-unit-translations",
+    ),
+    path(
+        "js/access/<name:project>/user/<int:user_id>/groups/",
+        weblate.trans.views.acl.project_user_groups,
+        name="js-project-user-groups",
     ),
     path(
         "js/git/<object_path:path>/",
@@ -830,7 +884,11 @@ real_patterns = [
     path("manage/", weblate.wladmin.views.manage, name="manage"),
     path("manage/support/", weblate.wladmin.views.support_form, name="manage-support"),
     path(
-        "manage/addons/", weblate.addons.views.AddonList.as_view(), name="manage-addons"
+        "manage/addons/",
+        management_permission_required("management.addons")(
+            weblate.addons.views.AddonList.as_view()
+        ),
+        name="manage-addons",
     ),
     path("manage/tools/", weblate.wladmin.views.tools, name="manage-tools"),
     path(
@@ -878,6 +936,8 @@ real_patterns = [
         weblate.wladmin.views.performance,
         name="manage-performance",
     ),
+    # VCS
+    path("", include("weblate.vcs.urls")),
     # Accounts
     path("accounts/", include(weblate.accounts.urls)),
     # Auth

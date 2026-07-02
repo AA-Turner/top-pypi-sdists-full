@@ -104,6 +104,15 @@ def build_system_prompt(
             break
 
     if extra:
-        sections.append(f"\n\n## Per-turn note\n\n{extra}")
+        # v3.5.0 — TIME PORTAL: if the extra block is a portal-mode
+        # framing (starts with the ⏳ clock emoji), PREPEND it so the
+        # model sees it FIRST, before workspace context. Otherwise it
+        # would land at the bottom of the prompt where the model is
+        # least likely to honour it (stable identity at the top wins
+        # over tail instructions on most models).
+        if extra.lstrip().startswith("## \u23f3 TIME PORTAL ACTIVE"):
+            sections.insert(0, extra)
+        else:
+            sections.append(f"\n\n## Per-turn note\n\n{extra}")
 
     return "".join(sections)

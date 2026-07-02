@@ -110,6 +110,7 @@ from .literals import (
     NotificationPriorityType,
     NotificationSourceType,
     NotificationStatusType,
+    NotificationTypeType,
     NumberComparisonTypeType,
     NumericQuestionPropertyAutomationLabelType,
     OperationalStatusType,
@@ -353,6 +354,7 @@ __all__ = (
     "ContactSearchSummarySegmentAttributeValueTypeDef",
     "ContactSearchSummaryTypeDef",
     "ContactTypeDef",
+    "ContentAttributesTypeDef",
     "ControlPlaneAttributeFilterTypeDef",
     "ControlPlaneTagFilterTypeDef",
     "ControlPlaneUserAttributeFilterTypeDef",
@@ -1161,6 +1163,7 @@ __all__ = (
     "RealTimeContactAnalysisTranscriptItemWithCharacterOffsetsTypeDef",
     "RealTimeContactAnalysisTranscriptItemWithContentTypeDef",
     "RealtimeContactAnalysisSegmentTypeDef",
+    "RecommenderConfigTypeDef",
     "RecordPrimaryValueTypeDef",
     "RecordingInfoTypeDef",
     "RecurrenceConfigOutputTypeDef",
@@ -1310,6 +1313,7 @@ __all__ = (
     "SendNotificationActionDefinitionTypeDef",
     "SendNotificationActionDefinitionUnionTypeDef",
     "SendOutboundEmailRequestTypeDef",
+    "SendOutboundWebNotificationRequestTypeDef",
     "SentimentConfigurationTypeDef",
     "SignInConfigOutputTypeDef",
     "SignInConfigTypeDef",
@@ -1530,6 +1534,9 @@ __all__ = (
     "VoiceCallEntryPointParametersTypeDef",
     "VoiceEnhancementConfigTypeDef",
     "VoiceRecordingConfigurationTypeDef",
+    "WebNotificationContentTypeDef",
+    "WebNotificationSourceTypeDef",
+    "WidgetDestinationTypeDef",
     "WisdomInfoTypeDef",
     "WorkspaceAssociationSearchCriteriaPaginatorTypeDef",
     "WorkspaceAssociationSearchCriteriaTypeDef",
@@ -2213,6 +2220,11 @@ class RecordingInfoTypeDef(TypedDict):
 class TaskTemplateInfoV2TypeDef(TypedDict):
     Arn: NotRequired[str]
     Name: NotRequired[str]
+
+class RecommenderConfigTypeDef(TypedDict):
+    DomainName: str
+    RecommenderName: str
+    Context: NotRequired[Mapping[str, str]]
 
 class CreateAgentStatusRequestTypeDef(TypedDict):
     InstanceId: str
@@ -4240,6 +4252,10 @@ class SourceCampaignTypeDef(TypedDict):
     CampaignId: NotRequired[str]
     OutboundRequestId: NotRequired[str]
 
+class WidgetDestinationTypeDef(TypedDict):
+    WidgetId: str
+    ProfileId: str
+
 class SignInDistributionTypeDef(TypedDict):
     Region: str
     Enabled: bool
@@ -5727,6 +5743,9 @@ class ContactSearchSummarySegmentAttributeValueTypeDef(TypedDict):
     ValueString: NotRequired[str]
     ValueMap: NotRequired[dict[str, SegmentAttributeValueOutputTypeDef]]
 
+class ContentAttributesTypeDef(TypedDict):
+    RecommenderConfig: NotRequired[RecommenderConfigTypeDef]
+
 class CreateContactFlowVersionRequestTypeDef(TypedDict):
     InstanceId: str
     ContactFlowId: str
@@ -6979,6 +6998,9 @@ SegmentAttributeValueUnionTypeDef = Union[
     SegmentAttributeValueTypeDef, SegmentAttributeValueOutputTypeDef
 ]
 
+class WebNotificationSourceTypeDef(TypedDict):
+    SourceCampaign: SourceCampaignTypeDef
+
 class SignInConfigOutputTypeDef(TypedDict):
     Distributions: list[SignInDistributionTypeDef]
 
@@ -7397,6 +7419,15 @@ class GetContactMetricsResponseTypeDef(TypedDict):
     Id: str
     Arn: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+WebNotificationContentTypeDef = TypedDict(
+    "WebNotificationContentTypeDef",
+    {
+        "Type": NotificationTypeType,
+        "ViewArn": NotRequired[str],
+        "Attributes": NotRequired[ContentAttributesTypeDef],
+    },
+)
 
 class BatchCreateDataTableValueRequestTypeDef(TypedDict):
     InstanceId: str
@@ -8292,6 +8323,16 @@ class ContactEvaluationAttributeFilterTypeDef(TypedDict):
 class ContactFlowSearchFilterTypeDef(TypedDict):
     TagFilter: NotRequired[ControlPlaneTagFilterTypeDef]
     FlowAttributeFilter: NotRequired[ContactFlowAttributeFilterTypeDef]
+
+class SendOutboundWebNotificationRequestTypeDef(TypedDict):
+    InstanceId: str
+    BrowserId: str
+    SessionId: str
+    ExpiresAt: TimestampTypeDef
+    Source: WebNotificationSourceTypeDef
+    Destination: WidgetDestinationTypeDef
+    Content: WebNotificationContentTypeDef
+    ClientToken: NotRequired[str]
 
 class SearchContactsAdditionalTimeRangeTypeDef(TypedDict):
     Criteria: Sequence[SearchContactsAdditionalTimeRangeCriteriaTypeDef]

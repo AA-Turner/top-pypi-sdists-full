@@ -191,6 +191,31 @@ export interface CurrentModel {
   api_key_set?: boolean;
 }
 
+// ── GitHub Copilot dynamic models ──────────────────
+// Returned by GET /api/providers/copilot/models — the LIVE list of
+// models available on the user's Copilot plan (different from the
+// static fallback_models in cvc/providers/base.py). The dashboard
+// uses this to populate the model picker with the actual available
+// set rather than a hardcoded list.
+export interface CopilotModelEntry {
+  id: string;
+  name: string;
+  owned_by?: string;
+  capabilities?: Record<string, unknown>;
+  billing?: Record<string, unknown>;
+  version?: string;
+}
+export interface CopilotModelsResponse {
+  ok: boolean;
+  models: CopilotModelEntry[];
+  source: "copilot_api" | "copilot_api_refresh" | "no_token" | "unavailable" | "error";
+  cached_at?: number | null;
+  account: "individual" | "business" | "enterprise" | "unknown";
+  token_source?: string;
+  note?: string;
+  error?: string;
+}
+
 // ── MCP ─────────────────────────────────────────────
 export interface MCPTool {
   name: string;
@@ -1600,6 +1625,12 @@ export interface PortalSession {
   label: string;
   trigger: string;
   created_at: number;
+  /** v3.5.1 — "snapshot" (single) or "day" (consolidated). */
+  scope?: "snapshot" | "day";
+  /** v3.5.1 — Number of snapshots consolidated (day scope only). */
+  snapshot_count?: number;
+  /** v3.5.1 — When scope="day", the date YYYY-MM-DD. */
+  date?: string;
 }
 
 export interface PortalEnterResponse {
@@ -1612,6 +1643,12 @@ export interface PortalEnterResponse {
   label?: string;
   target_resolved?: string;
   trigger?: string;
+  /** v3.5.1 — echo scope back so client doesn't have to guess. */
+  scope?: "snapshot" | "day";
+  /** v3.5.1 — count of snapshots consolidated (day scope). */
+  snapshot_count?: number;
+  /** v3.5.1 — date when scope="day" (YYYY-MM-DD). */
+  date?: string;
 }
 
 export interface PortalActiveResponse {
@@ -1638,6 +1675,26 @@ export interface PortalChatContextResponse {
   iso_date?: string;
   context?: string;
   context_length?: number;
+}
+
+/** v3.5.1 — one day in the day-index returned by /time-portal/days. */
+export interface PortalDayEntry {
+  date: string;            // YYYY-MM-DD
+  snapshot_count: number;  // raw per_turn_auto snapshots on this day
+  first_ts: number;        // unix timestamp of earliest snapshot
+  last_ts: number;         // unix timestamp of latest snapshot
+  first_id: string;
+  last_id: string;
+  has_day_canonical: boolean;
+  day_snapshot_id?: string;
+}
+
+/** v3.5.1 — GET /api/soul/time-portal/days response. */
+export interface PortalDaysResponse {
+  ok: boolean;
+  error?: string;
+  days?: PortalDayEntry[];
+  count?: number;
 }
 
 export interface SnapshotStats {

@@ -40,6 +40,9 @@ from dreadnode.agents.reactions import Finish
 from dreadnode.core.hook import Hook, hook
 from dreadnode.core.meta.config import Model
 
+if t.TYPE_CHECKING:
+    from dreadnode.agents.engines.base import PolicyFacet
+
 
 class SessionPolicy(Model):
     """Session-scoped agent-event hooks.
@@ -71,6 +74,21 @@ class SessionPolicy(Model):
     name: t.ClassVar[str]
     is_autonomous: t.ClassVar[bool] = False
     display_label: t.ClassVar[str] = ""
+
+    def required_facets(self) -> "set[PolicyFacet]":
+        """Policy facets this policy needs the engine to honor.
+
+        Mirrors an engine's :meth:`describe_enforcement`; the runtime reconciles
+        the two (see ``dreadnode.policies.reconciliation`` and CAP-EGOV-*). The
+        base requires autonomy handling and — when a human is in the loop —
+        tool-approval HITL. Subclasses extend.
+        """
+        from dreadnode.agents.engines.base import PolicyFacet
+
+        facets = {PolicyFacet.AUTONOMY}
+        if not self.is_autonomous:
+            facets.add(PolicyFacet.TOOL_APPROVAL)
+        return facets
 
     @property
     def hooks(self) -> list[Hook]:
@@ -124,6 +142,11 @@ class HeadlessSessionPolicy(SessionPolicy):
     max_steps: int = Field(default=30, gt=0)
 
     _count: int = PrivateAttr(default=0)
+
+    def required_facets(self) -> "set[PolicyFacet]":
+        from dreadnode.agents.engines.base import PolicyFacet
+
+        return super().required_facets() | {PolicyFacet.STEP_BUDGET}
 
     @hook(AgentStart)
     async def reset_step_count(self, _event: AgentStart) -> None:

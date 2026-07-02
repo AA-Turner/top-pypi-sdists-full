@@ -187,7 +187,12 @@ impl<'a> RemlState<'a> {
         let [s_inner, s_linear, s_trace] = if let Some(sensitivities) = sensitivity_estimate {
             sensitivities
         } else {
-            log::warn!("[HGB] sensitivity_unavailable falling_back_to_per_channel");
+            // Routine per-evaluation fallback (fires whenever the cross-channel
+            // sensitivity estimate is unavailable, i.e. nearly every early
+            // iteration) — not an anomaly. Keep it for `debug` tracing but off
+            // the default `warn` stream so it does not re-create the #1688
+            // firehose.
+            log::debug!("[HGB] sensitivity_unavailable falling_back_to_per_channel");
             [S_INNER_INIT, S_LINEAR_INIT, S_TRACE_INIT]
         };
 
@@ -431,6 +436,24 @@ impl<'a> RemlState<'a> {
             );
             return false;
         }
+        // Canonical-logit Firth fits have an exact Tierney-Kadane Hessian, but
+        // its skewness correction contains an O(n²) row-pair contraction.  Keep
+        // that exact curvature for small separation-rescue fits, where it is
+        // cheap and useful; for ordinary multi-thousand-row binomial GAMs keep
+        // the same Firth objective and analytic gradient while routing outer
+        // curvature to BFGS instead of spending minutes on one Hessian probe
+        // (#1575).
+        if reml_robust_jeffreys_link(&self.config).is_some()
+            && self.tk_correction_is_canonical_logit()
+            && !Self::firth_tk_exact_hessian_scale_allows(n_obs, p_dim)
+        {
+            log::info!(
+                "[standard-GAM] declining canonical-logit Firth exact outer Hessian for \
+                 n={n_obs} p={p_dim} (row-pair TK Hessian work n²·p exceeds budget); \
+                 routing to analytic-gradient BFGS"
+            );
+            return false;
+        }
         // The analytic outer Hessian for a Firth fit folds in the Tierney-Kadane
         // curvature, whose c/d/e/f derivative arrays are implemented only for the
         // canonical Binomial Logit jet. #758 widened Firth to other Binomial
@@ -444,6 +467,16 @@ impl<'a> RemlState<'a> {
             return false;
         }
         true
+    }
+
+    pub(crate) fn firth_tk_exact_hessian_scale_allows(n_obs: usize, p_coeff: usize) -> bool {
+        // Separate from `firth_problem_scale_allows`, which gates the O(n·p²)
+        // dense Firth operator used by the inner solve and gradient.  The exact
+        // TK Hessian-only path is O(n²·p) after the #1575 matvec hoist and needs
+        // its own budget.
+        const FIRTH_TK_EXACT_HESSIAN_MAX_ROW_PAIR_WORK: usize = 10_000_000;
+        n_obs.saturating_mul(n_obs).saturating_mul(p_coeff)
+            <= FIRTH_TK_EXACT_HESSIAN_MAX_ROW_PAIR_WORK
     }
 
     /// Whether the Tierney-Kadane outer correction (its value, ρ-gradient, and
@@ -3569,6 +3602,17 @@ impl<'a> RemlState<'a> {
     /// counted in `n_observations` (zero-weight rows are dropped; `log(0)` is
     /// undefined).
     pub(crate) fn gaussian_weight_log_sum_half(&self) -> f64 {
+        // #1033: `½·Σ log wᵢ` is a pure function of the fit-invariant `weights`
+        // view (never reassigned by `reset_surface`), so memoize the O(n)
+        // reduction once per fit. Every subsequent in-window κ-trial eval reads
+        // the cached scalar instead of re-scanning n rows — the per-trial eval
+        // then touches only k-dim objects.
+        *self
+            .gaussian_weight_log_sum_half_cache
+            .get_or_init(|| self.gaussian_weight_log_sum_half_uncached())
+    }
+
+    fn gaussian_weight_log_sum_half_uncached(&self) -> f64 {
         0.5 * self
             .weights
             .iter()
@@ -3598,6 +3642,17 @@ impl<'a> RemlState<'a> {
     /// response, where `D_p` is genuinely ~0 and equivariance is vacuous
     /// (`a·const` is still constant).
     pub(crate) fn gaussian_dp_floor_scale(&self) -> f64 {
+        // #1033: the weighted null deviance `D₀` depends only on the
+        // fit-invariant `(y, weights)` views (never reassigned by
+        // `reset_surface`), so memoize the two O(n) passes once per fit. Every
+        // in-window κ-trial eval then reads the cached scalar rather than
+        // re-scanning n rows.
+        *self
+            .gaussian_dp_floor_scale_cache
+            .get_or_init(|| self.gaussian_dp_floor_scale_uncached())
+    }
+
+    fn gaussian_dp_floor_scale_uncached(&self) -> f64 {
         let mut sw = 0.0_f64;
         let mut swy = 0.0_f64;
         for (&yi, &wi) in self.y.iter().zip(self.weights.iter()) {
@@ -3854,6 +3909,8 @@ impl<'a> RemlState<'a> {
             persistent_warm_start_store_suppression: AtomicUsize::new(0),
             alo_stabilization_suppression: AtomicUsize::new(0),
             persistent_warm_start_disk_enabled: AtomicBool::new(false),
+            gaussian_weight_log_sum_half_cache: std::sync::OnceLock::new(),
+            gaussian_dp_floor_scale_cache: std::sync::OnceLock::new(),
         })
     }
 

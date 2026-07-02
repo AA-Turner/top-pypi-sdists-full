@@ -57,3 +57,25 @@ def get_proxied_generator(model: str) -> "str | Generator":
     if not api_base or not api_key:
         return model
     return build_proxy_generator(model, api_base=api_base, api_key=api_key)
+
+
+def resolve_dn_model_to_generator(model: "str | Generator") -> "str | Generator":
+    """Resolve ``dn/*`` model IDs to a configured proxy generator.
+
+    Non-``dn/*`` values are returned unchanged.
+    """
+    if not isinstance(model, str) or not model.startswith("dn/"):
+        return model
+
+    api_base = os.environ.get(DREADNODE_LLM_BASE_ENV, "").strip() or None
+    api_key = os.environ.get(DREADNODE_LLM_API_KEY_ENV, "").strip() or None
+    missing: list[str] = []
+    if not api_base:
+        missing.append(DREADNODE_LLM_BASE_ENV)
+    if not api_key:
+        missing.append(DREADNODE_LLM_API_KEY_ENV)
+    if missing:
+        keys = ", ".join(missing)
+        raise RuntimeError(f"Missing proxy configuration — set {keys} to use {model}")
+
+    return build_proxy_generator(model, api_base=api_base, api_key=api_key)

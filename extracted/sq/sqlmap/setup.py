@@ -9,7 +9,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='sqlmap',
-    version='1.10.6',
+    version='1.10.7',
     description='Automatic SQL injection and database takeover tool',
     long_description=open('README.rst').read(),
     long_description_content_type='text/x-rst',
@@ -21,7 +21,7 @@ setup(
         'Source': 'https://github.com/sqlmapproject/sqlmap/',
         'Tracker': 'https://github.com/sqlmapproject/sqlmap/issues',
     },
-    download_url='https://github.com/sqlmapproject/sqlmap/archive/1.10.6.zip',
+    download_url='https://github.com/sqlmapproject/sqlmap/archive/1.10.7.zip',
     license='GNU General Public License v2 (GPLv2)',
     packages=['sqlmap'],
     package_dir={'sqlmap':'sqlmap'},

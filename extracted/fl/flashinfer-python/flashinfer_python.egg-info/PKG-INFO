@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flashinfer-python
-Version: 0.6.13
+Version: 0.6.14
 Summary: FlashInfer: Kernel Library for LLM Serving
 Author: FlashInfer team
 License-Expression: Apache-2.0
@@ -10,7 +10,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: apache-tvm-ffi!=0.1.8,!=0.1.8.post0,<0.2,>=0.1.6
 Requires-Dist: click
-Requires-Dist: cuda-tile[tileiras]
+Requires-Dist: cuda-tile>=1.4.0
 Requires-Dist: einops
 Requires-Dist: ninja
 Requires-Dist: numpy

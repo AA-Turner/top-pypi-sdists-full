@@ -138,7 +138,7 @@ pub(crate) use gam::terms::basis::{
     build_duchon_operator_penalty_matrices, build_matern_basis, build_matern_basis_literal_aniso,
     build_periodic_bspline_basis_1d, build_spherical_spline_basis, build_thin_plate_penalty_matrix,
     create_basis, create_cyclic_difference_penalty_matrix, create_difference_penalty_matrix,
-    duchon_nullspace_dimension, duchon_polynomial_first_derivative_nd,
+    duchon_cubic_default, duchon_nullspace_dimension, duchon_polynomial_first_derivative_nd,
     duchon_pure_kernel_amplification, duchon_radial_first_derivative_nd,
     duchon_sae_atom_basis_with_jet, evaluate_bspline_basis_scalar,
     matern_input_location_hessian_nd, matern_input_location_jet_nd,
@@ -162,9 +162,12 @@ pub(crate) use gam::terms::latent::{AuxPriorFamily, aux_prior_targets};
 
 pub(crate) use gam::terms::dictionary::{
     LinearDictionaryAssignment, LinearDictionaryConfig, fit_linear_dictionary,
+    linear_dictionary_transform,
 };
 
-pub(crate) use gam::terms::sae::sparse_dict::{SparseDictConfig, fit_sparse_dictionary};
+pub(crate) use gam::terms::sae::sparse_dict::{
+    SparseDictConfig, fit_sparse_dictionary, sparse_dictionary_transform,
+};
 
 pub(crate) use gam::terms::sae::manifold::{
     AssignmentMode, CylinderHarmonicEvaluator, DuchonCoordinateEvaluator, EuclideanPatchEvaluator,

@@ -5,4 +5,5 @@ class EndpointType(str, Enum):
     Inbox = "inbox",
     Conversation = "conversation",
     Messaging = "messaging",
+    Voice = "voice",
 

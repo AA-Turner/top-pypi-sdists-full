@@ -1,15 +1,15 @@
+---
+
 - project:
     templates:
       - openstack-python3-jobs
+      - openstack-python3-next-jobs
       - check-requirements
       - publish-openstack-docs-pti
       - release-notes-jobs-python3
       - openstackclient-plugin-jobs
     check:
       jobs:
-        - openstack-tox-functional-py310:
-            required-projects:
-              - openstack/placement
         - openstack-tox-functional-py311:
             required-projects:
               - openstack/placement
@@ -17,13 +17,13 @@
             required-projects:
               - openstack/placement
         - openstack-tox-functional-py313:
+            required-projects:
+              - openstack/placement
+        - openstack-tox-functional-py314:
             required-projects:
               - openstack/placement
     gate:
       jobs:
-        - openstack-tox-functional-py310:
-            required-projects:
-              - openstack/placement
         - openstack-tox-functional-py311:
             required-projects:
               - openstack/placement
@@ -31,5 +31,8 @@
             required-projects:
               - openstack/placement
         - openstack-tox-functional-py313:
+            required-projects:
+              - openstack/placement
+        - openstack-tox-functional-py314:
             required-projects:
               - openstack/placement

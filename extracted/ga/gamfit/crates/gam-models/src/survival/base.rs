@@ -196,7 +196,12 @@ impl PenaltyBlocks {
 /// origin; this small positive floor lets a row that genuinely enters at time
 /// zero skip the entry contribution instead of evaluating `log H` at a
 /// degenerate point. Shared so every entry-detection site stays in lockstep.
-const ENTRY_AT_ORIGIN_THRESHOLD: f64 = 1e-8;
+///
+/// Public so the fit-orchestration layer can classify a dataset as genuinely
+/// left-truncated (`entry > threshold`) with the SAME origin convention the
+/// likelihood engines use, and pick the left-truncation-robust time anchor
+/// accordingly (issue #1790).
+pub const ENTRY_AT_ORIGIN_THRESHOLD: f64 = 1e-8;
 
 /// Fraction-to-the-boundary factor for the cause-specific feasible-step search.
 /// When a Newton direction would drive a row's derivative down to the
@@ -2284,7 +2289,7 @@ impl WorkingModelSurvival {
             DenseSpectralOperator, DispersionHandling, PenaltyLogdetDerivs,
             compute_block_penalty_logdet_derivs,
         };
-        use gam_problem::EvalMode;
+        use gam_problem::{EvalMode, PseudoLogdetMode};
 
         let p = beta.len();
         let active_penalty_blocks: Vec<&PenaltyBlock> = self
@@ -2304,7 +2309,27 @@ impl WorkingModelSurvival {
 
         // --- Hessian operator ---
         let h_dense = state.hessian.to_dense();
-        let hop = DenseSpectralOperator::from_symmetric(&h_dense)
+        let has_left_truncation = self
+            .age_entry
+            .iter()
+            .any(|&t| t > ENTRY_AT_ORIGIN_THRESHOLD);
+        // Transformation-survival uses observed information in the LAML logdet.
+        // With delayed entry the likelihood contains +H(entry), so the observed
+        // NLL curvature includes a genuine negative
+        // -X_entry' diag(exp(eta_entry)) X_entry block. The shared smooth
+        // pseudo-logdet is a PSD-contract regularizer, not a licence to reward
+        // negative observed-curvature directions: a negative eigenvalue maps to
+        // a tiny positive regularized value and can make the outer smoothing
+        // objective prefer under-smoothed, nearly singular baselines. For the
+        // delayed-entry observed-information path, use the identified positive
+        // subspace logdet/pseudoinverse instead; right-censored fits keep the
+        // historical smooth full-spectrum convention.
+        let hessian_logdet_mode = if has_left_truncation {
+            PseudoLogdetMode::HardPseudo
+        } else {
+            PseudoLogdetMode::Smooth
+        };
+        let hop = DenseSpectralOperator::from_symmetric_with_mode(&h_dense, hessian_logdet_mode)
             .map_err(EstimationError::InvalidInput)?;
 
         // --- Penalty coordinates via shared assembler helper ---

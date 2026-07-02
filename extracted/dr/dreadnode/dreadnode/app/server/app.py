@@ -36,17 +36,20 @@ from dreadnode.app.api.models import (
     SkillsResponse,
     ToolInfo,
     ToolsResponse,
+    WsTicketResponse,
 )
 from dreadnode.app.api.models import (
     SkillInfo as SkillInfoModel,
 )
 from dreadnode.app.env import read_env_with_deprecation
-from dreadnode.app.server import capability_manager, model_resolution, runtime_events
+from dreadnode.app.server import capability_manager, model_resolution, runtime_events, ws_auth
 from dreadnode.app.server.auth import SandboxAuthMiddleware
 from dreadnode.app.server.prompt import (
     get_core_system_prompt,
     get_platform_context,
+    get_project_memory_background_context,
     get_runtime_shell_prompt,
+    render_project_memory_preload_xml,
 )
 from dreadnode.app.server.prompt_registry import SessionPromptRegistry
 from dreadnode.app.server.runtime_events import (
@@ -72,6 +75,8 @@ if t.TYPE_CHECKING:
 EventPayload = dict[str, t.Any]
 DEFAULT_MODEL = "anthropic/claude-sonnet-4-20250514"
 _BUNDLED_DEFAULT_CAPABILITY = "dreadnode"
+_PROJECT_MEMORY_SCOPE_PROJECT = "project"
+_PROJECT_MEMORY_PRELOAD_LIMIT = 20
 
 
 def _short_turn(turn_id: str | None) -> str:
@@ -331,7 +336,10 @@ def create_agent(
     agent_def: AgentDef | None = None,
     extra_tools: list[t.Any] | None = None,
     extra_hooks: list[t.Any] | None = None,
+    inherent_toolsets: list[t.Any] | None = None,
     system_prompt_append: str | None = None,
+    engine: str | None = None,
+    background_context: str | None = None,
 ) -> Agent:
     """Create an agent from a loaded capability.
 
@@ -382,8 +390,11 @@ def create_agent(
     if system_prompt_append:
         instructions = instructions + "\n\n" + system_prompt_append
 
+    if background_context:
+        instructions = instructions + "\n\n" + background_context
+
     # 1. Inherent tools — always present
-    base = default_tools()
+    base = default_tools(additional_toolsets=inherent_toolsets)
 
     pool: list[t.Any] = list(base.values())
     pool_names = set(base.keys())
@@ -444,6 +455,15 @@ def create_agent(
     rules = agent_def.tools if agent_def else {}
     tools = filter_tools(pool, rules, name_fn=_tool_name)
 
+    # Engine (loop owner): explicit override > agent_def declaration > native.
+    # ``inherit``/empty falls through to the native engine (``None``).
+    def _resolve_engine_selector(value: str | None) -> str | None:
+        return value if value and value != "inherit" else None
+
+    resolved_engine = _resolve_engine_selector(engine) or (
+        _resolve_engine_selector(agent_def.engine) if agent_def else None
+    )
+
     return Agent(
         name=agent_def.name if agent_def else "dreadnode-agent",
         model=model,
@@ -451,6 +471,7 @@ def create_agent(
         tools=tools,
         hooks=list(extra_hooks or []),
         max_steps=1000,
+        engine=resolved_engine,
     )
 
 
@@ -728,6 +749,9 @@ class ServerState:
         self.runtime_url: str | None = None
         self.runtime_token: str | None = None
         self.runtime_id: str | None = None
+        # Single-use websocket auth tickets for browser clients, which cannot
+        # set an Authorization header on the ws handshake. See ws_auth.py.
+        self.ws_ticket_store = ws_auth.WsTicketStore()
 
     def _get_session_store(self) -> SessionStore | None:
         """Get the local SQLite session store for legacy read-only fallback.
@@ -1091,6 +1115,9 @@ class ServerState:
         policy: str | dict[str, t.Any] | None = None,
         labels: dict[str, list[str]] | None = None,
         origin: str | None = None,
+        engine: str | None = None,
+        project_memory_scope_kind: str = _PROJECT_MEMORY_SCOPE_PROJECT,
+        enable_project_memory_preload: bool = True,
     ) -> SessionRuntime:
         """Create a new session or return an existing compatible one."""
         if session_id is not None and not session_id:
@@ -1103,6 +1130,12 @@ class ServerState:
                 raise ValueError(
                     f"Session '{resolved_id}' already started with agent '{session.agent_name}'. "
                     f"Create a new session to start with agent '{agent}'."
+                )
+            # Engine is sticky for the session (CAP-ERES-007) — reject a change.
+            if engine is not None and session._engine is not None and engine != session._engine:
+                raise ValueError(
+                    f"Session '{resolved_id}' is already bound to engine "
+                    f"'{session._engine}'. Create a new session to use engine '{engine}'."
                 )
             if model is not None and model != session.model:
                 session.model = model
@@ -1147,6 +1180,9 @@ class ServerState:
             policy=resolved_policy,
             reserved_labels=labels,
             origin=origin,
+            engine=engine,
+            project_memory_scope_kind=project_memory_scope_kind,
+            enable_project_memory_preload=enable_project_memory_preload,
         )
         self._sessions[resolved_id] = session
         try:
@@ -1481,11 +1517,19 @@ class SessionRuntime:
         policy: SessionPolicy | None = None,
         reserved_labels: dict[str, list[str]] | None = None,
         origin: str | None = None,
+        engine: str | None = None,
+        project_memory_scope_kind: str = _PROJECT_MEMORY_SCOPE_PROJECT,
+        enable_project_memory_preload: bool = True,
     ) -> None:
         from dreadnode.policies import InteractiveSessionPolicy
 
         self.session_id = session_id
         self.model = model or ""
+        # Loop owner, bound once at session creation and sticky for the session's
+        # life (CAP-ERES-007). ``None`` falls through to the agent's declared
+        # engine and ultimately the native engine. Unlike ``model`` it does not
+        # vary per turn — the harness owns the session loop.
+        self._engine: str | None = engine
         self.project_key = project
         self.created_at = datetime.now(UTC)
         self.title: str | None = None
@@ -1507,6 +1551,17 @@ class SessionRuntime:
         # RuntimeClients set this to ``worker``; standalone clients leave it
         # ``None`` and the platform's ``user`` default applies.
         self._origin: str | None = origin
+        normalized_scope_kind = (
+            project_memory_scope_kind.strip() if project_memory_scope_kind else ""
+        )
+        self._project_memory_scope_kind = normalized_scope_kind or _PROJECT_MEMORY_SCOPE_PROJECT
+        self._enable_project_memory_preload = enable_project_memory_preload
+        self._project_memory_background_context = ""
+        if (
+            self._enable_project_memory_preload
+            and self._project_memory_scope_kind == _PROJECT_MEMORY_SCOPE_PROJECT
+        ):
+            self._project_memory_background_context = self._load_project_memory_background_context()
         self._generate_params_extra: dict[str, t.Any] = {}
         self._message_count: int = 0
         self._agent_name_override: str | None = None
@@ -1742,6 +1797,39 @@ class SessionRuntime:
             self._session_dir.mkdir(parents=True, exist_ok=True)
         return self._session_dir
 
+    def _resolve_capability_id(self) -> str | None:
+        """Resolve a capability identifier for tool-write provenance."""
+        capability = self._capability
+        if capability is None:
+            return None
+
+        for attr in ("id", "artifact_id", "capability_id"):
+            value = getattr(capability, attr, None)
+            if value is None:
+                continue
+            text = str(value).strip()
+            if text:
+                return text
+        return None
+
+    def _project_memory_toolset(self) -> t.Any | None:
+        """Build a session-scoped ProjectMemory toolset when sync is available."""
+        if self._project_memory_scope_kind != _PROJECT_MEMORY_SCOPE_PROJECT:
+            return None
+        if not self.project_key:
+            return None
+        if self._get_api_context() is None:
+            return None
+
+        from dreadnode.tools.project_memory import ProjectMemory
+
+        return ProjectMemory(
+            session_id=self.session_id,
+            project_key=self.project_key,
+            scope_kind=self._project_memory_scope_kind,
+            capability_id=self._resolve_capability_id(),
+        )
+
     def _create_agent(
         self,
         *,
@@ -1767,16 +1855,52 @@ class SessionRuntime:
         model_config = model_resolution.resolve_turn_model_config(model, self.model, agent_def)
         effective_model = model_resolution.build_turn_generator(model_config)
 
+        inherent_toolsets: list[t.Any] = []
+        project_memory_toolset = self._project_memory_toolset()
+        if project_memory_toolset is not None:
+            inherent_toolsets.append(project_memory_toolset)
+
         agent = create_agent(
             effective_model,
             capability=capability,
             agent_def=agent_def,
             extra_tools=extra_tools,
             extra_hooks=extra_hooks,
+            inherent_toolsets=inherent_toolsets,
             system_prompt_append=get_state().system_prompt_append,
+            # Session-level engine (sticky) overrides the agent's declaration;
+            # ``None`` falls through to agent_def.engine then native.
+            engine=self._engine,
+            background_context=self._project_memory_background_context,
         )
 
         self._wire_server_tools(agent)
+
+        # Governance reconciliation (CAP-EGOV-*): refuse turns whose policy the
+        # engine can't enforce, and warn on degraded/ignored facets. Native
+        # enforces everything, so this is a no-op for the default engine.
+        from dreadnode.agents.engines import AgentEngine
+        from dreadnode.policies.reconciliation import (
+            describe_component_gaps,
+            describe_config_gaps,
+            reconcile,
+        )
+
+        resolved_engine = agent._resolve_engine()
+        if isinstance(resolved_engine, AgentEngine):
+            reconciliation = reconcile(self._policy, resolved_engine)
+            reconciliation.raise_if_refused()
+            skill_count = len(self._registry.all_skills()) if self._registry else 0
+            for warning in (
+                *reconciliation.warnings,
+                *describe_config_gaps(agent, resolved_engine),
+                *describe_component_gaps(
+                    resolved_engine,
+                    tool_count=len(extra_tools or []),
+                    skill_count=skill_count,
+                ),
+            ):
+                logger.warning("engine '{}' reconciliation: {}", resolved_engine.name, warning)
 
         # Apply generate_params_extra (per-message overrides session default)
         effective_extra = generate_params_extra or self._generate_params_extra
@@ -1825,8 +1949,21 @@ class SessionRuntime:
     def _wire_server_tools(self, agent: Agent) -> None:
         """Add tools that need server context to an already-created agent."""
         from dreadnode.agents.subagent import create_subagent_tool
+        from dreadnode.tools.interaction import RuntimePermissionBridge
 
         agent.tools.append(create_subagent_tool(agent))
+
+        # Foreign engines (e.g. claude-code) wire their tool-approval callback
+        # into the runtime's per-turn human-prompt handler via this bridge, so
+        # the existing prompt.required/respond HITL UX is preserved. The native
+        # engine ignores it (it uses the ask_user tool directly).
+        #
+        # Policy-aware: only attach the bridge for non-autonomous (HITL) policies.
+        # An autonomous policy auto-denies human prompts, so gating *every* tool
+        # through it would deny all tool use — wrong for headless/eval. Leaving
+        # the bridge off lets a foreign engine run tools freely, matching native
+        # autonomous behavior where per-tool prompts don't fire.
+        agent._permission_bridge = None if self._policy.is_autonomous else RuntimePermissionBridge()
 
         # Skills — pooled from all capabilities, or standalone capability
         all_skills: list = []
@@ -2233,6 +2370,41 @@ class SessionRuntime:
             return None
         else:
             return api, org, ws
+
+    def _load_project_memory_background_context(self) -> str:
+        """Fetch and render project memory preload context for this session."""
+        if self._project_memory_scope_kind != _PROJECT_MEMORY_SCOPE_PROJECT:
+            return ""
+        if not self.project_key:
+            return ""
+
+        ctx = self._get_api_context()
+        if ctx is None:
+            return ""
+        api, org, workspace = ctx
+
+        try:
+            payload = api.list_project_memory_preload(
+                org,
+                workspace,
+                self.project_key,
+                scope_kind=self._project_memory_scope_kind,
+                limit=_PROJECT_MEMORY_PRELOAD_LIMIT,
+            )
+        except Exception:
+            logger.debug(
+                "Project memory preload fetch failed | session={}",
+                self.session_id[:8],
+                exc_info=True,
+            )
+            return ""
+
+        raw_memories = payload.get("memories") if isinstance(payload, dict) else None
+        memories = raw_memories if isinstance(raw_memories, list) else []
+        preload_xml = render_project_memory_preload_xml(memories)
+        if not preload_xml:
+            return ""
+        return get_project_memory_background_context(preload_xml)
 
     def _persist_state(self, *, update_messages: bool = True) -> None:
         """Persist session state to the platform API."""
@@ -2964,10 +3136,14 @@ async def create_session(request: SessionCreateRequest) -> SessionInfo:
             policy=request.policy,
             labels=request.labels,
             origin=request.origin,
+            engine=request.engine,
+            project_memory_scope_kind=request.project_memory_scope_kind,
+            enable_project_memory_preload=request.enable_project_memory_preload,
         )
     except ValueError as exc:
         # Session-id collision with different agent, unknown capability,
-        # missing model, unknown policy name — all 409 conflicts.
+        # missing model, unknown policy name, engine/policy mismatch —
+        # all 409 conflicts.
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return session.to_info()
 
@@ -3153,6 +3329,29 @@ async def publish_runtime_event(request: SessionEventPublishRequest) -> dict[str
     return {"event_id": envelope.event_id, "seq": envelope.seq}
 
 
+@app.post("/api/ws/ticket", response_model=WsTicketResponse)
+async def create_ws_ticket_endpoint() -> WsTicketResponse | JSONResponse:
+    """Mint a short-lived, single-use websocket auth ticket.
+
+    Browsers cannot set an ``Authorization`` header on a websocket handshake,
+    so they exchange the runtime bearer token (over HTTP, where the header
+    *is* allowed) for a one-time ticket, then open
+    ``wss://<runtime>/api/ws?ticket=<ticket>``.
+
+    Protected by ``SandboxAuthMiddleware``: the caller must already present the
+    runtime bearer token. Returns 400 when runtime auth is disabled, since
+    tickets are meaningless there (local unsecured ws auth is headerless).
+    """
+    token = read_env_with_deprecation("DREADNODE_RUNTIME_TOKEN", "SANDBOX_AUTH_TOKEN")
+    if token is None:
+        return JSONResponse(
+            {"detail": "Runtime websocket tickets require runtime auth"},
+            status_code=400,
+        )
+    ticket = get_state().ws_ticket_store.mint(ttl_seconds=30)
+    return WsTicketResponse(ticket=ticket.ticket, expires_at=ticket.expires_at)
+
+
 @app.websocket("/api/ws")
 async def runtime_websocket_endpoint(websocket: WebSocket) -> None:
     """Interactive websocket transport for runtime session control and streaming."""
@@ -3179,6 +3378,7 @@ async def runtime_websocket_endpoint(websocket: WebSocket) -> None:
         resolve_session=_resolve_socket_session,
         get_session=lambda session_id: get_state().get_session(session_id),
         sync_accepted_turn=_sync_accepted_turn_with_platform,
+        consume_ticket=get_state().ws_ticket_store.consume,
     )
 
 

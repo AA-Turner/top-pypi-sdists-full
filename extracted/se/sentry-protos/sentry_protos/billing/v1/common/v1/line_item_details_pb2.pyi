@@ -23,12 +23,21 @@ class LineItemDetails(google.protobuf.message.Message):
     PLURAL_FIELD_NUMBER: builtins.int
     UNITS_FIELD_NUMBER: builtins.int
     BILLABLE_METRIC_FIELD_NUMBER: builtins.int
+    LINE_ITEM_CATEGORY_FIELD_NUMBER: builtins.int
     uid: builtins.str
     """Unique identifier for the line item."""
     customer_facing_name: builtins.str
     """Customer-facing display name for the line item."""
     plural: builtins.str
     """Plural form of the customer-facing name."""
+    line_item_category: builtins.int
+    """DEPRECATED: do not use. The getsentry DataCategory value this line item
+    bills (the unified getsentry/sentry DataCategory int, NOT the proto
+    sentry_protos.billing.v1.DataCategory enum). Exists only to support legacy
+    code that hardcodes category values during the billing-platform migration.
+    New line items must be addable, and new consumers written, without anyone
+    hardcoding or reading a category off the line item.
+    """
     @property
     def units(self) -> sentry_protos.billing.v1.common.v1.unit_info_pb2.UnitInfo:
         """Unit information for measurement."""
@@ -45,8 +54,9 @@ class LineItemDetails(google.protobuf.message.Message):
         plural: builtins.str = ...,
         units: sentry_protos.billing.v1.common.v1.unit_info_pb2.UnitInfo | None = ...,
         billable_metric: sentry_protos.billing.v1.common.v1.billable_metric_pb2.BillableMetric | None = ...,
+        line_item_category: builtins.int = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["billable_metric", b"billable_metric", "units", b"units"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["billable_metric", b"billable_metric", "customer_facing_name", b"customer_facing_name", "plural", b"plural", "uid", b"uid", "units", b"units"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["billable_metric", b"billable_metric", "customer_facing_name", b"customer_facing_name", "line_item_category", b"line_item_category", "plural", b"plural", "uid", b"uid", "units", b"units"]) -> None: ...
 
 global___LineItemDetails = LineItemDetails

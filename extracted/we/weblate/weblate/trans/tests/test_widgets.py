@@ -13,10 +13,12 @@ from django.test import SimpleTestCase
 from django.urls import reverse
 
 from weblate.trans.checklists import TranslationChecklistMixin
+from weblate.trans.filter import FILTERS
 from weblate.trans.models import Translation
 from weblate.trans.tests.test_views import FixtureTestCase
 from weblate.trans.views.widgets import WIDGETS
 from weblate.utils.state import STATE_TRANSLATED
+from weblate.utils.xml import parse_xml
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -54,9 +56,12 @@ class EngageTaskChecklistTest(SimpleTestCase):
             [(task.url, task.total) for task in tasks],
             [
                 ("/translate/?q=state:empty", 1),
-                ("/translate/?q=state:needs-editing", 2),
+                ("/translate/?q=is:needs-editing", 2),
             ],
         )
+
+    def test_fuzzy_filter_query_matches_fuzzy_states(self) -> None:
+        self.assertEqual(FILTERS.get_filter_query("fuzzy"), "is:needs-editing")
 
     def test_engage_tasks_hide_empty_review(self) -> None:
         tasks = self.get_engage_tasks(enable_review=True)
@@ -135,7 +140,7 @@ class WidgetsTest(FixtureTestCase):
         )
         self.assertContains(response, "row engage-task-list justify-content-center")
         self.assertContains(response, "?q=state:empty")
-        self.assertNotContains(response, "?q=state:needs-editing")
+        self.assertNotContains(response, "?q=is:needs-editing")
         self.assertNotContains(response, "?q=has:check%20AND%20state:%3E=translated")
         self.assertNotContains(response, '?q=has:check"')
         self.assertNotContains(response, "?q=has:suggestion#suggestions")
@@ -235,6 +240,69 @@ class WidgetsRenderTest(FixtureTestCase, metaclass=WidgetsMeta):
         )
 
         self.assert_widget(widget, response)
+
+
+class MatrixWidgetTest(FixtureTestCase):
+    def test_matrix_columns_avoid_dangling_rows(self) -> None:
+        widget = WIDGETS["matrix"](self.project, "auto")
+
+        self.assertEqual(widget.get_column_count(5, 100), 5)
+        self.assertEqual(widget.get_column_count(5, 180), 3)
+        self.assertEqual(widget.get_column_count(7, 130), 4)
+        self.assertEqual(widget.get_column_count(13, 130), 5)
+
+    def test_matrix_component_uses_translation_links(self) -> None:
+        response = self.client.get(
+            reverse(
+                "widget-image",
+                kwargs={
+                    "path": self.component.get_url_path(),
+                    "widget": "matrix",
+                    "color": "auto",
+                    "extension": "svg",
+                },
+            )
+        )
+
+        self.assert_svg(response)
+        content = response.content.decode()
+        translation_url = reverse(
+            "translate", kwargs={"path": [*self.component.get_url_path(), "de"]}
+        )
+        self.assertIn(
+            f'xlink:href="http://example.com{translation_url}"',
+            content,
+        )
+        self.assertNotIn("/test/test/-/de/", content)
+
+    def test_matrix_uses_language_names_and_progress_bars(self) -> None:
+        response = self.client.get(
+            reverse(
+                "widget-image",
+                kwargs={
+                    "path": self.project.get_url_path(),
+                    "widget": "matrix",
+                    "color": "auto",
+                    "extension": "svg",
+                },
+            )
+        )
+
+        self.assert_svg(response)
+        content = response.content.decode()
+        self.assertIn(">German</text>", content)
+        self.assertNotIn(">de</text>", content)
+
+        tree = parse_xml(response.content)
+        progress_bars = [
+            element
+            for element in tree.findall(".//{http://www.w3.org/2000/svg}rect")
+            if element.attrib.get("fill-opacity") == ".24"
+        ]
+        self.assertGreater(len(progress_bars), 0)
+        self.assertTrue(
+            any(int(element.attrib["width"]) > 5 for element in progress_bars)
+        )
 
 
 class WidgetsPercentRenderTest(WidgetsRenderTest):
@@ -377,5 +445,21 @@ class WidgetsLanguageRedirectRenderTest(WidgetsRenderTest):
             ),
             follow=True,
         )
-
         self.assert_widget(widget, response)
+
+
+class WidgetsCapitalizeTest(FixtureTestCase):
+    def test_capitalize_parameter(self) -> None:
+        response = self.client.get(
+            reverse(
+                "widget-image",
+                kwargs={
+                    "path": self.project.get_url_path(),
+                    "widget": "svg",
+                    "color": "badge",
+                    "extension": "svg",
+                },
+            ),
+            {"capitalize": "1"},
+        )
+        self.assertContains(response, ">Translated<")

@@ -3271,6 +3271,38 @@ def run_self_tests(fast=False):
     # included), so it REFUTES under the one-past invariant, while the correct `i < len(a)` still proves.
     assert _bdecide("def f(a: list):\n    i = 0\n    while i <= len(a):\n        a[i] = 0\n        i = i + 1\n    return a\n", {}).status == REFUTED
     assert _bdecide("def f(a: list):\n    for i in range(len(a) + 1):\n        a[i] = 0\n    return a\n", {}).status == REFUTED
+    # a tuple-target for-loop over a non-pair source is not proved trap free by the decider's for-loop strategy
+    # either (a wrong-shape element raises on unpack) -- a bare container, an arbitrary call, or a mismatched
+    # arity. enumerate / zip / zip_longest provably yield k-tuples and still prove, and the iterability of their
+    # arguments is inferred so a scalar argument (zip of two ints, sampled non-iterable) is not vacuously proved.
+    assert _bdecide("def f(xs):\n    for a, b in xs:\n        pass\n    return 0\n", {}).status != PROVED
+    assert _bdecide("def f(g):\n    for a, b in g():\n        pass\n    return 0\n", {}).status != PROVED
+    assert _bdecide("def f(p, q):\n    for a, b, c in zip(p, q):\n        pass\n    return 0\n", {}).status != PROVED
+    assert _bdecide("def f(xs):\n    s = 0\n    for i, x in enumerate(xs):\n        s = i\n    return s\n", {}).status == PROVED
+    assert _bdecide("def f(p, q):\n    for a, b in zip(p, q):\n        pass\n    return 0\n", {}).status == PROVED
+    # a nested generator materialized by list(g()) runs its body, so a tuple-unpack over a closed-over parameter
+    # inside it raises and the outer is not proved trap free (the value engine treated list(g()) as opaque); a
+    # trap-free nested generator still proves.
+    assert _bdecide("def h(aliases):\n    def g():\n        for a, b in aliases:\n            yield a\n    return list(g())\n", {}).status != PROVED
+    assert _bdecide("def outer(n):\n    def g():\n        for i in range(n):\n            yield i * 2\n    return list(g())\n", {}).status == PROVED
+    # constructing a same-module class whose __new__/__init__ can raise is not proved trap free (C(x) runs the
+    # constructor, whose raise the top-level engines miss); a trap-free constructor still proves.
+    assert _bdecide("class C:\n    def __init__(self, p):\n        if not p:\n            raise ValueError(1)\ndef make(p):\n    return C(p)\n", {}).status != PROVED
+    assert _bdecide("class C:\n    def __init__(self, a, b):\n        self.a = a\n        self.b = b\ndef make(x):\n    return C(x, x)\n", {}).status == PROVED
+    # isinstance(x, T) requires T to be a type or tuple of types; a T bound to a modeled scalar (a bare parameter
+    # or local, which the engine models as an int) is never a type, so isinstance raises TypeError -- not proved
+    # trap-free (a value engine that read isinstance as always-safe while modeling T as an int was inconsistent).
+    # A concrete type name or tuple of them still proves.
+    assert _bdecide("def f(x, t):\n    return isinstance(x, t)\n", {}).status != PROVED
+    assert _bdecide("def g(obj, base_type=(str, bytes)):\n    if isinstance(obj, base_type):\n        return 1\n    return 0\n", {}).status != PROVED
+    assert _bdecide("def f(x):\n    if isinstance(x, int):\n        return 1\n    return 0\n", {}).status == PROVED
+    assert _bdecide("def f(x):\n    return isinstance(x, (int, str))\n", {}).status == PROVED
+    # the nested-callable guard counts only the calls the subject makes in its OWN scope: a nested function it
+    # merely defines and returns (a decorator/factory, or a recursive closure that only calls itself) does not
+    # run when the subject runs, so it must not gate the proof -- while a nested generator the subject
+    # materializes (list(g())) still does.
+    assert _bdecide("def deco(fn):\n    def wrap(x):\n        return fn(wrap(x))\n    return wrap\n", {}).status == PROVED
+    assert _bdecide("def mk(cond, fn):\n    def _map(obj):\n        if cond(obj):\n            return fn(obj)\n        return tuple(_map(x) for x in obj)\n    return _map\n", {}).status == PROVED
     # SOUNDNESS: the recursion engine declines a NON-self-recursive function (it models parameters as integers
     # with no container guard, so it would otherwise vacuously prove `return a + 1` for a list -- a TypeError).
     # Such a function is decided by the earlier guarded engines instead.
@@ -6237,6 +6269,14 @@ def run_self_tests(fast=False):
     assert check("def f(n):\n    return [10 // n for i in range(n)]\n", target="f").status == PROVED
     assert check("def f(n):\n    return [10 // i for i in range(0, n)]\n", target="f").status == REFUTED
     assert check("def f(xs: list):\n    return [10 // x for x in xs]\n", target="f").status == REFUTED
+    # a tuple target over a bare container (for a, b in xs / [e for a, b in xs]) unpacks each element into k
+    # names; a non-k-tuple element raises TypeError/ValueError once the loop runs, so it is not proved trap-free
+    # (as the direct a, b = xs unpacking is not). A call iterable known to yield k-tuples (enumerate / zip /
+    # dict.items) is trusted, so it still proves.
+    assert check("def f(xs):\n    for a, b in xs:\n        pass\n    return 0\n", target="f").status != PROVED
+    assert check("def f(xs):\n    return [a for a, b in xs]\n", target="f").status != PROVED
+    assert check("def f(xs: list):\n    s = 0\n    for a, b in enumerate(xs):\n        s = a\n    return s\n", target="f").status == PROVED
+    assert check("def f(d: dict):\n    return [k for k, v in d.items()]\n", target="f").status == PROVED
     # sorted(it) and list(it) build a NEW same-length indexable list, so sorted(nums)[0] / list(xs)[i] bounds-
     # check against the iterable's length: guarded by len it proves, an
     # unguarded index refutes, and the whole sort-then-median idiom decides. An opaque (possibly non-iterable)

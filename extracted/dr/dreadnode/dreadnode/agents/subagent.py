@@ -12,6 +12,7 @@ from loguru import logger
 
 from dreadnode.agents.tools import Toolset, tool_method
 from dreadnode.core.meta import Config
+from dreadnode.generators.message import Message
 
 if t.TYPE_CHECKING:
     from dreadnode.core.agents import Agent
@@ -108,7 +109,7 @@ class SubAgentToolset(Toolset):
         custom_instructions: t.Annotated[
             str | None, "Optional custom instructions to override defaults"
         ] = None,
-    ) -> str:
+    ) -> str | Message:
         """
         Spawn a sub-agent to handle a specific task autonomously.
 
@@ -188,7 +189,13 @@ class SubAgentToolset(Toolset):
             logger.error(f"Sub-agent failed: {e}")
             return f"Sub-agent failed: {e}"
         else:
-            return result
+            # Stash the sub-agent's LLM cost on the tool result metadata so
+            # the agent framework can lift it onto the ``ToolEnd`` event and
+            # the TUI can display it in the parent session's footer.
+            msg = Message(role="tool", content=result)
+            if trajectory.usage.cost_usd is not None:
+                msg.metadata["subagent_cost_usd"] = trajectory.usage.cost_usd
+            return msg
 
 
 def create_subagent_tool(parent_agent: "Agent") -> SubAgentToolset:

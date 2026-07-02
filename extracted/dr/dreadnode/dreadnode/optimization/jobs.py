@@ -26,10 +26,11 @@ from dreadnode.capabilities.capability import Capability
 from dreadnode.core.metric import Metric
 from dreadnode.core.scorer import scorer
 from dreadnode.evaluations.evaluation import current_dataset_row
-from dreadnode.generators.generator import GenerateParams, Generator, get_generator
+from dreadnode.generators.proxy import resolve_dn_model_to_generator
 from dreadnode.optimization.adapters.agent import DreadnodeAgentAdapter
 
 if t.TYPE_CHECKING:
+    from dreadnode.generators.generator import Generator
     from dreadnode.optimization.adapters.stack import CapabilityImprovementSurface
 from dreadnode.optimization.api import optimize_anything
 from dreadnode.optimization.config import (
@@ -57,9 +58,6 @@ from dreadnode.packaging.manifest import DatasetManifest
 from dreadnode.training.recipes import RewardPromptRow, RewardRecipeRegistry
 
 logger = logging.getLogger(__name__)
-
-_DREADNODE_LLM_BASE_ENV = "DREADNODE_LLM_BASE"
-_DREADNODE_LLM_API_KEY_ENV = "DREADNODE_LLM_API_KEY"
 
 OptimizationJobStatus = t.Literal["completed"]
 
@@ -173,29 +171,8 @@ def _build_configured_dreadnode() -> Dreadnode:
 def _build_platform_proxy_generator(model: str) -> Generator | None:
     """Resolve `dn/...` models to a configured OpenAI-compatible proxy generator."""
 
-    if not model.startswith("dn/"):
-        return None
-
-    api_base = os.environ.get(_DREADNODE_LLM_BASE_ENV, "").strip() or None
-    api_key = os.environ.get(_DREADNODE_LLM_API_KEY_ENV, "").strip() or None
-    missing: list[str] = []
-    if not api_base:
-        missing.append(_DREADNODE_LLM_BASE_ENV)
-    if not api_key:
-        missing.append(_DREADNODE_LLM_API_KEY_ENV)
-    if missing:
-        keys = ", ".join(missing)
-        raise RuntimeError(f"Missing proxy configuration — set {keys} to use {model}")
-
-    generator = get_generator(
-        model,
-        params=GenerateParams(
-            api_base=api_base,
-            extra={"custom_llm_provider": "litellm_proxy"},
-        ),
-    )
-    generator.api_key = api_key
-    return generator
+    resolved_model = resolve_dn_model_to_generator(model)
+    return None if isinstance(resolved_model, str) else resolved_model
 
 
 def _resolve_execution_model(model: str) -> str | Generator:

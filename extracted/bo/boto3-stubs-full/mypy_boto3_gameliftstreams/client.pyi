@@ -41,6 +41,8 @@ from .type_defs import (
     CreateApplicationOutputTypeDef,
     CreateStreamGroupInputTypeDef,
     CreateStreamGroupOutputTypeDef,
+    CreateStreamSessionAdminShellInputTypeDef,
+    CreateStreamSessionAdminShellOutputTypeDef,
     CreateStreamSessionConnectionInputTypeDef,
     CreateStreamSessionConnectionOutputTypeDef,
     DeleteApplicationInputTypeDef,
@@ -98,6 +100,7 @@ class Exceptions(BaseClientExceptions):
     InternalServerException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
+    StreamSessionAccessNotReadyException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
 
@@ -180,6 +183,17 @@ class GameLiftStreamsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/client/create_stream_group.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gameliftstreams/client/#create_stream_group)
+        """
+
+    def create_stream_session_admin_shell(
+        self, **kwargs: Unpack[CreateStreamSessionAdminShellInputTypeDef]
+    ) -> CreateStreamSessionAdminShellOutputTypeDef:
+        """
+        Creates an administrative terminal session with full access to the live runtime
+        environment of the Amazon GameLift Streams stream session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/client/create_stream_session_admin_shell.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gameliftstreams/client/#create_stream_session_admin_shell)
         """
 
     def create_stream_session_connection(

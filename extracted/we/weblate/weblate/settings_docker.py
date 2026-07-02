@@ -519,7 +519,8 @@ if SOCIAL_AUTH_FEDORA_OIDC_KEY:
     SOCIAL_AUTH_FEDORA_OIDC_SECRET = get_env_str(
         "WEBLATE_SOCIAL_AUTH_FEDORA_OIDC_SECRET", required=True
     )
-    SOCIAL_AUTH_FEDORA_OIDC_TOKEN_ENDPOINT_AUTH_METHOD = "client_secret_post"  # noqa: S105
+    # ruff: ignore[hardcoded-password-string]
+    SOCIAL_AUTH_FEDORA_OIDC_TOKEN_ENDPOINT_AUTH_METHOD = "client_secret_post"
 
     AUTHENTICATION_BACKENDS += ("social_core.backends.fedora.FedoraOpenIdConnect",)
 
@@ -640,7 +641,6 @@ SOCIAL_AUTH_PIPELINE = [
     "weblate.accounts.pipeline.handle_invite",
     "social_core.pipeline.social_auth.load_extra_data",
     "weblate.accounts.pipeline.second_factor",
-    "weblate.accounts.pipeline.cleanup_next",
     "weblate.accounts.pipeline.user_full_name",
     "weblate.accounts.pipeline.store_email",
     "weblate.accounts.pipeline.notify_connect",
@@ -654,7 +654,6 @@ SOCIAL_AUTH_DISCONNECT_PIPELINE = (
     "weblate.accounts.pipeline.adjust_primary_mail",
     "weblate.accounts.pipeline.notify_disconnect",
     "social_core.pipeline.disconnect.disconnect",
-    "weblate.accounts.pipeline.cleanup_next",
 )
 
 # Custom authentication strategy
@@ -792,6 +791,9 @@ WEBHOOK_RESTRICT_PRIVATE = get_env_bool(
 WEBHOOK_PRIVATE_ALLOWLIST = get_env_list(
     "WEBLATE_WEBHOOK_PRIVATE_ALLOWLIST",
     list(utils_defaults.DEFAULT_WEBHOOK_PRIVATE_ALLOWLIST),
+)
+ALLOWED_ASSET_SIZE = get_env_int(
+    "WEBLATE_ALLOWED_ASSET_SIZE", utils_defaults.DEFAULT_ALLOWED_ASSET_SIZE
 )
 ASSET_RESTRICT_PRIVATE = get_env_bool(
     "WEBLATE_ASSET_RESTRICT_PRIVATE", utils_defaults.DEFAULT_ASSET_RESTRICT_PRIVATE
@@ -935,6 +937,9 @@ if PASSWORD_MINIMAL_STRENGTH > 0:
 # Legal integration
 LEGAL_INTEGRATION = get_env_str("WEBLATE_LEGAL_INTEGRATION")
 if LEGAL_INTEGRATION:
+    LEGAL_DOCUMENT_CSS_CLASS = get_env_str("WEBLATE_LEGAL_DOCUMENT_CSS_CLASS", "tos")
+    LEGAL_HIDDEN_DOCUMENTS = get_env_list("WEBLATE_LEGAL_HIDDEN_DOCUMENTS")
+
     # Hosted Weblate legal documents
     if LEGAL_INTEGRATION == "wllegal":
         INSTALLED_APPS.append("wllegal")
@@ -1340,7 +1345,13 @@ REST_FRAMEWORK = get_drf_settings(
     user_throttle=get_env_ratelimit("WEBLATE_API_RATELIMIT_USER", "5000/hour"),
 )
 DRF_STANDARDIZED_ERRORS = get_drf_standardized_errors_settings()
-SPECTACULAR_SETTINGS = get_spectacular_settings(INSTALLED_APPS, SITE_URL, SITE_TITLE)
+SPECTACULAR_SETTINGS = get_spectacular_settings(
+    INSTALLED_APPS,
+    SITE_URL,
+    SITE_TITLE,
+    legal_hidden_documents=LEGAL_HIDDEN_DOCUMENTS if LEGAL_INTEGRATION else (),
+    legal_url=get_env_str("WEBLATE_LEGAL_URL", trans_defaults.DEFAULT_LEGAL_URL),
+)
 
 # Fonts CDN URL
 FONTS_CDN_URL = trans_defaults.DEFAULT_FONTS_CDN_URL
@@ -1618,4 +1629,4 @@ if ADDITIONAL_CONFIG.exists():
         ADDITIONAL_CONFIG.read_text(encoding="utf-8"), ADDITIONAL_CONFIG, "exec"
     )
     # pylint: disable-next=exec-used
-    exec(code)  # noqa: S102
+    exec(code)  # ruff: ignore[exec-builtin]

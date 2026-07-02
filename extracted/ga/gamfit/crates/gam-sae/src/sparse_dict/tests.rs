@@ -365,6 +365,240 @@ fn sparse_trainer_beats_rank_k_pca_on_held_out_reconstruction() {
     );
 }
 
+/// Fraction of atoms that fired for no training row (dead atoms) in a fit.
+fn dead_atom_fraction(fit: &super::SparseDictFit) -> f64 {
+    let k = fit.decoder.nrows();
+    let mut alive = vec![false; k];
+    for (i, idx_row) in fit.indices.outer_iter().enumerate() {
+        for (j, &idx) in idx_row.iter().enumerate() {
+            if fit.codes[[i, j]] != 0.0 {
+                alive[idx as usize] = true;
+            }
+        }
+    }
+    let dead = alive.iter().filter(|&&a| !a).count();
+    dead as f64 / k as f64
+}
+
+#[test]
+fn dead_atom_revival_keeps_ev_monotone_in_k_and_beats_linear_subspace() {
+    // #1026 regression. The collapsed-linear lane must reach reconstruction parity
+    // as `K` scales. Without dead-atom revival a large dictionary leaves atoms at
+    // their farthest-point seed (measured on real banked OLMo: 87% dead at K=512),
+    // effective `K` collapses, and HELD-OUT EV becomes NON-MONOTONE in `K` — adding
+    // atoms makes reconstruction WORSE, the opposite of parity. Revival re-seeds
+    // dead atoms onto the worst-reconstructed rows' residual directions so adding
+    // atoms can only help.
+    //
+    // Regime: an OVER-COMPLETE planted dictionary (64 atoms in p=16, each row a
+    // 2-sparse mixture). Two invariants that the pathology broke, both on HELD-OUT
+    // data (frozen decoder, fresh test-row codes — the production path; held-out
+    // cannot be gamed by reviving atoms onto idiosyncratic train rows):
+    //   1. MONOTONICITY: held-out EV must not drop as K grows (16 -> 64 -> 256).
+    //   2. PARITY/SUPERIORITY over the linear subspace: at large K the adaptive
+    //      s-sparse code must beat a FIXED rank-s PCA autoencoder (a K-atom SAE
+    //      picks the best s atoms per row, so it must dominate one fixed s-dim
+    //      basis) — the "match-or-beat linear at matched active budget" target.
+    let (planted_k, p, n) = (64usize, 16usize, 2000usize);
+    let (x, _atoms) = planted(planted_k, p, n, 0.35);
+    // Deterministic 80/20 split (stride so both blocks see every planted atom).
+    let mut train_rows: Vec<usize> = Vec::new();
+    let mut test_rows: Vec<usize> = Vec::new();
+    for i in 0..n {
+        if i % 5 == 0 {
+            test_rows.push(i);
+        } else {
+            train_rows.push(i);
+        }
+    }
+    let mut x_train = Array2::<f32>::zeros((train_rows.len(), p));
+    for (r, &i) in train_rows.iter().enumerate() {
+        x_train.row_mut(r).assign(&x.row(i));
+    }
+    let mut x_test = Array2::<f32>::zeros((test_rows.len(), p));
+    for (r, &i) in test_rows.iter().enumerate() {
+        x_test.row_mut(r).assign(&x.row(i));
+    }
+
+    let s = 2usize;
+    let tile = 16usize;
+    let code_ridge = 1.0e-6f32;
+    let mk = |k: usize| SparseDictConfig {
+        n_atoms: k,
+        active: s,
+        minibatch: 256,
+        max_epochs: 60,
+        score_tile: tile,
+        code_ridge,
+        decoder_ridge: 1.0e-6,
+        tolerance: 1.0e-9,
+    };
+
+    let fit_small = fit_sparse_dictionary(x_train.view(), &mk(16)).expect("K=16 fit");
+    let fit_mid = fit_sparse_dictionary(x_train.view(), &mk(64)).expect("K=64 fit");
+    let fit_large = fit_sparse_dictionary(x_train.view(), &mk(256)).expect("K=256 fit");
+
+    let ev_small = held_out_ev(fit_small.decoder.view(), x_test.view(), s, tile, code_ridge);
+    let ev_mid = held_out_ev(fit_mid.decoder.view(), x_test.view(), s, tile, code_ridge);
+    let ev_large = held_out_ev(fit_large.decoder.view(), x_test.view(), s, tile, code_ridge);
+
+    // 1. Held-out monotonicity in K (small slack absorbs f32 routing noise). The
+    //    un-revived lane failed this — large K dropped below small K.
+    assert!(
+        ev_mid + 5.0e-3 >= ev_small,
+        "[#1026] held-out EV must not drop from K=16 ({ev_small:.4}) to K=64 ({ev_mid:.4})"
+    );
+    assert!(
+        ev_large + 5.0e-3 >= ev_mid,
+        "[#1026] held-out EV must not drop from K=64 ({ev_mid:.4}) to K=256 ({ev_large:.4})"
+    );
+    // 2. Parity/superiority: the large-K adaptive s-sparse code beats a fixed
+    //    rank-s PCA linear autoencoder on held-out data.
+    let pca_rank_s = pca_ev_held_out(x_train.view(), x_test.view(), s);
+    assert!(
+        ev_large > pca_rank_s + 0.05,
+        "[#1026] K=256 held-out EV ({ev_large:.4}) must beat fixed rank-{s} PCA \
+         ({pca_rank_s:.4}) — adaptive over-complete sparse coding must dominate a \
+         single s-dim linear subspace at matched active budget"
+    );
+    // And the over-complete lane actually resolves the planted structure at scale.
+    assert!(
+        ev_large > 0.85,
+        "[#1026] K=256 held-out EV ({ev_large:.4}) should resolve the 2-sparse \
+         planted mixture (reconstruction parity at scale)"
+    );
+}
+
+/// Minimal reader for a NumPy `.npy` v1.0 file holding a C-order little-endian
+/// `float32` 2-D array (the format of the banked activation slices in
+/// `tests/data`). Returns `(rows, cols, data)` in row-major order. Panics with a
+/// clear message on any format it does not handle — this is a measurement
+/// helper, not a general parser.
+fn read_npy_f32_2d(path: &str) -> (usize, usize, Vec<f32>) {
+    let bytes = std::fs::read(path).unwrap_or_else(|e| panic!("read {path}: {e}"));
+    assert!(
+        bytes.len() > 10 && &bytes[0..6] == b"\x93NUMPY",
+        "{path}: not a .npy file"
+    );
+    // Byte 6/7 = version; bytes 8..10 = little-endian header length (v1.0).
+    let header_len = u16::from_le_bytes([bytes[8], bytes[9]]) as usize;
+    let header = std::str::from_utf8(&bytes[10..10 + header_len]).expect("utf8 header");
+    assert!(
+        header.contains("'<f4'") || header.contains("\"<f4\""),
+        "{path}: expected little-endian float32 (<f4); header: {header}"
+    );
+    assert!(
+        header.contains("'fortran_order': False") || header.contains("\"fortran_order\": false"),
+        "{path}: expected C-order; header: {header}"
+    );
+    // Parse the shape tuple "(N, P)".
+    let shape_start = header.find("'shape':").expect("shape key") + "'shape':".len();
+    let paren_open = header[shape_start..].find('(').expect("shape (") + shape_start + 1;
+    let paren_close = header[paren_open..].find(')').expect("shape )") + paren_open;
+    let dims: Vec<usize> = header[paren_open..paren_close]
+        .split(',')
+        .filter_map(|t| t.trim().parse::<usize>().ok())
+        .collect();
+    assert_eq!(dims.len(), 2, "{path}: expected a 2-D array, got {dims:?}");
+    let (n, p) = (dims[0], dims[1]);
+    let data_off = 10 + header_len;
+    let expect = n * p * 4;
+    assert_eq!(
+        bytes.len() - data_off,
+        expect,
+        "{path}: data length mismatch (n={n}, p={p})"
+    );
+    let mut data = Vec::with_capacity(n * p);
+    let mut off = data_off;
+    for _ in 0..(n * p) {
+        data.push(f32::from_le_bytes([
+            bytes[off],
+            bytes[off + 1],
+            bytes[off + 2],
+            bytes[off + 3],
+        ]));
+        off += 4;
+    }
+    (n, p, data)
+}
+
+/// #1026 REAL-DATA parity measurement (ignored by default — it is a measurement
+/// harness, not a pass/fail gate, and it reads the banked activation slices).
+///
+/// Run explicitly:
+///   ./build.sh nextest run -p gam-sae real_olmo_sparse_dict_ev_vs_k_parity \
+///       --run-ignored all --no-capture
+///
+/// Prints, for each banked OLMo slice and active budget `s`, the held-in and
+/// held-out EV of the collapsed-linear lane at K on the parity ladder, plus the
+/// dead-atom fraction and the rank-`s` held-out PCA baseline. This is the
+/// before/after evidence for the dead-atom-revival fix: EV must be MONOTONE in K
+/// and the dead fraction small (pre-fix it was non-monotone with the majority of
+/// atoms dead).
+#[test]
+fn real_olmo_sparse_dict_ev_vs_k_parity() {
+    let files = [
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/data/olmo_l18_pca64_635.npy"),
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/data/olmo_mixedlayer_pca64_768.npy"
+        ),
+    ];
+    for path in files {
+        let (n, p, data) = read_npy_f32_2d(path);
+        let x = Array2::from_shape_vec((n, p), data).expect("shape");
+        // Deterministic 80/20 split by stride.
+        let mut tr: Vec<usize> = Vec::new();
+        let mut te: Vec<usize> = Vec::new();
+        for i in 0..n {
+            if i % 5 == 0 {
+                te.push(i);
+            } else {
+                tr.push(i);
+            }
+        }
+        let mut x_tr = Array2::<f32>::zeros((tr.len(), p));
+        for (r, &i) in tr.iter().enumerate() {
+            x_tr.row_mut(r).assign(&x.row(i));
+        }
+        let mut x_te = Array2::<f32>::zeros((te.len(), p));
+        for (r, &i) in te.iter().enumerate() {
+            x_te.row_mut(r).assign(&x.row(i));
+        }
+        println!("\n=== {path}  (N={n}, P={p}, train={}, test={}) ===", tr.len(), te.len());
+        for s in [8usize, 32usize] {
+            let tile = p.max(1);
+            let pca = pca_ev_held_out(x_tr.view(), x_te.view(), s);
+            println!("  active s={s}  rank-{s} held-out PCA EV = {pca:.4}");
+            let mut prev = f64::NEG_INFINITY;
+            for k in [s, 32usize, 128, 512, 1024] {
+                if k < s {
+                    continue;
+                }
+                let config = SparseDictConfig {
+                    n_atoms: k,
+                    active: s,
+                    minibatch: 256,
+                    max_epochs: 40,
+                    score_tile: tile,
+                    code_ridge: 1.0e-6,
+                    decoder_ridge: 1.0e-6,
+                    tolerance: 1.0e-7,
+                };
+                let fit = fit_sparse_dictionary(x_tr.view(), &config).expect("fit");
+                let ev_te = held_out_ev(fit.decoder.view(), x_te.view(), s, tile, 1.0e-6);
+                let dead = dead_atom_fraction(&fit);
+                let mono = if ev_te + 5.0e-3 >= prev { "" } else { "  <-- DROP" };
+                println!(
+                    "    K={k:5}  train_EV={:.4}  test_EV={ev_te:.4}  dead={dead:.3}  epochs={}{mono}",
+                    fit.explained_variance, fit.epochs
+                );
+                prev = ev_te;
+            }
+        }
+    }
+}
+
 #[test]
 fn fixed_width_sparse_storage_never_dense_and_reconstructs() {
     let (k, p, n) = (6usize, 8usize, 240usize);

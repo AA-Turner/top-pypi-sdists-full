@@ -24,6 +24,8 @@ from weblate.utils.ratelimit import reset_rate_limit
 from weblate.utils.state import (
     STATE_APPROVED,
     STATE_FUZZY,
+    STATE_NEEDS_CHECKING,
+    STATE_NEEDS_REWRITING,
     STATE_READONLY,
     STATE_TRANSLATED,
 )
@@ -554,6 +556,56 @@ class ReplaceTest(ViewTestCase):
     def test_replace(self) -> None:
         self.do_replace_test(reverse("replace", kwargs=self.kw_translation))
 
+    def test_replace_preview_parameters_are_editable(self) -> None:
+        url = reverse("replace", kwargs=self.kw_translation)
+
+        response = self.client.post(
+            url,
+            {"q": "", "search": "Nazdar", "replacement": "Ahoj"},
+            follow=True,
+        )
+
+        self.assertContains(
+            response, "Please review and confirm the search and replace results."
+        )
+        self.assertContains(response, "Update preview")
+        self.assertContains(response, 'id="id_replace_search"')
+        self.assertContains(response, 'id="id_replace_replacement"')
+        content = response.content.decode()
+        self.assertEqual(content.count('id="id_replace_search"'), 1)
+        self.assertEqual(content.count('id="id_replace_replacement"'), 1)
+
+        response = self.client.post(
+            url,
+            {"q": "", "search": "Nazdar", "replacement": "Cau"},
+            follow=True,
+        )
+
+        unit = self.get_unit()
+        self.assertContains(
+            response, "Please review and confirm the search and replace results."
+        )
+        self.assertContains(response, 'value="Cau"')
+        self.assertEqual(unit.target, "Nazdar svete!\n")
+
+        response = self.client.post(
+            url,
+            {
+                "q": "",
+                "search": "Nazdar",
+                "replacement": "Cau",
+                "confirm": "1",
+                "units": unit.pk,
+            },
+            follow=True,
+        )
+
+        self.assertContains(
+            response, "Search and replace completed, 1 string was updated."
+        )
+        unit = self.get_unit()
+        self.assertEqual(unit.target, "Cau svete!\n")
+
     def test_replace_project(self) -> None:
         self.do_replace_test(
             reverse("replace", kwargs={"path": self.project.get_url_path()})
@@ -655,6 +707,37 @@ class BulkEditTest(ViewTestCase):
                 },
             )
         )
+
+    def test_bulk_edit_fuzzy_alias_includes_substates(self) -> None:
+        self.unit.state = STATE_NEEDS_REWRITING
+        self.unit.save(update_fields=["state"])
+
+        response = self.client.post(
+            reverse("bulk-edit", kwargs=self.kw_translation),
+            {"q": "is:needs-editing", "state": STATE_TRANSLATED},
+            follow=True,
+        )
+
+        self.assertContains(response, "Bulk edit completed, 1 string was updated.")
+        self.unit.refresh_from_db()
+        self.assertEqual(self.unit.state, STATE_TRANSLATED)
+
+    def test_bulk_edit_or_query_includes_substates(self) -> None:
+        self.unit.state = STATE_NEEDS_CHECKING
+        self.unit.save(update_fields=["state"])
+
+        response = self.client.post(
+            reverse("bulk-edit", kwargs=self.kw_translation),
+            {
+                "q": "state:needs-checking OR state:needs-rewriting",
+                "state": STATE_TRANSLATED,
+            },
+            follow=True,
+        )
+
+        self.assertContains(response, "Bulk edit completed, 1 string was updated.")
+        self.unit.refresh_from_db()
+        self.assertEqual(self.unit.state, STATE_TRANSLATED)
 
     def test_bulk_edit_requires_bulk_permission_per_unit(self) -> None:
         limited_user = User.objects.create_user(

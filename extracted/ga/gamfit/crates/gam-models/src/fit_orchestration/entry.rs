@@ -377,8 +377,8 @@ pub fn fit_from_formula(
     // penalized expectile smooth with data-driven smoothing for free. This is a
     // genuine estimator route, not a silent swap: it fires only on the explicit
     // `family = "expectile"`. Every other family falls through unchanged.
-    if let Some(tau) = expectile_tau_for_config(config)? {
-        return fit_expectile_laws(formula, data, config, tau);
+    if let Some(result) = fit_expectile_if_requested(formula, data, config)? {
+        return Ok(FitResult::Standard(result));
     }
     let mat = materialize(formula, data, config)?;
     // Exact O(n) spline-scan fast path (#1030): when the materialized request
@@ -435,6 +435,35 @@ pub fn fit_from_formula(
     fit_model(mat.request)
 }
 
+/// THE single dispatch seam for the expectile (Newey–Powell LAWS) family.
+///
+/// Returns `Ok(Some(result))` with the converged τ-expectile as an ordinary
+/// [`StandardFitResult`] when `config.family` selects the expectile family
+/// (`"expectile"` or `"expectile(τ)"`, optionally pinned by
+/// [`FitConfig::expectile_tau`]), `Ok(None)` for every other family — in which
+/// case the caller runs its normal materialize/`fit_model` path — and `Err` on a
+/// malformed expectile request or an inner-fit failure.
+///
+/// Every public entry point that resolves a family routes through this seam
+/// *before* materializing: the in-process [`fit_from_formula`], the Python FFI
+/// (`gam-pyffi`), and the `gam` CLI. Centralizing the dispatch here is what makes
+/// the estimator reachable from every interface instead of only the library
+/// call — and what prevents the class of bug where a newly-added outer estimator
+/// is wired into one entry point and silently bypassed by the others (#1777).
+/// The returned [`StandardFitResult`] carries the full design / resolved spec /
+/// fit, so each caller builds its persistence payload from it exactly as it does
+/// for any other standard fit.
+pub fn fit_expectile_if_requested(
+    formula: &str,
+    data: &Dataset,
+    config: &FitConfig,
+) -> Result<Option<StandardFitResult>, WorkflowError> {
+    match expectile_tau_for_config(config)? {
+        Some(tau) => Ok(Some(fit_expectile_laws(formula, data, config, tau)?)),
+        None => Ok(None),
+    }
+}
+
 /// Least Asymmetrically Weighted Squares (LAWS) driver for expectile GAMs.
 ///
 /// The τ-expectile surface minimizes `Σ wᵢ(τ)·(yᵢ − μᵢ)²` with the residual-
@@ -461,8 +490,15 @@ fn fit_expectile_laws(
     data: &Dataset,
     config: &FitConfig,
     tau: f64,
-) -> Result<FitResult, WorkflowError> {
+) -> Result<StandardFitResult, WorkflowError> {
     use gam_linalg::matrix::LinearOperator;
+
+    if config.frailty.as_ref().is_some_and(FrailtySpec::is_active) {
+        return Err(WorkflowError::InvalidConfig {
+            reason: "expectile regression does not support frailty; use a survival/frailty-aware family instead"
+                .to_string(),
+        });
+    }
 
     // Inner fits are ordinary Gaussian-identity GAMs; the τ asymmetry lives
     // entirely in the per-iteration prior weights this driver injects.
@@ -470,6 +506,12 @@ fn fit_expectile_laws(
         family: Some("gaussian".to_string()),
         link: Some("identity".to_string()),
         expectile_tau: None,
+        // The inner Gaussian-identity design carries no frailty. Normalize the
+        // CLI/config-layer null value (`Some(FrailtySpec::None)`) to `None` so
+        // the expectile driver does not leak survival-only plumbing into the
+        // standard-family materializer, while the active-frailty guard above
+        // still rejects unsupported frailty requests explicitly.
+        frailty: None,
         ..config.clone()
     };
 
@@ -585,7 +627,7 @@ fn fit_expectile_laws(
     let result = last_result.ok_or_else(|| WorkflowError::IntegrationFailed {
         reason: "expectile LAWS produced no fit".to_string(),
     })?;
-    Ok(FitResult::Standard(result))
+    Ok(result)
 }
 /// Detection seam for the exact O(n) cubic-smoothing-spline fast path.
 ///
@@ -616,7 +658,9 @@ fn fit_expectile_laws(
 ///   through the scan would silently drop that penalty and select λ from the
 ///   bending penalty alone, which is exactly the EDF inflation #1266 reports.
 ///   Those fits fall through to the dense two-rho path, which owns both penalties
-///   jointly;
+///   jointly. Natural cubic regression (`bs="cr"`/`"cs"`) terms also fall
+///   through: their knot-value parameterization is a finite-rank regression
+///   spline, not the scan's full smoothing-spline state-space posterior;
 /// - the offset is identically zero and every weight is finite and positive;
 /// - at least 3 distinct finite abscissae (the scan's diffuse rank plus one).
 ///
@@ -712,6 +756,20 @@ pub fn spline_scan_fast_path(request: &StandardFitRequest<'_>) -> Option<SplineS
         || matches!(
             bspec.knotspec,
             gam_terms::basis::BSplineKnotSpec::PeriodicUniform { .. }
+                | gam_terms::basis::BSplineKnotSpec::NaturalCubicRegression { .. }
+        )
+        // mgcv `bs="cr"`/`"cs"` materialise a `NaturalCubicRegression` value-knot
+        // spec: a Lancaster–Salkauskas cubic-regression basis whose columns
+        // index `f(x*_i)` at `k` quantile knots — a genuinely DIFFERENT finite
+        // basis (and hence a different penalized posterior) from the free
+        // integrated-Wiener natural spline the exact scan solves on the raw data
+        // points. The scan builds its own knots from `x` and ignores this spec,
+        // so routing a cr fit through it would silently solve the wrong model and
+        // (per #1844) return a non-`Standard` `SplineScan` result the predict-time
+        // design replay cannot reconstruct. Keep cr/cs on the dense path.
+        || matches!(
+            bspec.knotspec,
+            gam_terms::basis::BSplineKnotSpec::NaturalCubicRegression { .. }
         )
     {
         return None;

@@ -6,13 +6,13 @@ the judge agent's final assistant message into an `OutcomeJudgement`.
 Reuses the `Judgement` XML model + regex fallback from `scorers.judge`.
 """
 
-import os
 import typing as t
 from textwrap import dedent
 
 from dreadnode.agents.agent import Agent
 from dreadnode.agents.events import AgentEnd
 from dreadnode.generators.generator import Generator
+from dreadnode.generators.proxy import resolve_dn_model_to_generator
 from dreadnode.scorers.judge import (
     Judgement,
     _clean_xml_response,
@@ -29,46 +29,10 @@ from .outcome import (
 )
 from .trajectory_tools import TrajectoryViewer
 
-# Env vars used by Dreadnode-internal model aliases (`dn/...`). When the
-# judge runs inside an agent sandbox these are set by the platform so the
-# agent runtime routes calls through the LiteLLM proxy. We honor them here
-# so the judge can use the same model identifiers the agent under test
-# was configured with (e.g. ``dn/claude-sonnet-4-6``) without needing a
-# separate platform-side resolution step.
-_DREADNODE_LLM_BASE_ENV = "DREADNODE_LLM_BASE"
-_DREADNODE_LLM_API_KEY_ENV = "DREADNODE_LLM_API_KEY"
-
 
 def _resolve_model_to_generator(model: str | Generator) -> str | Generator:
-    """Convert a `dn/...` model identifier into a proxy-routed Generator.
-
-    For Dreadnode-internal aliases (model strings starting with ``dn/``) we
-    must pass ``custom_llm_provider="litellm_proxy"`` along with the proxy
-    base URL + API key so LiteLLM routes the call through the platform
-    gateway. Plain model strings (and pre-built Generator instances) are
-    returned unchanged.
-    """
-    if not isinstance(model, str) or not model.startswith("dn/"):
-        return model
-
-    api_base = os.environ.get(_DREADNODE_LLM_BASE_ENV, "").strip() or None
-    api_key = os.environ.get(_DREADNODE_LLM_API_KEY_ENV, "").strip() or None
-    if not api_base or not api_key:
-        # Env not configured (e.g. notebook user); let the default resolution
-        # path raise its own error rather than constructing a broken generator.
-        return model
-
-    from dreadnode.generators.generator import GenerateParams, get_generator
-
-    generator = get_generator(
-        model,
-        params=GenerateParams(
-            api_base=api_base,
-            extra={"custom_llm_provider": "litellm_proxy"},
-        ),
-    )
-    generator.api_key = api_key
-    return generator
+    """Convert `dn/...` model identifiers into proxy-routed generators."""
+    return resolve_dn_model_to_generator(model)
 
 
 DEFAULT_JUDGE_SYSTEM_PROMPT = dedent(

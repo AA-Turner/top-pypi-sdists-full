@@ -7,6 +7,8 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from .ref import Ref
+    from .user_ref import UserRef
+    from .workspace_ref import WorkspaceRef
 
 @dataclass
 class ApiKey(Parsable):
@@ -24,6 +26,10 @@ class ApiKey(Parsable):
     scopes: Optional[list[str]] = None
     # The tenant property
     tenant: Optional[Ref] = None
+    # The user property
+    user: Optional[UserRef] = None
+    # The workspace property
+    workspace: Optional[WorkspaceRef] = None
     
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> ApiKey:
@@ -42,8 +48,12 @@ class ApiKey(Parsable):
         Returns: dict[str, Callable[[ParseNode], None]]
         """
         from .ref import Ref
+        from .user_ref import UserRef
+        from .workspace_ref import WorkspaceRef
 
         from .ref import Ref
+        from .user_ref import UserRef
+        from .workspace_ref import WorkspaceRef
 
         fields: dict[str, Callable[[Any], None]] = {
             "created_at": lambda n : setattr(self, 'created_at', n.get_datetime_value()),
@@ -53,6 +63,8 @@ class ApiKey(Parsable):
             "revoked_at": lambda n : setattr(self, 'revoked_at', n.get_datetime_value()),
             "scopes": lambda n : setattr(self, 'scopes', n.get_collection_of_primitive_values(str)),
             "tenant": lambda n : setattr(self, 'tenant', n.get_object_value(Ref)),
+            "user": lambda n : setattr(self, 'user', n.get_object_value(UserRef)),
+            "workspace": lambda n : setattr(self, 'workspace', n.get_object_value(WorkspaceRef)),
         }
         return fields
     
@@ -71,5 +83,7 @@ class ApiKey(Parsable):
         writer.write_datetime_value("revoked_at", self.revoked_at)
         writer.write_collection_of_primitive_values("scopes", self.scopes)
         writer.write_object_value("tenant", self.tenant)
+        writer.write_object_value("user", self.user)
+        writer.write_object_value("workspace", self.workspace)
     
 

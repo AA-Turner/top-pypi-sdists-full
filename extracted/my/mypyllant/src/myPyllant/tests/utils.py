@@ -156,7 +156,9 @@ def _mypyllant_aioresponses():
                 repeat=True,
             )
             self.patch(
-                re.compile(r".*ventilation/.*/(operation-mode|fan-stage)$"),
+                re.compile(
+                    r".*ventilation/.*/(operation-mode|fan-stage|day-fan-stage|night-fan-stage)$"
+                ),
                 status=200,
                 payload={},
                 repeat=True,

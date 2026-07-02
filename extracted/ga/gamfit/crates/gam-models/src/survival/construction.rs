@@ -27,6 +27,7 @@ use crate::wiggle::{
 use gam_terms::inference::formula_dsl::LinkWiggleFormulaSpec;
 use gam_linalg::matrix::{DenseDesignMatrix, DesignMatrix, SparseDesignMatrix, symmetrize_in_place};
 use crate::probability::{normal_pdf, standard_normal_quantile};
+use gam_problem::outer_subsample::RowSet;
 use gam_problem::{InverseLink, StandardLink};
 use ndarray::{Array1, Array2, array, s};
 use rayon::prelude::*;
@@ -226,6 +227,13 @@ pub struct SurvivalTimeBuildOutput {
 }
 
 pub const SURVIVAL_TIME_FLOOR: f64 = 1e-9;
+
+/// Entry ages above this value mark genuine left truncation (delayed entry): the
+/// row's cumulative-hazard interval starts at a positive left-tail time rather
+/// than the time origin. Kept in lockstep with the working-model's
+/// `ENTRY_AT_ORIGIN_THRESHOLD` so the "this row has an entry interval" and "the
+/// data is left-truncated" decisions agree.
+pub const SURVIVAL_DELAYED_ENTRY_THRESHOLD: f64 = 1e-8;
 
 /// Seed smoothing penalty `λ` used when a survival time basis is reconstructed
 /// from a build (or saved model) that did not carry an explicit `smooth_lambda`.
@@ -1861,18 +1869,73 @@ pub fn resolve_survival_marginal_slope_time_anchor_value(
             }
             t_anchor
         }
-        None => {
-            let mut sorted: Vec<f64> = age_exit.iter().copied().collect();
-            sorted.sort_by(f64::total_cmp);
-            let m = sorted.len();
-            if m % 2 == 1 {
-                sorted[m / 2]
-            } else {
-                0.5 * (sorted[m / 2 - 1] + sorted[m / 2])
-            }
-        }
+        None => robust_interior_exit_anchor(age_exit),
     };
     Ok(anchor.max(SURVIVAL_TIME_FLOOR))
+}
+
+/// Median exit age — a robust interior time on the exit scale, where the
+/// at-risk mass concentrates. Used as the survival time-basis centering anchor
+/// whenever the earliest entry is a positive left-tail point (delayed entry):
+/// centering there keeps the reparameterized linear-trend column small and
+/// two-signed instead of large and one-signed. The median is chosen over the
+/// mean for robustness to the heavy right tail of survival times.
+fn robust_interior_exit_anchor(age_exit: &Array1<f64>) -> f64 {
+    let mut sorted: Vec<f64> = age_exit.iter().copied().collect();
+    sorted.sort_by(f64::total_cmp);
+    let m = sorted.len();
+    if m == 0 {
+        return SURVIVAL_TIME_FLOOR;
+    }
+    if m % 2 == 1 {
+        sorted[m / 2]
+    } else {
+        0.5 * (sorted[m / 2 - 1] + sorted[m / 2])
+    }
+}
+
+/// Centering anchor for the default transformation (Royston-Parmar) survival
+/// baseline.
+///
+/// For right-censored-only data the earliest entry age is ≈ the time origin, so
+/// [`resolve_survival_time_anchor_value`] (min entry) is nearly a no-op and is
+/// used unchanged. Under **left truncation** (every row enters at a positive
+/// delayed-entry time) that minimum is a genuine left-tail point far below the
+/// exit mass, and centering the I-spline time basis there leaves the
+/// unpenalized linear-trend column `X(exit) − X(anchor)` large and one-signed
+/// across all rows. That column is the null space of the 2nd-difference time
+/// penalty, so the inflated one-signed column blows up the transformation
+/// smoothing-parameter selection: it rails a penalty direction and collapses the
+/// baseline to a covariate-independent, cumulative-hazard-inflated degenerate
+/// fit (issue #1790 — the transformation-model analogue of the marginal-slope
+/// #751 defect). Anchoring instead at the robust interior **median exit age**
+/// keeps the centered column small and two-signed so the exit-event likelihood
+/// pins the linear trend. Re-centering is an exact affine reparameterization of
+/// the baseline offset — the fitted `q(t)` and REML objective are unchanged,
+/// only the seed conditioning improves. An explicit `time_anchor` is honored
+/// verbatim.
+pub fn resolve_survival_transformation_time_anchor_value(
+    age_entry: &Array1<f64>,
+    age_exit: &Array1<f64>,
+    time_anchor: Option<f64>,
+) -> Result<f64, String> {
+    if time_anchor.is_some() {
+        return resolve_survival_time_anchor_value(age_entry, time_anchor);
+    }
+    if age_exit.is_empty() {
+        return Err(
+            "survival transformation time anchor requires non-empty exit times".to_string(),
+        );
+    }
+    let min_entry = age_entry
+        .iter()
+        .copied()
+        .fold(f64::INFINITY, f64::min);
+    if min_entry > SURVIVAL_DELAYED_ENTRY_THRESHOLD {
+        Ok(robust_interior_exit_anchor(age_exit).max(SURVIVAL_TIME_FLOOR))
+    } else {
+        resolve_survival_time_anchor_value(age_entry, None)
+    }
 }
 
 pub fn evaluate_survival_time_basis_row(
@@ -2813,61 +2876,61 @@ pub fn marginal_slope_baseline_chain_rule_hessian(
     // Per-row Hessian contractions are independent. Each row contributes a
     // dim×dim increment combining second partials (exit/entry channels) with
     // the curvature-weighted outer product of the (entry, exit, derivative)
-    // first-partial Jacobians. Parallel try_fold/try_reduce accumulates them.
-    let hessian = (0..n)
-        .into_par_iter()
-        .try_fold(
-            || Array2::<f64>::zeros((dim, dim)),
-            |mut acc, i| -> Result<Array2<f64>, String> {
-                let exit_parts =
-                    marginal_slope_baseline_offset_theta_second_partials(age_exit[i], cfg)?
+    // first-partial Jacobians. Fixed row chunks are combined in chunk-index
+    // order so floating-point addition stays deterministic across Rayon
+    // scheduling decisions.
+    let hessian = RowSet::All.par_try_reduce_fold(
+        n,
+        || Array2::<f64>::zeros((dim, dim)),
+        |mut acc, i, _row_weight| -> Result<Array2<f64>, String> {
+            let exit_parts =
+                marginal_slope_baseline_offset_theta_second_partials(age_exit[i], cfg)?
+                    .ok_or_else(|| {
+                        "unexpected None from marginal-slope second partials at exit".to_string()
+                    })?;
+            if exit_parts.first.len() != dim {
+                return Err(
+                    "marginal_slope_baseline_chain_rule_hessian: theta_dim drifted".to_string(),
+                );
+            }
+            let mut entry_parts = None;
+            if residuals.entry[i] != 0.0 {
+                entry_parts = Some(
+                    marginal_slope_baseline_offset_theta_second_partials(age_entry[i], cfg)?
                         .ok_or_else(|| {
-                            "unexpected None from marginal-slope second partials at exit"
+                            "unexpected None from marginal-slope second partials at entry"
                                 .to_string()
-                        })?;
-                if exit_parts.first.len() != dim {
-                    return Err(
-                        "marginal_slope_baseline_chain_rule_hessian: theta_dim drifted".to_string(),
-                    );
-                }
-                let mut entry_parts = None;
-                if residuals.entry[i] != 0.0 {
-                    entry_parts = Some(
-                        marginal_slope_baseline_offset_theta_second_partials(age_entry[i], cfg)?
-                            .ok_or_else(|| {
-                                "unexpected None from marginal-slope second partials at entry"
-                                    .to_string()
-                            })?,
-                    );
-                }
-                for a in 0..dim {
-                    for b in 0..dim {
-                        let j_exit_a = exit_parts.first[a].0;
-                        let j_exit_b = exit_parts.first[b].0;
-                        let j_deriv_a = exit_parts.first[a].1;
-                        let j_deriv_b = exit_parts.first[b].1;
-                        let mut value = residuals.exit[i] * exit_parts.second[a][b].0
-                            + residuals.derivative[i] * exit_parts.second[a][b].1;
-                        if let Some(parts) = entry_parts.as_ref() {
-                            value += residuals.entry[i] * parts.second[a][b].0;
-                        }
-                        let curv = curvatures.rows[i];
-                        let j_entry_a = entry_parts.as_ref().map_or(0.0, |parts| parts.first[a].0);
-                        let j_entry_b = entry_parts.as_ref().map_or(0.0, |parts| parts.first[b].0);
-                        let ja = [j_entry_a, j_exit_a, j_deriv_a];
-                        let jb = [j_entry_b, j_exit_b, j_deriv_b];
-                        for u in 0..3 {
-                            for v in 0..3 {
-                                value += ja[u] * curv[u][v] * jb[v];
-                            }
-                        }
-                        acc[[a, b]] += value;
+                        })?,
+                );
+            }
+            for a in 0..dim {
+                for b in 0..dim {
+                    let j_exit_a = exit_parts.first[a].0;
+                    let j_exit_b = exit_parts.first[b].0;
+                    let j_deriv_a = exit_parts.first[a].1;
+                    let j_deriv_b = exit_parts.first[b].1;
+                    let mut value = residuals.exit[i] * exit_parts.second[a][b].0
+                        + residuals.derivative[i] * exit_parts.second[a][b].1;
+                    if let Some(parts) = entry_parts.as_ref() {
+                        value += residuals.entry[i] * parts.second[a][b].0;
                     }
+                    let curv = curvatures.rows[i];
+                    let j_entry_a = entry_parts.as_ref().map_or(0.0, |parts| parts.first[a].0);
+                    let j_entry_b = entry_parts.as_ref().map_or(0.0, |parts| parts.first[b].0);
+                    let ja = [j_entry_a, j_exit_a, j_deriv_a];
+                    let jb = [j_entry_b, j_exit_b, j_deriv_b];
+                    for u in 0..3 {
+                        for v in 0..3 {
+                            value += ja[u] * curv[u][v] * jb[v];
+                        }
+                    }
+                    acc[[a, b]] += value;
                 }
-                Ok(acc)
-            },
-        )
-        .try_reduce(|| Array2::<f64>::zeros((dim, dim)), |a, b| Ok(a + b))?;
+            }
+            Ok(acc)
+        },
+        |a, b| Ok(a + b),
+    )?;
     Ok(Some(hessian))
 }
 
@@ -3811,6 +3874,109 @@ mod tests {
                 "each row at the right boundary needs a positive hazard derivative"
             );
         }
+    }
+
+    #[test]
+    fn ispline_time_penalty_is_psd_under_nontrivial_keep_cols() {
+        // PSD-invariant forward guard for the gam#979 survival hang. The I-spline
+        // value-space curvature penalty on the increment coefficients is the
+        // congruence `S_I = Lᵀ S_B[1:,1:] L`. When identifiability drops columns,
+        // the retained block MUST be taken as a PRINCIPAL SUBMATRIX of the FULL
+        // congruence (congruence first, column selection second). The historical
+        // regression assembled the reduced penalty in the wrong order, producing
+        // a strongly INDEFINITE matrix (measured `s0_min_eval = −9.8e7`); an
+        // indefinite time penalty makes `½γᵀ S_I γ` unbounded below, the inner
+        // joint-Newton follows the divergence, and the outer REML never
+        // terminates — the survival marginal-slope hang.
+        //
+        // This test exercises the reduction with a NON-TRIVIAL `keep_cols`
+        // (a proper subset, an interior column dropped) and asserts the assembled
+        // penalty satisfies the PSD contract the fix guarantees. It locks the
+        // invariant on the shipped code path so a future reassembly that
+        // reintroduces an indefinite reduction is caught at construction rather
+        // than silently as an outer-loop hang. (It is a forward invariant lock,
+        // not a bit-exact replay of the removed buggy assembly.)
+        let age_entry = array![1.0_f64, 1.0, 1.0, 1.0, 1.0, 1.0];
+        let age_exit = array![2.0_f64, 3.0, 5.0, 8.0, 13.0, 21.0];
+        let left = 1.0_f64.ln();
+        let right = 21.0_f64.ln();
+        let q1 = left + 0.25 * (right - left);
+        let mid = left + 0.5 * (right - left);
+        let q3 = left + 0.75 * (right - left);
+        // Degree-2 I-spline with three interior knots -> a value-space basis wide
+        // enough to drop an interior column and still leave the reduction
+        // non-trivial (p_time < p_time_full).
+        let knots = array![
+            left, left, left, left, q1, mid, q3, right, right, right, right
+        ];
+
+        // Discover the full basis width by building with all columns retained.
+        let full = build_survival_time_basis(
+            &age_entry,
+            &age_exit,
+            SurvivalTimeBasisConfig::ISpline {
+                degree: 2,
+                knots: knots.clone(),
+                keep_cols: Vec::new(),
+                smooth_lambda: 1e-2,
+            },
+            None,
+        )
+        .expect("build full-width ispline time basis");
+        let p_time_full = full
+            .keep_cols
+            .as_ref()
+            .map(|k| k.len())
+            .unwrap_or_else(|| full.x_exit_time.ncols());
+        assert!(
+            p_time_full >= 3,
+            "test needs at least 3 shape-varying columns to drop an interior one; got {p_time_full}"
+        );
+
+        // Retain everything except one interior column, forcing the
+        // principal-submatrix-of-the-full-congruence path.
+        let keep_cols: Vec<usize> = (0..p_time_full).filter(|&j| j != 1).collect();
+
+        let built = build_survival_time_basis(
+            &age_entry,
+            &age_exit,
+            SurvivalTimeBasisConfig::ISpline {
+                degree: 2,
+                knots,
+                keep_cols: keep_cols.clone(),
+                smooth_lambda: 1e-2,
+            },
+            None,
+        )
+        .expect(
+            "reduced ispline penalty must build (PSD contract must accept the \
+             congruence-first / select-second ordering)",
+        );
+
+        assert_eq!(
+            built.penalties.len(),
+            1,
+            "the ispline time basis should carry exactly one curvature penalty"
+        );
+        let s = &built.penalties[0];
+        assert_eq!(s.nrows(), keep_cols.len());
+        assert_eq!(s.ncols(), keep_cols.len());
+
+        let (evals, _) =
+            gam_linalg::faer_ndarray::FaerEigh::eigh(s, faer::Side::Lower).expect("eigh of penalty");
+        let evals_slice = evals.as_slice().expect("contiguous eigenvalues");
+        let max_abs = evals_slice
+            .iter()
+            .copied()
+            .fold(0.0_f64, |a, b| a.max(b.abs()))
+            .max(1.0);
+        let min_ev = evals_slice.iter().copied().fold(f64::INFINITY, f64::min);
+        let tol = -100.0 * (s.nrows() as f64) * f64::EPSILON * max_abs;
+        assert!(
+            min_ev >= tol,
+            "reduced I-spline time penalty must be PSD (gam#979): min eigenvalue \
+             {min_ev:.3e} < tol {tol:.3e}, max|eig| {max_abs:.3e}"
+        );
     }
 
     #[test]

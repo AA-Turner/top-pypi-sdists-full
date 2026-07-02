@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fireblocks
-Version: 22.0.0
+Version: 23.0.0
 Summary: Fireblocks API
 Home-page: https://github.com/fireblocks/py-sdk/tree/master
 Author: Fireblocks
@@ -322,7 +322,7 @@ Class | Method | HTTP request | Description
 *ComplianceApi* | [**update_travel_rule_config**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#update_travel_rule_config) | **PUT** /screening/travel_rule/policy_configuration | Update Travel Rule Configuration
 *ComplianceScreeningConfigurationApi* | [**get_aml_screening_configuration**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceScreeningConfigurationApi.md#get_aml_screening_configuration) | **GET** /screening/aml/policy_configuration | Get AML Screening Policy Configuration
 *ComplianceScreeningConfigurationApi* | [**get_screening_configuration**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceScreeningConfigurationApi.md#get_screening_configuration) | **GET** /screening/travel_rule/policy_configuration | Get Travel Rule Screening Policy Configuration
-*ConnectedAccountsBetaApi* | [**create_connected_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountsBetaApi.md#create_connected_account) | **POST** /connected_accounts | Create a connected account
+*ConnectedAccountsBetaApi* | [**add_connected_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountsBetaApi.md#add_connected_account) | **POST** /connected_accounts | Add a connected account
 *ConnectedAccountsBetaApi* | [**disconnect_connected_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountsBetaApi.md#disconnect_connected_account) | **DELETE** /connected_accounts/{accountId} | Disconnect connected account
 *ConnectedAccountsBetaApi* | [**get_connected_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountsBetaApi.md#get_connected_account) | **GET** /connected_accounts/{accountId} | Get connected account
 *ConnectedAccountsBetaApi* | [**get_connected_account_allowlist**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountsBetaApi.md#get_connected_account_allowlist) | **GET** /connected_accounts/{accountId}/allowlist | Get allowlist for connected account
@@ -737,11 +737,14 @@ Class | Method | HTTP request | Description
  - [AddAbiRequestDto](https://github.com/fireblocks/py-sdk/tree/master/docs/AddAbiRequestDto.md)
  - [AddAssetToExternalWalletRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/AddAssetToExternalWalletRequest.md)
  - [AddCollateralRequestBody](https://github.com/fireblocks/py-sdk/tree/master/docs/AddCollateralRequestBody.md)
+ - [AddConnectedAccountRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/AddConnectedAccountRequest.md)
+ - [AddConnectedAccountResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddConnectedAccountResponse.md)
  - [AddContractAssetRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/AddContractAssetRequest.md)
  - [AddCosignerRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/AddCosignerRequest.md)
  - [AddCosignerResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddCosignerResponse.md)
  - [AddExchangeAccountRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/AddExchangeAccountRequest.md)
  - [AddExchangeAccountResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddExchangeAccountResponse.md)
+ - [AddedConnectedAccountItem](https://github.com/fireblocks/py-sdk/tree/master/docs/AddedConnectedAccountItem.md)
  - [AdditionalInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/AdditionalInfo.md)
  - [AdditionalInfoRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/AdditionalInfoRequest.md)
  - [AdditionalInfoRequestAdditionalInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/AdditionalInfoRequestAdditionalInfo.md)
@@ -955,8 +958,6 @@ Class | Method | HTTP request | Description
  - [CreateAddressesReportRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateAddressesReportRequest.md)
  - [CreateAssetsRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateAssetsRequest.md)
  - [CreateConfigOperationRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateConfigOperationRequest.md)
- - [CreateConnectedAccountRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateConnectedAccountRequest.md)
- - [CreateConnectedAccountResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateConnectedAccountResponse.md)
  - [CreateConnectionRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateConnectionRequest.md)
  - [CreateConnectionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateConnectionResponse.md)
  - [CreateConsoleUser](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateConsoleUser.md)
@@ -999,7 +1000,6 @@ Class | Method | HTTP request | Description
  - [CreateWalletRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateWalletRequest.md)
  - [CreateWebhookRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateWebhookRequest.md)
  - [CreateWorkflowExecutionRequestParamsInner](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateWorkflowExecutionRequestParamsInner.md)
- - [CreatedConnectedAccountItem](https://github.com/fireblocks/py-sdk/tree/master/docs/CreatedConnectedAccountItem.md)
  - [CustomRoutingDest](https://github.com/fireblocks/py-sdk/tree/master/docs/CustomRoutingDest.md)
  - [DAppAddressConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/DAppAddressConfig.md)
  - [DVPSettlement](https://github.com/fireblocks/py-sdk/tree/master/docs/DVPSettlement.md)

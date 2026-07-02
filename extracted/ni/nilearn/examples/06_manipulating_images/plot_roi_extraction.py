@@ -23,8 +23,6 @@ visualization & results checking be possible at each step.
     for automatic ROI extraction of brain connected networks
     given in 4D image.
 
-.. include:: ../../../examples/masker_note.rst
-
 """
 
 # %%
@@ -59,7 +57,7 @@ haxby_dataset = datasets.fetch_haxby()
 
 # print basic information on the dataset
 print(
-    "First subject anatomical nifti image (3D) located is "
+    "First subject anatomical nifti image (3D) is located "
     f"at: {haxby_dataset.anat[0]}"
 )
 print(

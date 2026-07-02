@@ -27,6 +27,7 @@ from __future__ import annotations
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from gettext import gettext as _
 from time import perf_counter
 from typing import TypeVar
@@ -279,20 +280,99 @@ class JobsOption(ExtraOption):
         )
 
 
+def resolve_jobs(
+    ctx: click.Context | None,
+    count: int,
+    *,
+    serial_at_debug: bool = False,
+) -> int:
+    """Resolve how many worker threads to use for a batch of ``count`` items.
+
+    Returns the number of items to process in parallel; ``1`` means run
+    sequentially in the calling thread. This is the policy shared by
+    :func:`run_jobs` and :func:`run_lanes`, exposed on its own for callers that
+    must know the resolved count *before* they fan out (for example to pick a
+    progress-rendering mode). It collapses to sequential when:
+
+    - there is no active CLI context (programmatic or test use),
+    - a single item leaves nothing to parallelize, or
+    - the resolved :class:`JobsOption` count
+      (``ctx.meta[click_extra.context.JOBS]``) is ``1`` or less.
+
+    Otherwise that count wins, capped at ``count``: there is no point spinning up
+    more workers than there are items.
+
+    :param ctx: the active Click context, read for the resolved ``--jobs`` count
+        (and, with ``serial_at_debug``, the verbosity). ``None`` forces sequential.
+    :param count: how many items are about to be scheduled.
+    :param serial_at_debug: when set, also collapse to sequential at ``DEBUG``
+        verbosity, where coherent per-worker log narration matters more than the
+        speed-up (interleaved threads would scramble it). Off by default.
+    """
+    if count <= 1 or ctx is None:
+        return 1
+    # Compared against the stdlib level rather than click_extra.logging.LogLevel
+    # (which mirrors it) to keep this module free of a logging-module import cycle.
+    if serial_at_debug and context.get(ctx, context.VERBOSITY_LEVEL) == logging.DEBUG:
+        return 1
+    jobs = context.get(ctx, context.JOBS, 1)
+    return min(jobs, count) if jobs > 1 else 1
+
+
+@contextmanager
+def _interruptible_pool(max_workers: int) -> Iterator[ThreadPoolExecutor]:
+    """Yield a thread pool whose teardown honors a prompt interrupt.
+
+    Wraps a :class:`~concurrent.futures.ThreadPoolExecutor` for a ``with`` body
+    that submits and drains work. On a normal exit, or when a task raises, the
+    pool shuts down with ``wait=True``, keeping the drain-then-propagate
+    semantics of a plain ``with ThreadPoolExecutor(...)`` block. But on a prompt
+    abort (a :class:`KeyboardInterrupt` from Ctrl+C, or a :class:`GeneratorExit`
+    from a caller closing the generator early) it shuts down with
+    ``wait=False, cancel_futures=True``: queued items are dropped and control
+    returns at once, without blocking on the tasks already in flight.
+
+    A running thread cannot be cancelled, so those in-flight tasks keep going
+    until they return; a caller that needs them to stop sooner (killing a
+    subprocess, say) must arrange that itself. This is why a plain ``with`` block
+    is not used: its ``shutdown(wait=True)`` teardown would block until every
+    in-flight task finished, defeating the interrupt.
+
+    Shared by :func:`run_jobs` and :func:`run_lanes`, the two parallel drivers.
+    """
+    executor = ThreadPoolExecutor(max_workers=max_workers)
+    try:
+        yield executor
+    except (KeyboardInterrupt, GeneratorExit):
+        executor.shutdown(wait=False, cancel_futures=True)
+        raise
+    except BaseException:
+        # A task raised: keep the drain-then-propagate semantics of ``with``.
+        executor.shutdown(wait=True)
+        raise
+    else:
+        executor.shutdown(wait=True)
+
+
 def run_jobs(
     func: Callable[[T], R],
     items: Iterable[T],
     *,
     jobs: int | None = None,
+    serial_at_debug: bool = False,
 ) -> Iterator[R]:
     """Run ``func`` over ``items``, parallelized per the resolved ``--jobs`` count.
 
-    The worker count is taken from ``jobs`` when given, else from the active
-    command's :class:`JobsOption` value (``ctx.meta[click_extra.context.JOBS]``),
-    else ``1``. With a single worker (or at most one item) the items run
-    **sequentially and lazily**, so a caller can stop early on the first result
-    (for example to abort on the first failure); otherwise they run in a thread
-    pool. Either way results are yielded in submission order, like :func:`map`.
+    The worker count is taken from ``jobs`` when given, else resolved from the
+    active command's :class:`JobsOption` value by :func:`resolve_jobs`, else ``1``.
+    With a single worker (or at most one item) the items run **sequentially and
+    lazily**, so a caller can stop early on the first result (for example to abort
+    on the first failure); otherwise they run in a thread pool. Either way results
+    are yielded in submission order, like :func:`map`.
+
+    This is the single-task-per-item special case of :func:`run_lanes` (every item
+    is its own lane). Reach for :func:`run_lanes` when some items must run serially
+    relative to one another while others run concurrently.
 
     The pool is thread-based, which suits the I/O- and subprocess-bound work CLI
     tools usually parallelize (each child releases the GIL). The count is a
@@ -302,13 +382,15 @@ def run_jobs(
     :param items: The work items. Materialized up front to size the pool.
     :param jobs: Override the worker count instead of reading it from the
         context. ``1`` or fewer forces sequential execution.
+    :param serial_at_debug: forwarded to :func:`resolve_jobs` when ``jobs`` is not
+        given: collapse to sequential at ``DEBUG`` verbosity.
     :return: An iterator over ``func``'s results, in the order of ``items``.
     """
+    work = list(items)
     if jobs is None:
         ctx = click.get_current_context(silent=True)
-        jobs = context.get(ctx, context.JOBS, 1) if ctx is not None else 1
+        jobs = resolve_jobs(ctx, len(work), serial_at_debug=serial_at_debug)
 
-    work = list(items)
     if jobs <= 1 or len(work) <= 1:
         # Sequential and lazy: the caller can break early (for example on the
         # first failure) and the remaining items never run.
@@ -316,9 +398,71 @@ def run_jobs(
             yield func(item)
     else:
         # Parallel: every item is submitted up front and results are yielded in
-        # submission order. Breaking early does not cancel running work.
-        with ThreadPoolExecutor(max_workers=min(jobs, len(work))) as executor:
+        # submission order. The pool teardown drops queued work on a prompt
+        # interrupt instead of blocking on it (see :func:`_interruptible_pool`).
+        with _interruptible_pool(min(jobs, len(work))) as executor:
             yield from executor.map(func, work)
+
+
+def run_lanes(
+    func: Callable[[T], R],
+    lanes: Iterable[Iterable[T]],
+    *,
+    jobs: int | None = None,
+    serial_at_debug: bool = False,
+) -> Iterator[R]:
+    """Run ``func`` over grouped items: serial within a lane, concurrent across.
+
+    Each *lane* is an iterable of items. ``func`` is mapped over every item, but a
+    lane's own items run **serially and in order** on a single worker, while distinct
+    lanes run **concurrently** up to the resolved ``--jobs`` count. This is the right
+    primitive when some work must be serialized relative to itself (a shared lock, a
+    rate limit, one mailbox file, one package-manager backend) yet still overlap with
+    unrelated work.
+
+    :func:`run_jobs` is the degenerate case where every lane holds a single item.
+    Concurrency is sized by the *number of lanes* (one worker per lane), since a
+    lane never splits across workers.
+
+    Results are yielded in lane-submission order, a lane's items in order, like
+    :func:`map`. With a single worker the run stays lazy (the caller can break
+    early); otherwise every lane is submitted up front. A lane runs entirely on one
+    worker, so a stateful resource bound to the lane (a per-lane cache, a connection)
+    is touched by only that one thread and needs no lock.
+
+    :param func: Called once per item; its return value is yielded.
+    :param lanes: The lanes, each an iterable of items. Materialized up front.
+    :param jobs: Override the worker count instead of reading it from the context.
+        ``1`` or fewer forces fully sequential execution.
+    :param serial_at_debug: forwarded to :func:`resolve_jobs` when ``jobs`` is not
+        given: collapse to sequential at ``DEBUG`` verbosity.
+    :return: An iterator over ``func``'s results, lane by lane in submission order.
+    """
+    lane_list = [list(lane) for lane in lanes]
+    if not lane_list:
+        return
+    if jobs is None:
+        ctx = click.get_current_context(silent=True)
+        jobs = resolve_jobs(ctx, len(lane_list), serial_at_debug=serial_at_debug)
+    elif jobs > 1:
+        jobs = min(jobs, len(lane_list))
+
+    if jobs <= 1:
+        # Sequential and lazy across every lane and item: the caller can break early.
+        for lane in lane_list:
+            for item in lane:
+                yield func(item)
+    else:
+        # Each lane is a serial chain run on one worker; chains run concurrently and
+        # their results are yielded in submission order.
+        def run_chain(lane: list[T]) -> list[R]:
+            return [func(item) for item in lane]
+
+        # The pool teardown drops queued lanes on a prompt interrupt instead of
+        # blocking on the in-flight ones (see :func:`_interruptible_pool`).
+        with _interruptible_pool(jobs) as executor:
+            for chain_results in executor.map(run_chain, lane_list):
+                yield from chain_results
 
 
 class TimerOption(ExtraOption):

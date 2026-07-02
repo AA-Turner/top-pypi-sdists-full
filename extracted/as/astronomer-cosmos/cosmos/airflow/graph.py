@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import OrderedDict, defaultdict
 from collections.abc import Callable
 from copy import deepcopy
+from pathlib import Path
 from typing import Any
 
 try:  # Airflow 3
@@ -24,6 +25,7 @@ except ImportError:
     from airflow.utils.task_group import TaskGroup
 
 from cosmos import settings
+from cosmos.airflow.compatibility import EMPTY_OPERATOR_CLASS_PATH
 from cosmos.config import ExecutionConfig, RenderConfig
 from cosmos.constants import (
     DBT_SETUP_ASYNC_TASK_ID,
@@ -35,6 +37,7 @@ from cosmos.constants import (
     TESTABLE_DBT_RESOURCES,
     DbtResourceType,
     ExecutionMode,
+    SeedRenderingBehavior,
     SourceRenderingBehavior,
     TestBehavior,
     TestIndirectSelection,
@@ -126,6 +129,15 @@ def calculate_leaves(tasks_ids: list[str], nodes: dict[str, DbtNode]) -> list[st
     return leaves
 
 
+def _split_exclude(value: list[str] | str | None) -> list[str]:
+    """Normalize an ``exclude`` value (space-separated str, list, or None) to a list of items."""
+    if isinstance(value, str):
+        return value.split()
+    if isinstance(value, list):
+        return list(value)
+    return []
+
+
 def exclude_detached_tests_if_needed(
     node: DbtNode,
     task_args: dict[str, str],
@@ -138,19 +150,30 @@ def exclude_detached_tests_if_needed(
     """
     if detached_from_parent is None:
         detached_from_parent = {}
-    current_exclude = task_args.get("exclude")
-    # Handle both list[str] (legacy) and str formats for backward compatibility
-    if isinstance(current_exclude, list):
-        exclude_items = current_exclude
-    elif isinstance(current_exclude, str):
-        exclude_items = current_exclude.split() if current_exclude else []
-    else:
-        exclude_items = []
-    tests_detached_from_this_node: list[DbtNode] = detached_from_parent.get(node.unique_id, [])  # type: ignore
+    exclude_items = _split_exclude(task_args.get("exclude"))
+    tests_detached_from_this_node: list[DbtNode] = detached_from_parent.get(node.unique_id, [])
     for test_node in tests_detached_from_this_node:
         exclude_items.append(test_node.resource_name.split(".")[0])
     if exclude_items:
         task_args["exclude"] = _convert_list_to_str(exclude_items) or ""
+
+
+def forward_render_exclude_to_test(task_args: dict[str, Any], render_config: RenderConfig | None) -> None:
+    """
+    Forward ``RenderConfig.exclude`` to a node command that runs tests, in-place — a per-model
+    (AFTER_EACH / detached) test task, or the inline ``dbt build`` command under TestBehavior.BUILD.
+
+    Exclusions are purely additive: the render-level excludes are unioned with any exclude already
+    present in ``task_args`` (e.g. supplied via ``operator_args``), preserving both. ``select`` /
+    ``selector`` are intentionally not forwarded here.
+    See https://github.com/astronomer/astronomer-cosmos/issues/1763.
+    """
+    if render_config is None or not render_config.exclude:
+        return
+    existing_items = _split_exclude(task_args.get("exclude"))
+    render_items = _split_exclude(render_config.exclude)
+    merged = existing_items + [item for item in render_items if item not in existing_items]
+    task_args["exclude"] = _convert_list_to_str(merged)
 
 
 def _override_profile_if_needed(task_kwargs: dict[str, Any], profile_kwargs_override: dict[str, Any]) -> None:
@@ -187,8 +210,10 @@ def create_test_task_metadata(
     :param execution_mode: The Cosmos execution mode we're aiming to run the dbt task at (e.g. local)
     :param task_args: Arguments to be used to instantiate an Airflow Task
     :param on_warning_callback: A callback function called on warnings with additional Context variables “test_names”
-    and “test_results” of type List.
+        and “test_results” of type List.
     :param node: If the test relates to a specific node, the node reference
+    :param render_config: The RenderConfig for the dbt project. Its ``exclude`` is forwarded to the test task (for
+        every test behavior); its ``select`` / ``selector`` are applied only to the TestBehavior.AFTER_ALL task.
     :param detached_from_parent: Dictionary that maps node ids and their children tests that should be run detached
     :returns: The metadata necessary to instantiate the source dbt node as an Airflow task.
     """
@@ -209,6 +234,8 @@ def create_test_task_metadata(
             task_args["select"] = node.resource_name.split(".")[0]
         else:  # tested with node.resource_type == DbtResourceType.SEED or DbtResourceType.SNAPSHOT
             task_args["select"] = node.resource_name
+
+        forward_render_exclude_to_test(task_args, render_config)
 
         extra_context = {"dbt_node_config": node.context_dict}
         task_owner = node.owner
@@ -232,11 +259,12 @@ def create_test_task_metadata(
     watcher_to_test_execution_mode = {
         ExecutionMode.WATCHER: ExecutionMode.LOCAL,
         ExecutionMode.WATCHER_KUBERNETES: ExecutionMode.KUBERNETES,
+        ExecutionMode.WATCHER_GCP_GKE: ExecutionMode.GCP_GKE,
     }
     if (
         render_config is not None
         and render_config.test_behavior == TestBehavior.AFTER_ALL
-        and execution_mode in (ExecutionMode.WATCHER, ExecutionMode.WATCHER_KUBERNETES)
+        and execution_mode in (ExecutionMode.WATCHER, ExecutionMode.WATCHER_KUBERNETES, ExecutionMode.WATCHER_GCP_GKE)
     ):
         test_execution_mode = watcher_to_test_execution_mode[execution_mode]
         operator_class = calculate_operator_class(execution_mode=test_execution_mode, dbt_class=dbt_class)
@@ -365,6 +393,60 @@ def create_task_metadata(  # noqa: C901
         # `AIRFLOW__COSMOS__PRE_DBT_FUSION=1`.
         models_select_key = "models" if settings.pre_dbt_fusion else "select"
 
+        # Apply seed rendering behavior before the TestBehavior.BUILD branch so it is honored
+        # regardless of the test behavior (under BUILD, seeds would otherwise be rendered as DbtBuild tasks).
+        if node.resource_type == DbtResourceType.SEED:
+            if render_config.seed_rendering_behavior == SeedRenderingBehavior.NONE:
+                # Do not render the seed in the DAG/TaskGroup at all.
+                return None
+            if render_config.seed_rendering_behavior == SeedRenderingBehavior.RENDER_ONLY:
+                # Render the seed as a no-op placeholder so it stays visible in the DAG
+                # topology/lineage, but never run `dbt seed`.
+                task_id, args = _get_task_id_and_args(
+                    node=node,
+                    args=args,
+                    use_task_group=use_task_group,
+                    normalize_task_id=render_config.normalize_task_id,
+                    normalize_task_display_name=render_config.normalize_task_display_name,
+                    resource_suffix=node.resource_type.value,
+                    execution_mode=execution_mode,
+                )
+                # EmptyOperator does not accept custom dbt parameters (e.g. profile_args); recreate the args.
+                args = {"task_display_name": args["task_display_name"]} if "task_display_name" in args else {}
+                return TaskMetadata(id=task_id, operator_class=EMPTY_OPERATOR_CLASS_PATH, arguments=args)
+            if render_config.seed_rendering_behavior == SeedRenderingBehavior.WHEN_SEED_CHANGES:
+                # Render the seed as usual, but flag the task so the operator skips running
+                # `dbt seed` when the CSV content is unchanged since the last successful run.
+                extra_context["should_run_if_seed_changed"] = True
+
+        if node.has_ephemeral_materialization and render_config.ephemeral_models_as_empty_operator:
+            # Ephemeral models are inlined as CTEs into downstream models and never written to the
+            # warehouse, so running them via a dbt operator (whether `dbt run` or `dbt build`) is a
+            # no-op. Render them as empty operators while keeping the node in the graph so the
+            # dependency chain passing through it is preserved. This check sits before the
+            # TestBehavior.BUILD branch so it is honored regardless of the test behavior.
+            is_build = (
+                render_config.test_behavior == TestBehavior.BUILD and node.resource_type in SUPPORTED_BUILD_RESOURCES
+            )
+            task_id, args = _get_task_id_and_args(
+                node=node,
+                args=args,
+                use_task_group=use_task_group,
+                normalize_task_id=render_config.normalize_task_id,
+                normalize_task_display_name=render_config.normalize_task_display_name,
+                resource_suffix=resource_suffix,
+                include_resource_type=is_build,
+                execution_mode=execution_mode,
+            )
+            # EmptyOperator does not accept custom dbt parameters (e.g. profile_args); keep only the display name.
+            args = {"task_display_name": args["task_display_name"]} if "task_display_name" in args else {}
+            return TaskMetadata(
+                id=task_id,
+                owner=node.owner if render_config.enable_owner_inheritance else "",
+                operator_class=EMPTY_OPERATOR_CLASS_PATH,
+                arguments=args,
+            )
+
         if render_config.test_behavior == TestBehavior.BUILD and node.resource_type in SUPPORTED_BUILD_RESOURCES:
             if node.fqn and len(node.fqn) > 0:
                 args[models_select_key] = f"fqn:{'.'.join(node.fqn)}"
@@ -373,6 +455,10 @@ def create_task_metadata(  # noqa: C901
             if test_indirect_selection != TestIndirectSelection.EAGER:
                 args["indirect_selection"] = test_indirect_selection.value
             args["on_warning_callback"] = on_warning_callback
+            # Under BUILD, tests run inline with ``dbt build`` (there is no separate per-model test task),
+            # so forward the render-level exclude here too — otherwise an exclusion such as
+            # exclude=["resource_type:unit_test"] would not be honored for BUILD. See #1763.
+            forward_render_exclude_to_test(args, render_config)
             exclude_detached_tests_if_needed(node, args, detached_from_parent)
             task_id, args = _get_task_id_and_args(
                 node=node,
@@ -417,7 +503,11 @@ def create_task_metadata(  # noqa: C901
                     args = {"task_display_name": args["task_display_name"]}
                 else:
                     args = {}
-                return TaskMetadata(id=task_id, operator_class="airflow.operators.empty.EmptyOperator", arguments=args)
+                return TaskMetadata(
+                    id=task_id,
+                    operator_class=EMPTY_OPERATOR_CLASS_PATH,
+                    arguments=args,
+                )
         else:  # DbtResourceType.MODEL, DbtResourceType.SEED and DbtResourceType.SNAPSHOT
             if node.fqn and len(node.fqn) > 0:
                 args[models_select_key] = f"fqn:{'.'.join(node.fqn)}"
@@ -499,9 +589,9 @@ def generate_or_convert_task(
     conversion_function = node_converters.get(resource_type, None)
     if conversion_function is not None:
         task_id = task_meta.id
-        logger.debug(f"Converting node <{node.unique_id}> task <{task_id}> using <{conversion_function.__name__}>")
+        logger.debug("Converting node <%s> task <%s> using <%s>", node.unique_id, task_id, conversion_function.__name__)
         # In Cosmos 2.0 we should review this implementation and use render_config or another simpler interface:
-        task = conversion_function(  # type: ignore
+        task = conversion_function(
             dag=dag,
             task_group=task_group,
             dbt_project_name=dbt_project_name,
@@ -520,7 +610,7 @@ def generate_or_convert_task(
             detached_from_parent=detached_from_parent,
         )
         if task is not None:
-            logger.debug(f"Conversion of node <{node.unique_id}> task <{task_id}> was successful!")
+            logger.debug("Conversion of node <%s> task <%s> was successful!", node.unique_id, task_id)
     else:
         task = create_airflow_task(task_meta, dag, task_group)
     return task
@@ -543,7 +633,6 @@ def generate_task_or_group(
     filtered_nodes: dict[str, DbtNode] | None = None,
     **kwargs: Any,
 ) -> BaseOperator | TaskGroup | None:
-
     task_or_group: BaseOperator | TaskGroup | None = None
     detached_from_parent = detached_from_parent or {}
     use_task_group = (
@@ -565,6 +654,23 @@ def generate_task_or_group(
         detached_from_parent=detached_from_parent,
         filtered_nodes=filtered_nodes,
     )
+
+    # create_task_metadata() returns None for node types not in dbt_resource_to_class (e.g.dynamically-resolved types
+    # like "exposure", "analysis", or user-defined types). When the user has supplied a node_converter for that type,
+    # create a stub TaskMetadata so that generate_or_convert_task() can pass the node through to the converter.
+    if task_meta is None and node.resource_type in node_converters:
+        task_id, _ = _get_task_id_and_args(
+            node=node,
+            args={},
+            use_task_group=False,
+            normalize_task_id=render_config.normalize_task_id,
+            normalize_task_display_name=render_config.normalize_task_display_name,
+            resource_suffix=node.resource_type.value,
+            execution_mode=execution_mode,
+        )
+
+        # Stub for task_meta, "" operator class
+        task_meta = TaskMetadata(id=task_id, operator_class="", arguments={})
 
     generate_or_convert_task_args = {
         "task_meta": task_meta,
@@ -601,6 +707,7 @@ def generate_task_or_group(
                     test_indirect_selection,
                     task_args=task_args,
                     node=node,
+                    render_config=render_config,
                     on_warning_callback=on_warning_callback,
                     detached_from_parent=detached_from_parent,
                     enable_owner_inheritance=render_config.enable_owner_inheritance,
@@ -609,7 +716,7 @@ def generate_task_or_group(
                     **generate_or_convert_task_args,
                     "task_group": model_task_group,
                     "task_meta": test_meta,
-                    "resource_type": DbtResourceType.TEST,  # type: ignore
+                    "resource_type": DbtResourceType.TEST,
                 }
                 test_task = generate_or_convert_task(**test_task_generate_or_convert_task_args)  # type: ignore[arg-type]
                 task >> test_task
@@ -690,6 +797,10 @@ def _add_watcher_producer_task(
     The producer task is the task that will be used to produce the events for the watcher execution mode.
     """
     producer_task_args = task_args.copy()
+    # The producer never emits datasets itself (consumer tasks do), but it must still compute
+    # per-model outlet URIs when consumers will emit. Carry that intent as an explicit flag so the
+    # producer can decide whether to generate model URIs without overloading other signals.
+    producer_task_args["_should_generate_model_uris"] = task_args.get("emit_datasets", True)
     # Producer should not emit datasets — consumer tasks handle their own emission
     producer_task_args["emit_datasets"] = False
     if tests_per_model is not None:
@@ -771,7 +882,7 @@ def _add_watcher_dependencies(
         )
         for task in node_tasks:
             if hasattr(task, "producer_task_id"):
-                task.producer_task_id = producer_airflow_task.task_id  # type: ignore[union-attr]
+                task.producer_task_id = producer_airflow_task.task_id
             if needs_wait_for_downstream:
                 task.wait_for_downstream = True  # type: ignore[union-attr]
 
@@ -838,20 +949,35 @@ def identify_detached_nodes(
 
 
 def create_task_groups_based_on_folder(
-    dag: DAG, node: DbtNode, parent_task_group: TaskGroup | None, task_groups: dict[str, TaskGroup]
+    dag: DAG,
+    node: DbtNode,
+    parent_task_group: TaskGroup | None,
+    task_groups: dict[str, TaskGroup],
+    use_hierarchical_naming: bool = False,
 ) -> TaskGroup | None:
     """
     Generate the parent task group for the given node based on the node's file path. If a TaskGroup is given, it will
     be used as the parent group.
+
+    When ``use_hierarchical_naming`` is True, groups are cached by their cumulative folder path, so that folders
+    sharing a leaf name under different parents (e.g. ``staging/aurora`` and ``marts/aurora``) become distinct task
+    groups instead of collapsing into the first one created. When False (default), groups are cached by the bare
+    folder name, preserving the legacy behaviour — and the existing task-group ids that users may reference — at the
+    cost of collapsing same-named folders. See https://github.com/astronomer/astronomer-cosmos/pull/2824.
     """
     task_group = None
-    resource_file_path_parts = str(node.original_file_path).split("/")[:-1]
+    # Use ``Path.parts`` (OS-agnostic) rather than ``str(path).split("/")`` so folder grouping also
+    # works on Windows, where ``str(Path(...))`` uses backslash separators.
+    resource_file_path_parts = Path(node.original_file_path).parts[:-1]
+    cumulative_path = ""
     for resource_file_path_part in resource_file_path_parts:
-        if resource_file_path_part in task_groups:
-            task_group = task_groups[resource_file_path_part]
+        cumulative_path = f"{cumulative_path}/{resource_file_path_part}" if cumulative_path else resource_file_path_part
+        cache_key = cumulative_path if use_hierarchical_naming else resource_file_path_part
+        if cache_key in task_groups:
+            task_group = task_groups[cache_key]
         else:
             task_group = TaskGroup(dag=dag, group_id=resource_file_path_part, parent_group=parent_task_group)
-            task_groups[resource_file_path_part] = task_group
+            task_groups[cache_key] = task_group
         parent_task_group = task_group
     return task_group
 
@@ -912,7 +1038,85 @@ def _add_teardown_task(
     tasks_map[DBT_TEARDOWN_ASYNC_TASK_ID] = teardown_airflow_task
 
 
-def build_airflow_graph(  # noqa: C901 TODO: https://github.com/astronomer/astronomer-cosmos/issues/1943
+def _add_test_tasks(
+    nodes: dict[str, DbtNode],
+    tasks_map: dict[str, TaskGroup | BaseOperator],
+    detached_nodes: dict[str, DbtNode],
+    task_or_group_args: dict[str, Any],
+    parent_task_group: TaskGroup | None,
+    dbt_project_name: str,
+    execution_mode: ExecutionMode,
+    test_indirect_selection: TestIndirectSelection,
+    task_args: dict[str, Any],
+    render_config: RenderConfig,
+    on_warning_callback: Callable[..., Any] | None,
+) -> None:
+    """
+    Add dbt test tasks to ``tasks_map`` according to ``render_config.test_behavior``.
+
+    When the behavior is ``AFTER_ALL`` a single test task is run at the end of the
+    DAG, downstream of every leaf task. When it is ``BUILD`` or ``AFTER_EACH`` a
+    detached test task is created for each node identified as detached from its
+    parent. Any other behavior adds no test tasks.
+    """
+    # If test_behaviour=="after_all", there will be one test task, run by the end of the DAG
+    # The end of a DAG is defined by the DAG leaf tasks (tasks which do not have downstream tasks)
+    if render_config.test_behavior == TestBehavior.AFTER_ALL:
+        if not nodes:
+            # No dbt nodes were rendered (e.g. an empty or fully-filtered
+            # manifest). There are no models to test, no leaf tasks to attach a
+            # test to, and ``task_or_group_args`` was never populated by the
+            # per-node loop. Skip the aggregate test task instead of crashing
+            # with an UnboundLocalError/TypeError. See #2813.
+            return
+        test_meta = create_test_task_metadata(
+            f"{dbt_project_name}_test",
+            execution_mode,
+            test_indirect_selection,
+            task_args=task_args,
+            on_warning_callback=on_warning_callback,
+            render_config=render_config,
+            enable_owner_inheritance=render_config.enable_owner_inheritance,
+        )
+        test_task_args = {
+            **task_or_group_args,
+            "task_meta": test_meta,
+            "resource_type": DbtResourceType.TEST,
+        }
+        # AFTER_ALL test is a single DAG-level task: place it at root so task_id stays e.g. "astro_shop_test"
+        test_task_args["task_group"] = parent_task_group
+        test_task = generate_or_convert_task(**test_task_args)
+        leaves_ids = calculate_leaves(tasks_ids=list(tasks_map.keys()), nodes=nodes)
+        for leaf_node_id in leaves_ids:
+            tasks_map[leaf_node_id] >> test_task
+        # Expose the AFTER_ALL test task in ``tasks_map`` so downstream
+        # passes (notably ``_add_watcher_dependencies``) can apply their
+        # propagation logic to it — see #2615.
+        tasks_map[f"{dbt_project_name}_test"] = test_task
+    elif render_config.test_behavior in (TestBehavior.BUILD, TestBehavior.AFTER_EACH):
+        # Handle detached test nodes
+        for node_id, node in detached_nodes.items():
+            detached_node_name = calculate_detached_node_name(node)
+            test_meta = create_test_task_metadata(
+                detached_node_name,
+                execution_mode,
+                test_indirect_selection,
+                task_args=task_args,
+                on_warning_callback=on_warning_callback,
+                render_config=render_config,
+                node=node,
+                enable_owner_inheritance=render_config.enable_owner_inheritance,
+            )
+            test_task_args = {
+                **task_or_group_args,
+                "task_meta": test_meta,
+                "resource_type": node.resource_type,
+            }
+            test_task = generate_or_convert_task(**test_task_args)
+            tasks_map[node_id] = test_task
+
+
+def build_airflow_graph(
     nodes: dict[str, DbtNode],
     dag: DAG,  # Airflow-specific - parent DAG where to associate tasks and (optional) task groups
     execution_mode: ExecutionMode,  # Cosmos-specific - decide what which class to use
@@ -951,9 +1155,11 @@ def build_airflow_graph(  # noqa: C901 TODO: https://github.com/astronomer/astro
     :return: Dictionary mapping dbt nodes (node.unique_id to Airflow task)
     """
     group_nodes_by_folder = render_config.group_nodes_by_folder
+    use_hierarchical_naming = settings.enable_hierarchical_naming_for_group_nodes_by_folder
     tasks_map: dict[str, TaskGroup | BaseOperator] = {}
     task_groups: dict[str, TaskGroup] = {}
     task_or_group: TaskGroup | BaseOperator | None
+    task_or_group_args: dict[str, Any] = {}
     parent_task_group = task_group
     producer_task: BaseOperator | None = None
 
@@ -968,7 +1174,7 @@ def build_airflow_graph(  # noqa: C901 TODO: https://github.com/astronomer/astro
     if execution_mode == ExecutionMode.AIRFLOW_ASYNC:
         # This property is only relevant for the setup task, not the other tasks:
         virtualenv_dir = task_args.pop("virtualenv_dir", None)
-    elif execution_mode in (ExecutionMode.WATCHER, ExecutionMode.WATCHER_KUBERNETES):
+    elif execution_mode in (ExecutionMode.WATCHER, ExecutionMode.WATCHER_KUBERNETES, ExecutionMode.WATCHER_GCP_GKE):
         setup_operator_args = getattr(execution_config, "setup_operator_args", None) or {}
         # We are intentionally creating the producer task ahead of the consumer tasks
         # Airflow priority weight is not being respected in multiple versions of the library, including 3.1
@@ -985,7 +1191,7 @@ def build_airflow_graph(  # noqa: C901 TODO: https://github.com/astronomer/astro
 
     for node_id, node in nodes.items():
         task_group = (
-            create_task_groups_based_on_folder(dag, node, parent_task_group, task_groups)
+            create_task_groups_based_on_folder(dag, node, parent_task_group, task_groups, use_hierarchical_naming)
             if group_nodes_by_folder
             else task_group
         )
@@ -1007,56 +1213,25 @@ def build_airflow_graph(  # noqa: C901 TODO: https://github.com/astronomer/astro
             "node_converters": render_config.node_converters or {},
         }
 
-        task_or_group = generate_task_or_group(**task_or_group_args, filtered_nodes=nodes)  # type: ignore[arg-type]
+        task_or_group = generate_task_or_group(**task_or_group_args, filtered_nodes=nodes)
         if task_or_group is not None:
             tasks_map[node_id] = task_or_group
         task_group = parent_task_group
 
-    # If test_behaviour=="after_all", there will be one test task, run by the end of the DAG
-    # The end of a DAG is defined by the DAG leaf tasks (tasks which do not have downstream tasks)
-    if render_config.test_behavior == TestBehavior.AFTER_ALL:
-        test_meta = create_test_task_metadata(
-            f"{dbt_project_name}_test",
-            execution_mode,
-            test_indirect_selection,
-            task_args=task_args,
-            on_warning_callback=on_warning_callback,
-            render_config=render_config,
-            enable_owner_inheritance=render_config.enable_owner_inheritance,
-        )
-        test_task_args = {
-            **task_or_group_args,
-            "task_meta": test_meta,
-            "resource_type": DbtResourceType.TEST,  # type: ignore
-        }
-        # AFTER_ALL test is a single DAG-level task: place it at root so task_id stays e.g. "astro_shop_test"
-        test_task_args["task_group"] = parent_task_group
-        test_task = generate_or_convert_task(**test_task_args)  # type: ignore[arg-type]
-        leaves_ids = calculate_leaves(tasks_ids=list(tasks_map.keys()), nodes=nodes)
-        for leaf_node_id in leaves_ids:
-            tasks_map[leaf_node_id] >> test_task
-        tasks_map[f"{dbt_project_name}_test"] = test_task
-    elif render_config.test_behavior in (TestBehavior.BUILD, TestBehavior.AFTER_EACH):
-        # Handle detached test nodes
-        for node_id, node in detached_nodes.items():
-            datached_node_name = calculate_detached_node_name(node)
-            test_meta = create_test_task_metadata(
-                datached_node_name,
-                execution_mode,
-                test_indirect_selection,
-                task_args=task_args,
-                on_warning_callback=on_warning_callback,
-                render_config=render_config,
-                node=node,
-                enable_owner_inheritance=render_config.enable_owner_inheritance,
-            )
-            test_task_args = {
-                **task_or_group_args,
-                "task_meta": test_meta,
-                "resource_type": node.resource_type,  # type: ignore
-            }
-            test_task = generate_or_convert_task(**test_task_args)  # type: ignore[arg-type]
-            tasks_map[node_id] = test_task
+    # Add dbt test tasks according to the configured test behavior
+    _add_test_tasks(
+        nodes=nodes,
+        tasks_map=tasks_map,
+        detached_nodes=detached_nodes,
+        task_or_group_args=task_or_group_args,
+        parent_task_group=parent_task_group,
+        dbt_project_name=dbt_project_name,
+        execution_mode=execution_mode,
+        test_indirect_selection=test_indirect_selection,
+        task_args=task_args,
+        render_config=render_config,
+        on_warning_callback=on_warning_callback,
+    )
 
     create_airflow_task_dependencies(nodes, tasks_map)
 

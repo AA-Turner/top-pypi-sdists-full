@@ -27,6 +27,7 @@ from plato.chronos.sdk import Chronos
 from plato.cli.chronos.settings import get_settings
 from plato.cli.chronos.workspace_upload import (
     download_git_workspace_via_archive,
+    download_manifest_workspace,
     download_session_workspace_archive,
     ref_has_archive_dvc,
     workspace_app,
@@ -1068,11 +1069,13 @@ def download(
             return
 
         with Chronos(base_url=chronos_url, api_key=api_key) as client:
-            # First get refs to find the step name if not provided
-            refs = client.get_workspace_refs(session_id, repo_name=repo_name)
+            # The refs endpoint ignores the repo_name filter and returns every
+            # ref for the session (across all repos), so filter client-side —
+            # otherwise a same-named step from a different repo can be picked,
+            # and its objects live under a different S3 prefix.
+            all_refs = client.get_workspace_refs(session_id, repo_name=repo_name)
+            refs = [r for r in all_refs if r.get("repo_name") == repo_name]
             if not refs:
-                # Show available repos to help the user
-                all_refs = client.get_workspace_refs(session_id)
                 available = sorted({r.get("repo_name", "") for r in all_refs}) if all_refs else []
                 if available:
                     console.print(f"[red]No workspace refs for repo '{repo_name}'[/red]")
@@ -1086,39 +1089,42 @@ def download(
                 step_name = refs[-1].get("step_name", "")
                 console.print(f"[dim]Using latest step: {step_name}[/dim]")
 
-            ref_id = None
             selected_ref = None
             for ref in reversed(refs):
                 if ref.get("step_name") == step_name:
-                    ref_id = ref.get("public_id")
                     selected_ref = ref
                     break
 
             # Auto-detect git/archive workspaces (format: archive dvc_files) and
             # extract + clone from .git-bare, so callers get a working git tree
             # without having to pass --extract. Plain workspaces fall through to
-            # the legacy server-side ZIP below.
+            # the direct-S3 manifest pull below.
             if selected_ref is not None and ref_has_archive_dvc(selected_ref):
                 console.print("[dim]Detected git workspace — extracting and cloning from .git-bare[/dim]")
                 _extract_git_workspace()
                 return
 
-            # Download the zip
-            from plato.chronos.api.workspace_repos import download_workspace_files
-
-            zip_bytes = download_workspace_files.sync(
-                client._client,
-                session_public_id=session_id,
-                step_name=step_name,
-                repo_name=repo_name,
-                ref_public_id=ref_id,
-            )
+            # Manifest workspace: pull content-addressed objects directly from
+            # S3 (read-only creds), verify md5, and zip locally — instead of the
+            # legacy server-side byte-proxy ZIP, which buffered whole files in
+            # RAM and silently truncated large files on a mid-stream S3 read.
+            dvc_files = (selected_ref or {}).get("dvc_files") or {}
+            repo_public_id = (selected_ref or {}).get("repo_public_id")
+            if not dvc_files or not repo_public_id:
+                console.print(f"[red]Workspace ref for step '{step_name}' has no DVC files to download[/red]")
+                raise typer.Exit(1)
 
             out_path = output or Path(tempfile.gettempdir()) / f"{session_id[:12]}-{repo_name.replace('/', '-')}.zip"
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            out_path.write_bytes(zip_bytes)
+            file_count, total_bytes = download_manifest_workspace(
+                out_path,
+                repo_name=repo_name,
+                repo_public_id=repo_public_id,
+                dvc_files=dvc_files,
+                chronos_url=chronos_url,
+                api_key=api_key,
+            )
             console.print(f"[green]Downloaded to {out_path}[/green]")
-            console.print(f"[dim]Size: {len(zip_bytes) / 1024 / 1024:.1f} MB[/dim]")
+            console.print(f"[dim]{file_count} files, {total_bytes / 1024 / 1024:.1f} MB (verified)[/dim]")
 
     except typer.Exit:
         raise

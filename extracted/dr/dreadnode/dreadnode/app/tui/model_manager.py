@@ -139,12 +139,17 @@ class ModelManager:
             self.schedule_model_catalog_refresh()
 
     def apply_model_selection(self, model_id: str | None) -> None:
-        """Apply a selected model from any picker surface."""
+        """Apply a selected model from any picker surface.
+
+        The selection applies to the active session only — we intentionally
+        do not persist this as the profile default (CAP-1048). Other sessions
+        keep whatever model they were already using, and the next new session
+        still spawns with the saved profile default.
+        """
         current_model = self._context.current_model()
         if not model_id or model_id == current_model:
             return
         self._actions.apply_model(model_id)
-        self._actions.persist_default_model_choice(model_id)
         self._notifier.flash_info(f"Model: {model_id}")
 
     def browser_seed_models(self) -> list[dict[str, t.Any]]:

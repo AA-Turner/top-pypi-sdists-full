@@ -1,0 +1,19 @@
+
+[package]
+name = "solders-hash"
+version = { workspace = true }
+edition = { workspace = true }
+include = ["/src"]
+license = { workspace = true }
+repository = { workspace = true }
+description = "Solders hash crate."
+
+[dependencies]
+derive_more = { workspace = true }
+pyo3 = { workspace = true, features = ["macros"] }
+serde = { workspace = true }
+solana-hash = { workspace = true }
+solana-sha256-hasher = { workspace = true }
+solders-macros = { workspace = true }
+solders-traits = { workspace = true }
+solders-traits-core = { workspace = true }
